@@ -51,8 +51,13 @@ export default {
       return this.$store.getters.ai_app
     },
     iframeSrc() {
-      const url = this.baseUrl.panel //window.location.origino
-      return `${url}/#/?ai_app=${this.app?.system_name}&iframe=true`
+      let panelUrl = `${this.$store.getters.config?.panel?.baseUrl}/#/?ai_app=${this.app?.system_name}`
+
+      if (panelUrl.startsWith('/')) {
+        panelUrl = `${window.location.origin}${panelUrl}`
+      }
+
+      return panelUrl
     },
   },
   watch: {

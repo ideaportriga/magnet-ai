@@ -45,16 +45,15 @@ onUnmounted(() => {
 })
 
 function login() {
-  if (!auth.baseUrl) {
-    throw new Error('API base url not defined')
-  }
+  const authBaseUrl = auth.baseUrl ?? ""
+
   if (loginInProgress.value) {
     return
   }
 
   loginInProgress.value = true
   loginWindow.value = window.open(
-    `${auth.baseUrl}/auth/login`,
+    `${authBaseUrl}/auth/login`,
     'popupLoginWithOAuthProvider',
     `width=${oAuthPopupWidth.value},height=${oAuthPopupHeight.value}`
   )

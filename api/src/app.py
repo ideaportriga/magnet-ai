@@ -34,6 +34,7 @@ logger = getLogger(__name__)
 env = os.environ
 AUTH_ENABLED = env.get("AUTH_ENABLED") == "true"
 AUTH_ENABLED_FOR_SCHEMA = env.get("AUTH_ENABLED_FOR_SCHEMA") == "true"
+WEB_INCLUDED = env.get("WEB_INCLUDED") == "true"
 DB_TYPE = env.get("DB_TYPE")
 EVENT_LOOP_DEBUG = env.get("EVENT_LOOP_DEBUG") == "true"
 
@@ -134,8 +135,13 @@ if CORS_OVERRIDE_ALLOWED_ORIGINS:
 middlewares: list[Middleware] = [
     DatabaseErrorLoggingMiddleware,
 ]
+
 if AUTH_ENABLED:
-    exclude_param = None if AUTH_ENABLED_FOR_SCHEMA else "schema"
+    exclude_param = []
+    
+    if AUTH_ENABLED_FOR_SCHEMA:
+        exclude_param.append("schema")
+
     middlewares.append(create_auth_middleware(exclude_param=exclude_param))
 
 
@@ -216,7 +222,7 @@ openapi_config = OpenAPIConfig(
     ),
 )
 
-route_handlers = get_route_handlers(AUTH_ENABLED)
+route_handlers = get_route_handlers(auth_enabled=AUTH_ENABLED, web_included=WEB_INCLUDED)
 
 
 async def get_user_id(request: Request):

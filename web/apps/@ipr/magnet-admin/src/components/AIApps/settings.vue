@@ -34,7 +34,13 @@ export default {
   },
   computed: {
     appUrl() {
-      return `${this.$store.getters.config?.panel?.baseUrl}/#/?ai_app=${this.system_name}`
+      let panelUrl = `${this.$store.getters.config?.panel?.baseUrl}/#/?ai_app=${this.system_name}`
+
+      if (panelUrl.startsWith('/')) {
+        panelUrl = `${window.location.origin}${panelUrl}`
+      }
+
+      return panelUrl
     },
     system_name() {
       return this.$store.getters.ai_app?.system_name || this.$store.getters.ai_app?.system_name

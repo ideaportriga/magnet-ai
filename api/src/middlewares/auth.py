@@ -40,7 +40,8 @@ def create_auth_middleware(
     class AuthResponseMiddleware(AbstractMiddleware):
         scopes = {ScopeType.HTTP}
         exclude_opt_key = "exclude_from_auth"
-        exclude = exclude_param
+        # Fallbacks to None cause if exclude is an empty list it excludes everything
+        exclude = exclude_param or None
 
         async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
             auth = await ensure_request_auth_data(ASGIConnection(scope))

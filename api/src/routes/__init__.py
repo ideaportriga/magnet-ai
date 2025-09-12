@@ -2,6 +2,7 @@ from typing import Any
 
 from litestar import Router, get
 from litestar.types import ControllerRouterHandler
+from litestar.static_files import create_static_files_router
 
 from core.domain.agents import AgentsController as AgentsControllerSQL
 from core.domain.ai_apps import AiAppsController as AiAppsControllerSQL
@@ -63,7 +64,7 @@ from .user.execute import UserExecuteController
 from .user.utils import UserUtilsController
 
 
-def get_route_handlers(auth_enabled: bool) -> list[ControllerRouterHandler]:
+def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[ControllerRouterHandler]:
     @get("/health", exclude_from_auth=True, tags=["health"])
     async def health_route_handler() -> dict[str, Any]:
         """Health Check endpoint"""
@@ -153,7 +154,36 @@ def get_route_handlers(auth_enabled: bool) -> list[ControllerRouterHandler]:
         ],
     )
 
-    return [
+    routes =  [
         router_api,
         router_api_public,
     ]
+
+    if web_included:
+        import os
+        print("Working directory:", os.getcwd())
+
+        static_router_admin = create_static_files_router(
+            path="/admin",
+            directories=["web/admin"],
+            html_mode=True,
+            opt={"exclude_from_auth": True},
+        )
+
+        static_router_panel = create_static_files_router(
+            path="/panel",
+            directories=["web/panel"],
+            html_mode=True,
+            opt={"exclude_from_auth": True},
+        )
+
+        static_router_help = create_static_files_router(
+            path="/help",
+            directories=["web/help"],
+            html_mode=True,
+            opt={"exclude_from_auth": True},
+        )
+
+        routes.extend([static_router_admin, static_router_panel, static_router_help])
+
+    return routes

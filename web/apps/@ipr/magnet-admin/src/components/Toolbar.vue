@@ -217,7 +217,7 @@ export default {
   mounted() {},
   methods: {
     openHelp() {
-      window.open('help/docs/en/', '_blank')
+      window.open('/help/docs/en/', '_blank')
     },
     navigate(path = '') {
       if (this.$route?.path !== `/${path}`) {

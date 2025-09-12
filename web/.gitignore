@@ -51,7 +51,9 @@ knowledge-magnet
 # app config
 packages/shared/public/config/*
 apps/@ipr/magnet-admin/public/config/*
+!apps/@ipr/magnet-admin/public/config/.gitkeep
 apps/@ipr/magnet-panel/public/config/*
+!apps/@ipr/magnet-panel/public/config/.gitkeep
 !packages/shared/public/config/.example.main.json
 !packages/shared/public/config/base.main.json
 
