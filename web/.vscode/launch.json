@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Nx Vite + Vue",
+      "url": "https://localhost:7000",
+      "webRoot": "${workspaceFolder}/apps/@ipr/magnet-admin/src",
+    }
+  ]
+}

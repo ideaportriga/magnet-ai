@@ -1,0 +1,30 @@
+[data-theme=default]
+  .q-tabs
+    .q-tabs__content
+      //gap: 35px;
+    .q-tabs__content.km-tabs
+      .q-tab
+        .q-focus-helper
+          // opacity: 1
+
+        .q-tab__content
+          .q-tab__label
+            font-size: 16px
+            font-weight: 600
+            //color: rgba(49, 83, 87, 1)
+      
+    .q-focus-helper
+      &:before,
+      &:after
+        // border-top-left-radius: 6px !important;
+        // border-top-right-radius: 6px !important;
+        // overflow: hidden
+    .q-tab
+        background: transparent !important;
+        min-height: 48px !important;
+        &--active
+          //border-bottom: rgba(49, 83, 87, 1) 2px solid
+
+        &:not(&--active)
+          border-bottom: transparent 2px solid
+

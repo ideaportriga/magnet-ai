@@ -1,0 +1,348 @@
+/*
+GENERIC STYLES THAT CAN BE REUSED ACCROSS APPLICATION/S
+
+*/
+@import './functions.styl'
+
+
+
+/* COLORS */
+
+$colors = {
+  // ****************************************************************
+  // THEME
+  // ****************************************************************
+  white: #fff
+  primary: #6840c2
+  primary-transparent: #6740c23b
+  primary-light: #E5E3F2
+  secondary: #959EA4
+  text-weak: #3E3E3C
+  // accent: #5590b8#F3F2F2
+  accent: #4d82a5
+  // accent: #be1a40
+  background: #FBFBFE
+  primary-bg: rgba(80,47,153,0.07)
+  secondary-bg: rgba(149, 158, 164, 0.2)
+  accent-bg: #ECF4F9
+  active: rgba(80, 47, 153, 0.1)
+  light: #F4F2F8
+  answer: #fefcff
+  link-color: #959EA4
+  icon: #959EA4
+  // text
+  primary-text: #171717
+  secondary-text: #424242
+  black: #191B23
+  label: #424242
+  border: #EAEAF6
+  border-2: #C4C7CF
+  /* OLD THEME
+  primary: #6840c2,
+  accent: #feb414,
+  active: rgba(80, 47, 153, 0.1),
+  background: whitesmoke,
+  light: #FBFBFE,
+  answer: #FBFDFF,
+  */
+  // ****************************************************************
+  // FIELDS
+  // ****************************************************************
+  control-bg: rgb(251, 251, 251)
+  control-border: #EAEAF6
+  control-hover-bg: whitesmoke
+  control-hover-border: #cdcdd5
+  control-active-bg: var(--q-primary-bg)
+  control-active-border: var(--q-primary)
+  // ****************************************************************
+  // BUTTONS
+  // ****************************************************************
+  // primary: rgba(255, 166, 0, 0.669),
+  btn-primary-bg: var(--q-primary)
+  btn-primary-hover-bg: rgba(104, 64, 194, 0.9)
+  btn-primary-active-bg: rgb(57, 37, 105)
+  btn-primary-text: white
+  btn-primary-hover-text: white
+  btn-primary-active-text: white
+  //
+  btn-secondary-bg: #1e36d080
+  btn-secondary-hover-bg: #1e36d080
+  btn-secondary-active-bg: #5b6f9e
+  btn-secondary-text: #1e36d080
+  btn-secondary-hover-text: #1e36d080
+  btn-secondary-active-text: #5b6f9e
+  //
+  btn-simple-bg: transparent
+  btn-simple-hover-bg: var(--q-primary-bg)
+  btn-simple-active-bg: rgba(80,47,153,0.3)
+  btn-simple-text: var(--q-primary)
+  btn-simple-hover-text: var(--q-primary)
+  btn-simple-active-text: var(--q-primary)
+  //
+  btn-flat-bg: transparent
+  btn-flat-hover-bg: rgba(32,32,32,0.1)
+  btn-flat-active-bg: #c9d4ee
+  btn-flat-text: var(--q-secondary-text)
+  btn-flat-icon: var(--q-secondary)
+  btn-flat-hover-text: var(--q-secondary-text)
+  btn-flat-hover-icon: var(--q-primary)
+  btn-flat-active-text: var(--q-secondary-text)
+  btn-flat-active-icon: #5b6f9e
+  // ****************************************************************
+  // Table
+  // ****************************************************************
+  table-header: #F7F7FC
+  table-hover: rgba(0, 0, 0, 0.03)
+  table-active: rgba(0, 0, 0, 0.06)
+  // ****************************************************************
+  // OTHER
+  // ****************************************************************
+  hover-background: #EDF2F9
+  medium: #E2EEF7
+  placeholder: rgba(0, 0, 0, 0.50)
+  seemless: #878797
+  // statuses
+  warning: #FCEC87
+  warning-text: #474641
+  warning-secondary: #FEDB00
+  warning-bg: #fff9d4
+  error: #e62222
+  error-bg: #ffecec
+  error-text: #FF5660 //#581D1D 
+  success: #BDF2D5
+  status-ready: #E9FCE9
+  status-ready-text: #00A876
+  processing-ready: #FFF7D9
+  processing-ready-text: #FF9518
+  in-progress: #F5F7FD
+
+  // score colors
+  score-irrelevant: var(--q-background)
+  score-irrelevant-text: var(--q-label)
+  score-relevant: var(--q-primary-bg)
+  score-relevant-text: var(--q-primary)
+  //template page
+  light-grey: #EDEDF8
+  text-grey: #5C5C5C
+  gradient: linear-gradient(125.99deg, #5541D7 2.28%, #E30052 100.12%)
+  semi-transparent-primary: #6840c280
+
+
+  tooltip-bg: var(--q-icon)
+  tooltip-text: var(--q-white)
+  user-input-bg: var(--q-light)
+  message-bg: var(--q-white)
+  header-bg: #D5D1EF
+  user-input-bg: #F4F2F8
+  panel-main-bg: #fff
+
+  like-bg: #DCFCE7
+  like-text: #2D8240
+  dislike-bg: #FEF1EE
+  neutral-bg: #F3F2F2
+
+  chip-accent-bg: rgba(104,64,194, .15)
+
+  warning-low: #FEF9F2
+
+  //agent
+  agent-message: #F1EFED
+  agent-user-message: var(--q-primary-light)
+
+
+  dashboard-heading: #706E6B,
+
+  question_answered: var(--q-like-bg),
+  question_not_answered: #DDE8F4,
+  no_results: #FEE2E2,
+
+
+}
+
+// Generate css variables
+generateColorClasses($colors, ':root')
+
+/* Hover background classes. Add colors from $colors, comma-separated */
+
+$hoverBg = accent-bg
+
+for $colorName, $colorValue in $hoverBg
+  $cssVar = --q- + $colorName
+  .hover-{$colorName}:hover
+    background: var($cssVar) !important;
+
+/* SPACING */
+
+// Extend spacing classes to custom list e.g. .q-pa-12
+$spacing-sizes = 40,32,24,18,16, 12, 6, 4, 8, 2, 1;
+$spacing-directions = {
+  l: left,
+  t: top,
+  b: bottom,
+  r: right,
+};
+$spacing-types = {
+  p: padding,
+  m: margin,
+};
+
+for $size in $spacing-sizes
+    for $type-short, $type-attrib in $spacing-types
+        for $dir-short, $dir-attrib in $spacing-directions
+            .q-{$type-short}{$dir-short}-{$size}
+                {$type-attrib}-{$dir-attrib}: $size px;
+        .q-{$type-short}a-{$size}
+            {$type-attrib}: $size px;
+        .q-{$type-short}x-{$size}
+            {$type-attrib}-left: $size px;
+            {$type-attrib}-right: $size px;
+        .q-{$type-short}y-{$size}
+            {$type-attrib}-top: $size px;
+            {$type-attrib}-bottom: $size px;
+    .q-gap-{$size}{
+      gap: $size px;
+    }
+
+
+:root
+  --button-sm: 36px
+  --button-xs: 22px
+  --chip-radius: 4px;
+  --checkbox-size: 40px
+  --input-height-default: 34px
+  --prompt-input-height: 36px
+  --prompt-input-icon-size: 16px
+  --field-height: 34px
+
+/* BORDERS */
+
+$borderColors = {
+  transparent: transparent
+  thin-dark: rgba(0, 0, 0, 0.25)
+  thin-light: rgba(255, 255, 255, 0.1)
+  primary: $colors.primary
+  border: $colors.border
+  border-2: $colors.border-2
+  error: $colors.error
+};
+
+$borderWidth = 1px;
+$borderPositions = top, bottom, right, left, x, y, all;
+
+border-calc(pos colorName, col)
+  if (pos == all)
+    .ba-{colorName}
+      border: $borderWidth solid col
+    .ba-{colorName}-important
+      border: $borderWidth solid col !important
+  else if (pos == x)
+    .bx-{colorName}
+      border-left: $borderWidth solid col
+      border-right: $borderWidth solid col
+
+  else if (pos == y)
+    .by-{colorName}
+      border-top: $borderWidth solid col
+      border-bottom: $borderWidth solid col
+  else
+    .b{substr(pos, 0, 1)}-{colorName}
+      border-{pos}: $borderWidth solid col
+
+for $colorName, $color in $borderColors
+  for $pos in $borderPositions
+    border-calc($pos, $colorName, $color)
+
+
+
+/* ALIGNMENT */
+
+.center-flex
+  display: flex
+  align-items: center /* horizontal */
+  justify-content: center /* vertical */
+
+.center-flex-x
+  display: flex
+  justify-content: center /* horizontal */
+
+.center-flex-y
+  display: flex
+  align-items: center /* vertical */
+
+.bottom-flex
+  display: flex
+  align-items: flex-end
+
+.top-flex
+  display: flex
+  align-items: flex-start
+
+.right-flex
+  display: flex
+  justify-content: flex-end
+
+/* OTHER */
+
+.q-ma-auto
+  margin: auto
+
+.q-pa-none
+  padding: 0px !important
+
+.rounded-borders-top
+  border-top-right-radius: 4px
+  border-top-left-radius: 4px
+
+.rounded-borders-bottom
+  border-bottom-right-radius: 4px
+  border-bottom-left-radius: 4px
+
+.rounded-borders-left
+  border-top-left-radius: 4px
+  border-bottom-left-radius: 4px
+
+.text-overflow-ellipsis
+  white-space nowrap
+  overflow hidden
+  text-overflow ellipsis
+
+.line-clamp
+  height unset
+  overflow hidden
+  display -webkit-box
+  -webkit-box-orient vertical
+.line-clamp-3
+  @extend .line-clamp
+  -webkit-line-clamp 3
+.line-clamp-2
+  @extend .line-clamp
+  -webkit-line-clamp 2
+
+.line-clamp-1
+  @extend .line-clamp
+  -webkit-line-clamp 1
+
+.prevent-select
+  user-select: none !important
+
+.word-break-all
+  word-break: break-all
+
+// For html to accept '\n\n' and other in the text
+.text-pre-wrap
+  white-space: pre-wrap;
+
+.animate
+  transition: all 1s
+.transition-default
+  transition: .3s ease;
+.row-grid
+  display:grid
+
+.line-height-default
+  line-height: 1
+
+
+// to override quasar q-item defaul min height
+.strip-item
+  min-height: 0px

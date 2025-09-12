@@ -1,0 +1,170 @@
+// Quasar STYLES OVERRIDE
+
+.text-weight-bold
+  font-weight: 700 !important
+
+.items-start {
+  align-items: flex-start !important
+}
+
+.q-menu
+    max-height: 80vh
+
+.q-checkbox__inner
+  color: #eaeaf6
+
+.q-checkbox__bg
+    border-radius: 3px
+
+
+.km-input.km-error-input:not(.q-field--readonly)  .q-field__control::before
+  border-color: var(--q-error-text) !important
+.km-error-select
+  border-color: var(--q-error-text) !important
+.q-field--outlined.q-field--readonly .q-field__control:before
+  border-style: solid !important
+  background: var(--q-light)
+  border: 1px solid #eaeaf6;
+.km-select.q-field--disabled
+    .q-field__control-container
+        opacity: 1 !important
+    .q-field__control
+      background: var(--q-light)
+      border: none !important
+    span 
+      color: var(--q-primary-text) !important;
+//build fix
+// .q-table > tbody > tr:not(.q-tr--no-hover):hover > td:not(.q-td--no-hover):before
+//   content: "" !important;
+
+//notifications
+.q-notification 
+  &.bg-error-bg.text-error-text
+    .q-notification__actions
+        .text-white
+          background: var(--q-error);
+  .q-notification__wrapper
+    flex-direction: row;
+
+    .q-btn
+      padding-bottom: 0;
+      padding-top: 0;
+    .q-notification__actions
+      padding-left: 10px
+      font-size: 12px
+    .q-notification__message
+        padding: 0
+.q-notification--multi-line
+    min-height: 52px;
+
+
+
+
+
+
+.q-slider__thumb-shape path{
+  stroke-width: 2px;
+  stroke: var(--q-secondary) //secondary
+}
+
+[data-theme=default]  
+  .q-tabs
+    .q-tabs__content
+      gap: 24px;
+
+    .q-tabs__content.km-tabs
+      .q-tab
+        .q-focus-helper
+          // opacity: 1
+
+        .q-tab__content
+          .q-tab__label
+            font-size: 14px !important
+            font-weight: 600 !important
+            padding: 6px 8px !important
+    .q-tabs__content.km-tabs-dense
+      .q-tab
+        .q-focus-helper
+          // opacity: 1
+
+        .q-tab__content
+          .q-tab__label
+            font-size: 14px !important
+            font-weight: 600 !important
+            padding: 4px 4px !important
+
+    .q-focus-helper
+      &:before,
+      &:after
+        border-top-left-radius: 6px !important;
+        border-top-right-radius: 6px !important;
+        overflow: hidden
+    .q-tab
+        min-height: 30px !important;
+        padding: 0;
+        &--active
+          border-top-left-radius: 12px !important;
+          border-top-right-radius: 12px !important;
+          
+        &:not(&--active)
+          //margin: 6px 0;
+          //border-radius: 22px
+          border-top-left-radius: 12px !important;
+          border-top-right-radius: 12px !important;
+
+
+.q-stepper__content.q-panel-parent
+    display:none
+.q-stepper__dot 
+  height: 24px
+  width: 24px
+  border-radius: 50%
+  background-color: var(--q-table-header)
+  
+  i
+    font-size: 10px
+    color: var(--q-secondary)
+.q-stepper__label 
+  margin-top: 12px !important
+.q-stepper__tab--active,
+.q-stepper__tab--done
+  .q-stepper__dot 
+    background-color: var(--q-primary-transparent)
+    i
+      color: var(--q-primary)
+      font-size: 14px
+.q-stepper__tab--done
+  .q-stepper__title
+    color: var(--q-black)
+.q-stepper--horizontal
+  .q-stepper__tab
+    &:first-child
+      padding-left: 0 !important
+    &:last-child
+      padding-right: 0 !important
+
+.q-table--dense .q-table thead tr
+  height: 48px
+
+.q-table--dense .q-table th
+  padding: 7px 10px
+
+.q-table--dense .q-table td
+  padding: 4px 10px
+
+
+.q-btn-group
+  box-shadow: none
+  border-radius: 4px
+  border: 1px solid var(--q-border)
+  overflow: hidden
+  .q-btn
+    .block
+      font-family: var(--font-default)
+      font-size: 13px
+      font-weight: 600
+      line-height: 1
+      text-transform: capitalize
+      padding: 0 6px
+      
+

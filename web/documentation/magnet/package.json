@@ -1,0 +1,10 @@
+{
+  "name": "magnet-docs",
+  "version": "0.0.1",
+  "description": "MagnetAI Documentation",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "vitepress": "^1.6.0"
+  }
+}

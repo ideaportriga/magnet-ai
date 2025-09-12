@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "nx:serve",
+      "type": "shell",
+      "command": "nx serve ваше-приложение",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

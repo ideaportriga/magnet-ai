@@ -1,0 +1,15 @@
+{
+  "python.analysis.typeCheckingMode": "basic",
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+  },
+  "python.analysis.autoImportCompletions": true,
+  "makefile.configureOnOpen": true,
+  "python-envs.defaultEnvManager": "ms-python.python:poetry",
+  "python-envs.defaultPackageManager": "ms-python.python:poetry",
+  "python-envs.pythonProjects": []
+}

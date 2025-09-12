@@ -1,0 +1,25 @@
+generateColorClasses($colors, $targetSelector = null)
+  if $targetSelector
+    {$targetSelector}
+      for $colorName, $colorValue in $colors
+        $cssVar = --q- + $colorName
+        {$cssVar}: $colorValue
+  else
+    // Add CSS variables directly (no parent selector)
+    for $colorName, $colorValue in $colors
+      $cssVar = --q- + $colorName
+      {$cssVar}: $colorValue
+
+  // Generate text and background classes
+  for $colorName, $colorValue in $colors
+    $cssVar = --q- + $colorName
+    .bg-{$colorName}
+      background: var($cssVar) !important
+    .text-{$colorName}
+      color: var($cssVar) !important
+    .hover-bg-{$colorName}
+      &:hover
+        background: var($cssVar) !important
+    .hover-text-{$colorName}
+      &:hover
+        color: var($cssVar) !important

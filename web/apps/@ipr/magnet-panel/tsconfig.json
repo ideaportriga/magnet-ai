@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "esModuleInterop": false,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@shared": ["../../../packages/shared/src/index.ts"]
+    }
+  },
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ],
+  "extends": "../../../tsconfig.base.json",
+
+}

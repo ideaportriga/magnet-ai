@@ -1,0 +1,135 @@
+@import './openui_overrides.styl'
+@import './factory.styl'
+@import './typography.styl'
+@import './fields.styl'
+@import './quasar_overrides.styl'
+
+@import './functions.styl'
+// @import './theme.styl'
+// @import './loaders.styl'
+// @import './openui_overrides.styl'
+// @import './quasar_overrides.styl'
+.knowledge-magnet-pane #km-app
+  overflow: hidden
+#km-app
+  height: 100%
+  overflow: hidden
+  a
+    text-decoration: none
+
+#km-app, [id^=q-portal--], #q-notify
+  box-sizing: border-box !important
+  --font-default: "Inter"
+  font-size: 14px
+  font-family: var(--font-default);
+
+::-webkit-scrollbar
+  width: 10px
+::-webkit-scrollbar-track
+  background: transparent
+::-webkit-scrollbar-thumb
+  margin: 4px;
+  background: #0001;
+  border-radius: 3px
+  transition: opacity .3s;
+::-webkit-scrollbar-thumb:hover
+  background: #0002;
+.round
+  border-radius: 50%
+.overflow-hidden
+  overflow: hidden;
+.border-radius-4
+  border-radius: 4px;
+.border-radius-6
+  border-radius: 6px;
+.border-radius-8
+  border-radius: 8px;
+.border-radius-12
+  border-radius: 12px;
+.max-w-50
+  max-width: 300px; // TODO: check why this works, and 50% doesn't
+  width: 50% 
+  
+.width-100
+  width: 100%
+.width-50
+  width: 50%
+.height-100
+  height: 100%
+.height-50
+  height: 50%
+.height-fit
+  height: fit-content !important;
+.stretch
+  flex-grow: 1 !important;
+.rotate-180
+  transform: rotate(180deg);
+  animation: rotation 0.2s  linear;
+.shadow
+  box-shadow: 0px 2px 10px rgba(0, 0, 0, 0.08);
+  &-primary
+    box-shadow: 0px 2px 5px rgba(103, 64, 194, 0.300);
+
+.create-enhancement-text
+  overflow-wrap: break-word;
+  width: 1px;
+
+.logo-text
+  background: linear-gradient(270deg, #6840C2 24.5%, #E30052 92%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+.block-shadow
+  box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.10);
+
+
+.clickable-item
+  transition: background, border 800ms
+  &:hover
+    background: var(--q-control-hover-bg)
+
+.select-options
+  max-height: 450px !important
+
+.wrapped-text
+  white-space: nowrap
+  overflow: hidden
+  text-overflow: ellipsis
+  white-space: normal
+  text-align: left 
+.km-table-chip
+  display: flex
+  align-items: center
+  justify-content: center
+  background: var(--q-primary-bg)
+  width: 82px
+  height: 19px
+  gap: 8px
+  border-radius: 10px
+
+
+.km-grid
+    display: grid
+    grid-template-columns: repeat(4, minmax(0, 1fr))
+    
+    gap: 16px
+    justify-items: center
+    align-items: baseline
+    white-space: nowrap
+    &-3
+      @extend .km-grid
+      grid-template-columns: repeat(3, 1fr)
+    &-2
+      @extend .km-grid
+      grid-template-columns: repeat(2, 1fr)
+    &-1
+      @extend .km-grid
+      grid-template-columns: repeat(1, 1fr)
+    &-item
+      &-2
+        grid-column: span 2
+      &-3
+        grid-column: span 3
+      
+

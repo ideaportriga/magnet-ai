@@ -1,0 +1,129 @@
+```json
+{
+  "_id": {
+    "$oid": "66c71201749450b1a6843fb1"
+  },
+  "system_name": "UPLOAD_FILE_TEST",
+  "name": "UPLOAD_FILE_TEST",
+  "description": "file",
+  "type": "rag_tool",
+  "items": [
+    {
+      "user_input": "test2",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test3",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test4",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test5",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test6",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test7",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test8",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test9",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test10",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test11",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test12",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test13",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test14",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test15",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test16",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test17",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test18",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test19",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test20",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test21",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test22",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test23",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test24",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test25",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test26",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test27",
+      "expected_result": "test2"
+    },
+    {
+      "user_input": "test28",
+      "expected_result": "test2"
+    }
+  ],
+  "_metadata": {
+    "created_at": {
+      "$date": "2024-08-22T10:25:05.103Z"
+    },
+    "modified_at": {
+      "$date": "2024-08-22T10:25:05.103Z"
+    }
+  }
+}
+```

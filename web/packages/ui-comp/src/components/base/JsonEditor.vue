@@ -1,0 +1,72 @@
+<template>
+  <div ref="editor" className="svelte-jsoneditor-vue" :content="{ test: 12 }" />
+</template>
+
+<script>
+import { JSONEditor } from 'vanilla-jsoneditor'
+import { ref } from 'vue'
+// JSONEditor properties as of version 0.3.60
+const propNames = [
+  'content',
+  'mode',
+  'mainMenuBar',
+  'navigationBar',
+  'statusBar',
+  'readOnly',
+  'indentation',
+  'tabSize',
+  'escapeControlCharacters',
+  'escapeUnicodeCharacters',
+  'validator',
+  'onError',
+  'onChange',
+  'onChangeMode',
+  'onClassName',
+  'onRenderValue',
+  'onRenderMenu',
+  'queryLanguages',
+  'queryLanguageId',
+  'onChangeQueryLanguage',
+  'onFocus',
+  'onBlur',
+]
+
+function pickDefinedProps(object, propNames) {
+  const props = {}
+  for (const propName of propNames) {
+    if (object[propName] !== undefined) {
+      props[propName] = object[propName]
+    }
+  }
+  return props
+}
+
+export default {
+  name: 'VueJSONEditor',
+  props: propNames,
+  setup() {
+    return {
+      editor: ref(),
+    }
+  },
+  mounted() {
+    this.editor = new JSONEditor({
+      target: this.$refs['editor'],
+      props: { ...pickDefinedProps(this, propNames), content: { json: this.content }, readOnly: true, flattenColumns: true },
+    })
+    console.log('create editor', this.editor)
+  },
+  beforeUnmount() {
+    console.log('destroy editor')
+    this.editor.destroy()
+    this.editor = null
+  },
+}
+</script>
+
+<style scoped>
+.svelte-jsoneditor-vue {
+  display: flex;
+  flex: 1;
+}
+</style>

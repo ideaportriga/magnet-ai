@@ -1,0 +1,36 @@
+{
+  "_id": {
+    "$oid": "683715f8dae18a6c751b75e8"
+  },
+  
+  "name": "TELCO Salesforce Service Manual",
+  "system_name": "TELCO_SALESFORCE_SERVICE_MANUAL",
+  "category": "",
+  "description": "A collection of documents related to the Salesforce Service Manual for Telco.",
+
+  "model": "AZURE_AI_TEXT-EMBEDDING-3-SMALL",
+  "type": "",
+
+
+  "sharepoint_site_url": "https://ideaport.sharepoint.com/sites/GenAI/Example/",
+  "sharepoint_pages_page_name": "Salesforce-Service-Employee-Manual.aspx",
+  "source_type": "Sharepoint Pages",
+  "show_in_qa": "false",
+  
+  
+  "chunking": {
+    "strategy": "recursive_character_text_splitting",
+    "chunk_size": 12000,
+    "chunk_overlap": 2000,
+    "transformation_enabled": false,
+    "transformation_prompt_template": "",
+    "transformation_method": "replace",
+    "chunk_usage_method": "transformed_indexing_original_retrieval"
+  },
+  "indexing": {
+    "semantic_search_supported": true,
+    "fulltext_search_supported": false,
+
+  "last_synced": "2025-05-28T13:56:24.092892+00:00"
+}
+}

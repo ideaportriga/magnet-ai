@@ -1,0 +1,61 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.env
+.env.*
+
+# Poetry
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
+
+# Documentation
+*.md
+docs/
+
+# Tests
+tests/
+test_*
+
+# Cache
+.cache/
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Temporary files
+tmp/
+temp/

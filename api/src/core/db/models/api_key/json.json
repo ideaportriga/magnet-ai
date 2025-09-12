@@ -1,0 +1,11 @@
+{
+  "_id": {
+    "$oid": "686f69a766fbcf90dc8d7159"
+  },
+  "name": "siebel",
+  "created_at": {
+    "$date": "2025-07-10T07:20:07.851Z"
+  },
+  "hash": "5ff8d15e7e0743849bb5c094416aa668e7d44e8ea353b8aad2ccdac552646b28",
+  "value_masked": "...Gpys"
+}
