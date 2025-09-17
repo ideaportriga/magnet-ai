@@ -80,7 +80,9 @@ export default defineComponent({
     filterObject: {
       get() {
         if (this.searchString) {
-          return { 'metadata.title': { $txt: this.searchString } }
+          return {
+            $or: [{ 'metadata.title': { $txt: this.searchString } }, { content: { $txt: this.searchString } }],
+          }
         }
         return {}
       },

@@ -1,48 +1,44 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height
-  q-scroll-area.fit
-    .row.no-wrap.full-height.justify-center.fit
-      .col-auto.collection-container
-        .full-height.q-pb-md.relative-position.q-px-md
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width
-            .row.q-mb-12
-              .col-auto.center-flex-y
-                km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject', outputFormat='sql')
-              q-space
-              .col-auto.center-flex-y
-                km-btn.q-mr-12(
-                  icon='refresh',
-                  label='Refresh list',
-                  @click='refreshTable',
-                  iconColor='icon',
-                  hoverColor='primary',
-                  labelClass='km-title',
-                  flat,
-                  iconSize='16px',
-                  hoverBg='primary-bg'
-                )
-                km-btn(data-test='new-btn', label='New', @click='showNewDialog = true')
-            .row
-              km-table(
-                ref='tableJobsRef',
-                @selectRow='openDetails',
-                selection='single',
-                row-key='id',
-                :selected='selectedJob ? [selectedJob] : []',
-                :columns='columns',
-                :visibleColumns='visibleColumns',
-                :rows='visibleRows',
-                style='min-width: 1100px',
-                binary-state-sort,
-                :loading='loading',
-                dense,
-                @request='getPaginated',
-                v-model:pagination='pagination',
-                :filter='filterObject'
-              )
-        q-inner-loading(:showing='loading')
-  jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false')
-  jobs-drawer(:show-drawer='showDrawer', :job='selectedJob', @cancel='showDrawer = false')
+layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
+  template(#content)
+    .column.full-width.overflow-auto
+      .row.items-center
+        km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject')
+        q-space
+        km-btn.q-mr-12(
+          icon='refresh',
+          label='Refresh list',
+          @click='refreshTable',
+          iconColor='icon',
+          hoverColor='primary',
+          labelClass='km-title',
+          flat,
+          iconSize='16px',
+          hoverBg='primary-bg'
+        )
+        km-btn(data-test='new-btn', label='New', @click='showNewDialog = true')
+      .row.q-pt-16
+        km-table(
+          ref='tableJobsRef',
+          @selectRow='openDetails',
+          selection='single',
+          row-key='id',
+          :selected='selectedJob ? [selectedJob] : []',
+          :columns='columns',
+          :visibleColumns='visibleColumns',
+          :rows='visibleRows',
+          style='min-width: 1100px',
+          binary-state-sort,
+          :loading='loading',
+          dense,
+          @request='getPaginated',
+          v-model:pagination='pagination',
+          :filter='filterObject'
+        )
+  template(#drawer)
+    jobs-drawer(:show-drawer='showDrawer', :job='selectedJob', @cancel='showDrawer = false')
+jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false')
+q-inner-loading(:showing='loading')
 </template>
 
 <script>
@@ -73,7 +69,7 @@ export default {
             { label: 'One time immmidiate', value: 'one_time_immediate' },
             { label: 'Recurring', value: 'recurring' },
           ],
-          default: ['recurring'],
+          // default: ['recurring'],
           multiple: true,
         },
         status: {

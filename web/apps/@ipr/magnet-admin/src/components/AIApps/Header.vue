@@ -126,7 +126,8 @@ export default {
       } else {
         await this.create(this.currentRow)
       }
-      this.$store.commit('setInitAIApp')
+      await this.$store.commit('setInitAIApp')
+      window.postMessage({ type: 'reload_iframe' })
       this.loading = false
     },
 

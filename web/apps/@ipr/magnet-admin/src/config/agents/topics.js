@@ -1,4 +1,4 @@
-import { markRaw } from 'vue'
+import { markRaw, h } from 'vue'
 import NameDescription from './component/NameDescription.vue'
 import NameDescriptionAPITools from './component/NameDescriptionApiTools.vue'
 import Type from './component/Type.vue'
@@ -7,7 +7,7 @@ import NameSystemName from './component/NameSystemName.vue'
 import TextWrap from './component/TextWrap.vue'
 
 export const agentPagination = {
-  rowsPerPage: 5,
+  rowsPerPage: 10,
   sortBy: 'last_updated',
   descending: true,
 }
@@ -49,6 +49,17 @@ export const columnsSettings = {
     align: 'left',
     style: 'max-width: 100px;', // Adjusted max-width to 100px
   },
+  drilldown: {
+    name: 'drilldown',
+    label: '',
+    field: 'drilldown',
+    action: () => console.log('drilldown'),
+    display: true,
+    type: 'drilldown',
+    // component: markRaw(Drilldown),
+    align: 'left',
+    style: 'max-width: 100px;',
+  },
 }
 
 export const agentTopicActionsPopupColumns = {
@@ -61,7 +72,7 @@ export const agentTopicActionsPopupColumns = {
     display: true,
     sortable: true,
     align: 'left',
-    style: 'max-width: 300px;',
+    style: 'width: 100%; padding-left: 0 !important',
   },
 }
 
@@ -82,10 +93,18 @@ export const agentTopicActionsAPIToolsPopupColumns = {
 export const agentTopicActionsColumns = {
   nameDescription: {
     name: 'nameDescription',
-    label: 'Name & Description',
+    label: 'Name & Description for LLM',
     type: 'component',
     field: 'name',
-    component: markRaw(NameDescription),
+    component: ({ row }) => {
+      const props = {
+        row: {
+          name: row.function_name,
+          description: row.function_description,
+        },
+      }
+      return markRaw(h(NameDescription, props))
+    },
     display: true,
     sortable: true,
     align: 'left',

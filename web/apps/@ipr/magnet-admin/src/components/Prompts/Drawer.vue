@@ -220,6 +220,7 @@ export default defineComponent({
           response_format: this.selectedRowDetails?.response_format,
           system_name_for_model: this.selectedRowDetails?.system_name_for_model,
           system_name_for_prompt_template: this.promptSystemName,
+          prompt_template_variant: this.selectedRowDetails?.variant,
         })) || undefined
 
       this.text = this.detailedResponse?.['content'] ?? ''

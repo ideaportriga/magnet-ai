@@ -10,92 +10,25 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
     q-card-section.card-section-style.q-mb-md
       .row.items-center.justify-center
         km-stepper.full-width(
-          :steps='[ { step: 0, description: "Topic settings", icon: "pen" }, { step: 1, description: "Add actions", icon: "circle" }, { step: 2, description: "Instructions", icon: "circle" }, ]',
+          :steps='[ { step: 0, description: "Topic settings", icon: "pen" }, { step: 1, description: "Add actions", icon: "circle" }, ]',
           :stepper='stepper'
         )
       .column.full-width(v-if='stepper === 0')
-        .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-lg
-          q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
-          .km-paragraph.q-pb-4 Give your Topic a name and internal description. You will be able to add LLM instructions later.
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
-          .full-width
-            km-input(height='30px', placeholder='E.g. Topic 1', v-model='name', ref='nameRef')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Description
-          .full-width
-            km-input(height='30px', placeholder='E.g. Topic 1 description', v-model='topic.description', ref='descriptionRef')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
-          .full-width
-            km-input(height='30px', placeholder='E.g. TOPIC_1', v-model='system_name', ref='system_nameRef')
+        km-notification-text.q-mb-md(notification='Give your Topic a name and internal description. You will be able to add LLM instructions later.')
+        .km-field.text-secondary-text.q-pl-8.q-mb-md Name
+        km-input.q-mb-md(height='30px', v-model='name', ref='nameRef')
+        .km-field.text-secondary-text.q-pl-8 Description for LLM
+        km-input.q-mb-sm(type='textarea', rows='4', v-model='topic.description', ref='descriptionRef')
+        km-notification-text.q-mb-md(notification='Instructions for the LLM explaining when this topic should be used')
+        .km-field.text-secondary-text.q-pl-8 System name
+        km-input.q-mb-md(height='30px', v-model='system_name', ref='system_nameRef')
           .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
-      .column.full-width(v-if='stepper === 1')
-        .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-lg
-          q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
-          .km-paragraph.q-pb-4 Select tools to serve as Actions that can be performed within this Topic.
-        div
-          q-tabs.bb-border.full-width(
-            v-model='tab',
-            narrow-indicator,
-            dense,
-            align='left',
-            active-color='primary',
-            indicator-color='primary',
-            active-bg-color='white',
-            no-caps,
-            content-class='km-tabs'
-          )
-            template(v-for='t in tabs')
-              q-tab(:name='t.name')
-                .row.q-mx-md(style='height: 24px')
-                  .col.km-title {{ t.label }}
-                  .col-auto.q-ml-sm(v-if='getSelectedQtyByType(t.name) > 0')
-                    km-chip(round, size='24px', :label='getSelectedQtyByType(t.name)', color='primary-light', text-color='primary')
-
-        .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='max-height: calc(100vh - 360px) !important')
-          .row
-            .col-auto.center-flex-y
-            km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
-          .row.q-gap-16.full-height.full-width
-            .col.full-height.full-width
-              .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-                .col-auto.full-width(v-if='tab != "mcp_tool"')
-                  km-table-new(
-                    @selectRow='selectRecord',
-                    selection='multiple',
-                    row-key='id',
-                    :active-record-id='selectedRow?.id',
-                    v-model:selected='selected',
-                    :columns='columns',
-                    :rows='rows ?? []',
-                    binary-state-sort,
-                    :infinite-scroll='true'
-                  )
-                .col-auto.full-width(v-else)
-                  agents-select-section(
-                    v-for='(server, index) in mcp_servers',
-                    :key='server.id',
-                    :server='server',
-                    :selected='selected',
-                    @select='selectRecord',
-                    :open-on-mount='index == 0'
-                  )
-
-      .column.full-width(v-if='stepper === 2')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Advanced instructions
-          km-input(ref='input', rows='8', border-radius='8px', height='36px', type='textarea', v-model='instructions')
-          .km-description.text-secondary-text.q-pb-4.q-mt-xs LLM settings for this prompt are defined by the Prompt Template that the Agent uses for Topic processing.
+      agents-tool-selection(v-model:selected='selected', v-if='stepper === 1')
       .row.q-mt-lg
         template(v-if='stepper === 0')
           .col-auto.q-mr-sm
             km-btn(flat, label='Cancel', color='primary', @click='$emit("cancel")')
           .col
-          .col-auto
-            km-btn(label='Next', @click='proceed', :disable='!readyForNext')
-        template(v-else-if='stepper === 1')
-          .col-auto.q-mr-sm
-            km-btn(flat, label='Cancel', color='primary', @click='$emit("cancel")')
-          .col
-          .col-auto.q-mr-sm
-            km-btn(flat, label='Back', @click='stepper--')
           .col-auto
             km-btn(label='Next', @click='proceed', :disable='!readyForNext')
 
@@ -124,7 +57,7 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { visibleRows: api_tools } = useChroma('api_tools')
+    const { visibleRows: api_servers } = useChroma('api_servers')
     const { visibleRows: rag_tools } = useChroma('rag_tools')
     const { visibleRows: prompt_templates } = useChroma('promptTemplates')
     const { visibleRows: mcp_servers } = useChroma('mcp_servers')
@@ -147,8 +80,8 @@ export default {
         system_name: '',
       }),
       stepper: ref(0),
-      api_tools,
       mcp_servers,
+      api_servers,
       rag_tools,
       prompt_templates,
       retrieval_tools,
@@ -160,7 +93,6 @@ export default {
   },
   computed: {
     rows() {
-      if (this.tab === 'api') return this.getList(this.api_tools, 'api')
       if (this.tab === 'rag') return this.getList(this.rag_tools, 'rag')
       if (this.tab === 'retrieval') return this.getList(this.retrieval_tools, 'retrieval')
       if (this.tab === 'prompt_template')
@@ -307,3 +239,7 @@ export default {
   },
 }
 </script>
+<style lang="stylus">
+.no-header thead
+  display: none
+</style>

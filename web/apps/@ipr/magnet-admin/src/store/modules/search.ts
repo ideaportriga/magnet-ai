@@ -1,9 +1,9 @@
-import _ from 'lodash'
 import { fetchData } from '@shared'
 
 // state
 const state = () => ({
   searchPrompt: '',
+  metadataFilter: [],
   collectionList: [],
   collection: [],
   answersLoading: false,
@@ -14,6 +14,7 @@ const state = () => ({
 // getters
 const getters = {
   searchPrompt: (state) => state.searchPrompt,
+  metadataFilter: (state) => state.metadataFilter,
   collectionList: (state) => state.collectionList,
   publicCollectionList: (state) => {
     return (
@@ -47,7 +48,7 @@ const mutations = {
 
 // actions
 const actions = {
-  async getAnswer({ getters, rootGetters, commit, state }) {
+  async getAnswer({ getters, commit, state }) {
     const prompt = state.searchPrompt
     const collection = getters.chroma?.collections?.publicSelected
     const endpoint = getters.config?.search?.endpoint
@@ -83,8 +84,9 @@ const actions = {
       })
     }
   },
-  async getAnswerRag({ getters, rootGetters, commit, state }) {
+  async getAnswerRag({ getters, commit, state }) {
     const prompt = state.searchPrompt
+    const metadataFilter = state.metadataFilter
     const collection = getters.ragVariant?.retrieve?.collection_system_names || {}
     const endpoint = getters.config?.rag?.endpoint
     const service = `${getters.config?.rag?.service}` || ''
@@ -102,6 +104,7 @@ const actions = {
       body: JSON.stringify({
         ...rag,
         user_message: prompt,
+        metadata_filter: metadataFilter,
       }),
       headers: {
         'Content-Type': 'application/json',
@@ -126,7 +129,7 @@ const actions = {
       })
     }
   },
-  async getAnswerRagExecute({ getters, rootGetters, commit, state }, ragToolCode = null) {
+  async getAnswerRagExecute({ getters, commit, state }, ragToolCode = null) {
     const prompt = state.searchPrompt
     const endpoint = getters.config?.rag?.endpoint
     const service = getters.config?.rag?.service || ''
@@ -164,9 +167,10 @@ const actions = {
       })
     }
   },
-  async getAnswerRetrieval({ getters, rootGetters, commit, state }) {
+  async getAnswerRetrieval({ getters, commit, state }) {
     const prompt = state.searchPrompt
     const collection = getters.retrievalVariant?.retrieve?.collection_system_names || {}
+    const metadataFilter = state.metadataFilter
     const endpoint = getters.config?.retrieval?.endpoint
     const service = `${getters.config?.retrieval?.service}` || ''
     const credentials = getters.config?.retrieval?.credentials
@@ -182,6 +186,7 @@ const actions = {
       body: JSON.stringify({
         ...retrieval,
         user_message: prompt,
+        metadata_filter: metadataFilter,
       }),
       headers: {
         'Content-Type': 'application/json',
@@ -207,7 +212,7 @@ const actions = {
       })
     }
   },
-  async getAnswerRetrievalExecute({ getters, rootGetters, commit, state }, retrievalCode = null) {
+  async getAnswerRetrievalExecute({ getters, commit, state }, retrievalCode = null) {
     const prompt = state.searchPrompt
     const endpoint = getters.config?.retrieval?.endpoint
     const service = getters.config?.retrieval?.service || ''
@@ -245,7 +250,7 @@ const actions = {
       })
     }
   },
-  async sendFeedback({ getters, commit, state }, { id, like, comment }) {
+  async sendFeedback({ getters, commit }, { id, like, comment }) {
     const endpoint = getters.config?.feedbacks?.endpoint
     const service = getters.config?.feedbacks?.service || ''
     let responseStatus = false

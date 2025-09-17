@@ -11,15 +11,15 @@ km-popup-confirm(
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
     .full-width
       km-input(height='30px', placeholder='E.g. My first Test Set', v-model='name', ref='nameRef', :rules='config.name.rules')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Description
-    .full-width
-      km-input(
-        height='30px',
-        placeholder='E.g. My first test set for RAG',
-        v-model='newRow.description',
-        ref='descriptionRef',
-        :rules='config.description.rules'
-      )
+  //- .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Description
+  //-   .full-width
+  //-     km-input(
+  //-       height='30px',
+  //-       placeholder='E.g. My first test set for RAG',
+  //-       v-model='newRow.description',
+  //-       ref='descriptionRef',
+  //-       :rules='config.description.rules'
+  //-     )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
     .full-width
       km-input(height='30px', placeholder='E.g. MY_FIRST_TEST_SET', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
@@ -50,7 +50,7 @@ km-popup-confirm(
       template(v-slot:append)
         q-icon(name='attach_file')
 
-    .km-description.text-secondary-text.q-pb-4 Accept only .xlsx files. The file should contain the following columns: the first column for 'Evaluation input', and the second column for 'Expected output'
+    .km-description.text-secondary-text.q-py-4 Accept only .xlsx files. The file should contain the following columns: the first column for 'Evaluation input', and the second column for 'Expected output'
     //- template(v-slot:prepend)
     //-   q-icon(name='attach_file')
     //- template(v-slot:append)
@@ -154,15 +154,15 @@ export default {
       this.$router.push(`/evaluation-sets/${inserted_id}`)
     },
     validation(rag, notify = true) {
-      const { name, description, system_name, retrieve } = rag
+      const { name, system_name, retrieve } = rag
       const { collection_system_names } = retrieve
 
-      if (!name || !description || !system_name || !collection_system_names.length) {
+      if (!name || !system_name || !collection_system_names.length) {
         // Handle validation error
 
         if (notify) {
           this.$q.notify({
-            message: `Name, Description, System name and Knowledge sources are required`,
+            message: `Name, System name and Knowledge sources are required`,
             color: 'error-text',
             position: 'top',
             timeout: 1000,

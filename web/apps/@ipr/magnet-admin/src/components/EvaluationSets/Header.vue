@@ -54,7 +54,7 @@ km-popup-confirm(
   notificationIcon='far fa-circle-check',
   cancelButtonLabel='Cancel',
   @cancel='showEvaluationCreateDialog = false',
-  @confirm='navigate(`/evaluation-jobs/${evaluationId}`)'
+  @confirm='navigateToEval'
 )
   .row.item-center.justify-center.km-heading-7 Evaluation has started!
   .row.text-center.justify-center It may take some time for the Evaluation to finish.
@@ -123,9 +123,17 @@ export default {
   },
   methods: {
     createEvaluation(obj) {
-      this.evaluationId = obj?.id
+      console.log('obj', obj)
+      this.evaluationId = obj?.job_id || obj?.id
       this.showNewDialog = false
       if (this.evaluationId) this.showEvaluationCreateDialog = true
+    },
+    navigateToEval() {
+      const query = {
+        job_id: this.evaluationId,
+      }
+      const path = '/evaluation-jobs'
+      this.$router.push({ path, query })
     },
     deleteRag() {
       this.loadingDelelete = true

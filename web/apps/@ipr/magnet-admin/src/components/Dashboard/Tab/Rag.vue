@@ -149,7 +149,7 @@ export default {
     return {
       loading: ref(false),
       listFilter: ref(filter),
-      summaryFilter: ref(Object.fromEntries(Object.entries(filter).filter(([key, value]) => value.overviewFilter))),
+      summaryFilter: ref(Object.fromEntries(Object.entries(filter))),
       activeFilters: ref({}),
       tab: ref('list'),
       tabs: ref([
@@ -308,13 +308,13 @@ export default {
     tab(newVal) {
       this.$emit('selectRow', false)
       if (newVal === 'overview') {
-        this.$refs.filterRef.clearFilter([
-          //'channel',
-          'extra_data.is_answered',
-          'extra_data.language',
-          'extra_data.topic',
-          'extra_data.answer_feedback.type',
-        ])
+        // this.$refs.filterRef.clearFilter([
+        //   //'channel',
+        //   'extra_data.is_answered',
+        //   'extra_data.language',
+        //   'extra_data.topic',
+        //   'extra_data.answer_feedback.type',
+        // ])
       }
     },
     activeFilters: {
@@ -501,13 +501,13 @@ export default {
       console.log('setFilterAndNavigate', key, label, value)
       this.tab = 'list'
       this.listFilter = { ...this.listFilter, [key]: { ...this.listFilter[key], ['is_hidden']: false } }
-      this.$refs.filterRef.clearFilter([
-        // 'channel',
-        'extra_data.is_answered',
-        'extra_data.language',
-        'extra_data.topic',
-        'extra_data.answer_feedback.type',
-      ])
+      // this.$refs.filterRef.clearFilter([
+      //   // 'channel',
+      //   'extra_data.is_answered',
+      //   'extra_data.language',
+      //   'extra_data.topic',
+      //   'extra_data.answer_feedback.type',
+      // ])
       this.setFilter(key, { label, value })
     },
   },

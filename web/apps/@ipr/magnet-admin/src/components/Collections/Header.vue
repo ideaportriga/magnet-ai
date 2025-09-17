@@ -49,7 +49,7 @@ km-popup-confirm(
   @cancel='showSyncConfirm = false'
 )
   .row.item-center.justify-center.km-heading-7.q-mb-md Syncing has started
-  .row.text-center.justify-center A sync job {{job_id}} has been created and started. This process will update your Knowledge Source.
+  .row.text-center.justify-center A sync job {{ job_id }} has been created and started. This process will update your Knowledge Source.
 </template>
 
 <script>
@@ -85,6 +85,7 @@ export default {
     },
     modified_at() {
       if (!this.activeRowDB) return ''
+      if (!this.activeRowDB?.last_synced || this.activeRowDB?.last_synced?.invalid) return '-'
       return `${this.formatDate(this.activeRowDB?.last_synced)}`
     },
     currentRow() {
@@ -133,12 +134,12 @@ export default {
       this.navigate('/knowledge-sources')
     },
     async refreshCollection() {
+      await this.save()
       await this.createJob()
       this.showSyncConfirm = true
     },
 
     async createJob() {
-      
       let jobData = {
         name: `Sync ${this.selectedRow?.name}`,
         job_type: 'one_time_immediate',
@@ -151,7 +152,7 @@ export default {
         },
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }
-      
+
       const job = await this.$store.dispatch('createAndRunJobScheduler', jobData)
       this.job_id = job.job_id
 

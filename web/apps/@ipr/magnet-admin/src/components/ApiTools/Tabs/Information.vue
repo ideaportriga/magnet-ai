@@ -10,24 +10,19 @@
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Operation definition
       km-select-flat(:options='parametersOptions', v-model='selectedParameters')
     km-input.full-width(
-      rows='18',
+      rows='14',
       border-radius='8px',
       height='36px',
       type='textarea',
-      :model-value='JSON.stringify(showOriginalParameters ? apiTool.original_parameters : variantProps, null, 2)',
+      :model-value='JSON.stringify(showOriginalParameters ? apiTool.original_operation_definition : apiTool.parameters, null, 2)',
       readonly
     )
-    
-    template(v-if="isProviderMock")
-      .row.q-mt-lg.justify-between.items-end.q-mb-4
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Mock response
-      km-input.full-width(
-        rows='18',
-        border-radius='8px',
-        height='36px',
-        type='textarea',
-        v-model='mockContent',
-    )
+  q-separator.q-my-lg
+  km-section(title='Mock', subTitle='Mock response for the API Tool')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Mock enabled
+    km-toggle(v-model='mockResponseEnabled')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg Mock response
+    km-input.full-width(rows='14', border-radius='8px', height='36px', type='textarea', v-model='mockContent')
 </template>
 
 <script>
@@ -48,22 +43,26 @@ export default {
     return { selectedParameters, parametersOptions }
   },
   computed: {
-    variantProps() {
-      return this.$store.getters.api_tool_variant?.value?.parameters
-    },
     isProviderMock() {
-      return this.$store.getters.api_tool.api_provider === "MOCK"
-      
+      return this.apiTool.system_name === 'MOCK'
     },
     showOriginalParameters() {
       return this.selectedParameters.value === 'original'
     },
-    mockContent: {
+    mockResponseEnabled: {
       get() {
-        return this.$store.getters.api_tool?.mock?.content || ''
+        return this.apiTool.mock_response_enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateApiToolProperty', { key: 'mock', value: { content: value } })
+        this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: 'mock_response_enabled', value })
+      },
+    },
+    mockContent: {
+      get() {
+        return this.apiTool?.mock_response?.content || ''
+      },
+      set(value) {
+        this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: 'mock_response.content', value })
       },
     },
   },

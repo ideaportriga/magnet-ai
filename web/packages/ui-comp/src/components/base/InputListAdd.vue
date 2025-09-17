@@ -38,7 +38,7 @@ export default {
   props: {
     btnLabel: {
       type: String,
-      default: 'Add another URL',
+      default: 'Add URL',
     },
     modelValue: {
       type: Array,

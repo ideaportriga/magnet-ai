@@ -18,7 +18,8 @@
       "@shared": ["packages/shared/src/index.ts"],
       "@shared/*": ["packages/shared/src/lib/*"],
       "@themes": ["packages/themes/src/index.ts"],
-      "@ui": ["packages/ui-comp/src/index.ts"]
+      "@ui": ["packages/ui-comp/src/index.ts"],
+      "@ui/*": ["packages/ui-comp/src/*"]
     }
   },
   "exclude": ["node_modules", "tmp"]

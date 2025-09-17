@@ -15,8 +15,10 @@ import { fetchData } from '@shared'
 import patchObject from '@shared/utils/patchObject'
 import assistantToolsControls from '@/config/assistant-tools/assistant-tools'
 import apiToolsControls from '@/config/api-tools/api-tools'
+import apiKeysControls from '@/config/api-keys/table'
 import agentsControls from '@/config/agents/agents'
 import jobsControls from '@/config/jobs/jobs'
+import apiServersControls from '@/config/api_servers/api_servers'
 
 // Universal function to build query parameters from pagination and filter objects
 const buildQueryParams = (pagination = {}, filter = {}) => {
@@ -97,7 +99,7 @@ const promptsTablePagination = {
   descending: true,
 }
 const evaluationJobsPagination = {
-  rowsPerPage: 8,
+  rowsPerPage: 10,
   sortBy: 'job_start',
   descending: true,
 }
@@ -143,6 +145,11 @@ const observabilityTracesPagination = {
 const jobsPagination = {
   rowsPerPage: 10,
   sortBy: 'created_at',
+  descending: true,
+}
+const apiServersPagination = {
+  rowsPerPage: 10,
+  sortBy: 'last_updated',
   descending: true,
 }
 
@@ -2232,6 +2239,7 @@ const apiMcpServers = {
         if (response.error) throw response
       })
       .then(() => {
+        dispatch('get', { entity: 'mcp_servers' })
         return id
       })
       .catch((response) => {
@@ -2242,6 +2250,140 @@ const apiMcpServers = {
       })
   },
 }
+const apiApiKeys = {
+  get: async (_, endpoint) => {
+    return await fetchData({
+      endpoint,
+      credentials: 'include',
+      service: `api_keys`,
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+      })
+      .then((data) => {
+        return data
+      })
+  },
+  create: async (service, endpoint, payload) => {
+    console.log('payload', payload)
+    return await fetchData({
+      method: 'POST',
+      endpoint,
+      credentials: 'include',
+      service: `api_keys`,
+      body: JSON.stringify(payload),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+      })
+      .then((data) => {
+        return data
+      })
+  },
+  delete: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'DELETE',
+      endpoint,
+      credentials: 'include',
+      service: `api_keys/${id}`,
+    })
+      .then((response) => {
+        if (response.ok) return response
+        if (response.error) throw response
+      })
+      .then(() => {
+        return id
+      })
+      .catch((response) => {
+        throw {
+          technicalError: response?.error,
+          text: `Error deleting api key`,
+        }
+      })
+  },
+}
+const apiApiServers = {
+  get: async (service, endpoint) => {
+    return await fetchData({
+      endpoint,
+      credentials: 'include',
+      service: `sql_api_servers`,
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+      })
+      .then((data) => {
+        return data?.items || []
+      })
+  },
+  create: async (service, endpoint, payload) => {
+    return await fetchData({
+      method: 'POST',
+      endpoint,
+      credentials: 'include',
+      service: `sql_api_servers`,
+      body: payload,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+      })
+      .then((data) => {
+        return data
+      })
+  },
+  update: async (service, endpoint, { id, data }, { dispatch }) => {
+    return await fetchData({
+      method: 'PATCH',
+      endpoint,
+      credentials: 'include',
+      service: `sql_api_servers/${id}`,
+      body: JSON.stringify(data),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return true
+        if (response.error) throw response
+      })
+      .then(() => {
+        dispatch('get', { entity: 'api_servers' })
+        return true
+      })
+  },
+  delete: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'DELETE',
+      endpoint,
+      credentials: 'include',
+      service: `sql_api_servers/${id}`,
+    })
+      .then((response) => {
+        if (response.ok) return response
+        if (response.error) throw response
+      })
+      .then(() => {
+        return id
+      })
+      .catch((response) => {
+        throw {
+          technicalError: response?.error,
+          text: `Error deleting api server`,
+        }
+      })
+  },
+}
+
 //entities
 export default {
   collections: {
@@ -2409,6 +2551,29 @@ export default {
     config: patchObject(mcpServersControls, { ...controlsDefaultProps }),
     pagination: mcpServersPagination,
     api: apiMcpServers,
+    keyField: {
+      field: 'id',
+      urlKey: 'id',
+    },
+  },
+  api_keys: {
+    config: patchObject(apiKeysControls, { ...controlsDefaultProps }),
+    pagination: {
+      sortBy: 'created_at',
+      descending: true,
+      page: 1,
+      rowsPerPage: 10,
+    },
+    api: apiApiKeys,
+    keyField: {
+      field: 'id',
+      urlKey: 'id',
+    },
+  },
+  api_servers: {
+    config: patchObject(apiServersControls, { ...controlsDefaultProps }),
+    pagination: apiServersPagination,
+    api: apiApiServers,
     keyField: {
       field: 'id',
       urlKey: 'id',

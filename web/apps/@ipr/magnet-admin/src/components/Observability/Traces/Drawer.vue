@@ -37,13 +37,17 @@
         .row.ba-border.border-radius-8.q-pa-sm.bg-light(style='border-color: #ff0000; word-break: break-all; white-space: break-spaces') {{ span?.status_message }}
       template(v-else-if='tab == "input_output"')
         template(v-if='span?.type == "search"')
-          observability-traces-vector-search-input-output(:span='span')
+          observability-traces-search-input-output(:span='span')
         template(v-else-if='span?.type == "embed"')
           observability-traces-embed-input-output(:span='span')
         template(v-else-if='span?.type == "chat"')
           observability-traces-chat-completion-input-output(:span='span')
         template(v-else-if='span?.type == "rerank"')
           observability-traces-rerank-input-output(:span='span')
+        template(v-else-if='span?.name == "Fuse search results"')
+          observability-traces-fuse-results-input-output(:span='span')
+        template(v-else-if='span?.name == "Select top results"')
+          observability-traces-top-results-input-output(:span='span')
         template(v-else)
           .column.q-gap-32(v-if='span?.input || span?.output')
             observability-traces-default-span-renderer(:value='span?.input', label='Inputs')
@@ -106,7 +110,8 @@ export default defineComponent({
     filteredTabs() {
       return this.tabs.filter(
         (tab) =>
-          (!this.span?.repeat_count && tab.availableFor.includes(this.span?.type) &&
+          (!this.span?.repeat_count &&
+            tab.availableFor.includes(this.span?.type) &&
             (tab.name != 'input_output' || (tab.name == 'input_output' && (this.span?.input || this.span?.output)))) ||
           (tab.name === 'error' && this.span?.status === 'error')
       )

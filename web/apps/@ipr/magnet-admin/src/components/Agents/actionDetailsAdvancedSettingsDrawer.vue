@@ -22,14 +22,22 @@ div
       readonly,
       v-if='openGlobalInstructions'
     )
-  .km-button-text.q-pt-md End user display options
-  q-separator.q-mb-lg
-  .row.items-center.q-pl-8.q-gap-4.q-pb-xs
-    .km-field.text-label End user name
-    q-icon.col-auto(name='o_info', color='secondary')
-      q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]')
-        .text-secondary-text This name will be displayed for the end user when the action is selected by an Agent. Keep it short and non-technical.
-  km-input(v-model='display_name', border-radius='8px', height='36px', type='text')
+
+  .km-button-text.q-mt-lg Other
+    q-separator.q-mb-16
+  .row.items-center.q-pb-xs
+    .km-label.text-label Use response as assistant message
+    km-toggle(v-model='use_response_as_assistant_message', label-class='text-label')
+  .km-description.text-label Uses the action response as assistant message without additional topic processing step. Only applicable if the action is not called in parallel with other actions.
+        
+  //- .km-button-text.q-pt-md End user display options
+  //- q-separator.q-mb-lg
+  //- .row.items-center.q-pl-8.q-gap-4.q-pb-xs
+  //-   .km-field.text-label End user name
+  //-   q-icon.col-auto(name='o_info', color='secondary')
+  //-     q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]')
+  //-       .text-secondary-text This name will be displayed for the end user when the action is selected by an Agent. Keep it short and non-technical.
+  //- km-input(v-model='display_name', border-radius='8px', height='36px', type='text')
 </template>
 
 <script>
@@ -84,6 +92,22 @@ export default {
           subItemSystemName: this.action?.system_name,
           data: {
             requires_confirmation: value,
+          },
+        })
+      },
+    },
+    use_response_as_assistant_message: {
+      get() {
+        return this.action?.use_response_as_assistant_message
+      },
+      set(value) {
+        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+          arrayPath: 'topics',
+          itemSystemName: this.topic?.system_name,
+          subArrayKey: 'actions',
+          subItemSystemName: this.action?.system_name,
+          data: {
+            use_response_as_assistant_message: value,
           },
         })
       },

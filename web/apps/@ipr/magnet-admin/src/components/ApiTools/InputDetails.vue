@@ -16,7 +16,12 @@
           km-select.full-width(v-model='type', :options='["string", "number", "integer", "boolean", "array", "object"]')
         .col
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Format
-          km-select.full-width(v-model='format', :options='formatOptions', :disable='formatOptions.length === 0', :disabled='formatOptions.length === 0')
+          km-select.full-width(
+            v-model='format',
+            :options='formatOptions',
+            :disable='formatOptions.length === 0',
+            :disabled='formatOptions.length === 0'
+          )
       .column.q-mt-16.full-width
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Enum values
         template(v-for='(item, index) in enum', :key='index')
@@ -28,6 +33,12 @@
 <script>
 import { ref } from 'vue'
 export default {
+  props: {
+    selectedRow: {
+      type: Object,
+      required: true,
+    },
+  },
   setup() {
     return {
       list: ref([]),
@@ -35,9 +46,6 @@ export default {
   },
 
   computed: {
-    selectedRow() {
-      return this.$store.getters.apiToolSelectedProperty
-    },
     formatOptions() {
       if (this.type === 'integer') {
         return ['', 'int32', 'int64']
@@ -50,9 +58,15 @@ export default {
       }
       return []
     },
+    apiTool() {
+      return this.$store.getters.toolByName(this.$route.params.name)
+    },
     input: {
       get() {
-        return this.$store.getters.api_tool_variant?.value?.parameters?.input?.properties[this.selectedRow.in].properties[this.selectedRow.name]
+        if (this.selectedRow && this.apiTool) {
+          return this.apiTool?.parameters?.input?.properties[this.selectedRow.in].properties[this.selectedRow.name]
+        }
+        return {}
       },
     },
     description: {
@@ -95,8 +109,9 @@ export default {
   },
   methods: {
     setInputProp(value, key) {
-      const target = `value.parameters.input.properties.${this.selectedRow.in}.properties.${this.selectedRow.name}.${key}`
-      this.$store.commit('updateNestedApiToolProperty', { path: target, value })
+      // .parameters?.input?.properties[this.selectedRow.in].properties[this.selectedRow.name]
+      const target = `parameters.input.properties.${this.selectedRow.in}.properties.${this.selectedRow.name}.${key}`
+      this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: target, value })
     },
     newEnum(value) {
       const array = this.enum || []

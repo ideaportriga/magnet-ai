@@ -58,8 +58,8 @@
                         prompts-responseformat
                       template(v-if='tab == "sapmles"')
                         prompts-sampleinput
-                    template(v-if='tab == "testSets"')
-                      prompts-test-sets
+                      template(v-if='tab == "testSets"')
+                        prompts-test-sets
 
   .col-auto
     prompts-drawer(v-model:open='openTest')

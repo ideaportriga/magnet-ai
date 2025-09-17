@@ -89,7 +89,7 @@ export default {
         { name: 'summary', label: 'Summary' },
       ]),
       listFilter: ref(filter),
-      summaryFilter: ref(Object.fromEntries(Object.entries(filter).filter(([key, value]) => value.overviewFilter))),
+      summaryFilter: ref(Object.fromEntries(Object.entries(filter))),
       activeFilters: ref({}),
       observability: ref({}),
       detailedList: ref([]),
@@ -136,7 +136,7 @@ export default {
     tab(newVal) {
       this.$emit('selectRow', false)
       if (newVal === 'overview') {
-        this.$refs.filterRef.clearFilter([])
+        // this.$refs.filterRef.clearFilter([])
       }
     },
     activeFilters: {

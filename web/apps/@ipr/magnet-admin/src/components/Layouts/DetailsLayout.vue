@@ -1,10 +1,10 @@
 <template lang="pug">
 .row.no-wrap.overflow-hidden.full-height.details-layout
-  .col.no-wrap.full-height.justify-center.fit.q-px-md.no-wrap.q-py-lg
+  .col.no-wrap.full-height.justify-center.fit.q-px-md.no-wrap.q-py-lg(:style='contentContainerStyle')
     .column.full-height.no-wrap
       slot(name='breadcrumbs')
         div
-      .items-center.q-gap-12.no-wrap.full-width.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
+      .items-center.q-gap-12.no-wrap.full-width.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16(v-if='!noHeader')
         slot(name='header')
           layouts-details-header(
             :name='name',
@@ -65,6 +65,7 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  contentContainerStyle: {},
 })
 const emit = defineEmits([
   'update:name',

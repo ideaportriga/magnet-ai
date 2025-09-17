@@ -5,6 +5,8 @@
     q-separator.q-mb-md
     .col
       .column.full-height.q-pb-md.relative-position
+        retrieval-metadata-filter(v-model='metadataFilter' :sources='[knowledgeSystemName]')
+        q-separator.q-mt-md.q-mb-md
         .column.search-prompt-container.border-radius-12.q-mb-16.full-width.q-gap-8
           .row
             km-input.full-width(
@@ -21,7 +23,7 @@
                   q-btn.border-radius-6(color='primary', @click='getAnswer', unelevated, padding='6px 7px')
                     template(v-slot:default)
                       q-icon(name='fas fa-search', size='16px')
-            .km-description.text-secondary-text.q-mt-xs Perform semantic search for your search term. Returns best 20 results
+            .km-description.text-secondary-text.q-mt-xs Perform semantic search for your search term. Returns best 15 results
 
         template(v-if='answers.length || loading')
           q-scroll-area.full-height.col(ref='scroll')
@@ -47,11 +49,13 @@ export default {
     const answers = useState('semanticSearchAnswers')
     const loading = useState('semanticSearchLoading')
     const prompt = useState('semanticSearch')
+    const metadataFilter = useState('metadataFilter')
 
     return {
       loading,
       answers,
       prompt,
+      metadataFilter,
       showHints: ref(true),
       showChunkInfo: ref(false),
       selectedAnswer: ref({}),
@@ -61,17 +65,22 @@ export default {
     knowledgeId() {
       return this.$store.getters.knowledge?.id || ''
     },
+    knowledgeSystemName() {
+      return this.$store.getters.knowledge?.system_name || ''
+    },
   },
   watch: {
     knowledgeId(newVal, oldVal) {
       if (newVal !== oldVal) {
         this.prompt = ''
+        this.metadataFilter = []
       }
     },
   },
   created() {},
   mounted() {
     this.prompt = ''
+    this.metadataFilter = []
   },
   methods: {
     setDetailInfo(info) {

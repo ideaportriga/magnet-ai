@@ -1,6 +1,7 @@
 import NameDescription from '@/config/assistant-tools/component/NameDescription.vue'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { markRaw, h } from 'vue'
+import { ChipCopy } from '@ui'
 
 const controls = {
   name: {
@@ -20,6 +21,7 @@ const controls = {
       }
       return markRaw(h(NameDescription, props))
     },
+    sortable: true,
     align: 'left',
   },
   system_name: {
@@ -27,16 +29,25 @@ const controls = {
     label: 'System name',
     field: 'system_name',
     display: true,
+    sortable: true,
     align: 'left',
+    type: 'component',
+    component: markRaw(ChipCopy),
   },
-  last_updated: {
-    name: 'last_updated',
+  last_synced_at: {
+    name: 'last_synced_at',
     label: 'Last synced',
-    field: 'last_updated',
+    field: 'last_synced_at',
     display: true,
     readonly: true,
     format: (val) => formatDateTime(val),
     align: 'left',
+    sortable: true,
+    sort: (a, b) => {
+      const dateObjectA = new Date(a)
+      const dateObjectB = new Date(b)
+      return dateObjectA - dateObjectB
+    },
   },
 }
 

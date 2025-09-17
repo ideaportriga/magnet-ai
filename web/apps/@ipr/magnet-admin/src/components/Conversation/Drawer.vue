@@ -197,10 +197,18 @@ export default {
     analytics() {
       return this.item?.analytics ?? {}
     },
+    recountFeedback() {
+      const messages = this.conversation?.messages ?? []
+      const messages_with_feedback = messages.filter((message) => message.feedback)
+      const likes = messages_with_feedback.filter((message) => message.feedback.type === 'like').length
+      const dislikes = messages_with_feedback.filter((message) => message.feedback.type === 'dislike').length
+      return { likes, dislikes }
+      // return messages.filter((message) => message.feedback)
+    },
     feedback() {
       let title = ''
-      const likes = this.analytics.conversation_data?.likes
-      const dislikes = this.analytics.conversation_data?.dislikes
+      const likes = this.recountFeedback.likes //this.analytics.conversation_data?.likes
+      const dislikes = this.recountFeedback.dislikes //this.analytics.conversation_data?.dislikes
       if (likes >= 0) {
         title += likes
         title += likes === 1 ? ' like' : ' likes'

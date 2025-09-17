@@ -14,15 +14,17 @@
       .row(style='font-size: 13px') {{ document?.metadata?.title ?? document?.metadata?.name }}
       q-space
       .row.no-wrap.items-center.q-gap-2
-        span(style='font-size: 13px') {{ span.input?.documents?.[document.original_index]?.score }}
+        span(style='font-size: 13px') {{ formatScore(span.input?.documents?.[document.original_index]?.score) }}
         span(style='font-size: 20px; margin-bottom: 2px') ⇒
-        span(style='font-size: 13px') {{ document?.score }}
+        span(style='font-size: 13px') {{ formatScore(document?.score) }}
       q-icon(:name='collapsed[index] ? "expand_less" : "expand_more"', size='16px')
     .row.q-pa-sm.bt-border(v-if='collapsed[index]', style='min-height: 50px; font-size: 13px; white-space: pre-wrap; word-break: break-all') {{ document?.content }}
 </template>
 
 <script>
 import { ref } from 'vue'
+import { formatScore } from '@shared/utils'
+
 export default {
   props: {
     span: {
@@ -37,6 +39,7 @@ export default {
     }
   },
   methods: {
+    formatScore,
     toggleCollapse(index) {
       this.collapsed[index] = !this.collapsed[index]
     },

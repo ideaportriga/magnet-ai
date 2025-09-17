@@ -4,7 +4,6 @@ import { markRaw } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
 
 import { ChipCopy } from '@ui'
-import { DateTime } from 'luxon'
 
 const sourceTypeChildren = {
   '': [],
@@ -13,6 +12,14 @@ const sourceTypeChildren = {
       name: 'sharepoint_site_url',
       label: 'Sharepoint URL',
       field: 'sharepoint_site_url',
+      component: 'km-input',
+      readonly: (collection) => !!collection?.last_synced,
+      type: 'String',
+    },
+    {
+      name: 'sharepoint_library',
+      label: 'Library',
+      field: 'sharepoint_library',
       component: 'km-input',
       readonly: (collection) => !!collection?.last_synced,
       type: 'String',
@@ -302,6 +309,7 @@ const controls = {
     options: [
       { label: 'None', value: 'none' },
       { label: 'Recursive Character Text Splitting', value: 'recursive_character_text_splitting' },
+      { label: 'HTML Header Splitting', value: 'html_header_splitting' },
     ],
     columnNumber: 2,
     validate: true,
@@ -366,10 +374,10 @@ const controls = {
     fromMetadata: false,
     display: false,
   },
-  support_full_text_search: {
-    name: 'support_full_text_search',
-    label: 'Support full-text search',
-    field: 'support_full_text_search',
+  support_keyword_search: {
+    name: 'support_keyword_search',
+    label: 'Support keyword search',
+    field: 'support_keyword_search',
     type: 'Boolean',
     columnNumber: 2,
     validate: true,

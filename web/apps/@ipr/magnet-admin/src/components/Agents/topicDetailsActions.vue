@@ -58,6 +58,7 @@ export default {
       showNewDialog: ref(false),
       selected: ref([]),
       showDeleteDialog: ref(false),
+      searchString: ref(''),
       agentPagination,
     }
   },
@@ -84,11 +85,17 @@ export default {
     },
     agentDetailTopicActions: {
       get() {
-        return this.topic?.actions ?? []
+        const actions = this.topic?.actions ?? []
+        return actions.filter((item) => {
+          return (
+            item.name.toLowerCase().includes(this.searchString.toLowerCase()) ||
+            item.system_name.toLowerCase().includes(this.searchString.toLowerCase())
+          )
+        })
       },
-      set(value) {
-        this.$store.commit('updateAgentDetailProperty', { key: 'items', value })
-      },
+      // set(value) {
+      //   this.$store.commit('updateAgentDetailProperty', { key: 'items', value })
+      // },
     },
     activeTopic: {
       get() {

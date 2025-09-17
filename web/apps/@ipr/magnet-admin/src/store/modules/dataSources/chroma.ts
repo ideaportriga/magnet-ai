@@ -157,7 +157,7 @@ const actions = {
       const { items, total } = await req.getPaginated(service, endpoint, payload)
       if (state?.[entity]?.pagination) {
         commit('set', {
-          payload: { pagination: { ...payload.pagination, rowsNumber: total }},
+          payload: { pagination: { ...payload.pagination, rowsNumber: total } },
           entity,
         })
       }
@@ -300,7 +300,6 @@ const actions = {
     }
   },
 
-
   selectFromRouter(
     { state, commit, dispatch }: ActionContext<ChromaState, any>,
     { payload, entity, detail }: { payload: any; entity: string; detail: boolean }
@@ -355,11 +354,12 @@ export const [baseGetters, chromaWrapperGetters] = generateGetters({
     'model',
     'provider',
     'assistant_tools',
-    'api_tools',
     'api_tool_providers',
     'agents',
     'jobs',
     'mcp_servers',
+    'api_keys',
+    'api_servers',
   ],
   namespace: 'chroma',
   getters,

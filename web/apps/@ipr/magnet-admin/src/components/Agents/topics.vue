@@ -33,7 +33,8 @@ div
       :columns='columns',
       :rows='agentDetailTopics ?? []',
       :pagination='agentPagination',
-      binary-state-sort
+      binary-state-sort,
+      @cellAction='cellAction'
     )
 
 agents-create-new-topic(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', v-if='showNewDialog')
@@ -59,12 +60,12 @@ export default {
   setup() {
     const { items: promptTemplateItems } = useChroma('promptTemplates')
 
-
     return {
       columns: Object.values(columnsSettings).sort((a, b) => a.columnNumber - b.columnNumber),
       showNewDialog: ref(false),
       selected: ref([]),
       showDeleteDialog: ref(false),
+      searchString: ref(''),
       agentPagination,
       promptTemplateItems,
     }
@@ -75,7 +76,16 @@ export default {
     },
     agentDetailTopics: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.topics?.map((item) => ({ ...item, actions: item.actions?.length || '' })) || []
+        const topics = this.$store.getters.agentDetailVariant?.value?.topics || []
+        return topics
+          .filter((item) => {
+            return (
+              item.name.toLowerCase().includes(this.searchString.toLowerCase()) ||
+              item.system_name.toLowerCase().includes(this.searchString.toLowerCase()) ||
+              item.description.toLowerCase().includes(this.searchString.toLowerCase())
+            )
+          })
+          .map((item) => ({ ...item, actions: item.actions?.length || '' }))
       },
     },
     agentDetailVariantTopics() {
@@ -115,6 +125,10 @@ export default {
     },
   },
   methods: {
+    cellAction({ event, action, row }) {
+      event.stopPropagation()
+      this.$router.push(`/agents/${this.routeParams?.id}/topics/${row.system_name}`)
+    },
     deleteSelected() {
       this.$store.commit('updateNestedAgentDetailProperty', {
         path: 'topics',

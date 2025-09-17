@@ -26,7 +26,7 @@ export default {
   },
   computed: {
     parameters() {
-      return this.$store.getters.api_tool_variant?.value?.parameters?.input?.properties
+      return this.apiTool.parameters.input.properties
     },
     rows() {
       if (!this.parameters) return []
@@ -59,6 +59,7 @@ export default {
           field: 'description',
           label: 'Description',
           align: 'left',
+          style: 'max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
         },
         {
           name: 'In',
@@ -81,8 +82,13 @@ export default {
     },
   },
   watch: {
-    rows(newVal) {
-      this.select(newVal[0])
+    rows: {
+      handler(newVal) {
+        if (newVal.length !== this.rows.length || !this.selectedRow) {
+          this.select(newVal[0])
+        }
+      },
+      immediate: true,
     },
   },
   methods: {

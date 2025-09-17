@@ -24,6 +24,18 @@ export default defineComponent({
       if (this.row?.type === 'api') {
         return 'API Tool'
       }
+
+      if (this.row?.type === 'mcp_tool') {
+        return 'MCP Tool'
+      }
+
+      if (this.row?.type === 'rag_tool') {
+        return 'RAG Tool'
+      }
+
+      if (this.row?.type === 'retrieval') {
+        return 'Retrieval Tool'
+      }
       return this.row?.type
     },
     statusStyles() {

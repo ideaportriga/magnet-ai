@@ -12,17 +12,18 @@
     map-options,
     hasDropdownSearch
   )
-.full-width
-  km-table.sticky-virtscroll-table(
-    style='height: calc(100vh - 460px) !important',
+.row.q-mb-sm(v-if='sampleTestSet')
+  km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
+.full-width(v-if='sampleTestSet')
+  km-table(
     @selectRow='selectRecord',
     :selected='promptTemplateTestSetItem ? [promptTemplateTestSetItem] : []',
     row-key='user_input',
-    :rows-per-page-options='[0]',
+    :rows-per-page-options='[10]',
     v-model:selected='selected',
     :columns='columns',
-    :rows='testSetItems ?? []',
-    :pagination='agentPagination',
+    :rows='filteredTestSetItems ?? []',
+    :pagination='pagination',
     binary-state-sort
   )
 </template>
@@ -42,6 +43,12 @@ export default {
       createNew: ref(false),
       loading: ref(false),
       selectedRow: ref(null),
+      searchString: ref(''),
+      pagination: ref({
+        rowsPerPage: 10,
+        // sortBy: 'last_updated',
+        // descending: true,
+      }),
     }
   },
   computed: {
@@ -64,6 +71,11 @@ export default {
       set(value) {
         this.$store.commit('updateNestedRetrievalProperty', { path: 'sample_test_set', value })
       },
+    },
+    filteredTestSetItems() {
+      if (!this.searchString) return this.testSetItems
+      const fields = ['user_input', 'expected_result']
+      return this.testSetItems.filter((item) => fields.some((field) => item[field].toLowerCase().includes(this.searchString.toLowerCase())))
     },
   },
   methods: {

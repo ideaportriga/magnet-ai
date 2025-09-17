@@ -11,8 +11,10 @@
           .row.justify-center.q-pb-12.q-pt-md.q-gap-2.items-center.full-width.text-center
             .km-heading-5 {{ uiSettings?.header_configuration?.header }}
           .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
-            .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }} 
-        retrieval-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, retrieval, :searchString="searchString")
+            .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
+        retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter', :sources='collectionSystemNames')
+        q-separator.q-mt-md(v-if='allowMetadataFilter')
+        retrieval-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, retrieval, :searchString='searchString')
         template(v-if='isShowHints')
           .row.items-center
             .col.km-heading-3 You can ask like this...
@@ -59,23 +61,23 @@ export default {
   setup() {
     const answers = useState('answers')
     const loading = useState('answersLoading')
+    const metadataFilter = useState('metadataFilter')
     return {
       loading,
       answers,
+      metadataFilter,
       showHints: ref(true),
       selectedAnswer: ref({}),
       showChunkInfo: ref(false),
       showNewDialog: ref(false),
       showEvaluationCreateDialog: ref(false),
       evaluationId: ref(''),
+      searchString: ref(''),
     }
   },
   computed: {
     retrievalId() {
       return this.$store.getters.retrieval?.id || ''
-    },
-    searchString() {
-      return this.$store.getters.retrievalTestSetItem?.user_input || ''
     },
     isShowHints() {
       return (
@@ -93,8 +95,17 @@ export default {
     uiSettings() {
       return this.$store.getters.retrievalVariant?.ui_settings
     },
+    retrievalTestSetItem() {
+      return this.$store.getters.retrievalTestSetItem
+    },
     retrievalCode() {
       return this.$store.getters.retrieval.system_name
+    },
+    allowMetadataFilter() {
+      return this.$store.getters.retrieval?.retrieve?.allow_metadata_filter || false
+    },
+    collectionSystemNames() {
+      return this.$store.getters.retrieval?.retrieve?.collection_system_names || []
     },
   },
   watch: {
@@ -103,9 +114,17 @@ export default {
         this.clearAnswers()
       }
     },
+    retrievalTestSetItem: {
+      deep: true,
+      handler(next, prev) {
+        this.metadataFilter = next?.metadata_filter || []
+        this.searchString = next?.user_input || ''
+      },
+    },
   },
   mounted() {
     this.clearAnswers()
+    this.metadataFilter = []
   },
   beforeUnmount() {
     this.clearAnswers()

@@ -7,7 +7,7 @@ const filter = {
 
     type: 'timePeriod',
     default: 'P1D',
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   feature_system_name: {
     label: 'Agent',
@@ -19,7 +19,7 @@ const filter = {
       return []
     },
     search: true,
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   source: {
     label: 'Consumer type',
@@ -33,7 +33,7 @@ const filter = {
     ],
     multiple: true,
     default: ['Runtime AI App', 'Runtime API'],
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   consumer_name: {
     label: 'Consumer name',
@@ -43,7 +43,7 @@ const filter = {
     },
     search: true,
     multiple: true,
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   ['extra_data.status']: {
     label: 'Status',

@@ -6,17 +6,17 @@
   km-btn(label='Record info', icon='info', iconSize='16px') 
   q-tooltip.bg-white.block-shadow
     .q-pa-sm
-      //- .q-mb-sm
-      //-   .text-secondary-text.km-button-xs-text Created:
-      //-   .text-secondary-text.km-description {{ metadata.created_at }}
-      //- div
-      //-   .text-secondary-text.km-button-xs-text Modified:
-      //-   .text-secondary-text.km-description {{ metadata.modified_at }}
+      .q-mb-sm
+        .text-secondary-text.km-button-xs-text Created:
+        .text-secondary-text.km-description {{ info.created_at }}
+      div
+        .text-secondary-text.km-button-xs-text Modified:
+        .text-secondary-text.km-description {{ info.updated_at }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-mx-md
   km-btn(label='Save', icon='far fa-save', color='primary', bg='background', iconSize='16px', @click='save')
 .col-auto.text-white.q-mr-md
-  km-btn(label='Save & Sync Tools', icon='fa-solid fa-sync', color='primary', bg='background', iconSize='16px', @click='syncTools')
+  km-btn(label='Save & Sync Tools', icon='fa-solid fa-sync', color='primary', bg='background', iconSize='16px', @click='showConfirmDialog = true')
 .col-auto.text-white.q-mr-md
   q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
     q-menu(anchor='bottom right', self='top right')
@@ -37,6 +37,17 @@ km-popup-confirm(
 )
   .row.item-center.justify-center.km-heading-7 You are about to delete an MCP Server
   .row.text-center.justify-center If any of your Agents are using MCP Tools provided by this server, according Actions will stop working after deletion.
+
+km-popup-confirm(
+  :visible='showConfirmDialog',
+  confirmButtonLabel='Sync Tools',
+  cancelButtonLabel='Cancel',
+  notificationIcon='fas fa-info-circle',
+  @confirm='syncTools',
+  @cancel='showConfirmDialog = false'
+)
+  .row.item-center.justify-center.km-heading-7.q-mb-md You are about to sync all tools with the MCP Server
+  .row.text-center.justify-center Syncing will load current tools from the MCP server and replace existing MCP Tools.
 </template>
 <script setup>
 import { ref, computed } from 'vue'
@@ -44,23 +55,32 @@ import { useStore } from 'vuex'
 import { useChroma } from '@shared'
 import { useQuasar } from 'quasar'
 import { useRouter } from 'vue-router'
+import { formatDateTime } from '@shared/utils/dateTime'
+
 const store = useStore()
 const q = useQuasar()
 const router = useRouter()
 const { delete: deleteMcpServer } = useChroma('mcp_servers')
 const showDeleteDialog = ref(false)
+const showConfirmDialog = ref(false)
 const loading = ref(false)
 
 const server = computed(() => store.getters.mcp_server)
+
+const info = computed(() => {
+  return {
+    created_at: formatDateTime(server.value?.created_at),
+    updated_at: formatDateTime(server.value?.updated_at),
+  }
+})
 
 const save = async () => {
   loading.value = true
   await store.dispatch('saveMcpServer')
   loading.value = false
 }
-const deleteServer = () => {
-  console.log('deleteServer', store.getters.mcp_server.id)
-  deleteMcpServer({ id: store.getters.mcp_server.id })
+const deleteServer = async () => {
+  await deleteMcpServer({ id: store.getters.mcp_server.id })
   q.notify({
     position: 'top',
     message: 'MCP Server has been deleted.',
@@ -94,5 +114,6 @@ const syncTools = async () => {
     })
   }
   loading.value = false
+  showConfirmDialog.value = false
 }
 </script>

@@ -4,7 +4,7 @@
  * Copyright 2024 Fonticons, Inc.
  */
 .fa {
-  font-family: var(--fa-style-family, "Font Awesome 6 Free");
+  font-family: var(--fa-style-family, "Font Awesome Free");
   font-weight: var(--fa-style, 900); }
 
 .fa,
@@ -29,11 +29,11 @@
 .fa-solid,
 .far,
 .fa-regular {
-  font-family: 'Font Awesome 6 Free'; }
+  font-family: 'Font Awesome Free'; }
 
 .fab,
 .fa-brands {
-  font-family: 'Font Awesome 6 Brands'; }
+  font-family: 'Font Awesome Brands'; }
 
 .fa-1x {
   font-size: 1em; }
@@ -6374,11 +6374,11 @@ readers do not read off random characters that represent icons */
   white-space: nowrap;
   border-width: 0; }
 :root, :host {
-  --fa-style-family-brands: 'Font Awesome 6 Brands';
-  --fa-font-brands: normal 400 1em/1 'Font Awesome 6 Brands'; }
+  --fa-style-family-brands: 'Font Awesome Brands';
+  --fa-font-brands: normal 400 1em/1 'Font Awesome Brands'; }
 
 @font-face {
-  font-family: 'Font Awesome 6 Brands';
+  font-family: 'Font Awesome Brands';
   font-style: normal;
   font-weight: 400;
   font-display: block;
@@ -7963,11 +7963,11 @@ readers do not read off random characters that represent icons */
 .fa-steam-symbol:before {
   content: "\f3f6"; }
 :root, :host {
-  --fa-style-family-classic: 'Font Awesome 6 Free';
-  --fa-font-regular: normal 400 1em/1 'Font Awesome 6 Free'; }
+  --fa-style-family-classic: 'Font Awesome Free';
+  --fa-font-regular: normal 400 1em/1 'Font Awesome Free'; }
 
 @font-face {
-  font-family: 'Font Awesome 6 Free';
+  font-family: 'Font Awesome Free';
   font-style: normal;
   font-weight: 400;
   font-display: block;
@@ -7977,11 +7977,11 @@ readers do not read off random characters that represent icons */
 .fa-regular {
   font-weight: 400; }
 :root, :host {
-  --fa-style-family-classic: 'Font Awesome 6 Free';
-  --fa-font-solid: normal 900 1em/1 'Font Awesome 6 Free'; }
+  --fa-style-family-classic: 'Font Awesome Free';
+  --fa-font-solid: normal 900 1em/1 'Font Awesome Free'; }
 
 @font-face {
-  font-family: 'Font Awesome 6 Free';
+  font-family: 'Font Awesome Free';
   font-style: normal;
   font-weight: 900;
   font-display: block;

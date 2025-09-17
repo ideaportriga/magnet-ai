@@ -26,11 +26,11 @@ div
     km-table-new(
       @selectRow='selectRecord',
       selection='multiple',
-      row-key='id',
+      row-key='index',
       :active-record-id='selectedRow?.id',
       v-model:selected='selected',
       :columns='columns',
-      :rows='evaluationSetItems ?? []',
+      :rows='filteredEvaluationSetItems ?? []',
       :pagination='evaluationRecord',
       binary-state-sort
     )
@@ -51,15 +51,21 @@ km-popup-confirm(
 <script>
 import { columnsSettings, evaluationRecord } from '@/config/evaluation_sets/evaluation_set_records'
 import { ref } from 'vue'
+import { useChroma } from '@shared'
 
 export default {
   emits: ['openTest'],
   setup() {
+    const { selectedRow: selectedEvaluationSet } = useChroma('evaluation_sets')
+
     return {
-      columns: Object.values(columnsSettings).sort((a, b) => a.columnNumber - b.columnNumber),
+      columns: Object.values(columnsSettings)
+        .filter((column) => column.name != 'metadata_filter' || selectedEvaluationSet.value?.type === 'rag_tool')
+        .sort((a, b) => a.columnNumber - b.columnNumber),
       showNewDialog: ref(false),
       selected: ref([]),
       showDeleteDialog: ref(false),
+      searchString: ref(''),
       evaluationRecord,
     }
   },
@@ -69,18 +75,24 @@ export default {
     },
     evaluationSetItems: {
       get() {
-        return this.$store.getters.evaluation_set?.items || []
+        return this.$store.getters.evaluation_set?.items.map((item, index) => ({ ...item, index })) || []
       },
       set(value) {
         this.$store.commit('updateEvaluationSetProperty', { key: 'items', value })
       },
     },
+    filteredEvaluationSetItems() {
+      if (!this.searchString) return this.evaluationSetItems
+      return this.evaluationSetItems.filter((item) => item.user_input.toLowerCase().includes(this.searchString.toLowerCase()))
+    },
   },
   methods: {
     deleteSelected() {
+      const indexToDelete = this.selected.map((item) => item.index)
+      const value = this.evaluationSetItems.filter((item, index) => !indexToDelete.includes(index))
       this.$store.commit('updateEvaluationSetProperty', {
         key: 'items',
-        value: this.evaluationSetItems.filter((item) => !this.selected.includes(item)),
+        value,
       })
       this.selected = []
       this.showDeleteDialog = false

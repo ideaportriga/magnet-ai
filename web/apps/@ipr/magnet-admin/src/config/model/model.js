@@ -5,6 +5,7 @@ import { markRaw } from 'vue'
 import store from '@/store'
 import { formatDateTime } from '@shared/utils/dateTime'
 
+
 const controls = {
   id: {
     name: 'id',
@@ -98,16 +99,16 @@ const controls = {
     align: 'center',
     sortable: true,
   },
-  json_schema: {
-    name: 'json_schema',
-    type: 'component',
-    display: true,
-    label: 'JSON Schema',
-    field: 'json_schema',
-    component: markRaw(Check),
-    align: 'center',
-    sortable: true,
-  },
+  // json_schema: {
+  //   name: 'json_schema',
+  //   type: 'component',
+  //   display: true,
+  //   label: 'JSON Schema',
+  //   field: 'json_schema',
+  //   component: markRaw(Check),
+  //   align: 'center',
+  //   sortable: true,
+  // },
   tool_calling: {
     name: 'tool_calling',
     type: 'component',

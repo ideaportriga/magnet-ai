@@ -1,51 +1,50 @@
 <template lang="pug">
-.ba-border.bg-white.border-radius-12.q-pa-sm.full-width(style='min-width: 300px')
-  .row.q-mx-sm.items-baseline
-    .col-auto
-      km-btn(
-        flat,
-        simple,
-        label='Previous',
-        iconSize='16px',
-        icon='fas fa-chevron-left',
-        @click='evalInputIndex = evalInputIndex - 1',
-        :disable='evalInputIndex === 0'
-      )
-    .col
-      .row.justify-center.fit.q-gap-16.items-center
-        .col-auto
-          div Test Set item {{ evalInputIndex + 1 }} of {{ evalInuptList?.length }}
-    .col-auto
-      km-btn(
-        flat,
-        simple,
-        label='Next',
-        iconSize='16px',
-        iconAfter='fas fa-chevron-right',
-        @click='evalInputIndex = evalInputIndex + 1',
-        :disable='evalInputIndex === evalInuptList.length - 1'
-      )
-  .q-px-md
-    .row.q-mb-md.q-mt-sm
-      .column
-        .col-auto
-          .km-label.text-text-grey Evaluation input
-          div {{ input?.user_message }}
-        .col-auto(v-if='input?.expected_output')
-          .km-label.text-text-grey Expected output
-          div {{ input?.expected_output }}
-    .row
-      km-table(
-        @selectRow='selectRecord',
-        selection='multiple',
-        row-key='id',
-        :active-record-id='selectedRow?.id',
-        v-model:selected='selected',
-        :columns='columns',
-        :rows='filteredEvaluationSetItems ?? []',
-        :pagination='evaluationRecord',
-        binary-state-sort
-      )
+.row.q-mx-sm.items-baseline
+  .col-auto
+    km-btn(
+      flat,
+      simple,
+      label='Previous',
+      iconSize='16px',
+      icon='fas fa-chevron-left',
+      @click='evalInputIndex = evalInputIndex - 1',
+      :disable='evalInputIndex === 0'
+    )
+  .col
+    .row.justify-center.fit.q-gap-16.items-center
+      .col-auto
+        div Test Set item {{ evalInputIndex + 1 }} of {{ evalInuptList?.length }}
+  .col-auto
+    km-btn(
+      flat,
+      simple,
+      label='Next',
+      iconSize='16px',
+      iconAfter='fas fa-chevron-right',
+      @click='evalInputIndex = evalInputIndex + 1',
+      :disable='evalInputIndex === evalInuptList.length - 1'
+    )
+.q-px-md
+  .row.q-mb-md.q-mt-sm
+    .column
+      .col-auto
+        .km-label.text-text-grey Evaluation input
+        div {{ input?.user_message }}
+      .col-auto(v-if='input?.expected_output')
+        .km-label.text-text-grey Expected output
+        div {{ input?.expected_output }}
+  .row
+    km-table(
+      @selectRow='selectRecord',
+      selection='multiple',
+      row-key='id',
+      :active-record-id='selectedRow?.id',
+      v-model:selected='selected',
+      :columns='columns',
+      :rows='filteredEvaluationSetItems ?? []',
+      :pagination='evaluationRecord',
+      binary-state-sort
+    )
 </template>
 
 <script>

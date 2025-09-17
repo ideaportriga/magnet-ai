@@ -1,5 +1,4 @@
 <template lang="pug">
-
 q-table.fit(
   :style='infiniteScroll ? "max-height: calc(100vh - 560px) !important" : ""',
   :class='infiniteScroll ? "sticky-virtscroll-table" : ""',
@@ -29,11 +28,19 @@ q-table.fit(
       q-td.ba-border.td-hoverable(v-for='col in props.cols', :key='col.name', :props='props', @click='$emit("selectRow", props.row)')
         template(v-if='col.type === "component"')
           component(:is='col.component', :row='props.row', :name='col.name')
+        template(v-else-if='col.type === "drilldown"')
+          .flex
+            km-btn(
+              icon='fas fa-chevron-right',
+              icon-size='14px',
+              flat,
+              @click='(e) => $emit("cellAction", { event: e, action: col.action, row: props.row })'
+            )
+          //- q-icon.q-pa-sm(name='fas fa-chevron-right', size='14px')
         template(v-else-if='col.action') 
           a.km-label.text-primary(href='javascript:void(0)', @click='(e) => $emit("cellAction", { event: e, action: col.action, row: props.row })') {{ col.value }}
         template(v-else)
           span {{ col.value }}
-
 </template>
 <script>
 import { defineComponent } from 'vue'

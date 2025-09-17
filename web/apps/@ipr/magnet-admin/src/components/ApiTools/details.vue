@@ -1,20 +1,24 @@
 <template lang="pug">
-layouts-details-layout(
-  :variants='variants',
-  :selected-variant='selectedVariant',
-  :active-variant='activeVariant',
-  @activate-variant='store.commit("activateApiToolVariant")',
-  @add-variant='store.commit("createApiToolVariant")',
-  @delete-variant='store.commit("deleteApiToolVariant")',
-  @select-variant='store.commit("setSelectedApiToolVariant", $event)',
-  @update-variant-property='store.commit("updateNestedApiToolProperty", $event)'
-)
+layouts-details-layout
+  template(#breadcrumbs)
+    .row.q-pb-md.relative-position.q-px-md
+      q-breadcrumbs.text-grey(active-color='text-grey', gutter='lg')
+        template(v-slot:separator)
+          q-icon(size='12px', name='fas fa-chevron-right', color='text-grey')
+        q-breadcrumbs-el
+          .column
+            .km-small-chip.text-grey.text-capitalize API Server
+            .km-chip.text-grey-8.text-capitalize.breadcrumb-link(@click='navigate(`/api-servers/${apiServer.id}`)') {{ apiServer.name }}
+        q-breadcrumbs-el
+          .column
+            .km-small-chip.text-grey.text-capitalize API Tool
+            .km-chip.text-grey-8.text-capitalize.breadcrumb-link {{ apiTool.name }}
   template(#header)
-    layouts-details-header(v-model:name='name', v-model:description='description', v-model:systemName='system_name', :infoText='infoText')
-    q-separator.q-mt-8
-    .row.items-end.q-pt-8.q-gap-4
-      .km-input-label.q-pl-6.text-secondary-text.q-pb-4(style='line-height: 16px') API Provider
-      km-select-flat(placeholder='API Provider', :options='apiProviderOptions', v-model='apiProvider')
+    layouts-details-header(v-model:name='name', v-model:description='description', v-model:systemName='system_name')
+    //- q-separator.q-mt-8
+    //- .row.items-end.q-pt-8.q-gap-4
+    //-   .km-input-label.q-pl-6.text-secondary-text.q-pb-4(style='line-height: 16px') API Provider
+      //- km-select-flat(placeholder='API Provider', :options='apiProviderOptions', v-model='apiProvider')
 
   template(#content)
     q-tabs.bb-border.full-width(
@@ -45,8 +49,7 @@ import { useStore } from 'vuex'
 import _ from 'lodash'
 export default {
   setup() {
-    const { items } = useChroma('api_tools')
-    const { items: apiProviders } = useChroma('api_tool_providers')
+    const { items } = useChroma('api_servers')
     const store = useStore()
 
     return {
@@ -56,86 +59,59 @@ export default {
         { name: 'information', label: 'API Information' },
       ]),
       items,
-      apiProviders,
       openPropDetails: ref(false),
       selectedRow: ref(null),
       store,
     }
   },
   computed: {
-    apiTool() {
+    apiServer() {
       return this.items.find((item) => item.id === this.$route.params.id) ?? {}
     },
-    apiProvider: {
-      get() {
-        const apiProvider = this.$store.getters.api_tool?.api_provider || ''
-        return {
-          label: apiProvider,
-          value: apiProvider,
-        }
-      },
-      set({ value }) {
-        this.$store.commit('updateApiToolProperty', { key: 'api_provider', value })
-      },
+    apiTool() {
+      return this.$store.getters.toolByName(this.$route.params.name)
     },
-    apiProviderOptions() {
-      return this.apiProviders.map((apiProvider) => ({
-        label: apiProvider.systemName,
-        value: apiProvider.systemName,
-      }))
-    },
+
     name: {
       get() {
-        return this.$store.getters.api_tool?.name || ''
+        return this.apiTool?.name || ''
       },
       set(value) {
-        this.$store.commit('updateApiToolProperty', { key: 'name', value })
+        this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: 'name', value })
       },
     },
     description: {
       get() {
-        return this.$store.getters.api_tool?.description || ''
+        return this.apiTool?.description || ''
       },
       set(value) {
-        this.$store.commit('updateApiToolProperty', { key: 'description', value })
+        this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: 'description', value })
       },
     },
     system_name: {
       get() {
-        return this.$store.getters.api_tool?.system_name || ''
+        return this.apiTool?.system_name || ''
       },
       set(value) {
-        this.$store.commit('updateApiToolProperty', { key: 'system_name', value })
-      },
-    },
-    variant: {
-      get() {
-        return this.$store.getters.api_tool_variant
-      },
-    },
-    variants() {
-      return this.$store.getters.api_tool?.variants
-    },
-    selectedVariant: {
-      get() {
-        return this.$store.getters.selectedApiToolVariant
-      },
-      set(value) {
-        this.$store.commit('setSelectedApiToolVariant', value.value)
-      },
-    },
-    activeVariant: {
-      get() {
-        return this.$store.getters.api_tool?.active_variant
+        // this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: 'system_name', value })
       },
     },
   },
+  methods: {
+    navigate(path) {
+      this.$router.push(path)
+    },
+  },
   watch: {
-    apiTool: {
+    apiServer: {
       handler(newVal) {
-        this.$store.commit('setApiTool', _.cloneDeep(newVal))
+        if (newVal !== this.$store.getters.api_server) {
+          console.log('newVal', newVal)
+          this.$store.commit('setApiServer', _.cloneDeep(newVal))
+        }
       },
       deep: true,
+      immediate: true,
     },
     selectedRow: {
       handler() {
@@ -151,7 +127,8 @@ export default {
     },
   },
   mounted() {
-    this.$store.commit('setApiTool', _.cloneDeep(this.apiTool))
+    // this.$store.commit('setApiServer', _.cloneDeep(this.apiTool))
+    // this.$store.commit('setApiTool', _.cloneDeep(this.apiTool))
   },
 }
 </script>

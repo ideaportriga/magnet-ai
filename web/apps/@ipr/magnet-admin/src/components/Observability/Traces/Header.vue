@@ -1,12 +1,12 @@
 <template lang="pug">
-.col
-q-separator(vertical, color='white')
-.col-auto.text-white.q-mx-md
-  q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
-    q-menu(anchor='bottom right', self='top right')
-      q-item(clickable, @click='showDeleteDialog = true', dense)
-        q-item-section
-          .km-heading-3 Delete
+//- .col
+//- q-separator(vertical, color='white')
+//- .col-auto.text-white.q-mx-md
+//-   q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
+//-     q-menu(anchor='bottom right', self='top right')
+//-       q-item(clickable, @click='showDeleteDialog = true', dense)
+//-         q-item-section
+//-           .km-heading-3 Delete
 
 km-popup-confirm(
   :visible='showDeleteDialog',

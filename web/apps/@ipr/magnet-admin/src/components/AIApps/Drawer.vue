@@ -8,6 +8,7 @@
     q-separator
   .col.relative-position.full-height
     iframe.absolute-full(
+      v-if='iframeSrc',
       :src='iframeSrc',
       width='100%',
       height='100%',
@@ -88,9 +89,16 @@ export default {
   },
   mounted() {
     window.addEventListener('message', (event) => {
-      if (event.origin !== this.baseUrl.panel) return
+      if (event.origin !== this.baseUrl.panel && event.origin !== window.location.origin) return
       if (event.data.type === 'reload_app') {
         this.sendMessage({ app: JSON.stringify(this.app) })
+      }
+      if (event.data.type === 'reload_iframe') {
+        const currentSrc = this.$refs.iframe.src
+        this.$refs.iframe.src = ''
+        setTimeout(() => {
+          this.$refs.iframe.src = currentSrc
+        }, 100)
       }
     })
   },

@@ -19,11 +19,17 @@
     .column.fit
       q-scroll-area.fit.q-px-16.q-py-32
         api-tools-test(v-if='tab == "test"')
-        api-tools-input-details(v-if='tab == "details"')
+        api-tools-input-details(v-if='tab == "details"', :selectedRow='selectedRow')
 </template>
 <script>
 import { ref } from 'vue'
 export default {
+  props: {
+    selectedRow: {
+      type: Object,
+      required: true,
+    },
+  },
   setup() {
     return {
       tab: ref('details'),

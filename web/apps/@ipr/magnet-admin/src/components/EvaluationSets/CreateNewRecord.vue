@@ -9,6 +9,8 @@ km-popup-confirm(
   @confirm2='addRecord',
   @cancel='$emit("cancel")'
 )
+  .q-pb-xs.q-pl-8.q-mb-md(v-if='selectedEvaluationSet?.type === "rag_tool"')
+    retrieval-metadata-filter(v-model='newRow.metadata_filter', label='Evaluation metadata filter', labelClass='km-field text-secondary-text q-mr-xs')
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Evaluation input
     .full-width
       km-input(
@@ -39,6 +41,7 @@ km-popup-confirm(
 import { ref } from 'vue'
 import { columnsSettings } from '@/config/evaluation_sets/evaluation_set_records'
 import { uid } from 'quasar'
+import { useChroma } from '@shared'
 
 export default {
   props: {
@@ -46,15 +49,18 @@ export default {
   },
   emits: ['cancel', 'addRecord'],
   setup() {
+    const { selectedRow: selectedEvaluationSet } = useChroma('evaluation_sets')
     return {
       createNew: ref(false),
       newRow: ref({
+        metadata_filter: [],
         user_input: '',
         expected_result: '',
         id: uid(),
       }),
       autoChangeCode: ref(true),
       columnsSettings,
+      selectedEvaluationSet,
     }
   },
   computed: {},
@@ -76,6 +82,7 @@ export default {
       this.$emit('addRecord', this.newRow)
       if (addNew) {
         this.newRow = {
+          filter_object: null,
           user_input: '',
           expected_result: '',
         }

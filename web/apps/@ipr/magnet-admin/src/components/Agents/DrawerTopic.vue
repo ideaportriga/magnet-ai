@@ -20,7 +20,7 @@
           km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='name')
         .km-field.text-secondary-text.q-pb-sm.q-pl-8 System name
           km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='system_name')
-        .km-field.text-secondary-text.q-pb-sm.q-pl-8 LLM description
+        .km-field.text-secondary-text.q-pb-sm.q-pl-8 Description for LLM
           km-input(ref='input', rows='10', border-radius='8px', height='36px', type='textarea', v-model='description')
         .row.items-center.justify-end
           .km-button-text.q-mb-xs.q-ml-sm.text-text-gray
@@ -70,12 +70,16 @@ export default {
         return this.topic?.system_name || ''
       },
       set(value) {
+        if (!value?.length) return
         this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
             system_name: value,
           },
+        })
+        this.$store.commit('setActiveTopic', {
+          topic: value,
         })
       },
     },

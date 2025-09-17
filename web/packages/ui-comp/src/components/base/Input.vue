@@ -19,6 +19,7 @@ span
     :autogrow='autogrow',
     :disable='disabled',
     :class='{ "km-error-input": !!errorMessage }',
+    :input-class='inputClass',
     @clear='$emit("update:modelValue", "")',
     @keydown='handleKeydown',
     :hide-bottom-space='hideBottomSpace',
@@ -110,6 +111,9 @@ export default {
       type: String,
     },
     prefix: {
+      type: String,
+    },
+    inputClass: {
       type: String,
     },
     ...validationProps(),

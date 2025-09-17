@@ -33,6 +33,9 @@ import JobsPage from '@/components/Jobs/Page.vue'
 import McpPage from '@/components/Mcp/Page.vue'
 import McpDetailsPage from '@/components/Mcp/Details.vue'
 import McpToolsDetailPage from '@/components/Mcp/Tools.vue'
+import ApiKeysPage from '@/components/ApiKeys/Page.vue'
+import ApiServersPage from '@/components/ApiServers/Page.vue'
+import ApiServersDetailsPage from '@/components/ApiServers/Details.vue'
 import store from '@/store/index'
 
 const routes = [
@@ -281,25 +284,26 @@ const routes = [
     name: 'ApiTools',
     component: ApiToolsPage,
   },
-  {
-    path: '/api-tools/:id',
-    name: 'ApiToolsDetails',
-    component: ApiToolsDetailPage,
-    meta: {
-      entity: 'api_tools',
-      pageLabel: 'API Tools',
-      chroma: true,
-    },
-  },
+  // {
+  //   path: '/usage',
+  //   name: 'Usage',
+  //   component: DashboardPage,
+  //   meta: {
+  //     pageLabel: 'Usage',
+  //   },
+  // },
   {
     path: '/usage',
+    redirect: '/usage/rag',
+  },
+  {
+    path: '/usage/:tab',
     name: 'Usage',
     component: DashboardPage,
     meta: {
       pageLabel: 'Usage',
     },
   },
-
   // Agents listing
   {
     path: '/agents/:id?',
@@ -389,6 +393,44 @@ const routes = [
       pageLabel: 'MCP Tools',
     },
   },
+  {
+    path: '/api-keys',
+    name: 'ApiKeys',
+    component: ApiKeysPage,
+    meta: {
+      pageLabel: 'API Keys',
+    },
+  },
+  {
+    path: '/api-servers',
+    name: 'ApiServers',
+    component: ApiServersPage,
+    meta: {
+      pageLabel: 'API Servers',
+      chroma: true,
+      entity: 'api_servers',
+    },
+  },
+  {
+    path: '/api-servers/:id',
+    name: 'ApiServersDetail',
+    component: ApiServersDetailsPage,
+    meta: {
+      pageLabel: 'API Server',
+      chroma: true,
+      entity: 'api_servers',
+    },
+  },
+  {
+    path: '/api-servers/:id/tools/:name',
+    name: 'ApiToolsDetails',
+    component: ApiToolsDetailPage,
+    meta: {
+      pageLabel: 'API Server',
+      chroma: true,
+      entity: 'api_servers',
+    },
+  },
 ]
 
 const router = createRouter({
@@ -418,7 +460,9 @@ router.beforeEach((to, from, next) => {
       to.name !== 'AgentDetail' &&
       to.name !== 'AgentTopicDetail' &&
       to.name !== 'AgentTopicActionDetail') ||
-    (from.name === 'McpDetail' && store.getters.isMcpServerChanged)
+    (from.name === 'McpDetail' && store.getters.isMcpServerChanged) ||
+    (from.name === 'ApiServersDetail' && store.getters.isApiServerChanged) ||
+    (from.name === 'ApiToolsDetails' && store.getters.isApiServerChanged)
   ) {
     store.commit('setNextRoute', to.fullPath)
     store.commit('showPopup')

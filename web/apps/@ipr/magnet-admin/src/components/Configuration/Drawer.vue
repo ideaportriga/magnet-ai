@@ -14,6 +14,8 @@
             .km-heading-5 {{ uiSettings?.header_configuration?.header }}
           .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
             .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
+        retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter' :sources='collectionSystemNames')
+        q-separator.q-mt-md(v-if='allowMetadataFilter')
         search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, rag, :searchString='searchString')
         template(v-if='isShowHints')
           .row.items-center
@@ -69,9 +71,11 @@ export default {
   setup() {
     const answers = useState('answers')
     const loading = useState('answersLoading')
+    const metadataFilter = useState('metadataFilter')
     return {
       loading,
       answers,
+      metadataFilter,
       showHints: ref(true),
       selectedAnswer: ref({}),
       showChunkInfo: ref(false),
@@ -107,6 +111,12 @@ export default {
     ragTestSetItem() {
       return this.$store.getters.ragTestSetItem
     },
+    allowMetadataFilter() {
+      return this.$store.getters.ragVariant?.retrieve?.allow_metadata_filter || false
+    },
+    collectionSystemNames() {
+      return this.$store.getters.ragVariant?.retrieve?.collection_system_names || []
+    },
   },
   watch: {
     ragId(newVal, oldVal) {
@@ -117,15 +127,15 @@ export default {
     ragTestSetItem: {
       deep: true,
       handler(next, prev) {
-          console.log('ragTestSetItem', next)
-          this.searchString = next?.user_input || ''
-        
+        this.metadataFilter = next?.metadata_filter || []
+        this.searchString = next?.user_input || ''
       },
     },
   },
   created() {},
   mounted() {
     this.clearAnswers()
+    this.metadataFilter = []
   },
   beforeUnmount() {
     this.clearAnswers()

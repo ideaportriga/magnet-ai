@@ -31,10 +31,11 @@ export default {
     const { ...evaluation_jobs } = useChroma('evaluation_jobs')
     const { ...model } = useChroma('model')
     const { ...provider } = useChroma('provider')
-    const { ...api_tools } = useChroma('api_tools')
     const { ...api_tool_providers } = useChroma('api_tool_providers')
     const { ...agents } = useChroma('agents')
     const { ...mcp_servers } = useChroma('mcp_servers')
+    const { ...api_keys } = useChroma('api_keys')
+    const { ...api_servers } = useChroma('api_servers')
     // const { ...jobs } = useChroma('jobs')
 
     const auth = useAuth()
@@ -51,10 +52,11 @@ export default {
       model,
       provider,
       appContext,
-      api_tools,
       api_tool_providers,
       agents,
       mcp_servers,
+      api_keys,
+      api_servers,
       // jobs,
       ...auth,
     }
@@ -106,10 +108,11 @@ export default {
         this.evaluation_jobs.get(),
         this.model.get(),
         this.provider.get(),
-        this.api_tools.get(),
-        this.api_tool_providers.get(),
+        // this.api_tool_providers.get(),
         this.agents.get(),
         this.mcp_servers.get(),
+        this.api_keys.get(),
+        this.api_servers.get(),
         // this.jobs.get(),
       ])
     },

@@ -40,3 +40,10 @@ export const featureTypeToRequestType = (value: string) => {
       return ''
   }
 }
+
+export const formatScore = (value: string | number) => {
+  if (typeof value === 'string') {
+    value = parseFloat(value)
+  }
+  return value
+}

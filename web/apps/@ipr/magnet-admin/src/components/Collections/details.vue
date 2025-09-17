@@ -41,14 +41,16 @@
           .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='max-height: calc(100vh - 300px) !important')
             .row.q-gap-16.full-height.full-width
               .col.full-height.full-width
-                .column.full-height.full-width.q-gap-16.overflow-auto
+                .column.full-height.full-width.q-gap-16.overflow-auto.no-wrap
                   collections-generalinfo(v-if='tab == "settings"')
+                  collections-metadata-page(v-if='tab == "metadata"')
                   collections-chunks(v-if='tab == "chunks"', :selectedRow='selectedChunk', @selectRow='selectedChunk = $event')
                   collections-scheduler(v-if='tab == "scheduler"')
 
   .col-auto
-    collections-drawer(v-model:open='openTest', v-if='tab !== "chunks"')
-    collection-items-drawer(v-if='tab == "chunks"', :selectedRow='selectedChunk')
+    collections-metadata-drawer(v-if='tab == "metadata" && activeMetadataConfig')
+    collection-items-drawer(v-else-if='tab == "chunks" && selectedChunk', :selectedRow='selectedChunk', @close='selectedChunk = null')
+    collections-drawer(v-else)
 </template>
 
 <script>
@@ -61,6 +63,7 @@ export default {
     const { ...useDocuments } = useChroma('documents')
     const tabs = ref([
       { name: 'settings', label: 'Settings' },
+      { name: 'metadata', label: 'Metadata' },
       { name: 'chunks', label: 'Chunks' },
       { name: 'scheduler', label: 'Schedule & Runs' },
     ])
@@ -111,6 +114,9 @@ export default {
     },
     activeKnowledgeName() {
       return this.items?.find((item) => item?.id == this.activeKnowledgeId)?.name
+    },
+    activeMetadataConfig() {
+      return this.$store.getters.activeMetadataConfig
     },
     options() {
       return this.items?.map((item) => item?.name)

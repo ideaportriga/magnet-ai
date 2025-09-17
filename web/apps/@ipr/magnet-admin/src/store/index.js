@@ -19,7 +19,6 @@ import modelConfig from './modules/model'
 import evaluation from './modules/evaluation'
 import assistantChat from './modules/dataSources/assistantChat'
 import assistant_tools from './modules/assistant_tools'
-import api_tools from './modules/api_tools'
 import agentDetail from './modules/agentDetail'
 import trace from './modules/trace'
 import user from './modules/user'
@@ -30,6 +29,7 @@ import agentDashboard from './modules/agentDashboard'
 import llmDashboard from './modules/llmDashboard'
 import conversation from './modules/conversation'
 import mcp_server from './modules/mcp_server'
+import api_servers from './modules/api_servers'
 
 const merged = mergeModules([
   main,
@@ -46,7 +46,6 @@ const merged = mergeModules([
   popup,
   evaluation,
   assistant_tools,
-  api_tools,
   trace,
   agentDetail,
   user,
@@ -57,6 +56,7 @@ const merged = mergeModules([
   llmDashboard,
   conversation,
   mcp_server,
+  api_servers,
 ])
 
 const setStoreDefaults = () => {}

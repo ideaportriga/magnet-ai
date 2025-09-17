@@ -12,6 +12,8 @@ const state = () => ({
   semanticSearchAnswers: [],
   semanticSearchLoading: false,
   deleteAllLoading: false,
+  activeMetadataConfig: null,
+  autoMapMetadataLoading: false,
 })
 
 // getters
@@ -30,6 +32,7 @@ const getters = {
   semanticSearchAnswers: (state) => state.semanticSearchAnswers,
   semanticSearch: (state) => state.semanticSearch,
   semanticSearchLoading: (state) => state.semanticSearchLoading,
+  activeMetadataConfig: (state) => state.activeMetadataConfig,
 }
 
 // mutations
@@ -46,6 +49,9 @@ const mutations = {
   setSemanticSeacrhAnswers(state, answer) {
     state.semanticSearchAnswers = [answer, ...state.semanticSearchAnswers]
   },
+  setActiveMetadataConfig(state, payload) {
+    state.activeMetadataConfig = payload
+  },
 }
 
 // actions
@@ -55,7 +61,9 @@ const actions = {
   },
   async getSemanticSearchAnswer({ getters, rootGetters, commit, state }) {
     const prompt = state.semanticSearch
+    const metadataFilter = state.metadataFilter
     const collection_id = getters.knowledge?.system_name
+    const collection_display_name = getters.knowledge?.name
     const endpoint = getters.config?.documentSemanticSearch?.endpoint
     const service = `${getters.config?.documentSemanticSearch?.service}` || ''
     const credentials = getters.config?.documentSemanticSearch?.credentials
@@ -69,7 +77,9 @@ const actions = {
       credentials,
       body: JSON.stringify({
         collection_id,
+        collection_display_name,
         user_message: prompt,
+        metadata_filter: metadataFilter,
       }),
       headers: {
         'Content-Type': 'application/json',
@@ -92,6 +102,38 @@ const actions = {
         collection: collection_id,
         ...answer,
       })
+    }
+  },
+  async autoMapMetadata({ getters, commit }, { collection_id, ...payload }) {
+    const endpoint = getters.config?.collections?.endpoint
+    const serviceBase = getters.config?.collections?.service
+    const service = `${serviceBase}/${collection_id}/metadata/automap`
+    const credentials = getters.config?.collections?.credentials
+
+    commit('set', { autoMapMetadataLoading: true })
+    const response = await fetchData({
+      method: 'POST',
+      endpoint,
+      service,
+      credentials,
+      body: JSON.stringify({
+        ...payload,
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    commit('set', { autoMapMetadataLoading: false })
+
+    if (response?.error) {
+      commit('set', {
+        errorMessage: {
+          technicalError: response?.error,
+          text: `Error auto-mapping metadata for collection ${collection_id}`,
+        },
+      })
+    } else {
+      return await response.json()
     }
   },
   async deleteAllDocuments({ getters, commit }, collection_id) {

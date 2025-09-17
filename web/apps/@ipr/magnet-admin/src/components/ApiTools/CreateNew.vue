@@ -1,5 +1,5 @@
 <template lang="pug">
-q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
+q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("cancel")')
   q-card.card-style(style='min-width: 800px')
     q-card-section.card-section-style.q-mb-md
       .row

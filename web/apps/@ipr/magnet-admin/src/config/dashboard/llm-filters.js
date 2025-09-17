@@ -6,7 +6,7 @@ const filter = {
     key: 'start_time',
     type: 'timePeriod',
     default: 'P1D',
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   feature_system_name: {
     label: 'Prompt template',
@@ -28,7 +28,7 @@ const filter = {
     ],
     multiple: true,
     default: ['Runtime AI App', 'Runtime API'],
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   consumer_name: {
     label: 'Consumer name',
@@ -37,7 +37,7 @@ const filter = {
       return store.getters.llmDashboardOptions?.consumer_names?.map((name) => ({ label: name, value: name })) ?? []
     },
     search: true,
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   status: {
     label: 'Status',

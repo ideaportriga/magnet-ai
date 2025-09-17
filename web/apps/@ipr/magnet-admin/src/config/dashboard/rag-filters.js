@@ -7,7 +7,7 @@ const filter = {
 
     type: 'timePeriod',
     default: 'P1D',
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   feature_system_name: {
     label: 'RAG Tool',
@@ -16,7 +16,7 @@ const filter = {
       return store.getters.chroma.rag_tools.items?.map((item) => ({ label: item.name, value: item.system_name })) ?? []
     },
     search: true,
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   source: {
     label: 'Consumer type',
@@ -30,7 +30,7 @@ const filter = {
     ],
     multiple: true,
     default: ['Runtime AI App', 'Runtime API'],
-    overviewFilter: true,
+    // overviewFilter: true,
   },
   consumer_name: {
     label: 'Consumer name',
@@ -40,7 +40,7 @@ const filter = {
     },
     search: true,
     multiple: true,
-    overviewFilter: true,
+  //  overviewFilter: true,
   },
   ['extra_data.topic']: {
     label: 'Topic',
@@ -81,14 +81,14 @@ const filter = {
       return store.getters.ragDashboardOptions?.languages?.map((language) => ({ label: language, value: language }))
     },
   },
-      ['x_attributes.org-id']: {
-      label: 'Organization',
-      key: 'x_attributes.org-id',
-      search: true,
-      get options() {
-        return store.getters.ragDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
-      },
+  ['x_attributes.org-id']: {
+    label: 'Organization',
+    key: 'x_attributes.org-id',
+    search: true,
+    get options() {
+      return store.getters.ragDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
     },
+  },
 }
 
 export default filter

@@ -182,7 +182,7 @@ export default {
       detailedList: ref([]),
       agentDetailsControls: ref(agentDetailsControls),
       searchString: ref(''),
-      summaryFilter: ref(Object.fromEntries(Object.entries(filter).filter(([key, value]) => value.overviewFilter))),
+      summaryFilter: ref(Object.fromEntries(Object.entries(filter))),
       listFilter: ref(filter),
       pagination: ref({
         rowsPerPage: 10,
@@ -341,14 +341,14 @@ export default {
     tab(newVal) {
       this.$emit('selectRow', false)
       if (newVal === 'overview') {
-        this.$refs.filterRef.clearFilter([
-          'conversation_data.resolution_status',
-          'conversation_data.dislikes',
-          'feedback',
-          'conversation_data.sentiment',
-          'conversation_data.language',
-          'conversation_data.topics',
-        ])
+        // this.$refs.filterRef.clearFilter([
+        //   'conversation_data.resolution_status',
+        //   'conversation_data.dislikes',
+        //   'feedback',
+        //   'conversation_data.sentiment',
+        //   'conversation_data.language',
+        //   'conversation_data.topics',
+        // ])
       }
     },
     activeFilters: {
@@ -438,8 +438,8 @@ export default {
         .sort((a, b) => a.order - b.order)
     },
     navigateToConversation(row) {
-      if (row?.extra_data?.conversation_id) {
-        window.open(this.$router.resolve({ path: `/conversation/${row.extra_data.conversation_id}` }).href, '_blank')
+      if (row?.conversation_id) {
+        window.open(this.$router.resolve({ path: `/conversation/${row.conversation_id}` }).href, '_blank')
       }
     },
     updateVisibleFilters(key, value) {
@@ -580,7 +580,7 @@ export default {
     setFilterAndNavigate(key, { label, value }) {
       this.tab = 'list'
       this.listFilter = { ...this.listFilter, [key]: { ...this.listFilter[key], ['is_hidden']: false } }
-      this.$refs.filterRef.clearFilter([])
+      // this.$refs.filterRef.clearFilter([])
       this.setFilter(key, { label, value })
     },
   },

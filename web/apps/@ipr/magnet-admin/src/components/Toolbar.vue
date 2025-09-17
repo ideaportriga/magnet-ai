@@ -24,6 +24,7 @@
       .km-button-xs-text.text-secondary.text-uppercase Test & Monitor
         km-separator
       km-btn-expand-down(:item='{ label: "Evaluations", icon: "fas fa-chart-column", path: "evaluation-sets" }', :subItems='evaluation')
+      km-btn-expand-down(:item='{ label: "Usage", icon: "fas fa-chart-column", path: "usage" }', :subItems='dashboard')
       template(v-for='item in observability')
         km-nav-btn(:icon='item.icon', :label='item.label', :path='item.path', :parentRoute='parentRoute', @navigate='navigate')
     .column.q-mt-24.q-gap-6
@@ -81,6 +82,24 @@ const evaluation = [
   },
 ]
 
+const dashboard = [
+  {
+    label: 'RAG Queries',
+    icon: 'fas fa-file-circle-question',
+    path: 'usage/rag',
+  },
+  {
+    label: 'Agents',
+    icon: 'fa fa-robot',
+    path: 'usage/agent',
+  },
+  {
+    label: 'LLM Calls',
+    icon: 'fa fa-comment-dots',
+    path: 'usage/llm',
+  },
+]
+
 const menu = [
   {
     label: 'Agents',
@@ -109,8 +128,9 @@ const connectors = [
   {
     label: 'API Tools',
     icon: 'fas fa-arrow-right-arrow-left',
-    path: 'api-tools',
+    path: 'api-servers',
   },
+
   {
     label: 'MCP Tools',
     icon: 'fas fa-server',
@@ -126,14 +146,14 @@ const connectors = [
     icon: 'fas fa-circle-nodes',
     path: 'model',
   },
+  {
+    label: 'API Keys',
+    icon: 'fas fa-lock',
+    path: 'api-keys',
+  },
 ]
 
 const observability = [
-  {
-    label: 'Usage',
-    icon: 'fa-solid fa-file-waveform',
-    path: 'usage',
-  },
   {
     label: 'Traces',
     icon: 'fas fa-shoe-prints',
@@ -172,6 +192,7 @@ export default {
       assemble,
       connectors,
       evaluation,
+      dashboard,
       observability,
       store,
     }

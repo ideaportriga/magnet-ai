@@ -9,7 +9,8 @@ div
       v-model='model',
       :options='modelOptions',
       optionLabel='display_name',
-      emit-value
+      emit-value,
+      hasDropdownSearch
     )
   q-separator.q-my-lg
   km-section(
@@ -131,7 +132,9 @@ export default {
       return (this.modelOptions ?? []).find((el) => el.model === this.$store.getters.promptTemplateVariant?.model)?.display_name
     },
     modelOptions() {
-      return (this.$store.getters['chroma/model'].items || []).filter((el) => el.type === 'prompts')
+      return (this.$store.getters['chroma/model'].items || [])
+        .filter((el) => el.type === 'prompts')
+        .sort((a, b) => a.display_name.localeCompare(b.display_name))
     },
 
     hasChanges() {

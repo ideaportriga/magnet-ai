@@ -1,9 +1,14 @@
 <template lang="pug">
 .column.q-pa-16.bg-white.fit.bl-border.height-100.fit(v-if='!!selectedRow', style='min-width: 500px; max-width: 500px')
-  .col-auto
-    .row.items-center
-      .km-heading-7.q-mb-xs Chunk details
+  .row.items-center
+    km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
+
   q-separator.q-mb-md
+  .km-heading-4.q-mb-lg Chunk details
+  //- .col-auto
+  //-   .row.items-center
+  //-     .km-heading-7.q-mb-xs Chunk details
+  //- q-separator.q-mb-md
   .col-auto(v-if='selectedRow?.source')
     .col.center-flex-y
       .km-heading-4
@@ -85,17 +90,19 @@
           km-codemirror.fit(v-model='metadata', :readonly='true')
         .col-6.q-py-8
           .km-field.text-secondary-text.q-pl-8 Created
-          km-input(:model-value='selectedRow?.metadata?.createdTime ?? "-"', :readonly='true')
+          km-input(:model-value='createdTime', :readonly='true')
         .col-6.q-py-8.q-pl-8
           .km-field.text-secondary-text.q-pl-8 Modified
-          km-input(:model-value='selectedRow?.metadata?.modifiedTime ?? "-"', :readonly='true')
+          km-input(:model-value='modifiedTime', :readonly='true')
 </template>
 <script>
 import { defineComponent, ref } from 'vue'
+import { formatDateTime } from '@shared'
 import { useChroma } from '@shared'
 
 export default defineComponent({
   props: ['selectedRow'],
+  emits: ['close'],
   setup() {
     const { selected, config, ...useDocuments } = useChroma('documents')
     return {
@@ -129,6 +136,18 @@ export default defineComponent({
       }
       return content ?? '-'
     },
+    createdTime() {
+      if (this.selectedRow?.metadata?.createdTime) {
+        return formatDateTime(this.selectedRow?.metadata?.createdTime)
+      }
+      return '-'
+    },
+    modifiedTime() {
+      if (this.selectedRow?.metadata?.modifiedTime) {
+        return formatDateTime(this.selectedRow?.metadata?.modifiedTime)
+      }
+      return '-'
+    },
     metadata() {
       if (!this.selectedRow) return '{}'
       //return JSON.stringify(this.selectedRow?.metadata, null, 2)
@@ -147,6 +166,9 @@ export default defineComponent({
     },
   },
   methods: {
+    closeDrawer() {
+      this.$emit('close')
+    },
     openDocument() {
       if (this.selectedRow && this.selectedRow?.source) {
         window.open(this.selectedRow?.source, '_blank')

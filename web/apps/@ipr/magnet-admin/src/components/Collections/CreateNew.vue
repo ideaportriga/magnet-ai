@@ -96,13 +96,13 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
             )
             .km-description.text-secondary-text.q-mt-xs.q-ml-sm Defines which chunk is used for indexing and which for retrieval.
       .column.full-width(v-if='stepper === 2')
-        .km-description.q-mt-sm.q-pl-8 Enabling both semantic search and full-text search activates hybrid search, which combines the benefits of both approaches, but will increase latency and cost of the search and the source sync.
+        .km-description.q-mt-sm.q-pl-8 Enabling both semantic search and keyword search activates hybrid search, which combines the benefits of both approaches, but will increase latency and cost of the search and the source sync.
         .col.q-pt-8.q-mt-md.q-pl-8
           .row.items-baseline
             .col-auto.q-mr-sm
               .km-field.text-secondary-text.absolute.q-ml-40 Support semantic search
-              km-toggle(v-model='supportSemanticSearch', ref='semantic_search_supportedRef', :rules='[indexingRules()]', dense)
-        .km-description.text-secondary-text.q-mt-xs.q-ml-sm Create vector embeddings to support semantic search, which allows you to search for documents based on their meaning rather than just exact matches.
+              km-toggle(v-model='supportSemanticSearch', ref='semantic_search_supportedRef', :rules='[indexingRules()]', dense, :disable='true')
+        .km-description.text-secondary-text.q-mt-xs.q-ml-sm Create vector embeddings to support semantic search, which allows you to search for documents based on their meaning rather than just exact matches. Currently, cannot be turned off.
         .col.q-pt-8.q-mt-sm(v-if='supportSemanticSearch')
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Embedding Model
           km-select(
@@ -119,9 +119,9 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
         .col.q-pt-8.q-mt-md.q-pl-8
           .row.items-baseline
             .col-auto.q-mr-sm
-              .km-field.text-secondary-text.absolute.q-ml-40 Support full-text search
-              km-toggle(v-model='supportFullTextSearch', ref='support_full_text_searchRef', :rules='[indexingRules()]', dense)
-        .km-description.text-secondary-text.q-mt-xs.q-ml-sm Toggling this option enables full-text search, which can be beneficial for some use cases. Note that full-text search capabilities depend on the underlying database configuration and may vary across different environments.
+              .km-field.text-secondary-text.absolute.q-ml-40 Support keyword search
+              km-toggle(v-model='supportKeywordSearch', ref='support_keyword_searchRef', :rules='[indexingRules()]', dense)
+        .km-description.text-secondary-text.q-mt-xs.q-ml-sm Toggling this option enables direct keyword matching, which can be beneficial for some use cases. Note that keyword search capabilities depend on the underlying database implementation.
       .column.full-width(v-if='stepper === 3')
         .km-button-xs-text.text-secondary-text Schedule sync
           q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='scheduleEnabled', ref='scheduleEnabledRef')
@@ -221,6 +221,7 @@ export default defineComponent({
       supportSemanticSearch: ref(true),
       ai_model: ref(''),
       supportFullTextSearch: ref(false),
+      supportKeywordSearch: ref(false),
 
       loadingCreate: ref(false),
       jsonError: ref(false),
@@ -312,12 +313,12 @@ export default defineComponent({
     supportSemanticSearch(newValue) {
       if (newValue) {
         this.$refs.semantic_search_supportedRef?.resetValidation()
-        this.$refs.support_full_text_searchRef?.resetValidation()
+        this.$refs.support_keyword_searchRef?.resetValidation()
       }
     },
-    supportFullTextSearch(newValue) {
+    supportKeywordSearch(newValue) {
       if (newValue) {
-        this.$refs.support_full_text_searchRef?.resetValidation()
+        this.$refs.support_keyword_searchRef?.resetValidation()
         this.$refs.semantic_search_supportedRef?.resetValidation()
       }
     },
@@ -350,7 +351,7 @@ export default defineComponent({
     },
     indexingRules() {
       return () => {
-        return this.supportSemanticSearch || this.supportFullTextSearch || 'At least one indexing option must be enabled'
+        return this.supportSemanticSearch || this.supportKeywordSearch || 'At least one indexing option must be enabled'
       }
     },
     async createNew(sync) {
@@ -376,7 +377,7 @@ export default defineComponent({
         chunkTransformationMethod,
         chunkUsageMethod,
         supportSemanticSearch,
-        supportFullTextSearch,
+        supportKeywordSearch,
       } = this
 
       const merged_metadata = {
@@ -392,8 +393,8 @@ export default defineComponent({
         ai_model,
         chunking: {
           strategy: chunkingStrategy,
-          chunk_size: chunkSize,
-          chunk_overlap: chunkOverlap,
+          chunk_size: parseInt(chunkSize),
+          chunk_overlap: parseInt(chunkOverlap),
           transformation_enabled: chunkTransformationEnabled,
           transformation_prompt_template: chunkTransformationPromptTemplate,
           transformation_method: chunkTransformationMethod,
@@ -401,7 +402,7 @@ export default defineComponent({
         },
         indexing: {
           semantic_search_supported: supportSemanticSearch,
-          fulltext_search_supported: supportFullTextSearch,
+          fulltext_search_supported: supportKeywordSearch,
         },
       }
       const { id:inserted_id } = await this.useCollection.create(JSON.stringify(merged_metadata))

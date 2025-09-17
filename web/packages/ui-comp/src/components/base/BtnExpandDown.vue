@@ -17,12 +17,12 @@
       :key='index',
       :icon='subItem.icon',
       :label='subItem.label',
-      :icon-color='subItem.path == parentRoute ? `primary` : `icon`',
+      :icon-color='parentRoute.includes(subItem.path) ? `primary` : `icon`',
       label-class='km-title',
       icon-size='16px',
       flat,
       @click='navigate(subItem.path)',
-      :bg='subItem.path == parentRoute ? `primary-bg` : ``'
+      :bg='parentRoute.includes(subItem.path) ? `primary-bg` : ``'
     )
 </template>
 
@@ -48,8 +48,9 @@ export default {
       return this.subItems.some((subItem) => subItem.path == this.parentRoute)
     },
     parentRoute() {
-      const segments = this.$route?.path?.split('/')
-      return `${segments?.[1]}`
+      return this.$route?.path
+      // const segments = this.$route?.path?.split('/')
+      // return `${segments?.[1]}`
     },
   },
   mounted() {

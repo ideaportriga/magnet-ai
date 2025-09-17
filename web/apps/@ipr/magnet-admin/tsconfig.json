@@ -9,7 +9,9 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@shared": ["../../../packages/shared/src/index.ts"],
+      "@shared/utils": ["../../../packages/shared/src/lib/utils/index.ts"]
     }
   },
   "files": [],

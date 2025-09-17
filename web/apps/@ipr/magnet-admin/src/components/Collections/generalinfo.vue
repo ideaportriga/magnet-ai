@@ -94,13 +94,13 @@
   q-separator.q-my-lg
   km-section(title='Indexing', subTitle='Configure indexing methods to optimize document retrieval and search accuracy')
     .column.q-gap-16
-      .km-description.q-mt-sm Enabling both semantic search and full-text search activates hybrid search, which combines the benefits of both approaches, but will increase latency and cost of the search and the source sync.
+      .km-description.q-mt-sm Enabling both semantic search and keyword search activates hybrid search, which combines the benefits of both approaches, but will increase latency and cost of the search and the source sync.
       .col
         .row.items-baseline
           .col-auto.q-mr-sm
-            q-toggle(v-model='supportSemanticSearch', dense, :disable='isDisable')
+            q-toggle(v-model='supportSemanticSearch', dense, :disable='true')
           .col Support semantic search
-        .km-description.text-secondary-text.q-mt-sm Create vector embeddings to support semantic search, which allows you to search for documents based on their meaning rather than just exact matches.
+        .km-description.text-secondary-text.q-mt-sm Create vector embeddings to support semantic search, which allows you to search for documents based on their meaning rather than just exact matches. Currently, cannot be turned off.
       .col(v-if='supportSemanticSearch')
         .km-input-label.q-pb-xs Embedding model
         km-select(
@@ -116,9 +116,9 @@
       .col.q-mt-sm
         .row.items-baseline
           .col-auto.q-mr-sm
-            q-toggle(v-model='supportFullTextSearch', dense)
-          .col Support full-text search
-        .km-description.text-secondary-text.q-mt-sm Toggling this option enables full-text search, which can be beneficial for some use cases. Note that full-text search capabilities depend on the underlying database configuration and may vary across different environments.
+            q-toggle(v-model='supportKeywordSearch', dense)
+          .col Support keyword search
+        .km-description.text-secondary-text.q-mt-sm Toggling this option enables direct keyword matching, which can be beneficial for some use cases. Note that keyword search capabilities depend on the underlying database implementation.
 </template>
 
 <script>
@@ -181,7 +181,7 @@ export default {
         return this.$store.getters.knowledge?.chunking?.chunk_size || ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { chunking: { chunk_size: value } })
+        this.$store.dispatch('updateKnowledge', { chunking: { chunk_size: parseInt(value) } })
       },
     },
     chunkOverlap: {
@@ -189,7 +189,7 @@ export default {
         return this.$store.getters.knowledge?.chunking?.chunk_overlap || ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { chunking: { chunk_overlap: value } })
+        this.$store.dispatch('updateKnowledge', { chunking: { chunk_overlap: parseInt(value) } })
       },
     },
     chunkTransformationEnabled: {
@@ -258,7 +258,7 @@ export default {
     embeddingModelOptions() {
       return (this.$store.getters['chroma/model'].items || []).filter((el) => el.type === 'embeddings')
     },
-    supportFullTextSearch: {
+    supportKeywordSearch: {
       get() {
         return this.$store.getters.knowledge?.indexing?.fulltext_search_supported || false
       },

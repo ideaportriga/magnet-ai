@@ -1,6 +1,6 @@
 <template lang="pug">
 .km-title.text-lef.ellipsis {{ row?.name }}
-.km-field.text-left.ellipsis {{ row?.description }}
+.km-field.text-left.ellipsis.description-1 {{ row?.description }}
 </template>
 
 <script>
@@ -14,3 +14,14 @@ export default defineComponent({
   },
 })
 </script>
+
+<style lang="stylus" scoped>
+.description-1
+  white-space: normal
+  overflow: hidden
+  text-overflow: ellipsis
+  text-wrap: auto !important
+  display: -webkit-box
+  -webkit-line-clamp: 1
+  -webkit-box-orient: vertical
+</style>

@@ -42,8 +42,8 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         assistant-tools-header
       template(v-if='route.name === "ModelItems"')
         model-config-header
-      template(v-if='route.name === "ApiToolsDetails"')
-        api-tools-header
+      //- template(v-if='route.name === "ApiToolsDetails"')
+      //-   api-tools-header
       template(v-if='route.name === "AgentDetail" || route.name == "AgentTopicDetail" || route.name == "AgentTopicActionDetail"')
         agents-header
       template(v-if='route.name === "ObservabilityTracesDetail"')
@@ -52,6 +52,8 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         conversation-header
       template(v-if='route.name === "McpDetail"')
         mcp-header
+      template(v-if='route.name === "ApiServersDetail" || route.name === "ApiToolsDetails"')
+        api-servers-header
   q-drawer.bg-primary.text-white(v-model='drawerLeft', show-if-above, :width='200', :breakpoint='1350')
     toolbar
 
@@ -94,6 +96,7 @@ export default {
     showBackButton() {
       if (this.route.name === 'Conversation') return false
       if (this.route.name === 'McpToolsDetail') return false
+      if (this.route.name === 'EvaluationCompare') return true
       if (this.route.params.id) return true
       return false
     },
@@ -108,6 +111,9 @@ export default {
       if (segments[1] === 'observability') {
         //return `/${segments[1]}`
         return `/${segments[1]}/${segments[2]}`
+      }
+      if (segments[1] === 'evaluation') {
+        return `/evaluation-jobs`
       }
       return `/${segments[1]}`
     },
@@ -158,9 +164,6 @@ export default {
         if (this.routeChromaEntity === 'promptTemplates') {
           this.$store.commit('revertPromptTemplateChanges')
         }
-        if (this.routeChromaEntity === 'api_tools') {
-          this.$store.commit('revertApiToolChanges')
-        }
 
         if (this.routeChromaEntity === 'agents') {
           this.$store.commit('revertAgentDetailChanges')
@@ -194,10 +197,6 @@ export default {
         await this.$store.dispatch('savePromptTemplate')
       }
 
-      if (this.routeChromaEntity === 'api_tools') {
-        await this.$store.dispatch('saveApiTool')
-      }
-
       if (this.routeChromaEntity === 'agents') {
         this.$store.dispatch('saveAgentDetail')
       }
@@ -208,6 +207,10 @@ export default {
 
       if (this.routeChromaEntity === 'mcp_servers') {
         this.$store.dispatch('saveMcpServer')
+      }
+
+      if (this.routeChromaEntity === 'api_servers') {
+        this.$store.dispatch('saveApiServer')
       }
 
       if (this.nextRoute) {

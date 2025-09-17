@@ -24,7 +24,7 @@
               q-space
               .col-auto.center-flex-y
                 km-btn.q-mr-12(label='New', @click='openNewDetails')
-            .row
+            .row(style='width: 1200px; margin: 0 auto')
               km-table(
                 @selectRow='openDetails',
                 selection='single',
@@ -36,7 +36,8 @@
                 style='min-width: 1100px',
                 :pagination='pagination',
                 binary-state-sort,
-                ref='table'
+                ref='table',
+                :sort-method='customSort'
               )
     model-config-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', :type='tab', v-if='showNewDialog')
 </template>
@@ -149,6 +150,29 @@ export default {
     this.searchString = ''
   },
   methods: {
+    customSort(rows, sortBy, descending) {
+      console.log('sort', rows, sortBy, descending)
+      const sortedRows = rows.sort((a, b) => {
+        if (a.is_default) return -1
+        if (b.is_default) return 1
+        if (sortBy === 'is_default') return 0
+        const col = this.columns.find((col) => col.name === sortBy)
+        const a_field = typeof col?.field === 'function' ? col?.field?.(a) : a[col.field]
+        const b_field = typeof col?.field === 'function' ? col?.field?.(b) : b[col.field]
+        if (col.sort) {
+          console.log('has sort f', col.sort)
+          if (!descending) return col.sort(b_field, a_field)
+          return col.sort(a_field, b_field)
+        }
+        console.log('no sort function', a[sortBy], b[sortBy], a_field, b_field)
+        const aStr = String(a_field ?? '')
+        const bStr = String(b_field ?? '')
+        if (!descending) return bStr.localeCompare(aStr)
+        return aStr.localeCompare(bStr)
+      })
+
+      return sortedRows
+    },
     async openNewDetails() {
       this.showNewDialog = true
     },

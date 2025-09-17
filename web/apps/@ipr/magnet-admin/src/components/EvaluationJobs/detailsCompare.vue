@@ -2,45 +2,29 @@
 .row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
   q-inner-loading(:showing='loading')
     q-spinner-gears(size='50px', color='primary')
-.row.no-wrap.overflow-hidden.full-height(v-else, style='min-width: 1200px')
-  .col.row.no-wrap.full-height.justify-center.fit
-    .col(style='max-width: 1200px; min-width: 600px')
-      .full-height.q-pb-md.relative-position.q-px-md
-        .row.items-center.q-gap-12.no-wrap.full-width.q-my-md
-          km-btn(dense, flat, @click='navigate(`/evaluation-jobs`)')
-            .row.items-center.q-gap-12.no-wrap.full-width
-              q-icon.col-auto(name='fas fa-chevron-left', color='secondary') 
-              .col Back to Evaluation List
-        .row.q-gap-12.no-wrap.full-width.q-mb-sm.items-center
+layouts-details-layout.q-mx-auto(v-else, noHeader)
+  template(#breadcrumbs)
+    .column.q-px-16.q-mb-16
+      .col.items-center
+        .row.q-gap-12.no-wrap.items-baseline
           .col-auto
-            .column
-              .col.items-center
-                .row.q-gap-12.no-wrap.items-baseline
-                  .col-auto
-                    .km-field.text-secondary-text Evaluated tool:
-                  .col-auto
-                    .km-heading-3.q-mr-sm {{ evaluation_list?.[0]?.tool?.name }}
-              .col
-                .row.q-gap-12.no-wrap.items-baseline
-                  .col-auto
-                    .km-field.text-secondary-text Test set:
-                  .col-auto
-                    .km-heading-3.q-mr-sm {{ evaluation_list?.[0]?.test_sets?.[0] }}
-          .col.q-ml-md
-            q-chip.km-small-chip(
-              color='in-progress',
-              text-color='text-gray',
-              :label='evaluation_list?.[0]?.type === "prompt_eval" ? "Prompt Template" : "RAG"'
-            )
-        .column.no-wrap.q-gap-16.full-height.full-width.overflow-hidden.q-my-md(style='height: calc(100vh - 256px) !important')
-          .row.q-gap-16.full-height.full-width
-            .col.full-height.full-width
-              .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-                evaluation-jobs-records-compare(@record:update='evaluationSetRecord', :input='evalInuptList[evalInputIndex]')
-
-  .col-auto
+            .km-field.text-secondary-text Evaluated tool:
+          .col-auto
+            .km-heading-3.q-mr-sm {{ evaluation_list?.[0]?.tool?.name }}
+      .col
+        .row.q-gap-12.no-wrap.items-baseline
+          .col-auto
+            .km-field.text-secondary-text Test set:
+          .col-auto
+            .km-heading-3.q-mr-sm {{ evaluation_list?.[0]?.test_sets?.[0] }}
+  template(#content)
+    .column.items-center.full-height.full-width.q-gap-16.overflow-auto.q-pt-16
+      .col-auto.full-width
+        template(v-if='tab == "records"')
+          evaluation-jobs-records-compare(@record:update='evaluationSetRecord', :input='evalInuptList[evalInputIndex]')
+  template(#drawer)
     evaluation-jobs-drawer(v-if='openDrawer', :open='openDrawer')
-  configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
+configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
 </template>
 
 <script>

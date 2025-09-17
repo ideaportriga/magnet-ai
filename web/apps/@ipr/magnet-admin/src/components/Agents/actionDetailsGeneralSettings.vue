@@ -36,12 +36,12 @@ export default {
   setup() {
     const { items: promptTemplateItems } = useChroma('promptTemplates')
     const { items: ragItems } = useChroma('rag_tools')
-    const { items: agentItems } = useChroma('api_tools')
+    const { items: apiServers } = useChroma('api_servers')
 
     return {
       promptTemplateItems,
       ragItems,
-      agentItems,
+      apiServers,
     }
   },
   computed: {
@@ -173,7 +173,12 @@ export default {
         } else if (this.action?.type === 'rag') {
           return this.ragItems.find((item) => item.system_name === this.action?.tool_system_name)
         } else if (this.action?.type === 'api') {
-          return this.agentItems.find((item) => item.system_name === this.action?.tool_system_name)
+          const server = this.apiServers.find((item) => item.system_name === this.action?.tool_provider)
+          const tool = server?.tools?.find((item) => item.system_name === this.action?.tool_system_name)
+          return {
+            ...tool,
+            server_id: server?.id,
+          }
         }
 
         return {}
@@ -190,7 +195,7 @@ export default {
       } else if (this.action?.type === 'rag') {
         this.navigate(`rag-tools/${this.tool_object?.id}`)
       } else if (this.action?.type === 'api') {
-        this.navigate(`api-tools/${this.tool_object?.id}`)
+        this.navigate(`api-servers/${this.tool_object?.server_id}/tools/${this.tool_object?.id}`)
       }
     },
     getToolTypeLabel(name) {

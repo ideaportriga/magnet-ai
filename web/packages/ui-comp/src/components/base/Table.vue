@@ -13,6 +13,7 @@ q-table.full-width(
   title-class='text-left',
   ref='table',
   :dense='dense',
+  :sort-method='sortMethod',
   v-bind='mergedAttrs'
 )
   template(v-slot:header='props')
@@ -69,6 +70,11 @@ export default defineComponent({
       type: Boolean,
       default: false,
     },
+    sortMethod: {
+      type: Function,
+      default: undefined
+      ,
+    },
   },
   emits: ['selectRow', 'cellAction'],
   computed: {
@@ -98,10 +104,10 @@ export default defineComponent({
     },
     requestServerInteraction(...args) {
       if (this.$refs.table && typeof this.$refs.table.requestServerInteraction === 'function') {
-        return this.$refs.table.requestServerInteraction(...args);
+        return this.$refs.table.requestServerInteraction(...args)
       }
-      console.warn("Inner <q-table> doesn't have requestServerInteraction or is not yet mounted");
-      return Promise.resolve(); // Return a resolved promise instead of undefined
+      console.warn("Inner <q-table> doesn't have requestServerInteraction or is not yet mounted")
+      return Promise.resolve() // Return a resolved promise instead of undefined
     },
   },
 })

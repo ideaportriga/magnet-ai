@@ -12,7 +12,7 @@ div(style='min-width: 300px')
       v-model:selected='selected',
       :columns='columns',
       :rows='filteredEvaluationSetItems ?? []',
-      :pagination='evaluationRecord',
+      :pagination='pagination',
       binary-state-sort
     )
 </template>
@@ -29,6 +29,11 @@ export default {
       selected: ref([]),
       evaluationRecord,
       searchString: ref(''),
+      pagination: ref({
+        rowsPerPage: 10,
+        sortBy: 'user_message',
+        descending: false,
+      }),
     }
   },
   computed: {

@@ -25,13 +25,17 @@ template(v-else)
 <script>
 export default {
   props: {
-    type: String,
-    label: String,
-    value: null,
+    label: {
+      type: String,
+      default: 'none',
+    },
+    value: {
+      type: [Object, Array],
+      default: null,
+    },
   },
   computed: {
     computedType() {
-      if (this.type) return this.type.toLowerCase()
       if (!this.value) return 'none'
 
       // Try to guess the type from the value

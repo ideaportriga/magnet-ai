@@ -145,7 +145,7 @@ const controls = {
 
   max_score: {
     name: 'max_score',
-    label: 'Max score',
+    label: 'Max avg. score',
     type: 'component',
     component: markRaw(MaxScore),
     display: true,

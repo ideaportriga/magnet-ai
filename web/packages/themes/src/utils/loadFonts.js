@@ -31,24 +31,24 @@ const config = {
     ],
     styles: [() => import(`../base/assets/css/material-icons.css`)],
   },
-  'Font Awesome 6': {
+  'Font Awesome': {
     fonts: [
       {
-        name: 'Font Awesome 6 Brands',
+        name: 'Font Awesome Brands',
         loadUrl: () => import(`../base/assets/fonts/fa/fa-brands-400.woff2`),
         props: {
           weight: '400',
         },
       },
       {
-        name: 'Font Awesome 6 Free',
+        name: 'Font Awesome Free',
         loadUrl: () => import(`../base/assets/fonts/fa/fa-regular-400.woff2`),
         props: {
           weight: '400',
         },
       },
       {
-        name: 'Font Awesome 6 Free',
+        name: 'Font Awesome Free',
         loadUrl: () => import(`../base/assets/fonts/fa/fa-solid-900.woff2`),
         props: {
           weight: '900',

@@ -22,9 +22,15 @@ const getters = {
   isCancelAvailable(state, getters) {
     return !getters.ai_app?._metadata
   },
-  getTabBySystemName: (state) => (system_name) => {
-    return state.ai_app?.tabs?.find((tab) => tab.system_name === system_name)
-  },
+  getTabBySystemName:
+    (state) =>
+    (system_name, child_system_name = null) => {
+      const tab = state.ai_app.tabs.find((el) => el.system_name === system_name)
+      if (child_system_name) {
+        return tab.children?.find((el) => el.system_name === child_system_name)
+      }
+      return tab
+    },
 }
 
 // mutations
@@ -63,11 +69,16 @@ const mutations = {
       return el
     })
   },
-  updateAIAppTabProperty(state, { system_name, newProperties }) {
+  updateAIAppTabProperty(state, { system_name, child_system_name = null, newProperties }) {
     console.log('updateAIAppTabProperty', system_name, newProperties)
     const tab = state.ai_app.tabs.find((el) => el.system_name === system_name)
     if (tab) {
-      Object.assign(tab, newProperties)
+      if (child_system_name) {
+        const child = tab.children.find((el) => el.system_name === child_system_name)
+        Object.assign(child, newProperties)
+      } else {
+        Object.assign(tab, newProperties)
+      }
     }
   },
   setAIApp(state, payload) {

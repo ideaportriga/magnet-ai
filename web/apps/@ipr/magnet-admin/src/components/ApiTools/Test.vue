@@ -14,13 +14,14 @@
     .column.q-gap-4.q-mb-16(v-else)
       km-codemirror(v-model='jsonString[form.title]', :style='{ minHeight: "150px" }', :options='{ mode: "application/json" }', language='json')
   .row.justify-end.bb-border.full-width
-    q-btn.q-my-6.border-radius-6(color='primary', @click='testApiTool', unelevated, padding='7px 8px')
+    q-btn.q-my-6.border-radius-6(color='primary', @click='testApiTool', unelevated, padding='7px 8px', :disable='processing')
       template(v-slot:default)
         q-icon(name='fas fa-paper-plane', size='16px')
+
   .col-auto.q-mt-lg
     .row.items-center.justify-between
       .km-heading-7.q-mb-xs Outputs
-    .column.q-gap-4
+    .column.q-gap-4(v-if='response')
       km-codemirror(
         v-if='response',
         v-model='response',
@@ -29,6 +30,9 @@
         language='json',
         readonly
       )
+    template(v-if='!response && processing')
+      .column.justify-center.items-center
+        q-spinner-dots(size='62px', color='primary')
 </template>
 <script>
 import { ref } from 'vue'
@@ -42,17 +46,16 @@ export default {
       jsonMode: ref(true),
       jsonString: ref({}),
       response: ref(null),
+      processing: ref(false),
     }
   },
   computed: {
     apiTool() {
-      return this.$store.getters.api_tool ?? {}
+      return this.$store.getters.toolByName(this.$route.params.name)
     },
-    apiToolVariant() {
-      return this.$store.getters.api_tool_variant ?? {}
-    },
+
     properties() {
-      return this.apiToolVariant?.value?.parameters?.input?.properties ?? {}
+      return this.apiTool?.parameters?.input?.properties ?? {}
     },
     sections() {
       return Object.keys(this.properties ?? {})
@@ -68,12 +71,8 @@ export default {
     },
     requestFromJson() {
       return {
-        api_tool_config: {
-          api_provider: this.apiTool.api_provider,
-          path: this.apiTool.path,
-          method: this.apiTool.method,
-          mock: this.apiTool.mock,
-        },
+        tool: this.apiTool.system_name,
+        variables: null,
         input_params: {
           queryParams: JSON.parse(this.jsonString.queryParams ?? '{}'),
           requestBody: JSON.parse(this.jsonString.requestBody ?? '{}'),
@@ -185,8 +184,16 @@ export default {
       }
     },
     async testApiTool() {
-      const res = await this.$store.dispatch('testApiTool', this.requestFromJson)
-      this.response = JSON.stringify(JSON.parse(res.content), null, 2)
+      try {
+        this.processing = true
+        this.response = null
+        const res = await this.$store.dispatch('testServerApiTool', this.requestFromJson)
+        this.response = JSON.stringify(JSON.parse(res), null, 2)
+      } catch (error) {
+        console.error(error)
+      } finally {
+        this.processing = false
+      }
     },
   },
 }

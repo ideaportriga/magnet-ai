@@ -21,12 +21,12 @@ export default {
   },
   emits: ['select'],
   setup() {
-    const { items: agentItems } = useChroma('api_tools')
+    const { items: apiServers } = useChroma('api_servers')
     const { items: mcpItems } = useChroma('mcp_servers')
 
     return {
       searchString: ref(''),
-      agentItems,
+      apiServers,
       mcpItems,
     }
   },
@@ -54,15 +54,18 @@ export default {
           const server = this.mcpItems.find((item) => item.system_name === this.action?.tool_provider)
           return server?.tools?.find((tool) => tool.name === this.action?.tool_system_name)
         }
-        return this.agentItems.find((item) => item.system_name === this.action?.tool_system_name)
+        const server = this.apiServers.find((item) => item.system_name === this.action?.tool_provider)
+        return server?.tools?.find((item) => item.system_name === this.action?.tool_system_name)
       },
     },
     activeVariant() {
       if (this.action?.type === 'mcp_tool') return this.tool_object
+      if (this.action?.type === 'api') return this.tool_object
       return this.tool_object?.variants?.find((variant) => variant.variant === this.tool_object?.active_variant)
     },
     parameters() {
       if (this.action?.type === 'mcp_tool') return this.tool_object?.inputSchema?.properties
+      if (this.action?.type === 'api') return this.tool_object?.parameters?.input?.properties
       return this.activeVariant?.value?.parameters.input.properties
     },
     rows() {
