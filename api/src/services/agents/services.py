@@ -1,5 +1,4 @@
 import json
-from math import log
 import os
 import uuid
 from logging import getLogger
@@ -14,6 +13,17 @@ from openai.types.chat import (
     ChatCompletionToolParam,
 )
 
+from core.config.app import alchemy
+from core.domain.agents.service import AgentsService
+from core.domain.api_servers.schemas import ApiTool as ApiToolSchema
+from core.domain.api_servers.service import ApiServersService
+from core.domain.collections.schemas import Collection as CollectionSchema
+from core.domain.collections.service import CollectionsService
+from core.domain.mcp_servers.service import MCPServersService
+from core.domain.rag_tools.schemas import RagTool as RagToolSchema
+from core.domain.rag_tools.service import RagToolsService
+from core.domain.retrieval_tools.schemas import RetrievalTool as RetrievalToolSchema
+from core.domain.retrieval_tools.service import RetrievalToolsService
 from open_ai.utils_new import create_chat_completion_from_prompt_template
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
 from services.agents.actions.execute import execute_agent_action
@@ -44,17 +54,9 @@ from services.agents.models import (
     AgentVariantValue,
     ConversationIntent,
 )
-from services.api_tools.types import ApiTool
 from services.mcp_servers.types import McpServerConfig
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
-from core.config.app import alchemy
-from core.domain.agents.service import AgentsService
-from core.domain.api_tools.service import ApiToolsService
-from core.domain.api_tools.schemas import ApiTool as ApiToolSchema
-from core.domain.mcp_servers.service import MCPServersService
-from core.domain.mcp_servers.schemas import MCPServer as MCPServerSchema
-
 from utils.datetime_utils import utc_now
 
 logger = getLogger(__name__)
@@ -127,6 +129,8 @@ async def execute_agent(
         )
 
         run.steps.extend(action_call_steps)
+
+        assert topic, "Topic is not defined"
 
     # Experimental feature
     elif prompt_templates.classification == CLASSIFICATION_PROMPT_TEMPLATE_PASS:
@@ -289,8 +293,6 @@ async def execute_topic(
     actions_by_function_name = {action.function_name: action for action in actions}
     tools = await create_chat_completion_tools(topic.actions)
 
-    # TODO - REMOVE print
-    print(json.dumps(tools, indent=2))
     prompt_template_config = await get_prompt_template_by_system_name_flat(
         prompt_template_system_name=prompt_template,
     )
@@ -393,6 +395,24 @@ async def execute_topic(
 
             steps.append(action_call_step)
 
+        # Experimental feature. Allows to skip topic processing and use action response as assistant message.
+        if (
+            len(action_call_requests) == 1
+            and action_call_requests[0].use_response_as_assistant_message
+        ):
+            action_call_step = steps[-1]
+            assert isinstance(
+                action_call_step, AgentConversationRunStepTopicActionCall
+            ), "Last step must be an action call step"
+            action_call_response_content = action_call_step.details.response.content
+
+            assistant_message.content = action_call_response_content
+            result = AgentConversationExecuteTopicResult(
+                content=action_call_response_content,
+                steps=steps,
+            )
+            return result
+
     raise ValueError("Max iteration count reached")
 
 
@@ -432,6 +452,7 @@ def create_action_call_requests(
                 action_display_name=action.display_name,
                 action_display_description=action.display_description,
                 requires_confirmation=action.requires_confirmation,
+                use_response_as_assistant_message=action.use_response_as_assistant_message,
                 action_message=arguments.get(
                     ACTION_MESSAGE_ARGUMENT_NAME,
                     action.display_name,
@@ -450,10 +471,10 @@ async def create_chat_completion_tools(
     chat_completion_tools: list[ChatCompletionToolParam] = []
 
     api_actions = [action for action in actions if action.type == AgentActionType.API]
-    api_tools_by_system_name: dict[str, ApiTool] = {}
+    api_servers_by_system_name: dict[str, ApiToolSchema] = {}
 
     if api_actions:
-        api_tools_by_system_name = await get_api_tools_by_system_name(api_actions)
+        api_servers_by_system_name = await get_api_servers_by_system_name(api_actions)
 
     mcp_tool_actions = [
         action for action in actions if action.type == AgentActionType.MCP_TOOL
@@ -466,9 +487,9 @@ async def create_chat_completion_tools(
         )
 
     for action in actions:
-        chat_completion_tool = create_chat_completion_tool(
+        chat_completion_tool = await create_chat_completion_tool(
             action=action,
-            api_tools_by_system_name=api_tools_by_system_name,
+            api_servers_by_system_name=api_servers_by_system_name,
             mcp_servers_by_system_name=mcp_servers_by_system_name,
         )
 
@@ -477,17 +498,17 @@ async def create_chat_completion_tools(
     return chat_completion_tools
 
 
-def create_chat_completion_tool(
+async def create_chat_completion_tool(
     action: AgentAction,
-    api_tools_by_system_name: dict[str, ApiTool],
+    api_servers_by_system_name: dict[str, ApiToolSchema],
     mcp_servers_by_system_name: dict[str, McpServerConfig],
 ) -> ChatCompletionToolParam:
     function_name = action.function_name
-    function_description = action.function_description
+    function_description = action.function_description or ""
 
-    parameters = create_chat_completion_tool_parameters(
+    parameters = await create_chat_completion_tool_parameters(
         action=action,
-        api_tools_by_system_name=api_tools_by_system_name,
+        api_servers_by_system_name=api_servers_by_system_name,
         mcp_servers_by_system_name=mcp_servers_by_system_name,
     )
 
@@ -510,17 +531,20 @@ def create_chat_completion_tool(
     return chat_completion_tool
 
 
-def create_chat_completion_tool_parameters(
+async def create_chat_completion_tool_parameters(
     action: AgentAction,
-    api_tools_by_system_name: dict[str, ApiTool],
+    api_servers_by_system_name: dict[str, ApiToolSchema],
     mcp_servers_by_system_name: dict[str, McpServerConfig],
 ) -> dict:
     match action.type:
         case AgentActionType.API:
-            api_tool = api_tools_by_system_name[action.tool_system_name]
-            assert api_tool, "API tool not found"
+            assert action.tool_system_name, "API tool system name is not set"
+            api_tool = api_servers_by_system_name.get(action.tool_system_name)
 
-            return api_tool.active_variant_value.parameters.input
+            assert api_tool, "API tool not found"
+            assert api_tool.parameters, "API tool parameters are not defined"
+
+            return api_tool.parameters.input
 
         # Experimental feature
         case AgentActionType.MCP_TOOL:
@@ -546,12 +570,25 @@ def create_chat_completion_tool_parameters(
             return mcp_server_tool.inputSchema
 
         case AgentActionType.RAG | AgentActionType.RETRIEVAL:
+            if action.type == AgentActionType.RAG:
+                field_list = await get_metadata_fields_from_rag_tool(
+                    action.tool_system_name
+                )
+            else:
+                field_list = await get_metadata_fields_from_retrieval_tool(
+                    action.tool_system_name
+                )
+
             return {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "User's query",
+                        "description": "Rephrased user query, without any filtering. This query will be used for vector search, so do not apply keyword approach.",
+                    },
+                    "metadata_filter": {
+                        "type": "string",
+                        "description": f"MongoDB-like filter object, that is used to narrow down knowledge source chunks. List of available operators: $and, $or, $eq, $ne, $in. Top level operator should be either $and or $or. List of fields, that can be used in filter:\n{'\n'.join(field_list)}",
                     },
                 },
                 "required": ["query"],
@@ -573,26 +610,33 @@ def create_chat_completion_tool_parameters(
             raise ValueError(f"Unknown action type - {action.type}")
 
 
-async def get_api_tools_by_system_name(
+async def get_api_servers_by_system_name(
     api_actions: list[AgentAction],
-) -> dict[str, ApiTool]:
+) -> dict[str, ApiToolSchema]:
     api_action_tool_system_names = [action.tool_system_name for action in api_actions]
-    
-    async with alchemy.get_session() as session:
-        service = ApiToolsService(session=session)
-        api_tools = await service.list(
-            system_name__in=api_action_tool_system_names, 
-        )
-        
-        api_tools_entities = [service.to_schema(tool, schema_type=ApiTool) for tool in api_tools]
-        # Get each API tool by system_name
 
+    async with alchemy.get_session() as session:
+        service = ApiServersService(session=session)
+        api_servers = await service.list()
+
+        # Extract all tools from all API servers
+        api_tools_entities = []
+        for server in api_servers:
+            server_schema = service.to_schema(server)
+            if server_schema.tools:
+                api_tools_entities.extend(server_schema.tools)
+
+        # Get each API tool by system_name for direct access
         api_tools_by_system_name = {
-            api_tool.system_name: api_tool for api_tool in api_tools_entities
+            api_tool.system_name: api_tool
+            for api_tool in api_tools_entities
+            if api_tool.system_name in api_action_tool_system_names
         }
 
         if len(api_tools_by_system_name) != len(api_action_tool_system_names):
-            missing_tools = set(api_action_tool_system_names) - set(api_tools_by_system_name.keys())
+            missing_tools = set(api_action_tool_system_names) - set(
+                api_tools_by_system_name.keys()
+            )
             raise LookupError(f"API tools not found for system names: {missing_tools}")
 
     return api_tools_by_system_name
@@ -602,17 +646,24 @@ async def get_mcp_servers_by_system_name(
     mcp_tool_actions: list[AgentAction],
 ) -> dict[str, McpServerConfig]:
     mcp_server_names = list({action.tool_provider for action in mcp_tool_actions})
-    
+
     async with alchemy.get_session() as session:
         service = MCPServersService(session=session)
         mcp_servers = await service.list(
             system_name__in=mcp_server_names,
         )
-        mcp_servers_entities = [service.to_schema(server, schema_type=McpServerConfig) for server in mcp_servers]
+        mcp_servers_entities = [
+            service.to_schema(server, schema_type=McpServerConfig)
+            for server in mcp_servers
+        ]
 
         if len(mcp_servers_entities) != len(mcp_server_names):
-            missing_servers = set(mcp_server_names) - {server.system_name for server in mcp_servers_entities}
-            raise LookupError(f"MCP servers not found for system names: {missing_servers}")
+            missing_servers = set(mcp_server_names) - {
+                server.system_name for server in mcp_servers_entities
+            }
+            raise LookupError(
+                f"MCP servers not found for system names: {missing_servers}"
+            )
         # Get each MCP server by system_name
 
         mcp_servers_by_system_name = {
@@ -620,6 +671,102 @@ async def get_mcp_servers_by_system_name(
         }
 
         return mcp_servers_by_system_name
+
+
+async def get_metadata_fields_from_rag_tool(system_name: str):
+    async with alchemy.get_session() as session:
+        rag_service = RagToolsService(session=session)
+        rag_tool_entity = await rag_service.get_one_or_none(system_name=system_name)
+
+        if not rag_tool_entity:
+            return []
+
+        rag_tool = rag_service.to_schema(rag_tool_entity, schema_type=RagToolSchema)
+        rag_tool_dict = rag_tool.model_dump()
+
+        active_variant_name = rag_tool_dict.get("active_variant")
+        active_variant = next(
+            (
+                variant
+                for variant in rag_tool_dict.get("variants", [])
+                if variant.get("variant") == active_variant_name
+            ),
+            {},
+        )
+        if not active_variant:
+            return []
+
+        knowledge_sources = active_variant.get("retrieve", {}).get(
+            "collection_system_names", []
+        )
+
+        collections_service = CollectionsService(session=session)
+        collections_entities = await collections_service.list(
+            system_name__in=knowledge_sources
+        )
+
+        metadata_fields = {}
+        for knowledge_source_entity in collections_entities:
+            knowledge_source = collections_service.to_schema(
+                knowledge_source_entity, schema_type=CollectionSchema
+            )
+            knowledge_source_dict = knowledge_source.model_dump()
+
+            knowledge_source_metadata_fields = [
+                config
+                for config in knowledge_source_dict.get("metadata_config", [])
+                if config.get("enabled")
+            ]
+            for field in knowledge_source_metadata_fields:
+                metadata_fields[field.get("name")] = (
+                    f"- {field.get('name')}:{field.get('description')}"
+                )
+
+        return metadata_fields
+
+
+async def get_metadata_fields_from_retrieval_tool(system_name: str):
+    async with alchemy.get_session() as session:
+        retrieval_service = RetrievalToolsService(session=session)
+        retrieval_tool_entity = await retrieval_service.get_one_or_none(
+            system_name=system_name
+        )
+
+        if not retrieval_tool_entity:
+            return []
+
+        retrieval_tool = retrieval_service.to_schema(
+            retrieval_tool_entity, schema_type=RetrievalToolSchema
+        )
+        retrieval_tool_dict = retrieval_tool.model_dump()
+
+        knowledge_sources = retrieval_tool_dict.get("retrieve", {}).get(
+            "collection_system_names", []
+        )
+
+        collections_service = CollectionsService(session=session)
+        collections_entities = await collections_service.list(
+            system_name__in=knowledge_sources
+        )
+
+        metadata_fields = {}
+        for knowledge_source_entity in collections_entities:
+            knowledge_source = collections_service.to_schema(
+                knowledge_source_entity, schema_type=CollectionSchema
+            )
+            knowledge_source_dict = knowledge_source.model_dump()
+
+            knowledge_source_metadata_fields = [
+                config
+                for config in knowledge_source_dict.get("metadata_config", [])
+                if config.get("enabled")
+            ]
+            for field in knowledge_source_metadata_fields:
+                metadata_fields[field.get("name")] = (
+                    f"- {field.get('name')}:{field.get('description')}"
+                )
+
+        return metadata_fields
 
 
 def generate_completion_messages(
@@ -713,16 +860,15 @@ def create_tool_calls_from_topic_completion_step(
 
 
 async def get_agent_by_system_name(system_name: str) -> Agent:
-    
     async with alchemy.get_session() as session:
         service = AgentsService(session=session)
         agent_entity = await service.get_one_or_none(system_name=system_name)
-        
+
         if not agent_entity:
             raise LookupError(f"Agent with system_name '{system_name}' not found")
 
         agent_schema = service.to_schema(agent_entity, schema_type=Agent)
-        
+
         # Convert schema to models Agent
         # agent = Agent.model_validate(agent_schema.model_dump())
 

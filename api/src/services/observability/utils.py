@@ -1,8 +1,7 @@
-import json
 from asyncio.log import logger
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Dict, Tuple, Unpack
+from typing import Any, Dict, Unpack
 
 from openai.types.completion_usage import CompletionUsage
 from opentelemetry.trace import format_trace_id
@@ -18,7 +17,6 @@ from services.observability.models import (
     UsageInputDetails,
     UsageOutputDetails,
 )
-from utils.serializer import DefaultMongoDbSerializer
 
 
 @dataclass
@@ -69,12 +67,6 @@ def get_duration(
     if start_time is None or end_time is None:
         return None
     return (end_time - start_time).total_seconds() * 1000
-
-
-def get_input_from_func_args(func_args: Tuple = (), func_kwargs: Dict = {}):
-    # Serialize and deserialize to ensure proper JSON serialization.
-    # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
-    return json.loads(json.dumps(func_kwargs, cls=DefaultMongoDbSerializer))
 
 
 def extract_x_attributes_from_request(args, kwargs) -> Dict[str, Any]:

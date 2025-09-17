@@ -1,37 +1,38 @@
-import os
-
 import aiohttp
 from aiohttp import BasicAuth
 
-env = os.environ
-TEMP_ASSISTANT_SKIP_SSL_VERIFICATION = (
-    env.get("TEMP_ASSISTANT_SKIP_SSL_VERIFICATION") == "true"
-)
+from services.api_servers.types import ApiServerConfigWithSecrets
+from utils.secrets import replace_placeholders_in_dict
 
 
-async def create_api_client(
-    security_schema: dict | None,
-    auth_params: dict,
+async def create_api_client_session(
+    api_server: ApiServerConfigWithSecrets,
 ) -> aiohttp.ClientSession:
-    if not security_schema:
+    security_scheme = api_server.security_scheme
+
+    if not security_scheme:
         session = aiohttp.ClientSession(
-            connector=aiohttp.TCPConnector(
-                verify_ssl=not TEMP_ASSISTANT_SKIP_SSL_VERIFICATION
-            ),
+            connector=aiohttp.TCPConnector(verify_ssl=api_server.verify_ssl),
         )
         return session
 
-    type = security_schema.get("type")
+    assert api_server.security_values, "Security values are not provided for API server"
+
+    security_values = replace_placeholders_in_dict(
+        api_server.security_values, api_server.secrets or {}
+    )
+
+    type = security_scheme.get("type")
 
     match type:
         case "oauth2":
             token_url = (
-                security_schema.get("flows", {})
+                security_scheme.get("flows", {})
                 .get("clientCredentials", {})
                 .get("tokenUrl")
             )
-            client_id = auth_params.get("client_id")
-            client_secret = auth_params.get("client_secret")
+            client_id = security_values.get("client_id")
+            client_secret = security_values.get("client_secret")
 
             # TODO - better validation
             if not client_id or not client_secret:
@@ -46,12 +47,12 @@ async def create_api_client(
             return client
 
         case "http":
-            scheme = security_schema.get("scheme")
+            scheme = security_scheme.get("scheme")
 
             if scheme == "basic":
                 # TODO - validation
-                username = auth_params.get("username", "")
-                password = auth_params.get("password", "")
+                username = security_values.get("username", "")
+                password = security_values.get("password", "")
                 client = await create_basic_auth_client(
                     username=username, password=password
                 )
@@ -59,42 +60,40 @@ async def create_api_client(
                 return client
 
             raise NotImplementedError
-        
+
         case "apiKey":
-            if security_schema.get("in") == "header":
-                header_name = security_schema.get("name", "")
-                header_value = auth_params.get("api_key", "")
+            if security_scheme.get("in") == "header":
+                header_name = security_scheme.get("name", "")
+                header_value = security_values.get("api_key", "")
+
                 client = await create_api_key_client(
                     header_name=header_name, header_value=header_value
                 )
-                
+
                 return client
 
             raise NotImplementedError
-        
+
         case _:
             raise NotImplementedError
 
+
 async def create_api_key_client(
-        header_name: str, header_value: str
-) -> aiohttp.ClientSession:  
+    header_name: str, header_value: str, verify_ssl: bool = True
+) -> aiohttp.ClientSession:
     session = aiohttp.ClientSession(
         headers={header_name: header_value},
-        connector=aiohttp.TCPConnector(
-            verify_ssl=not TEMP_ASSISTANT_SKIP_SSL_VERIFICATION
-        ),
+        connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
     )
-    return session    
+    return session
 
 
 async def create_basic_auth_client(
-    username: str, password: str
+    username: str, password: str, verify_ssl: bool = True
 ) -> aiohttp.ClientSession:
     session = aiohttp.ClientSession(
         auth=BasicAuth(username, password),
-        connector=aiohttp.TCPConnector(
-            verify_ssl=not TEMP_ASSISTANT_SKIP_SSL_VERIFICATION
-        ),
+        connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
     )
     return session
 
@@ -103,11 +102,10 @@ async def create_oauth2_client(
     client_id: str,
     client_secret: str,
     token_url: str,
+    verify_ssl: bool = True,
 ) -> aiohttp.ClientSession:
     # https://docs.aiohttp.org/en/stable/client_reference.html#client-session
-    connector = aiohttp.TCPConnector(
-        verify_ssl=not TEMP_ASSISTANT_SKIP_SSL_VERIFICATION
-    )
+    connector = aiohttp.TCPConnector(verify_ssl=verify_ssl)
     async with aiohttp.ClientSession(connector=connector) as temp_session:
         try:
             async with temp_session.post(
@@ -128,8 +126,6 @@ async def create_oauth2_client(
 
     session = aiohttp.ClientSession(
         headers={"Authorization": f"Bearer {token}"},
-        connector=aiohttp.TCPConnector(
-            verify_ssl=not TEMP_ASSISTANT_SKIP_SSL_VERIFICATION
-        ),
+        connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
     )
     return session

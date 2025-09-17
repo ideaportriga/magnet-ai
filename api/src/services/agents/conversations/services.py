@@ -1,17 +1,17 @@
-from pyexpat import model
 import uuid
 from datetime import datetime, timedelta
 from logging import getLogger
-from typing import Any
+from pyexpat import model
+from typing import Any, Type, Union
 
 from bson import ObjectId
 from sqlalchemy import desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing_extensions import TypeVar
 
 from core.config.app import alchemy
-from core.domain.agent_conversation.service import AgentConversationService
 from core.db.models.agent_conversation import AgentConversation
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from core.domain.agent_conversation.service import AgentConversationService
 from services.agents.models import (
     Agent,
     AgentActionCallConfirmation,
@@ -23,6 +23,7 @@ from services.agents.models import (
     AgentConversationMessagePublic,
     AgentConversationMessageUser,
     AgentConversationMessageUserPublic,
+    AgentConversationWithMessages,
     AgentConversationWithMessagesPublic,
 )
 from services.agents.post_process.utils import extract_analytics_from_conversation
@@ -97,13 +98,12 @@ async def create_conversation(
             variables=variables,
         )
 
-        
-
         # Replace MongoDB insert with SQLAlchemy service
         async with db_session or alchemy.get_session() as session:
             service = AgentConversationService(session=session)
             conversation_record = await service.create(
-                conversation_data.model_dump(), auto_commit=True)
+                conversation_data.model_dump(), auto_commit=True
+            )
 
             conversation_id = str(conversation_record.id)
 
@@ -158,13 +158,24 @@ async def get_conversation_by_id(conversation_id: str) -> dict[str, Any]:
         record = await service.get_one_or_none(id=conversation_id)
         if not record:
             raise RecordNotFoundError()
-        return service.to_schema(record, schema_type=AgentConversationDataWithMessages).model_dump()
+        return service.to_schema(
+            record, schema_type=AgentConversationDataWithMessages
+        ).model_dump()
 
 
-async def get_conversation(conversation_id: str) -> AgentConversationWithMessagesPublic:
+ConversationType = TypeVar(
+    "ConversationType",
+    bound=Union["AgentConversationWithMessages", "AgentConversationWithMessagesPublic"],
+)
+
+
+async def get_conversation(
+    conversation_id: str,
+    conversation_class: Type[ConversationType] = AgentConversationWithMessagesPublic,
+) -> ConversationType:
     document = await get_conversation_by_id(conversation_id)
 
-    conversation = AgentConversationWithMessagesPublic(
+    conversation = conversation_class(
         **document,
     )
 
@@ -177,14 +188,16 @@ async def get_last_conversation_by_client_id(client_id: str):
         print(f"Fetching last conversation for client ID: {client_id}")
         records = await service.list(
             AgentConversation.client_id == client_id,
-            order_by=[desc(AgentConversation.created_at)]
+            order_by=[desc(AgentConversation.created_at)],
         )
         record = records[0] if records else None
 
         if not record:
             return None
-        
-        last_conversation = service.to_schema(record, schema_type=AgentConversationWithMessagesPublic)
+
+        last_conversation = service.to_schema(
+            record, schema_type=AgentConversationWithMessagesPublic
+        )
 
         updated_at = last_conversation.last_user_message_at
         if updated_at:
@@ -260,20 +273,6 @@ async def add_user_message(
                 data=conversation.model_dump(),
                 auto_commit=True,
             )
-
-        # await db_client.get_collection(COLLECTION_NAME).update_one(
-        #     {"_id": ObjectId(conversation_id)},
-        #     {
-        #         "$push": {
-        #             "messages": {
-        #                 "$each": [
-        #                     user_message.model_dump(),
-        #                     assistant_message.model_dump(),
-        #                 ],
-        #             },
-        #         },
-        #     },
-        # )
 
         response = AgentConversationAddUserMessageResponse(
             user_message=AgentConversationMessageUserPublic(

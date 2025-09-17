@@ -6,7 +6,7 @@ from litestar.types import ControllerRouterHandler
 from core.domain.agents import AgentsController as AgentsControllerSQL
 from core.domain.ai_apps import AiAppsController as AiAppsControllerSQL
 from core.domain.ai_models import AIModelsController
-from core.domain.api_tools import ApiToolsController as ApiToolsControllerSQL
+from core.domain.api_servers import ApiServersController as ApiServersControllerSQL
 from core.domain.collections import CollectionsController
 from core.domain.evaluation_sets import (
     EvaluationSetsController as EvaluationSetsControllerSQL,
@@ -23,15 +23,15 @@ from core.domain.retrieval_tools import (
 from core.domain.traces import TracesController
 from guards.role import UserRole, create_role_guard
 from routes.admin.api_keys import ApiKeysController
+from routes.admin.api_servers import ApiServersController
 from routes.admin.mcp_servers import McpServersController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
 from .admin.ai_apps import AiAppsController
-from .admin.api_tool_providers import ApiToolProvidersController
-from .admin.api_tools import ApiToolsController
 
-# from .admin.evaluation import evaluation_router
+# from .admin.api_tool_providers import ApiToolProvidersController
+# from .admin.api_tools import ApiToolsController
 from .admin.evaluations import EvaluationsController
 from .admin.experimental import experimental_router
 
@@ -74,11 +74,11 @@ def get_route_handlers(auth_enabled: bool) -> list[ControllerRouterHandler]:
         AiAppsController,
         AIModelsController,
         ApiKeysController,
-        ApiToolProvidersController,
-        ApiToolsController,
+        # ApiToolProvidersController,
+        # ApiToolsController,
         AgentsControllerSQL,
         AiAppsControllerSQL,
-        ApiToolsControllerSQL,
+        ApiServersControllerSQL,
         CollectionsController,
         MCPServersControllerSQL,
         EvaluationSetsControllerSQL,
@@ -87,6 +87,7 @@ def get_route_handlers(auth_enabled: bool) -> list[ControllerRouterHandler]:
         RetrievalToolsControllerSQL,
         RagToolsControllerSQL,
         TracesController,
+        ApiServersController,
         EvaluationsController,
         # evaluation_router,
         experimental_router,

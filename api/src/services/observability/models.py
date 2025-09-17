@@ -11,6 +11,17 @@ from opentelemetry.util.types import AttributeValue
 from pydantic import BaseModel
 
 
+class MetricsExporterType(StrEnum):
+    OTLP_HTTP = "otlp-http"
+    AZURE = "azure"
+
+
+class TracesExporterType(StrEnum):
+    INTERNAL = "internal"
+    OTLP_HTTP = "otlp-http"
+    AZURE = "azure"
+
+
 class SpanType(StrEnum):
     SPAN = "span"
     CHAT_COMPLETION = "chat"
@@ -22,24 +33,29 @@ class SpanType(StrEnum):
 
 class FeatureType(Enum):
     # MagnetAI Features
-    AGENT = {
-        "value": "agent",
-        "otel_name": "agent",
-        "span_type": SpanType.SPAN,
-    }
     PROMPT_TEMPLATE = {
         "value": "prompt-template",
         "otel_name": "prompt_template",
         "span_type": SpanType.CHAT_COMPLETION,
+    }
+    KNOWLEDGE_SOURCE = {
+        "value": "knowledge-source",
+        "otel_name": "knowledge_source",
+        "span_type": SpanType.SPAN,
+    }
+    RETRIEVAL_TOOL = {
+        "value": "retrieval-tool",
+        "otel_name": "retrieval_tool",
+        "span_type": SpanType.SPAN,
     }
     RAG_TOOL = {
         "value": "rag-tool",
         "otel_name": "rag_tool",
         "span_type": SpanType.SPAN,
     }
-    RETRIEVAL_TOOL = {
-        "value": "retrieval-tool",
-        "otel_name": "retrieval_tool",
+    AGENT = {
+        "value": "agent",
+        "otel_name": "agent",
         "span_type": SpanType.SPAN,
     }
     # Standard LLM APIs

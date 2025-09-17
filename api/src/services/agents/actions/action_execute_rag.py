@@ -1,8 +1,14 @@
+import json
+from logging import getLogger
+
 from services.agents.models import AgentActionCallResponse
 from services.observability import observability_context, observe
 from services.observability.models import SpanType
 from services.rag_tools import execute_rag_tool
 from services.rag_tools.models import RagToolTestResult
+from type_defs.pagination import FilterObject
+
+logger = getLogger(__name__)
 
 
 @observe(
@@ -16,6 +22,13 @@ async def action_execute_rag(
     variables: dict[str, str] | None = None,
 ) -> AgentActionCallResponse:
     query = arguments.get("query")
+    metadata_filter = arguments.get("metadata_filter")
+    if metadata_filter:
+        try:
+            metadata_filter = FilterObject(json.loads(metadata_filter))
+        except Exception as e:
+            logger.error(f"Failed to parse metadata filter: {e}")
+            metadata_filter = None
 
     assert query, "Cannot call RAG Tool - user's query is missing"
 
@@ -25,7 +38,9 @@ async def action_execute_rag(
 
     try:
         rag_tool_execute_result: RagToolTestResult = await execute_rag_tool(
-            system_name_or_config=tool_system_name, user_message=query
+            system_name_or_config=tool_system_name,
+            user_message=query,
+            metadata_filter=metadata_filter,
         )
     except Exception as e:
         # Handle exceptions as appropriate for your application

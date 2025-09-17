@@ -9,10 +9,12 @@ class SharePointDocumentsDataSource(SharePointAbstractDataSource):
     def __init__(
         self,
         ctx: ClientContext,
+        library: str | None = None,
         folder: str | None = None,
         recursive: bool = False,
     ) -> None:
         super().__init__(ctx)
+        self.library = library
         self.folder = folder
         self.recursive = recursive
 
@@ -21,10 +23,13 @@ class SharePointDocumentsDataSource(SharePointAbstractDataSource):
         return "Sharepoint Documents"
 
     async def _get_syncable_files(self) -> list[File]:
-        folder_name = SharePointRootFolder.DOCUMENTS.value
+        if not self.library:
+            self.library = SharePointRootFolder.DOCUMENTS.value
 
         if self.folder:
-            folder_name += f"/{self.folder}"
+            folder_name = f"{self.library}/{self.folder}"
+        else:
+            folder_name = self.library
 
         documents = await self._aget_folder_files(
             folder_name=folder_name,

@@ -22,6 +22,8 @@ from services.rag_tools.models import (
 )
 from services.rerank import rerank
 from services.retrieve import retrieve
+from stores import get_db_client
+from type_defs.pagination import FilterObject
 from validation.rag_tools import (
     GenerateConfig,
     LanguageConfig,
@@ -38,6 +40,7 @@ async def execute_rag_tool(
     *,
     system_name_or_config: str | dict,
     user_message: str,
+    metadata_filter: FilterObject | None = None,
     config_override: RagToolsBase | None = None,
     verbose: bool = False,
 ) -> RagToolTestResult:
@@ -92,13 +95,17 @@ async def execute_rag_tool(
 
         results = await retrieve(
             user_message=user_message,
-            collection_system_names=retrieve_config.collection_system_names,
+            filter=metadata_filter,
+            retrieve_config=retrieve_config,
             max_chunks_retrieved=max_chunks_retrieved,
-            similarity_score_threshold=retrieve_config.similarity_score_threshold,
         )
 
         # Step 1.5 Rerank
-        if retrieve_config.rerank is not None and retrieve_config.rerank.enabled:
+        if (
+            retrieve_config.rerank is not None
+            and retrieve_config.rerank.enabled
+            and len(results) > 0
+        ):
             results = await rerank(
                 documents=results,
                 model_system_name=retrieve_config.rerank.model,

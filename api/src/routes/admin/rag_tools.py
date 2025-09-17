@@ -6,6 +6,7 @@ from services.observability import observability_context, observe
 from services.rag_tools import execute_rag_tool
 from services.rag_tools.models import RagToolTestResult
 from services.rag_tools.services import get_rag_by_system_name_flat
+from services.utils.metadata_filtering import metadata_filter_to_filter_object
 from validation.rag_tools import RagToolExecute, RagToolsConfig, RagToolTest
 
 from .create_entity_controller import create_entity_controller
@@ -43,6 +44,7 @@ class RagToolsController(RagToolsBaseController):
         return await execute_rag_tool(
             system_name_or_config=rag_tool_config,
             user_message=data.user_message,
+            metadata_filter=metadata_filter_to_filter_object(data.metadata_filter),
             config_override=data,
             verbose=True,
         )

@@ -250,7 +250,7 @@ class UrlDataProcessor(DataProcessor):
         logger.info(f"Loading and splitting PDF: {file_name}")
         chunks = await PdfSplitter(
             local_path,
-            base_metadata,
+            base_metadata=base_metadata,
             chunking_config=self.__collection_config.get("chunking"),
         ).split()
         os.remove(local_path)

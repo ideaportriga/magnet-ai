@@ -49,7 +49,7 @@ class SharePointAbstractDataSource(DataSource[File], ABC):
         filter: str | None = None,
         file_extensions: list[SharePointFileExtension] = [],
         recursive: bool = False,
-    ):
+    ) -> list[File]:
         return await asyncio.to_thread(
             lambda: self._get_folder_files(
                 folder_name, filter, file_extensions, recursive
@@ -91,28 +91,21 @@ class SharePointAbstractDataSource(DataSource[File], ABC):
 
         file_extensions_set = frozenset({ext.value for ext in file_extensions})
 
-        files = [
-            file
-            for file in files
-            if (
-                (
-                    (
-                        len(file_extensions_set) > 0
-                        and os.path.splitext(file.name or "")[1] in file_extensions_set
-                    )
-                    or len(file_extensions_set) == 0
-                )
+        filtered_files: list[File] = []
+        for file in files:
+            extensionMatch = (
+                len(file_extensions_set) > 0
+                and os.path.splitext(file.name or "")[1] in file_extensions_set
+            ) or len(file_extensions_set) == 0
+            nameMatch = (
+                filter
                 and (
-                    (
-                        filter
-                        and (
-                            filter == file.name
-                            or filter == os.path.splitext(file.name or "")[0]
-                        )
-                    )
-                    or not filter
+                    filter == file.name
+                    or filter == os.path.splitext(file.name or "")[0]
                 )
-            )
-        ]
+            ) or not filter
+            if extensionMatch and nameMatch:
+                file.listItemAllFields.get().execute_query()
+                filtered_files.append(file)
 
-        return files
+        return filtered_files

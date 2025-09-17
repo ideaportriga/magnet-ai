@@ -32,6 +32,7 @@ from core.db.models.agent import Agent  # noqa: F401
 from core.db.models.agent_conversation import AgentConversation  # noqa: F401
 from core.db.models.ai_app import AIApp  # noqa: F401
 from core.db.models.ai_model import AIModel  # noqa: F401
+from core.db.models.api_server import APIServer  # noqa: F401
 from core.db.models.api_tool import APITool  # noqa: F401
 
 # Import specific models to register them with metadata

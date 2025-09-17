@@ -2,7 +2,7 @@ import asyncio
 import uuid
 from decimal import Decimal
 from logging import getLogger
-from typing import Any
+from typing import Any, override
 
 from bson import ObjectId
 
@@ -25,8 +25,9 @@ from stores.document_store import DocumentStore
 from stores.mongo_db.client import MongoDBClient
 from stores.qdrant_db.store import QdrantVectorStore
 from stores.vector_store import AddVector, UpsertVector
-from type_defs.pagination import OffsetPaginationRequest
+from type_defs.pagination import FilterObject, OffsetPaginationRequest
 from utils.pagination_utils import paginate_collection
+from validation.rag_tools import RetrieveConfig
 
 logger = getLogger(__name__)
 
@@ -413,10 +414,6 @@ class MongoDbStore(DocumentStore):
             **kwargs,
         )
 
-    async def __assert_collection_exist(self, collection_id: str) -> None:
-        logger.info("Calling __assert_collection_exist")
-        await self.get_collection_metadata(collection_id)
-
     async def __get_content_by_id(self, document_id: str, collection_id: str) -> str:
         logger.info("Calling __get_content_by_id")
         collection = await self.__get_documents_collection(collection_id)
@@ -429,32 +426,29 @@ class MongoDbStore(DocumentStore):
 
     # region Vector Search Methods
     @observe(
-        name="Vector search",
+        name="Semantic search",
+        description="Performing semantic (vector) search in knowledge source.",
         type=SpanType.SEARCH,
-        capture_input=True,
         capture_output=True,
     )
     async def __vector_search(
-        self,
-        *,
-        collection_id: str,
-        query: str,
-        vector: list[float],
-        num_results: int,
+        self, *, collection_id: str, query: str, vector: list[float], num_results: int
     ) -> DocumentSearchResult:
         logger.debug(
             f"Performing vector search in collection_id: {collection_id} with num_results: {num_results}",
         )
-        await self.__assert_collection_exist(collection_id)
-        collection = await self.__get_documents_collection(collection_id)
+        collection_config = await self.get_collection_metadata(collection_id)
+
         observability_context.update_current_span(
-            description=f"Performing vector search in Azure Cosmos DB (using Mongo DB API) and taking only {num_results} first results.",
-            extra_data={
-                "collection_name": collection.name,
-                "store": "cosmos_db",
-            },
+            input={
+                "collection_id": collection_id,
+                "collection_name": collection_config.get("name"),
+                "query": query,
+                "num_results": num_results,
+            }
         )
-        vector_seacrch_result = await self.vector_store.search(
+
+        vector_search_result = await self.vector_store.search(
             collection_name=self.__get_documents_collection_name(collection_id),
             query_vector=vector,
             limit=num_results,
@@ -471,16 +465,19 @@ class MongoDbStore(DocumentStore):
                     collection_id=collection_id,
                     metadata=item["metadata"],
                 )
-                for item in vector_seacrch_result
+                for item in vector_search_result
             ],
         )
         return formatted_result
 
+    @override
     async def document_collections_similarity_search(
         self,
         collection_ids: list[str],
         query: str,
+        retrieve_config: RetrieveConfig,
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> list:
         logger.info("Calling document_collections_similarity_search")
         if not collection_ids:

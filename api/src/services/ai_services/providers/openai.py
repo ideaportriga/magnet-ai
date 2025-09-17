@@ -29,27 +29,20 @@ class OpenAIProvider(AIProviderInterface):
         temperature = temperature or self.temperature_default
         top_p = top_p or self.top_p_default
 
+        params = {
+            "model": model,
+            "messages": messages,
+            "top_p": top_p,
+            "max_completion_tokens": max_tokens or openai.NOT_GIVEN,
+            "response_format": transform_schema(response_format),
+        }
+
         if model_config and model_config.get("reasoning"):
-            params = {
-                "model": model,
-                "messages": messages,
-                "temperature": temperature,
-                "top_p": top_p,
-                "max_completion_tokens": max_tokens,
-                "response_format": transform_schema(response_format),
-                "tools": tools,
-                "reasoning_effort": model_config.get("reasoning_effort") or "low",
-            }
+            params["reasoning_effort"] = model_config.get("reasoning_effort") or "low"
         else:
-            # Prepare the parameters including 'max_tokens'
-            params = {
-                "model": model,
-                "messages": messages,
-                "temperature": temperature,
-                "top_p": top_p,
-                "max_tokens": max_tokens,
-                "response_format": transform_schema(response_format),
-                "tools": tools,
-            }
+            params["temperature"] = temperature
+
+        # if model_config and model_config.get("tool_calling"):
+        params["tools"] = tools or openai.NOT_GIVEN
 
         return await self.client.chat.completions.create(**params)

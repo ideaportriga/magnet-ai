@@ -58,7 +58,27 @@ async def rerank(
     # Prepare model parameters for traces and metrics
     call_model.update(parameters={"llm": llm, "top_n": top_n})
 
+    # Prepare input for traces and metrics
+    call_input = {
+        "query": query,
+        "documents": [
+            {
+                "metadata": doc.metadata,
+                "content": doc.content,
+                "score": float(doc.score),
+            }
+            for doc in documents
+        ],
+    }
+
     with observability_context.observe_feature(observed_feature):
+        observability_context.update_current_span(
+            name="Rerank documents",
+            description=f"Asking LLM to rerank {len(documents)} documents.",
+            model=call_model,
+            input=call_input,
+        )
+
         # Call the LLM
         provider_instance = get_ai_provider(provider)
         call_start_time = time.time()
@@ -77,38 +97,24 @@ async def rerank(
             rerank.usage, model_system_name
         )
 
-        # Prepare input and output for traces and metrics
-        call_input = {
-            "query": query,
-            "documents": [
-                {
-                    "metadata": doc.metadata,
-                    "content": doc.content,
-                    "score": float(doc.score),
-                }
-                for doc in documents
-            ],
-        }
-        call_output = (
-            [
-                {
-                    "metadata": doc.metadata,
-                    "content": doc.content,
-                    "score": float(doc.score),
-                    "original_index": doc.original_index,
-                }
-                for doc in rerank.data
-            ],
-        )
+        # Sort documents by updated score
+        rerank.data.sort(key=lambda doc: doc.score, reverse=True)
+
+        # Prepare output for traces and metrics
+        call_output = [
+            {
+                "metadata": doc.metadata,
+                "content": doc.content,
+                "score": float(doc.score),
+                "original_index": doc.original_index,
+            }
+            for doc in rerank.data
+        ]
 
         # Update current span with usage, cost and output
         observability_context.update_current_span(
-            name="Rerank documents",
-            description=f"Asking LLM to rerank {len(documents)} documents.",
-            model=call_model,
             usage_details=call_usage,
             cost_details=call_cost,
-            input=call_input,
             output=call_output,
         )
 
@@ -120,8 +126,5 @@ async def rerank(
             usage=call_usage,
             cost=call_cost,
         )
-
-        # Sort documents by updated score
-        rerank.data.sort(key=lambda doc: doc.score, reverse=True)
 
         return rerank.data

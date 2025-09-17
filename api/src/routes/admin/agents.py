@@ -13,6 +13,7 @@ from services.agents.models import (
     Agent,
     AgentConversationDataWithMessages,
     AgentConversationMessageAssistant,
+    AgentConversationWithMessages,
     AgentExecute,
     AgentTest,
 )
@@ -124,7 +125,9 @@ class AgentsController(AgentsControllerBase):
             ),
         ],
     ) -> dict[str, Any]:
-        conversation = (await get_conversation(id)).model_dump()
+        conversation = (
+            await get_conversation(id, AgentConversationWithMessages)
+        ).model_dump()
         if not conversation:
             raise NotFoundException()
 

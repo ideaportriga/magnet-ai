@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -11,3 +12,4 @@ class FluidTopicsDocument:
     modified_date: str | None
     url: str | None
     viewer_url: str | None
+    metadata: dict[str, Any] | None

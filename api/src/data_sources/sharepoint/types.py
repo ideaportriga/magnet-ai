@@ -16,12 +16,6 @@ class SharepointConfigWithCert:
     private_key: str
 
 
-class DocumentSourceType(StrEnum):
-    PDF = "pdf"
-    VIDEO = "video"
-    SITE_PAGE = "site_page"
-
-
 class SharePointRootFolder(StrEnum):
     PAGES = "SitePages"
     DOCUMENTS = "Shared Documents"

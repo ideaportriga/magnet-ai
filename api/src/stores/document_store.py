@@ -8,7 +8,8 @@ from models import (
     DocumentSearchResult,
     QueryChunksByCollectionBySource,
 )
-from type_defs.pagination import OffsetPaginationRequest
+from type_defs.pagination import FilterObject, OffsetPaginationRequest
+from validation.rag_tools import RetrieveConfig
 
 
 class DocumentStore(ABC):
@@ -89,8 +90,10 @@ class DocumentStore(ABC):
     async def document_collections_similarity_search(
         self,
         collection_ids: list[str],
+        retrieve_config: RetrieveConfig,
         query: str,
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> DocumentSearchResult: ...
 
     @abstractmethod

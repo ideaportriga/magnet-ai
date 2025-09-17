@@ -2,7 +2,7 @@ import array
 import json
 from decimal import ROUND_HALF_UP, Decimal
 from logging import getLogger
-from typing import Any
+from typing import Any, override
 
 import oracledb
 import regex
@@ -20,10 +20,12 @@ from services.observability import observability_context, observe
 from services.observability.models import SpanType
 from stores.document_store import DocumentStore
 from stores.oracle.client import OracleDbClient
-from type_defs.pagination import OffsetPaginationRequest
+from stores.oracle.metadata_filter_builder import OracleMetadataFilterBuilder
+from type_defs.pagination import FilterObject, OffsetPaginationRequest
 from utils.pagination_utils import paginate_collection
 from utils.search_utils import reciprocal_rank_fusion
 from utils.serializer import OracleDbSerializer
+from validation.rag_tools import RetrieveConfig
 
 logger = getLogger(__name__)
 logger.setLevel("DEBUG")
@@ -33,6 +35,7 @@ class OracleDbStore(DocumentStore):
     COLLECTIONS_DV = "collections_dv"
     DOCUMENTS_DV = "documents_dv"
     DOCUMENTS_TABLE = "documents"
+    METADATA_FILTER_BUILDER = OracleMetadataFilterBuilder()
 
     def __init__(self, client: OracleDbClient):
         self.client = client
@@ -77,15 +80,20 @@ class OracleDbStore(DocumentStore):
 
     async def get_collection_metadata(self, collection_id: str) -> dict:
         logger.debug(f"Fetching metadata for collection_id: {collection_id}")
-        sql = f'SELECT JSON_SERIALIZE(DATA) FROM {self.COLLECTIONS_DV} D WHERE D.DATA."_id" = :id'
+        sql = f'SELECT * FROM {self.COLLECTIONS_DV} D WHERE D.DATA."_id" = :id'
+
+        logger.debug("Before self.client.execute")
+
         async with self.client.execute(sql, {"id": collection_id}) as cursor:
+            logger.debug("After self.client.execute")
             row = await cursor.fetchone()
+            logger.debug("After await cursor.fetchone()")
             if not row:
                 logger.error("Collection does not exist.")
                 raise LookupError("Collection does not exist")
 
             try:
-                metadata = json.loads(row[0])
+                metadata = row[0]
                 metadata["id"] = str(metadata.pop("_id", ""))
                 logger.debug(
                     f"Metadata was successfully retrieved for collection_id: {collection_id}",
@@ -102,6 +110,7 @@ class OracleDbStore(DocumentStore):
         logger.debug(
             f"Updating metadata for collection_id: {collection_id} with data: {metadata}",
         )
+
         if metadata.get("chunk_size") is None:
             metadata.pop("chunk_size", None)
         metadata_json = json.dumps(metadata)
@@ -111,33 +120,44 @@ class OracleDbStore(DocumentStore):
             WHERE D.DATA."_id" = :id
             """
         params = {"metadata": metadata_json, "id": collection_id}
-        async with self.client.execute(sql, params) as cursor:
-            cursor.connection.commit()
-            logger.info(f"Updated metadata for collection '{collection_id}'")
+        async with await self.client._pool.acquire() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(sql, params)
+                await connection.commit()
+
+        logger.info(f"Updated metadata for collection '{collection_id}'")
 
     async def replace_collection_metadata(self, collection_id: str, metadata: dict):
         logger.debug(
             f"Replacing metadata for collection_id: {collection_id} with data: {metadata}",
         )
+
         if metadata.get("chunk_size") == "":
             metadata["chunk_size"] = None
         metadata["_id"] = collection_id
         metadata_json = json.dumps(metadata)
         sql = f'UPDATE {self.COLLECTIONS_DV} D SET DATA = :metadata WHERE D.DATA."_id" = :id'
         params = {"metadata": metadata_json, "id": collection_id}
-        async with self.client.execute(sql, params) as cursor:
-            cursor.connection.commit()
-            logger.info(f"Replaced metadata for collection '{collection_id}'")
+        async with await self.client._pool.acquire() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(sql, params)
+                await connection.commit()
+
+        logger.info(f"Replaced metadata for collection '{collection_id}'")
 
     async def delete_collection(self, collection_id: str):
         logger.debug(f"Deleting collection with id: {collection_id}")
+
         sql_delete_collection = (
             f'DELETE FROM {self.COLLECTIONS_DV} D WHERE D.DATA."_id" = :id'
         )
         params = {"id": collection_id}
-        async with self.client.execute(sql_delete_collection, params) as cursor:
-            cursor.connection.commit()
-            logger.info(f"Deleted collection '{collection_id}' and its documents")
+        async with await self.client._pool.acquire() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(sql_delete_collection, params)
+                await connection.commit()
+
+        logger.info(f"Deleted collection '{collection_id}' and its documents")
 
     async def list_documents(
         self,
@@ -224,7 +244,7 @@ class OracleDbStore(DocumentStore):
                     id_out=oracledb.STRING,
                 )
                 await cursor.execute(sql, bind_vars)
-                cursor.connection.commit()
+                await connection.commit()
                 document_id = id_out.getvalue()
         logger.info(
             f"Created document with id: {document_id} in collection '{collection_id}'",
@@ -243,9 +263,6 @@ class OracleDbStore(DocumentStore):
             return []
 
         collection_config = await self.get_collection_metadata(collection_id)
-        semantic_search_supported = collection_config.get("indexing", {}).get(
-            "semantic_search_supported",
-        ) or not collection_config.get("indexing")
         embedding_model = collection_config.get("model")
 
         if not embedding_model:
@@ -260,11 +277,8 @@ class OracleDbStore(DocumentStore):
                     f"Processing document: {document.metadata.get('sourceId')}"
                 )
 
-                if semantic_search_supported:
-                    embeddings = await get_embeddings(document.content, embedding_model)
-                    semantic_dense_vector = array.array("d", embeddings)
-                else:
-                    semantic_dense_vector = None
+                embeddings = await get_embeddings(document.content, embedding_model)
+                semantic_dense_vector = array.array("d", embeddings)
 
                 async with connection.cursor() as cursor:
                     id_out = cursor.var(oracledb.STRING)
@@ -285,6 +299,8 @@ class OracleDbStore(DocumentStore):
                     await cursor.execute(sql, bind_vars)
                     document_id = id_out.getvalue()
                     document_ids.append(document_id)
+
+            # Commit all rows at once, because we need to rollback all of them if any of them fails.
             await connection.commit()
 
         logger.info(
@@ -324,8 +340,6 @@ class OracleDbStore(DocumentStore):
             )
             return
 
-        existing_document = await self.get_document(document_id, collection_id)
-        existing_metadata = existing_document.get("metadata", {})
         bind_vars: dict[str, Any] = {
             "id": document_id,
         }
@@ -341,8 +355,7 @@ class OracleDbStore(DocumentStore):
             raise ValueError("Embedding model is not set for collection")
 
         if "metadata" in data:
-            existing_metadata.update(data["metadata"])
-            bind_vars["metadata"] = json.dumps(existing_metadata)
+            bind_vars["metadata"] = data["metadata"]
             set_clauses.append("metadata = :metadata")
             input_sizes["metadata"] = oracledb.DB_TYPE_JSON
         if "content" in data:
@@ -360,8 +373,8 @@ class OracleDbStore(DocumentStore):
         async with await self.client._pool.acquire() as connection:
             async with connection.cursor() as cursor:
                 cursor.setinputsizes(**input_sizes)
-                async with self.client.execute(sql, bind_vars) as cursor:
-                    cursor.connection.commit()
+                await cursor.execute(sql, bind_vars)
+                await connection.commit()
         logger.info(f"Updated document {document_id} in collection '{collection_id}'")
 
     async def replace_document(
@@ -385,7 +398,7 @@ class OracleDbStore(DocumentStore):
         bind_vars = {
             "id": document_id,
             "content": data.content,
-            "metadata": json.dumps(data.metadata),
+            "metadata": data.metadata,
             "embedding": vector_data_64,
         }
 
@@ -398,28 +411,31 @@ class OracleDbStore(DocumentStore):
                     embedding=oracledb.DB_TYPE_BINARY_DOUBLE,
                 )
                 sql = f"UPDATE {self.DOCUMENTS_TABLE} D SET content = :content, metadata = :metadata, embedding = :embedding WHERE D.id = :id"
-                async with self.client.execute(sql, bind_vars) as cursor:
-                    cursor.connection.commit()
+                await cursor.execute(sql, bind_vars)
+                await connection.commit()
         logger.info(f"Replaced document {document_id} in collection '{collection_id}'")
 
     async def delete_document(self, document_id: str, collection_id: str):
         logger.debug(
             f"Deleting document with id: {document_id} from collection '{collection_id}'",
         )
+
         sql = f"""
             DELETE FROM {self.DOCUMENTS_TABLE} D
             WHERE D.id = :id AND D.collection_id = :collection_id
         """
         params = {"id": document_id, "collection_id": collection_id}
-        async with self.client.execute(sql, params) as cursor:
-            if cursor.rowcount == 0:
-                error_message = f"Document with id {document_id} not found in collection '{collection_id}'"
-                logger.error(error_message)
-                raise ValueError(error_message)
-            cursor.connection.commit()
-            logger.info(
-                f"Deleted document {document_id} from collection '{collection_id}'"
-            )
+
+        async with await self.client._pool.acquire() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(sql, params)
+                if cursor.rowcount == 0:
+                    error_message = f"Document with id {document_id} not found in collection '{collection_id}'"
+                    logger.error(error_message)
+                    raise ValueError(error_message)
+                await connection.commit()
+
+        logger.info(f"Deleted document {document_id} from collection '{collection_id}'")
 
     async def delete_documents(
         self,
@@ -429,6 +445,7 @@ class OracleDbStore(DocumentStore):
         logger.debug(
             f"Deleting documents from collection_id: {collection_id}, document_ids: {document_ids}",
         )
+
         if document_ids:
             ids_str = ", ".join(f"'{doc_id.upper()}'" for doc_id in document_ids)
             sql = f"""
@@ -439,33 +456,36 @@ class OracleDbStore(DocumentStore):
         else:
             sql = f"DELETE FROM {self.DOCUMENTS_TABLE} D WHERE D.collection_id = :collection_id"
             params = {"collection_id": collection_id}
-        async with self.client.execute(sql, params) as cursor:
-            cursor.connection.commit()
-            logger.info(f"Deleted documents from collection '{collection_id}'")
+        async with await self.client._pool.acquire() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(sql, params)
+                await connection.commit()
+
+        logger.info(f"Deleted documents from collection '{collection_id}'")
 
     async def delete_all_documents(self, collection_id: str):
         logger.debug(f"Deleting all documents from collection_id: {collection_id}")
+
         sql = f"DELETE FROM {self.DOCUMENTS_TABLE} D WHERE D.collection_id = :collection_id"
         params = {"collection_id": collection_id}
-        async with self.client.execute(sql, params) as cursor:
-            cursor.connection.commit()
-            deleted_count = cursor.rowcount
-            logger.info(
-                f"Deleted {deleted_count} documents from collection '{collection_id}'",
-            )
+        async with await self.client._pool.acquire() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(sql, params)
+                await connection.commit()
+        deleted_count = cursor.rowcount
 
         await self.update_collection_metadata(collection_id, {"last_synced": None})
 
+        logger.info(
+            f"Deleted {deleted_count} documents from collection '{collection_id}'"
+        )
+
         return deleted_count
 
-    async def __assert_collection_exist(self, collection_id: str) -> None:
-        logger.debug(f"Asserting existence of collection_id: {collection_id}")
-        await self.get_collection_metadata(collection_id)
-
     @observe(
-        name="Vector search",
+        name="Semantic search",
+        description="Performing semantic (vector) search in knowledge source.",
         type=SpanType.SEARCH,
-        capture_input=True,
         capture_output=True,
     )
     async def __vector_search(
@@ -474,38 +494,46 @@ class OracleDbStore(DocumentStore):
         query: str,
         vector: list[float],
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> DocumentSearchResult:
         logger.debug(
-            f"Performing vector search in collection_id: {collection_id} with num_results: {num_results}",
+            f"Performing vector search in collection_id: {collection_id} with num_results: {num_results}"
         )
-        await self.__assert_collection_exist(collection_id)
+        collection_config = await self.get_collection_metadata(collection_id)
 
         observability_context.update_current_span(
-            description=f"Performing vector search in Oracle Autonomous Database and taking only {num_results} first results.",
-            extra_data={
-                "table_name": self.DOCUMENTS_TABLE,
-                "store": "oracle",
-            },
+            input={
+                "collection_id": collection_id,
+                "collection_name": collection_config.get("name"),
+                "query": query,
+                "filter": filter.model_dump(exclude_none=True, by_alias=True)
+                if filter
+                else None,
+                "num_results": num_results,
+            }
         )
 
-        vector_data_64 = array.array("d", vector)
-        sql = f"SELECT id, content, metadata, VECTOR_DISTANCE(D.embedding, :query_embedding) AS V FROM {self.DOCUMENTS_TABLE} D WHERE D.collection_id = :collection_id ORDER BY V FETCH NEXT {num_results} ROWS ONLY"
+        metadata_filter = self.METADATA_FILTER_BUILDER.build(collection_config, filter)
+        logger.debug(f"Metadata filter: {metadata_filter}")
+        if metadata_filter:
+            metadata_filter = f"AND {metadata_filter}"
 
+        sql = f"SELECT id, content, metadata, VECTOR_DISTANCE(c.embedding, :query_embedding) AS v FROM {self.DOCUMENTS_TABLE} c WHERE c.collection_id = :collection_id {metadata_filter} ORDER BY v FETCH NEXT {num_results} ROWS ONLY"
         params = {
-            "query_embedding": vector_data_64,
+            "query_embedding": array.array("d", vector),
             "collection_id": collection_id,
         }
-        logger.debug(f"Executing similarity search SQL: {sql}")
 
+        logger.debug(f"Executing vector search: {sql}")
+
+        result = []
         async with self.client.execute(sql, params) as cursor:
-            result = []
             async for row in cursor:
                 id = row[0]
                 content = await row[1].read()  # to convert it to a string
                 metadata = json.loads(json.dumps(row[2], cls=OracleDbSerializer))
                 vector_similarity_score = (1 - Decimal(row[3])).quantize(
-                    Decimal("0.0000"),
-                    rounding=ROUND_HALF_UP,
+                    Decimal("0.0000"), rounding=ROUND_HALF_UP
                 )
                 result.append(
                     DocumentSearchResultItem(
@@ -516,13 +544,13 @@ class OracleDbStore(DocumentStore):
                         metadata=metadata,
                     ),
                 )
-            logger.debug(f"Similarity search results count: {len(result)}")
-            return result
+        logger.debug(f"Similarity search results count: {len(result)}")
+        return result
 
     @observe(
-        name="Full text search",
+        name="Keyword search",
+        description="Performing keyword (full text) search in knowledge source.",
         type=SpanType.SEARCH,
-        capture_input=True,
         capture_output=True,
     )
     async def __full_text_search(
@@ -530,9 +558,23 @@ class OracleDbStore(DocumentStore):
         collection_id: str,
         query: str,
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> DocumentSearchResult:
         logger.debug(
             f"Performing full text search on collection_id: {collection_id} with query: {query}",
+        )
+        collection_config = await self.get_collection_metadata(collection_id)
+
+        observability_context.update_current_span(
+            input={
+                "collection_id": collection_id,
+                "collection_name": collection_config.get("name"),
+                "query": query,
+                "filter": filter.model_dump(exclude_none=True, by_alias=True)
+                if filter
+                else None,
+                "num_results": num_results,
+            }
         )
 
         def extract_keywords(query: str, num_results: int):
@@ -549,8 +591,14 @@ class OracleDbStore(DocumentStore):
             return sorted(keywords, key=lambda kw: kw[1])
 
         keywords = extract_keywords(query, 4)
+        if len(keywords) == 0:
+            return []
 
-        sql = f"SELECT id, content, metadata, SCORE(1) AS V FROM {self.DOCUMENTS_TABLE} D WHERE D.collection_id = :collection_id AND CONTAINS(D.content, :query_keywords, 1) > 0 ORDER BY V DESC FETCH NEXT {num_results} ROWS ONLY"
+        metadata_filter = self.METADATA_FILTER_BUILDER.build(collection_config, filter)
+        if metadata_filter:
+            metadata_filter = f"AND {metadata_filter}"
+
+        sql = f"SELECT id, content, metadata, (SCORE(1) / 100) AS v FROM {self.DOCUMENTS_TABLE} c WHERE c.collection_id = :collection_id {metadata_filter} AND CONTAINS(c.content, :query_keywords, 1) > 0 ORDER BY v DESC FETCH NEXT {num_results} ROWS ONLY"
 
         stemmed_keywords = []
         splitter = regex.compile(r"[^\p{L}\p{N}_\+\-/]")
@@ -603,22 +651,17 @@ class OracleDbStore(DocumentStore):
         vector = await get_embeddings(query, embedding_model)
         return await self.__vector_search(collection_id, query, vector, num_results)
 
+    @override
     async def document_collections_similarity_search(
         self,
         collection_ids: list[str],
+        retrieve_config: RetrieveConfig,
         query: str,
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> list:
-        if not collection_ids:
-            logger.warning("No collections provided for similarity search.")
-            return []
-
-        if not query:
-            logger.warning("No query provided for similarity search.")
-            return []
-
         logger.debug(
-            f"Performing similarity search on multiple collections: {collection_ids} with query: {query}",
+            f"Performing similarity search on multiple collections: {collection_ids} with query: {query}"
         )
 
         collection_model_map = {
@@ -652,54 +695,60 @@ class OracleDbStore(DocumentStore):
         for model_name, embedding in embedding_results:
             embedding_cache[model_name] = embedding
 
+        metadata_filtering_allowed = retrieve_config.allow_metadata_filter
+        use_keyword_search = retrieve_config.use_keyword_search
+
         async def _search_in_collection(cid: str):
             try:
                 collection_config = await self.get_collection_metadata(cid)
-                semantic_search_supported = collection_config.get("indexing", {}).get(
-                    "semantic_search_supported",
-                ) or not collection_config.get("indexing")
-                full_text_search_supported = collection_config.get("indexing", {}).get(
-                    "fulltext_search_supported",
+                indexing = collection_config.get("indexing", {})
+                semantic_search_needed = True
+                keyword_search_needed = use_keyword_search and indexing.get(
+                    "fulltext_search_supported"
                 )
 
-                semantic_search_result = []
-                full_text_search_result = []
-
-                if semantic_search_supported:
+                semantic_search_task = asyncio.sleep(0)
+                if semantic_search_needed:
                     model_name = collection_model_map[cid]
                     vector_for_collection = embedding_cache.get(model_name)
 
                     if vector_for_collection:
-                        semantic_search_result = await self.__vector_search(
+                        semantic_search_task = self.__vector_search(
                             collection_id=cid,
                             query=query,
                             vector=vector_for_collection,
                             num_results=num_results,
+                            filter=filter if metadata_filtering_allowed else None,
                         )
                     else:
-                        logger.warning(
-                            "Skipping collection %s due to missing embedding for model %s",
-                            cid,
-                            model_name,
+                        logger.error(
+                            f"Skipping collection {cid} due to missing embedding for model {model_name}"
                         )
 
-                if full_text_search_supported:
-                    full_text_search_result = await self.__full_text_search(
+                keyword_search_task = asyncio.sleep(0)
+                if keyword_search_needed:
+                    keyword_search_task = self.__full_text_search(
                         collection_id=cid,
                         query=query,
                         num_results=num_results,
+                        filter=filter if metadata_filtering_allowed else None,
                     )
 
-                if semantic_search_supported and full_text_search_supported:
+                semantic_search_result, keyword_search_result = await asyncio.gather(
+                    semantic_search_task, keyword_search_task
+                )
+
+                if semantic_search_needed and keyword_search_needed:
                     return reciprocal_rank_fusion(
-                        semantic_search_result,
-                        full_text_search_result,
+                        semantic_search_result or [],
+                        keyword_search_result or [],
                         num_results,
                     )
-                if semantic_search_supported:
-                    return semantic_search_result
-                if full_text_search_supported:
-                    return full_text_search_result
+                if semantic_search_needed:
+                    return semantic_search_result or []
+                if keyword_search_needed:
+                    return keyword_search_result or []
+
                 return []
             except Exception as e:
                 logger.error(

@@ -6,8 +6,7 @@ from http import HTTPMethod
 import aiohttp
 import jsonref
 
-from services.api_tools.types import ApiTool, ApiToolParameters, ApiToolVariantValue
-from services.entities.types import EntityVariant
+from .types import ApiTool, ApiToolParameters, ParsedOpenApiSpec
 
 
 async def resolve_openapi_spec_refs(openapi_spec_raw: dict) -> dict:
@@ -64,7 +63,7 @@ def convert_openapi_operation_to_api_tools(
         path=path, method=method
     )
     name = schema_summary or system_name
-    description = schema_description
+    description = schema_description or ""
 
     input_schema = convert_openapi_operation_to_json_schema(operation_definition)
 
@@ -77,20 +76,10 @@ def convert_openapi_operation_to_api_tools(
         system_name=system_name,
         name=name,
         description=description,
-        api_provider="",
         path=path,
         method=HTTPMethod(method.upper()),
-        original_parameters=parameters,
         original_operation_definition=operation_definition,
-        active_variant="variant_1",
-        variants=[
-            EntityVariant[ApiToolVariantValue](
-                variant="variant_1",
-                value=ApiToolVariantValue(
-                    parameters=parameters,
-                ),
-            ),
-        ],
+        parameters=parameters,
     )
 
     return api_tool
@@ -173,7 +162,18 @@ def convert_operation_parameters_to_json_schema(parameters: dict) -> dict:
     return schema
 
 
-async def generate_from_openapi(openapi_spec_raw: dict) -> list[ApiTool]:
+async def parse_openapi_spec(openapi_spec_raw: dict) -> ParsedOpenApiSpec:
     openapi_spec = await resolve_openapi_spec_refs(openapi_spec_raw)
-    api_tools = convert_openapi_to_api_tools(openapi_spec)
-    return api_tools
+    tools = convert_openapi_to_api_tools(openapi_spec)
+    name = openapi_spec.get("info", {}).get("title", "")
+    servers = openapi_spec.get("servers", [])
+    security_schemes = openapi_spec.get("components", {}).get("securitySchemes", {})
+
+    parsed_spec = ParsedOpenApiSpec(
+        name=name,
+        tools=tools,
+        servers=servers,
+        security_schemes=security_schemes,
+    )
+
+    return parsed_spec

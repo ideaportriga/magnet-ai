@@ -1,13 +1,12 @@
-import json
 import os
 from logging import getLogger
 
 from bson import ObjectId
-from cryptography.fernet import Fernet
 from mcp.types import CallToolResult, Tool
 
 from stores import get_db_client
 from utils.datetime_utils import utc_now
+from utils.secrets import decrypt_secrets, encrypt_secrets, replace_placeholders_in_dict
 
 from .remote_client import init_client_session
 from .types import (
@@ -26,33 +25,6 @@ env = os.environ
 SECRET_ENCRYPTION_KEY = env.get("SECRET_ENCRYPTION_KEY", "")
 
 COLLECTION_NAME = "mcp_servers"
-
-
-def encrypt_secrets(secrets: dict[str, str]) -> str:
-    if not SECRET_ENCRYPTION_KEY:
-        logger.error("Cannot encrypt secrets - SECRET_ENCRYPTION_KEY is not set.")
-        raise Exception()
-
-    fernet = Fernet(SECRET_ENCRYPTION_KEY)
-    secrets_string = json.dumps(secrets).encode("utf-8")
-    secrets_encrypted = fernet.encrypt(secrets_string).decode("utf-8")
-
-    return secrets_encrypted
-
-
-def decrypt_secrets(secrets_encrypted: str) -> dict[str, str]:
-    if not SECRET_ENCRYPTION_KEY:
-        logger.error("Cannot decrypt secrets - SECRET_ENCRYPTION_KEY is not set.")
-        raise Exception()
-
-    fernet = Fernet(SECRET_ENCRYPTION_KEY)
-    decrypted_data_str = fernet.decrypt(secrets_encrypted.encode("utf-8")).decode(
-        "utf-8"
-    )
-
-    decrypted_data_dict = json.loads(decrypted_data_str)
-
-    return decrypted_data_dict
 
 
 async def list_mcp_servers() -> list[McpServerConfigEntity]:
@@ -92,10 +64,12 @@ async def create_mcp_server(
         data_persisted.secrets_encrypted = encrypt_secrets(data.secrets)
         data_persisted.secrets_names = list(data.secrets.keys())
 
-    result = await client.get_collection(COLLECTION_NAME).insert_one({
-        **data_persisted.model_dump(),
-        "created_at": utc_now(),
-    })
+    result = await client.get_collection(COLLECTION_NAME).insert_one(
+        {
+            **data_persisted.model_dump(),
+            "created_at": utc_now(),
+        }
+    )
 
     return {"inserted_id": str(result.inserted_id)}
 
@@ -187,32 +161,6 @@ def get_mcp_server_session_params(
     return params
 
 
-def replace_placeholders_in_string(string: str, values: dict[str, str]) -> str:
-    """
-    Replace placeholders in the form {SECRET_NAME} in the string
-    with the corresponding values from the secrets dict.
-    Ignores missing secrets.
-    """
-
-    for key, value in values.items():
-        string = string.replace(f"{{{key}}}", str(value))
-
-    return string
-
-
-def replace_placeholders_in_dict(data: dict[str, str], values: dict[str, str]) -> dict:
-    """
-    Replace placeholders in the form {SECRET_NAME} in the values of the data dict
-    with the corresponding values from the secrets dict.
-    Ignores missing secrets.
-    """
-    result: dict[str, str] = {}
-    for dict_key, dict_value in data.items():
-        result[dict_key] = replace_placeholders_in_string(dict_value, values)
-
-    return result
-
-
 async def test_mcp_server_connection(
     id: str | None = None,
     system_name: str | None = None,
@@ -225,6 +173,7 @@ async def test_mcp_server_connection(
 
     async with init_client_session(session_params):
         return None
+
 
 async def delete_mcp_server(
     id: str | None = None,

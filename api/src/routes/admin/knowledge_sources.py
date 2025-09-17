@@ -35,7 +35,13 @@ from data_sync.processors.sharepoint.sharepoint_pages_data_processor import (
 )
 from data_sync.synchronizer import Synchronizer
 from models import DocumentData
+from services.knowledge_sources.models import (
+    MetadataAutomapRequest,
+    MetadataAutomapResponse,
+)
+from services.knowledge_sources.services import automap_metadata
 from services.observability import observability_context, observe
+from services.observability.models import FeatureType
 from services.utils.get_ids_by_system_names import get_ids_by_system_names
 from stores import get_db_store
 from stores.utils import validate_id
@@ -60,7 +66,7 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
     """
     collection_config = await store.get_collection_metadata(collection_id)
     observability_context.update_current_trace(
-        name=collection_config.get("name"), type="knowledge-source"
+        name=collection_config.get("name"), type=FeatureType.KNOWLEDGE_SOURCE.value
     )
 
     source = collection_config.get("source", {})
@@ -77,9 +83,13 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
 
             folder: str | None = source.get("sharepoint_folder")
             recursive: bool = source.get("sharepoint_recursive", False)
+            library: str | None = collection_config.get("sharepoint_library")
+            folder: str | None = collection_config.get("sharepoint_folder")
+            recursive: bool = collection_config.get("sharepoint_recursive", False)
 
             data_source = SharePointDocumentsDataSource(
                 ctx=client,
+                library=library,
                 folder=folder,
                 recursive=recursive,
             )
@@ -109,7 +119,9 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
             data_source = SharePointPagesDataSource(client, page_name)
 
             await Synchronizer(
-                SharepointPagesDataProcessor(data_source, embed_title),
+                SharepointPagesDataProcessor(
+                    data_source, collection_config, embed_title
+                ),
                 store,
             ).sync(collection_id)
 
@@ -266,6 +278,18 @@ class KnowledgeSourcesController(Controller):
         await sync_collection_standalone(collection_id)
 
 
+class KnowledgeSourceMetadataController(Controller):
+    path = "/{collection_id:str}/metadata"
+
+    @post("/automap")
+    async def automap(
+        self, collection_id: str, data: MetadataAutomapRequest
+    ) -> MetadataAutomapResponse:
+        return MetadataAutomapResponse(
+            root=await automap_metadata(collection_id, data.exclude_fields)
+        )
+
+
 class KnowledgeSourceChunksController(Controller):
     path = "/{collection_id:str}/documents"
 
@@ -375,7 +399,7 @@ class KnowledgeSourceChunksController(Controller):
         try:
             validate_id(collection_id)
         except (errors.InvalidId, TypeError):
-            collection_id = get_ids_by_system_names(collection_id, "collections")  # type: ignore TODO - REFACTOR
+            collection_id = await get_ids_by_system_names(collection_id, "collections")  # type: ignore TODO - REFACTOR
 
             if not collection_id:
                 raise ClientException("Collection doesn't exist after alternate lookup")
@@ -390,13 +414,21 @@ class KnowledgeSourceChunksController(Controller):
 
 knowledge_sources_router = Router(
     path="/collections",
-    tags=["knowledge_sources"],
-    route_handlers=[KnowledgeSourcesController, KnowledgeSourceChunksController],
+    tags=["knowledge_sources_deprecated"],
+    route_handlers=[
+        KnowledgeSourcesController,
+        KnowledgeSourceMetadataController,
+        KnowledgeSourceChunksController,
+    ],
 )
 
 
 knowledge_sources_router_deprecated = Router(
     path="/knowledge_sources",
-    tags=["knowledge_sources_deprecated"],
-    route_handlers=[KnowledgeSourcesController, KnowledgeSourceChunksController],
+    tags=["knowledge_sources"],
+    route_handlers=[
+        KnowledgeSourcesController,
+        KnowledgeSourceMetadataController,
+        KnowledgeSourceChunksController,
+    ],
 )

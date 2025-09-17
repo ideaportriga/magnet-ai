@@ -35,16 +35,17 @@ class AgentAction(BaseModel):
 
     name: str
     system_name: str
-    description: str
+    description: str | None = None
     type: AgentActionType
     display_name: str
     display_description: str | None = None
     tool_system_name: str
     tool_provider: str | None = None
     function_name: str
-    function_description: str
+    function_description: str | None = None
     metadata: Metadata | None = None
     requires_confirmation: bool | None = False
+    use_response_as_assistant_message: bool | None = False
     action_message_llm_description: str | None = None
 
 
@@ -169,6 +170,7 @@ class AgentActionCallRequest(BaseModel):
     action_display_name: str
     action_display_description: str | None = None
     requires_confirmation: bool | None = False
+    use_response_as_assistant_message: bool | None = False
     action_message: str | None = None
     variables: dict[str, str] | None = None
 
@@ -445,6 +447,14 @@ class AgentConversationWithMessages(BaseModel):
         None,
         description="The status of the conversation.",
         examples=["active", "closed"],
+    )
+    trace_id: str | None = Field(
+        default=None,
+        description="The trace ID of the conversation.",
+    )
+    analytics_id: str | None = Field(
+        default=None,
+        description="The analytics ID of the conversation.",
     )
 
 

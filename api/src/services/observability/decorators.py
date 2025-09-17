@@ -1,7 +1,5 @@
 import asyncio
-import json
 import traceback
-import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from datetime import datetime
@@ -11,18 +9,11 @@ from typing import Any, Callable, Dict, Tuple, TypeVar, Unpack, cast, overload
 
 from litestar import route as LitestarRouteHandler
 from opentelemetry import baggage, context
-from opentelemetry import metrics as otel_metrics
 from opentelemetry import trace as otel_trace
 from opentelemetry.context.context import Context
-from opentelemetry.sdk.metrics import Counter, Histogram, MeterProvider
-from opentelemetry.sdk.metrics.export import (
-    AggregationTemporality,
-    PeriodicExportingMetricReader,
-)
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
+from opentelemetry.trace import INVALID_SPAN, Span, SpanContext, SpanKind
 from opentelemetry.trace.status import StatusCode
 
 from services.observability.models import (
@@ -49,148 +40,24 @@ from services.observability.otel.attributes import (
     create_otel_metric_attributes,
     create_otel_span_attributes,
 )
-from services.observability.otel.exporters import (
-    MongoDbMetricExporter,
-    MongoDbSpanExporter,
-    SqlAlchemySyncSpanExporter,
+from services.observability.otel.config import (
+    gen_ai_cost_histogram,
+    gen_ai_duration_histogram,
+    gen_ai_usage_histogram,
+    magnet_ai_feature_duration_histogram,
+    otel_tracer,
 )
 from services.observability.utils import (
     extract_x_attributes_from_request,
     get_duration,
-    get_input_from_func_args,
     get_timestamp,
     merge_dicts,
 )
-from utils.serializer import DefaultMongoDbSerializer
 
 logger = getLogger(__name__)
 
-otel_resource = Resource(
-    attributes={
-        "service.name": "magnet-ai",
-        "service.instance.id": str(uuid.uuid4()),
-        "telemetry.sdk.language": "python",
-        "telemetry.sdk.version": "1.35.0",
-    }
-)
 
-# Configure tracer
-otel_tracer_provider = TracerProvider(resource=otel_resource)
-otel_tracer_provider.add_span_processor(
-    BatchSpanProcessor(SqlAlchemySyncSpanExporter(), max_export_batch_size=100)
-)
-otel_trace.set_tracer_provider(otel_tracer_provider)
-otel_tracer = otel_trace.get_tracer(__name__)
-
-# Configure meter
-otel_metric_reader = PeriodicExportingMetricReader(
-    exporter=MongoDbMetricExporter(
-        preferred_temporality={
-            Counter: AggregationTemporality.DELTA,
-            Histogram: AggregationTemporality.DELTA,
-        }
-    ),
-    export_interval_millis=3000,  # Export every 3 seconds
-)
-otel_metrics.set_meter_provider(
-    MeterProvider(resource=otel_resource, metric_readers=[otel_metric_reader])
-)
-otel_meter = otel_metrics.get_meter("magnet_ai.feature.usage", version="1.0.0")
-
-# Create histogram to measure Magnet AI feature call duration
-magnet_ai_feature_duration_histogram = otel_meter.create_histogram(
-    name=OtelMetric.MAGNET_AI_FEATURE_DURATION,
-    description="Magnet AI feature call duration",
-    unit="s",
-    explicit_bucket_boundaries_advisory=[
-        0.01,
-        0.02,
-        0.04,
-        0.08,
-        0.16,
-        0.32,
-        0.64,
-        1.28,
-        2.56,
-        5.12,
-        10.24,
-        20.48,
-        40.96,
-        81.92,
-    ],
-)
-
-# Create OpenTelemetry Gen AI histogram to measure operation duration
-gen_ai_duration_histogram = otel_meter.create_histogram(
-    name=OtelMetric.GEN_AI_DURATION,
-    description="GenAI operation duration",
-    unit="s",
-    explicit_bucket_boundaries_advisory=[
-        0.01,
-        0.02,
-        0.04,
-        0.08,
-        0.16,
-        0.32,
-        0.64,
-        1.28,
-        2.56,
-        5.12,
-        10.24,
-        20.48,
-        40.96,
-        81.92,
-    ],
-)
-
-
-# Create OpenTelemetry Gen AI histogram to measure number of input and output tokens used
-gen_ai_usage_histogram = otel_meter.create_histogram(
-    name=OtelMetric.GEN_AI_USAGE,
-    description="Measures number of input and output tokens used",
-    unit="token",
-    explicit_bucket_boundaries_advisory=[
-        1,
-        4,
-        16,
-        64,
-        256,
-        1024,
-        4096,
-        16384,
-        65536,
-        262144,
-        1048576,
-        4194304,
-        16777216,
-        67108864,
-    ],
-)
-
-# Create unofficial OpenTelemetry Gen AI histogram to measure cost of input and output tokens
-gen_ai_cost_histogram = otel_meter.create_histogram(
-    name=OtelMetric.GEN_AI_COST,
-    description="Measures cost of input and output tokens",
-    unit="USD",
-    explicit_bucket_boundaries_advisory=[
-        0.00005,
-        0.0001,
-        0.001,
-        0.01,
-        0.02,
-        0.05,
-        0.1,
-        0.2,
-        0.5,
-        1.0,
-        2.0,
-        5.0,
-        10.0,
-    ],
-)
-
-
-_root_span: ContextVar[otel_trace.Span | None] = ContextVar("root_span", default=None)
+_root_span: ContextVar[Span | None] = ContextVar("root_span", default=None)
 
 T = TypeVar("T", bound=Callable[..., Any] | LitestarRouteHandler)
 
@@ -546,9 +413,7 @@ class ObservabilityContext:
         /,
         x_attributes: Dict[str, Any] | None = None,
         **params: Unpack[DecoratorParams],
-    ) -> tuple[
-        datetime, Token[Context] | None, otel_trace.Span | None, Token[Context] | None
-    ]:
+    ) -> tuple[datetime, Token[Context] | None, Span | None, Token[Context] | None]:
         # Get start time as early as possible
         start_time = get_timestamp()
 
@@ -583,7 +448,7 @@ class ObservabilityContext:
         start_time: datetime = get_timestamp(),
         /,
         **params: Unpack[DecoratorParams],
-    ) -> tuple[otel_trace.Span | None, Token[Context] | None]:
+    ) -> tuple[Span | None, Token[Context] | None]:
         if not (params.get("enabled") and params.get("trace_enabled")):
             return None, None
 
@@ -596,12 +461,12 @@ class ObservabilityContext:
             current_otel_span = otel_trace.get_current_span()
             ctx = context.get_current()
 
-            if current_otel_span is not otel_trace.INVALID_SPAN and trace_id:
+            if current_otel_span is not INVALID_SPAN and trace_id:
                 logger.warning(
                     "Provided trace id, but parent exists. Ignoring provided trace id."
                 )
             elif trace_id:
-                span_context = otel_trace.SpanContext(
+                span_context = SpanContext(
                     trace_id=int(trace_id, 16),
                     span_id=RandomIdGenerator().generate_span_id(),
                     trace_flags=otel_trace.TraceFlags(0x01),  # Mark span as sampled
@@ -622,11 +487,7 @@ class ObservabilityContext:
             )
 
             # Capture input if required
-            input = (
-                get_input_from_func_args(func_args, func_kwargs)
-                if params.get("capture_input")
-                else None
-            )
+            input = func_kwargs if params.get("capture_input") else None
 
             # Prepare span fields
             span_fields = SpanFields(
@@ -641,16 +502,16 @@ class ObservabilityContext:
             match span_type:
                 case SpanType.CHAT_COMPLETION:
                     otel_name = "chat"
-                    otel_kind = otel_trace.SpanKind.CLIENT
+                    otel_kind = SpanKind.CLIENT
                 case SpanType.EMBEDDING:
                     otel_name = "embeddings"
-                    otel_kind = otel_trace.SpanKind.CLIENT
+                    otel_kind = SpanKind.CLIENT
                 case SpanType.RERANKING:
                     otel_name = "reranker"
-                    otel_kind = otel_trace.SpanKind.CLIENT
+                    otel_kind = SpanKind.CLIENT
                 case _:
                     otel_name = span_name
-                    otel_kind = otel_trace.SpanKind.INTERNAL
+                    otel_kind = SpanKind.INTERNAL
 
             if _root_span.get():
                 trace_fields = self._get_current_trace_fields()
@@ -690,7 +551,7 @@ class ObservabilityContext:
     def _after_call_handler(
         self,
         baggage_token: Token[Context] | None,
-        otel_span: otel_trace.Span | None,
+        otel_span: Span | None,
         otel_token: Token[Context] | None,
         result: Any,
         /,
@@ -707,25 +568,14 @@ class ObservabilityContext:
 
     def _end_tracing(
         self,
-        otel_span: otel_trace.Span,
+        otel_span: Span,
         otel_token: Token[Context],
         result: Any,
         /,
         **params: Unpack[DecoratorParams],
     ):
         try:
-            output = (
-                # Serialize and deserialize to ensure proper JSON serialization.
-                # Objects are later serialized again so deserialization is necessary here to avoid unnecessary escaping of quotes.
-                json.loads(
-                    json.dumps(
-                        result
-                        if result is not None and params.get("capture_output")
-                        else None,
-                        cls=DefaultMongoDbSerializer,
-                    ),
-                )
-            )
+            output = result if params.get("capture_output") else None
 
             otel_span.set_attributes(
                 create_otel_span_attributes(
@@ -753,7 +603,7 @@ class ObservabilityContext:
         except Exception as e:
             logger.error(f"Failed to finalize tracing after function call: {e}")
 
-    def _handle_exception(self, span: otel_trace.Span | None, e: Exception, /):
+    def _handle_exception(self, span: Span | None, e: Exception, /):
         if span:
             span.record_exception(e)
             span.set_status(StatusCode.ERROR)

@@ -20,11 +20,11 @@ class FilterCondition(BaseModel):
     lte: str | int | float | bool | datetime | None = Field(None, alias="$lte")
     regex: str | None = Field(None, alias="$regex")
     options: str | None = Field(None, alias="$options")
-    in_: list[str | int | float | bool | datetime] | None = Field(
+    in_: list[str | int | float | bool | datetime | None] | None = Field(
         None,
         alias="$in",
     )
-    nin: list[str | int | float | bool | datetime] | None = Field(
+    nin: list[str | int | float | bool | datetime | None] | None = Field(
         None,
         alias="$nin",
     )

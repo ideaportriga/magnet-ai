@@ -90,7 +90,17 @@ async def create_chat_completion(
         },
     )
 
+    # Prepare input for traces and metrics
+    call_input = messages
+
     with observability_context.observe_feature(observed_feature):
+        observability_context.update_current_span(
+            name="Generate text",
+            description=f'Generating text using chat completion API powered by "{llm}" LLM, provided by {provider_display_name}.',
+            model=call_model,
+            input=call_input,
+        )
+
         # Call LLM, get response and calculate duration
         provider = get_ai_provider(provider_name)
         call_start_time = time.time()
@@ -112,8 +122,7 @@ async def create_chat_completion(
             chat_completion.usage, model_system_name
         )
 
-        # Prepare input and output for traces and metrics
-        call_input = messages
+        # Prepare output for traces and metrics
         call_output = {
             "id": chat_completion.id,
             "role": chat_completion.choices[0].message.role,
@@ -133,12 +142,8 @@ async def create_chat_completion(
 
         # Update current span with usage, cost and output
         observability_context.update_current_span(
-            name="Generate text",
-            description=f'Generating text using chat completion API powered by "{llm}" LLM, provided by {provider_display_name}.',
-            model=call_model,
             usage_details=call_usage,
             cost_details=call_cost,
-            input=call_input,
             output=call_output,
         )
 
@@ -231,7 +236,17 @@ async def get_embeddings(text: str, model_system_name: str):
     # Prepare model parameters for traces and metrics
     call_model.update(parameters={"llm": llm})
 
+    # Prepare input for traces and metrics
+    call_input = text
+
     with observability_context.observe_feature(observed_feature):
+        observability_context.update_current_span(
+            name="Convert text to vector",
+            description=f'Creating vector for a given text using "{llm}" LLM, provided by {provider_display_name}.',
+            model=call_model,
+            input=call_input,
+        )
+
         # Call the LLM
         provider = get_ai_provider(provider)
         call_start_time = time.time()
@@ -244,18 +259,13 @@ async def get_embeddings(text: str, model_system_name: str):
             embeddings.usage, model_system_name
         )
 
-        # Prepare input and output for traces and metrics
-        call_input = text
+        # Prepare output for traces and metrics
         call_output = None  # skip vector data
 
         # Update current span with usage, cost and output
         observability_context.update_current_span(
-            name="Convert text to vector",
-            description=f'Creating vector for a given text using "{llm}" LLM, provided by {provider_display_name}.',
-            model=call_model,
             usage_details=call_usage,
             cost_details=call_cost,
-            input=call_input,
             output=call_output,
         )
 

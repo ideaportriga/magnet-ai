@@ -16,12 +16,8 @@ logger = getLogger(__name__)
 
 
 class SharepointDocumentsDataProcessor(SharepointAbstractDataProcessor):
-    __collection_config: dict
-
     def __init__(
-        self,
-        data_source: SharePointAbstractDataSource,
-        collection_config: dict,
+        self, data_source: SharePointAbstractDataSource, collection_config: dict
     ) -> None:
         super().__init__(data_source)
         self.__collection_config = collection_config
@@ -85,7 +81,7 @@ class SharepointDocumentsDataProcessor(SharepointAbstractDataProcessor):
             logger.info("Skip video `%s` - no description", file.name)
             return []
 
-        return VideoTextSplitter(
+        return await VideoTextSplitter(
             url=lambda chapter: f"{sharepoint_url}/_layouts/15/embed.aspx?UniqueId={base_metadata.get('sourceId', '')}&nav=%7B%22playbackOptions%22%3A%7B%22startTimeInSeconds%22%3A{chapter.start_time if chapter else 0}%7D%7D&embed=%7B%22ust%22%3Atrue%2C%22hv%22%3A%22CopyEmbedCode%22%7D&referrer=StreamWebApp&referrerScenario=EmbedDialog.Create",
             description=video_description,
             base_metadata=base_metadata,
@@ -101,10 +97,11 @@ class SharepointDocumentsDataProcessor(SharepointAbstractDataProcessor):
         local_path = f"{local_directory}/{file_name}"
         await self._data_source.download_file(file, local_path)
 
+        chunks = []
         try:
             chunks = await PdfSplitter(
                 local_path,
-                base_metadata,
+                base_metadata=base_metadata,
                 chunking_config=self.__collection_config.get("chunking"),
             ).split()
         except Exception as e:
@@ -112,7 +109,6 @@ class SharepointDocumentsDataProcessor(SharepointAbstractDataProcessor):
         finally:
             os.remove(local_path)
 
-        chunks_total = len(chunks)
-        logger.info("File `%s` splitted into %s chunks", file_name, chunks_total)
+        logger.info("File `%s` splitted into %s chunks", file_name, len(chunks))
 
         return chunks

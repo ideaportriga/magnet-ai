@@ -23,6 +23,7 @@ from services.observability.models import (
     UsageInputDetails,
     UsageOutputDetails,
 )
+from utils.serializer import DefaultMongoDbSerializer
 
 from .utils import clean_attributes, expand_fields
 
@@ -133,9 +134,13 @@ def _span_magnet_ai_otel_attrs(fields: SpanFields):
     attributes.update(
         expand_fields("magnet_ai.extra_data", fields.extra_data, json_dump=True)
     )
-    attributes["magnet_ai.input"] = json.dumps(fields.input) if fields.input else None
+    attributes["magnet_ai.input"] = (
+        json.dumps(fields.input, cls=DefaultMongoDbSerializer) if fields.input else None
+    )
     attributes["magnet_ai.output"] = (
-        json.dumps(fields.output) if fields.output else None
+        json.dumps(fields.output, cls=DefaultMongoDbSerializer)
+        if fields.output
+        else None
     )
     attributes.update(
         expand_fields(
@@ -229,6 +234,7 @@ def _gen_ai_embeddings_otel_attributes(fields: SpanFields):
     # Create required attributes by OpenTelemetry Gen AI
     # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/#inference
     attributes["gen_ai.operation.name"] = "embeddings"
+    attributes["gen_ai.system"] = model.get("otel_gen_ai_system")
     attributes["gen_ai.request.model"] = model_params.get("llm")
 
     # Add recommended attributes by OpenTelemetry Gen AI
@@ -248,6 +254,7 @@ def _gen_ai_reranker_otel_attributes(fields: SpanFields):
     # Create required attributes by OpenTelemetry Gen AI
     # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/#inference
     attributes["gen_ai.operation.name"] = "reranker"
+    attributes["gen_ai.system"] = model.get("otel_gen_ai_system")
     attributes["gen_ai.request.model"] = model_params.get("llm")
 
     # Add recommended attributes by OpenTelemetry Gen AI
@@ -339,7 +346,7 @@ def get_span_model(
 def get_span_description(
     attributes: Mapping[str, AttributeValue],
 ) -> str | None:
-    description = attributes.get("magnet_ai.model.description")
+    description = attributes.get("magnet_ai.description")
     if not description:
         return None
 

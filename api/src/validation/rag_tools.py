@@ -1,7 +1,10 @@
 import re
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field, root_validator
+
+from type_defs.pagination import FilterObject
 
 
 # RAG CRUD operations input validation
@@ -30,6 +33,8 @@ class RetrieveConfig(BaseModel):
     collection_system_names: list[str] = Field(
         description="list of collection system names",
     )
+    allow_metadata_filter: bool = Field(default=False)
+    use_keyword_search: bool = Field(default=False)
     similarity_score_threshold: float = Field(
         ge=0.0,
         le=1.0,
@@ -126,24 +131,32 @@ class RagToolsConfig(BaseModel):
 
 
 class RagToolTest(RagToolsBase):
+    system_name: str = Field(
+        description="RAG Tool system name",
+        examples=["FAQ_TOOL"],
+    )
     user_message: str = Field(
         description="User's message to the RAG tool",
         examples=["How to ...?"],
     )
-    system_name: str = Field(
-        description="RAG Tool system name",
-        examples=["FAQ_TOOL"],
+    metadata_filter: list[dict[str, Any]] | None = Field(
+        description="Metadata filter to narrow down knowledge source chunks",
+        default=None,
     )
 
 
 class RagToolExecute(BaseModel):
+    system_name: str = Field(
+        description="RAG Tool system name",
+        examples=["FAQ_TOOL"],
+    )
     user_message: str = Field(
         description="User's message to the RAG tool",
         examples=["How to ...?"],
     )
-    system_name: str = Field(
-        description="RAG Tool system name",
-        examples=["FAQ_TOOL"],
+    metadata_filter: FilterObject | None = Field(
+        description="Metadata filter to narrow down knowledge source chunks",
+        default=None,
     )
 
 

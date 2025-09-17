@@ -13,6 +13,7 @@ from services.agents.conversations.services import get_conversation_by_id
 from services.agents.models import AgentConversationDataWithMessages
 from services.agents.services import get_agent_by_system_name
 from services.observability import observability_context, observe
+from services.observability.models import FeatureType
 from services.observability.utils import observability_overrides
 
 logger = getLogger(__name__)
@@ -101,7 +102,7 @@ async def execute_sync_collection(**kwargs):
         params = kwargs.get("params", {})
 
         observability_context.update_current_trace(
-            type="knowledge-source",
+            type=FeatureType.KNOWLEDGE_SOURCE.value,
             extra_data={
                 "job_id": job_id,
                 "job_definition": job_definition,

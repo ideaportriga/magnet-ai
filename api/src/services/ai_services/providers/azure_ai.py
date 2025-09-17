@@ -4,6 +4,10 @@ from decimal import Decimal
 from typing import cast
 
 import aiohttp
+from azure.ai.inference.aio import EmbeddingsClient
+from azure.core.credentials import AzureKeyCredential
+from azure.core.pipeline.policies import AsyncRetryPolicy
+from azure.core.pipeline.transport import AioHttpTransport
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from azure.ai.inference.aio import EmbeddingsClient
@@ -93,9 +97,19 @@ class AzureAIProvider(AIProviderInterface):
             api_key = config.get("key")
 
             if endpoint and api_key:
+                transport = AioHttpTransport(
+                    connection_timeout=10,
+                    read_timeout=30,
+                )
+                retry_policy = AsyncRetryPolicy(
+                    retry_total=3,
+                    retry_backoff_factor=0.8,
+                )
                 self._embedding_clients[model_name] = EmbeddingsClient(
                     endpoint=endpoint,
                     credential=AzureKeyCredential(key=api_key),
+                    transport=transport,
+                    retry_policy=retry_policy,
                 )
 
     def _get_embedding_client(self, llm: str) -> EmbeddingsClient:
@@ -128,6 +142,7 @@ class AzureAIProvider(AIProviderInterface):
             "temperature": temperature,
             "top_p": top_p,
             "max_tokens": max_tokens,
+            "model": model,
             # TODO - add and test tools
         }
 
@@ -139,19 +154,19 @@ class AzureAIProvider(AIProviderInterface):
         headers = {"Authorization": f"Bearer {api_key}"}
 
         async with aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=self.timeout / 1000),
+            timeout=aiohttp.ClientTimeout(total=self.timeout / 1000)
         ) as session:
             try:
                 async with session.post(
-                    endpoint,
-                    headers=headers,
-                    json=data,
+                    endpoint, headers=headers, json=data
                 ) as response:
-                    response.raise_for_status()
                     response_json = await response.json()
-            except Exception as e:
-                logger_azure.error(f"Error in create_chat_completion: {e}")
+                    response.raise_for_status()
+            except aiohttp.ContentTypeError:
                 raise
+            except aiohttp.ClientResponseError as e:
+                logger_azure.error(e)
+                raise Exception(response_json)
 
         completion = ChatCompletion(**response_json)
 
@@ -173,7 +188,12 @@ class AzureAIProvider(AIProviderInterface):
 
         # Call the Azure API to get the embeddings
         client = self._get_embedding_client(llm)
-        response = await client.embed(input=[text], model=llm)
+        response = await client.embed(
+            input=[text],
+            model=llm,
+            # this argument enables retry for embeding requests, do not remove it
+            retry_on_methods=["POST"],
+        )
 
         return EmbeddingResponse(
             data=cast(list[float], response.data[0].embedding),
@@ -250,7 +270,7 @@ class AzureAIProvider(AIProviderInterface):
 
         # Create new array of documents with new scores
         reranked_documents = []
-        for doc, index in zip(documents, new_scores, strict=False):
+        for index, doc in enumerate(documents):
             doc.score = Decimal(new_scores.get(index, doc.score))
             doc.original_index = index
             reranked_documents.append(doc)

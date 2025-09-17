@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from services.agents.actions.action_execute_api import action_execute_api
+from services.agents.actions.action_execute_api_tool import action_execute_api_tool
 from services.agents.actions.action_execute_mcp_tool import action_execute_mcp_tool
 from services.agents.actions.action_execute_prompt_template import (
     action_execute_prompt_template,
@@ -36,7 +36,6 @@ class ActionProvidedFunctionProtocol(Protocol):
 EXECUTE_AGENT_ACTION_FUNCTION_MAP: dict[AgentActionType, ActionFunctionProtocol] = {
     AgentActionType.RAG: action_execute_rag,
     AgentActionType.RETRIEVAL: action_execute_retrieval,
-    AgentActionType.API: action_execute_api,
     AgentActionType.PROMPT_TEMPLATE: action_execute_prompt_template,
 }
 
@@ -45,6 +44,7 @@ EXECUTE_AGENT_PROVIDED_ACTION_FUNCTION_MAP: dict[
     AgentActionType, ActionProvidedFunctionProtocol
 ] = {
     AgentActionType.MCP_TOOL: action_execute_mcp_tool,
+    AgentActionType.API: action_execute_api_tool,
 }
 
 

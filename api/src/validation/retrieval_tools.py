@@ -1,5 +1,8 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
 
+from type_defs.pagination import FilterObject
 from validation.rag_tools import LanguageConfig, RetrieveConfig, UISettingsConfig
 
 
@@ -25,16 +28,24 @@ class RetrievalToolTest(RetrievalToolsBase):
         description="User's message to the RAG tool",
         examples=["How to ...?"],
     )
+    metadata_filter: list[dict[str, Any]] | None = Field(
+        description="Metadata filter to narrow down knowledge source chunks",
+        default=None,
+    )
     name: str | None = None
 
 
 class RetrievalToolExecute(BaseModel):
+    system_name: str = Field(
+        description="Retrieval Tool system name",
+        examples=["FAQ_TOOL"],
+    )
     user_message: str = Field(
         description="User's message to the RAG tool",
         examples=["How to ...?"],
     )
-    system_name: str = Field(
-        description="Retrieval Tool system name",
-        examples=["FAQ_TOOL"],
+    metadata_filter: FilterObject | None = Field(
+        description="Metadata filter to narrow down knowledge source chunks",
+        default=None,
     )
     name: str | None = None

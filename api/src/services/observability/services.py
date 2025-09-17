@@ -36,8 +36,8 @@ from type_defs.pagination import FilterObject, OffsetPaginationRequest
 
 logger = getLogger(__name__)
 
-OBSERVABILITY_TRACE_USERS = (
-    os.getenv("OBSERVABILITY_TRACE_USERS", "false").lower() == "true"
+OBSERVABILITY_USAGE_SHOW_USERS = (
+    os.getenv("OBSERVABILITY_USAGE_SHOW_USERS", "false").lower() == "true"
 )
 
 
@@ -1206,7 +1206,7 @@ async def create_file_with_rag_metrics_for_export(
                 "organization",
                 "substandart_result_reason",
                 "substandart_result_comment",
-                *(["user_id"] if OBSERVABILITY_TRACE_USERS else []),
+                *(["user_id"] if OBSERVABILITY_USAGE_SHOW_USERS else []),
             ],
         )
         writer.writeheader()
@@ -1251,7 +1251,7 @@ async def create_file_with_rag_metrics_for_export(
                     ),
                     **(
                         {"user_id": item.get("user_id")}
-                        if OBSERVABILITY_TRACE_USERS
+                        if OBSERVABILITY_USAGE_SHOW_USERS
                         else {}
                     ),
                 }
@@ -1305,7 +1305,7 @@ async def create_file_with_rag_metrics_for_export(
                     ),
                     **(
                         {"user_id": item.get("user_id")}
-                        if OBSERVABILITY_TRACE_USERS
+                        if OBSERVABILITY_USAGE_SHOW_USERS
                         else {}
                     ),
                 }
@@ -1355,7 +1355,7 @@ async def create_file_with_agent_metrics_for_export(
                 "substandart_result_reason",
                 "substandart_result_comment",
                 "organization",
-                *(["user_id"] if OBSERVABILITY_TRACE_USERS else []),
+                *(["user_id"] if OBSERVABILITY_USAGE_SHOW_USERS else []),
                 "conversation_id",
             ],
         )
@@ -1407,7 +1407,7 @@ async def create_file_with_agent_metrics_for_export(
                     "organization": (item.get("x_attributes") or {}).get("org-id"),
                     **(
                         {"user_id": item.get("user_id")}
-                        if OBSERVABILITY_TRACE_USERS
+                        if OBSERVABILITY_USAGE_SHOW_USERS
                         else {}
                     ),
                     "conversation_id": conversation_id,
@@ -1477,7 +1477,7 @@ async def create_file_with_agent_metrics_for_export(
                     "organization": (item.get("x_attributes") or {}).get("org-id"),
                     **(
                         {"user_id": item.get("user_id")}
-                        if OBSERVABILITY_TRACE_USERS
+                        if OBSERVABILITY_USAGE_SHOW_USERS
                         else {}
                     ),
                     "conversation_id": conversation_id,

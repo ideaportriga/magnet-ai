@@ -1,4 +1,6 @@
+import json
 from dataclasses import asdict
+from logging import getLogger
 
 from langchain.schema import Document
 
@@ -8,7 +10,10 @@ from services.flow_retrieval_test import RetrievalToolTestResult
 from services.get_chat_completion_answer import get_document_context
 from services.observability import observability_context, observe
 from services.observability.models import SpanType
+from type_defs.pagination import FilterObject
 from validation.retrieval_tools import RetrievalToolExecute
+
+logger = getLogger(__name__)
 
 
 @observe(
@@ -22,6 +27,13 @@ async def action_execute_retrieval(
     variables: dict[str, str] | None = None,
 ) -> AgentActionCallResponse:
     query = arguments.get("query")
+    metadata_filter = arguments.get("metadata_filter")
+    if metadata_filter:
+        try:
+            metadata_filter = FilterObject(json.loads(metadata_filter))
+        except Exception as e:
+            logger.error(f"Failed to parse metadata filter: {e}")
+            metadata_filter = None
 
     assert query, "Cannot call Retrieval Tool - user's query is missing"
 
@@ -30,8 +42,16 @@ async def action_execute_retrieval(
     )
 
     tool_execute_result: RetrievalToolTestResult = await flow_retrieval_execute(
-        RetrievalToolExecute(system_name=tool_system_name, user_message=query),
+        RetrievalToolExecute(
+            system_name=tool_system_name,
+            user_message=query,
+            metadata_filter=metadata_filter,
+        ),
     )
+
+    # Quick workaround to avoid decimals incompatibility with MongoDB
+    for result_item in tool_execute_result.results:
+        result_item.score = float(result_item.score)
 
     results_stringified = "\n\n".join(
         get_document_context(

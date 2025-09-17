@@ -69,6 +69,8 @@ class AzureProvider(AIProviderInterface):
         )
         top_p = top_p if top_p is not None else self.top_p_default
 
+        max_completion_tokens = max_tokens or openai.NOT_GIVEN
+
         client = openai.AsyncAzureOpenAI(
             api_version=self.api_version,
             azure_endpoint=self.endpoint,
@@ -81,7 +83,7 @@ class AzureProvider(AIProviderInterface):
             return await client.chat.completions.create(
                 model=model,
                 messages=transformed_messages,
-                max_completion_tokens=max_tokens,
+                max_completion_tokens=max_completion_tokens,
                 response_format=transform_schema(response_format),
                 tools=tools or openai.NOT_GIVEN,
                 reasoning_effort=reasoning_effort,
@@ -93,7 +95,7 @@ class AzureProvider(AIProviderInterface):
             messages=messages,
             temperature=temperature,
             top_p=top_p,
-            max_tokens=max_tokens,
+            max_completion_tokens=max_completion_tokens,
             response_format=transform_schema(response_format),
             tools=tools or openai.NOT_GIVEN,
         )

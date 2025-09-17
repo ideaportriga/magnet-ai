@@ -14,5 +14,12 @@ async def flow_retrieval_execute(
 ) -> RetrievalToolTestResult:
     retrieval_tool_config = await get_retrieval_by_system_name_flat(input.system_name)
 
-    entity = RetrievalToolTest(user_message=input.user_message, **retrieval_tool_config)
+    if not retrieval_tool_config:
+        raise ValueError("Retrieval tool with this system name not found")
+
+    entity = RetrievalToolTest(
+        user_message=input.user_message,
+        metadata_filter=input.metadata_filter,
+        **retrieval_tool_config,
+    )
     return await flow_retrieval_test(entity)

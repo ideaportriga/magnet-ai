@@ -102,7 +102,9 @@ class UserExecuteController(Controller):
         )
 
         return await execute_rag_tool(
-            system_name_or_config=rag_tool_config, user_message=data.user_message
+            system_name_or_config=rag_tool_config,
+            user_message=data.user_message,
+            metadata_filter=data.metadata_filter,
         )
 
     @observe(name="Executing Retrieval Tool", channel="production")

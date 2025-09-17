@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum, StrEnum
 from typing import Optional
 
@@ -14,6 +14,8 @@ from open_ai.utils_new import create_chat_completion_from_prompt_template
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
 from services.observability import observability_context, observe
 from services.rag_tools import execute_rag_tool
+from services.utils.metadata_filtering import metadata_filter_to_filter_object
+from stores import get_db_client
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -143,7 +145,9 @@ async def execute_test_set_item_rag_tool(rag_tool_config: dict, user_input: str)
 
 
 # Perform the actual evaluation based on job type
-async def evaluate_record(job_type, system_name, variant, config, user_message) -> dict:
+async def evaluate_record(
+    job_type, system_name, variant, config, metadata_filter, user_message
+) -> dict:
     logger.info(f"Starting evaluation record for job type '{job_type}'")
     start_time = datetime.now()
     match job_type:
@@ -183,11 +187,9 @@ async def evaluate_record(job_type, system_name, variant, config, user_message) 
 
         # Evaluate a RAG tool
         case JobType.RAG_EVAL:
-            logger.info(f"Evaluating RAG tool with config: {config}")
-            logger.info(f"User message for RAG: {user_message}")
-
             answer = await execute_test_set_item_rag_tool(
                 rag_tool_config=config,
+                metadata_filter=metadata_filter,
                 user_input=user_message,
             )
 
@@ -243,10 +245,9 @@ async def evaluate_variant(
         async def evaluate_test_set_item(
             iteration, test_set_index, item_index, test_set, test_set_item
         ):
-            logger.info(
-                f"Starting evaluation for iteration {iteration}, test_set_index {test_set_index}, item_index {item_index}"
+            metadata_filter = metadata_filter_to_filter_object(
+                test_set_item.get("metadata_filter")
             )
-
             user_message = test_set_item.get("user_input")
             expected_output = test_set_item.get("expected_result")
 
@@ -258,6 +259,7 @@ async def evaluate_variant(
                 input={
                     "Iteration": iteration,
                     "Test set": test_set,
+                    **({"Metadata filter": metadata_filter} if metadata_filter else {}),
                     "Evaluation input": user_message,
                     "Expected output": expected_output,
                 },
@@ -268,7 +270,12 @@ async def evaluate_variant(
                 f"Calling evaluate_record with job_type={job_type}, system_name={system_name}, variant={variant}"
             )
             result = await evaluate_record(
-                job_type, system_name, variant, variant_object, user_message
+                job_type,
+                system_name,
+                variant,
+                variant_object,
+                metadata_filter,
+                user_message,
             )
             logger.info(f"Evaluation result: {result}")
 

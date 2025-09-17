@@ -64,11 +64,13 @@ async def paginate_collection(
     elif data.exclude_fields:
         projection = {field: 0 for field in data.exclude_fields}
 
+    sort = {data.sort: data.order, "_id": data.order} if data.sort else {}
+
     # Use async MongoDB driver methods
     cursor = (
         client.get_collection(collection_name)
         .find(filters, projection)
-        .sort(data.sort, data.order)
+        .sort(sort)
         .skip(data.offset)
         .limit(data.limit)
     )

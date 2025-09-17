@@ -8,16 +8,13 @@ from office365.sharepoint.files.file import File
 from data_sources.sharepoint.source_abstract import SharePointAbstractDataSource
 from data_sources.types.basic_metadata import SourceBasicMetadata
 from data_sync.data_processor import DataProcessor
-from data_sync.processors.sharepoint.sharepoint_site_page_processor import (
-    SharepointSitePageProcessor,
-)
 from models import DocumentData
 from utils.datetime_utils import utc_to_isoformat
 
 logger = getLogger(__name__)
 
 
-class SharepointAbstractDataProcessor(DataProcessor, SharepointSitePageProcessor):
+class SharepointAbstractDataProcessor(DataProcessor):
     _data_source: SharePointAbstractDataSource
     __files: list[File]
 
@@ -65,13 +62,20 @@ class SharepointAbstractDataProcessor(DataProcessor, SharepointSitePageProcessor
         modified_time = (
             utc_to_isoformat(file.time_last_modified) if file.time_last_modified else ""
         )
+        # Prepare SharePoint metadata to be stored in the database
+        source_metadata = file.listItemAllFields.properties
+        source_metadata.pop("ParentList", None)
+        source_metadata.pop("CanvasContent1", None)
+        source_metadata.pop("OData__AuthorBylineId", None)
+        source_metadata.pop("_AuthorBylineStringId", None)
 
         return dict(
             {
                 "sourceId": file_unique_id,
+                "source": file_source,
+                "sourceMetadata": source_metadata,
                 "name": file_name,
                 "path": file_path,
-                "source": file_source,
                 "title": file_title,
                 "createdTime": created_time,
                 "modifiedTime": modified_time,

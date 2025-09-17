@@ -102,26 +102,17 @@ class FluidTopicsDataProcessor(DataProcessor):
 
         return document_data_to_add
 
-    def __create_base_metadata(self, document: FluidTopicsDocument) -> dict:
-        """Creates base metadata for a Fluid Topics document.
-
-        Args:
-            document (FluidTopicsDocument): Fluid Topics document.
-
-        Returns:
-            dict: Base metadata.
-
-        """
+    def __create_base_metadata(self, document: FluidTopicsDocument):
         return {
             "sourceId": document.id,
-            "name": document.title,
             "source": document.viewer_url,
+            "sourceMetadata": document.metadata,
+            "name": document.title,
             "title": document.title,
             "createdTime": document.created_date,
             "modifiedTime": document.modified_date,
         }
 
-    # region PDF processing
     async def __create_pdf_documents(
         self,
         base_metadata: dict,
@@ -146,7 +137,7 @@ class FluidTopicsDataProcessor(DataProcessor):
         try:
             chunks = await PdfSplitter(
                 local_path,
-                base_metadata,
+                base_metadata=base_metadata,
                 chunking_config=self.__collection_config.get("chunking"),
             ).split()
         except Exception:
@@ -157,6 +148,3 @@ class FluidTopicsDataProcessor(DataProcessor):
         logger.info("File `%s` splitted into %s chunks", file_name, len(chunks))
 
         return chunks
-
-
-# endregion

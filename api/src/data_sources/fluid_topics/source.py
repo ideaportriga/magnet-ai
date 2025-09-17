@@ -1,6 +1,7 @@
 import logging
 import os
 import traceback
+from urllib.parse import urlparse, urlunparse
 
 import aiofiles
 import httpx
@@ -108,7 +109,15 @@ class FluidTopicsDataSource(DataSource[str]):
                                         created_date,
                                         modified_date,
                                         "",
-                                        viewer_url,
+                                        self._replace_viewer_base_url(viewer_url),
+                                        {
+                                            metadata_item.get("key"): metadata_item.get(
+                                                "values"
+                                            )
+                                            for metadata_item in entry["document"].get(
+                                                "metadata", []
+                                            )
+                                        },
                                     ),
                                 )
                     if json_response.get("paging", {}).get("isLastPage"):
@@ -118,6 +127,22 @@ class FluidTopicsDataSource(DataSource[str]):
         except httpx.RequestError as e:
             logger.error(f"Failed to get data from Fluid Topics: {e}")
             raise RuntimeError(f"Failed to get data from Fluid Topics: {e}") from e
+
+    def _replace_viewer_base_url(self, viewer_url: str) -> str:
+        new_base_url = os.environ.get("FLUID_TOPICS_VIEWER_BASE_URL")
+        if not new_base_url or not viewer_url:
+            return viewer_url
+
+        # Parse the new base URL and the original viewer URL
+        parsed_new_base = urlparse(new_base_url)
+        parsed_viewer = urlparse(viewer_url)
+
+        # Replace scheme and netloc with those from the new base URL
+        replaced = parsed_viewer._replace(
+            scheme=parsed_new_base.scheme or parsed_viewer.scheme,
+            netloc=parsed_new_base.netloc or parsed_viewer.netloc,
+        )
+        return urlunparse(replaced)
 
     async def get_url(self, file_name: str) -> str:
         if not self._pdf_api_url or not self._search_api_key:

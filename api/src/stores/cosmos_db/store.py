@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
 from logging import getLogger
-from typing import Any
+from typing import Any, override
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorCollection  # <-- async MongoDB
@@ -18,8 +18,9 @@ from services.observability import observability_context, observe
 from services.observability.models import SpanType
 from stores.cosmos_db.client import CosmosDbClient
 from stores.document_store import DocumentStore
-from type_defs.pagination import OffsetPaginationRequest
+from type_defs.pagination import FilterObject, OffsetPaginationRequest
 from utils.pagination_utils import paginate_collection
+from validation.rag_tools import RetrieveConfig
 
 logger = getLogger(__name__)
 
@@ -449,37 +450,27 @@ class CosmosDbStore(DocumentStore):
         await self.get_collection_metadata(collection_id)
 
     @observe(
-        name="Vector search",
+        name="Semantic search",
+        description="Performing semantic (vector) search in knowledge source.",
         type=SpanType.SEARCH,
-        capture_input=True,
         capture_output=True,
     )
     async def __vector_search(
-        self,
-        *,
-        collection_id: str,
-        query: str,
-        vector: list[float],
-        num_results: int,
+        self, *, collection_id: str, query: str, vector: list[float], num_results: int
     ) -> DocumentSearchResult:
-        """Performs vector search on the Cosmos DB collection.
-
-        .. _official documentation: https://learn.microsoft.com/en-us/azure/cosmos-db/mongodb/vcore/vector-search
-
-        """
         logger.debug(
             f"Performing vector search in collection_id: {collection_id} with num_results: {num_results}",
         )
-        await self.__assert_collection_exist(collection_id)
-
+        collection_config = await self.get_collection_metadata(collection_id)
         collection = await self.__get_documents_collection(collection_id)
 
         observability_context.update_current_span(
-            description=f"Performing vector search in Azure Cosmos DB (using Mongo DB API) and taking only {num_results} first results.",
-            extra_data={
-                "collection_name": collection.name,
-                "store": "cosmos_db",
-            },
+            input={
+                "collection_id": collection_id,
+                "collection_name": collection_config.get("name"),
+                "query": query,
+                "num_results": num_results,
+            }
         )
 
         pipeline = [
@@ -541,11 +532,14 @@ class CosmosDbStore(DocumentStore):
             num_results=num_results,
         )
 
+    @override
     async def document_collections_similarity_search(
         self,
         collection_ids: list[str],
+        retrieve_config: RetrieveConfig,
         query: str,
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> list:
         if not collection_ids:
             logger.warning("No collections provided for similarity search.")

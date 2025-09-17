@@ -171,7 +171,7 @@ class MongoDbSpanExporter(SpanExporter):
 
         trace.name = trace.name or trace_fields.name.value
         trace.type = trace.type or trace_fields.type.value
-        trace.status = "error" if span_status == StatusCode.ERROR else None
+        trace.status = "error" if span_status == "error" else trace.status
         trace.channel = trace.channel or global_fields.channel.value
         trace.source = trace.source or global_fields.source.value
         # TODO: merge extra data
@@ -316,6 +316,7 @@ class MongoDbSpanExporter(SpanExporter):
         )
 
         if trace:
+            status = trace.get("status")
             trace_start_time = apply_utc_timezone(trace.get("start_time"))
             trace_end_time = apply_utc_timezone(trace.get("end_time"))
             if trace_start_time and trace_patch.start_time:
@@ -327,13 +328,12 @@ class MongoDbSpanExporter(SpanExporter):
             elif trace_patch.end_time:
                 trace_end_time = trace_patch.end_time
         else:
+            status = "success"
             trace_start_time = trace_patch.start_time
             trace_end_time = trace_patch.end_time
 
         fields = {
             "$setOnInsert": {
-                "status": "success",
-                "status_message": None,
                 "cost_details": {
                     "chat": 0.0,
                     "embed": 0.0,
@@ -354,13 +354,12 @@ class MongoDbSpanExporter(SpanExporter):
                 "end_time": trace_end_time,
                 "latency": get_duration(trace_start_time, trace_end_time),
             },
-            "$inc": {
-                "cost_details.chat": trace_patch.chat_cost,
-                "cost_details.embed": trace_patch.embed_cost,
-                "cost_details.rerank": trace_patch.rerank_cost,
-                "cost_details.total": trace_patch.total_cost,
-            },
         }
+
+        if trace_patch.status == "error":
+            fields["$set"]["status"] = trace_patch.status
+        else:
+            fields["$set"]["status"] = status
 
         if len(trace_patch.spans) > 0:
             fields["$push"] = {"spans": {"$each": []}}
@@ -402,6 +401,20 @@ class MongoDbSpanExporter(SpanExporter):
 
         await self.db.get_collection("traces").update_one(
             {"_id": ObjectId(trace_id)}, fields, upsert=True
+        )
+
+        # Update cost details as a separate operation to avoid conflict errors,
+        # when cost_details is referenced in both $setOnInsert and $inc
+        await self.db.get_collection("traces").update_one(
+            {"_id": ObjectId(trace_id)},
+            {
+                "$inc": {
+                    "cost_details.chat": trace_patch.chat_cost,
+                    "cost_details.embed": trace_patch.embed_cost,
+                    "cost_details.rerank": trace_patch.rerank_cost,
+                    "cost_details.total": trace_patch.total_cost,
+                }
+            },
         )
 
     async def _upsert_analytics(self, id: str, patch: dict):

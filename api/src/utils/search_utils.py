@@ -1,8 +1,14 @@
 from decimal import ROUND_HALF_UP, Decimal
 
 from models import DocumentSearchResult, DocumentSearchResultItem
+from services.observability import observability_context, observe
 
 
+@observe(
+    name="Fuse search results",
+    description="Combine search results from semantic and keyword search, and recalculate scores. Reciprocal rank fusion algorithm is used to combine the scores.",
+    capture_output=True,
+)
 def reciprocal_rank_fusion(
     result_1: DocumentSearchResult,
     result_2: DocumentSearchResult,
@@ -14,7 +20,16 @@ def reciprocal_rank_fusion(
     - r is the rank of the document in each result list
     - k is a constant that prevents items appearing low in only one list from getting too much weight
     """
-    k = 1
+
+    observability_context.update_current_span(
+        input={
+            "result_1": result_1,
+            "result_2": result_2,
+            "num_results": num_results,
+        }
+    )
+
+    k = 2
 
     # Create a dictionary to store combined scores
     combined_scores = {}

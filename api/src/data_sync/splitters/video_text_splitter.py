@@ -2,10 +2,12 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import override
 
 from langchain.schema.document import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from data_sync.splitters.abstract_splitter import AbstractSplitter
 from data_sync.utils import clean_text
 
 
@@ -24,7 +26,7 @@ CHAPTER_PATTERN = re.compile(
 NO_CHAPTERS_SPLITTER = RecursiveCharacterTextSplitter()
 
 
-class VideoTextSplitter:
+class VideoTextSplitter(AbstractSplitter):
     def __init__(
         self,
         url: str | Callable[[Chapter | None], str],
@@ -40,7 +42,8 @@ class VideoTextSplitter:
             },
         )
 
-    def split(self):
+    @override
+    async def split(self) -> list[Document]:
         chapters = self.__parse_chapters()
 
         if not chapters:
@@ -78,10 +81,7 @@ class VideoTextSplitter:
         chunks = NO_CHAPTERS_SPLITTER.split_text(self.description)
 
         return [
-            Document(
-                page_content=clean_text(chunk),
-                metadata=metadata,
-            )
+            Document(page_content=clean_text(chunk), metadata=metadata)
             for chunk in chunks
         ]
 
@@ -107,10 +107,7 @@ class VideoTextSplitter:
             }
 
             chunks.append(
-                Document(
-                    page_content=clean_text(page_content),
-                    metadata=metadata,
-                ),
+                Document(page_content=clean_text(page_content), metadata=metadata),
             )
 
         return chunks
