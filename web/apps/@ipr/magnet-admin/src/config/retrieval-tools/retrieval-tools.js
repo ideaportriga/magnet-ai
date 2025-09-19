@@ -90,6 +90,21 @@ const controls = {
     classes: 'km-button-xs-text',
     sortable: true,
   },
+    variants: {
+    name: 'variants',
+    label: 'Variants',
+    display: true,
+    ignorePatch: true,
+    fromMetadata: false,
+    field: (row) => {
+      return row.variants?.length ?? 1
+    },
+    align: 'left',
+    sortable: true,
+    sort: (a, b) => {
+      return a - b
+    },
+  },
   created: {
     name: 'created',
     label: 'Created',
