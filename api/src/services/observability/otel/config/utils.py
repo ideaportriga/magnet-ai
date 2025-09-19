@@ -1,18 +1,18 @@
 import os
 from logging import getLogger
 
-from azure.monitor.opentelemetry.exporter import (
-    AzureMonitorMetricExporter,
-    AzureMonitorTraceExporter,
-)
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.metrics.export import MetricReader, PeriodicExportingMetricReader
 from opentelemetry.sdk.trace import SpanProcessor
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+from azure.monitor.opentelemetry.exporter import (
+    AzureMonitorMetricExporter,
+    AzureMonitorTraceExporter,
+)
 from services.observability.models import MetricsExporterType, TracesExporterType
-from services.observability.otel.exporters import MongoDbSpanExporter
+from services.observability.otel.exporters import SqlAlchemySpanExporter
 
 logger = getLogger(__name__)
 
@@ -100,7 +100,7 @@ def get_span_processors() -> list[SpanProcessor]:
             case TracesExporterType.INTERNAL:
                 processors.append(
                     BatchSpanProcessor(
-                        MongoDbSpanExporter(),
+                        SqlAlchemySpanExporter(),
                         max_export_batch_size=max_export_batch_size,
                     )
                 )

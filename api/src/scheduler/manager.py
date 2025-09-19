@@ -22,8 +22,6 @@ from scheduler.types import JobStatus
 from scheduler.utils import format_next_run_time, update_job_status
 from stores import get_db_client
 
-# from .store import CustomMongoDBJobStore
-
 logger = getLogger(__name__)
 client = get_db_client()
 

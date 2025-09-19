@@ -123,6 +123,8 @@ build_docker_image_latest_job:
     - docker push ${IMAGE_NAME}:latest
     - docker push ${IMAGE_NAME}:previous
 
+    
+
 commit_to_releases_repo:
   stage: deploy
   image: alpine:3.21
@@ -161,3 +163,27 @@ commit_to_releases_repo:
     - git tag "${CI_COMMIT_TAG}"
     - git push origin main
     - git push origin "${CI_COMMIT_TAG}"
+
+deploy_to_azure_container_app:
+  stage: deploy
+  image: mcr.microsoft.com/azure-cli:2.56.0
+  tags:
+    - docker-sfdx-2
+  rules:
+    - if: '$CI_COMMIT_TAG || $CI_COMMIT_REF_NAME == "main"'
+  script:
+    # Login to Azure
+    - az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+
+    # Set variables
+    - IMAGE_TAG="${CI_COMMIT_TAG#v}"
+    - IMAGE_TAG="${IMAGE_TAG:-latest}"
+
+    # Update the Container App with new image
+    - az containerapp update --name $AZURE_CONTAINER_APP_NAME --resource-group $AZURE_RESOURCE_GROUP --image $ACR_HOSTNAME/ai-bridge:$IMAGE_TAG
+
+    # Optionally update environment variables (example)
+    # - az containerapp update --name $AZURE_CONTAINER_APP_NAME --resource-group $AZURE_RESOURCE_GROUP --set-env-vars KEY1=VALUE1 KEY2=VALUE2
+
+    # Create a new revision (optional, if not automatic)
+    # - az containerapp revision create --name $AZURE_CONTAINER_APP_NAME --resource-group $AZURE_RESOURCE_GROUP

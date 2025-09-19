@@ -1,8 +1,10 @@
 import os
 
-from logger.utils import logger
+import structlog
+
 from observability.azure_insight import AzureLogger
 
+logger = structlog.get_logger(__name__)
 env = os.environ
 
 

@@ -2,7 +2,7 @@ import json
 from typing import Annotated
 
 import yaml
-from litestar import Controller, delete, get, patch, post
+from litestar import Controller, post
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException
@@ -13,10 +13,6 @@ from pydantic import BaseModel
 from services.api_servers import services
 from services.api_servers.parse_openapi_spec import parse_openapi_spec
 from services.api_servers.types import (
-    ApiServerConfigEntity,
-    ApiServerConfigPersisted,
-    ApiServerConfigWithSecrets,
-    ApiServerUpdate,
     ApiToolCall,
     ApiToolCallResult,
     ParsedOpenApiSpec,
@@ -75,27 +71,6 @@ class ApiServersController(Controller):
         parsed_spec = await parse_openapi_spec(openapi_spec_raw)
 
         return parsed_spec
-
-    @get("/", summary="List API servers")
-    async def list_api_servers(self) -> list[ApiServerConfigEntity]:
-        return await services.list_api_servers()
-
-    @get("/{id:str}", summary="Get API server")
-    async def get_api_server(self, id: str) -> ApiServerConfigEntity:
-        return await services.get_api_server(id)
-
-    @post("/", summary="Create API server", response_model=ApiServerConfigPersisted)
-    async def create_api_server(self, data: ApiServerConfigWithSecrets) -> dict:
-        return await services.create_api_server(data)
-
-    @patch("/{id:str}", summary="Update API server")
-    async def update_api_server(self, id: str, data: ApiServerUpdate) -> dict:
-        await services.update_api_server(id, data)
-        return {}
-
-    @delete("/{id:str}", summary="Delete API server")
-    async def delete_api_server(self, id: str) -> None:
-        return await services.delete_api_server(id)
 
     @post(
         "/call_tool",

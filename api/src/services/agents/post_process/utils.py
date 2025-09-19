@@ -2,15 +2,12 @@ import json
 from logging import getLogger
 from typing import Any
 
-from bson import ObjectId
 from dateutil import parser as date_parser
 
 from open_ai.utils_new import create_chat_completion_from_prompt_template
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
 from services.observability import observe
-from stores import RecordNotFoundError, get_db_client
-
-client = get_db_client()
+from stores import RecordNotFoundError
 
 logger = getLogger(__name__)
 
@@ -186,6 +183,10 @@ async def post_process_conversation(
     analytics_id = conversation.get("analytics_id")
 
     if analytics_id:
+        # Update analytics with metrics service
+        from core.config.app import alchemy
+        from core.domain.metrics.service import MetricsService
+
         analytics_fields = {}
 
         for k, v in slow_post_processing.items():
@@ -199,21 +200,31 @@ async def post_process_conversation(
         # Update analytics with closed status
         analytics_fields["extra_data.status"] = "Closed"
 
-        # Update analytics with analytics data
-        await client.get_collection("metrics").update_one(
-            {"_id": ObjectId(analytics_id)},
-            {"$set": analytics_fields},
-        )
+        # Update analytics with analytics data using metrics service
+        async with alchemy.get_session() as session:
+            metrics_service = MetricsService(session=session)
+            await metrics_service.update_metric_fields(
+                db_session=session,
+                metric_id=analytics_id,
+                fields_to_update=analytics_fields,
+            )
     else:
         logger.warning(
             f"Conversation {conversation.get('_id')} doesn't have an analytics reference, skipping analytics update"
         )
 
-    # Update conversation status to closed
-    await client.get_collection("agent_conversations").update_one(
-        {"_id": conversation.get("_id")},
-        {"$set": {"status": "Closed"}},
-    )
+    # Update conversation status to closed using agent_conversation domain
+    from core.config.app import alchemy
+    from core.domain.agent_conversation.service import AgentConversationService
+
+    conversation_id = str(conversation.get("id") or conversation.get("_id"))
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
+        await service.update_conversation_status(
+            db_session=session,
+            conversation_id=conversation_id,
+            status="Closed",
+        )
 
     return slow_post_processing
 

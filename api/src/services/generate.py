@@ -1,8 +1,11 @@
-from logger.utils import logger
+import structlog
+
 from services.get_chat_completion_answer import (
     ChatCompletionResult,
     get_chat_completion_answer,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 async def generate(

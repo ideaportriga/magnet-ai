@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, cast
-from venv import logger
 
 from litestar.data_extractors import RequestExtractorField
 from litestar.serialization import decode_json, encode_json
@@ -167,6 +166,16 @@ class DatabaseSettings:
 
 
 @dataclass
+class EncryptionSettings:
+    """Encryption configuration"""
+
+    ENCRYPTION_KEY: str = field(
+        default_factory=get_env("ENCRYPTION_KEY", "my-secret-key")
+    )
+    """Key used for encrypting sensitive data in database."""
+
+
+@dataclass
 class LogSettings:
     """Logger configuration"""
 
@@ -249,6 +258,7 @@ class LogSettings:
 @dataclass
 class Settings:
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
+    encryption: EncryptionSettings = field(default_factory=EncryptionSettings)
     log: LogSettings = field(default_factory=LogSettings)
 
     @classmethod
@@ -281,6 +291,11 @@ class Settings:
 @lru_cache(maxsize=1, typed=True)
 def get_settings() -> Settings:
     return Settings.from_env()
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_encryption_settings() -> EncryptionSettings:
+    return get_settings().encryption
 
 
 @lru_cache(maxsize=1, typed=True)

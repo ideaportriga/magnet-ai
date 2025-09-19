@@ -67,6 +67,7 @@ class MCPServersService(service.SQLAlchemyAsyncRepositoryService[MCPServer]):
             update_data, item_id=item_id, auto_commit=auto_commit, **kwargs
         )
 
+    async def get_with_secrets(self, item_id: Any) -> MCPServerSchema:
         """
         Get MCP server with full secrets for internal service operations.
 

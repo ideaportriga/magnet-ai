@@ -1,9 +1,10 @@
 import os
 import sys
 
+import structlog
 from dotenv import find_dotenv, load_dotenv
 
-from logger.utils import logger
+logger = structlog.get_logger(__name__)
 
 
 def load_env():

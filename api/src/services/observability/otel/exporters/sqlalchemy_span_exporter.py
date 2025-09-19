@@ -12,7 +12,7 @@ from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.trace import format_span_id
 from opentelemetry.trace.status import StatusCode
 from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from core.db.models.metric import Metric
 from core.db.models.trace import Trace
@@ -129,73 +129,95 @@ class SqlAlchemySpanExporter(SpanExporter):
         start_time = time.time()
 
         try:
-            # Run in a completely separate thread to avoid event loop conflicts
-            import threading
+            # Try to get the current event loop
+            try:
+                loop = asyncio.get_running_loop()
+                # If we're in an async context, schedule the task in background
+                # and return immediately (fire-and-forget)
+                task = loop.create_task(self._export_spans_isolated(spans))
 
-            result = None
-            exception = None
-
-            def run_export():
-                nonlocal result, exception
-                try:
-                    # Create completely isolated event loop
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
+                # Add error handling callback
+                def handle_task_result(task_future):
                     try:
-                        result = loop.run_until_complete(
-                            self._export_spans_isolated(spans)
+                        task_future.result()
+                        end_time = time.time()
+                        logger.info(
+                            f"Exported {len(spans)} spans in {end_time - start_time} seconds"
                         )
-                    finally:
-                        loop.close()
-                        asyncio.set_event_loop(None)
-                except Exception as e:
-                    exception = e
+                    except Exception as e:
+                        logger.error(f"Background span export failed: {e}")
+                        traceback.print_exc()
 
-            thread = threading.Thread(target=run_export)
-            thread.start()
-            thread.join()
+                task.add_done_callback(handle_task_result)
 
-            if exception:
-                raise exception
+                # Return success immediately for async context
+                return SpanExportResult.SUCCESS
+
+            except RuntimeError:
+                # No event loop running, fall back to synchronous exporter approach
+                logger.info("No event loop found, falling back to sync export")
+                from .sqlalchemy_sync_span_exporter import SqlAlchemySyncSpanExporter
+
+                sync_exporter = SqlAlchemySyncSpanExporter()
+                return sync_exporter.export(spans)
 
         except Exception as e:
             logger.error(f"Unexpected error during span export: {e}")
             traceback.print_exc()
             return SpanExportResult.FAILURE
 
-        end_time = time.time()
-        logger.info(f"Exported {len(spans)} spans in {end_time - start_time} seconds")
-        return SpanExportResult.SUCCESS
-
     async def _export_spans_isolated(self, spans: Sequence[ReadableSpan]):
-        """Export spans in an isolated async context."""
-        from core.config.app import alchemy
+        """Export spans in the current async context."""
+        from core.config.app import settings
 
-        async with alchemy.get_session() as session:
-            try:
-                trace_accumulator: TraceAccumulator = {}
-                analytics_accumulator: AnalyticsAccumulator = {}
+        # Use a separate engine instance for span export to avoid conflicts
+        # with the main application's database connections
+        engine = create_async_engine(
+            url=settings.db.URL,
+            future=True,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+            pool_size=5,  # Smaller pool for background operations
+            echo=False,
+        )
 
-                for span in spans:
-                    # print(span.to_json())
-                    await self._export_span(
-                        span, trace_accumulator, analytics_accumulator
-                    )
+        async_session_factory = async_sessionmaker(
+            bind=engine,
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
 
-                for trace_id, trace_patch in trace_accumulator.items():
-                    await self._upsert_trace(
-                        session, trace_id=trace_id, trace_patch=trace_patch
-                    )
+        try:
+            async with async_session_factory() as session:
+                try:
+                    trace_accumulator: TraceAccumulator = {}
+                    analytics_accumulator: AnalyticsAccumulator = {}
 
-                for analytics_id, analytics_patch in analytics_accumulator.items():
-                    await self._upsert_metrics(session, analytics_id, analytics_patch)
+                    for span in spans:
+                        # print(span.to_json())
+                        await self._export_span(
+                            span, trace_accumulator, analytics_accumulator
+                        )
 
-                await session.commit()
-            except Exception:
-                logger.error("Failed to export spans")
-                traceback.print_exc()
-                await session.rollback()
-                raise
+                    for trace_id, trace_patch in trace_accumulator.items():
+                        await self._upsert_trace(
+                            session, trace_id=trace_id, trace_patch=trace_patch
+                        )
+
+                    for analytics_id, analytics_patch in analytics_accumulator.items():
+                        await self._upsert_metrics(
+                            session, analytics_id, analytics_patch
+                        )
+
+                    await session.commit()
+                except Exception:
+                    logger.error("Failed to export spans")
+                    traceback.print_exc()
+                    await session.rollback()
+                    raise
+        finally:
+            # Clean up the engine
+            await engine.dispose()
 
     async def _export_span(
         self,

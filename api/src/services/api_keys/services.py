@@ -36,6 +36,11 @@ async def retrieve_api_keys() -> list[ApiKeyConfigEntity]:
             api_key_schema = service.to_schema(api_key, schema_type=APIKey)
             # Convert to ApiKeyConfigEntity format (without hash)
             entity_data = api_key_schema.model_dump()
+
+            # Convert UUID to string if present
+            if "id" in entity_data and entity_data["id"] is not None:
+                entity_data["id"] = str(entity_data["id"])
+
             entity_data.pop("hash", None)  # Remove hash for security
             entities.append(ApiKeyConfigEntity(**entity_data))
         return entities
@@ -61,6 +66,10 @@ async def refresh_api_keys_caches() -> None:
         for api_key in api_keys:
             api_key_schema = service.to_schema(api_key, schema_type=APIKey)
             api_key_data = api_key_schema.model_dump()
+
+            # Convert UUID to string if present
+            if "id" in api_key_data and api_key_data["id"] is not None:
+                api_key_data["id"] = str(api_key_data["id"])
 
             # Store in hash cache with hash
             api_key_persisted = ApiKeyConfigPersisted(**api_key_data)
@@ -107,7 +116,7 @@ async def create_api_key(
             notes=None,
         )
 
-        created_api_key = await service.create(create_data)
+        created_api_key = await service.create(create_data, auto_commit=True)
         await refresh_api_keys_caches()
         return CreateApiKeyResult(id=str(created_api_key.id), api_key=api_key)
 
@@ -123,7 +132,7 @@ async def delete_api_key(id: str) -> None:
             raise ValueError("API key not found")
 
         # Delete the API key
-        await service.delete(id)
+        await service.delete(id, auto_commit=True)
         await refresh_api_keys_caches()
 
     return None

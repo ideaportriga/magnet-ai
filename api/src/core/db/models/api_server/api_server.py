@@ -7,6 +7,8 @@ from advanced_alchemy.types import EncryptedText, JsonB
 from sqlalchemy import TEXT, Boolean, String, TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column
 
+from core.config.base import get_encryption_settings
+
 from ..base import UUIDAuditSimpleBase
 
 
@@ -59,7 +61,7 @@ class APIServer(UUIDAuditSimpleBase):
         JsonB, nullable=True, comment="Tools configuration as array of dictionaries"
     )
     secrets_encrypted: Mapped[Optional[dict[str, Any]]] = mapped_column(
-        EncryptedJsonB(key="my-secret-key"),
+        EncryptedJsonB(key=get_encryption_settings().ENCRYPTION_KEY),
         nullable=True,
         comment="Encrypted secrets configuration",
     )

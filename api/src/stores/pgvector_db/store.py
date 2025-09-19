@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from decimal import Decimal
-from typing import Any
+from typing import Any, override
 
 from models import (
     ChunksByCollection,
@@ -18,7 +18,9 @@ from services.observability import observability_context, observe
 from services.observability.models import SpanType
 from stores.document_store import DocumentStore
 from stores.pgvector_db.client import PgVectorClient
-from type_defs.pagination import OffsetPaginationRequest
+from stores.pgvector_db.metadata_filter_builder import PgVectorMetadataFilterBuilder
+from type_defs.pagination import FilterObject, OffsetPaginationRequest
+from validation.rag_tools import RetrieveConfig
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,7 @@ class PgVectorStore(DocumentStore):
 
     COLLECTIONS_TABLE = "collections"
     DOCUMENTS_TABLE_PREFIX = "documents_"
+    METADATA_FILTER_BUILDER = PgVectorMetadataFilterBuilder()
 
     def __init__(self, client: PgVectorClient):
         """Initialize the PgVector store.
@@ -571,30 +574,32 @@ class PgVectorStore(DocumentStore):
         collection_id: str,
         text: str,
         **kwargs,
-    ) -> list[float]:
+    ):
         """Get embedding for text using the collection's model."""
         collection_metadata = await self.get_collection_metadata(collection_id)
         model_name = collection_metadata.get("ai_model")
         if not model_name:
             raise ValueError(f"No model specified for collection {collection_id}")
-        return await get_embeddings(
+        embeddings = await get_embeddings(
             text=text,
             model_system_name=model_name,
             **kwargs,
         )
+        return embeddings
 
     async def _get_embedding_by_model(
         self,
         model_system_name: str,
         text: str,
         **kwargs,
-    ) -> list[float]:
+    ):
         """Get embedding for text using a specific model."""
-        return await get_embeddings(
+        embeddings = await get_embeddings(
             text=text,
             model_system_name=model_system_name,
             **kwargs,
         )
+        return embeddings
 
     async def create_document(self, document: DocumentData, collection_id: str) -> str:
         """Create a single document."""
@@ -980,6 +985,7 @@ class PgVectorStore(DocumentStore):
         query: str,
         vector: list[float],
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> DocumentSearchResult:
         """Perform vector similarity search."""
         logger.debug(
@@ -992,13 +998,35 @@ class PgVectorStore(DocumentStore):
         # Ensure the documents table exists before querying
         await self._ensure_documents_table_exists(collection_id)
 
+        # Get collection metadata for filter building
+        collection_metadata = await self.get_collection_metadata(collection_id)
+
         observability_context.update_current_span(
             description=f"Performing vector search in PostgreSQL with pgvector and taking only {num_results} first results.",
             extra_data={
                 "table_name": table_name,
                 "store": "pgvector",
             },
+            input={
+                "collection_id": collection_id,
+                "collection_name": collection_metadata.get("name"),
+                "query": query,
+                "filter": filter.model_dump(exclude_none=True, by_alias=True)
+                if filter
+                else None,
+                "num_results": num_results,
+            },
         )
+
+        # Build metadata filter condition
+        metadata_filter = self.METADATA_FILTER_BUILDER.build(
+            collection_metadata, filter
+        )
+        logger.debug(f"Metadata filter: {metadata_filter}")
+
+        where_clause = "WHERE embedding IS NOT NULL"
+        if metadata_filter:
+            where_clause += f" AND ({metadata_filter})"
 
         # Perform cosine similarity search
         rows = await self.client.execute_query(
@@ -1009,7 +1037,7 @@ class PgVectorStore(DocumentStore):
                 metadata,
                 1 - (embedding <=> $1) as similarity_score
             FROM {table_name}
-            WHERE embedding IS NOT NULL
+            {where_clause}
             ORDER BY similarity_score DESC
             LIMIT $2
         """,
@@ -1044,6 +1072,7 @@ class PgVectorStore(DocumentStore):
         collection_id: str,
         query: str,
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> DocumentSearchResult:
         """Perform similarity search on a single collection."""
         logger.debug(
@@ -1056,13 +1085,17 @@ class PgVectorStore(DocumentStore):
             query=query,
             vector=vector,
             num_results=num_results,
+            filter=filter,
         )
 
+    @override
     async def document_collections_similarity_search(
         self,
         collection_ids: list[str],
+        retrieve_config: RetrieveConfig,
         query: str,
         num_results: int,
+        filter: FilterObject | None = None,
     ) -> list:
         """Perform similarity search across multiple collections."""
         if not collection_ids:
@@ -1109,27 +1142,59 @@ class PgVectorStore(DocumentStore):
         for model_name, embedding in embedding_results:
             embedding_cache[model_name] = embedding
 
+        metadata_filtering_allowed = retrieve_config.allow_metadata_filter
+        use_keyword_search = retrieve_config.use_keyword_search
+
         # Search in each collection
         async def _search_in_collection(cid: str):
             try:
-                model_name = collection_model_map[cid]
-                vector_for_collection = embedding_cache.get(model_name)
-
-                if vector_for_collection is None:
-                    logger.warning(
-                        "Skipping collection %s due to missing embedding for model %s",
-                        cid,
-                        model_name,
-                    )
-                    return []
-
-                result = await self._vector_search(
-                    collection_id=cid,
-                    query=query,
-                    vector=vector_for_collection,
-                    num_results=num_results,
+                collection_config = await self.get_collection_metadata(cid)
+                indexing = collection_config.get("indexing", {})
+                semantic_search_needed = True
+                keyword_search_needed = use_keyword_search and indexing.get(
+                    "fulltext_search_supported"
                 )
-                return result
+
+                semantic_search_task = asyncio.sleep(0)
+                if semantic_search_needed:
+                    model_name = collection_model_map[cid]
+                    vector_for_collection = embedding_cache.get(model_name)
+
+                    if vector_for_collection:
+                        semantic_search_task = self._vector_search(
+                            collection_id=cid,
+                            query=query,
+                            vector=vector_for_collection,
+                            num_results=num_results,
+                            filter=filter if metadata_filtering_allowed else None,
+                        )
+                    else:
+                        logger.error(
+                            f"Skipping collection {cid} due to missing embedding for model {model_name}"
+                        )
+
+                # Note: PgVector doesn't support full-text search like Oracle
+                # For now, we only implement semantic search
+                # If keyword search is needed, it would require additional implementation
+                keyword_search_task = asyncio.sleep(0)
+                if keyword_search_needed:
+                    logger.warning(
+                        f"Full-text search requested for collection {cid} but not implemented in PgVector store"
+                    )
+
+                semantic_search_result, keyword_search_result = await asyncio.gather(
+                    semantic_search_task, keyword_search_task
+                )
+
+                if semantic_search_needed and keyword_search_needed:
+                    # For now, just return semantic search results since keyword search isn't implemented
+                    return semantic_search_result or []
+                if semantic_search_needed:
+                    return semantic_search_result or []
+                if keyword_search_needed:
+                    return keyword_search_result or []
+
+                return []
             except Exception as e:
                 logger.error(
                     "Exception in _search_in_collection for collection %s: %s",

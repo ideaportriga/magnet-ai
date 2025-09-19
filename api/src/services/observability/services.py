@@ -9,7 +9,9 @@ from typing import Any
 import aiofiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
+from core.db.models.metric.metric import Metric
 from services.common.models import EmptyDictionary
 from services.observability.models import (
     AgentMetricSummary,
@@ -935,7 +937,7 @@ async def get_metrics_by_feature_type(
     total_count = count_result.scalar()
 
     # Get metrics with pagination
-    user_id_field = "user_id," if OBSERVABILITY_TRACE_USERS else ""
+    user_id_field = "user_id," if OBSERVABILITY_USAGE_SHOW_USERS else ""
 
     metrics_sql = f"""
         SELECT 
@@ -998,7 +1000,7 @@ async def get_metrics_by_feature_type(
             "x_attributes": row.x_attributes or {},
         }
 
-        if OBSERVABILITY_TRACE_USERS:
+        if OBSERVABILITY_USAGE_SHOW_USERS:
             item["user_id"] = row.user_id
 
         items.append(item)
@@ -1022,50 +1024,87 @@ async def update_analytics_extra_data(
     substandart_result_reason: str | None = None,
     status: str | None = None,
 ) -> bool:
-    """Update specific fields inside the extra_data object of a metric using raw SQL"""
+    """Update specific fields inside the extra_data object of a metric using ORM way"""
     try:
-        # Build the JSON update expression
-        updates = []
-        params = {"analytics_id": analytics_id}
+        logger.info(
+            f"[update_analytics_extra_data] Called with analytics_id={analytics_id}, "
+            f"language={language}, is_answered={is_answered}, resolution={resolution}, "
+            f"topic={topic}, comment={comment}, substandart_result_reason={substandart_result_reason}, "
+            f"status={status}"
+        )
 
-        if status is not None:
-            updates.append("'status', :status")
-            params["status"] = status
-        if language is not None:
-            updates.append("'language', :language")
-            params["language"] = language
-        if is_answered is not None:
-            updates.append("'is_answered', :is_answered")
-            params["is_answered"] = is_answered
-        if resolution is not None:
-            updates.append("'resolution', :resolution")
-            params["resolution"] = resolution
-        if topic is not None:
-            updates.append("'topic', :topic")
-            params["topic"] = topic
-        if comment is not None:
-            updates.append("'comment', :comment")
-            params["comment"] = comment
-        if substandart_result_reason is not None:
-            updates.append("'substandart_result_reason', :substandart_result_reason")
-            params["substandart_result_reason"] = substandart_result_reason
-
-        if not updates:
+        # Get the metric by ID
+        metric = await db_session.get(Metric, analytics_id)
+        if not metric:
+            logger.warning(
+                f"[update_analytics_extra_data] Metric not found: {analytics_id}"
+            )
             return False
 
-        # Build the JSONB update expression
-        update_expr = f"jsonb_build_object({', '.join(updates)})"
+        # Initialize extra_data if it doesn't exist
+        if not metric.extra_data:
+            metric.extra_data = {}
 
-        sql = f"""
-            UPDATE metrics 
-            SET extra_data = COALESCE(extra_data, '{{}}'::jsonb) || {update_expr}
-            WHERE id = :analytics_id
-        """
+        # Track if any changes were made
+        updated = False
 
-        result = await db_session.execute(text(sql), params)
-        await db_session.commit()
+        # Update fields that are provided
+        if status is not None:
+            logger.info(f"[update_analytics_extra_data] Updating status to: {status}")
+            metric.extra_data["status"] = status
+            updated = True
 
-        return result.rowcount > 0
+        if language is not None:
+            logger.info(
+                f"[update_analytics_extra_data] Updating language to: {language}"
+            )
+            metric.extra_data["language"] = language
+            updated = True
+
+        if is_answered is not None:
+            logger.info(
+                f"[update_analytics_extra_data] Updating is_answered to: {is_answered}"
+            )
+            metric.extra_data["is_answered"] = is_answered
+            updated = True
+
+        if resolution is not None:
+            logger.info(
+                f"[update_analytics_extra_data] Updating resolution to: {resolution}"
+            )
+            metric.extra_data["resolution"] = resolution
+            updated = True
+
+        if topic is not None:
+            logger.info(f"[update_analytics_extra_data] Updating topic to: {topic}")
+            metric.extra_data["topic"] = topic
+            updated = True
+
+        if comment is not None:
+            logger.info(f"[update_analytics_extra_data] Updating comment to: {comment}")
+            metric.extra_data["comment"] = comment
+            updated = True
+
+        if substandart_result_reason is not None:
+            logger.info(
+                f"[update_analytics_extra_data] Updating substandart_result_reason to: {substandart_result_reason}"
+            )
+            metric.extra_data["substandart_result_reason"] = substandart_result_reason
+            updated = True
+
+        if updated:
+            # Mark the JSONB field as modified so SQLAlchemy knows to update it
+            flag_modified(metric, "extra_data")
+            logger.info(
+                f"[update_analytics_extra_data] Committing changes for metric {analytics_id}"
+            )
+            await db_session.commit()
+        else:
+            logger.warning(
+                f"[update_analytics_extra_data] No fields to update for metric {analytics_id}"
+            )
+
+        return updated
     except Exception as e:
         logger.error(f"Error updating analytics extra data: {e}")
         await db_session.rollback()
@@ -1075,33 +1114,46 @@ async def update_analytics_extra_data(
 async def update_metric_conversation_data(
     db_session: AsyncSession, analytics_id: str, data: dict
 ) -> bool:
-    """Update conversation_data fields of a metric using raw SQL"""
+    """Update conversation_data fields of a metric using ORM way"""
     try:
-        # Build the JSON update expression
-        updates = []
-        params = {"analytics_id": analytics_id}
+        logger.info(
+            f"[update_metric_conversation_data] Called with analytics_id={analytics_id}, data={data}"
+        )
 
-        for key, value in data.items():
-            param_key = f"data_{key}"
-            updates.append(f"'{key}', :{param_key}")
-            params[param_key] = value
-
-        if not updates:
+        # Get the metric by ID
+        metric = await db_session.get(Metric, analytics_id)
+        if not metric:
+            logger.warning(
+                f"[update_metric_conversation_data] Metric not found: {analytics_id}"
+            )
             return False
 
-        # Build the JSONB update expression
-        update_expr = f"jsonb_build_object({', '.join(updates)})"
+        # Initialize conversation_data if it doesn't exist
+        if not metric.conversation_data:
+            metric.conversation_data = {}
 
-        sql = f"""
-            UPDATE metrics 
-            SET conversation_data = COALESCE(conversation_data, '{{}}'::jsonb) || {update_expr}
-            WHERE id = :analytics_id
-        """
+        # Track if any changes were made
+        updated = False
 
-        result = await db_session.execute(text(sql), params)
-        await db_session.commit()
+        # Update fields from provided data
+        for key, value in data.items():
+            logger.info(f"[update_metric_conversation_data] Updating {key} to: {value}")
+            metric.conversation_data[key] = value
+            updated = True
 
-        return result.rowcount > 0
+        if updated:
+            # Mark the JSONB field as modified so SQLAlchemy knows to update it
+            flag_modified(metric, "conversation_data")
+            logger.info(
+                f"[update_metric_conversation_data] Committing changes for metric {analytics_id}"
+            )
+            await db_session.commit()
+        else:
+            logger.warning(
+                f"[update_metric_conversation_data] No fields to update for metric {analytics_id}"
+            )
+
+        return updated
     except Exception as e:
         logger.error(f"Error updating metric conversation data: {e}")
         await db_session.rollback()

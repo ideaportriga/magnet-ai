@@ -15,8 +15,10 @@ from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel
 from pypdf import PdfReader
 
+from core.config.app import alchemy
+from core.domain.api_servers.schemas import ApiServerCreate
+from core.domain.api_servers.service import ApiServersService
 from services.agents.models import AgentActionType
-from services.api_servers.services import create_api_server
 from services.api_servers.types import (
     ApiServerConfigWithSecrets,
     ApiTool,
@@ -276,14 +278,31 @@ class UtilsController(Controller):
 
         created_api_servers = []
 
-        for api_server in api_servers_by_system_name.values():
-            create_result = await create_api_server(api_server)
-            created_api_servers.append(
-                {
-                    "system_name": api_server.system_name,
-                    "inserted_id": create_result.get("inserted_id"),
-                }
-            )
+        async with alchemy.get_session() as session:
+            api_servers_service = ApiServersService(session=session)
+
+            for api_server in api_servers_by_system_name.values():
+                # Convert to domain schema format
+                api_server_create = ApiServerCreate(
+                    name=api_server.name,
+                    system_name=api_server.system_name,
+                    url=api_server.url,
+                    security_scheme=api_server.security_scheme,
+                    security_values=api_server.security_values,
+                    verify_ssl=api_server.verify_ssl,
+                    tools=api_server.tools,  # type: ignore - will be converted in domain
+                    secrets_encrypted=api_server.secrets,  # type: ignore - secrets as dict
+                )
+
+                created_obj = await api_servers_service.create(
+                    api_server_create, auto_commit=True
+                )
+                created_api_servers.append(
+                    {
+                        "system_name": api_server.system_name,
+                        "inserted_id": str(created_obj.id),
+                    }
+                )
 
         agents_colection = client.get_collection("agents")
         agents_cursor = agents_colection.find({})

@@ -1,10 +1,9 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 from logging import getLogger
-from pyexpat import model
 from typing import Any, Type, Union
+from uuid import UUID
 
-from bson import ObjectId
 from sqlalchemy import desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import TypeVar
@@ -32,15 +31,10 @@ from services.common.models import ConversationMessageFeedback
 from services.observability import observability_context
 from services.observability.models import FeatureType, ObservedFeature
 from services.telemetry.services import record_tool_response_copy
-from stores import RecordNotFoundError, get_db_client
+from stores import RecordNotFoundError
 from utils.datetime_utils import utc_now
 
 logger = getLogger(__name__)
-
-# Assume get_db_client returns an async client (e.g., motor)
-db_client = get_db_client()
-
-COLLECTION_NAME = "agent_conversations"
 
 
 async def create_conversation(
@@ -59,7 +53,7 @@ async def create_conversation(
     # Record agent execution (used for metrics and analytics)
     observed_feature = ObservedFeature(
         type=FeatureType.AGENT,
-        id=agent_config.id,
+        id=str(agent_config.id) if agent_config.id else None,
         system_name=agent_config.system_name,
         display_name=agent_config.name,
         variant=agent_config.active_variant,
@@ -129,7 +123,7 @@ async def create_conversation(
         ]
 
         conversation_public = AgentConversationWithMessagesPublic(
-            id=conversation_id,
+            id=UUID(conversation_id),
             messages=messages_public,
             agent=conversation_data.agent,
             created_at=conversation_data.created_at,
@@ -239,7 +233,7 @@ async def add_user_message(
     # Record agent execution (used for metrics and analytics)
     observed_feature = ObservedFeature(
         type=FeatureType.AGENT,
-        id=agent_config.id,
+        id=str(agent_config.id) if agent_config.id else None,
         system_name=agent_config.system_name,
         display_name=agent_config.name,
     )
@@ -312,24 +306,18 @@ async def set_message_feedback(
     message_id: str,
     data: AgentConversationMessageFeedbackRequest,
 ):
-    conversation_document = await get_conversation_by_id(conversation_id)
-    conversation = AgentConversationDataWithMessages(**conversation_document)
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
 
-    message = next(
-        (message for message in conversation.messages if message.id == message_id),
-        None,
-    )
-    if not message:
-        raise RecordNotFoundError()
+        success = await service.update_message_feedback(
+            db_session=session,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            feedback_data=data.model_dump(),
+        )
 
-    await db_client.get_collection(COLLECTION_NAME).update_one(
-        {"_id": ObjectId(conversation_id), "messages.id": message_id},
-        {
-            "$set": {
-                "messages.$.feedback": data.model_dump(),
-            },
-        },
-    )
+        if not success:
+            raise RecordNotFoundError()
 
     # TODO: Record feedback metrics
 
@@ -337,23 +325,18 @@ async def set_message_feedback(
 async def set_message_custom_feedback(
     conversation_id: str, message_id: str, data: ConversationMessageFeedback
 ):
-    conversation_document = await get_conversation_by_id(conversation_id)
-    conversation = AgentConversationDataWithMessages(**conversation_document)
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
 
-    message = next(
-        (message for message in conversation.messages if message.id == message_id), None
-    )
-    if not message:
-        raise RecordNotFoundError()
+        success = await service.update_message_custom_feedback(
+            db_session=session,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            custom_feedback_data=data.model_dump(),
+        )
 
-    await db_client.get_collection(COLLECTION_NAME).update_one(
-        {"_id": ObjectId(conversation_id), "messages.id": message_id},
-        {
-            "$set": {
-                "messages.$.custom_feedback": data.model_dump(),
-            },
-        },
-    )
+        if not success:
+            raise RecordNotFoundError()
 
 
 async def copy_message(conversation_id: str, message_id: str):
@@ -361,21 +344,18 @@ async def copy_message(conversation_id: str, message_id: str):
     conversation = AgentConversationDataWithMessages(**conversation_document)
 
     if message_id:
-        message = next(
-            (message for message in conversation.messages if message.id == message_id),
-            None,
-        )
-        if not message:
-            raise RecordNotFoundError()
+        async with alchemy.get_session() as session:
+            service = AgentConversationService(session=session)
 
-        await db_client.get_collection(COLLECTION_NAME).update_one(
-            {"_id": ObjectId(conversation_id), "messages.id": message_id},
-            {
-                "$set": {
-                    "messages.$.copied": True,
-                },
-            },
-        )
+            success = await service.update_message_copied_status(
+                db_session=session,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                copied=True,
+            )
+
+            if not success:
+                raise RecordNotFoundError()
 
     await record_tool_response_copy(
         trace_id=conversation.trace_id,
