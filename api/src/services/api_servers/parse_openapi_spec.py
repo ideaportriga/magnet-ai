@@ -113,7 +113,7 @@ def convert_openapi_operation_to_json_schema(operation_definition: dict) -> dict
             query_params[param_name] = param
 
     if path_params:
-        path_params_schema = convert_operation_parameters_to_json_schema(query_params)
+        path_params_schema = convert_operation_parameters_to_json_schema(path_params)
         properties_schema["pathParams"] = path_params_schema
 
         if path_params_schema.get("required"):
