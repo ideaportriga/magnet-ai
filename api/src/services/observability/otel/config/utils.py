@@ -1,4 +1,3 @@
-import os
 from logging import getLogger
 
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -13,19 +12,19 @@ from azure.monitor.opentelemetry.exporter import (
 )
 from services.observability.models import MetricsExporterType, TracesExporterType
 from services.observability.otel.exporters import SqlAlchemySpanExporter
+from core.config.base import get_observability_settings, get_azure_settings
 
 logger = getLogger(__name__)
 
-observability_enabled = os.getenv("OBSERVABILITY_ENABLED", "true").lower() == "true"
-
 
 def _get_metrics_exporters() -> list[MetricsExporterType]:
-    metrics_exporters = os.getenv("OBSERVABILITY_METRICS_EXPORTERS")
-    if not observability_enabled or not metrics_exporters:
+    observability_settings = get_observability_settings()
+    
+    if not observability_settings.ENABLED or not observability_settings.METRICS_EXPORTERS:
         return []
 
     result = []
-    for exporter in metrics_exporters.split(","):
+    for exporter in observability_settings.METRICS_EXPORTERS.split(","):
         exporter = exporter.strip().lower()
         try:
             result.append(MetricsExporterType(exporter))
@@ -36,10 +35,10 @@ def _get_metrics_exporters() -> list[MetricsExporterType]:
 
 def get_metrics_readers() -> list[MetricReader]:
     readers: list[MetricReader] = []
+    observability_settings = get_observability_settings()
+    azure_settings = get_azure_settings()
 
-    export_interval_millis = int(
-        os.getenv("OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS", "3000")
-    )
+    export_interval_millis = observability_settings.METRICS_EXPORT_INTERVAL_MS
 
     exporters = _get_metrics_exporters()
     for exporter in exporters:
@@ -52,7 +51,7 @@ def get_metrics_readers() -> list[MetricReader]:
                     )
                 )
             case MetricsExporterType.AZURE:
-                connection_string = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+                connection_string = azure_settings.APPLICATIONINSIGHTS_CONNECTION_STRING
                 if not connection_string:
                     logger.warning("APPLICATIONINSIGHTS_CONNECTION_STRING is not set")
                     continue
@@ -73,12 +72,13 @@ def get_metrics_readers() -> list[MetricReader]:
 
 
 def _get_traces_exporters() -> list[TracesExporterType]:
-    traces_exporters = os.getenv("OBSERVABILITY_TRACES_EXPORTERS")
-    if not observability_enabled or not traces_exporters:
+    observability_settings = get_observability_settings()
+    
+    if not observability_settings.ENABLED or not observability_settings.TRACES_EXPORTERS:
         return []
 
     result = []
-    for exporter in traces_exporters.split(","):
+    for exporter in observability_settings.TRACES_EXPORTERS.split(","):
         exporter = exporter.strip().lower()
         try:
             result.append(TracesExporterType(exporter))
@@ -89,10 +89,9 @@ def _get_traces_exporters() -> list[TracesExporterType]:
 
 def get_span_processors() -> list[SpanProcessor]:
     processors: list[SpanProcessor] = []
+    observability_settings = get_observability_settings()
 
-    max_export_batch_size = int(
-        os.getenv("OBSERVABILITY_TRACES_MAX_EXPORT_BATCH_SIZE", "100")
-    )
+    max_export_batch_size = observability_settings.TRACES_MAX_EXPORT_BATCH_SIZE
 
     exporters = _get_traces_exporters()
     for exporter in exporters:

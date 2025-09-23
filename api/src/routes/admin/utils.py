@@ -75,7 +75,9 @@ class UtilsController(Controller):
         Creates API servers with tools from deprecated API tools and providers stored in env variables.
         Also updates Agent actions with provider names.
         """
-        verify_ssl = os.environ.get("TEMP_ASSISTANT_SKIP_SSL_VERIFICATION") != "true"
+        from core.config.base import get_general_settings
+        general_settings = get_general_settings()
+        verify_ssl = not general_settings.TEMP_ASSISTANT_SKIP_SSL_VERIFICATION
         MOCK_PROVIDER_NAME = "MOCK"
 
         tools_with_provider_missing = []

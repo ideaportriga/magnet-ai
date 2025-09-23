@@ -1,12 +1,13 @@
 import json
-import os
 from logging import getLogger
 
 from cryptography.fernet import Fernet
 
-env = os.environ
+from core.config.base import get_encryption_settings
 
-SECRET_ENCRYPTION_KEY = env.get("SECRET_ENCRYPTION_KEY", "")
+encryption_settings = get_encryption_settings()
+
+SECRET_ENCRYPTION_KEY = encryption_settings.SECRET_ENCRYPTION_KEY
 SECRET_ENCRYPTION_ENCODING = "utf-8"
 
 logger = getLogger(__name__)

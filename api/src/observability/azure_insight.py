@@ -1,8 +1,8 @@
 import asyncio
 import logging
-import os
 
 from opencensus.ext.azure.log_exporter import AzureEventHandler
+from core.config.base import get_azure_settings
 
 
 class SingletonMeta(type):
@@ -21,7 +21,8 @@ class AzureLogger(metaclass=SingletonMeta):
     """Class for logging events to Azure. Created as a Singleton."""
 
     def __init__(self):
-        self.connection_string = os.getenv("APPINSIGHTS_INSTRUMENTATION_KEY")
+        azure_settings = get_azure_settings()
+        self.connection_string = azure_settings.APPINSIGHTS_INSTRUMENTATION_KEY
         if self.connection_string:
             self.logger = logging.getLogger(__name__)
             self.logger.setLevel(logging.INFO)

@@ -1,6 +1,5 @@
 import csv
 import json
-import os
 from datetime import datetime
 from io import StringIO
 from logging import getLogger
@@ -9,6 +8,8 @@ from typing import Any
 import aiofiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.config.base import get_observability_settings
 from sqlalchemy.orm.attributes import flag_modified
 
 from core.db.models.metric.metric import Metric
@@ -38,9 +39,7 @@ from type_defs.pagination import FilterObject, OffsetPaginationRequest
 
 logger = getLogger(__name__)
 
-OBSERVABILITY_USAGE_SHOW_USERS = (
-    os.getenv("OBSERVABILITY_USAGE_SHOW_USERS", "false").lower() == "true"
-)
+OBSERVABILITY_USAGE_SHOW_USERS = get_observability_settings().USAGE_SHOW_USERS
 
 
 def _build_where_clause(filters: FilterObject | None) -> tuple[str, dict]:

@@ -173,6 +173,10 @@ class EncryptionSettings:
         default_factory=get_env("ENCRYPTION_KEY", "my-secret-key")
     )
     """Key used for encrypting sensitive data in database."""
+    SECRET_ENCRYPTION_KEY: str = field(
+        default_factory=get_env("SECRET_ENCRYPTION_KEY", "")
+    )
+    """Key used for encrypting secrets."""
 
 
 @dataclass
@@ -256,10 +260,289 @@ class LogSettings:
 
 
 @dataclass
+class ObservabilitySettings:
+    """Observability configuration"""
+
+    ENABLED: bool = field(default_factory=get_env("OBSERVABILITY_ENABLED", True))
+    """Enable observability features."""
+    METRICS_EXPORTERS: str = field(
+        default_factory=get_env("OBSERVABILITY_METRICS_EXPORTERS", "")
+    )
+    """Comma-separated list of metrics exporters."""
+    METRICS_EXPORT_INTERVAL_MS: int = field(
+        default_factory=get_env("OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS", 3000)
+    )
+    """Metrics export interval in milliseconds."""
+    TRACES_EXPORTERS: str = field(
+        default_factory=get_env("OBSERVABILITY_TRACES_EXPORTERS", "")
+    )
+    """Comma-separated list of traces exporters."""
+    TRACES_MAX_EXPORT_BATCH_SIZE: int = field(
+        default_factory=get_env("OBSERVABILITY_TRACES_MAX_EXPORT_BATCH_SIZE", 100)
+    )
+    """Maximum batch size for traces export."""
+    USAGE_SHOW_USERS: bool = field(
+        default_factory=get_env("OBSERVABILITY_USAGE_SHOW_USERS", False)
+    )
+    """Show users in usage statistics."""
+
+
+@dataclass
+class AzureSettings:
+    """Azure services configuration"""
+
+    APPINSIGHTS_INSTRUMENTATION_KEY: str = field(
+        default_factory=get_env("APPINSIGHTS_INSTRUMENTATION_KEY", "")
+    )
+    """Azure Application Insights instrumentation key."""
+    APPLICATIONINSIGHTS_CONNECTION_STRING: str = field(
+        default_factory=get_env("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
+    )
+    """Azure Application Insights connection string."""
+    OPENAI_API_KEY: str = field(default_factory=get_env("AZURE_OPENAI_API_KEY", ""))
+    """Azure OpenAI API key."""
+    BASE_URL: str = field(default_factory=get_env("AZURE_BASE_URL", ""))
+    """Azure OpenAI base URL."""
+    OPENAI_API_VERSION: str = field(
+        default_factory=get_env("AZURE_OPENAI_API_VERSION", "2023-03-15-preview")
+    )
+    """Azure OpenAI API version."""
+    OPENAI_DEPLOYMENT_NAME: str = field(
+        default_factory=get_env("AZURE_OPENAI_DEPLOYMENT_NAME", "")
+    )
+    """Azure OpenAI deployment name."""
+
+
+@dataclass
+class AIProvidersSettings:
+    """AI providers configuration"""
+
+    # OpenAI
+    OPENAI_API_KEY: str = field(default_factory=get_env("OPEN_AI_KEY", ""))
+    """OpenAI API key."""
+    OPENAI_MODEL_DEFAULT: str = field(
+        default_factory=get_env("OPENAI_MODEL_DEFAULT", "gpt-4o-mini")
+    )
+    """Default OpenAI model."""
+
+    # Groq
+    GROQ_API_KEY: str = field(default_factory=get_env("GROQ_AI_KEY", ""))
+    """Groq API key."""
+    GROQ_ENDPOINT: str = field(default_factory=get_env("GROQ_AI_ENDPOINT", ""))
+    """Groq endpoint."""
+
+    # OCI
+    OCI_USER: str = field(default_factory=get_env("OCI_USER", ""))
+    """OCI user."""
+    OCI_FINGERPRINT: str = field(default_factory=get_env("OCI_FINGERPRINT", ""))
+    """OCI fingerprint."""
+    OCI_TENANCY: str = field(default_factory=get_env("OCI_TENANCY", ""))
+    """OCI tenancy."""
+    OCI_REGION: str = field(default_factory=get_env("OCI_REGION", ""))
+    """OCI region."""
+    OCI_KEY: str = field(default_factory=get_env("OCI_KEY", ""))
+    """OCI private key content."""
+    OCI_ENDPOINT: str = field(default_factory=get_env("OCI_ENDPOINT", ""))
+    """OCI endpoint."""
+    OCI_COMPARTMENT_ID: str = field(default_factory=get_env("OCI_COMPARTMENT_ID", ""))
+    """OCI compartment ID."""
+
+
+@dataclass
+class AuthSettings:
+    """Authentication configuration"""
+
+    AUTH_ENABLED: bool = field(default_factory=get_env("AUTH_ENABLED", False))
+    """Enable authentication."""
+    MICROSOFT_ENTRA_ID_TENANT_ID: str = field(
+        default_factory=get_env("MICROSOFT_ENTRA_ID_TENANT_ID", "")
+    )
+    """Microsoft Entra ID tenant ID."""
+    MICROSOFT_ENTRA_ID_CLIENT_ID: str = field(
+        default_factory=get_env("MICROSOFT_ENTRA_ID_CLIENT_ID", "")
+    )
+    """Microsoft Entra ID client ID."""
+    MICROSOFT_ENTRA_ID_CLIENT_SECRET: str = field(
+        default_factory=get_env("MICROSOFT_ENTRA_ID_CLIENT_SECRET", "")
+    )
+    """Microsoft Entra ID client secret."""
+    MICROSOFT_ENTRA_ID_REDIRECT_URI: str = field(
+        default_factory=get_env("MICROSOFT_ENTRA_ID_REDIRECT_URI", "")
+    )
+    """Microsoft Entra ID redirect URI."""
+
+
+@dataclass
+class SharePointSettings:
+    """SharePoint configuration"""
+
+    TENANT_ID: str = field(default_factory=get_env("SHAREPOINT_TENANT_ID", ""))
+    """SharePoint tenant ID."""
+    CLIENT_ID: str = field(default_factory=get_env("SHAREPOINT_CLIENT_ID", ""))
+    """SharePoint client ID."""
+    CLIENT_SECRET: str = field(default_factory=get_env("SHAREPOINT_CLIENT_SECRET", ""))
+    """SharePoint client secret."""
+    CLIENT_CERT_THUMBPRINT: str = field(
+        default_factory=get_env("SHAREPOINT_CLIENT_CERT_THUMBPRINT", "")
+    )
+    """SharePoint client certificate thumbprint."""
+    CLIENT_CERT_PRIVATE_KEY: str = field(
+        default_factory=get_env("SHAREPOINT_CLIENT_CERT_PRIVATE_KEY", "")
+    )
+    """SharePoint client certificate private key."""
+
+
+@dataclass
+class DatabaseConnectionSettings:
+    """Database connection configuration"""
+
+    DB_TYPE: str = field(default_factory=get_env("DB_TYPE", "PGVECTOR"))
+    """Database type."""
+    COSMOS_DB_CONNECTION_STRING: str = field(
+        default_factory=get_env("COSMOS_DB_CONNECTION_STRING", "")
+    )
+    """Cosmos DB connection string."""
+    COSMOS_DB_DB_NAME: str = field(
+        default_factory=get_env("COSMOS_DB_DB_NAME", "magnet-test")
+    )
+    """Cosmos DB database name."""
+    PGVECTOR_CONNECTION_STRING: str = field(
+        default_factory=get_env("PGVECTOR_CONNECTION_STRING", "")
+    )
+    """PGVector database connection string."""
+    
+    # Oracle configuration
+    ORACLE_HOST: str = field(default_factory=get_env("ORACLE_HOST", ""))
+    """Oracle database host."""
+    ORACLE_PASSWORD: str = field(default_factory=get_env("ORACLE_PASSWORD", ""))
+    """Oracle database password."""
+    ORACLE_PORT: int = field(default_factory=get_env("ORACLE_PORT", 1522))
+    """Oracle database port."""
+    ORACLE_USERNAME: str = field(default_factory=get_env("ORACLE_USERNAME", ""))
+    """Oracle database username."""
+    ORACLE_SERVICE_NAME: str = field(default_factory=get_env("ORACLE_SERVICE_NAME", ""))
+    """Oracle database service name."""
+    ORACLE_MONGO_CONNECTION_STRING: str = field(
+        default_factory=get_env("ORACLE_MONGO_CONNECTION_STRING", "")
+    )
+    """Oracle MongoDB connection string."""
+    
+    # Oracle Knowledge configuration
+    ORACLE_KNOWLEDGE_USERNAME: str = field(
+        default_factory=get_env("ORACLE_KNOWLEDGE_USERNAME", "")
+    )
+    """Oracle Knowledge username."""
+    ORACLE_KNOWLEDGE_PASSWORD: str = field(
+        default_factory=get_env("ORACLE_KNOWLEDGE_PASSWORD", "")
+    )
+    """Oracle Knowledge password."""
+    
+    # MongoDB configuration
+    MONGO_DB_CONNECTION_STRING: str = field(
+        default_factory=get_env("MONGO_DB_CONNECTION_STRING", "")
+    )
+    """MongoDB connection string."""
+    MONGO_DB_DB_NAME: str = field(
+        default_factory=get_env("MONGO_DB_DB_NAME", "magnet-dev")
+    )
+    """MongoDB database name."""
+    
+    # QDrant configuration
+    DB_VECTOR_TYPE: str = field(default_factory=get_env("DB_VECTOR_TYPE", ""))
+    """Vector database type."""
+    QDRANT_DB_HOST: str = field(default_factory=get_env("QDRANT_DB_HOST", ""))
+    """QDrant database host."""
+    QDRANT_DB_API_KEY: str = field(default_factory=get_env("QDRANT_DB_API_KEY", ""))
+    """QDrant database API key."""
+    QDRANT_DB_PORT: int = field(default_factory=get_env("QDRANT_DB_PORT", 6333))
+    """QDrant database port."""
+    
+    # Scheduler pool settings
+    SCHEDULER_POOL_SIZE: int = field(
+        default_factory=get_env("SCHEDULER_POOL_SIZE", 10)
+    )
+    """Scheduler connection pool size."""
+    SCHEDULER_MAX_POOL_OVERFLOW: int = field(
+        default_factory=get_env("SCHEDULER_MAX_POOL_OVERFLOW", 20)
+    )
+    """Scheduler connection pool max overflow."""
+    SCHEDULER_POOL_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_POOL_TIMEOUT", 30)
+    )
+    """Scheduler connection pool timeout."""
+    SCHEDULER_POOL_RECYCLE: int = field(
+        default_factory=get_env("SCHEDULER_POOL_RECYCLE", 3600)
+    )
+    """Scheduler connection pool recycle time."""
+    SCHEDULER_POOL_PRE_PING: bool = field(
+        default_factory=get_env("SCHEDULER_POOL_PRE_PING", True)
+    )
+    """Scheduler connection pool pre-ping."""
+
+
+@dataclass
+class KnowledgeSourceSettings:
+    """Knowledge source configuration"""
+
+    HUBSPOT: str = field(default_factory=get_env("KNOWLAGE_SOURCE_HUBSPOT", ""))
+    """HubSpot knowledge source token."""
+    FLUID_TOPICS_API_KEY: str = field(default_factory=get_env("FLUID_TOPICS_API_KEY", ""))
+    """Fluid Topics API key."""
+    FLUID_TOPICS_SEARCH_API_URL: str = field(default_factory=get_env("FLUID_TOPICS_SEARCH_API_URL", ""))
+    """Fluid Topics search API URL."""
+    FLUID_TOPICS_PDF_API_URL: str = field(default_factory=get_env("FLUID_TOPICS_PDF_API_URL", ""))
+    """Fluid Topics PDF API URL."""
+    FLUID_TOPICS_VIEWER_BASE_URL: str = field(default_factory=get_env("FLUID_TOPICS_VIEWER_BASE_URL", ""))
+    """Fluid Topics viewer base URL."""
+
+
+@dataclass
+class GeneralSettings:
+    """General application configuration"""
+
+    ENV: str = field(default_factory=get_env("ENV", ""))
+    """Environment name."""
+    TEMP_ASSISTANT_SKIP_SSL_VERIFICATION: bool = field(
+        default_factory=get_env("TEMP_ASSISTANT_SKIP_SSL_VERIFICATION", False)
+    )
+    """Skip SSL verification for temporary assistant."""
+    NO_ANSWER_TEXT: str = field(
+        default_factory=get_env("NO_ANSWER_TEXT", "It seems that the answer to your question is not available in the resources I have access to. Please modify your question.")
+    )
+    """Default text when no answer is available."""
+    PORT: int = field(default_factory=get_env("PORT", 8000))
+    """Application port."""
+    CORS_OVERRIDE_ALLOWED_ORIGINS: str = field(
+        default_factory=get_env("CORS_OVERRIDE_ALLOWED_ORIGINS", "")
+    )
+    """CORS allowed origins."""
+    LOG_INCLUDE_LOGGER_NAME: bool = field(
+        default_factory=get_env("LOG_INCLUDE_LOGGER_NAME", False)
+    )
+    """Include logger name in logs."""
+    API_KEY_ORACLE: str = field(default_factory=get_env("API_KEY_ORACLE", ""))
+    """Oracle API key."""
+    EVENT_LOOP_DEBUG: bool = field(
+        default_factory=get_env("EVENT_LOOP_DEBUG", False)
+    )
+    """Enable event loop debug mode."""
+    DEBUG_MODE: bool = field(default_factory=get_env("DEBUG_MODE", False))
+    """Enable debug mode."""
+
+
+@dataclass
 class Settings:
+    general: GeneralSettings = field(default_factory=GeneralSettings)
+    auth: AuthSettings = field(default_factory=AuthSettings)
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
+    db_connections: DatabaseConnectionSettings = field(default_factory=DatabaseConnectionSettings)
     encryption: EncryptionSettings = field(default_factory=EncryptionSettings)
     log: LogSettings = field(default_factory=LogSettings)
+    observability: ObservabilitySettings = field(default_factory=ObservabilitySettings)
+    azure: AzureSettings = field(default_factory=AzureSettings)
+    ai_providers: AIProvidersSettings = field(default_factory=AIProvidersSettings)
+    sharepoint: SharePointSettings = field(default_factory=SharePointSettings)
+    knowledge_sources: KnowledgeSourceSettings = field(default_factory=KnowledgeSourceSettings)
 
     @classmethod
     def from_env(cls, dotenv_filename: str = ".env") -> Settings:
@@ -294,6 +577,16 @@ def get_settings() -> Settings:
 
 
 @lru_cache(maxsize=1, typed=True)
+def get_general_settings() -> GeneralSettings:
+    return get_settings().general
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_auth_settings() -> AuthSettings:
+    return get_settings().auth
+
+
+@lru_cache(maxsize=1, typed=True)
 def get_encryption_settings() -> EncryptionSettings:
     return get_settings().encryption
 
@@ -301,3 +594,44 @@ def get_encryption_settings() -> EncryptionSettings:
 @lru_cache(maxsize=1, typed=True)
 def get_database_settings() -> DatabaseSettings:
     return get_settings().db
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_log_settings() -> LogSettings:
+    return get_settings().log
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_observability_settings() -> ObservabilitySettings:
+    return get_settings().observability
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_azure_settings() -> AzureSettings:
+    return get_settings().azure
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_ai_providers_settings() -> AIProvidersSettings:
+    return get_settings().ai_providers
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_database_connection_settings() -> DatabaseConnectionSettings:
+    return get_settings().db_connections
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_sharepoint_settings() -> SharePointSettings:
+    return get_settings().sharepoint
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_knowledge_source_settings() -> KnowledgeSourceSettings:
+    return get_settings().knowledge_sources
+
+
+def get_env_vars_with_prefix(prefix: str) -> dict[str, str]:
+    """Get all environment variables with a specific prefix."""
+    import os
+    return {key: value for key, value in os.environ.items() if key.startswith(prefix)}
