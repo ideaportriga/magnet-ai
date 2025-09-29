@@ -1,37 +1,8 @@
 """
 Utility for migrating data from MongoDB to SQLAlchemy.
 
-Supports:
-- Configurable mapping between MongoDB collections and SQLAlchemy tables
-- MongoDB connection via COSMOS_DB_CONNECTION_STRING
-- Using e        # Special transformation for AIModel: rename model to ai_model
-        if self.model_class.__name__ == 'AIModel':
-            # Rename model to ai_model if it exists
-            if 'model' in transformed and 'ai_model' not in transformed:
-                transformed['ai_model'] = transformed.pop('model')
-            
-            # Ensure ai_model is not null
-            if 'ai_model' not in transformed or transformed['ai_model'] is None:
-                # Set a default value
-                transformed['ai_model'] = 'unknown'
-            
-            # Ensure provider is not null
-            if 'provider' not in transformed or transformed['provider'] is None:
-                # Set a default value
-                transformed['provider'] = 'unknown'
-            
-            # Convert price fields from float to string
-            price_fields = ['price_input', 'price_output', 'price_cached']
-            for field in price_fields:
-                if field in transformed and isinstance(transformed[field], (int, float)):
-                    transformed[field] = str(transformed[field])LAlchemy engine from the project
-- Migration process logging
-- Error handling and rollback when necessary
-- MongoDB metadata processing (_metadata with dates)
 """
 
-import asyncio
-import json
 import logging
 import sys
 from dataclasses import dataclass
@@ -39,8 +10,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type
 import uuid
-
-# Load environment variables from .env file
+import json 
+import asyncio
+from bson import ObjectId
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -64,13 +36,13 @@ try:
     from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.orm import sessionmaker
-    from sqlalchemy import inspect, select, delete
+    from sqlalchemy import inspect, select, delete, text
     
     # Project imports
     from src.core.config.base import get_settings, get_database_connection_settings
     
     # Imports of models from main package (those that are exported)
-    from src.core.db.models import APIKey, Job, Metric, Trace, Evaluation
+    from src.core.db.models import APIKey, Metric, Trace, Evaluation
     
     # Imports of individual models that are not exported in __init__.py
     from src.core.db.models.agent import Agent
@@ -79,7 +51,6 @@ try:
     from src.core.db.models.ai_model import AIModel
     from src.core.db.models.collection import Collection
     from src.core.db.models.api_server import APIServer
-    from src.core.db.models.api_tool import APITool
     from src.core.db.models.mcp_server import MCPServer
     from src.core.db.models.rag_tool import RagTool
     from src.core.db.models.retrieval_tool import RetrievalTool
@@ -175,7 +146,7 @@ class DocumentTransformer:
                 transformed['updated_at'] = updated_at
         
         # Set default timestamps if missing
-        current_time = datetime.now(timezone.utc)
+        current_time = datetime.utcnow()
         if 'created_at' not in transformed:
             transformed['created_at'] = current_time
         if 'updated_at' not in transformed:
@@ -213,6 +184,9 @@ class DocumentTransformer:
         
         # Special transformation for collections: rename model to ai_model and collect source fields
         if self.model_class.__name__ == 'Collection':
+            # Save old MongoDB ID for document migration
+            transformed['old_mongodb_id'] = str(doc['_id'])
+            
             # Rename model to ai_model
             if 'model' in transformed:
                 transformed['ai_model'] = transformed.pop('model')
@@ -280,7 +254,7 @@ class DocumentTransformer:
                     transformed[field] = str(transformed[field])
             
             # Handle datetime fields with defaults
-            now = datetime.now(timezone.utc)
+            now = datetime.utcnow()
             if 'created_at' not in transformed or transformed['created_at'] is None:
                 transformed['created_at'] = now
             if 'updated_at' not in transformed or transformed['updated_at'] is None:
@@ -344,6 +318,8 @@ class DocumentTransformer:
 
     def _transform_value(self, value: Any) -> Any:
         """Transform a value recursively."""
+        if isinstance(value, ObjectId):
+            return str(value)
         if isinstance(value, dict):
             # Handle MongoDB ObjectId references
             if '$oid' in value:
@@ -377,6 +353,71 @@ class DocumentTransformer:
         else:
             return value
 
+    def _convert_objectid(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: self._convert_objectid(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_objectid(item) for item in obj]
+        else:
+            return obj
+
+    def _transform_mongodb_document(self, doc):
+        transformed = {
+            'content': doc.get('content', ''),
+            'metadata': self._convert_objectid(doc.get('metadata', {})),
+            'embedding': doc.get('embedding', []),
+        }
+        # Handle dates
+        created_at = self._transform_date_value(doc.get('created_at'))
+        if created_at:
+            transformed['created_at'] = created_at
+        updated_at = self._transform_date_value(doc.get('updated_at'))
+        if updated_at:
+            transformed['updated_at'] = updated_at
+        return transformed
+
+    async def _insert_documents_batch(self, conn, table_name, batch):
+        if not batch:
+            return
+        
+        # Fixed columns
+        columns = ['content', 'metadata', 'embedding', 'created_at', 'updated_at']
+        
+        # Build values list and placeholders
+        all_values = []
+        value_placeholders = []
+        
+        for doc in batch:
+            row_placeholders = []
+            for col in columns:
+                val = doc.get(col)
+                if col == 'embedding':
+                    if isinstance(val, list):
+                        # Convert to PostgreSQL vector format: '[1.0,2.0,3.0]'
+                        val = '[' + ','.join(str(x) for x in val) + ']'
+                    else:
+                        val = '[]'
+                elif col == 'metadata':
+                    # Ensure metadata is a dict for JSONB
+                    if val is None:
+                        val = {}
+                    elif not isinstance(val, dict):
+                        val = {}
+                elif col in ['created_at', 'updated_at']:
+                    if val is None:
+                        val = datetime.utcnow()
+                all_values.append(val)
+                row_placeholders.append('$%d' % len(all_values))
+            value_placeholders.append(f'({", ".join(row_placeholders)})')
+        
+        # Build the full query
+        query = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES {', '.join(value_placeholders)}"
+        
+        # Execute with all values as list
+        await conn.execute(text(query), all_values)
+
 
 class MongoToSQLAlchemyMigrator:
     """Main class for migrating data from MongoDB to SQLAlchemy."""
@@ -386,6 +427,8 @@ class MongoToSQLAlchemyMigrator:
         self.mongodb_client: Optional[AsyncIOMotorClient] = None
         self.mongodb_database: Optional[AsyncIOMotorDatabase] = None
         self.sqlalchemy_session: Optional[AsyncSession] = None
+        # Mapping of old MongoDB collection IDs to new PostgreSQL IDs
+        self.collection_id_mapping: Dict[str, str] = {}
         
         # Get SQLAlchemy settings from the project
         self.settings = get_settings()
@@ -427,6 +470,68 @@ class MongoToSQLAlchemyMigrator:
         self.sqlalchemy_session = self.session_factory()
         
         logger.warning("Database connections established")
+    
+    def _transform_date_value(self, value: Any) -> Optional[datetime]:
+        """Transform MongoDB date value to datetime object."""
+        if isinstance(value, dict) and '$date' in value:
+            try:
+                date_str = value['$date']
+                if isinstance(date_str, str):
+                    # Handle ISO format with Z suffix
+                    if date_str.endswith('Z'):
+                        return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                    else:
+                        return datetime.fromisoformat(date_str)
+                else:
+                    logger.debug(f"Unexpected date format: {value}")
+                    return None
+            except (ValueError, TypeError) as e:
+                logger.debug(f"Could not parse date {value}: {e}")
+                return None
+        elif isinstance(value, datetime):
+            # Ensure datetime has timezone info for PostgreSQL
+            if value.tzinfo is None:
+                return value.replace(tzinfo=timezone.utc)
+            return value
+        elif isinstance(value, str):
+            try:
+                # Try to parse as ISO format with timezone
+                if '+' in value or value.endswith('Z'):
+                    return datetime.fromisoformat(value.replace('Z', '+00:00'))
+                else:
+                    # Assume UTC if no timezone
+                    return datetime.fromisoformat(value).replace(tzinfo=timezone.utc)
+            except ValueError:
+                logger.debug(f"Could not parse date string: {value}")
+                return None
+        else:
+            logger.debug(f"Unexpected date type: {type(value)}")
+            return None
+
+    def _convert_objectid(self, obj):
+        if isinstance(obj, ObjectId):
+            return str(obj)
+        elif isinstance(obj, dict):
+            return {k: self._convert_objectid(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_objectid(item) for item in obj]
+        else:
+            return obj
+
+    def _transform_mongodb_document(self, doc):
+        transformed = {
+            'content': doc.get('content', ''),
+            'metadata': self._convert_objectid(doc.get('metadata', {})),
+            'embedding': doc.get('embedding', []),
+        }
+        # Handle dates
+        created_at = self._transform_date_value(doc.get('created_at'))
+        if created_at:
+            transformed['created_at'] = created_at
+        updated_at = self._transform_date_value(doc.get('updated_at'))
+        if updated_at:
+            transformed['updated_at'] = updated_at
+        return transformed
     
     async def disconnect(self):
         """Closes database connections."""
@@ -517,6 +622,14 @@ class MongoToSQLAlchemyMigrator:
                 "processed": processed_count,
                 "errors": error_count
             }
+            
+            # If migrating collections, also migrate associated documents
+            if collection_name == 'collections':
+                logger.warning("Migrating documents for collections after collection migration")
+                documents_result = await self.migrate_documents_for_collections()
+                result["documents_migration"] = documents_result
+                result["processed"] += documents_result["summary"]["total_processed"]
+                result["errors"] += documents_result["summary"]["total_errors"]
             
             return result
             
@@ -611,6 +724,10 @@ class MongoToSQLAlchemyMigrator:
                     model_fields = {col.name for col in inspect(model_class).columns}
                     filtered_doc = {k: v for k, v in transformed_doc.items() if k in model_fields}
                     
+                    # Save mapping for collections
+                    if model_class.__name__ == 'Collection' and 'old_mongodb_id' in transformed_doc:
+                        self.collection_id_mapping[transformed_doc['old_mongodb_id']] = transformed_doc['id']
+                    
                     new_record = model_class(**filtered_doc)
                     self.sqlalchemy_session.add(new_record)
                     logger.debug(f"Created new record: {transformed_doc['id']}")
@@ -672,8 +789,251 @@ class MongoToSQLAlchemyMigrator:
             }
         }
         
+        # Migrate documents for collections
+        logger.warning("Starting documents migration after collections migration")
+        documents_result = await self.migrate_documents_for_collections()
+        summary["documents_migration"] = documents_result
+        summary["summary"]["total_processed"] += documents_result["summary"]["total_processed"]
+        summary["summary"]["total_errors"] += documents_result["summary"]["total_errors"]
+        
         logger.warning(f"Migration summary: {summary['summary']}")
         return summary
+    
+    async def migrate_documents_for_collection(self, old_collection_id: str, new_collection_id: str) -> Dict[str, Any]:
+        """Migrate documents from MongoDB documents_<old_id> collection to new PostgreSQL table."""
+        
+        # MongoDB collection name
+        mongo_documents_collection = f"documents_{old_collection_id.replace('-', '_')}"
+        new_table = f"documents_{new_collection_id.replace('-', '_')}"
+        
+        logger.warning(f"Migrating documents from MongoDB collection {mongo_documents_collection} to {new_table}")
+        
+        try:
+            # Get collection metadata to determine embedding dimension
+            collection_metadata = await self.get_collection_metadata(new_collection_id)
+            model_name = collection_metadata.get('ai_model', '').upper()
+            
+            # Determine vector dimension based on model
+            if 'LARGE' in model_name:
+                vector_dimension = 3072
+            else:
+                vector_dimension = 1536
+            
+            logger.warning(f"Using vector dimension {vector_dimension} for model {model_name}")
+            
+            # Get MongoDB collection
+            mongodb_collection = self.mongodb_database[mongo_documents_collection]
+            
+            # Count documents
+            total_docs = await mongodb_collection.count_documents({})
+            
+            if total_docs == 0:
+                logger.warning(f"No documents found in MongoDB collection {mongo_documents_collection}")
+                return {
+                    "old_collection_id": old_collection_id,
+                    "new_collection_id": new_collection_id,
+                    "status": "completed",
+                    "reason": "No documents to migrate",
+                    "processed": 0,
+                    "errors": 0
+                }
+            
+            async with self.settings.db.engine.begin() as conn:
+                # Create new table with indexes (similar to PgVectorStore._create_documents_table)
+                create_table_sql = f"""
+CREATE TABLE IF NOT EXISTS {new_table} (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content TEXT NOT NULL,
+    metadata JSONB,
+    embedding vector({vector_dimension}) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+"""
+                await conn.execute(text(create_table_sql))
+                create_index_sql = f"""
+CREATE INDEX IF NOT EXISTS idx_{new_table}_embedding_cosine
+ON {new_table} USING hnsw (embedding vector_cosine_ops) 
+WITH (m = 16, ef_construction = 64)
+"""
+                await conn.execute(text(create_index_sql))
+                create_gin_sql = f"""
+CREATE INDEX IF NOT EXISTS idx_{new_table}_metadata_gin
+ON {new_table} USING GIN (metadata)
+"""
+                await conn.execute(text(create_gin_sql))
+                
+                # Migrate documents in batches
+                processed = 0
+                batch_size = 100
+                cursor = mongodb_collection.find({})
+                batch = []
+                async for doc in cursor:
+                    transformed_doc = self._transform_mongodb_document(doc)
+                    batch.append(transformed_doc)
+                    if len(batch) >= batch_size:
+                        await self._insert_documents_batch(conn, new_table, batch)
+                        processed += len(batch)
+                        batch = []
+                if batch:
+                    await self._insert_documents_batch(conn, new_table, batch)
+                    processed += len(batch)
+                logger.warning(f"Migrated {processed} documents to {new_table}")
+                return {
+                    "old_collection_id": old_collection_id,
+                    "new_collection_id": new_collection_id,
+                    "status": "completed",
+                    "processed": processed,
+                    "errors": 0
+                }
+        except Exception as e:
+            logger.error(f"Error migrating documents for collection {old_collection_id} -> {new_collection_id}: {e}")
+            return {
+                "old_collection_id": old_collection_id,
+                "new_collection_id": new_collection_id,
+                "status": "failed",
+                "reason": str(e),
+                "processed": 0,
+                "errors": 1
+            }
+    
+    async def migrate_documents_for_collections(self) -> Dict[str, Any]:
+        """Migrate documents from old collection tables to new ones."""
+        logger.warning("Starting migration of documents for collections")
+        
+        results = []
+        total_processed = 0
+        total_errors = 0
+        
+        for old_id, new_id in self.collection_id_mapping.items():
+            try:
+                result = await self.migrate_documents_for_collection(old_id, new_id)
+                results.append(result)
+                total_processed += result.get("processed", 0)
+                total_errors += result.get("errors", 0)
+            except Exception as e:
+                logger.error(f"Failed to migrate documents for collection {old_id} -> {new_id}: {e}")
+                results.append({
+                    "old_collection_id": old_id,
+                    "new_collection_id": new_id,
+                    "status": "failed",
+                    "reason": str(e),
+                    "processed": 0,
+                    "errors": 1
+                })
+                total_errors += 1
+        
+        summary = {
+            "status": "completed",
+            "collections": results,
+            "summary": {
+                "total_collections": len(results),
+                "successful_collections": len([r for r in results if r["status"] == "completed"]),
+                "total_processed": total_processed,
+                "total_errors": total_errors
+            }
+        }
+        
+        logger.warning(f"Documents migration summary: {summary['summary']}")
+        return summary
+
+    async def _insert_documents_batch(self, conn, table_name, batch):
+        if not batch:
+            return
+        
+        # Fixed columns
+        columns = ['content', 'metadata', 'embedding', 'created_at', 'updated_at']
+        
+        # Build values list and placeholders
+        all_values = {}
+        value_placeholders = []
+        param_counter = 1
+        
+        for doc in batch:
+            row_placeholders = []
+            for col in columns:
+                val = doc.get(col)
+                if col == 'embedding':
+                    if isinstance(val, list):
+                        # Convert to PostgreSQL vector format: '[1.0,2.0,3.0]'
+                        val = '[' + ','.join(str(x) for x in val) + ']'
+                    else:
+                        val = '[]'
+                elif col == 'metadata':
+                    # Ensure metadata is a dict and serialize to JSON string for PostgreSQL JSONB
+                    if val is None:
+                        val = {}
+                    elif not isinstance(val, dict):
+                        val = {}
+                    val = json.dumps(val)
+                elif col in ['created_at', 'updated_at']:
+                    if val is None:
+                        val = datetime.utcnow()
+                param_name = f'p{param_counter}'
+                all_values[param_name] = val
+                row_placeholders.append(f':{param_name}')
+                param_counter += 1
+            value_placeholders.append(f'({", ".join(row_placeholders)})')
+        
+        # Build the full query
+        query = f"INSERT INTO {table_name} ({', '.join(columns)}) VALUES {', '.join(value_placeholders)}"
+        
+        # Execute with named parameters
+        await conn.execute(text(query), all_values)
+
+    async def get_collection_metadata(self, collection_id: str) -> dict:
+        """Get collection metadata from PostgreSQL."""
+        
+        async with self.settings.db.engine.begin() as conn:
+            select_sql = """
+                SELECT 
+                    id::text,
+                    name,
+                    description,
+                    system_name,
+                    category,
+                    type,
+                    ai_model,
+                    source,
+                    chunking,
+                    indexing,
+                    last_synced,
+                    created_at,
+                    updated_at,
+                    created_by,
+                    updated_by
+                FROM collections 
+                WHERE id = :id
+            """
+            logger.warning(f"get_collection_metadata: collection_id={collection_id} type={type(collection_id)}")
+            row = await conn.execute(
+                text(select_sql), {"id": collection_id}
+            )
+            result = row.fetchone()
+            logger.warning(f"get_collection_metadata: fetchone result={result}")
+            if not result:
+                raise LookupError("Collection does not exist")
+            # Convert row to metadata dictionary
+            metadata = {
+                "id": result[0],
+                "name": result[1],
+                "description": result[2],
+                "system_name": result[3],
+                "category": result[4],
+                "type": result[5],
+                "ai_model": result[6],
+                "source": result[7] or {},
+                "chunking": result[8] or {},
+                "indexing": result[9] or {},
+                "last_synced": result[10].isoformat() if result[10] else None,
+                "created_at": result[11].isoformat() if result[11] else None,
+                "updated_at": result[12].isoformat() if result[12] else None,
+                "created_by": result[13],
+                "updated_by": result[14],
+            }
+            logger.warning(f"get_collection_metadata: metadata={metadata}")
+            return metadata
+
 
 
 async def main():

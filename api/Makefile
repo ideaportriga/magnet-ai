@@ -1,4 +1,4 @@
-.PHONY: run help docker-up docker-down docker-restart docker-logs docker-status docker-clean db-init db-migrate db-upgrade db-downgrade db-current db-history db-stamp db-merge db-reset db-create db-drop db-status db-docker-status fixtures-load fixtures-list fixtures-load-entity
+.PHONY: run help docker-up docker-down docker-restart docker-logs docker-status docker-clean db-init db-migrate db-upgrade db-downgrade db-current db-history db-stamp db-merge db-reset db-create db-drop db-status db-docker-status fixtures-load fixtures-list fixtures-load-entity migration-check migration-dry-run migration-run migration-collection migration-collection-dry
 
 # PostgreSQL connection parameters from .env
 POSTGRES_HOST := $(or $(shell grep '^DATABASE_URL=' .env 2>/dev/null | sed -n 's|.*@\([^:]*\):.*|\1|p'),localhost)
@@ -46,6 +46,16 @@ help:
 	@echo "  fixtures-load       - Load all database fixtures"
 	@echo "  fixtures-load-entity - Load fixtures for specific entity (usage: make fixtures-load-entity entity=agent)"
 	@echo "  fixtures-list       - List available fixture entities"
+	@echo ""
+	@echo "🔄 MongoDB Migration commands:"
+	@echo "  migration-check     - Check migration readiness (dependencies, connections, etc.)"
+	@echo "  migration-dry-run   - Test migration without making changes"
+	@echo "  migration-run       - Run full MongoDB to SQLAlchemy migration"
+	@echo "  migration-collection - Migrate specific collection (usage: make migration-collection collection=agents)"
+	@echo "  migration-collection-dry - Dry-run for specific collection (usage: make migration-collection-dry collection=agents)"
+	@echo "  migration-collection-limit - Migrate specific collection with limit (usage: make migration-collection-limit collection=metrics limit=1000)"
+	@echo "  migration-collection-dry-limit - Dry-run for specific collection with limit (usage: make migration-collection-dry-limit collection=metrics limit=1000)"
+	@echo ""
 	@echo "  help               - Show this help message"
 
 # Docker management commands
@@ -208,3 +218,58 @@ fixtures-list:
 	PYTHONPATH=src poetry run python manage_fixtures.py fixtures list
 	@echo "📊 Current database schema:"
 	@docker exec -e PGPASSWORD=$(POSTGRES_PASSWORD) $(POSTGRES_CONTAINER) psql -h localhost -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "\dt"
+
+# MongoDB to SQLAlchemy migration commands
+migration-check:
+	@echo "🔍 Checking migration readiness..."
+	PYTHONPATH=src poetry run python check_migration_readiness.py
+
+migration-dry-run:
+	@echo "🧪 Running migration dry-run (no changes will be made)..."
+	PYTHONPATH=src poetry run python mongo_to_sqlalchemy_migration.py --dry-run
+
+migration-run:
+	@echo "🚀 Running MongoDB to SQLAlchemy migration..."
+	@echo "⚠️  This will migrate data from MongoDB to PostgreSQL!"
+	@read -p "Are you sure you want to continue? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ] || [ "$$confirm" = "Y" ]; then \
+		PYTHONPATH=src poetry run python mongo_to_sqlalchemy_migration.py; \
+	else \
+		echo "Migration cancelled."; \
+	fi
+
+migration-collection:
+	@if [ -z "$(collection)" ]; then \
+		echo "Usage: make migration-collection collection=<collection_name>"; \
+		echo "Example: make migration-collection collection=agents"; \
+		exit 1; \
+	fi
+	@echo "🔄 Migrating specific collection: $(collection)"
+	PYTHONPATH=src poetry run python mongo_to_sqlalchemy_migration.py --collection $(collection)
+
+migration-collection-dry:
+	@if [ -z "$(collection)" ]; then \
+		echo "Usage: make migration-collection-dry collection=<collection_name>"; \
+		echo "Example: make migration-collection-dry collection=agents"; \
+		exit 1; \
+	fi
+	@echo "🧪 Dry-run migration for collection: $(collection)"
+	PYTHONPATH=src poetry run python mongo_to_sqlalchemy_migration.py --collection $(collection) --dry-run
+
+migration-collection-limit:
+	@if [ -z "$(collection)" ] || [ -z "$(limit)" ]; then \
+		echo "Usage: make migration-collection-limit collection=<collection_name> limit=<number>"; \
+		echo "Example: make migration-collection-limit collection=metrics limit=1000"; \
+		exit 1; \
+	fi
+	@echo "🔄 Migrating specific collection with limit: $(collection) (limit: $(limit))"
+	PYTHONPATH=src poetry run python mongo_to_sqlalchemy_migration.py --collection $(collection) --limit $(limit)
+
+migration-collection-dry-limit:
+	@if [ -z "$(collection)" ] || [ -z "$(limit)" ]; then \
+		echo "Usage: make migration-collection-dry-limit collection=<collection_name> limit=<number>"; \
+		echo "Example: make migration-collection-dry-limit collection=metrics limit=1000"; \
+		exit 1; \
+	fi
+	@echo "🧪 Dry-run migration for collection with limit: $(collection) (limit: $(limit))"
+	PYTHONPATH=src poetry run python mongo_to_sqlalchemy_migration.py --collection $(collection) --limit $(limit) --dry-run
