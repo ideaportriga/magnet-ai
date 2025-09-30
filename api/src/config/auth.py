@@ -6,18 +6,21 @@ import httpx
 from aiocache import cached
 from jose import jwt
 
+from core.config.base import get_auth_settings
+
 logger = getLogger(__name__)
 
 env = os.environ
 
 AUTH_PROVIDER = env.get("AUTH_PROVIDER", "MICROSOFT")
+settings = get_auth_settings()
 if AUTH_PROVIDER == "MICROSOFT":
-    MICROSOFT_ENTRA_ID_TENANT_ID = env.get("MICROSOFT_ENTRA_ID_TENANT_ID")
+    MICROSOFT_ENTRA_ID_TENANT_ID = settings.MICROSOFT_ENTRA_ID_TENANT_ID
     TOKEN_TYPE = "id_token"
     BASE_URL = f"https://login.microsoftonline.com/{MICROSOFT_ENTRA_ID_TENANT_ID}"
-    CLIENT_ID = env.get("MICROSOFT_ENTRA_ID_CLIENT_ID")
-    CLIENT_SECRET = env.get("MICROSOFT_ENTRA_ID_CLIENT_SECRET")
-    REDIRECT_URI = env.get("MICROSOFT_ENTRA_ID_REDIRECT_URI")
+    CLIENT_ID = settings.MICROSOFT_ENTRA_ID_CLIENT_ID
+    CLIENT_SECRET = settings.MICROSOFT_ENTRA_ID_CLIENT_SECRET
+    REDIRECT_URI = settings.MICROSOFT_ENTRA_ID_REDIRECT_URI
     KEYS_URL = f"{BASE_URL}/discovery/v2.0/keys"
     OAUTH2_BASE_URL = f"{BASE_URL}/oauth2/v2.0"
     USER_ID_KEY = "oid"

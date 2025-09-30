@@ -18,7 +18,7 @@ class StartupPlugin(InitPluginProtocol):
 
     def __init__(self) -> None:
         self.env = os.environ
-        self.db_type = self.env.get("DB_TYPE")
+        self.db_type = self.env.get("VECTOR_DB_TYPE")
         self.auth_enabled = self.env.get("AUTH_ENABLED") == "true"
 
     def on_app_init(self, app_config: "AppConfig") -> "AppConfig":
@@ -69,7 +69,7 @@ class StartupPlugin(InitPluginProtocol):
             logger.error(f"Failed to refresh API keys cache: {e}")
 
     async def _initialize_database_connections(self) -> None:
-        """Initialize database connection pools based on DB_TYPE."""
+        """Initialize database connection pools based on VECTOR_DB_TYPE."""
         if self.db_type == "PGVECTOR":
             await self._initialize_pgvector()
 

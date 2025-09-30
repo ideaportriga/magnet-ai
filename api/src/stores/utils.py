@@ -1,13 +1,15 @@
 # Async compatibility check: True
-import os
 import re
 import uuid
 
 from bson import ObjectId, errors
 
+from core.config.base import get_vector_database_settings
+
 
 def validate_id(id: str):
-    db_type = os.environ.get("DB_TYPE", "COSMOS")
+    db_settings = get_vector_database_settings()
+    db_type = db_settings.VECTOR_DB_TYPE
 
     if db_type == "ORACLE":
         if not re.fullmatch(r"[0-9A-F]{32}", id):
@@ -22,4 +24,4 @@ def validate_id(id: str):
             return str(uuid_obj)
         except ValueError:
             raise errors.InvalidId(f"Invalid UUID string: {id}")
-    raise ValueError(f"Unsupported DB_TYPE: {db_type}")
+    raise ValueError(f"Unsupported VECTOR_DB_TYPE: {db_type}")

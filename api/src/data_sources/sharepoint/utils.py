@@ -1,30 +1,28 @@
-import os
 from logging import getLogger
 
 from office365.runtime.auth.authentication_context import AuthenticationContext
 from office365.sharepoint.client_context import ClientContext
 
-from data_sources.common.utils import get_required_env_var
+from core.config.base import get_knowledge_source_settings
 from data_sources.sharepoint.types import SharepointConfig, SharepointConfigWithCert
 
 logger = getLogger(__name__)
 
 
 def get_sharepoint_config() -> SharepointConfig | SharepointConfigWithCert:
+    settings = get_knowledge_source_settings()
     try:
-        client_id = client_id = get_required_env_var("SHAREPOINT_CLIENT_ID")
-        client_secret = os.environ.get("SHAREPOINT_CLIENT_SECRET", "")
+        client_id = settings.SHAREPOINT_CLIENT_ID
+        client_secret = settings.SHAREPOINT_CLIENT_SECRET
 
         if client_secret:
             return SharepointConfig(client_id=client_id, client_secret=client_secret)
 
         sharepoint_config = SharepointConfigWithCert(
-            tenant=get_required_env_var("SHAREPOINT_TENANT_ID"),
+            tenant=settings.SHAREPOINT_TENANT_ID,
             client_id=client_id,
-            thumbprint=get_required_env_var("SHAREPOINT_CLIENT_CERT_THUMBPRINT"),
-            private_key=get_required_env_var(
-                "SHAREPOINT_CLIENT_CERT_PRIVATE_KEY"
-            ).replace("\\n", "\n"),
+            thumbprint=settings.SHAREPOINT_CLIENT_CERT_THUMBPRINT,
+            private_key=settings.SHAREPOINT_CLIENT_CERT_PRIVATE_KEY.replace("\\n", "\n"),
         )
         return sharepoint_config
     except Exception as err:

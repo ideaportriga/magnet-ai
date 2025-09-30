@@ -1,6 +1,5 @@
 """
 Utility for migrating data from MongoDB to SQLAlchemy.
-
 """
 
 import logging
@@ -39,7 +38,7 @@ try:
     from sqlalchemy import inspect, select, delete, text
     
     # Project imports
-    from src.core.config.base import get_settings, get_database_connection_settings
+    from src.core.config.base import get_settings, get_vector_database_settings
     
     # Imports of models from main package (those that are exported)
     from src.core.db.models import APIKey, Metric, Trace, Evaluation
@@ -91,21 +90,17 @@ class MigrationConfig:
                 "models": AIModel,
                 "prompts": Prompt,
                 "rag_tools": RagTool,
-
                 "retrieval_tools": RetrievalTool,
                 "collections": Collection,
                 # Tools and servers
                 "api_keys": APIKey,
                 "api_servers": APIServer,
                 "mcp_servers": MCPServer,
-                
                 # Evaluation and metrics
                 "evaluations": Evaluation,
                 "evaluation_sets": EvaluationSet,
                 "metrics": Metric,
                 "traces": Trace,
-            
-               
             }
 
 
@@ -432,7 +427,7 @@ class MongoToSQLAlchemyMigrator:
         
         # Get SQLAlchemy settings from the project
         self.settings = get_settings()
-        self.db_settings = get_database_connection_settings()
+        self.db_settings = get_vector_database_settings()
         
         # Create SQLAlchemy session factory
         self.session_factory = sessionmaker(
@@ -1039,7 +1034,6 @@ ON {new_table} USING GIN (metadata)
 async def main():
     """Main function for running migration."""
     import argparse
-    import os
     
     parser = argparse.ArgumentParser(description='Migrate data from MongoDB to SQLAlchemy')
     parser.add_argument('--collection', type=str, help='Specific collection to migrate')
@@ -1050,15 +1044,16 @@ async def main():
     
     args = parser.parse_args()
     
-    # Get MongoDB connection string from environment variable
-    mongodb_connection_string = os.getenv('COSMOS_DB_CONNECTION_STRING')
+    # Get database settings
+    db_settings = get_vector_database_settings()
+    mongodb_connection_string = db_settings.COSMOS_DB_CONNECTION_STRING
     if not mongodb_connection_string:
-        logger.error("COSMOS_DB_CONNECTION_STRING environment variable is not set")
+        logger.error("COSMOS_DB_CONNECTION_STRING is not set in database settings")
         return 1
     
-    # Get MongoDB database name from environment variable
-    mongodb_db_name = os.getenv('COSMOS_DB_DB_NAME', 'magnet')
-    logger.warning(f"Using MongoDB database: {mongodb_db_name} (from COSMOS_DB_DB_NAME env var)")
+    # Get MongoDB database name from settings
+    mongodb_db_name = db_settings.COSMOS_DB_DB_NAME or 'magnet'
+    logger.warning(f"Using MongoDB database: {mongodb_db_name} (from COSMOS_DB_DB_NAME setting)")
     
     # Create migration configuration
     config = MigrationConfig(

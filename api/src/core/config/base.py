@@ -38,54 +38,81 @@ if TYPE_CHECKING:
     from litestar.data_extractors import ResponseExtractorField
 
 
+#### GENERAL SETTINGS ####
+@dataclass
+class GeneralSettings:
+    """General application configuration"""
+
+    """Environment name."""
+    ENV: str = field(default_factory=get_env("ENV", ""))
+
+    """Default text when no answer is available."""
+    NO_ANSWER_TEXT: str = field(
+        default_factory=get_env("NO_ANSWER_TEXT", "It seems that the answer to your question is not available in the resources I have access to. Please modify your question.")
+    )
+    
+    """Application port."""
+    PORT: int = field(default_factory=get_env("PORT", 8000))
+    
+    """CORS allowed origins."""
+    CORS_OVERRIDE_ALLOWED_ORIGINS: str = field(
+        default_factory=get_env("CORS_OVERRIDE_ALLOWED_ORIGINS", "")
+    )
+
+    """Key used for encrypting secrets."""
+    SECRET_ENCRYPTION_KEY: str = field(
+        default_factory=get_env("SECRET_ENCRYPTION_KEY", "my-secret-key-tsmh5r")
+    )
+
+### DATABASE SETTINGS ###
 @dataclass
 class DatabaseSettings:
-    ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", True))
     """Enable SQLAlchemy engine logs."""
-    ECHO_POOL: bool = field(default_factory=get_env("DATABASE_ECHO_POOL", True))
+    ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", True))
     """Enable SQLAlchemy connection pool logs."""
-    ECHO_ERRORS: bool = field(default_factory=get_env("DATABASE_ECHO_ERRORS", True))
+    ECHO_POOL: bool = field(default_factory=get_env("DATABASE_ECHO_POOL", True))
     """Enable detailed SQLAlchemy error logs."""
+    ECHO_ERRORS: bool = field(default_factory=get_env("DATABASE_ECHO_ERRORS", True))
+    """Disable SQLAlchemy pool configuration."""
     POOL_DISABLED: bool = field(
         default_factory=get_env("DATABASE_POOL_DISABLED", False)
     )
-    """Disable SQLAlchemy pool configuration."""
+    """Max overflow for SQLAlchemy connection pool"""
     POOL_MAX_OVERFLOW: int = field(
         default_factory=get_env("DATABASE_MAX_POOL_OVERFLOW", 10)
     )
-    """Max overflow for SQLAlchemy connection pool"""
-    POOL_SIZE: int = field(default_factory=get_env("DATABASE_POOL_SIZE", 5))
     """Pool size for SQLAlchemy connection pool"""
-    POOL_TIMEOUT: int = field(default_factory=get_env("DATABASE_POOL_TIMEOUT", 30))
+    POOL_SIZE: int = field(default_factory=get_env("DATABASE_POOL_SIZE", 5))
     """Time in seconds for timing connections out of the connection pool."""
-    POOL_RECYCLE: int = field(default_factory=get_env("DATABASE_POOL_RECYCLE", 300))
+    POOL_TIMEOUT: int = field(default_factory=get_env("DATABASE_POOL_TIMEOUT", 30))
     """Amount of time to wait before recycling connections."""
+    POOL_RECYCLE: int = field(default_factory=get_env("DATABASE_POOL_RECYCLE", 300))
+    """Optionally ping database before fetching a session from the connection pool."""
     POOL_PRE_PING: bool = field(
         default_factory=get_env("DATABASE_PRE_POOL_PING", False)
     )
-    """Optionally ping database before fetching a session from the connection pool."""
+    """SQLAlchemy Database URL."""
     URL: str = field(
         default_factory=get_env("DATABASE_URL", "sqlite+aiosqlite:///db.sqlite3")
     )
-    """SQLAlchemy Database URL."""
+    """The path to the `alembic.ini` configuration file."""
     MIGRATION_CONFIG: str = field(
         default_factory=get_env(
             "DATABASE_MIGRATION_CONFIG", f"{BASE_DIR}/db/migrations/alembic.ini"
         )
     )
-    """The path to the `alembic.ini` configuration file."""
+    """The path to the `alembic` database migrations."""
     MIGRATION_PATH: str = field(
         default_factory=get_env("DATABASE_MIGRATION_PATH", f"{BASE_DIR}/db/migrations")
     )
-    """The path to the `alembic` database migrations."""
+    """The name to use for the `alembic` versions table name."""
     MIGRATION_DDL_VERSION_TABLE: str = field(
         default_factory=get_env("DATABASE_MIGRATION_DDL_VERSION_TABLE", "ddl_version")
     )
-    """The name to use for the `alembic` versions table name."""
+    """The path to JSON fixture files to load into tables."""
     FIXTURE_PATH: str = field(
         default_factory=get_env("DATABASE_FIXTURE_PATH", f"{BASE_DIR}/db/fixtures")
     )
-    """The path to JSON fixture files to load into tables."""
     _engine_instance: AsyncEngine | None = None
     """SQLAlchemy engine instance generated from settings."""
 
@@ -166,43 +193,65 @@ class DatabaseSettings:
 
 
 @dataclass
-class EncryptionSettings:
-    """Encryption configuration"""
+class SchedulerSettings:
+    """Scheduler pool settings"""
 
-    ENCRYPTION_KEY: str = field(
-        default_factory=get_env("ENCRYPTION_KEY", "my-secret-key")
+    SCHEDULER_POOL_SIZE: int = field(
+        default_factory=get_env("SCHEDULER_POOL_SIZE", 10)
     )
-    """Key used for encrypting sensitive data in database."""
-    SECRET_ENCRYPTION_KEY: str = field(
-        default_factory=get_env("SECRET_ENCRYPTION_KEY", "")
+    """Scheduler connection pool size."""
+    SCHEDULER_MAX_POOL_OVERFLOW: int = field(
+        default_factory=get_env("SCHEDULER_MAX_POOL_OVERFLOW", 20)
     )
-    """Key used for encrypting secrets."""
+    """Scheduler connection pool max overflow."""
+    SCHEDULER_POOL_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_POOL_TIMEOUT", 30)
+    )
+    """Scheduler connection pool timeout."""
+    SCHEDULER_POOL_RECYCLE: int = field(
+        default_factory=get_env("SCHEDULER_POOL_RECYCLE", 3600)
+    )
+    """Scheduler connection pool recycle time."""
+    SCHEDULER_POOL_PRE_PING: bool = field(
+        default_factory=get_env("SCHEDULER_POOL_PRE_PING", True)
+    )
+    """Scheduler connection pool pre-ping."""
 
 
+
+### LOGGING SETTINGS ###
 @dataclass
 class LogSettings:
     """Logger configuration"""
 
+    """Enable debug mode and event loop debugging."""
+    DEBUG_MODE: bool = field(default_factory=get_env("DEBUG_MODE", False))
+
     # https://stackoverflow.com/a/1845097/6560549
-    EXCLUDE_PATHS: str = r"\A(?!x)x"
     """Regex to exclude paths from logging."""
-    HTTP_EVENT: str = "HTTP"
+    EXCLUDE_PATHS: str = r"\A(?!x)x"  # Not used
     """Log event name for logs from Litestar handlers."""
-    INCLUDE_COMPRESSED_BODY: bool = False
+    HTTP_EVENT: str = "HTTP"  # Not used
     """Include 'body' of compressed responses in log output."""
-    LEVEL: int = field(default_factory=get_env("LOG_LEVEL", 10))
+    INCLUDE_COMPRESSED_BODY: bool = False  # Not used
     """Stdlib log levels.
 
     Only emit logs at this level, or higher.
     """
+    LEVEL: int = field(default_factory=get_env("LOG_LEVEL", 10))
+    """Request cookie keys to obfuscate."""
     OBFUSCATE_COOKIES: set[str] = field(
         default_factory=lambda: {"session", "XSRF-TOKEN"}
-    )
-    """Request cookie keys to obfuscate."""
+    )  # Not used
+    """Request header keys to obfuscate."""
     OBFUSCATE_HEADERS: set[str] = field(
         default_factory=lambda: {"Authorization", "X-API-KEY", "X-XSRF-TOKEN"}
-    )
-    """Request header keys to obfuscate."""
+    )  # Not used
+    """Attributes of the SAQ.
+
+    [`Job`](https://github.com/tobymao/saq/blob/master/saq/job.py) to be
+    logged.
+    """
     JOB_FIELDS: list[str] = field(
         default_factory=lambda: [
             "function",
@@ -216,12 +265,9 @@ class LogSettings:
             "result",
             "error",
         ],
-    )
-    """Attributes of the SAQ.
-
-    [`Job`](https://github.com/tobymao/saq/blob/master/saq/job.py) to be
-    logged.
-    """
+    )  # Not used
+    """Attributes of the [Request][litestar.connection.request.Request] to be
+    logged."""
     REQUEST_FIELDS: list[RequestExtractorField] = field(
         default_factory=get_env(
             "LOG_REQUEST_FIELDS",
@@ -234,7 +280,7 @@ class LogSettings:
             list[RequestExtractorField],
         ),
     )
-    """Attributes of the [Request][litestar.connection.request.Request] to be
+    """Attributes of the [Response][litestar.response.Response] to be
     logged."""
     RESPONSE_FIELDS: list[ResponseExtractorField] = field(
         default_factory=cast(
@@ -245,19 +291,19 @@ class LogSettings:
             ),
         )
     )
-    """Attributes of the [Response][litestar.response.Response] to be
-    logged."""
-    WORKER_EVENT: str = "Worker"
     """Log event name for logs from SAQ worker."""
-    SAQ_LEVEL: int = field(default_factory=get_env("SAQ_LOG_LEVEL", 50))
+    WORKER_EVENT: str = "Worker"  # Not used
     """Level to log SAQ logs."""
-    SQLALCHEMY_LEVEL: int = field(default_factory=get_env("SQLALCHEMY_LOG_LEVEL", 10))
+    SAQ_LEVEL: int = field(default_factory=get_env("SAQ_LOG_LEVEL", 50))  # Not used
     """Level to log SQLAlchemy logs."""
-    ASGI_ACCESS_LEVEL: int = field(default_factory=get_env("ASGI_ACCESS_LOG_LEVEL", 10))
+    SQLALCHEMY_LEVEL: int = field(default_factory=get_env("SQLALCHEMY_LOG_LEVEL", 10))
     """Level to log uvicorn access logs."""
-    ASGI_ERROR_LEVEL: int = field(default_factory=get_env("ASGI_ERROR_LOG_LEVEL", 10))
+    ASGI_ACCESS_LEVEL: int = field(default_factory=get_env("ASGI_ACCESS_LOG_LEVEL", 10))
     """Level to log uvicorn error logs."""
+    ASGI_ERROR_LEVEL: int = field(default_factory=get_env("ASGI_ERROR_LOG_LEVEL", 10))
 
+
+### OBSERVABILITY SETTINGS ###
 
 @dataclass
 class ObservabilitySettings:
@@ -299,19 +345,9 @@ class AzureSettings:
         default_factory=get_env("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
     )
     """Azure Application Insights connection string."""
-    OPENAI_API_KEY: str = field(default_factory=get_env("AZURE_OPENAI_API_KEY", ""))
-    """Azure OpenAI API key."""
-    BASE_URL: str = field(default_factory=get_env("AZURE_BASE_URL", ""))
-    """Azure OpenAI base URL."""
-    OPENAI_API_VERSION: str = field(
-        default_factory=get_env("AZURE_OPENAI_API_VERSION", "2023-03-15-preview")
-    )
-    """Azure OpenAI API version."""
-    OPENAI_DEPLOYMENT_NAME: str = field(
-        default_factory=get_env("AZURE_OPENAI_DEPLOYMENT_NAME", "")
-    )
-    """Azure OpenAI deployment name."""
 
+
+### AI PROVIDERS SETTINGS ###
 
 @dataclass
 class AIProvidersSettings:
@@ -347,6 +383,22 @@ class AIProvidersSettings:
     OCI_COMPARTMENT_ID: str = field(default_factory=get_env("OCI_COMPARTMENT_ID", ""))
     """OCI compartment ID."""
 
+    # Azure OpenAI
+    AZURE_OPENAI_API_KEY: str = field(default_factory=get_env("AZURE_OPENAI_API_KEY", ""))
+    """Azure OpenAI API key."""
+    AZURE_BASE_URL: str = field(default_factory=get_env("AZURE_BASE_URL", ""))
+    """Azure OpenAI base URL."""
+    AZURE_OPENAI_API_VERSION: str = field(
+        default_factory=get_env("AZURE_OPENAI_API_VERSION", "2023-03-15-preview")
+    )
+    """Azure OpenAI API version."""
+    AZURE_OPENAI_DEPLOYMENT_NAME: str = field(
+        default_factory=get_env("AZURE_OPENAI_DEPLOYMENT_NAME", "")
+    )
+    """Azure OpenAI deployment name."""
+
+
+### AUTHENTICATION SETTINGS ###
 
 @dataclass
 class AuthSettings:
@@ -372,32 +424,37 @@ class AuthSettings:
     """Microsoft Entra ID redirect URI."""
 
 
-@dataclass
-class SharePointSettings:
-    """SharePoint configuration"""
-
-    TENANT_ID: str = field(default_factory=get_env("SHAREPOINT_TENANT_ID", ""))
-    """SharePoint tenant ID."""
-    CLIENT_ID: str = field(default_factory=get_env("SHAREPOINT_CLIENT_ID", ""))
-    """SharePoint client ID."""
-    CLIENT_SECRET: str = field(default_factory=get_env("SHAREPOINT_CLIENT_SECRET", ""))
-    """SharePoint client secret."""
-    CLIENT_CERT_THUMBPRINT: str = field(
-        default_factory=get_env("SHAREPOINT_CLIENT_CERT_THUMBPRINT", "")
-    )
-    """SharePoint client certificate thumbprint."""
-    CLIENT_CERT_PRIVATE_KEY: str = field(
-        default_factory=get_env("SHAREPOINT_CLIENT_CERT_PRIVATE_KEY", "")
-    )
-    """SharePoint client certificate private key."""
-
+### VECTOR DATABASE SETTINGS ###
 
 @dataclass
-class DatabaseConnectionSettings:
+class VectorDatabaseSettings:
     """Database connection configuration"""
 
-    DB_TYPE: str = field(default_factory=get_env("DB_TYPE", "PGVECTOR"))
+    VECTOR_DB_TYPE: str = field(default_factory=get_env("VECTOR_DB_TYPE", "PGVECTOR"))
     """Database type."""
+
+    """PGVector database connection string."""
+    PGVECTOR_HOST: str = field(default_factory=get_env("PGVECTOR_HOST", "localhost"))
+    """PGVector database host."""
+    PGVECTOR_PORT: str = field(default_factory=get_env("PGVECTOR_PORT", "5432"))
+    """PGVector database port."""
+    PGVECTOR_DATABASE: str = field(
+        default_factory=get_env("PGVECTOR_DATABASE", "magnet_dev")
+    )
+    """PGVector database name."""
+    PGVECTOR_USER: str = field(default_factory=get_env("PGVECTOR_USER", "postgres"))
+    """PGVector database user."""
+    PGVECTOR_PASSWORD: str = field(default_factory=get_env("PGVECTOR_PASSWORD", "password"))
+    """PGVector database password."""
+    PGVECTOR_POOL_SIZE: int = field(default_factory=get_env("PGVECTOR_POOL_SIZE", 10))
+    """PGVector connection pool size."""
+
+    PGVECTOR_CONNECTION_STRING: str = field(
+        default_factory=get_env("PGVECTOR_CONNECTION_STRING", "")
+    )
+
+    # Cosmos DB configuration
+
     COSMOS_DB_CONNECTION_STRING: str = field(
         default_factory=get_env("COSMOS_DB_CONNECTION_STRING", "")
     )
@@ -406,10 +463,8 @@ class DatabaseConnectionSettings:
         default_factory=get_env("COSMOS_DB_DB_NAME", "magnet-test")
     )
     """Cosmos DB database name."""
-    PGVECTOR_CONNECTION_STRING: str = field(
-        default_factory=get_env("PGVECTOR_CONNECTION_STRING", "")
-    )
-    """PGVector database connection string."""
+
+
     
     # Oracle configuration
     ORACLE_HOST: str = field(default_factory=get_env("ORACLE_HOST", ""))
@@ -426,16 +481,6 @@ class DatabaseConnectionSettings:
         default_factory=get_env("ORACLE_MONGO_CONNECTION_STRING", "")
     )
     """Oracle MongoDB connection string."""
-    
-    # Oracle Knowledge configuration
-    ORACLE_KNOWLEDGE_USERNAME: str = field(
-        default_factory=get_env("ORACLE_KNOWLEDGE_USERNAME", "")
-    )
-    """Oracle Knowledge username."""
-    ORACLE_KNOWLEDGE_PASSWORD: str = field(
-        default_factory=get_env("ORACLE_KNOWLEDGE_PASSWORD", "")
-    )
-    """Oracle Knowledge password."""
     
     # MongoDB configuration
     MONGO_DB_CONNECTION_STRING: str = field(
@@ -456,36 +501,18 @@ class DatabaseConnectionSettings:
     """QDrant database API key."""
     QDRANT_DB_PORT: int = field(default_factory=get_env("QDRANT_DB_PORT", 6333))
     """QDrant database port."""
-    
-    # Scheduler pool settings
-    SCHEDULER_POOL_SIZE: int = field(
-        default_factory=get_env("SCHEDULER_POOL_SIZE", 10)
-    )
-    """Scheduler connection pool size."""
-    SCHEDULER_MAX_POOL_OVERFLOW: int = field(
-        default_factory=get_env("SCHEDULER_MAX_POOL_OVERFLOW", 20)
-    )
-    """Scheduler connection pool max overflow."""
-    SCHEDULER_POOL_TIMEOUT: int = field(
-        default_factory=get_env("SCHEDULER_POOL_TIMEOUT", 30)
-    )
-    """Scheduler connection pool timeout."""
-    SCHEDULER_POOL_RECYCLE: int = field(
-        default_factory=get_env("SCHEDULER_POOL_RECYCLE", 3600)
-    )
-    """Scheduler connection pool recycle time."""
-    SCHEDULER_POOL_PRE_PING: bool = field(
-        default_factory=get_env("SCHEDULER_POOL_PRE_PING", True)
-    )
-    """Scheduler connection pool pre-ping."""
 
+
+### KNOWLEDGE SOURCE SETTINGS ###
 
 @dataclass
 class KnowledgeSourceSettings:
     """Knowledge source configuration"""
-
-    HUBSPOT: str = field(default_factory=get_env("KNOWLAGE_SOURCE_HUBSPOT", ""))
+    # HubSpot configuration
+    HUBSPOT: str = field(default_factory=get_env("KNOWLEDGE_SOURCE_HUBSPOT", ""))
     """HubSpot knowledge source token."""
+
+    # Fluid Topics configuration
     FLUID_TOPICS_API_KEY: str = field(default_factory=get_env("FLUID_TOPICS_API_KEY", ""))
     """Fluid Topics API key."""
     FLUID_TOPICS_SEARCH_API_URL: str = field(default_factory=get_env("FLUID_TOPICS_SEARCH_API_URL", ""))
@@ -494,40 +521,35 @@ class KnowledgeSourceSettings:
     """Fluid Topics PDF API URL."""
     FLUID_TOPICS_VIEWER_BASE_URL: str = field(default_factory=get_env("FLUID_TOPICS_VIEWER_BASE_URL", ""))
     """Fluid Topics viewer base URL."""
+    
+    # Oracle Knowledge configuration
+    ORACLE_KNOWLEDGE_USERNAME: str = field(
+        default_factory=get_env("ORACLE_KNOWLEDGE_USERNAME", "")
+    )
+    """Oracle Knowledge username."""
+    ORACLE_KNOWLEDGE_PASSWORD: str = field(
+        default_factory=get_env("ORACLE_KNOWLEDGE_PASSWORD", "")
+    )
+    """Oracle Knowledge password."""
+    
+    # SharePoint configuration
+    SHAREPOINT_TENANT_ID: str = field(default_factory=get_env("SHAREPOINT_TENANT_ID", ""))
+    """SharePoint tenant ID."""
+    SHAREPOINT_CLIENT_ID: str = field(default_factory=get_env("SHAREPOINT_CLIENT_ID", ""))
+    """SharePoint client ID."""
+    SHAREPOINT_CLIENT_SECRET: str = field(default_factory=get_env("SHAREPOINT_CLIENT_SECRET", ""))
+    """SharePoint client secret."""
+    SHAREPOINT_CLIENT_CERT_THUMBPRINT: str = field(
+        default_factory=get_env("SHAREPOINT_CLIENT_CERT_THUMBPRINT", "")
+    )
+    """SharePoint client certificate thumbprint."""
+    SHAREPOINT_CLIENT_CERT_PRIVATE_KEY: str = field(
+        default_factory=get_env("SHAREPOINT_CLIENT_CERT_PRIVATE_KEY", "")
+    )
+    """SharePoint client certificate private key."""
 
 
-@dataclass
-class GeneralSettings:
-    """General application configuration"""
 
-    ENV: str = field(default_factory=get_env("ENV", ""))
-    """Environment name."""
-    TEMP_ASSISTANT_SKIP_SSL_VERIFICATION: bool = field(
-        default_factory=get_env("TEMP_ASSISTANT_SKIP_SSL_VERIFICATION", False)
-    )
-    """Skip SSL verification for temporary assistant."""
-    NO_ANSWER_TEXT: str = field(
-        default_factory=get_env("NO_ANSWER_TEXT", "It seems that the answer to your question is not available in the resources I have access to. Please modify your question.")
-    )
-    """Default text when no answer is available."""
-    PORT: int = field(default_factory=get_env("PORT", 8000))
-    """Application port."""
-    CORS_OVERRIDE_ALLOWED_ORIGINS: str = field(
-        default_factory=get_env("CORS_OVERRIDE_ALLOWED_ORIGINS", "")
-    )
-    """CORS allowed origins."""
-    LOG_INCLUDE_LOGGER_NAME: bool = field(
-        default_factory=get_env("LOG_INCLUDE_LOGGER_NAME", False)
-    )
-    """Include logger name in logs."""
-    API_KEY_ORACLE: str = field(default_factory=get_env("API_KEY_ORACLE", ""))
-    """Oracle API key."""
-    EVENT_LOOP_DEBUG: bool = field(
-        default_factory=get_env("EVENT_LOOP_DEBUG", False)
-    )
-    """Enable event loop debug mode."""
-    DEBUG_MODE: bool = field(default_factory=get_env("DEBUG_MODE", False))
-    """Enable debug mode."""
 
 
 @dataclass
@@ -535,13 +557,12 @@ class Settings:
     general: GeneralSettings = field(default_factory=GeneralSettings)
     auth: AuthSettings = field(default_factory=AuthSettings)
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
-    db_connections: DatabaseConnectionSettings = field(default_factory=DatabaseConnectionSettings)
-    encryption: EncryptionSettings = field(default_factory=EncryptionSettings)
+    db_connections: VectorDatabaseSettings = field(default_factory=VectorDatabaseSettings)
+    scheduler: SchedulerSettings = field(default_factory=SchedulerSettings)
     log: LogSettings = field(default_factory=LogSettings)
     observability: ObservabilitySettings = field(default_factory=ObservabilitySettings)
     azure: AzureSettings = field(default_factory=AzureSettings)
     ai_providers: AIProvidersSettings = field(default_factory=AIProvidersSettings)
-    sharepoint: SharePointSettings = field(default_factory=SharePointSettings)
     knowledge_sources: KnowledgeSourceSettings = field(default_factory=KnowledgeSourceSettings)
 
     @classmethod
@@ -587,11 +608,6 @@ def get_auth_settings() -> AuthSettings:
 
 
 @lru_cache(maxsize=1, typed=True)
-def get_encryption_settings() -> EncryptionSettings:
-    return get_settings().encryption
-
-
-@lru_cache(maxsize=1, typed=True)
 def get_database_settings() -> DatabaseSettings:
     return get_settings().db
 
@@ -617,13 +633,13 @@ def get_ai_providers_settings() -> AIProvidersSettings:
 
 
 @lru_cache(maxsize=1, typed=True)
-def get_database_connection_settings() -> DatabaseConnectionSettings:
+def get_vector_database_settings() -> VectorDatabaseSettings:
     return get_settings().db_connections
 
 
 @lru_cache(maxsize=1, typed=True)
-def get_sharepoint_settings() -> SharePointSettings:
-    return get_settings().sharepoint
+def get_scheduler_settings() -> SchedulerSettings:
+    return get_settings().scheduler
 
 
 @lru_cache(maxsize=1, typed=True)

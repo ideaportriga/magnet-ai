@@ -18,10 +18,10 @@ class OracleMonitoringPlugin(InitPluginProtocol):
 
     def __init__(self) -> None:
         self.env = os.environ
-        self.db_type = self.env.get("DB_TYPE")
+        self.db_type = self.env.get("VECTOR_DB_TYPE")
 
     def on_app_init(self, app_config: "AppConfig") -> "AppConfig":
-        """Configure Oracle monitoring if DB_TYPE is ORACLE."""
+        """Configure Oracle monitoring if VECTOR_DB_TYPE is ORACLE."""
         # Oracle monitoring will be handled separately in app.py
         # This plugin just provides the monitoring function
         return app_config

@@ -1,6 +1,6 @@
 # Async compatibility check: True
-import os
 
+from core.config.base import get_vector_database_settings
 from stores.document_store import DocumentStore
 
 
@@ -10,7 +10,8 @@ class RecordNotFoundError(Exception):
 
 
 def get_db_client():
-    db_type = os.environ.get("DB_TYPE", "COSMOS")
+    db_settings = get_vector_database_settings()
+    db_type = db_settings.VECTOR_DB_TYPE
 
     if db_type == "ORACLE":
         from stores.oracle import oracle_db_client
@@ -28,11 +29,12 @@ def get_db_client():
         from stores.mongo_db import mongo_db_client
 
         return mongo_db_client
-    raise ValueError(f"Unsupported DB_TYPE: {db_type}")
+    raise ValueError(f"Unsupported VECTOR_DB_TYPE: {db_type}")
 
 
 def get_db_store() -> DocumentStore:
-    db_type = os.environ.get("DB_TYPE", "COSMOS")
+    db_settings = get_vector_database_settings()
+    db_type = db_settings.VECTOR_DB_TYPE
 
     if db_type == "ORACLE":
         from stores.oracle import oracle_db_store
@@ -50,4 +52,4 @@ def get_db_store() -> DocumentStore:
         from stores.mongo_db import mongo_db_store
 
         return mongo_db_store
-    raise ValueError(f"Unsupported DB_TYPE: {db_type}")
+    raise ValueError(f"Unsupported VECTOR_DB_TYPE: {db_type}")

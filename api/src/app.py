@@ -20,7 +20,7 @@ from core.server.plugin_registry import (
     structlog,
 )
 from routes import get_route_handlers
-from core.config.base import get_auth_settings, get_database_connection_settings, get_general_settings
+from core.config.base import get_auth_settings, get_vector_database_settings, get_general_settings, get_log_settings
 env = os.environ
 
 WEB_INCLUDED = env.get("WEB_INCLUDED") == "true"
@@ -28,12 +28,13 @@ WEB_INCLUDED = env.get("WEB_INCLUDED") == "true"
 logger = getLogger(__name__)
 
 auth_settings = get_auth_settings()
-db_connection_settings = get_database_connection_settings()
+db_connection_settings = get_vector_database_settings()
 general_settings = get_general_settings()
+log_settings = get_log_settings()
 
 AUTH_ENABLED = auth_settings.AUTH_ENABLED
-DB_TYPE = db_connection_settings.DB_TYPE
-EVENT_LOOP_DEBUG = general_settings.EVENT_LOOP_DEBUG
+VECTOR_DB_TYPE = db_connection_settings.VECTOR_DB_TYPE
+DEBUG_MODE = log_settings.DEBUG_MODE
 
 
 def create_app() -> Litestar:
@@ -61,7 +62,7 @@ def create_app() -> Litestar:
     )
 
     # Add Oracle monitoring if needed
-    if DB_TYPE == "ORACLE":
+    if VECTOR_DB_TYPE == "ORACLE":
         app.after_request = oracle_monitoring_plugin.after_request
 
     return app
@@ -71,5 +72,5 @@ def create_app() -> Litestar:
 app = create_app()
 
 # Enable event loop debug if requested
-if EVENT_LOOP_DEBUG:
+if DEBUG_MODE:
     asyncio.get_event_loop().set_debug(True)

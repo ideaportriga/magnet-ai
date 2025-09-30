@@ -1,7 +1,6 @@
 """PgVector database store implementation."""
 
-import os
-
+from core.config.base import get_vector_database_settings, get_general_settings
 from .client import PgVectorClient
 from .store import PgVectorStore
 from .utils import clean_connection_string_for_asyncpg
@@ -9,23 +8,26 @@ from .utils import clean_connection_string_for_asyncpg
 __all__ = ["PgVectorClient", "PgVectorStore"]
 
 # Initialize pgvector store if configured
-db_type = os.environ.get("DB_TYPE", "COSMOS")
+general_settings = get_general_settings()
+db_settings = get_vector_database_settings()
+
+db_type = db_settings.VECTOR_DB_TYPE
 
 if db_type == "PGVECTOR":
-    connection_string = os.environ.get("PGVECTOR_CONNECTION_STRING", "")
+    connection_string = db_settings.PGVECTOR_CONNECTION_STRING
     if not connection_string:
         # Build connection string from individual components
-        host = os.environ.get("PGVECTOR_HOST", "localhost")
-        port = os.environ.get("PGVECTOR_PORT", "5432")
-        database = os.environ.get("PGVECTOR_DATABASE", "magnet_dev")
-        user = os.environ.get("PGVECTOR_USER", "postgres")
-        password = os.environ.get("PGVECTOR_PASSWORD", "password")
+        host = db_settings.PGVECTOR_HOST
+        port = db_settings.PGVECTOR_PORT
+        database = db_settings.PGVECTOR_DATABASE
+        user = db_settings.PGVECTOR_USER
+        password = db_settings.PGVECTOR_PASSWORD
         connection_string = f"postgresql://{user}:{password}@{host}:{port}/{database}"
     else:
         # Clean up SQLAlchemy-style URLs for asyncpg compatibility
         connection_string = clean_connection_string_for_asyncpg(connection_string)
 
-    pool_size = int(os.environ.get("PGVECTOR_POOL_SIZE", "10"))
+    pool_size = db_settings.PGVECTOR_POOL_SIZE
 
     pgvector_client = PgVectorClient(
         connection_string=connection_string,

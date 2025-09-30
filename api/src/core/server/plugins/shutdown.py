@@ -20,7 +20,7 @@ class ShutdownPlugin(InitPluginProtocol):
 
     def __init__(self) -> None:
         self.env = os.environ
-        self.db_type = self.env.get("DB_TYPE")
+        self.db_type = self.env.get("VECTOR_DB_TYPE")
 
     def on_app_init(self, app_config: "AppConfig") -> "AppConfig":
         """Configure app shutdown handlers."""
@@ -61,7 +61,7 @@ class ShutdownPlugin(InitPluginProtocol):
             logger.info("No scheduler to shut down")
 
     async def _close_database_connections(self) -> None:
-        """Close database connection pools based on DB_TYPE."""
+        """Close database connection pools based on VECTOR_DB_TYPE."""
         if self.db_type == "ORACLE":
             await self._close_oracle_connections()
         elif self.db_type == "PGVECTOR":

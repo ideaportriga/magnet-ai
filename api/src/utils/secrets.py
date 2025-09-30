@@ -3,11 +3,11 @@ from logging import getLogger
 
 from cryptography.fernet import Fernet
 
-from core.config.base import get_encryption_settings
+from core.config.base import get_general_settings
 
-encryption_settings = get_encryption_settings()
+general_settings = get_general_settings()
 
-SECRET_ENCRYPTION_KEY = encryption_settings.SECRET_ENCRYPTION_KEY
+SECRET_ENCRYPTION_KEY = general_settings.SECRET_ENCRYPTION_KEY
 SECRET_ENCRYPTION_ENCODING = "utf-8"
 
 logger = getLogger(__name__)

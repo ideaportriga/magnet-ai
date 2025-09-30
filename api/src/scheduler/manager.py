@@ -21,6 +21,7 @@ from litestar import Request
 from scheduler.types import JobStatus
 from scheduler.utils import format_next_run_time, update_job_status
 from stores import get_db_client
+from core.config.base import get_scheduler_settings
 
 logger = getLogger(__name__)
 client = get_db_client()
@@ -181,12 +182,13 @@ async def create_scheduler() -> AsyncIOScheduler:
         )
 
     # Configure SQLAlchemy jobstore with proper connection pool settings
-    # Get pool size from environment or use defaults specific to scheduler
-    pool_size = int(os.environ.get("SCHEDULER_POOL_SIZE", 10))
-    pool_max_overflow = int(os.environ.get("SCHEDULER_MAX_POOL_OVERFLOW", 20))
-    pool_timeout = int(os.environ.get("SCHEDULER_POOL_TIMEOUT", 30))
-    pool_recycle = int(os.environ.get("SCHEDULER_POOL_RECYCLE", 3600))
-    pool_pre_ping = os.environ.get("SCHEDULER_POOL_PRE_PING", "true").lower() == "true"
+    # Get pool settings from scheduler configuration
+    scheduler_settings = get_scheduler_settings()
+    pool_size = scheduler_settings.SCHEDULER_POOL_SIZE
+    pool_max_overflow = scheduler_settings.SCHEDULER_MAX_POOL_OVERFLOW
+    pool_timeout = scheduler_settings.SCHEDULER_POOL_TIMEOUT
+    pool_recycle = scheduler_settings.SCHEDULER_POOL_RECYCLE
+    pool_pre_ping = scheduler_settings.SCHEDULER_POOL_PRE_PING
 
     # Engine options for the SQLAlchemy jobstore
     engine_options = {
