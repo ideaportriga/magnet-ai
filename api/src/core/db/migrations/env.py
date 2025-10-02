@@ -50,8 +50,10 @@ from core.db.models.trace import Trace  # noqa: F401
 
 # Get the SQLAlchemy URL from our app configuration
 settings = get_settings()
+# Use effective_url which builds URL from individual components if DATABASE_URL is not set
+effective_url = settings.db.effective_url
 # Escape % characters in the URL to prevent ConfigParser interpolation issues
-escaped_url = settings.db.URL.replace("%", "%%")
+escaped_url = effective_url.replace("%", "%%") if effective_url else ""
 config.set_main_option("sqlalchemy.url", escaped_url)
 
 # add your model's MetaData object here

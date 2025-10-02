@@ -1,5 +1,4 @@
 import asyncio
-import os
 from datetime import UTC, datetime
 from logging import getLogger
 
@@ -21,7 +20,7 @@ from litestar import Request
 from scheduler.types import JobStatus
 from scheduler.utils import format_next_run_time, update_job_status
 from stores import get_db_client
-from core.config.base import get_scheduler_settings
+from core.config.base import get_database_settings, get_scheduler_settings
 
 logger = getLogger(__name__)
 client = get_db_client()
@@ -163,53 +162,31 @@ async def create_scheduler() -> AsyncIOScheduler:
         timezone=pytz.UTC,
     )
 
-    # Get the database URL and convert async driver to sync for APScheduler
-    connection_string = os.environ.get("DATABASE_URL", "")
-
-    # APScheduler SQLAlchemy jobstore requires a synchronous database connection
-    # Convert asyncpg URL to psycopg2 URL for synchronous connection
-    if "postgresql+asyncpg://" in connection_string:
-        sync_connection_string = connection_string.replace(
-            "postgresql+asyncpg://", "postgresql://"
-        )
-    else:
-        sync_connection_string = connection_string
+    # Get database and scheduler settings from configuration
+    db_settings = get_database_settings()
+    scheduler_settings = get_scheduler_settings()
+    
+    # Get synchronous database URL for APScheduler
+    sync_connection_string = scheduler_settings.get_scheduler_database_url(db_settings)
 
     if not sync_connection_string:
-        logger.error("DATABASE_URL environment variable is not set")
+        logger.error("Database URL could not be determined from configuration")
         raise RuntimeError(
-            "DATABASE_URL environment variable is required for scheduler"
+            "Database URL is required for scheduler. Check DATABASE_URL or DB_* environment variables."
         )
 
-    # Configure SQLAlchemy jobstore with proper connection pool settings
-    # Get pool settings from scheduler configuration
-    scheduler_settings = get_scheduler_settings()
-    pool_size = scheduler_settings.SCHEDULER_POOL_SIZE
-    pool_max_overflow = scheduler_settings.SCHEDULER_MAX_POOL_OVERFLOW
-    pool_timeout = scheduler_settings.SCHEDULER_POOL_TIMEOUT
-    pool_recycle = scheduler_settings.SCHEDULER_POOL_RECYCLE
-    pool_pre_ping = scheduler_settings.SCHEDULER_POOL_PRE_PING
-
-    # Engine options for the SQLAlchemy jobstore
-    engine_options = {
-        "pool_size": pool_size,
-        "max_overflow": pool_max_overflow,
-        "pool_timeout": pool_timeout,
-        "pool_recycle": pool_recycle,
-        "pool_pre_ping": pool_pre_ping,
-        "echo": os.environ.get("DATABASE_ECHO", "false").lower() == "true",
-        "echo_pool": os.environ.get("DATABASE_ECHO_POOL", "false").lower() == "true",
-        # Add additional settings for better connection management
-        "pool_reset_on_return": "commit",  # Reset connections on return to pool
-        # Note: connect_args for psycopg2 are different from asyncpg
-        # psycopg2 doesn't support server_settings, use application_name directly
-        "connect_args": {"application_name": "magnetui_scheduler"}
-        if "postgresql" in sync_connection_string
-        else {},
-    }
+    # Get engine options from scheduler settings
+    engine_options = scheduler_settings.get_engine_options()
+    
+    # Add database-specific connect_args
+    if "postgresql" in sync_connection_string:
+        engine_options["connect_args"] = {"application_name": "magnetui_scheduler"}
 
     logger.info(
-        f"Configuring scheduler jobstore with pool_size={pool_size}, max_overflow={pool_max_overflow}, pool_timeout={pool_timeout}s, pool_recycle={pool_recycle}s"
+        f"Configuring scheduler jobstore with pool_size={scheduler_settings.SCHEDULER_POOL_SIZE}, "
+        f"max_overflow={scheduler_settings.SCHEDULER_MAX_POOL_OVERFLOW}, "
+        f"pool_timeout={scheduler_settings.SCHEDULER_POOL_TIMEOUT}s, "
+        f"pool_recycle={scheduler_settings.SCHEDULER_POOL_RECYCLE}s"
     )
 
     scheduler.add_jobstore(
