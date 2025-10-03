@@ -5,7 +5,7 @@ Pydantic schemas for prompt variants validation.
 from __future__ import annotations
 
 import json
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 

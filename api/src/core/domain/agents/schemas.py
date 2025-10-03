@@ -4,7 +4,7 @@ Pydantic schemas for agent validation.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import Field
 

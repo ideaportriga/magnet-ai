@@ -6,7 +6,6 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.params import Dependency, Parameter
-from advanced_alchemy.filters import LimitOffset
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.rag_tools.schemas import RagTool, RagToolCreate, RagToolUpdate

@@ -1,9 +1,5 @@
 import io
-import json
-import os
-import re
 from typing import Annotated
-from venv import logger
 
 from cryptography.fernet import Fernet
 from litestar import Controller, post
@@ -15,17 +11,6 @@ from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel
 from pypdf import PdfReader
 
-from core.config.app import alchemy
-from core.domain.api_servers.schemas import ApiServerCreate
-from core.domain.api_servers.service import ApiServersService
-from services.agents.models import AgentActionType
-from services.api_servers.types import (
-    ApiServerConfigWithSecrets,
-    ApiTool,
-    ApiToolMockResponse,
-    ApiToolParameters,
-)
-from stores import get_db_client
 
 
 class ParsePdfResponse(BaseModel):
