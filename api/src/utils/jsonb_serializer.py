@@ -10,6 +10,8 @@ from decimal import Decimal
 from typing import Any
 
 from bson import ObjectId
+from sqlalchemy import TEXT, TypeDecorator
+from sqlalchemy.dialects.postgresql import JSONB
 
 # Predefined field sets for different use cases
 DEFAULT_TARGET_FIELDS = {
@@ -228,8 +230,6 @@ def _is_objectid_string(value: str) -> bool:
 
 
 # Example usage with SQLAlchemy TypeDecorator
-from sqlalchemy import TEXT, TypeDecorator
-from sqlalchemy.dialects.postgresql import JSONB
 
 
 class CustomJsonB(TypeDecorator):
