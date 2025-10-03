@@ -1,35 +1,35 @@
-# Утилита миграции данных MongoDB в SQLAlchemy
+# MongoDB to SQLAlchemy Data Migration Utility
 
-Эта утилита предназначена для миграции данных из MongoDB в PostgreSQL с использованием SQLAlchemy ORM.
+This utility is designed for migrating data from MongoDB to PostgreSQL using SQLAlchemy ORM.
 
-## Возможности
+## Features
 
-- **Настраиваемый маппинг**: Конфигурируемое соответствие между коллекциями MongoDB и таблицами SQLAlchemy
-- **Пакетная обработка**: Обработка больших объемов данных батчами для оптимизации производительности
-- **Режим тестирования**: Dry-run режим для проверки миграции без внесения изменений
-- **Обработка ошибок**: Надежная обработка ошибок с rollback транзакций
-- **Подробное логирование**: Детальные логи процесса миграции
-- **Пропуск существующих записей**: Возможность пропускать уже существующие записи
+- **Configurable mapping**: Configurable correspondence between MongoDB collections and SQLAlchemy tables
+- **Batch processing**: Processing large volumes of data in batches for performance optimization
+- **Testing mode**: Dry-run mode for checking migration without making changes
+- **Error handling**: Reliable error handling with transaction rollback
+- **Detailed logging**: Detailed logs of the migration process
+- **Skip existing records**: Ability to skip already existing records
 
-## Предварительные требования
+## Prerequisites
 
-### Установка зависимостей
+### Installing dependencies
 
 ```bash
-# Основные зависимости для миграции
+# Core dependencies for migration
 pip install motor pymongo sqlalchemy
 
-# Если используется PostgreSQL
+# If using PostgreSQL
 pip install asyncpg
 
-# Для полной работы с проектом
+# For full project work
 cd api
 poetry install
 ```
 
-### Настройка переменных окружения
+### Environment variables setup
 
-Убедитесь, что в файле `.env` настроены следующие переменные:
+Make sure the following variables are configured in the `.env` file:
 
 ```bash
 # MongoDB (Cosmos DB)
@@ -41,119 +41,119 @@ DATABASE_URL=postgresql+asyncpg://user:password@host:port/database
 PGVECTOR_CONNECTION_STRING=postgresql+asyncpg://user:password@host:port/database
 ```
 
-## Использование
+## Usage
 
-### Базовое использование
+### Basic usage
 
 ```bash
-# Запуск из директории api
+# Run from api directory
 cd api
 python mongo_to_sqlalchemy_migration.py
 
-# Или с указанием пути к Python окружению
+# Or with Python environment path specified
 poetry run python mongo_to_sqlalchemy_migration.py
 ```
 
-### Параметры командной строки
+### Command line parameters
 
 ```bash
-# Тестовый запуск без внесения изменений
+# Test run without making changes
 python mongo_to_sqlalchemy_migration.py --dry-run
 
-# Миграция конкретной коллекции
+# Migrate specific collection
 python mongo_to_sqlalchemy_migration.py --collection agents
 
-# Настройка размера батча
+# Configure batch size
 python mongo_to_sqlalchemy_migration.py --batch-size 500
 
-# Отключение пропуска существующих записей
+# Disable skipping existing records
 python mongo_to_sqlalchemy_migration.py --no-skip-existing
 
-# Комбинирование параметров
+# Combine parameters
 python mongo_to_sqlalchemy_migration.py --dry-run --collection collections --batch-size 100
 ```
 
-## Маппинг коллекций
+## Collection mapping
 
-Утилита поддерживает следующие коллекции MongoDB и их соответствие таблицам SQLAlchemy:
+The utility supports the following MongoDB collections and their correspondence to SQLAlchemy tables:
 
-| MongoDB коллекция | SQLAlchemy модель | Описание |
+| MongoDB collection | SQLAlchemy model | Description |
 |------------------|-------------------|----------|
-| `agents` | `Agent` | AI агенты |
-| `ai_apps` | `AIApp` | AI приложения |
-| `collections` | `Collection` | Коллекции документов |
-| `jobs` | `Job` | Задачи и джобы |
-| `api_keys` | `APIKey` | API ключи |
-| `api_servers` | `APIServer` | API серверы |
-| `api_tools` | `APITool` | API инструменты |
-| `mcp_servers` | `MCPServer` | MCP серверы |
-| `rag_tools` | `RAGTool` | RAG инструменты |
-| `retrieval_tools` | `RetrievalTool` | Инструменты поиска |
-| `evaluations` | `Evaluation` | Оценки |
-| `evaluation_sets` | `EvaluationSet` | Наборы оценок |
-| `metrics` | `Metric` | Метрики |
-| `traces` | `Trace` | Трейсы |
-| `prompts` | `Prompt` | Промпты |
+| `agents` | `Agent` | AI agents |
+| `ai_apps` | `AIApp` | AI applications |
+| `collections` | `Collection` | Document collections |
+| `jobs` | `Job` | Tasks and jobs |
+| `api_keys` | `APIKey` | API keys |
+| `api_servers` | `APIServer` | API servers |
+| `api_tools` | `APITool` | API tools |
+| `mcp_servers` | `MCPServer` | MCP servers |
+| `rag_tools` | `RAGTool` | RAG tools |
+| `retrieval_tools` | `RetrievalTool` | Search tools |
+| `evaluations` | `Evaluation` | Evaluations |
+| `evaluation_sets` | `EvaluationSet` | Evaluation sets |
+| `metrics` | `Metric` | Metrics |
+| `traces` | `Trace` | Traces |
+| `prompts` | `Prompt` | Prompts |
 
-## Примеры использования
+## Usage examples
 
-### 1. Тестовый запуск перед миграцией
+### 1. Test run before migration
 
 ```bash
 python mongo_to_sqlalchemy_migration.py --dry-run
 ```
 
-Этот режим покажет:
-- Какие коллекции будут обработаны
-- Количество документов в каждой коллекции
-- Ожидаемые результаты миграции
-- Потенциальные проблемы
+This mode will show:
+- Which collections will be processed
+- Number of documents in each collection
+- Expected migration results
+- Potential issues
 
-### 2. Миграция конкретной коллекции
+### 2. Migrate specific collection
 
 ```bash
 python mongo_to_sqlalchemy_migration.py --collection agents --dry-run
 ```
 
-Полезно для:
-- Тестирования миграции на небольшом наборе данных
-- Отладки проблем с конкретной коллекцией
-- Поэтапной миграции
+Useful for:
+- Testing migration on a small dataset
+- Debugging issues with specific collection
+- Step-by-step migration
 
-### 3. Полная миграция
+### 3. Full migration
 
 ```bash
 python mongo_to_sqlalchemy_migration.py
 ```
 
-### 4. Миграция с настройкой производительности
+### 4. Migration with performance tuning
 
 ```bash
 python mongo_to_sqlalchemy_migration.py --batch-size 2000
 ```
 
-## Структура процесса миграции
+## Migration process structure
 
-1. **Подключение к базам данных**: Устанавливается соединение с MongoDB и PostgreSQL
-2. **Получение списка коллекций**: Сканируются доступные коллекции в MongoDB
-3. **Фильтрация коллекций**: Обрабатываются только коллекции с настроенным маппингом
-4. **Пакетная обработка**: Документы обрабатываются батчами для оптимизации памяти
-5. **Трансформация данных**: Документы MongoDB преобразуются в объекты SQLAlchemy
-6. **Сохранение в PostgreSQL**: Данные сохраняются с обработкой ошибок
+1. **Database connections**: Connection established to MongoDB and PostgreSQL
+2. **Collection list retrieval**: Available collections scanned in MongoDB
+3. **Collection filtering**: Only collections with configured mapping are processed
+4. **Batch processing**: Documents processed in batches for memory optimization
+5. **Data transformation**: MongoDB documents converted to SQLAlchemy objects
+6. **Saving to PostgreSQL**: Data saved with error handling
 
-## Трансформация данных
+## Data transformation
 
-### Особенности преобразования:
+### Transformation features:
 
-- **ID поля**: `_id` из MongoDB игнорируется, используется автогенерируемый `id` в PostgreSQL
-- **Даты**: Строковые представления дат автоматически преобразуются в datetime объекты
-- **JSON поля**: Сложные объекты и массивы сохраняются в JSONB полях PostgreSQL
-- **Неизвестные поля**: Поля без соответствия в SQLAlchemy модели логируются как предупреждения
+- **ID fields**: `_id` from MongoDB is ignored, auto-generated `id` is used in PostgreSQL
+- **Dates**: String date representations automatically converted to datetime objects
+- **JSON fields**: Complex objects and arrays saved in PostgreSQL JSONB fields
+- **Unknown fields**: Fields without correspondence in SQLAlchemy model logged as warnings
 
-### Примеры трансформации:
+### Transformation examples:
 
 ```python
-# MongoDB документ
+# MongoDB document
 {
     "_id": "507f1f77bcf86cd799439011",
     "name": "Test Agent",
@@ -162,7 +162,7 @@ python mongo_to_sqlalchemy_migration.py --batch-size 2000
     "variants": [{"name": "v1", "config": {}}]
 }
 
-# SQLAlchemy объект
+# SQLAlchemy object
 Agent(
     name="Test Agent",
     system_name="test_agent", 
@@ -171,9 +171,9 @@ Agent(
 )
 ```
 
-## Мониторинг и логирование
+## Monitoring and logging
 
-Утилита предоставляет подробную информацию о процессе:
+The utility provides detailed information about the process:
 
 ```
 2023-01-15 10:30:00 - INFO - Starting migration of all collections
@@ -185,89 +185,89 @@ Agent(
 2023-01-15 10:30:04 - INFO - Collection migration completed: status=completed, processed=150, errors=0
 ```
 
-## Обработка ошибок
+## Error handling
 
-### Типы ошибок:
+### Error types:
 
-1. **Ошибки соединения**: Проблемы подключения к MongoDB или PostgreSQL
-2. **Ошибки трансформации**: Проблемы преобразования данных
-3. **Ошибки вставки**: Проблемы сохранения в PostgreSQL
-4. **Ошибки валидации**: Несоответствие данных схеме SQLAlchemy
+1. **Connection errors**: Connection issues to MongoDB or PostgreSQL
+2. **Transformation errors**: Data conversion problems
+3. **Insertion errors**: Problems saving to PostgreSQL
+4. **Validation errors**: Data not matching SQLAlchemy schema
 
-### Стратегия восстановления:
+### Recovery strategy:
 
-- **Rollback транзакций**: При ошибке в батче происходит откат всей транзакции
-- **Продолжение обработки**: Ошибка в одном батче не останавливает обработку других
-- **Детальная отчетность**: Все ошибки логируются с контекстной информацией
+- **Transaction rollback**: On batch error, entire transaction is rolled back
+- **Continue processing**: Error in one batch doesn't stop processing of others
+- **Detailed reporting**: All errors logged with contextual information
 
-## Производительность
+## Performance
 
-### Рекомендации по настройке:
+### Configuration recommendations:
 
-- **Размер батча**: 1000-5000 документов (по умолчанию 1000)
-- **Подключения**: Используются пулы соединений SQLAlchemy
-- **Память**: Батчная обработка минимизирует потребление памяти
+- **Batch size**: 1000-5000 documents (default 1000)
+- **Connections**: SQLAlchemy connection pools are used
+- **Memory**: Batch processing minimizes memory consumption
 
-### Ожидаемая производительность:
+### Expected performance:
 
-- **Простые документы**: ~1000-2000 документов/сек
-- **Сложные документы с JSON**: ~500-1000 документов/сек
-- **Большие коллекции**: Линейное масштабирование
+- **Simple documents**: ~1000-2000 documents/sec
+- **Complex documents with JSON**: ~500-1000 documents/sec
+- **Large collections**: Linear scaling
 
-## Безопасность
+## Security
 
-- **Транзакции**: Все изменения в рамках транзакций с возможностью rollback
-- **Dry-run режим**: Безопасное тестирование без изменения данных
-- **Пропуск существующих**: Избежание дублирования данных
-- **Логирование**: Не логируются чувствительные данные
+- **Transactions**: All changes within transactions with rollback capability
+- **Dry-run mode**: Safe testing without data modification
+- **Skip existing**: Avoid data duplication
+- **Logging**: Sensitive data is not logged
 
-## Расширение
+## Extension
 
-### Добавление новых моделей:
+### Adding new models:
 
-1. Добавьте импорт модели в начало файла
-2. Добавьте маппинг в `collection_model_mapping`
-3. При необходимости настройте специальную трансформацию в `DocumentTransformer`
+1. Add model import at the beginning of the file
+2. Add mapping in `collection_model_mapping`
+3. Configure special transformation if needed in `DocumentTransformer`
 
-### Кастомная трансформация:
+### Custom transformation:
 
 ```python
 def transform_document(self, document: Dict[str, Any]) -> Dict[str, Any]:
     transformed = super().transform_document(document)
     
-    # Кастомная логика для конкретной модели
+    # Custom logic for specific model
     if self.model_class.__name__ == 'Agent':
-        # Специальная обработка для агентов
+        # Special processing for agents
         pass
     
     return transformed
 ```
 
-## Устранение неполадок
+## Troubleshooting
 
-### Частые проблемы:
+### Common issues:
 
-1. **ImportError**: Убедитесь что все зависимости установлены
-2. **Connection timeout**: Проверьте строки подключения к базам данных
-3. **Schema mismatch**: Убедитесь что SQLAlchemy модели синхронизированы с MongoDB структурой
-4. **Memory issues**: Уменьшите размер батча
+1. **ImportError**: Make sure all dependencies are installed
+2. **Connection timeout**: Check database connection strings
+3. **Schema mismatch**: Ensure SQLAlchemy models are synchronized with MongoDB structure
+4. **Memory issues**: Reduce batch size
 
-### Отладка:
+### Debugging:
 
 ```bash
-# Включение детального логирования
+# Enable detailed logging
 export LOG_LEVEL=DEBUG
 python mongo_to_sqlalchemy_migration.py --dry-run
 
-# Тестирование на малой выборке
+# Test on small sample
 python mongo_to_sqlalchemy_migration.py --collection agents --batch-size 10 --dry-run
 ```
 
-## Поддержка
+## Support
 
-При возникновении проблем:
+When problems occur:
 
-1. Проверьте логи выполнения
-2. Запустите в режиме `--dry-run` для диагностики
-3. Убедитесь в правильности настроек подключения
-4. Проверьте совместимость версий зависимостей
+1. Check execution logs
+2. Run in `--dry-run` mode for diagnostics
+3. Ensure connection settings are correct
+4. Check dependency version compatibility

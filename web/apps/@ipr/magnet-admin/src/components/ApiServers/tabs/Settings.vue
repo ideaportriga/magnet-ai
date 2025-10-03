@@ -104,18 +104,18 @@ const serverSecurityScheme = computed({
 const securityValues = computed({
   get() {
     const securityValuesData = server.value.security_values
-    // Всегда возвращаем Map для единообразия
+    // Always return Map for consistency
     if (!securityValuesData) {
       return new Map()
     }
     if (securityValuesData instanceof Map) {
       return securityValuesData
     }
-    // Преобразуем объект в Map
+    // Convert object to Map
     return new Map(Object.entries(securityValuesData))
   },
   set(value) {
-    // Преобразуем Map в объект для отправки
+    // Convert Map to object for sending
     const objectValue = value instanceof Map ? Object.fromEntries(value) : value
     store.dispatch('updateApiServerProperty', { key: 'security_values', value: objectValue })
   },

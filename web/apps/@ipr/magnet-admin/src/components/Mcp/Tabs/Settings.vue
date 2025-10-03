@@ -120,18 +120,18 @@ const headers = computed({
 const secrets = computed({
   get() {
     const encryptedSecrets = store.getters.mcp_server.secrets_encrypted
-    // Всегда возвращаем Map для единообразия
+    // Always return Map for consistency
     if (!encryptedSecrets) {
       return new Map()
     }
     if (encryptedSecrets instanceof Map) {
       return encryptedSecrets
     }
-    // Преобразуем объект в Map
+    // Convert object to Map
     return new Map(Object.entries(encryptedSecrets))
   },
   set(value) {
-    // Преобразуем Map в объект для отправки
+    // Convert Map to object for sending
     const objectValue = value instanceof Map ? Object.fromEntries(value) : value
     store.dispatch('updateMcpServerProperty', {
       key: 'secrets_encrypted',
@@ -146,17 +146,17 @@ const secret_names = computed(() => {
 })
 
 const toggleEditMode = (value) => {
-  // Ничего дополнительно не делаем, просто переключаем режим
-  // Всегда работаем с secrets_encrypted
+  // Do nothing additional, just toggle mode
+  // Always work with secrets_encrypted
 }
 
 const initializeSecretsEdit = () => {
   console.log('initializeSecretsEdit called')
   
-  // Включаем режим редактирования
+  // Enable edit mode
   store.dispatch("toggleMcpSettingsEditMode", true)
   
-  // Если нет существующих секретов, добавляем пустую запись для начала
+  // If there are no existing secrets, add an empty entry to start
   if (!hasExistingSecrets.value) {
     console.log('No existing secrets, adding empty entry')
     const newSecrets = new Map()
@@ -257,8 +257,8 @@ const getSecretsForSubmit = () => {
   
   if (currentSecrets instanceof Map) {
     for (const [key, value] of currentSecrets) {
-      if (key && key.trim()) { // Игнорируем пустые ключи
-        result[key] = value || '' // Отправляем значение или пустую строку
+      if (key && key.trim()) { // Ignore empty keys
+        result[key] = value || '' // Send value or empty string
       }
     }
   } else if (typeof currentSecrets === 'object') {

@@ -119,12 +119,12 @@ export default {
     if (this.$route.query.job_id) {
       const routeJobId = this.$route.query.job_id
       const newFilterConfig = {}
-      // Убираем default у всех существующих полей
+      // Remove default from all existing fields
       for (let key in this.filterConfig) {
         newFilterConfig[key] = { ...this.filterConfig[key] }
         delete newFilterConfig[key].default
       }
-      // Добавляем поле _id со значением из запроса
+      // Add _id field with value from query
       newFilterConfig._id = {
         label: 'ID',
         key: '_id',
