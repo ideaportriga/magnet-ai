@@ -325,7 +325,6 @@ def list_fixtures(fixtures_path: Path | None) -> None:
     for entity_dir in sorted(entity_dirs):
         json_files = list(entity_dir.glob("*.json"))
         json_count = len(json_files)
-        json_names = ", ".join(f.stem for f in json_files) if json_files else "None"
 
         table.add_row(
             entity_dir.name,
