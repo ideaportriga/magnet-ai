@@ -10,21 +10,6 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
-# Add the src directory to the Python path
-# src_path = Path(__file__).parent.parent.parent
-# sys.path.insert(0, str(src_path))
-
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
-config = context.config
-
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-# if config.config_file_name is not None:
-#     fileConfig(config.config_file_name)
-
-# Import configuration and models after path setup
 from advanced_alchemy.base import UUIDAuditBase
 
 from core.config.base import get_settings
@@ -47,6 +32,19 @@ from core.db.models.prompt import Prompt  # noqa: F401
 from core.db.models.rag_tool.rag_tool import RagTool  # noqa: F401
 from core.db.models.retrieval_tool import RetrievalTool  # noqa: F401
 from core.db.models.trace import Trace  # noqa: F401
+
+# Add the src directory to the Python path
+# src_path = Path(__file__).parent.parent.parent
+# sys.path.insert(0, str(src_path))
+
+# this is the Alembic Config object, which provides
+# access to the values within the .ini file in use.
+config = context.config
+
+# Interpret the config file for Python logging.
+# This line sets up loggers basically.
+# if config.config_file_name is not None:
+#     fileConfig(config.config_file_name)
 
 # Get the SQLAlchemy URL from our app configuration
 settings = get_settings()
