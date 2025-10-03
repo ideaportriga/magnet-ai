@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, StrEnum
 from typing import Optional
 
