@@ -9,7 +9,7 @@ Create Date: 2025-10-01 07:14:29.976749+00:00
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING
+# from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
 from alembic import op
@@ -19,12 +19,12 @@ import advanced_alchemy.types
 import advanced_alchemy.types.datetime
 import advanced_alchemy.types.json
 from sqlalchemy.dialects import postgresql
-from advanced_alchemy.types import GUID
+# from advanced_alchemy.types import GUID
 from core.db.models.mcp_server.mcp_server import EncryptedJsonB
-from sqlalchemy import Text
-from sqlalchemy.dialects import postgresql
-if TYPE_CHECKING:
-    from collections.abc import Sequence
+# from sqlalchemy import Text
+# from sqlalchemy.dialects import postgresql
+# if TYPE_CHECKING:
+    # from collections.abc import Sequence
 
 __all__ = ["downgrade", "upgrade", "schema_upgrades", "schema_downgrades", "data_upgrades", "data_downgrades"]
 
