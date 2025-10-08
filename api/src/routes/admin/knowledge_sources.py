@@ -1,4 +1,3 @@
-from json import loads
 from typing import Any
 
 from bson import errors
@@ -6,33 +5,9 @@ from litestar import Controller, Router, delete, get, patch, post, put
 from litestar.exceptions import ClientException, NotFoundException
 from litestar.status_codes import HTTP_200_OK, HTTP_204_NO_CONTENT
 
-from data_sources.confluence.source import ConfluenceDataSource
-from data_sources.confluence.utils import create_confluence_instance
-from data_sources.file.source import UrlDataSource
-from data_sources.fluid_topics.source import FluidTopicsDataSource
-from data_sources.hubspot.source import HubspotDataSource
-from data_sources.oracle_knowledge.source import OracleKnowledgeDataSource
-from data_sources.oracle_knowledge.utils import create_oracle_knowledge_client
-from data_sources.rightnow.source import RightNowDataSource
-from data_sources.rightnow.utils import get_rightnow_basic_auth
-from data_sources.salesforce.source import SalesforceDataSource
-from data_sources.salesforce.utils import create_salesforce_instance
-from data_sources.sharepoint.source_documents import SharePointDocumentsDataSource
-from data_sources.sharepoint.source_pages import SharePointPagesDataSource
-from data_sources.sharepoint.utils import create_sharepoint_client
-from data_sync.processors.confluence_data_processor import ConfluenceDataProcessor
-from data_sync.processors.file_data_processor import UrlDataProcessor
-from data_sync.processors.fluidtopics_data_processor import FluidTopicsDataProcessor
-from data_sync.processors.hubspot_data_processor import HubspotDataProcessor
-from data_sync.processors.oracle_knowledge_processor import OracleKnowledgeDataProcessor
-from data_sync.processors.rightnow_data_processor import RightNowDataProcessor
-from data_sync.processors.salesforce_data_processor import SalesforceDataProcessor
-from data_sync.processors.sharepoint.sharepoint_documents_data_processor import (
-    SharepointDocumentsDataProcessor,
-)
-from data_sync.processors.sharepoint.sharepoint_pages_data_processor import (
-    SharepointPagesDataProcessor,
-)
+from core.plugins.interfaces import KnowledgeSourcePlugin
+from core.plugins.plugin_types import PluginType
+from core.plugins.registry import PluginRegistry
 from data_sync.synchronizer import Synchronizer
 from models import DocumentData
 from services.knowledge_sources.models import (
@@ -48,21 +23,27 @@ from stores.utils import validate_id
 from type_defs.pagination import (
     OffsetPaginationRequest,
 )
-from utils.common import CollectionSource
 from utils.datetime_utils import utc_now
 
 store = get_db_store()
 
 DOCUMENT_COLLECTION_PREFIX = "documents_"
 
+# Load all knowledge source plugins on module import
+PluginRegistry.auto_load()
+
 
 async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
-    """Standalone function to sync a collection without needing a controller instance.
-    This allows the function to be called directly from other modules.
+    """Standalone function to sync a collection using the plugin system.
+
+    This function uses the plugin registry to dynamically load and execute
+    the appropriate knowledge source plugin based on the collection's source type.
 
     Args:
         collection_id: The ID of the collection to sync
 
+    Raises:
+        ClientException: If source type is unknown or plugin not found
     """
     collection_config = await store.get_collection_metadata(collection_id)
     observability_context.update_current_trace(
@@ -72,159 +53,29 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
     source = collection_config.get("source", {})
     source_type = source.get("source_type")
 
-    match source_type:
-        case CollectionSource.SHAREPOINT:
-            sharepoint_site_url = source.get("sharepoint_site_url")
+    # Get plugin from registry
+    plugin = PluginRegistry.get(PluginType.KNOWLEDGE_SOURCE, source_type)
 
-            if not sharepoint_site_url:
-                raise ClientException("Missing `sharepoint_site_url` in metadata")
+    if not plugin:
+        # Provide helpful error message with available plugins
+        available = PluginRegistry.list_available(PluginType.KNOWLEDGE_SOURCE)
+        available_sources = available.get(PluginType.KNOWLEDGE_SOURCE.value, [])
+        raise ClientException(
+            f"Unknown knowledge source type: '{source_type}'. "
+            f"Available plugins: {', '.join(available_sources)}"
+        )
 
-            client = create_sharepoint_client(sharepoint_site_url)
+    # Ensure it's a KnowledgeSourcePlugin
+    if not isinstance(plugin, KnowledgeSourcePlugin):
+        raise ClientException(
+            f"Plugin '{source_type}' is not a valid KnowledgeSourcePlugin"
+        )
 
-            folder: str | None = source.get("sharepoint_folder")
-            recursive: bool = source.get("sharepoint_recursive", False)
-            library: str | None = collection_config.get("sharepoint_library")
-            folder: str | None = collection_config.get("sharepoint_folder")
-            recursive: bool = collection_config.get("sharepoint_recursive", False)
+    # Create processor using the plugin
+    processor = await plugin.create_processor(source, collection_config, store)
 
-            data_source = SharePointDocumentsDataSource(
-                ctx=client,
-                library=library,
-                folder=folder,
-                recursive=recursive,
-            )
-
-            await Synchronizer(
-                SharepointDocumentsDataProcessor(data_source, collection_config),
-                store,
-            ).sync(collection_id)
-
-            return
-
-        case CollectionSource.SHAREPOINT_PAGES:
-            sharepoint_site_url = source.get("sharepoint_site_url")
-
-            if not sharepoint_site_url:
-                raise ClientException("Missing `sharepoint_site_url` in metadata")
-
-            client = create_sharepoint_client(sharepoint_site_url)
-
-            page_name = source.get("sharepoint_pages_page_name")
-
-            embed_title = source.get(
-                "sharepoint_pages_embed_title",
-                False,
-            )
-
-            data_source = SharePointPagesDataSource(client, page_name)
-
-            await Synchronizer(
-                SharepointPagesDataProcessor(
-                    data_source, collection_config, embed_title
-                ),
-                store,
-            ).sync(collection_id)
-
-            return
-
-        case CollectionSource.CONFLUENCE:
-            confluence_url = source.get("confluence_url")
-            confluence_space = source.get("confluence_space")
-
-            if not confluence_url:
-                raise ClientException("Missing `confluence_url` in metadata")
-            if not confluence_space:
-                raise ClientException("Missing `confluence_space` in metadata")
-
-            data_source = ConfluenceDataSource(
-                create_confluence_instance(confluence_url),
-                confluence_space,
-            )
-
-            await Synchronizer(ConfluenceDataProcessor(data_source), store).sync(
-                collection_id,
-            )
-
-        case CollectionSource.SALESFORCE:
-            object_api_name = source.get("object_api_name")
-            output_config_json = source.get("output_config")
-
-            if not object_api_name:
-                raise ClientException("Missing `object_api_name` in metadata")
-            if not output_config_json:
-                raise ClientException("Missing `output_config` in metadata")
-
-            output_config = loads(output_config_json)
-            salesforce = create_salesforce_instance()
-
-            await Synchronizer(
-                SalesforceDataProcessor(
-                    SalesforceDataSource(salesforce, object_api_name, output_config),
-                    output_config,
-                ),
-                store,
-            ).sync(collection_id)
-
-        case CollectionSource.RIGHTNOW:
-            rightnow_url = source.get("rightnow_url")
-
-            if not rightnow_url:
-                raise ClientException("Missing `rightnow_url` in metadata")
-
-            auth = get_rightnow_basic_auth()
-
-            await Synchronizer(
-                RightNowDataProcessor(RightNowDataSource(rightnow_url, auth)),
-                store,
-            ).sync(collection_id)
-
-        case CollectionSource.ORACLEKNOWLEDGE:
-            oracle_knowledge_url = source.get("oracle_knowledge_url")
-
-            if not oracle_knowledge_url:
-                raise ClientException("Missing `oracle_knowledge_url` in metadata")
-
-            client = create_oracle_knowledge_client(oracle_knowledge_url)
-
-            await Synchronizer(
-                OracleKnowledgeDataProcessor(OracleKnowledgeDataSource(client)),
-                store,
-            ).sync(collection_id)
-
-        case CollectionSource.FILE:
-            file_url = source.get("file_url")
-            if not file_url:
-                raise ClientException("Missing `file_url` in metadata")
-            data_source = UrlDataSource(file_url)
-            await Synchronizer(
-                UrlDataProcessor(data_source, collection_config), store
-            ).sync(
-                collection_id,
-            )
-
-        case CollectionSource.HUBSPOT:
-            chunk_size = source.get("chunk_size")
-
-            if chunk_size:
-                data_source = HubspotDataSource(int(chunk_size))
-            else:
-                data_source = HubspotDataSource()
-
-            await Synchronizer(HubspotDataProcessor(data_source), store).sync(
-                collection_id
-            )
-
-        case CollectionSource.FLUID_TOPICS:
-            filters = source.get("fluid_topics_search_filters")
-            filters = loads(filters) if filters else []
-            data_source = FluidTopicsDataSource(filters)
-            await Synchronizer(
-                FluidTopicsDataProcessor(data_source, collection_config),
-                store,
-            ).sync(collection_id)
-
-        case _:
-            raise ClientException("Sync is not supported for this collection")
+    # Sync using the processor
+    await Synchronizer(processor, store).sync(collection_id)
 
 
 # TODO - complete naming change (Collection -> Knowledge Source, Document - Chunk(?))

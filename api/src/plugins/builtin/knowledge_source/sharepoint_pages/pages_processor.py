@@ -1,15 +1,20 @@
+"""SharePoint Pages Data Processor
+
+Handles processing of SharePoint pages (wiki pages, modern pages).
+"""
+
 from logging import getLogger
 
 from langchain.schema import Document
 from office365.sharepoint.files.file import File
 
 from data_sources.sharepoint.source_pages import SharePointPagesDataSource
-from data_sync.processors.sharepoint.sharepoint_abstract_data_processor import (
-    SharepointAbstractDataProcessor,
-)
 from data_sync.splitters.html_splitter import HtmlSplitter
 from data_sync.utils import clean_text, parse_page
 from models import DocumentData
+from plugins.builtin.knowledge_source.sharepoint.abstract_processor import (
+    SharepointAbstractDataProcessor,
+)
 
 logger = getLogger(__name__)
 

@@ -1,13 +1,28 @@
+"""Salesforce Data Processor
+
+This processor handles the transformation of Salesforce objects into document chunks.
+"""
+
 import re
+from dataclasses import dataclass
 
 from data_sources.salesforce.source import SalesforceDataSource
 from data_sources.types.basic_metadata import SourceBasicMetadata
 from data_sync.data_processor import DataProcessor
-from data_sync.processors.types.salesforce_output_config import SalesforceOutputConfig
 from models import DocumentData
 
 
+@dataclass
+class SalesforceOutputConfig:
+    """Configuration for Salesforce output format"""
+
+    columns: list[str]
+    output_template: str
+
+
 class SalesforceDataProcessor(DataProcessor):
+    """Data processor for Salesforce objects"""
+
     __data_source: SalesforceDataSource
     __records: list[dict]
 

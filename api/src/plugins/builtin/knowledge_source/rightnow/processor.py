@@ -1,3 +1,8 @@
+"""RightNow Data Processor
+
+This processor handles the transformation of RightNow knowledge base articles into document chunks.
+"""
+
 from data_sources.rightnow.source import RightNowDataSource
 from data_sources.rightnow.types import Answer
 from data_sources.types.basic_metadata import SourceBasicMetadata
@@ -6,6 +11,8 @@ from models import DocumentData
 
 
 class RightNowDataProcessor(DataProcessor):
+    """Data processor for RightNow knowledge base"""
+
     __data_source: RightNowDataSource
     __records: list[Answer]
 

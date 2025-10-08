@@ -1,3 +1,7 @@
+"""Confluence Data Processor
+
+This processor handles the transformation of Confluence pages into document chunks.
+"""
 
 from data_sources.confluence.source import ConfluenceDataSource
 from data_sources.confluence.types import ConfluencePage
@@ -7,6 +11,8 @@ from models import DocumentData
 
 
 class ConfluenceDataProcessor(DataProcessor):
+    """Data processor for Confluence pages"""
+
     __data_source: ConfluenceDataSource
     __all_pages: list[ConfluencePage]
 

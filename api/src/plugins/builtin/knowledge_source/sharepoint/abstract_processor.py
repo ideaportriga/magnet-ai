@@ -1,3 +1,8 @@
+"""SharePoint Abstract Data Processor
+
+Base processor for SharePoint data sources (documents and pages).
+"""
+
 import os
 from abc import abstractmethod
 from logging import getLogger

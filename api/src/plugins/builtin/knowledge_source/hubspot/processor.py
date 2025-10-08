@@ -1,3 +1,8 @@
+"""HubSpot Data Processor
+
+This processor handles the transformation of HubSpot records into document chunks.
+"""
+
 from typing import Any
 
 from data_sources.hubspot.source import HubspotDataSource
@@ -7,7 +12,7 @@ from models import DocumentData
 
 
 class HubspotDataProcessor(DataProcessor):
-    """Class for processing data from HubSpot."""
+    """Data processor for HubSpot records"""
 
     __data_source: HubspotDataSource
     __records: list[dict[str, Any]]

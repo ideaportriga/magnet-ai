@@ -1,3 +1,8 @@
+"""Oracle Knowledge Data Processor
+
+This processor handles the transformation of Oracle Knowledge base articles into document chunks.
+"""
+
 import html
 import re
 import xml.etree.ElementTree as ET
@@ -13,6 +18,8 @@ logger.setLevel("DEBUG")
 
 
 class OracleKnowledgeDataProcessor(DataProcessor):
+    """Data processor for Oracle Knowledge base"""
+
     __items: list[dict]
     __data_source: OracleKnowledgeDataSource
 

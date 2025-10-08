@@ -1,3 +1,8 @@
+"""SharePoint Documents Data Processor
+
+Handles processing of SharePoint documents (PDF, videos, etc.).
+"""
+
 import html
 import os
 from logging import getLogger
@@ -5,12 +10,11 @@ from logging import getLogger
 from office365.sharepoint.files.file import File
 
 from data_sources.sharepoint.source_abstract import SharePointAbstractDataSource
-from data_sync.processors.sharepoint.sharepoint_abstract_data_processor import (
-    SharepointAbstractDataProcessor,
-)
 from data_sync.splitters.pdf_splitter import PdfSplitter
 from data_sync.splitters.video_text_splitter import VideoTextSplitter
 from models import DocumentData
+
+from .abstract_processor import SharepointAbstractDataProcessor
 
 logger = getLogger(__name__)
 
