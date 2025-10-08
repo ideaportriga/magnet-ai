@@ -21,6 +21,7 @@ class AIModelFieldsMixin(BaseModel):
 
     # Provider information
     provider_name: str = Field(..., description="AI provider (e.g., azure_open_ai)")
+    provider_system_name: Optional[str] = Field(None, description="Foreign key to provider system_name")
 
     # Model identification
     ai_model: str = Field(..., description="Model identifier (e.g., gpt-4o)")
@@ -76,6 +77,7 @@ class AIModelUpdateFieldsMixin(BaseModel):
     provider_name: Optional[str] = Field(
         None, description="AI provider (e.g., azure_open_ai)"
     )
+    provider_system_name: Optional[str] = Field(None, description="Foreign key to provider system_name")
 
     # Model identification
     ai_model: Optional[str] = Field(None, description="Model identifier (e.g., gpt-4o)")

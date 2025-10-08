@@ -30,6 +30,9 @@ class CollectionFieldsMixin(BaseModel):
         description="Model used for processing (e.g., 'AZURE_AI_TEXT-EMBEDDING-3-SMALL')",
     )
 
+    # Provider information
+    provider_system_name: Optional[str] = Field(None, description="Foreign key to provider system_name")
+
     # Configuration fields
     source: Optional[dict[str, Any]] = Field(
         None, description="Source configuration for the collection"
@@ -66,6 +69,9 @@ class CollectionUpdateFieldsMixin(BaseModel):
         None,
         description="Model used for processing (e.g., 'AZURE_AI_TEXT-EMBEDDING-3-SMALL')",
     )
+
+    # Provider information
+    provider_system_name: Optional[str] = Field(None, description="Foreign key to provider system_name")
 
     # Configuration fields
     source: Optional[dict[str, Any]] = Field(
