@@ -30,8 +30,8 @@
       @confirm='deleteServer',
       @cancel='showDeleteDialog = false'
     )
-      .row.item-center.justify-center.km-heading-7 You are about to delete a Model Provider
-      .row.text-center.justify-center This action will delete all Models added under this Model Provider. All affected Prompt Templates will stop working unless you change their model to a working one.
+      .row.item-center.justify-center.km-heading-7 You are about to delete a Knowledge Source Provider
+      .row.text-center.justify-center This action will delete all Knowledge Sources in this Provider. All tools using these Knowledge Sources will stop working.
     
     </template>
     <script setup>
@@ -48,7 +48,7 @@
     const showDeleteDialog = ref(false)
     const loading = ref(false)
     
-    const server = computed(() => store.getters.model_provider)
+    const server = computed(() => store.getters.knowledge_provider)
     
     const info = computed(() => {
       return {
@@ -66,14 +66,14 @@
       // await deleteMcpServer({ id: store.getters.mcp_server.id })
       q.notify({
         position: 'top',
-        message: 'Model Provider has been deleted.',
+        message: 'Knowledge Source Provider has been deleted.',
         color: 'positive',
         textColor: 'black',
         timeout: 1000,
       })
       // store.dispatch('setMcpServer', null)
       showDeleteDialog.value = false
-      router.push('/model-providers')
+      router.push('/knowledge-providers')
     }
     </script>
     
