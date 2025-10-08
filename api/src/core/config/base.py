@@ -464,6 +464,12 @@ class AIProvidersSettings:
     GROQ_ENDPOINT: str = field(default_factory=get_env("GROQ_AI_ENDPOINT", ""))
     """Groq endpoint."""
 
+    # Datakom (Temporary Local OpenAI)
+    TMP_LOCAL_OPEN_AI_KEY: str = field(default_factory=get_env("TMP_LOCAL_OPEN_AI_KEY", ""))
+    """Temporary local OpenAI API key."""
+    TMP_LOCAL_OPEN_AI_ENDPOINT: str = field(default_factory=get_env("TMP_LOCAL_OPEN_AI_ENDPOINT", ""))
+    """Temporary local OpenAI endpoint."""
+
     # OCI
     OCI_USER: str = field(default_factory=get_env("OCI_USER", ""))
     """OCI user."""

@@ -63,8 +63,8 @@ class Config:
             "type": "datakom",
             "otel_gen_ai_system": "datakom",
             "connection": {
-                "api_key": env.get("TMP_LOCAL_OPEN_AI_KEY"),
-                "endpoint": env.get("TMP_LOCAL_OPEN_AI_ENDPOINT"),
+                "api_key": ai_settings.TMP_LOCAL_OPEN_AI_KEY,
+                "endpoint": ai_settings.TMP_LOCAL_OPEN_AI_ENDPOINT,
             },
             "defaults": {
                 "temperature": TEMPERATURE_DEFAULT,
