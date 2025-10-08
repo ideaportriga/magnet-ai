@@ -58,10 +58,10 @@ class Config:
                 "max_tokens": 2000,
             },
         },
-        "datacom": {
-            "label": "Datacom",
-            "type": "datacom",
-            "otel_gen_ai_system": "datacom",
+        "datakom": {
+            "label": "Datakom",
+            "type": "datakom",
+            "otel_gen_ai_system": "datakom",
             "connection": {
                 "api_key": env.get("TMP_LOCAL_OPEN_AI_KEY"),
                 "endpoint": env.get("TMP_LOCAL_OPEN_AI_ENDPOINT"),
