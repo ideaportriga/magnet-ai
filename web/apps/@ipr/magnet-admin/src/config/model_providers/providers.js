@@ -18,6 +18,14 @@ const controls = {
       component: markRaw(ChipCopy),
       align: 'left',
     },
+    type: {
+      name: 'type',
+      label: 'Type',
+      field: 'type',
+      align: 'left',
+      type: 'component',
+      component: markRaw(ChipCopy),
+    },
     created_at: {
       name: 'created_at',
       label: 'Created',
