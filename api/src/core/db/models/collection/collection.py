@@ -1,19 +1,38 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from advanced_alchemy.types import DateTimeUTC, JsonB
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..base import UUIDAuditSimpleBase
+
+if TYPE_CHECKING:
+    from ..provider import Provider
 
 
 class Collection(UUIDAuditSimpleBase):
     """Main API tools table using base entity class with variant validation."""
 
     __tablename__ = "collections"
+
+    # Foreign key to Provider by system_name
+    provider_system_name: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        ForeignKey("providers.system_name", ondelete="CASCADE"),
+        nullable=True,
+        comment="Foreign key to provider system_name",
+        index=True,
+    )
+
+    # Relationship to Provider (named provider_rel to avoid potential conflicts)
+    provider_rel: Mapped[Optional["Provider"]] = relationship(
+        "Provider",
+        back_populates="collections",
+        foreign_keys=[provider_system_name],
+    )
 
     # API configuration fields
     type: Mapped[Optional[str]] = mapped_column(

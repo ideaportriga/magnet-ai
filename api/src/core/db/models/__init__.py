@@ -14,6 +14,7 @@ from .base import UUIDAuditEntityBase, UUIDAuditSimpleBase
 from .evaluation import Evaluation
 from .job import Job
 from .metric import Metric
+from .provider import Provider
 from .trace import Trace
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "APIKey",
     "Job",
     "Metric",
+    "Provider",
     "Trace",
     # "AgentConversation",
     # "Agent",

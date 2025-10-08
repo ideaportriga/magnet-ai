@@ -4,12 +4,15 @@ AI Models table definition.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..base import UUIDAuditSimpleBase
+
+if TYPE_CHECKING:
+    from ..provider import Provider
 
 
 class AIModel(UUIDAuditSimpleBase):
@@ -21,8 +24,24 @@ class AIModel(UUIDAuditSimpleBase):
 
     __tablename__ = "ai_models"
 
-    # Provider information
-    provider: Mapped[str] = mapped_column(
+    # Foreign key to Provider by system_name
+    provider_system_name: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        ForeignKey("providers.system_name", ondelete="CASCADE"),
+        nullable=True,
+        comment="Foreign key to provider system_name",
+        index=True,
+    )
+
+    # Relationship to Provider (named provider_rel to avoid conflict with provider_name field in schemas)
+    provider_rel: Mapped[Optional["Provider"]] = relationship(
+        "Provider",
+        back_populates="ai_models",
+        foreign_keys=[provider_system_name],
+    )
+
+    # Provider information (legacy field - consider migrating to use provider relationship)
+    provider_name: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
         comment="AI provider (e.g., azure_open_ai)",
@@ -106,4 +125,4 @@ class AIModel(UUIDAuditSimpleBase):
 
 
     def __repr__(self) -> str:
-        return f"<AIModel(system_name='{self.system_name}', provider='{self.provider}', ai_model='{self.ai_model}')>"
+        return f"<AIModel(system_name='{self.system_name}', provider='{self.provider_name}', ai_model='{self.ai_model}')>"

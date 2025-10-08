@@ -29,6 +29,7 @@ from core.db.models.mcp_server import MCPServer  # noqa: F401
 from core.db.models.mcp_server.mcp_server import EncryptedJsonB  # noqa: F401
 from core.db.models.metric import Metric  # noqa: F401
 from core.db.models.prompt import Prompt  # noqa: F401
+from core.db.models.provider import Provider  # noqa: F401
 from core.db.models.rag_tool.rag_tool import RagTool  # noqa: F401
 from core.db.models.retrieval_tool import RetrievalTool  # noqa: F401
 from core.db.models.trace import Trace  # noqa: F401
