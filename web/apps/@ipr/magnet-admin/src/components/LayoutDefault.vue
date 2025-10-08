@@ -54,6 +54,10 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         mcp-header
       template(v-if='route.name === "ApiServersDetail" || route.name === "ApiToolsDetails"')
         api-servers-header
+      template(v-if='route.name === "ModelProvidersDetails"')
+        model-providers-header
+      template(v-if='route.name === "KnowledgeProvidersDetails"')
+        knowledge-providers-header
   q-drawer.bg-primary.text-white(v-model='drawerLeft', show-if-above, :width='200', :breakpoint='1350')
     toolbar
 

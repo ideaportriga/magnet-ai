@@ -36,6 +36,10 @@ import McpToolsDetailPage from '@/components/Mcp/Tools.vue'
 import ApiKeysPage from '@/components/ApiKeys/Page.vue'
 import ApiServersPage from '@/components/ApiServers/Page.vue'
 import ApiServersDetailsPage from '@/components/ApiServers/Details.vue'
+import ModelProvidersPage from '@/components/ModelProviders/Page.vue'
+import ModelProvidersDetails from '@/components/ModelProviders/Details.vue'
+import KnowledgeProvidersPage from '@/components/KnowledgeProviders/Page.vue'
+import KnowledgeProvidersDetails from '@/components/KnowledgeProviders/Details.vue'
 import store from '@/store/index'
 
 const routes = [
@@ -170,6 +174,24 @@ const routes = [
       pageLabel: 'Retrieval Tools',
       chroma: true,
       entity: 'retrieval',
+    },
+  },
+  {
+    path: '/model-providers',
+    name: 'ModelProviders',
+    component: ModelProvidersPage,
+    meta: {
+      pageLabel: 'Model Providers',
+    },
+  },
+  {
+    path: '/model-providers/:id',
+    name: 'ModelProvidersDetails',
+    component: ModelProvidersDetails,
+    meta: {
+      pageLabel: 'Model Providers',
+      chroma: true,
+      entity: 'model_providers',
     },
   },
   {
@@ -431,6 +453,23 @@ const routes = [
       entity: 'api_servers',
     },
   },
+  {
+    path: '/knowledge-providers',
+    name: 'KnowledgeProviders',
+    component: KnowledgeProvidersPage,
+    meta: {
+      pageLabel: 'Knowledge Source Providers',
+    },
+  },
+  {
+    path: '/knowledge-providers/:id',
+    name: 'KnowledgeProvidersDetails',
+    component: KnowledgeProvidersDetails,
+    meta: {
+      pageLabel: 'Knowledge Source Providers',
+    },
+  },
+  
 ]
 
 const router = createRouter({

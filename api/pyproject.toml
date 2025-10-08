@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "ai-bridge"
+name = "magnet-ai-api"
 version = "0.1.0"
 description = ""
 authors = []

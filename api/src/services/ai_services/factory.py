@@ -3,6 +3,7 @@ from services.ai_services.interface import AIProviderInterface
 from services.ai_services.providers.azure_ai import AzureAIProvider
 from services.ai_services.providers.azure_open_ai import AzureProvider
 from services.ai_services.providers.groq import GroqProvider
+from services.ai_services.providers.tmp_local import TmpLocalProvider
 from services.ai_services.providers.oci import OCIProvider
 from services.ai_services.providers.oci_llama import OCILlamaProvider
 from services.ai_services.providers.openai import OpenAIProvider
@@ -26,6 +27,7 @@ def get_ai_provider(provider_name: str) -> AIProviderInterface:
         "oci": OCIProvider,
         "oci_llama": OCILlamaProvider,
         "groq": GroqProvider,
+        "datakom": TmpLocalProvider,
     }
 
     provider_class = provider_classes.get(str(provider_type))
