@@ -27,7 +27,7 @@ def get_ai_provider(provider_name: str) -> AIProviderInterface:
         "oci": OCIProvider,
         "oci_llama": OCILlamaProvider,
         "groq": GroqProvider,
-        "datacom": TmpLocalProvider,
+        "datakom": TmpLocalProvider,
     }
 
     provider_class = provider_classes.get(str(provider_type))
