@@ -632,18 +632,18 @@ const apiModelConfig = {
 }
 const modelProviders = {
   get: async (service, endpoint) => {
-    console.log('fetch retrieval')
+    console.log('fetch model providers')
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `providers`,
+      service: `sql_providers`,
     })
       .then((response) => {
         if (response.ok) return response.json()
         if (response.error) throw response
       })
       .then((data) => {
-        return data
+        return data?.items
       })
       .catch((res) => {
         throw {
@@ -659,7 +659,7 @@ const modelProviders = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `provider/${id}`,
+      service: `sql_providers/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -670,13 +670,13 @@ const modelProviders = {
         if (response.error) throw response
       })
       .then(() => {
-        dispatch('get', { entity: 'rag_tools' })
+        dispatch('get', { entity: 'model_providers' })
         return true
       })
       .catch((res) => {
         throw {
           technicalError: res?.error,
-          text: `Error updating collection`,
+          text: `Error updating model provider`,
         }
       })
   },
@@ -685,7 +685,7 @@ const modelProviders = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `provider/${id}/sync`,
+      service: `sql_providers/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -695,7 +695,7 @@ const modelProviders = {
       .catch((response) => {
         throw {
           technicalError: response?.error,
-          text: `Error in refreshing collection ${id}`,
+          text: `Error in refreshing model provider ${id}`,
         }
       })
   },
@@ -705,7 +705,7 @@ const modelProviders = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `provider`,
+      service: `sql_providers`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -721,7 +721,7 @@ const modelProviders = {
       .catch((response) => {
         throw {
           technicalError: response?.error,
-          text: `Error creating RAG Tool`,
+          text: `Error creating model provider`,
         }
       })
   },
@@ -730,7 +730,7 @@ const modelProviders = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `provider/${id}`,
+      service: `sql_providers/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -746,7 +746,7 @@ const modelProviders = {
       .catch((response) => {
         throw {
           technicalError: response?.error,
-          text: `Error deleting RAG Tool`,
+          text: `Error deleting model provider`,
         }
       })
   },

@@ -17,6 +17,7 @@ from core.domain.jobs import JobsController as JobsControllerSQL
 from core.domain.mcp_servers import MCPServersController as MCPServersControllerSQL
 from core.domain.metrics import MetricsController
 from core.domain.prompts import PromptsController
+from core.domain.providers import ProvidersController
 from core.domain.rag_tools import RagToolsController as RagToolsControllerSQL
 from core.domain.retrieval_tools import (
     RetrievalToolsController as RetrievalToolsControllerSQL,
@@ -85,6 +86,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         EvaluationSetsControllerSQL,
         EvaluationsControllerSQL,
         MetricsController,
+        ProvidersController,
         RetrievalToolsControllerSQL,
         RagToolsControllerSQL,
         TracesController,
