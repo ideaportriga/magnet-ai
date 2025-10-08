@@ -16,8 +16,6 @@ class TmpLocalProvider(AIProviderInterface):
         self.temperature_default = config["defaults"].get("temperature")
         self.top_p_default = config["defaults"].get("top_p")
         # Client init
-        print("self.api_key: ", self.api_key)
-        print("self.endpoint: ", self.endpoint)
         self.client = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.endpoint)
 
     async def create_chat_completion(

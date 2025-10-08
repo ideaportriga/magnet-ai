@@ -4,6 +4,7 @@ from decimal import Decimal
 from typing import cast
 
 import aiohttp
+from utils.common import transform_schema
 from azure.ai.inference.aio import EmbeddingsClient
 from azure.core.credentials import AzureKeyCredential
 from azure.core.pipeline.policies import AsyncRetryPolicy
@@ -143,8 +144,13 @@ class AzureAIProvider(AIProviderInterface):
             "top_p": top_p,
             "max_tokens": max_tokens,
             "model": model,
-            # TODO - add and test tools
         }
+
+        if response_format:
+            data["response_format"] = transform_schema(response_format)
+
+        if tools:
+            data["tools"] = tools
 
         modelConfig = self.model_api_keys.get(model)
         if not modelConfig:
