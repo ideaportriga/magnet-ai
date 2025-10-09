@@ -18,54 +18,119 @@
         .col
           .km-field.text-secondary-text.q-pl-8 System name
           .full-width
-            km-input(data-test='name-input', height='30px', v-model='system_name', ref='systemRef', :rules='[required()]')
+            km-input(data-test='system-name-input', height='30px', v-model='system_name', ref='system_nameRef', :rules='[required()]')
           .km-description.text-secondary-text.q-pb-4.q-pl-8 System name serves as a unique record ID
     
         .col
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
           .full-width
-            km-select(v-model='type', :options='[]')
+            km-select(
+              data-test='select-type',
+              height='auto',
+              minHeight='36px',
+              placeholder='Select provider type',
+              :options='typeOptions',
+              v-model='newRow.type',
+              ref='typeRef',
+              :rules='[required()]',
+              emit-value,
+              mapOptions
+            )
     </template>
     
-    <script setup>
-    import { ref, watch } from 'vue'
-    import { required } from '@shared'
-    import { useChroma } from '@shared'
+    <script>
+    import { ref, reactive, computed } from 'vue'
+    import { useChroma, required, toUpperCaseWithUnderscores } from '@shared'
     import { useRouter } from 'vue-router'
-    const props = defineProps({
-      showNewDialog: {
-        type: Boolean,
-        required: true,
+    
+    export default {
+      props: {
+        showNewDialog: {
+          type: Boolean,
+          default: false,
+        },
       },
-    })
+      emits: ['cancel'],
+      setup() {
+        const { create, ...useCollection } = useChroma('provider')
+        const router = useRouter()
     
-    const { create } = useChroma('mcp_servers')
-    const router = useRouter()
-    const name = ref('')
-    const system_name = ref('')
-    const url = ref('')
-    const transport = ref('streamable-http')
+        const typeOptions = [
+          { label: 'OpenAI', value: 'openai' },
+          { label: 'Azure OpenAI', value: 'azure_open_ai' },
+          { label: 'Azure AI', value: 'azure_ai' },
+          { label: 'Groq', value: 'groq' },
+          { label: 'OCI', value: 'oci' },
+          { label: 'OCI Llama', value: 'oci_llama' },
+        ]
     
-    const emit = defineEmits(['cancel'])
+        return {
+          create,
+          useCollection,
+          router,
+          required,
+          newRow: reactive({
+            name: '',
+            system_name: '',
+            type: '',
+            connection_config: {},
+            secrets_encrypted: {},
+            metadata_info: {},
+          }),
+          autoChangeCode: ref(true),
+          isMounted: ref(false),
+          typeOptions,
+        }
+      },
+      computed: {
+        name: {
+          get() {
+            return this.newRow?.name || ''
+          },
+          set(val) {
+            this.newRow.name = val
+            if (this.autoChangeCode && this.isMounted) this.newRow.system_name = toUpperCaseWithUnderscores(val)
+          },
+        },
+        system_name: {
+          get() {
+            return this.newRow?.system_name || ''
+          },
+          set(val) {
+            this.newRow.system_name = val
+            this.autoChangeCode = false
+          },
+        },
+      },
+      mounted() {
+        this.isMounted = true
+      },
+      beforeUnmount() {
+        this.isMounted = false
+        this.$emit('cancel')
+      },
+      methods: {
+        validateFields() {
+          const validStates = [
+            this.$refs.nameRef?.validate(),
+            this.$refs.system_nameRef?.validate(),
+            this.$refs.typeRef?.validate()
+          ]
+          return !validStates.includes(false)
+        },
+        async createModelProvider() {
+          if (!this.validateFields()) return
     
-    const nameRef = ref(null)
-    const systemRef = ref(null)
-    const urlRef = ref(null)
+          const result = await this.create(JSON.stringify(this.newRow))
     
+          if (!result?.id) {
+            return
+          }
     
-    watch(name, (newVal) => {
-      if (newVal && !system_name.value) {
-        system_name.value = newVal.toUpperCase().replace(/ /g, '_')
-      }
-    })
-    
-    const validateFields = () => {
-      const validStates = [nameRef.value.validate(), systemRef.value.validate(), urlRef.value.validate()]
-      return !validStates.includes(false)
-    }
-
-    const createModelProvider = async () => {
-      emit('cancel')
+          await this.useCollection.selectRecord(result.id)
+          this.$router.push(`/model-providers/${result.id}`)
+        },
+      },
     }
     </script>
     

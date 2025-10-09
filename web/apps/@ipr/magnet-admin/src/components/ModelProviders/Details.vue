@@ -36,13 +36,57 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
     model-providers-drawer(v-if='tab == "models"')
 </template>
 
-<script setup>
-import {ref} from 'vue'
-const tab = ref('models')
-const tabs = ref([
-  { name: 'models', label: 'Models' },
-  { name: 'settings', label: 'Settings' },
-])
+<script>
+import { ref, computed } from 'vue'
+import { useChroma } from '@shared'
+import { beforeRouteEnter } from '@/guards'
 
-
+export default {
+  beforeRouteEnter,
+  setup() {
+    const { selectedRow, ...useCollection } = useChroma('provider')
+    
+    return {
+      tab: ref('models'),
+      tabs: ref([
+        { name: 'models', label: 'Models' },
+        { name: 'settings', label: 'Settings' },
+      ]),
+      showInfo: ref(false),
+      selectedRow,
+      useCollection,
+    }
+  },
+  computed: {
+    provider() {
+      return this.$store.getters.provider
+    },
+    name: {
+      get() {
+        return this.provider?.name || ''
+      },
+      set(value) {
+        this.$store.commit('updateProviderProperty', { key: 'name', value })
+      },
+    },
+    system_name: {
+      get() {
+        return this.provider?.system_name || ''
+      },
+      set(value) {
+        this.$store.commit('updateProviderProperty', { key: 'system_name', value })
+      },
+    },
+  },
+  watch: {
+    selectedRow: {
+      immediate: true,
+      handler(newVal) {
+        if (newVal) {
+          this.$store.commit('setProvider', newVal)
+        }
+      },
+    },
+  },
+}
 </script>
