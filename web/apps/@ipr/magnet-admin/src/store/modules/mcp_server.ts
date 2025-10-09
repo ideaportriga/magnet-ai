@@ -18,6 +18,10 @@ const getters = {
     return !_.isEqual(state.mcp_server, state.initialMcpServer)
   },
   mcpSettingsEditMode: (state) => state.mcpSettingsEditMode,
+  originalMcpSecrets: (state) => {
+    const secrets = state.initialMcpServer.secrets_encrypted
+    return Object.keys(secrets)
+  },
 }
 
 const mutations = {
