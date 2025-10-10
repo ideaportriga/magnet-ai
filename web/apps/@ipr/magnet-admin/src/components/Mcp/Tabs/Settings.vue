@@ -42,34 +42,7 @@
     km-notification-text(
       notification='Secrets are securely stored in encrypted format. They cannot be edited individually. To update them, you need to reset all secrets.'
     )
-    .row.items-center.q-gap-8.no-wrap.q-mt-md(v-for='[key, value] in secretsArray', :key='key')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(label='Key', :model-value='key', @update:model-value='updateSecret(key, $event, value)', :readonly='!editMode')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(
-          label='Value', 
-          :model-value='getSecretDisplayValue(key, value)', 
-          @update:model-value='updateSecret(key, key, $event)', 
-          :readonly='!editMode',
-          :placeholder='editMode ? "Enter new value" : ""'
-        )
-      .col-auto(v-if='editMode')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-        km-btn(@click='removeSecret(key)', icon='o_delete', size='sm', flat, color='negative')
-    .row.q-pt-16
-      template(v-if='editMode')
-        km-btn(label='Add Secret', @click='addSecret', size='sm', icon='o_add', flat)
-        km-btn(label='Cancel', @click='store.dispatch("toggleMcpSettingsEditMode", false)', size='sm', flat)
-      template(v-else)
-        km-btn(
-          :label='hasExistingSecrets ? "Edit Secrets" : "Add Secrets"',
-          @click='initializeSecretsEdit',
-          size='sm',
-          icon='o_edit',
-          flat
-        )
+    km-secrets(v-model:secrets='secrets' :original-secrets='originalMcpSecrets' :remount-value='remountValue')
 </template>
 <script setup>
 import { ref, computed } from 'vue'
@@ -79,31 +52,9 @@ import { useQuasar } from 'quasar'
 const store = useStore()
 const $q = useQuasar()
 
-const editMode = computed(() => store.getters.mcpSettingsEditMode)
 
-const hasExistingSecrets = computed(() => {
-  const encryptedSecrets = server.value.secrets_encrypted
-  if (!encryptedSecrets) return false
-  
-  if (encryptedSecrets instanceof Map) {
-    return encryptedSecrets.size > 0
-  } else if (typeof encryptedSecrets === 'object') {
-    return Object.keys(encryptedSecrets).length > 0
-  }
-  return false
-})
 
-const secretsArray = computed(() => {
-  const secretsMap = secrets.value
-  if (secretsMap instanceof Map) {
-    return Array.from(secretsMap.entries())
-  }
-  return []
-})
 
-const server = computed(() => {
-  return store.getters.mcp_server
-})
 
 const headers = computed({
   get() {
@@ -117,53 +68,28 @@ const headers = computed({
     })
   },
 })
+
+
+const originalMcpSecrets = computed(() => store.getters.originalMcpSecrets)
+const remountValue = computed(() => store.getters.mcp_server.updated_at)
 const secrets = computed({
   get() {
-    const encryptedSecrets = store.getters.mcp_server.secrets_encrypted
-    // Always return Map for consistency
-    if (!encryptedSecrets) {
-      return new Map()
-    }
-    if (encryptedSecrets instanceof Map) {
-      return encryptedSecrets
-    }
-    // Convert object to Map
-    return new Map(Object.entries(encryptedSecrets))
+    return store.getters.mcp_server.secrets_encrypted
   },
   set(value) {
-    // Convert Map to object for sending
-    const objectValue = value instanceof Map ? Object.fromEntries(value) : value
     store.dispatch('updateMcpServerProperty', {
       key: 'secrets_encrypted',
-      value: objectValue,
+      value: value,
     })
   },
 })
 
-const secret_names = computed(() => {
-  if (!server.value.secrets_encrypted) return []
-  return server.value.secrets_encrypted
-})
 
 const toggleEditMode = (value) => {
   // Do nothing additional, just toggle mode
   // Always work with secrets_encrypted
 }
 
-const initializeSecretsEdit = () => {
-  console.log('initializeSecretsEdit called')
-  
-  // Enable edit mode
-  store.dispatch("toggleMcpSettingsEditMode", true)
-  
-  // If there are no existing secrets, add an empty entry to start
-  if (!hasExistingSecrets.value) {
-    console.log('No existing secrets, adding empty entry')
-    const newSecrets = new Map()
-    newSecrets.set('', '')
-    secrets.value = newSecrets
-  }
-}
 
 const addHeader = () => {
   const newHeaders = new Map(headers.value)
@@ -210,65 +136,5 @@ const testConnection = async () => {
       timeout: 1000,
     })
   }
-}
-
-const addSecret = () => {
-  console.log('addSecret called')
-  const currentSecrets = secrets.value
-  console.log('current secrets:', currentSecrets)
-  
-  const newSecrets = new Map(currentSecrets)
-  newSecrets.set('', '')
-  console.log('new secrets:', newSecrets)
-  
-  secrets.value = newSecrets
-}
-
-const removeSecret = (key) => {
-  const newSecrets = new Map(secrets.value)
-  newSecrets.delete(key)
-  secrets.value = newSecrets
-}
-
-const updateSecret = (oldKey, newKey, newValue) => {
-  const entries = [...secrets.value.entries()]
-  const idx = entries.findIndex(([k]) => k === oldKey)
-
-  if (idx !== -1) {
-    entries[idx] = [newKey, newValue] // replace in place
-  } else {
-    entries.push([newKey, newValue]) // add new
-  }
-
-  secrets.value = new Map(entries)
-}
-
-const getSecretDisplayValue = (key, value) => {
-  if (!editMode.value) {
-    return '*****'
-  } else {
-    return value || ''
-  }
-}
-
-const getSecretsForSubmit = () => {
-  const currentSecrets = secrets.value
-  const result = {}
-  
-  if (currentSecrets instanceof Map) {
-    for (const [key, value] of currentSecrets) {
-      if (key && key.trim()) { // Ignore empty keys
-        result[key] = value || '' // Send value or empty string
-      }
-    }
-  } else if (typeof currentSecrets === 'object') {
-    for (const key in currentSecrets) {
-      if (key && key.trim()) {
-        result[key] = currentSecrets[key] || ''
-      }
-    }
-  }
-  
-  return result
 }
 </script>
