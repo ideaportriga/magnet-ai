@@ -21,7 +21,7 @@ class SecretsEncryptedMixin(BaseModel):
     while preserving the keys. Used in Response schemas to prevent exposing sensitive data.
     """
 
-    @field_serializer("secrets_encrypted", when_used="always")
+    @field_serializer("secrets_encrypted", when_used="always", check_fields=False)
     def serialize_secrets_encrypted(
         self, value: Optional[Dict[str, Any]]
     ) -> Optional[Dict[str, str]]:
