@@ -16,7 +16,7 @@
     @selectRow='openDetails',
     selection='single',
     row-key='id',
-    :selected='selectedRow ? [selectedRow] : []',
+    :selected='modelConfig ? [modelConfig] : []',
     :columns='columns',
     :visibleColumns='visibleColumns',
     :rows='filteredRows',
@@ -61,10 +61,13 @@ export default {
       }
       return this.visibleRows.filter((item) => item.provider_system_name === this.provider.system_name)
     },
+    modelConfig() {
+      return this.$store.getters['modelConfig/entity']
+    },
   },
   methods: {
-    async openDetails(row) {
-      await this.$router.push(`/model/${row.id}`)
+    openDetails(row) {
+      this.$store.commit('modelConfig/setEntity', row)
     },
   },
 }

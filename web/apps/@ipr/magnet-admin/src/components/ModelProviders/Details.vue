@@ -33,7 +33,8 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
         model-providers-models(v-if='tab == "models"')
         model-providers-settings(v-if='tab == "settings"')
   template(#drawer)
-    model-providers-drawer(v-if='tab == "models"')
+    model-providers-model-drawer(v-if='tab == "models" && selectedModel')
+    model-providers-drawer(v-else-if='tab == "models"')
 </template>
 
 <script>
@@ -60,6 +61,9 @@ export default {
   computed: {
     provider() {
       return this.$store.getters.provider
+    },
+    selectedModel() {
+      return this.$store.getters['modelConfig/entity']
     },
     name: {
       get() {
