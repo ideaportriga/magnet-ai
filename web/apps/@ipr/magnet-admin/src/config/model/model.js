@@ -1,6 +1,7 @@
 import { required, minLength } from '@shared/utils/validationRules'
 import Check from './component/Check.vue'
 import Features from './component/Features.vue'
+import TypeChip from './component/TypeChip.vue'
 import { markRaw } from 'vue'
 import store from '@/store'
 import { formatDateTime } from '@shared/utils/dateTime'
@@ -92,6 +93,8 @@ const controls = {
     display: true,
     label: 'Type',
     field: 'type',
+    type: 'component',
+    component: markRaw(TypeChip),
     readonly: true,
     fromMetadata: false,
     ignorePatch: true,
