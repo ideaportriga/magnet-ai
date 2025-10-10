@@ -25,6 +25,11 @@ const getters = {
     if (!state.initProvider) return false
     return !_.isEqual(state.provider, state.initProvider)
   },
+  originalProviderSecrets: (state) => {
+    const secrets = state.initProvider?.secrets_encrypted
+    if (!secrets) return []
+    return Object.keys(secrets)
+  },
 }
 
 const mutations = {
