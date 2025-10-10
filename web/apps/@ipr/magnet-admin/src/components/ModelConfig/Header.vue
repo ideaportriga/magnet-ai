@@ -131,9 +131,31 @@ export default {
       this.loading = true
       if (this.currentModel?.created_at) {
         const obj = { ...this.currentModel }
+        
+        // Удаляем метаданные и audit поля - они управляются на бэкенде
+        delete obj._metadata
+        delete obj.created_at
+        delete obj.updated_at
+        delete obj.created_by
+        delete obj.updated_by
+        
+        // Удаляем лишние поля
+        delete obj.name
+        delete obj.category
+        
         await this.update({ id: this.currentModel.id, data: JSON.stringify(obj) })
       } else {
-        await this.create(JSON.stringify(this.currentModel))
+        const obj = { ...this.currentModel }
+        delete obj.id
+        delete obj._metadata
+        delete obj.created_at
+        delete obj.updated_at
+        delete obj.created_by
+        delete obj.updated_by
+        delete obj.name
+        delete obj.category
+        
+        await this.create(JSON.stringify(obj))
       }
       this.$store.commit('modelConfig/setInitEntity')
       this.loading = false

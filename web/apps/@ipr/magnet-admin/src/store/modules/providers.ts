@@ -91,6 +91,17 @@ const actions = {
     }
     commit('setInitProvider')
   },
+  async deleteProvider({ dispatch, getters }) {
+    const entity = 'provider'
+    const provider = getters.provider
+    
+    if (!provider || !provider.id || provider.id === '') {
+      throw new Error('Provider ID is required for deletion')
+    }
+
+    const id = provider.id
+    await dispatch('chroma/delete', { payload: id, entity }, { root: true })
+  },
 }
 
 export default {

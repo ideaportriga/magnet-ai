@@ -36,6 +36,12 @@
               emit-value,
               mapOptions
             )
+    
+        .col
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Endpoint
+          .full-width
+            km-input(data-test='endpoint-input', height='30px', v-model='newRow.endpoint', placeholder='https://api.example.com')
+          .km-description.text-secondary-text.q-pb-4.q-pl-8 Provider API endpoint URL. Warning: changing endpoint later will clear all secrets
     </template>
     
     <script>
@@ -73,6 +79,7 @@
             name: '',
             system_name: '',
             type: '',
+            endpoint: '',
             connection_config: {},
             secrets_encrypted: {},
             metadata_info: {},

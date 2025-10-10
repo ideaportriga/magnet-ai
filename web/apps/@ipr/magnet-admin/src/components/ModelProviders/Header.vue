@@ -48,6 +48,8 @@
     const showDeleteDialog = ref(false)
     const loading = ref(false)
     
+    const { delete: deleteProvider, selectedRow } = useChroma('provider')
+    
     const server = computed(() => store.getters.provider)
     
     const info = computed(() => {
@@ -81,17 +83,32 @@
       }
     }
     const deleteServer = async () => {
-      // await deleteMcpServer({ id: store.getters.mcp_server.id })
-      q.notify({
-        position: 'top',
-        message: 'Model Provider has been deleted.',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
-      // store.dispatch('setMcpServer', null)
-      showDeleteDialog.value = false
-      router.push('/model-providers')
+      loading.value = true
+      try {
+        await deleteProvider({ id: selectedRow.value?.id })
+        q.notify({
+          position: 'top',
+          message: 'Model Provider has been deleted.',
+          color: 'positive',
+          textColor: 'black',
+          timeout: 1000,
+        })
+        showDeleteDialog.value = false
+        router.push('/model-providers')
+      } catch (error) {
+        console.error('Delete provider error:', error)
+        const errorMessage = error?.message || 'Failed to delete Model Provider.'
+        q.notify({
+          position: 'top',
+          message: errorMessage,
+          color: 'negative',
+          textColor: 'white',
+          timeout: 3000,
+        })
+        showDeleteDialog.value = false
+      } finally {
+        loading.value = false
+      }
     }
     </script>
     

@@ -48,6 +48,13 @@ class Provider(UUIDAuditSimpleBase):
         index=True,
     )
 
+    # Provider endpoint URL
+    endpoint: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Provider endpoint URL (e.g., API base URL)",
+    )
+
     # Connection configuration (non-sensitive)
     connection_config: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JsonB,

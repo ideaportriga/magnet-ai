@@ -21,7 +21,7 @@ const controls = {
     name: 'provider',
     display: false,
     label: 'Provider',
-    field: 'provider',
+    field: 'provider_name',
     readonly: true,
     columnNumber: 0,
     fromMetadata: false,
@@ -35,9 +35,11 @@ const controls = {
     display: false,
     label: 'Provider',
     field: (row) => {
-      const provider = row?.provider
-      const providerLabel = (store.getters['chroma/provider'].items || []).find((option) => option.id === provider)
-      return providerLabel ? providerLabel.label : provider // Fallback to the code if label not found
+      const providerSystemName = row?.provider_system_name || row?.provider_name
+      const providerLabel = (store.getters['chroma/provider'].items || []).find(
+        (option) => option.system_name === providerSystemName || option.id === providerSystemName
+      )
+      return providerLabel ? providerLabel.label : providerSystemName // Fallback to the system_name if label not found
     },
     readonly: true,
     columnNumber: 0,

@@ -25,6 +25,11 @@ class ProviderFieldsMixin(BaseModel):
         None, description="Provider type (e.g., 'openai', 'azure', 'anthropic')"
     )
 
+    # Provider endpoint URL
+    endpoint: Optional[str] = Field(
+        None, description="Provider endpoint URL (e.g., API base URL)", max_length=500
+    )
+
     # Connection configuration (non-sensitive)
     connection_config: Optional[dict[str, Any]] = Field(
         None, description="Provider configuration (non-sensitive settings)"
@@ -48,6 +53,11 @@ class ProviderUpdateFieldsMixin(BaseModel):
     # Provider type
     type: Optional[str] = Field(
         None, description="Provider type (e.g., 'openai', 'azure', 'anthropic')"
+    )
+
+    # Provider endpoint URL
+    endpoint: Optional[str] = Field(
+        None, description="Provider endpoint URL (e.g., API base URL)", max_length=500
     )
 
     # Connection configuration (non-sensitive)
@@ -77,6 +87,11 @@ class ProviderResponse(BaseSimpleSchema, SecretsEncryptedMixin):
     # Provider type
     type: Optional[str] = Field(
         None, description="Provider type (e.g., 'openai', 'azure', 'anthropic')"
+    )
+
+    # Provider endpoint URL
+    endpoint: Optional[str] = Field(
+        None, description="Provider endpoint URL (e.g., API base URL)", max_length=500
     )
 
     # Connection configuration (non-sensitive)
