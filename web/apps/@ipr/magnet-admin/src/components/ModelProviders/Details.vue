@@ -34,7 +34,7 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
         model-providers-settings(v-if='tab == "settings"')
   template(#drawer)
     model-providers-model-drawer(v-if='tab == "models" && selectedModel')
-    model-providers-drawer(v-else-if='tab == "models"')
+    model-providers-drawer(v-else-if='tab == "models" && availableModels.length > 0')
 </template>
 
 <script>
@@ -46,6 +46,7 @@ export default {
   beforeRouteEnter,
   setup() {
     const { selectedRow, ...useCollection } = useChroma('provider')
+    const { visibleRows: allModels } = useChroma('model')
     
     return {
       tab: ref('models'),
@@ -56,6 +57,7 @@ export default {
       showInfo: ref(false),
       selectedRow,
       useCollection,
+      allModels,
     }
   },
   computed: {
@@ -64,6 +66,12 @@ export default {
     },
     selectedModel() {
       return this.$store.getters['modelConfig/entity']
+    },
+    availableModels() {
+      if (!this.provider?.system_name) {
+        return []
+      }
+      return this.allModels.filter((item) => item.provider_system_name === this.provider.system_name)
     },
     name: {
       get() {
@@ -91,6 +99,21 @@ export default {
         }
       },
     },
+  },
+  mounted() {
+    // Select the first model when component mounts
+    // Sort by is_default (descending) to prioritize default models
+    const sortedModels = [...this.availableModels].sort((a, b) => {
+      if (a.is_default && !b.is_default) return -1
+      if (!a.is_default && b.is_default) return 1
+      return 0
+    })
+    
+    if (sortedModels.length > 0) {
+      this.$store.commit('modelConfig/setEntity', sortedModels[0])
+    } else {
+      this.$store.commit('modelConfig/setEntity', null)
+    }
   },
 }
 </script>
