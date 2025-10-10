@@ -48,7 +48,7 @@
     const showDeleteDialog = ref(false)
     const loading = ref(false)
     
-    const server = computed(() => store.getters.model_provider)
+    const server = computed(() => store.getters.provider)
     
     const info = computed(() => {
       return {
@@ -59,8 +59,26 @@
     
     const save = async () => {
       loading.value = true
-      // await store.dispatch('saveMcpServer')
-      loading.value = false
+      try {
+        await store.dispatch('saveProvider')
+        q.notify({
+          position: 'top',
+          message: 'Model Provider has been saved.',
+          color: 'positive',
+          textColor: 'black',
+          timeout: 1000,
+        })
+      } catch (error) {
+        q.notify({
+          position: 'top',
+          message: 'Failed to save Model Provider.',
+          color: 'negative',
+          textColor: 'white',
+          timeout: 2000,
+        })
+      } finally {
+        loading.value = false
+      }
     }
     const deleteServer = async () => {
       // await deleteMcpServer({ id: store.getters.mcp_server.id })
