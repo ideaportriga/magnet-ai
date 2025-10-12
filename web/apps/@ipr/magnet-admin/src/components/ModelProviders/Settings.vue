@@ -41,7 +41,7 @@
               color='primary'
             )
     .km-description.text-secondary-text.q-pb-4.q-pl-8(v-if='!isEditingEndpoint') Click edit to change endpoint. Warning: this will clear all secrets.
-    .km-description.text-negative.q-pb-4.q-pl-8(v-if='isEditingEndpoint') ⚠️ Changing endpoint will permanently delete all secrets!
+    .km-description.text-negative.q-pb-4.q-pl-8(v-if='isEditingEndpoint') Changing endpoint will permanently delete all secrets!
   
   km-popup-confirm(
     :visible='showEndpointWarning',
