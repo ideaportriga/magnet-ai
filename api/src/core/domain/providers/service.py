@@ -48,3 +48,4 @@ class ProvidersService(service.SQLAlchemyAsyncRepositoryService[Provider]):
         
         # Call parent update method
         return await super().update(data, item_id=item_id, **kwargs)
+

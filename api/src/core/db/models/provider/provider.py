@@ -44,7 +44,7 @@ class Provider(UUIDAuditSimpleBase):
     type: Mapped[Optional[str]] = mapped_column(
         String(100),
         nullable=True,
-        comment="Provider type (e.g., 'openai', 'azure', 'anthropic')",
+        comment="Provider type (e.g., openai, azure_ai, azure_open_ai, oci, oci_llama, groq, datakom etc.)",
         index=True,
     )
 

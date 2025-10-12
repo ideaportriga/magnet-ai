@@ -2,7 +2,6 @@ import time
 
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
-from config.providers import Config
 from openai_model.utils import get_model_by_system_name
 from services.ai_services.factory import get_ai_provider
 from services.observability import observability_context
@@ -13,8 +12,6 @@ from services.observability.models import (
     ObservedFeature,
 )
 from services.observability.utils import get_usage_and_cost_details
-
-DEFAULT_PROVIDER: str = "azure_open_ai"
 
 
 async def create_chat_completion(
@@ -29,7 +26,7 @@ async def create_chat_completion(
     tools: list[dict] | None = None,
     related_prompt_template_config: dict | None = None,
 ) -> ChatCompletion:
-    provider_name = DEFAULT_PROVIDER
+    provider_system_name = None
 
     # Prepare prompt template for traces and metrics
     if related_prompt_template_config:
@@ -65,18 +62,22 @@ async def create_chat_completion(
             if isinstance(display_name, str):
                 call_model.update(display_name=display_name)
 
-            provider_name_from_config = model_config.get("provider")
-            if isinstance(provider_name_from_config, str):
-                call_model.update(provider=provider_name_from_config)
-                provider_name = provider_name_from_config
+            # Use provider_system_name instead of legacy provider field
+            provider_system_name_from_config = model_config.get("provider_system_name")
+            if isinstance(provider_system_name_from_config, str):
+                provider_system_name = provider_system_name_from_config
+                call_model.update(provider=provider_system_name)
+
+    # Validate that we have a provider
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
 
     # Prepare provider details for traces and metrics
-    provider_config = Config.AI_PROVIDERS.get(provider_name)
-    provider_display_name = provider_name
-    if provider_config:
-        provider_display_name = provider_config.get("label")
-        call_model.update(otel_gen_ai_system=provider_config.get("otel_gen_ai_system"))
-    call_model.update(provider_display_name=provider_display_name)
+    # Note: For observability, we'll need to fetch provider info
+    # We'll get it when creating the provider instance below
+    provider_display_name = provider_system_name  # Default to system_name
 
     # Prepare model parameters for traces and metrics
     call_model.update(
@@ -102,7 +103,7 @@ async def create_chat_completion(
         )
 
         # Call LLM, get response and calculate duration
-        provider = get_ai_provider(provider_name)
+        provider = await get_ai_provider(provider_system_name)
         call_start_time = time.time()
         chat_completion = await provider.create_chat_completion(
             messages=messages,
@@ -200,7 +201,7 @@ async def create_chat_completion_from_prompt_template(
 
 async def get_embeddings(text: str, model_system_name: str):
     llm = None
-    provider = DEFAULT_PROVIDER
+    provider_system_name = None
 
     observed_feature = ObservedFeature(
         type=FeatureType.EMBEDDING, system_name=FeatureType.EMBEDDING.value
@@ -217,21 +218,25 @@ async def get_embeddings(text: str, model_system_name: str):
         model_display_name = model_config.get("display_name")
         if model_display_name and isinstance(model_display_name, str):
             call_model.update(display_name=model_display_name)
-        provider_from_config = model_config.get("provider")
-        if provider_from_config and isinstance(provider_from_config, str):
-            provider = provider_from_config
+        
+        # Use provider_system_name instead of legacy provider field
+        provider_system_name_from_config = model_config.get("provider_system_name")
+        if provider_system_name_from_config and isinstance(provider_system_name_from_config, str):
+            provider_system_name = provider_system_name_from_config
+            call_model.update(provider=provider_system_name)
     else:
         raise LookupError(
             f"Model configuration with system_name '{model_system_name}' was not found",
         )
 
+    # Validate that we have a provider
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
+
     # Prepare provider details for traces and metrics
-    provider_config = Config.AI_PROVIDERS.get(provider)
-    provider_display_name = provider
-    if provider_config:
-        provider_display_name = provider_config.get("label")
-        call_model.update(otel_gen_ai_system=provider_config.get("otel_gen_ai_system"))
-    call_model.update(provider=provider, provider_display_name=provider_display_name)
+    provider_display_name = provider_system_name  # Default to system_name
 
     # Prepare model parameters for traces and metrics
     call_model.update(parameters={"llm": llm})
@@ -248,7 +253,7 @@ async def get_embeddings(text: str, model_system_name: str):
         )
 
         # Call the LLM
-        provider = get_ai_provider(provider)
+        provider = await get_ai_provider(provider_system_name)
         call_start_time = time.time()
         embeddings = await provider.get_embeddings(text=text, llm=llm)
         call_end_time = time.time()
