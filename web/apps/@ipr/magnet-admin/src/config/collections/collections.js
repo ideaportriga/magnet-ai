@@ -156,6 +156,44 @@ const sourceTypeChildren = {
       type: 'String',
     },
   ],
+  Documentation: [
+    {
+      name: 'base_url',
+      label: 'Base URL',
+      field: 'base_url',
+      description: 'Base URL of the VitePress documentation site (e.g., http://localhost:5173)',
+      component: 'km-input',
+      readonly: (collection) => !!collection?.last_synced,
+      type: 'String',
+    },
+    {
+      name: 'languages',
+      label: 'Languages',
+      field: 'languages',
+      description: 'Comma-separated list of language codes (e.g., en,ru)',
+      component: 'km-input',
+      readonly: (collection) => !!collection?.last_synced,
+      type: 'String',
+    },
+    {
+      name: 'sections',
+      label: 'Sections',
+      field: 'sections',
+      description: 'Comma-separated list of documentation sections (e.g., quickstarts,admin)',
+      component: 'km-input',
+      readonly: (collection) => !!collection?.last_synced,
+      type: 'String',
+    },
+    {
+      name: 'max_depth',
+      label: 'Max Crawl Depth',
+      field: 'max_depth',
+      description: 'Maximum depth for crawling documentation pages (default: 5)',
+      component: 'km-input',
+      readonly: (collection) => !!collection?.last_synced,
+      type: 'Number',
+    },
+  ],
 }
 const controls = {
   id: {
@@ -273,6 +311,7 @@ const controls = {
       'File',
       'Hubspot',
       'Fluid Topics',
+      'Documentation',
     ],
     children: sourceTypeChildren,
     columnNumber: 1,

@@ -380,11 +380,14 @@ export default defineComponent({
         supportKeywordSearch,
       } = this
 
+      // Transform Documentation source fields
+      const transformedSource = this.transformSourceFields(source)
+
       const merged_metadata = {
         ...JSON.parse(metadata ?? {}),
         ...this.customFields,
         name,
-        source,
+        source: transformedSource,
         show_in_qa: String(show_in_qa),
         category,
         type,
@@ -495,6 +498,37 @@ export default defineComponent({
         timeout: 1000,
       })
       return job
+    },
+    transformSourceFields(source) {
+      // Transform Documentation source fields from comma-separated strings to arrays
+      if (source?.source_type === 'Documentation') {
+        const transformed = { ...source }
+        
+        // Convert languages from string to array
+        if (transformed.languages && typeof transformed.languages === 'string') {
+          transformed.languages = transformed.languages
+            .split(',')
+            .map(lang => lang.trim())
+            .filter(lang => lang.length > 0)
+        }
+        
+        // Convert sections from string to array
+        if (transformed.sections && typeof transformed.sections === 'string') {
+          transformed.sections = transformed.sections
+            .split(',')
+            .map(section => section.trim())
+            .filter(section => section.length > 0)
+        }
+        
+        // Convert max_depth to integer if provided
+        if (transformed.max_depth) {
+          transformed.max_depth = parseInt(transformed.max_depth) || 5
+        }
+        
+        return transformed
+      }
+      
+      return source
     },
     parseJson(str) {
       try {

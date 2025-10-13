@@ -37,6 +37,7 @@ Located in `src/plugins/builtin/knowledge_source/`:
 - **HubSpot** (`hubspot/`)
 - **File URL** (`file/`)
 - **Fluid Topics** (`fluidtopics/`)
+- **Documentation** (`documentation/`) - VitePress documentation crawler
 
 These plugins are included in the public GitHub repository.
 
