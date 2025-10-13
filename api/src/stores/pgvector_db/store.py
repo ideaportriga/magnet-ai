@@ -116,11 +116,25 @@ class PgVectorStore(DocumentStore):
         """)
 
         # Create vector index for similarity search
-        await self.client.execute_command(f"""
-            CREATE INDEX IF NOT EXISTS idx_{table_name}_embedding_cosine
-            ON {table_name} USING hnsw (embedding vector_cosine_ops) 
-            WITH (m = 16, ef_construction = 64)
-        """)
+        if vector_size <= 2000:
+            # Use HNSW for vectors up to 2000 dimensions
+            await self.client.execute_command(f"""
+                CREATE INDEX IF NOT EXISTS idx_{table_name}_embedding_cosine
+                ON {table_name} USING hnsw (embedding vector_cosine_ops) 
+                WITH (m = 16, ef_construction = 64)
+            """)
+        else:
+            # Use IVFFlat for vectors > 2000 dimensions
+            await self.client.execute_command(f"""
+                CREATE INDEX IF NOT EXISTS idx_{table_name}_embedding_ivfflat
+                ON {table_name} USING ivfflat (embedding vector_cosine_ops)
+                WITH (lists = 100)
+            """)
+            logger.info(
+                "Created IVFFlat index for collection %s with %d dimensions",
+                collection_id,
+                vector_size,
+            )
 
         # Create GIN index for metadata
         await self.client.execute_command(f"""
