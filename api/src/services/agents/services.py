@@ -4,6 +4,7 @@ import uuid
 from logging import getLogger
 from typing import Final
 
+from advanced_alchemy.extensions.litestar import filters
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionAssistantMessageParam,
@@ -15,7 +16,6 @@ from openai.types.chat import (
 
 from core.config.app import alchemy
 from core.domain.agents.service import AgentsService
-from core.domain.api_servers.schemas import ApiTool as ApiToolSchema
 from core.domain.api_servers.service import ApiServersService
 from core.domain.collections.schemas import Collection as CollectionSchema
 from core.domain.collections.service import CollectionsService
@@ -54,6 +54,7 @@ from services.agents.models import (
     AgentVariantValue,
     ConversationIntent,
 )
+from services.api_servers.types import ApiServerConfig
 from services.mcp_servers.types import McpServerConfig
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
@@ -471,7 +472,7 @@ async def create_chat_completion_tools(
     chat_completion_tools: list[ChatCompletionToolParam] = []
 
     api_actions = [action for action in actions if action.type == AgentActionType.API]
-    api_servers_by_system_name: dict[str, ApiToolSchema] = {}
+    api_servers_by_system_name: dict[str, ApiServerConfig] = {}
 
     if api_actions:
         api_servers_by_system_name = await get_api_servers_by_system_name(api_actions)
@@ -500,7 +501,7 @@ async def create_chat_completion_tools(
 
 async def create_chat_completion_tool(
     action: AgentAction,
-    api_servers_by_system_name: dict[str, ApiToolSchema],
+    api_servers_by_system_name: dict[str, ApiServerConfig],
     mcp_servers_by_system_name: dict[str, McpServerConfig],
 ) -> ChatCompletionToolParam:
     function_name = action.function_name
@@ -533,18 +534,33 @@ async def create_chat_completion_tool(
 
 async def create_chat_completion_tool_parameters(
     action: AgentAction,
-    api_servers_by_system_name: dict[str, ApiToolSchema],
+    api_servers_by_system_name: dict[str, ApiServerConfig],
     mcp_servers_by_system_name: dict[str, McpServerConfig],
 ) -> dict:
     match action.type:
         case AgentActionType.API:
-            assert action.tool_system_name, "API tool system name is not set"
-            api_tool = api_servers_by_system_name.get(action.tool_system_name)
+            api_server_name = action.tool_provider
+            assert api_server_name
 
-            assert api_tool, "API tool not found"
-            assert api_tool.parameters, "API tool parameters are not defined"
+            api_server = api_servers_by_system_name[api_server_name]
 
-            return api_tool.parameters.input
+            assert api_server
+            assert api_server.tools
+
+            api_server_tool = next(
+                (
+                    tool
+                    for tool in api_server.tools
+                    if tool.system_name == action.tool_system_name
+                ),
+                None,
+            )
+
+            assert api_server_tool, (
+                f"API server tool not found: {action.tool_system_name}"
+            )
+
+            return api_server_tool.parameters.input
 
         # Experimental feature
         case AgentActionType.MCP_TOOL:
@@ -612,34 +628,33 @@ async def create_chat_completion_tool_parameters(
 
 async def get_api_servers_by_system_name(
     api_actions: list[AgentAction],
-) -> dict[str, ApiToolSchema]:
-    api_action_tool_system_names = [action.tool_system_name for action in api_actions]
+) -> dict[str, ApiServerConfig]:
+    api_server_names = list({action.tool_provider for action in api_actions})
 
     async with alchemy.get_session() as session:
         service = ApiServersService(session=session)
-        api_servers = await service.list()
+        api_servers = await service.list(
+            filters.CollectionFilter(field_name="system_name", values=api_server_names),
+        )
 
-        # Extract all tools from all API servers
-        api_tools_entities = []
-        for server in api_servers:
-            server_schema = service.to_schema(server)
-            if server_schema.tools:
-                api_tools_entities.extend(server_schema.tools)
+        api_servers_entities = [
+            service.to_schema(api_server, schema_type=ApiServerConfig)
+            for api_server in api_servers
+        ]
 
-        # Get each API tool by system_name for direct access
-        api_tools_by_system_name = {
-            api_tool.system_name: api_tool
-            for api_tool in api_tools_entities
-            if api_tool.system_name in api_action_tool_system_names
+        if len(api_servers_entities) != len(api_server_names):
+            missing_servers = set(api_server_names) - {
+                server.system_name for server in api_servers_entities
+            }
+            raise LookupError(
+                f"API servers not found for system names: {missing_servers}"
+            )
+
+        api_servers_by_system_name = {
+            mcp_server.system_name: mcp_server for mcp_server in api_servers_entities
         }
 
-        if len(api_tools_by_system_name) != len(api_action_tool_system_names):
-            missing_tools = set(api_action_tool_system_names) - set(
-                api_tools_by_system_name.keys()
-            )
-            raise LookupError(f"API tools not found for system names: {missing_tools}")
-
-    return api_tools_by_system_name
+        return api_servers_by_system_name
 
 
 async def get_mcp_servers_by_system_name(
@@ -650,7 +665,7 @@ async def get_mcp_servers_by_system_name(
     async with alchemy.get_session() as session:
         service = MCPServersService(session=session)
         mcp_servers = await service.list(
-            system_name__in=mcp_server_names,
+            filters.CollectionFilter(field_name="system_name", values=mcp_server_names),
         )
         mcp_servers_entities = [
             service.to_schema(server, schema_type=McpServerConfig)
@@ -702,7 +717,9 @@ async def get_metadata_fields_from_rag_tool(system_name: str):
 
         collections_service = CollectionsService(session=session)
         collections_entities = await collections_service.list(
-            system_name__in=knowledge_sources
+            filters.CollectionFilter(
+                field_name="system_name", values=knowledge_sources
+            ),
         )
 
         metadata_fields = {}
@@ -746,7 +763,9 @@ async def get_metadata_fields_from_retrieval_tool(system_name: str):
 
         collections_service = CollectionsService(session=session)
         collections_entities = await collections_service.list(
-            system_name__in=knowledge_sources
+            filters.CollectionFilter(
+                field_name="system_name", values=knowledge_sources
+            ),
         )
 
         metadata_fields = {}
