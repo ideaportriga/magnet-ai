@@ -7,12 +7,17 @@ from utils.common import transform_schema
 
 class OpenAIProvider(AIProviderInterface):
     def __init__(self, config):
-        self.api_key = config["connection"]["api_key"]
+        self.api_key = config["connection"].get("api_key")
+        self.endpoint = config["connection"].get("endpoint")
         self.model_default = config["defaults"].get("model")
         self.temperature_default = config["defaults"].get("temperature")
         self.top_p_default = config["defaults"].get("top_p")
 
-        self.client = openai.AsyncOpenAI(api_key=self.api_key)
+        # Create client with custom endpoint if provided
+        if self.endpoint:
+            self.client = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.endpoint)
+        else:
+            self.client = openai.AsyncOpenAI(api_key=self.api_key)
 
     async def create_chat_completion(
         self,
