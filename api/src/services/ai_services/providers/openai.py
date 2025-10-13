@@ -2,6 +2,7 @@ import openai
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from services.ai_services.interface import AIProviderInterface
+from services.ai_services.models import EmbeddingResponse, ModelUsage
 from utils.common import transform_schema
 
 
@@ -51,3 +52,25 @@ class OpenAIProvider(AIProviderInterface):
         params["tools"] = tools or openai.NOT_GIVEN
 
         return await self.client.chat.completions.create(**params)
+
+    async def get_embeddings(
+        self,
+        text: str,
+        llm: str | None = None,
+    ) -> EmbeddingResponse:
+        if llm is None:
+            raise ValueError("Model name must be provided")
+
+        response = await self.client.embeddings.create(
+            model=llm,
+            input=text,
+        )
+
+        return EmbeddingResponse(
+            data=response.data[0].embedding,
+            usage=ModelUsage(
+                input_units="tokens",
+                input=response.usage.prompt_tokens,
+                total=response.usage.total_tokens,
+            ),
+        )
