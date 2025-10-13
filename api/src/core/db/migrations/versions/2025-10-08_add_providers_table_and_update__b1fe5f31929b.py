@@ -85,11 +85,7 @@ def schema_upgrades() -> None:
     op.create_index(op.f('ix_providers_name'), 'providers', ['name'], unique=False)
     op.create_index(op.f('ix_providers_type'), 'providers', ['type'], unique=False)
     
-    # Step 2: Drop old tables (cleanup)
-    op.drop_index(op.f('ix_apscheduler_jobs_next_run_time'), table_name='apscheduler_jobs')
-    op.drop_table('apscheduler_jobs')
-    
-    # Step 3: Update ai_models table
+    # Step 2: Update ai_models table
     # Add new columns as nullable first
     op.add_column('ai_models', sa.Column('provider_system_name', sa.String(length=255), nullable=True, comment='Foreign key to provider system_name'))
     op.add_column('ai_models', sa.Column('provider_name', sa.String(length=100), nullable=True, comment='AI provider (e.g., azure_open_ai)'))
@@ -109,7 +105,7 @@ def schema_upgrades() -> None:
     op.create_index(op.f('ix_ai_models_provider_system_name'), 'ai_models', ['provider_system_name'], unique=False)
     op.create_foreign_key(op.f('fk_ai_models_provider_system_name_providers'), 'ai_models', 'providers', ['provider_system_name'], ['system_name'], ondelete='CASCADE')
     
-    # Step 4: Update collections table
+    # Step 3: Update collections table
     op.add_column('collections', sa.Column('provider_system_name', sa.String(length=255), nullable=True, comment='Foreign key to provider system_name'))
     op.create_index(op.f('ix_collections_provider_system_name'), 'collections', ['provider_system_name'], unique=False)
     op.create_foreign_key(op.f('fk_collections_provider_system_name_providers'), 'collections', 'providers', ['provider_system_name'], ['system_name'], ondelete='CASCADE')
@@ -128,13 +124,6 @@ def schema_downgrades() -> None:
     op.create_index(op.f('ix_ai_models_provider'), 'ai_models', ['provider'], unique=False)
     op.drop_column('ai_models', 'provider_name')
     op.drop_column('ai_models', 'provider_system_name')
-    op.create_table('apscheduler_jobs',
-    sa.Column('id', sa.VARCHAR(length=191), autoincrement=False, nullable=False),
-    sa.Column('next_run_time', sa.DOUBLE_PRECISION(precision=53), autoincrement=False, nullable=True),
-    sa.Column('job_state', postgresql.BYTEA(), autoincrement=False, nullable=False),
-    sa.PrimaryKeyConstraint('id', name=op.f('apscheduler_jobs_pkey'))
-    )
-    op.create_index(op.f('ix_apscheduler_jobs_next_run_time'), 'apscheduler_jobs', ['next_run_time'], unique=False)
     op.drop_index(op.f('ix_providers_type'), table_name='providers')
     op.drop_index(op.f('ix_providers_name'), table_name='providers')
     op.drop_index(op.f('ix_providers_description'), table_name='providers')
