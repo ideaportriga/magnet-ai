@@ -9,6 +9,7 @@ class TagNames(StrEnum):
     UserAiApps = "user/ai_apps"
     UserTelemetry = "user/telemetry"
     UserUtils = "user/utils"
+    UserAgentsMessages = "user/agents/messages"
 
 
 def get_tags() -> list[Tag]:
@@ -32,6 +33,10 @@ def get_tags() -> list[Tag]:
         Tag(
             name=TagNames.UserUtils,
             description="User API endpoints related to utility operations.",
+        ),
+        Tag(
+            name=TagNames.UserAgentsMessages,
+            description="User API endpoint for Teams messages (messages endpont for Azure Bot Service).",
         ),
     ]
 
