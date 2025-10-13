@@ -74,6 +74,15 @@ async def on_startup(app: Litestar) -> None:
     # SQLAlchemy is automatically initialized by the plugin
     logger.info("SQLAlchemy engine initialized via plugin")
 
+    # Initialize bots runtime cache
+    try:
+        from services.bots.runtime_cache import BotRuntimeCache
+
+        app.state.bot_runtime_cache = BotRuntimeCache()
+        logger.info("BotRuntimeCache successfully initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize BotRuntimeCache: {e}")
+
 
 async def on_shutdown(app: Litestar) -> None:
     """Shutdown event handler"""

@@ -32,6 +32,25 @@ div
         .km-input-label Question 3
         km-input(v-model='question3', placeholder='What is the maximum discount that can be applied on top of other discounts?')
   q-separator.q-my-lg
+
+  km-section(
+    title='Agent credentials',
+    subTitle='Provide identifiers and a secret to be used by the agent.'
+  )
+    .q-mb-lg
+      .km-input-label Client ID
+      km-input(v-model='client_id', placeholder='Enter client_id')
+    .q-mb-lg
+      .km-input-label Tenant ID
+      km-input(v-model='tenant_id', placeholder='Enter tenant_id')
+    .q-mb-lg
+      .km-input-label Secret value
+      km-input(
+        v-model='secret_value_local',
+        :type='"password"',
+        :placeholder='has_secret_value ? "Saved (leave blank to keep)" : "Enter secret_value"'
+      )
+  q-separator.q-my-lg
 </template>
 
 <script>
@@ -47,6 +66,11 @@ export default {
   setup() {
     return {
       intervals,
+    }
+  },
+  data() {
+    return {
+      secret_value_local: '',
     }
   },
 
@@ -99,6 +123,31 @@ export default {
       set(value) {
         this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.sample_questions.questions.question3', value })
       },
+    },
+    client_id: {
+      get() {
+        return this.$store.getters.agentDetailVariant?.value?.credentials?.client_id || ''
+      },
+      set(value) {
+        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'credentials.client_id', value })
+      },
+    },
+    tenant_id: {
+      get() {
+        return this.$store.getters.agentDetailVariant?.value?.credentials?.tenant_id || ''
+      },
+      set(value) {
+        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'credentials.tenant_id', value })
+      },
+    },
+    has_secret_value() {
+      return !!this.$store.getters.agentDetailVariant?.value?.secrets_encrypted?.secret_value
+    },
+  },
+  watch: {
+    secret_value_local(newVal) {
+      if (!newVal) return
+      this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'secrets_encrypted.secret_value', value: newVal })
     },
   },
 }
