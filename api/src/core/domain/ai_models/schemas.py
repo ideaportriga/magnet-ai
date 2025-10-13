@@ -68,6 +68,11 @@ class AIModelFieldsMixin(BaseModel):
         None, description="URL to pricing/documentation resources"
     )
 
+    # Additional configurations (for embeddings vector_size, etc.)
+    configs: Optional[dict] = Field(
+        None, description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)"
+    )
+
 
 # Mixin for update operations with all fields optional
 class AIModelUpdateFieldsMixin(BaseModel):
@@ -122,6 +127,11 @@ class AIModelUpdateFieldsMixin(BaseModel):
     # Resources and documentation
     resources: Optional[str] = Field(
         None, description="URL to pricing/documentation resources"
+    )
+
+    # Additional configurations (for embeddings vector_size, etc.)
+    configs: Optional[dict] = Field(
+        None, description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)"
     )
 
 

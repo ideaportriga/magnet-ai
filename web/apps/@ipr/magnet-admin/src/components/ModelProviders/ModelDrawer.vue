@@ -40,11 +40,29 @@
         .row.items-center.q-gap-8.q-ml-24
           km-btn.q-px-sm(label='Edit defaults', flat, color='primary', size='sm', dense, no-caps)
       q-separator.q-my-16
-      .km-title Features
-      km-checkbox(label='JSON mode', :model-value='json_mode', @update:model-value='json_mode = $event')
-      km-checkbox(label='Structured Outputs', :model-value='json_schema', @update:model-value='json_schema = $event')
-      km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
-      km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
+      
+      // Features section for prompts models
+      template(v-if='type === "prompts"')
+        .km-title Features
+        km-checkbox(label='JSON mode', :model-value='json_mode', @update:model-value='json_mode = $event')
+        km-checkbox(label='Structured Outputs', :model-value='json_schema', @update:model-value='json_schema = $event')
+        km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
+        km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
+      
+      // Vector configuration for embeddings models
+      template(v-if='type === "embeddings"')
+        .km-title Vector Configuration
+        div
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Vector Size
+          km-input(
+            height='32px',
+            type='number',
+            placeholder='E.g. 1536',
+            :model-value='vectorSize',
+            @update:model-value='vectorSize = $event'
+          )
+          .km-description.text-secondary-text.q-pl-8.q-pt-xs Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
+    
     .column.fit.q-gap-16.overflow-auto.q-pa-16(v-if='tab == "pricing"')
       .km-title Inputs
       div
@@ -314,6 +332,17 @@ export default {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'resources', value })
       },
     },
+    vectorSize: {
+      get() {
+        const configs = this.modelConfig?.configs || {}
+        return configs.vector_size || 1536
+      },
+      set(value) {
+        const configs = this.modelConfig?.configs || {}
+        const newConfigs = { ...configs, vector_size: parseInt(value) || 1536 }
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'configs', value: newConfigs })
+      },
+    },
   },
   methods: {
     async save() {
@@ -355,6 +384,10 @@ export default {
           delete obj.created_by
           delete obj.updated_by
           
+          // Handle configs - remove if empty
+          if (obj.configs && typeof obj.configs === 'object' && Object.keys(obj.configs).length === 0) {
+            delete obj.configs
+          }
           
           console.log('Final object to save:', JSON.parse(JSON.stringify(obj)))
           await this.update({ id: this.modelConfig.id, data: JSON.stringify(obj) })
@@ -367,6 +400,10 @@ export default {
           delete obj.created_by
           delete obj.updated_by
 
+          // Handle configs - remove if empty
+          if (obj.configs && typeof obj.configs === 'object' && Object.keys(obj.configs).length === 0) {
+            delete obj.configs
+          }
           
           console.log('Creating model:', obj)
           await this.create(JSON.stringify(obj))

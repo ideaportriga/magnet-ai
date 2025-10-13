@@ -14,6 +14,7 @@ from models import (
     QueryChunksByCollectionBySource,
 )
 from open_ai.utils_new import get_embeddings
+from openai_model.utils import get_model_by_system_name
 from services.observability import observability_context, observe
 from services.observability.models import SpanType
 from stores.document_store import DocumentStore
@@ -70,8 +71,37 @@ class PgVectorStore(DocumentStore):
         """Get the documents table name for a collection."""
         return f"{self.DOCUMENTS_TABLE_PREFIX}{collection_id.replace('-', '_')}"
 
-    async def _create_documents_table(self, collection_id: str) -> None:
-        """Create documents table for a collection."""
+    async def _get_vector_size_from_model(self, model_system_name: str) -> int:
+        """Get vector size from model configuration.
+        
+        Args:
+            model_system_name: System name of the AI model
+            
+        Returns:
+            Vector size (dimensions), defaults to 1536 if not configured
+        """
+        try:
+            model_config = await get_model_by_system_name(model_system_name)
+            configs = model_config.get("configs", {})
+            if configs and isinstance(configs, dict):
+                vector_size = configs.get("vector_size")
+                if vector_size and isinstance(vector_size, int):
+                    return vector_size
+        except Exception as e:
+            logger.warning(
+                "Failed to get vector size from model %s: %s, using default 1536",
+                model_system_name,
+                e,
+            )
+        return 1536  # Default size for OpenAI ada-002
+
+    async def _create_documents_table(self, collection_id: str, vector_size: int = 1536) -> None:
+        """Create documents table for a collection.
+        
+        Args:
+            collection_id: Collection ID
+            vector_size: Size of the embedding vector (default 1536)
+        """
         table_name = self._get_documents_table_name(collection_id)
 
         await self.client.execute_command(f"""
@@ -79,7 +109,7 @@ class PgVectorStore(DocumentStore):
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 content TEXT NOT NULL,
                 metadata JSONB,
-                embedding vector(1536),
+                embedding vector({vector_size}),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -117,7 +147,22 @@ class PgVectorStore(DocumentStore):
 
         if not table_exists:
             logger.info("Documents table %s does not exist, creating it", table_name)
-            await self._create_documents_table(collection_id)
+            # Get vector size from collection's model
+            try:
+                collection_metadata = await self.get_collection_metadata(collection_id)
+                model_name = collection_metadata.get("ai_model")
+                if model_name:
+                    vector_size = await self._get_vector_size_from_model(model_name)
+                else:
+                    vector_size = 1536  # Default
+            except Exception as e:
+                logger.warning(
+                    "Could not get model info for collection %s: %s, using default vector size",
+                    collection_id,
+                    e,
+                )
+                vector_size = 1536
+            await self._create_documents_table(collection_id, vector_size)
 
     async def _drop_documents_table(self, collection_id: str) -> None:
         """Drop documents table for a collection."""

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
+from advanced_alchemy.types import JsonB
 from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -121,6 +122,11 @@ class AIModel(UUIDAuditSimpleBase):
     # Resources and documentation
     resources: Mapped[Optional[str]] = mapped_column(
         String(500), nullable=True, comment="URL to pricing/documentation resources"
+    )
+
+    # Additional configurations (for embeddings vector_size, etc.)
+    configs: Mapped[Optional[dict]] = mapped_column(
+        JsonB, nullable=True, comment="Additional model configurations (e.g., vector_size for embeddings)"
     )
 
 

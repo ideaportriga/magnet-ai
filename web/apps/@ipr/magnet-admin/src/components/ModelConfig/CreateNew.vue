@@ -70,6 +70,19 @@ km-popup-confirm(
       .row.items-center
         q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='newRow.reasoning', ref='json_modeRef', :rules='config.json_mode.rules')
         .km-field.text-secondary-text Reasoning
+    
+    div(v-if='type === "embeddings"')
+      .km-title.q-mb-md Vector Configuration
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Vector Size
+        .full-width
+          km-input(
+            height='30px',
+            placeholder='E.g. 1536',
+            v-model.number='vectorSize',
+            ref='vectorSizeRef',
+            type='number'
+          )
+          .km-description.text-secondary-text Dimension of the embedding vector (default: 1536). Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
 </template>
 <script>
 import { ref, reactive } from 'vue'
@@ -119,6 +132,7 @@ export default {
         type: props.type,
         tool_calling: false,
         reasoning: false,
+        configs: {},
       }),
       stepper: ref(0),
       autoChangeCode: ref(true),
@@ -127,10 +141,10 @@ export default {
   },
   computed: {
     steps() {
-      if (this.type === 'prompts') {
+      if (this.type === 'prompts' || this.type === 'embeddings') {
         return [
           { step: 0, description: 'Settings', icon: 'pen' },
-          { step: 1, description: 'Capabilities', icon: 'circle' },
+          { step: 1, description: this.type === 'prompts' ? 'Capabilities' : 'Configuration', icon: 'circle' },
         ]
       }
 
@@ -182,6 +196,17 @@ export default {
     currentRaw() {
       return this.$store.getters['modelConfig/entity']
     },
+    vectorSize: {
+      get() {
+        return this.newRow?.configs?.vector_size || 1536
+      },
+      set(val) {
+        if (!this.newRow.configs) {
+          this.newRow.configs = {}
+        }
+        this.newRow.configs.vector_size = parseInt(val) || 1536
+      },
+    },
   },
   watch: {},
   mounted() {
@@ -225,7 +250,13 @@ export default {
     async createModel() {
       if (!this.validateFields()) return
 
-      await this.create(JSON.stringify(this.newRow))
+      // Handle configs - only include if not empty
+      const payload = { ...this.newRow }
+      if (payload.configs && Object.keys(payload.configs).length === 0) {
+        delete payload.configs
+      }
+
+      await this.create(JSON.stringify(payload))
       this.$emit('cancel')
     },
   },
