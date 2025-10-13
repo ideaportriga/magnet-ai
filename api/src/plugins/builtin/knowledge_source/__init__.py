@@ -6,6 +6,8 @@ This package contains knowledge source plugins that are shipped with Magnet AI.
 # Import all plugins to trigger auto-registration
 from . import (
     confluence,
+    file,
+    fluidtopics,
     hubspot,
     oracle_knowledge,
     rightnow,
@@ -16,6 +18,8 @@ from . import (
 
 __all__ = [
     "confluence",
+    "file",
+    "fluidtopics",
     "hubspot",
     "oracle_knowledge",
     "rightnow",

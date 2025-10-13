@@ -16,20 +16,22 @@ The Magnet AI codebase now in2. **Test an external plugin** (e.g., Salesforce):
 - `src/core/plugins/registry.py` - Universal plugin registry (`PluginRegistry`)
 
 #### Built-in Plugins (Public Repository)
-- `src/plugins/builtin/knowledge_source/sharepoint.py` - SharePoint Documents
-- `src/plugins/builtin/knowledge_source/sharepoint.py` - SharePoint Documents
-- `src/plugins/builtin/knowledge_source/sharepoint_pages.py` - SharePoint Pages
-- `src/plugins/builtin/knowledge_source/confluence.py` - Confluence
-- `src/plugins/builtin/knowledge_source/salesforce.py` - Salesforce
-- `src/plugins/builtin/knowledge_source/oracle_knowledge.py` - Oracle Knowledge
-- `src/plugins/builtin/knowledge_source/rightnow.py` - RightNow
-- `src/plugins/builtin/knowledge_source/hubspot.py` - HubSpot
+- `src/plugins/builtin/knowledge_source/sharepoint/` - SharePoint Documents
+- `src/plugins/builtin/knowledge_source/sharepoint_pages/` - SharePoint Pages
+- `src/plugins/builtin/knowledge_source/confluence/` - Confluence
+- `src/plugins/builtin/knowledge_source/salesforce/` - Salesforce
+- `src/plugins/builtin/knowledge_source/oracle_knowledge/` - Oracle Knowledge
+- `src/plugins/builtin/knowledge_source/rightnow/` - RightNow
+- `src/plugins/builtin/knowledge_source/hubspot/` - HubSpot
+- `src/plugins/builtin/knowledge_source/file/` - File URL
+- `src/plugins/builtin/knowledge_source/fluidtopics/` - Fluid Topics
 
-#### External Plugin Examples (Private Repository)
-- `src/plugins/external/knowledge_source/file.py` - File URL (client-specific)
-- `src/plugins/external/knowledge_source/fluidtopics.py` - Fluid Topics (client-specific)
+**Note**: All knowledge source plugins are now built-in and organized in subdirectories with proper structure.
 
-**Note**: External plugins are organized by type, matching the structure of built-in plugins.
+#### External Plugin Directory (For Future Client-Specific Plugins)
+- `src/plugins/external/knowledge_source/` - Reserved for client-specific plugins
+
+**Note**: External plugins directory is now empty but available for future client-specific implementations.
 
 #### Updated Code
 - `src/routes/admin/knowledge_sources.py` - Refactored to use plugin system

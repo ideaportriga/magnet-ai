@@ -18,9 +18,9 @@ external/
 ├── README.md                      # ✅ In git (this file)
 │
 └── knowledge_source/              # Plugin type directory
-    ├── __init__.py                # ✅ In git (required)
-    ├── file.py                    # ❌ NOT in git (client-specific)
-    └── fluidtopics.py             # ❌ NOT in git (client-specific)
+    └── __init__.py                # ✅ In git (required)
+    # Custom client-specific plugins can be added here
+    # Example: custom_plugin/      # ❌ NOT in git (client-specific)
 ```
 
 ## 🔄 How External Plugins are Loaded
@@ -38,8 +38,8 @@ def load_external_plugins(cls):
 
 #### 1️⃣ Local Directory (Development & Private Deployments)
 ```bash
-# Just place plugin file here - it loads automatically!
-api/src/plugins/external/knowledge_source/file.py
+# Just place plugin directory here - it loads automatically!
+api/src/plugins/external/knowledge_source/custom_plugin/
 ```
 
 ✅ No environment variables needed  

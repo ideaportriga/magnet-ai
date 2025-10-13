@@ -28,23 +28,23 @@ Future support planned:
 ### Built-in Plugins (Public Repository)
 
 Located in `src/plugins/builtin/knowledge_source/`:
-- **SharePoint Documents** (`sharepoint.py`)
-- **SharePoint Pages** (`sharepoint_pages.py`)
-- **Confluence** (`confluence.py`)
-- **Salesforce** (`salesforce.py`)
-- **Oracle Knowledge** (`oracle_knowledge.py`)
-- **RightNow** (`rightnow.py`)
-- **HubSpot** (`hubspot.py`)
+- **SharePoint Documents** (`sharepoint/`)
+- **SharePoint Pages** (`sharepoint_pages/`)
+- **Confluence** (`confluence/`)
+- **Salesforce** (`salesforce/`)
+- **Oracle Knowledge** (`oracle_knowledge/`)
+- **RightNow** (`rightnow/`)
+- **HubSpot** (`hubspot/`)
+- **File URL** (`file/`)
+- **Fluid Topics** (`fluidtopics/`)
 
 These plugins are included in the public GitHub repository.
 
 ### External Plugins (Private Repository)
 
 Located in `src/plugins/external/knowledge_source/`:
-- **File URL** (`file.py`) - CLIENT-SPECIFIC
-- **Fluid Topics** (`fluidtopics.py`) - CLIENT-SPECIFIC
 
-**Important**: These plugins should be moved to a private repository and installed as separate packages.
+This directory is reserved for client-specific and proprietary plugins that should NOT be included in the public repository.
 
 **Note**: External plugins follow the same structure as built-in plugins, organized by type in subdirectories.
 

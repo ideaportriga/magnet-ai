@@ -22,18 +22,19 @@
 
 ### 2. Мигрированы все knowledge source плагины
 
-**Builtin плагины** (публичные, 7 штук):
-- `plugins/builtin/knowledge_source/sharepoint.py`
-- `plugins/builtin/knowledge_source/sharepoint_pages.py`
-- `plugins/builtin/knowledge_source/confluence.py`
-- `plugins/builtin/knowledge_source/salesforce.py`
-- `plugins/builtin/knowledge_source/oracle_knowledge.py`
-- `plugins/builtin/knowledge_source/rightnow.py`
-- `plugins/builtin/knowledge_source/hubspot.py`
+**Builtin плагины** (публичные, 9 штук):
+- `plugins/builtin/knowledge_source/sharepoint/`
+- `plugins/builtin/knowledge_source/sharepoint_pages/`
+- `plugins/builtin/knowledge_source/confluence/`
+- `plugins/builtin/knowledge_source/salesforce/`
+- `plugins/builtin/knowledge_source/oracle_knowledge/`
+- `plugins/builtin/knowledge_source/rightnow/`
+- `plugins/builtin/knowledge_source/hubspot/`
+- `plugins/builtin/knowledge_source/file/`
+- `plugins/builtin/knowledge_source/fluidtopics/`
 
-**External плагины** (client-specific, 2 штука):
-- `plugins/external/knowledge_source/file.py`
-- `plugins/external/knowledge_source/fluidtopics.py`
+**External плагины** (директория зарезервирована для client-specific плагинов):
+- `plugins/external/knowledge_source/` - в настоящее время пуста
 
 ---
 
@@ -76,7 +77,7 @@ def sync_collection_standalone(collection_id: str, **kwargs):
 #### 1. Локальная директория (для разработки)
 ```bash
 # Плагины загружаются автоматически из папки
-api/src/plugins/external/knowledge_source/file.py  # Auto-loaded!
+api/src/plugins/external/knowledge_source/custom_plugin/  # Auto-loaded!
 ```
 - ✅ Не нужны переменные окружения
 - ✅ Просто положить файл в папку
@@ -232,7 +233,7 @@ ENV MAGNET_PLUGINS=magnet_plugins_file.plugin
 **Можно держать external плагины локально:**
 ```bash
 # Разработка
-api/src/plugins/external/knowledge_source/file.py
+api/src/plugins/external/knowledge_source/custom_plugin/
 
 # .gitignore автоматически исключит из коммита
 # Плагины загрузятся автоматически без env vars
@@ -269,11 +270,10 @@ api/src/plugins/external/knowledge_source/file.py
    git ls-files src/plugins/external/
    ```
 
-2. **Удалите external плагины из git (если уже закоммичены):**
+2. **Убедитесь, что external плагины не закоммичены:**
    ```bash
-   git rm --cached src/plugins/external/knowledge_source/file.py
-   git rm --cached src/plugins/external/knowledge_source/fluidtopics.py
-   git commit -m "Remove client-specific plugins before public release"
+   git status
+   # Все плагины теперь в builtin, external директория зарезервирована для будущего использования
    ```
 
 3. **Проверьте историю:**
