@@ -141,19 +141,20 @@ const connectors = [
     icon: 'fas fa-book',
     path: 'knowledge-sources',
   },
-  {
-    label: 'Knowledge Providers',
-    icon: 'fas fa-plug',
-    path: 'knowledge-providers',
-  },
-  {
-    label: 'Models',
-    icon: 'fas fa-circle-nodes',
-    path: 'model',
-  },
+  // {
+  //   label: 'Knowledge Providers',
+  //   icon: 'fas fa-plug',
+  //   path: 'knowledge-providers',
+  // },
+  // {
+  //   label: 'Models',
+  //   icon: 'fas fa-circle-nodes',
+  //   path: 'model',
+  // },
   {
     label: 'Model Providers',
-    icon: 'fas fa-network-wired',
+    icon: 'fas fa-circle-nodes',
+    // icon: 'fas fa-network-wired',
     path: 'model-providers',
   },
   {
