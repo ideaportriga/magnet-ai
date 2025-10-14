@@ -1,5 +1,4 @@
 import logging
-import os
 from decimal import Decimal
 from typing import cast
 
@@ -21,6 +20,11 @@ logger_azure.setLevel(logging.WARNING)
 
 class AzureAIProvider(AIProviderInterface):
     def __init__(self, config):
+        # Connection configuration
+        self.api_key = config["connection"]["api_key"]
+        self.endpoint = config["connection"]["endpoint"]
+        self.api_version = config["connection"].get("api_version", "2025-01-01-preview")
+        
         # Default values
         self.model_default = config["defaults"].get("ai_model")
         self.temperature_default = config["defaults"].get("temperature")
@@ -28,97 +32,27 @@ class AzureAIProvider(AIProviderInterface):
         self.max_tokens = config["defaults"].get("max_tokens")
 
         self.timeout = config["connection"].get("timeout", 30_000)
-        self.env_prefix = config["connection"]["env_prefix"]
-
-        self.model_api_keys = self.get_model_configurations()
-
-        # Create embedding clients for all models at initialization
-        self._embedding_clients = {}
-        self._create_embedding_clients()
-
-    def get_model_configurations(self):
-        model_configurations = {}
-
-        for key, value in os.environ.items():
-            if key.startswith(self.env_prefix):
-                # Extract the part after the prefix and split by underscore
-                parts = key[len(self.env_prefix) :].split("_")
-
-                if len(parts) == 2:
-                    model_id = parts[
-                        0
-                    ]  # This will be the unique identifier (like "1" or "2")
-                    attribute = parts[
-                        1
-                    ]  # This will be "DEPLOYMENT", "KEY", or "ENDPOINT"
-
-                    # Check if the attribute is DEPLOYMENT
-                    if attribute == "DEPLOYMENT":
-                        # Initialize a new dictionary for this deployment if not already done
-                        if value not in model_configurations:
-                            model_configurations[value] = {
-                                "key": None,
-                                "endpoint": None,
-                            }
-                    elif attribute == "KEY":
-                        # Fetch the deployment name and set the key
-                        deployment = os.environ.get(
-                            f"{self.env_prefix}{model_id}_DEPLOYMENT",
-                        )
-                        if deployment:
-                            # Initialize if not already done
-                            if deployment not in model_configurations:
-                                model_configurations[deployment] = {
-                                    "key": None,
-                                    "endpoint": None,
-                                }
-                            model_configurations[deployment]["key"] = value
-                    elif attribute == "ENDPOINT":
-                        # Fetch the deployment name and set the endpoint
-                        deployment = os.environ.get(
-                            f"{self.env_prefix}{model_id}_DEPLOYMENT",
-                        )
-                        if deployment:
-                            # Initialize if not already done
-                            if deployment not in model_configurations:
-                                model_configurations[deployment] = {
-                                    "key": None,
-                                    "endpoint": None,
-                                }
-                            model_configurations[deployment]["endpoint"] = value
-
-        return model_configurations
-
-    def _create_embedding_clients(self):
-        """Create embedding clients for all configured models at initialization."""
-        for model_name, config in self.model_api_keys.items():
-            endpoint = config.get("endpoint")
-            api_key = config.get("key")
-
-            if endpoint and api_key:
-                transport = AioHttpTransport(
-                    connection_timeout=10,
-                    read_timeout=30,
-                )
-                retry_policy = AsyncRetryPolicy(
-                    retry_total=3,
-                    retry_backoff_factor=0.8,
-                )
-                self._embedding_clients[model_name] = EmbeddingsClient(
-                    endpoint=endpoint,
-                    credential=AzureKeyCredential(key=api_key),
-                    transport=transport,
-                    retry_policy=retry_policy,
-                )
 
     def _get_embedding_client(self, llm: str) -> EmbeddingsClient:
-        """Get the cached embedding client for the given model."""
-        if llm not in self._embedding_clients:
-            raise ValueError(
-                f"Embedding client for model {llm} not found. Available models: {list(self._embedding_clients.keys())}"
-            )
-
-        return self._embedding_clients[llm]
+        """Get embedding client for the given model (deployment name)."""
+        transport = AioHttpTransport(
+            connection_timeout=10,
+            read_timeout=30,
+        )
+        retry_policy = AsyncRetryPolicy(
+            retry_total=3,
+            retry_backoff_factor=0.8,
+        )
+        
+        # Construct endpoint for specific deployment/model with API version
+        model_endpoint = f"{self.endpoint}/openai/deployments/{llm}?api-version={self.api_version}"
+        
+        return EmbeddingsClient(
+            endpoint=model_endpoint,
+            credential=AzureKeyCredential(key=self.api_key),
+            transport=transport,
+            retry_policy=retry_policy,
+        )
 
     async def create_chat_completion(
         self,
@@ -150,19 +84,16 @@ class AzureAIProvider(AIProviderInterface):
         if tools:
             data["tools"] = tools
 
-        modelConfig = self.model_api_keys.get(model)
-        if not modelConfig:
-            raise ValueError(f"Model {model} not found in configuration")
-        endpoint = modelConfig.get("endpoint")
-        api_key = modelConfig.get("key")
-        headers = {"Authorization": f"Bearer {api_key}"}
+        # Construct endpoint for specific model/deployment with API version
+        model_endpoint = f"{self.endpoint}/openai/deployments/{model}/chat/completions?api-version={self.api_version}"
+        headers = {"api-key": self.api_key}
 
         async with aiohttp.ClientSession(
             timeout=aiohttp.ClientTimeout(total=self.timeout / 1000)
         ) as session:
             try:
                 async with session.post(
-                    endpoint, headers=headers, json=data
+                    model_endpoint, headers=headers, json=data
                 ) as response:
                     response_json = await response.json()
                     response.raise_for_status()
@@ -185,11 +116,6 @@ class AzureAIProvider(AIProviderInterface):
         if llm is None:
             raise ValueError("Model name must be provided")
 
-        # Get model config
-        modelConfig = self.model_api_keys.get(llm)
-        if not modelConfig:
-            raise ValueError(f"Model {llm} not found in configuration")
-
         # Call the Azure API to get the embeddings
         client = self._get_embedding_client(llm)
         response = await client.embed(
@@ -198,6 +124,7 @@ class AzureAIProvider(AIProviderInterface):
             # this argument enables retry for embeding requests, do not remove it
             retry_on_methods=["POST"],
         )
+        await client.close()
 
         return EmbeddingResponse(
             data=cast(list[float], response.data[0].embedding),
@@ -216,14 +143,11 @@ class AzureAIProvider(AIProviderInterface):
         top_n: int,
         truncation: bool,
     ) -> RerankResponse:
-        modelConfig = self.model_api_keys.get(llm)
-        if not modelConfig:
-            raise ValueError(f"Model {llm} not found in configuration")
-        endpoint = modelConfig.get("endpoint")
-        api_key = modelConfig.get("key")
-
+        # Construct endpoint for specific model/deployment with API version
+        model_endpoint = f"{self.endpoint}/openai/deployments/{llm}/rerank?api-version={self.api_version}"
+        
         headers = {
-            "Authorization": f"Bearer {api_key}",
+            "api-key": self.api_key,
             "Content-Type": "application/json",
         }
         data = {
@@ -245,7 +169,7 @@ class AzureAIProvider(AIProviderInterface):
         ) as session:
             try:
                 async with session.post(
-                    endpoint,
+                    model_endpoint,
                     headers=headers,
                     json=data,
                 ) as response:
@@ -280,37 +204,3 @@ class AzureAIProvider(AIProviderInterface):
             reranked_documents.append(doc)
 
         return RerankResponse(data=reranked_documents, usage=usage)
-
-    async def close(self):
-        """Close all cached embedding clients to prevent connection leaks."""
-        for client in self._embedding_clients.values():
-            try:
-                await client.close()
-            except Exception as e:
-                logger_azure.warning(f"Error closing embedding client: {e}")
-
-        self._embedding_clients.clear()
-
-    def __del__(self):
-        """Cleanup method called when the object is being destroyed."""
-        import asyncio
-
-        # Try to close clients if there's an active event loop
-        try:
-            loop = asyncio.get_running_loop()
-            # Schedule the cleanup task
-            loop.create_task(self._cleanup_clients())
-        except RuntimeError:
-            # No event loop running, can't close async clients properly
-            # Just clear the references
-            self._embedding_clients.clear()
-
-    async def _cleanup_clients(self):
-        """Helper method to close all clients."""
-        for client in self._embedding_clients.values():
-            try:
-                await client.close()
-            except Exception as e:
-                logger_azure.warning(f"Error closing embedding client: {e}")
-
-        self._embedding_clients.clear()
