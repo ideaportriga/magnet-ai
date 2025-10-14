@@ -22,7 +22,7 @@ class UserBotsController(Controller):
         "",
         status_code=200,
         exclude_from_auth=True,
-        summary="Lookup agent attributes by client_id",
+        summary="Messaging endpoint for Azure Bot Service (Teams integration)",
         description=(
             "Azure Bot Service messaging endpoint."
         ),

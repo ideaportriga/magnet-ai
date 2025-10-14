@@ -36,7 +36,7 @@ def get_tags() -> list[Tag]:
         ),
         Tag(
             name=TagNames.UserAgentsMessages,
-            description="User API endpoint for Teams messages (messages endpont for Azure Bot Service).",
+            description="User API endpoints for Teams/Slack integrations.",
         ),
     ]
 
