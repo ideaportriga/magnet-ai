@@ -77,6 +77,8 @@ async def _continue_conversation(agent_system_name: str, aad_object_id: str, tex
     except Exception:
         logger.exception("[bots] add_user_message error for conversation %s", conv_id)
         return {}
+    
+
 async def _send_welcome_card(ctx: TurnContext, agent_system_name: str):
     bot_name = getattr(getattr(getattr(ctx, "activity", None), "recipient", None), "name", None) or 'Magnet Agent'
     card = create_welcome_card(bot_name, agent_system_name)
@@ -121,7 +123,7 @@ def _make_on_members_added_handler(agent_system_name: str):
     return on_members_added
 
 
-def _make_on_message_handler(agent_system_name: str):
+def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnState]):
     async def on_message(ctx: TurnContext, _state: TurnState) -> None:
         text = (getattr(getattr(ctx, "activity", None), "text", None) or "").strip()
         if not text:
@@ -131,6 +133,8 @@ def _make_on_message_handler(agent_system_name: str):
         if text.lower() in {"/welcome", "/start"}:
             await _send_welcome_card(ctx, agent_system_name)
             return
+
+        await app.typing.start(ctx)
 
         aad_object_id = getattr(
             getattr(getattr(ctx, "activity", None), "from_property", None),
@@ -159,14 +163,6 @@ def _make_on_message_handler(agent_system_name: str):
             await ctx.send_activity("Hmm, I didn't get a reply")
 
     return on_message
-
-
-async def on_typing(_ctx: TurnContext, _state: TurnState) -> None:  # pragma: no cover - no-op hook
-    return
-
-
-async def on_message_delete(_ctx: TurnContext, _state: TurnState) -> None:  # pragma: no cover - no-op hook
-    return
 
 
 async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
@@ -230,7 +226,5 @@ def register_handlers(app: AgentApplication[TurnState], *, agent_system_name: st
     """Register the activity handlers on the provided application."""
 
     app.conversation_update("membersAdded")(_make_on_members_added_handler(agent_system_name or ""))
-    app.activity("message")(_make_on_message_handler(agent_system_name or ""))
+    app.activity("message")(_make_on_message_handler(agent_system_name or "", app))
     app.activity("invoke")(on_invoke_feedback)
-    app.activity("typing")(on_typing)
-    app.activity("messageDelete")(on_message_delete)

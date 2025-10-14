@@ -87,7 +87,10 @@ def create_magnet_response_card(magnet_response):
                             "type": "Action.ToggleVisibility",
                             "title": "👎 I do not like it",
                             "style": "destructive",
-                            "targetElements": [{"elementId": "dislikeFields", "isVisible": True}],
+                            "targetElements": [
+                                {"elementId": "dislike_fields", "isVisible": True},
+                                {"elementId": "action_buttons", "isVisible": False}
+                            ],
                             "associatedInputs": "none",
                         }
                     ],
@@ -97,26 +100,6 @@ def create_magnet_response_card(magnet_response):
         {"type": "Column", "width": "stretch", "items": []},
     ]
 
-    frontendUrl = os.getenv("MAGNET_FRONTEND_URL")
-    if frontendUrl:
-        columns.append(
-            {
-                "type": "Column",
-                "width": "auto",
-                "items": [
-                    {
-                        "type": "ActionSet",
-                        "actions": [
-                            {
-                                "type": "Action.OpenUrl",
-                                "title": "🔗 Open conversation",
-                                "url": f"{frontendUrl}/#/conversation/{conversation_id}",
-                            }
-                        ],
-                    }
-                ],
-            }
-        )
 
     return {
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
@@ -127,7 +110,7 @@ def create_magnet_response_card(magnet_response):
             {"type": "TextBlock", "text": text, "wrap": True},
             {
                 "type": "Container",
-                "id": "dislikeFields",
+                "id": "dislike_fields",
                 "isVisible": False,
                 "items": [
                     {
@@ -163,7 +146,10 @@ def create_magnet_response_card(magnet_response):
                             {
                                 "type": "Action.ToggleVisibility",
                                 "title": "✖️ Cancel",
-                                "targetElements": [{"elementId": "dislikeFields", "isVisible": False}],
+                                "targetElements": [
+                                    {"elementId": "dislike_fields", "isVisible": False},
+                                    {"elementId": "action_buttons", "isVisible": True}
+                                ],
                                 "style": "destructive",
                                 "associatedInputs": "none",
                             },
@@ -171,7 +157,7 @@ def create_magnet_response_card(magnet_response):
                     },
                 ],
             },
-            {"type": "ColumnSet", "spacing": "Medium", "columns": columns},
+            {"type": "ColumnSet", "id": "action_buttons", "spacing": "Medium", "columns": columns},
         ],
         "msteams": {"width": "Full"},
     }
@@ -182,30 +168,14 @@ def create_feedback_result_card(payload):
     reaction = payload.get("reaction")
     reason = payload.get("reason")
     comment = payload.get("comment")
-    conversation_id = payload.get("conversation_id")
 
     liked = reaction == "like"
     header = "AI Assistant Response"
     ack = "You liked it 👍" if liked else "You disliked it 👎"
 
-    maybe_conversation_link = None
-    frontend_url = os.getenv("MAGNET_FRONTEND_URL")
-    if conversation_id and frontend_url:
-        maybe_conversation_link = {
-            "type": "ActionSet",
-            "actions": [
-                {
-                    "type": "Action.OpenUrl",
-                    "title": "🔗 Open conversation",
-                    "url": f"{frontend_url}/#/conversation/{conversation_id}",
-                }
-            ],
-        }
-
     body = [
         {"type": "TextBlock", "text": header, "weight": "Bolder", "size": "Large"},
         {"type": "TextBlock", "text": text, "wrap": True},
-        maybe_conversation_link,
         {"type": "TextBlock", "text": ack, "isSubtle": True, "wrap": True},
         {"type": "TextBlock", "text": f"Reason: {reason}", "isSubtle": True, "wrap": True} if reason else None,
         {"type": "TextBlock", "text": f"Comment: {comment}", "isSubtle": True, "wrap": True} if comment else None,

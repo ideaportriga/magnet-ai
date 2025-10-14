@@ -54,7 +54,7 @@ class BotRuntimeCache:
         channel_factory = RestChannelServiceClientFactory(StaticConnections(token_provider))
         adapter = CloudAdapter(channel_service_client_factory=channel_factory)
 
-        agent_app = AgentApplication[TurnState](storage=MemoryStorage(), adapter=adapter)
+        agent_app = AgentApplication[TurnState](storage=MemoryStorage(), adapter=adapter, start_typing_timer=False)
         register_handlers(agent_app, agent_system_name=credentials.agent_system_name)
 
         return BotRuntime(
