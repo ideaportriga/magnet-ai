@@ -564,7 +564,7 @@ const apiModelConfig = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `models/${id}/sync`,
+      service: `sql_ai_models/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()

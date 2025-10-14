@@ -348,67 +348,7 @@ export default {
     async save() {
       this.loading = true
       try {
-        console.log('Original modelConfig:', JSON.parse(JSON.stringify(this.modelConfig)))
-        
-        if (this.modelConfig?.created_at) {
-          const obj = { ...this.modelConfig }
-          
-          console.log('provider_system_name before fix:', obj.provider_system_name)
-          console.log('provider_name:', obj.provider_name)
-          
-          // Убедимся, что provider_system_name не null
-          // Если он null, попробуем получить его из списка провайдеров
-          if (!obj.provider_system_name && obj.provider_name) {
-            // Получаем список провайдеров из store
-            const providerItems = this.$store.getters['chroma/provider']?.items || []
-            const provider = providerItems.find(p => 
-              p.id === obj.provider_name || 
-              p.system_name === obj.provider_name
-            )
-            console.log('Found provider:', provider)
-            if (provider) {
-              obj.provider_system_name = provider.system_name
-              console.log('Set provider_system_name to:', provider.system_name)
-              // Также обновляем в store, чтобы не потерять при следующем сохранении
-              this.$store.commit('modelConfig/updateEntityProperty', { 
-                key: 'provider_system_name', 
-                value: provider.system_name 
-              })
-            }
-          }
-          
-          // Удаляем метаданные и audit поля - они управляются на бэкенде
-          delete obj._metadata
-          delete obj.created_at
-          delete obj.updated_at
-          delete obj.created_by
-          delete obj.updated_by
-          
-          // Handle configs - remove if empty
-          if (obj.configs && typeof obj.configs === 'object' && Object.keys(obj.configs).length === 0) {
-            delete obj.configs
-          }
-          
-          console.log('Final object to save:', JSON.parse(JSON.stringify(obj)))
-          await this.update({ id: this.modelConfig.id, data: JSON.stringify(obj) })
-        } else {
-          const obj = { ...this.modelConfig }
-          delete obj.id
-          delete obj._metadata
-          delete obj.created_at
-          delete obj.updated_at
-          delete obj.created_by
-          delete obj.updated_by
-
-          // Handle configs - remove if empty
-          if (obj.configs && typeof obj.configs === 'object' && Object.keys(obj.configs).length === 0) {
-            delete obj.configs
-          }
-          
-          console.log('Creating model:', obj)
-          await this.create(JSON.stringify(obj))
-        }
-        this.$store.commit('modelConfig/setInitEntity')
+        await this.$store.dispatch('modelConfig/saveEntity')
         this.$q.notify({
           position: 'top',
           message: 'Model has been saved.',
