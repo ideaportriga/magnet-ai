@@ -116,6 +116,12 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
             mapOptions,
             optionValue='system_name'
           )
+            template(#option='{ itemProps, opt, selected, toggleOption }')
+              q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
+                q-item-section
+                  q-item-label.km-label {{ opt.display_name }}
+                  .row.q-mt-xs(v-if='opt.provider_system_name')
+                    q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
         .col.q-pt-8.q-mt-md.q-pl-8
           .row.items-baseline
             .col-auto.q-mr-sm

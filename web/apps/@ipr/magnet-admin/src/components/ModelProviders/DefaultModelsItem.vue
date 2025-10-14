@@ -21,11 +21,12 @@
         emit-value,
         map-options
       )
-        template(v-slot:option='scope')
-          q-item(v-bind='scope.itemProps')
+        template(v-slot:option='{ itemProps, opt, selected, toggleOption }')
+          q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
             q-item-section
-              q-item-label {{ scope.opt.display_name }}
-              q-item-label(caption) {{ scope.opt.provider_name }}
+              q-item-label.km-label {{ opt.display_name }}
+              .row.q-mt-xs(v-if='opt.provider_system_name')
+                q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
       .row.q-pt-16.justify-between
         km-btn(label='Cancel' flat @click='cancelEdit')
         km-btn(label='Save' @click='saveDefault')
