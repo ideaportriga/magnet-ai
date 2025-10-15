@@ -1,1 +1,4 @@
 .env
+generated_docs/
+openshift/
+api/src/plugins/external/
