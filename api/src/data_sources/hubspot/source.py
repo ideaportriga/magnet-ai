@@ -1,5 +1,4 @@
 import datetime
-import os
 from typing import Any
 
 import httpx
@@ -18,7 +17,10 @@ class HubspotDataSource(DataSource[dict]):
         """
         self.max_chunk_size = chunk_size
         self.page_limit = page_limit
-        self.token = os.getenv("KNOWLAGE_SOURCE_HUBSPOT") or ""
+        
+        from core.config.base import get_knowledge_source_settings
+        knowledge_settings = get_knowledge_source_settings()
+        self.token = knowledge_settings.HUBSPOT or ""
         self.base_url = "https://api.hubapi.com"
 
     @property

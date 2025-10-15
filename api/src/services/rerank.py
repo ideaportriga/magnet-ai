@@ -1,6 +1,5 @@
 import time
 
-from config.providers import Config
 from models import DocumentSearchResult
 from openai_model.utils import get_model_by_system_name
 from services.ai_services.factory import get_ai_provider
@@ -16,14 +15,12 @@ from stores import get_db_store
 
 store = get_db_store()
 
-DEFAULT_PROVIDER: str = "azure_open_ai"
-
 
 async def rerank(
     documents: DocumentSearchResult, model_system_name: str, top_n: int, query: str
 ) -> DocumentSearchResult:
     llm = None
-    provider = DEFAULT_PROVIDER
+    provider_system_name = None
     top_n = top_n or 5
 
     observed_feature = ObservedFeature(
@@ -40,20 +37,20 @@ async def rerank(
             model_display_name = model_config.get("display_name")
             if model_display_name and isinstance(model_display_name, str):
                 call_model.update(display_name=model_display_name)
-            provider_from_config = model_config.get("provider")
-            if provider_from_config and isinstance(provider_from_config, str):
-                provider = provider_from_config
+            
+            # Use provider_system_name instead of legacy provider field
+            provider_system_name_from_config = model_config.get("provider_system_name")
+            if provider_system_name_from_config and isinstance(provider_system_name_from_config, str):
+                provider_system_name = provider_system_name_from_config
+                call_model.update(provider=provider_system_name)
 
     if not llm:
         raise ValueError("Model configuration is missing or invalid.")
-
-    # Prepare provider details for traces and metrics
-    provider_config = Config.AI_PROVIDERS.get(provider)
-    provider_display_name = provider
-    if provider_config:
-        provider_display_name = provider_config.get("label")
-        call_model.update(otel_gen_ai_system=provider_config.get("otel_gen_ai_system"))
-    call_model.update(provider=provider, provider_display_name=provider_display_name)
+    
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
 
     # Prepare model parameters for traces and metrics
     call_model.update(parameters={"llm": llm, "top_n": top_n})
@@ -80,7 +77,7 @@ async def rerank(
         )
 
         # Call the LLM
-        provider_instance = get_ai_provider(provider)
+        provider_instance = await get_ai_provider(provider_system_name)
         call_start_time = time.time()
         rerank = await provider_instance.rerank(
             documents=documents,

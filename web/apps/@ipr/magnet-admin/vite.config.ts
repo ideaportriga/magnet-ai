@@ -67,5 +67,5 @@ export default defineConfig({
     https: true,
     host: 'localhost',
   },
-  base: './',
+  base: '/admin/',
 })

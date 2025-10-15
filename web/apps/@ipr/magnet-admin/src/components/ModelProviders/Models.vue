@@ -5,7 +5,7 @@
       placeholder='Search',
       iconBefore='search',
       v-model='searchString',
-      @input='debouncedUpdateSearch',
+      @input='searchString = $event',
       clearable
     )
   q-space
@@ -13,36 +13,62 @@
     km-btn.q-mr-12(label='New', @click='showNewDialog = true')
 .row
   km-table(
+    @selectRow='openDetails',
+    selection='single',
+    row-key='id',
+    :selected='modelConfig ? [modelConfig] : []',
     :columns='columns',
     :visibleColumns='visibleColumns',
-    :rows='rows'
+    :rows='filteredRows',
+    :pagination='pagination',
+    binary-state-sort
   )
 model-providers-new-model(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 </template>
-<script setup>
+
+<script>
 import { ref, computed } from 'vue'
-import { debounce } from 'lodash'
-import controls from '@/config/model_providers/models'
+import { useChroma } from '@shared'
 
+export default {
+  setup() {
+    const {
+      searchString,
+      pagination,
+      columns,
+      visibleColumns,
+      visibleRows,
+      selectedRow,
+    } = useChroma('model')
 
-const searchString = ref('')
-const showNewDialog = ref(false)
-const debouncedUpdateSearch = debounce((value) => {
-  searchString.value = value
-}, 300)
-
-const columns = computed(() => {
-  return Object.values(controls)
-})
-const visibleColumns = computed(() => {
-  return Object.keys(controls)
-})
-const rows = ref([])
-
-const visibleRows = computed(() => {
-  return rows.value.filter((row) => {
-    return row.name.toLowerCase().includes(searchString.value.toLowerCase()) //change to fields
-  })
-})
-
+    return {
+      searchString,
+      pagination,
+      columns,
+      visibleColumns,
+      visibleRows,
+      selectedRow,
+      showNewDialog: ref(false),
+    }
+  },
+  computed: {
+    provider() {
+      return this.$store.getters.provider
+    },
+    filteredRows() {
+      if (!this.provider?.system_name) {
+        return []
+      }
+      return this.visibleRows.filter((item) => item.provider_system_name === this.provider.system_name)
+    },
+    modelConfig() {
+      return this.$store.getters['modelConfig/entity']
+    },
+  },
+  methods: {
+    openDetails(row) {
+      this.$store.commit('modelConfig/setEntity', row)
+    },
+  },
+}
 </script>

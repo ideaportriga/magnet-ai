@@ -1,73 +1,46 @@
 import { markRaw } from 'vue'
-import { ChipCopy } from '@ui'
+import Features from './component/Features.vue'
 import Check from './component/Check.vue'
 
 const controls = {
+  display_name: {
+    name: 'display_name',
+    label: 'Display Name',
+    field: 'display_name',
+    align: 'left',
+    sortable: true,
+  },
   name: {
     name: 'name',
-    label: 'Display name',
+    label: 'Name',
     field: 'name',
     align: 'left',
-  },
-  provider: {
-    name: 'provider',
-    label: 'Name',
-    field: 'provider',
-    align: 'left',
+    sortable: true,
   },
   category: {
     name: 'category',
-    label: 'Category',
+    label: 'Type',
     field: 'category',
     align: 'left',
-    type: 'component',
-    component: markRaw(ChipCopy),
-  },
-  json_mode: {
-    name: 'json_mode',
-    label: 'JSON Mode',
-    field: 'json_mode',
-    align: 'center',
-    type: 'component',
-    component: markRaw(Check),
-  },
-  structured_output: {
-    name: 'structured_output',
-    label: 'Structured Output',
-    field: 'structured_output',
-    align: 'center',
-    type: 'component',
-    component: markRaw(Check),
-  },
-  tool_calling: {
-    name: 'tool_calling',
-    type: 'component',
-    display: true,
-    label: 'Tool Calling',
-    field: 'tool_calling',
-    component: markRaw(Check),
-    align: 'center',
     sortable: true,
   },
-  reasoning: {
-    name: 'reasoning',
+  features: {
+    name: 'features',
+    label: 'Features',
+    field: 'features',
+    align: 'left',
     type: 'component',
-    display: true,
-    label: 'Reasoning',
-    field: 'reasoning',
-    component: markRaw(Check),
-    align: 'center',
-    sortable: true,
+    component: markRaw(Features),
+    sortable: false,
   },
   is_default: {
     name: 'is_default',
+    label: 'Default',
     field: 'is_default',
+    align: 'center',
     type: 'component',
     component: markRaw(Check),
-    display: true,
-    label: 'Default Model',
     readonly: true,
-    align: 'left',
     sortable: true,
   },
 }

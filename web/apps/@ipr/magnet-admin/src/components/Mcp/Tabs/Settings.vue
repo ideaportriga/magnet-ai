@@ -39,9 +39,6 @@
       km-btn(label='Add Header Record', @click='addHeader', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
-    km-notification-text(
-      notification='Secrets are securely stored in encrypted format. They cannot be edited individually. To update them, you need to reset all secrets.'
-    )
     km-secrets(v-model:secrets='secrets' :original-secrets='originalMcpSecrets' :remount-value='remountValue')
 </template>
 <script setup>
@@ -86,8 +83,8 @@ const secrets = computed({
 
 
 const toggleEditMode = (value) => {
-  // Ничего дополнительно не делаем, просто переключаем режим
-  // Всегда работаем с secrets_encrypted
+  // Do nothing additional, just toggle mode
+  // Always work with secrets_encrypted
 }
 
 

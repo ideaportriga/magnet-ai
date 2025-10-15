@@ -1,6 +1,6 @@
 import { markRaw } from 'vue'
 import { ChipCopy } from '@ui'
-
+import { formatDateTime } from '@shared/utils/dateTime'
 
 
 const controls = {
@@ -23,8 +23,6 @@ const controls = {
       label: 'Type',
       field: 'type',
       align: 'left',
-      type: 'component',
-      component: markRaw(ChipCopy),
     },
     created_at: {
       name: 'created_at',

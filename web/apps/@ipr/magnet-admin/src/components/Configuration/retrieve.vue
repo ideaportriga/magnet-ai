@@ -79,6 +79,12 @@ km-section(
           mapOptions,
           optionValue='system_name'
         )
+          template(#option='{ itemProps, opt, selected, toggleOption }')
+            q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
+              q-item-section
+                q-item-label.km-label {{ opt.display_name }}
+                .row.q-mt-xs(v-if='opt.provider_system_name')
+                  q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
         .km-field.text-secondary-text Use LLM to rank candidate results. Makes extra calls to LLM
 q-separator.q-my-lg
 

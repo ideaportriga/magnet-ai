@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import aiofiles
 import click
 from sqlalchemy import select
 from structlog import get_logger
@@ -61,8 +62,9 @@ class FixtureLoader:
                 await self.logger.ainfo(f"Loading fixtures from {json_file}")
                 try:
                     # Load JSON data directly since open_fixture_async expects different parameters
-                    with open(json_file, "r", encoding="utf-8") as f:
-                        fixture_data = json.load(f)
+                    async with aiofiles.open(json_file, "r", encoding="utf-8") as f:
+                        content = await f.read()
+                        fixture_data = json.loads(content)
 
                     # Ensure it's a list
                     if not isinstance(fixture_data, list):
@@ -325,7 +327,6 @@ def list_fixtures(fixtures_path: Path | None) -> None:
     for entity_dir in sorted(entity_dirs):
         json_files = list(entity_dir.glob("*.json"))
         json_count = len(json_files)
-        json_names = ", ".join(f.stem for f in json_files) if json_files else "None"
 
         table.add_row(
             entity_dir.name,

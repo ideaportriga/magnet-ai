@@ -113,6 +113,12 @@
           mapOptions,
           :disabled='isDisable'
         )
+          template(#option='{ itemProps, opt, selected, toggleOption }')
+            q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
+              q-item-section
+                q-item-label.km-label {{ opt.display_name }}
+                .row.q-mt-xs(v-if='opt.provider_system_name')
+                  q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
       .col.q-mt-sm
         .row.items-baseline
           .col-auto.q-mr-sm
@@ -151,7 +157,26 @@ export default {
     },
     source_fields: {
       get() {
-        return this.$store.getters.knowledge?.source || {}
+        const source = this.$store.getters.knowledge?.source || {}
+        
+        // Transform Documentation arrays to comma-separated strings for display
+        if (source.source_type === 'Documentation') {
+          const transformed = { ...source }
+          
+          // Convert languages array to string
+          if (Array.isArray(transformed.languages)) {
+            transformed.languages = transformed.languages.join(', ')
+          }
+          
+          // Convert sections array to string
+          if (Array.isArray(transformed.sections)) {
+            transformed.sections = transformed.sections.join(', ')
+          }
+          
+          return transformed
+        }
+        
+        return source
       },
       set(value) {
         this.$store.dispatch('updateKnowledge', { source: value })

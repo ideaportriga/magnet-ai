@@ -7,10 +7,30 @@ These schemas provide a consistent structure for all entities and eliminate code
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
+
+
+class SecretsEncryptedMixin(BaseModel):
+    """
+    Mixin for masking encrypted secrets in API responses.
+    
+    This mixin provides a field serializer that masks the values of encrypted secrets
+    while preserving the keys. Used in Response schemas to prevent exposing sensitive data.
+    """
+
+    @field_serializer("secrets_encrypted", when_used="always", check_fields=False)
+    def serialize_secrets_encrypted(
+        self, value: Optional[Dict[str, Any]]
+    ) -> Optional[Dict[str, str]]:
+        """Serialize secrets to show keys with masked values."""
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return {key: "" for key in value.keys()}
+        return None
 
 
 class BaseSchema(BaseModel):

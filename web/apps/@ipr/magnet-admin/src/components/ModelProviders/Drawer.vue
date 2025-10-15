@@ -20,29 +20,46 @@
       .km-title General settings
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Provider Name
-        km-input(label='Key', :model-value='key')
+        km-input(label='Provider Name', :model-value='provider?.name', @update:model-value='updateProviderProperty("name", $event)')
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Display Name
-        km-input(label='Key', :model-value='key')
+        km-input(label='Display Name', :model-value='provider?.name', @update:model-value='updateProviderProperty("name", $event)')
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
-        km-input(label='Key', :model-value='key')
+        km-input(label='Description', :model-value='provider?.description', @update:model-value='updateProviderProperty("description", $event)')
       div
-        km-checkbox(label='Default', :model-value='key')
+        km-checkbox(label='Default', :model-value='false', disabled)
       q-separator
       .km-title Capabilities
-      km-checkbox(label='JSON Mode', :model-value='key')
-      km-checkbox(label='JSON Schema', :model-value='key')
-      km-checkbox(label='Tool Calling', :model-value='key')
-      km-checkbox(label='Reasoning', :model-value='key')
+      km-checkbox(label='JSON Mode', :model-value='false', disabled)
+      km-checkbox(label='JSON Schema', :model-value='false', disabled)
+      km-checkbox(label='Tool Calling', :model-value='false', disabled)
+      km-checkbox(label='Reasoning', :model-value='false', disabled)
     .column.fit.q-gap-16.q-pa-16(v-if='tab == "pricing"')
       .km-title Pricing
 </template>
-<script setup>
-import { ref } from 'vue'
-const tab = ref('parameters')
-const tabs = ref([
-  { name: 'parameters', label: 'Parameters' },
-  { name: 'pricing', label: 'Pricing' },
-])
+<script>
+import { ref, computed } from 'vue'
+
+export default {
+  setup() {
+    return {
+      tab: ref('parameters'),
+      tabs: ref([
+        { name: 'parameters', label: 'Parameters' },
+        { name: 'pricing', label: 'Pricing' },
+      ]),
+    }
+  },
+  computed: {
+    provider() {
+      return this.$store.getters.provider
+    },
+  },
+  methods: {
+    updateProviderProperty(key, value) {
+      this.$store.commit('updateProviderProperty', { key, value })
+    },
+  },
+}
 </script>

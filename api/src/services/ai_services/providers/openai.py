@@ -2,17 +2,23 @@ import openai
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from services.ai_services.interface import AIProviderInterface
+from services.ai_services.models import EmbeddingResponse, ModelUsage
 from utils.common import transform_schema
 
 
 class OpenAIProvider(AIProviderInterface):
     def __init__(self, config):
-        self.api_key = config["connection"]["api_key"]
+        self.api_key = config["connection"].get("api_key")
+        self.endpoint = config["connection"].get("endpoint")
         self.model_default = config["defaults"].get("model")
         self.temperature_default = config["defaults"].get("temperature")
         self.top_p_default = config["defaults"].get("top_p")
 
-        self.client = openai.AsyncOpenAI(api_key=self.api_key)
+        # Create client with custom endpoint if provided
+        if self.endpoint:
+            self.client = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.endpoint)
+        else:
+            self.client = openai.AsyncOpenAI(api_key=self.api_key)
 
     async def create_chat_completion(
         self,
@@ -46,3 +52,25 @@ class OpenAIProvider(AIProviderInterface):
         params["tools"] = tools or openai.NOT_GIVEN
 
         return await self.client.chat.completions.create(**params)
+
+    async def get_embeddings(
+        self,
+        text: str,
+        llm: str | None = None,
+    ) -> EmbeddingResponse:
+        if llm is None:
+            raise ValueError("Model name must be provided")
+
+        response = await self.client.embeddings.create(
+            model=llm,
+            input=text,
+        )
+
+        return EmbeddingResponse(
+            data=response.data[0].embedding,
+            usage=ModelUsage(
+                input_units="tokens",
+                input=response.usage.prompt_tokens,
+                total=response.usage.total_tokens,
+            ),
+        )

@@ -122,10 +122,32 @@ export const createEntityStore = (namespace) => {
       const obj = { ...getters.entity }
 
       if (getters.entity?.created_at) {
+        // Remove metadata and audit fields - they are managed by backend
         delete obj._metadata
+        delete obj.created_at
+        delete obj.updated_at
+        delete obj.created_by
+        delete obj.updated_by
+        
+        // Remove configs if empty
+        if (obj.configs && typeof obj.configs === 'object' && Object.keys(obj.configs).length === 0) {
+          delete obj.configs
+        }
+        
         await dispatch('chroma/update', { payload: { id: getters.entity.id, data: JSON.stringify(obj) }, entity }, { root: true })
       } else {
         delete obj.id
+        delete obj._metadata
+        delete obj.created_at
+        delete obj.updated_at
+        delete obj.created_by
+        delete obj.updated_by
+        
+        // Remove configs if empty
+        if (obj.configs && typeof obj.configs === 'object' && Object.keys(obj.configs).length === 0) {
+          delete obj.configs
+        }
+        
         await dispatch('chroma/create', { payload: JSON.stringify(obj), entity }, { root: true })
       }
       commit('setInitEntity')

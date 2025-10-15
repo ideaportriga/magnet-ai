@@ -1,4 +1,3 @@
-import os
 from logging import getLogger
 
 import setup  # noqa: F401
@@ -6,8 +5,10 @@ import setup  # noqa: F401
 logger = getLogger(__name__)
 
 from pymongo import MongoClient  # noqa: E402
+from core.config.base import get_vector_database_settings  # noqa: E402
 
-COSMOS_DB_CONNECTION_STRING = os.environ.get("COSMOS_DB_CONNECTION_STRING")
+db_settings = get_vector_database_settings()
+COSMOS_DB_CONNECTION_STRING = db_settings.COSMOS_DB_CONNECTION_STRING
 
 
 def clone_database(source_db_name, target_db_name):

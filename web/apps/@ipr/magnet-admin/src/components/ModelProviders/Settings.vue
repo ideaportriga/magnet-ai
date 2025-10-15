@@ -3,125 +3,201 @@
   km-section(title='General info', subTitle='General Model Provider settings')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
     .row.items-center.q-gap-16.no-wrap
-      km-select.full-width(:model-value='type', readonly, disabled)
+      km-select.full-width(:model-value='provider.type', readonly, disabled)
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg Endpoint
+    .row.items-center.q-gap-8.no-wrap
+      .col
+        .row.items-center.q-gap-8.no-wrap.relative-position
+          km-input.full-width(
+            :model-value='endpointValue', 
+            @update:model-value='tempEndpoint = $event',
+            :readonly='!isEditingEndpoint', 
+            placeholder='https://api.example.com'
+          )
+          .controls.full-height.row.items-center
+            km-btn(
+              v-if='!isEditingEndpoint',
+              icon='fa fa-pen',
+              flat,
+              iconSize='12px',
+              @click='startEditingEndpoint', 
+              size='xs'
+            )
+            km-btn(
+              v-if='isEditingEndpoint',
+              icon='fa fa-xmark',
+              flat,
+              iconSize='12px',
+              @click='cancelEditingEndpoint', 
+              size='xs'
+            )
+            km-btn(
+              v-if='isEditingEndpoint',
+              icon='fa fa-check',
+              flat,
+              iconSize='12px',
+              @click='saveEndpoint', 
+              size='xs',
+              color='primary'
+            )
+    .km-description.text-secondary-text.q-pb-4.q-pl-8(v-if='!isEditingEndpoint') Click edit to change endpoint. Warning: this will clear all secrets.
+    .km-description.text-negative.q-pb-4.q-pl-8(v-if='isEditingEndpoint') Changing endpoint will permanently delete all secrets!
+  
+  km-popup-confirm(
+    :visible='showEndpointWarning',
+    title='Change Endpoint',
+    confirmButtonLabel='Yes, Clear Secrets',
+    cancelButtonLabel='Cancel',
+    notification='Changing the endpoint will permanently delete all encrypted secrets. You will need to re-enter all credentials after this change.',
+    @confirm='confirmEndpointChange',
+    @cancel='cancelEndpointChange'
+  )
+    .text-body1 Are you sure you want to change the endpoint?
+    .text-body2.q-mt-md Current endpoint: {{ provider.endpoint || 'Not set' }}
+    .text-body2 New endpoint: {{ tempEndpoint }}
+
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Connection', subTitle='Connection parameters like endpoints and headers')
-    km-notification-text(
-      notification='Secrets are securely stored in encrypted format. They cannot be edited individually. To update them, you need to reset all secrets.'
-    )
-    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in connection', :key='key')
+    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in connectionEntries', :key='key')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(label='Key', :model-value='key', @update:model-value='updateRecord(key, $event, value)')
+        km-input(label='Key', :model-value='key', @update:model-value='updateConnectionKey(key, $event)')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(label='Value', :model-value='value', @update:model-value='updateRecord(key, key, $event)')
+        km-input(label='Value', :model-value='value', @update:model-value='updateConnectionValue(key, $event)')
       .col-auto
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-        km-btn(@click='removeRecord(key)', icon='o_delete', size='sm', flat, color='negative')
+        km-btn(@click='removeConnection(key)', icon='o_delete', size='sm', flat, color='negative')
     .row.q-pt-16
-      km-btn(label='Add Record', @click='addRecord', size='sm', icon='o_add', flat)
+      km-btn(label='Add Record', @click='addConnection', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
-    km-notification-text(
-      notification="Secrets are securely stored in encrypted format. They cannot be edited individually. To update them, you need to reset all secrets."
-    )
-    .row.items-center.q-gap-8.no-wrap.q-mt-md(v-for='[key, value] in secretsArray', :key='key')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(label='Key', :model-value='key', @update:model-value='updateSecret(key, $event, value)', :readonly='!editMode')
-      .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(
-          label='Value', 
-          :model-value='getSecretDisplayValue(key, value)', 
-          @update:model-value='updateSecret(key, key, $event)', 
-          :readonly='!editMode',
-          :placeholder='editMode ? "Enter new value" : ""'
-        )
-      .col-auto(v-if='editMode')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
-        km-btn(@click='removeSecret(key)', icon='o_delete', size='sm', flat, color='negative')
-    .row.q-pt-16
-      template(v-if='editMode')
-        km-btn(label='Add Secret', @click='addSecret', size='sm', icon='o_add', flat)
-        km-btn(label='Cancel', @click='store.dispatch("toggleApiSettingsSecretsEditMode", false)', size='sm', flat)
-      template(v-else)
-        km-btn(
-          :label='hasExistingSecrets ? "Edit Secrets" : "Add Secrets"',
-          @click='initializeSecretsEdit',
-          size='sm',
-          icon='o_edit',
-          flat
-        )
-
-
+    km-secrets(v-model:secrets='secrets' :original-secrets='originalProviderSecrets' :remount-value='remountValue')
 </template>
+
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { computed, ref } from 'vue'
+import { useStore } from 'vuex'
 
-const type = ref('')
-const editMode = ref(false)
+const store = useStore()
 
-const temp = reactive({
-  connection: new Map(),
-  secrets: new Map(),
-})
+const provider = computed(() => store.getters.provider)
 
-const connection = computed({
-  get() {
-    return temp.connection
-  },
-  set(value) {
-    console.log(value)
-    temp.connection = value
-  },
-})
+const isEditingEndpoint = ref(false)
+const tempEndpoint = ref('')
+const showEndpointWarning = ref(false)
 
-const addRecord = () => {
-  const newConnection = new Map(connection.value)
-  newConnection.set('', '')
-  connection.value = newConnection
-}
-
-const removeRecord = (key) => {
-  const newConnection = new Map(connection.value)
-  newConnection.delete(key)
-  connection.value = newConnection
-}
-
-const updateRecord = (oldKey, newKey, newValue) => {
-  const currentConnection = connection.value
-  const entries = [...currentConnection.entries()]
-  const idx = entries.findIndex(([k]) => k === oldKey)
-
-  if (idx !== -1) {
-    entries[idx] = [newKey, newValue] // replace in place
-  } else {
-    entries.push([newKey, newValue]) // add new
+const endpointValue = computed(() => {
+  if (isEditingEndpoint.value) {
+    return tempEndpoint.value
   }
+  return provider.value?.endpoint || ''
+})
 
-  connection.value = new Map(entries)
+const startEditingEndpoint = () => {
+  tempEndpoint.value = provider.value?.endpoint || ''
+  isEditingEndpoint.value = true
 }
 
+const cancelEditingEndpoint = () => {
+  isEditingEndpoint.value = false
+  tempEndpoint.value = provider.value?.endpoint || ''
+}
 
-//secrets
+const saveEndpoint = () => {
+  if (tempEndpoint.value !== provider.value?.endpoint) {
+    showEndpointWarning.value = true
+  } else {
+    isEditingEndpoint.value = false
+  }
+}
+
+const confirmEndpointChange = () => {
+  // Update endpoint
+  store.commit('updateProviderProperty', { 
+    key: 'endpoint', 
+    value: tempEndpoint.value 
+  })
+  // Clear secrets as backend will do
+  store.commit('updateProviderProperty', { 
+    key: 'secrets_encrypted', 
+    value: {} 
+  })
+  showEndpointWarning.value = false
+  isEditingEndpoint.value = false
+  tempEndpoint.value = ''
+}
+
+const cancelEndpointChange = () => {
+  showEndpointWarning.value = false
+  tempEndpoint.value = provider.value?.endpoint || ''
+}
+
+const connectionEntries = computed(() => {
+  const config = provider.value?.connection_config || {}
+  return Object.entries(config)
+})
+
+const originalProviderSecrets = computed(() => store.getters.originalProviderSecrets)
+const remountValue = computed(() => provider.value?.updated_at)
+
 const secrets = computed({
   get() {
-    return temp.secrets
+    const encryptedSecrets = provider.value?.secrets_encrypted
+    if (!encryptedSecrets) {
+      return {}
+    }
+    return encryptedSecrets
   },
   set(value) {
-    temp.secrets = value
+    store.commit('updateProviderProperty', { 
+      key: 'secrets_encrypted', 
+      value 
+    })
   },
 })
 
+const addConnection = () => {
+  const newConfig = { ...provider.value.connection_config, '': '' }
+  store.commit('updateProviderProperty', { 
+    key: 'connection_config', 
+    value: newConfig 
+  })
+}
 
-const secretsArray = computed(() => {
-  const secretsMap = secrets.value
-  if (secretsMap instanceof Map) {
-    return Array.from(secretsMap.entries())
-  }
-  return []
-})
+const removeConnection = (key) => {
+  const newConfig = { ...provider.value.connection_config }
+  delete newConfig[key]
+  store.commit('updateProviderProperty', { 
+    key: 'connection_config', 
+    value: newConfig 
+  })
+}
 
+const updateConnectionKey = (oldKey, newKey) => {
+  const config = { ...provider.value.connection_config }
+  const value = config[oldKey]
+  delete config[oldKey]
+  config[newKey] = value
+  store.commit('updateProviderProperty', { 
+    key: 'connection_config', 
+    value: config 
+  })
+}
+
+const updateConnectionValue = (key, newValue) => {
+  const config = { ...provider.value.connection_config }
+  config[key] = newValue
+  store.commit('updateProviderProperty', { 
+    key: 'connection_config', 
+    value: config 
+  })
+}
 </script>
+
+<style lang="stylus" scoped>
+.controls
+  position: absolute
+  right: 5px
+  top: 0
+</style>

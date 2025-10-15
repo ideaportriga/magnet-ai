@@ -1,6 +1,7 @@
 import { required, minLength } from '@shared/utils/validationRules'
 import Check from './component/Check.vue'
-import Radio from './component/Radio.vue'
+import Features from './component/Features.vue'
+import TypeChip from './component/TypeChip.vue'
 import { markRaw } from 'vue'
 import store from '@/store'
 import { formatDateTime } from '@shared/utils/dateTime'
@@ -20,7 +21,7 @@ const controls = {
     name: 'provider',
     display: false,
     label: 'Provider',
-    field: 'provider',
+    field: 'provider_name',
     readonly: true,
     columnNumber: 0,
     fromMetadata: false,
@@ -31,32 +32,19 @@ const controls = {
   },
   providerLabel: {
     name: 'providerLabel',
-    display: true,
+    display: false,
     label: 'Provider',
     field: (row) => {
-      const provider = row?.provider
-      const providerLabel = (store.getters['chroma/provider'].items || []).find((option) => option.id === provider)
-      return providerLabel ? providerLabel.label : provider // Fallback to the code if label not found
+      const providerSystemName = row?.provider_system_name || row?.provider_name
+      const providerLabel = (store.getters['chroma/provider'].items || []).find(
+        (option) => option.system_name === providerSystemName || option.id === providerSystemName
+      )
+      return providerLabel ? providerLabel.label : providerSystemName // Fallback to the system_name if label not found
     },
     readonly: true,
     columnNumber: 0,
     fromMetadata: false,
     ignorePatch: true,
-    rules: [required()],
-    align: 'left',
-    sortable: true,
-  },
-
-  model: {
-    name: 'model',
-    display: true,
-    label: 'Model',
-    field: 'ai_model',
-    readonly: true,
-    columnNumber: 0,
-    fromMetadata: false,
-    ignorePatch: true,
-    validate: true,
     rules: [required()],
     align: 'left',
     sortable: true,
@@ -88,6 +76,44 @@ const controls = {
     align: 'left',
     sortable: true,
   },
+  model: {
+    name: 'model',
+    display: true,
+    label: 'Name',
+    field: 'ai_model',
+    readonly: true,
+    columnNumber: 0,
+    fromMetadata: false,
+    ignorePatch: true,
+    validate: true,
+    rules: [required()],
+    align: 'left',
+    sortable: true,
+  },
+  type: {
+    name: 'type',
+    display: true,
+    label: 'Type',
+    field: 'type',
+    type: 'component',
+    component: markRaw(TypeChip),
+    readonly: true,
+    fromMetadata: false,
+    ignorePatch: true,
+    validate: true,
+    align: 'left',
+    sortable: true,
+  },
+  features: {
+    name: 'features',
+    label: 'Features',
+    type: 'component',
+    field: 'features',
+    component: markRaw(Features),
+    display: true,
+    align: 'left',
+    sortable: false,
+  },
 
   json_mode: {
     name: 'json_mode',
@@ -95,7 +121,7 @@ const controls = {
     type: 'component',
     field: 'json_mode',
     component: markRaw(Check),
-    display: true,
+    display: false,
     align: 'center',
     sortable: true,
   },
@@ -112,7 +138,7 @@ const controls = {
   tool_calling: {
     name: 'tool_calling',
     type: 'component',
-    display: true,
+    display: false,
     label: 'Tool Calling',
     field: 'tool_calling',
     component: markRaw(Check),
@@ -122,7 +148,7 @@ const controls = {
   reasoning: {
     name: 'reasoning',
     type: 'component',
-    display: true,
+    display: false,
     label: 'Reasoning',
     field: 'reasoning',
     component: markRaw(Check),
@@ -133,23 +159,12 @@ const controls = {
     name: 'is_default',
     field: 'is_default',
     type: 'component',
-    component: markRaw(Radio),
+    component: markRaw(Check),
     display: true,
     label: 'Default',
     readonly: true,
-    align: 'left',
+    align: 'center',
     sortable: true,
-  },
-  type: {
-    name: 'type',
-    display: false,
-    label: 'Type',
-    field: 'type',
-    readonly: true,
-    fromMetadata: false,
-    ignorePatch: true,
-    validate: true,
-    align: 'left',
   },
   is_active: {
     name: 'is_active',

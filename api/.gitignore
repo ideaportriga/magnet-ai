@@ -147,3 +147,19 @@ REFACTORING.md
 
 # GritQL refactoring
 .grit
+
+# ============================================================================
+# PLUGIN SYSTEM - External Plugins
+# ============================================================================
+# Exclude all client-specific plugins from external/ directory
+# but keep the __init__.py files and README.md for structure
+
+# Exclude all content in external plugin subdirectories
+src/plugins/external/*/
+
+# But keep __init__.py files (required for Python packages)
+!src/plugins/external/*/__init__.py
+
+# Keep the main external __init__.py and README
+!src/plugins/external/__init__.py
+!src/plugins/external/README.md

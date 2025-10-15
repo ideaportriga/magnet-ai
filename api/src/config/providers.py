@@ -1,6 +1,4 @@
-import os
-
-env = os.environ
+from core.config.base import get_ai_providers_settings
 
 # provider: azure_open_ai
 #   Cohere-command-r-plus-xrfkk
@@ -26,6 +24,8 @@ class Config:
     TEMPERATURE_DEFAULT = 0.0
     TOP_P_DEFAULT = 1.0
 
+    ai_settings = get_ai_providers_settings()
+
     # provider configurations
     AI_PROVIDERS = {
         "azure_ai": {
@@ -48,11 +48,11 @@ class Config:
             "type": "groq",
             "otel_gen_ai_system": "groq",
             "connection": {
-                "api_key": env.get("GROQ_AI_KEY"),
-                "endpoint": env.get("GROQ_AI_ENDPOINT"),
+                "api_key": ai_settings.GROQ_API_KEY,
+                "endpoint": ai_settings.GROQ_ENDPOINT,
             },
             "defaults": {
-                "model": env.get("OPENAI_MODEL_DEFAULT"),
+                "model": ai_settings.OPENAI_MODEL_DEFAULT,
                 "temperature": TEMPERATURE_DEFAULT,
                 "top_p": TOP_P_DEFAULT,
                 "max_tokens": 2000,
@@ -63,8 +63,8 @@ class Config:
             "type": "datakom",
             "otel_gen_ai_system": "datakom",
             "connection": {
-                "api_key": env.get("TMP_LOCAL_OPEN_AI_KEY"),
-                "endpoint": env.get("TMP_LOCAL_OPEN_AI_ENDPOINT"),
+                "api_key": ai_settings.TMP_LOCAL_OPEN_AI_KEY,
+                "endpoint": ai_settings.TMP_LOCAL_OPEN_AI_ENDPOINT,
             },
             "defaults": {
                 "temperature": TEMPERATURE_DEFAULT,
@@ -77,10 +77,10 @@ class Config:
             "type": "openai",
             "otel_gen_ai_system": "openai",
             "connection": {
-                "api_key": env.get("OPEN_AI_KEY"),
+                "api_key": ai_settings.OPENAI_API_KEY,
             },
             "defaults": {
-                "model": env.get("OPENAI_MODEL_DEFAULT"),
+                "model": ai_settings.OPENAI_MODEL_DEFAULT,
                 "temperature": TEMPERATURE_DEFAULT,
                 "top_p": TOP_P_DEFAULT,
                 "max_tokens": 2000,
@@ -91,14 +91,12 @@ class Config:
             "type": "azure_open_ai",
             "otel_gen_ai_system": "az.ai.openai",
             "connection": {
-                "api_key": env.get("AZURE_OPENAI_API_KEY"),
-                "endpoint": env.get("AZURE_BASE_URL"),
-                "api_version": env.get(
-                    "AZURE_OPENAI_API_VERSION", "2023-03-15-preview"
-                ),
+                "api_key": ai_settings.AZURE_OPENAI_API_KEY,
+                "endpoint": ai_settings.AZURE_BASE_URL,
+                "api_version": ai_settings.AZURE_OPENAI_API_VERSION,
             },
             "defaults": {
-                "model": env.get("AZURE_OPENAI_DEPLOYMENT_NAME"),
+                "model": ai_settings.AZURE_OPENAI_DEPLOYMENT_NAME,
                 "temperature": TEMPERATURE_DEFAULT,
                 "top_p": TOP_P_DEFAULT,
             },
@@ -108,13 +106,13 @@ class Config:
             "type": "oci",
             "otel_gen_ai_system": "oci",
             "connection": {
-                "user": env.get("OCI_USER"),
-                "fingerprint": env.get("OCI_FINGERPRINT"),
-                "tenancy": env.get("OCI_TENANCY"),
-                "region": env.get("OCI_REGION"),
-                "key_content": env.get("OCI_KEY"),
-                "endpoint": env.get("OCI_ENDPOINT"),
-                "compartment_id": env.get("OCI_COMPARTMENT_ID"),
+                "user": ai_settings.OCI_USER,
+                "fingerprint": ai_settings.OCI_FINGERPRINT,
+                "tenancy": ai_settings.OCI_TENANCY,
+                "region": ai_settings.OCI_REGION,
+                "key_content": ai_settings.OCI_KEY,
+                "endpoint": ai_settings.OCI_ENDPOINT,
+                "compartment_id": ai_settings.OCI_COMPARTMENT_ID,
             },
             "defaults": {
                 "model": "cohere.command-r-16k",
@@ -130,13 +128,13 @@ class Config:
             "type": "oci_llama",
             "otel_gen_ai_system": "oci",
             "connection": {
-                "user": env.get("OCI_USER"),
-                "fingerprint": env.get("OCI_FINGERPRINT"),
-                "tenancy": env.get("OCI_TENANCY"),
-                "region": env.get("OCI_REGION"),
-                "key_content": env.get("OCI_KEY"),
-                "endpoint": env.get("OCI_ENDPOINT"),
-                "compartment_id": env.get("OCI_COMPARTMENT_ID"),
+                "user": ai_settings.OCI_USER,
+                "fingerprint": ai_settings.OCI_FINGERPRINT,
+                "tenancy": ai_settings.OCI_TENANCY,
+                "region": ai_settings.OCI_REGION,
+                "key_content": ai_settings.OCI_KEY,
+                "endpoint": ai_settings.OCI_ENDPOINT,
+                "compartment_id": ai_settings.OCI_COMPARTMENT_ID,
             },
             "defaults": {
                 "model": "cohere.command-r-16k",

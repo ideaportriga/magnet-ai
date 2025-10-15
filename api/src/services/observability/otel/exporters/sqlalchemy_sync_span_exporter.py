@@ -150,12 +150,8 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
             from core.config.app import settings
 
             # Create synchronous engine for the exporter
-            database_url = settings.db.URL
-            if database_url.startswith("postgresql+asyncpg://"):
-                # Convert to sync URL
-                database_url = database_url.replace(
-                    "postgresql+asyncpg://", "postgresql://"
-                )
+            # Use sync_url which already handles converting async drivers to sync
+            database_url = settings.db.sync_url
 
             self._engine = create_engine(
                 database_url,

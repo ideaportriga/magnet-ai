@@ -1,17 +1,16 @@
-import os
-
 import structlog
 
 from observability.azure_insight import AzureLogger
+from core.config.base import get_general_settings
 
 logger = structlog.get_logger(__name__)
-env = os.environ
 
 
 def get_default_properties():
+    general_settings = get_general_settings()
     return {
         "app": "magnetui",
-        "env": env.get("ENV", "local"),
+        "env": general_settings.ENV or "local",
         "user_id": "test-user-id",
     }
 

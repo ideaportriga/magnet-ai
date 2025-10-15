@@ -7,12 +7,13 @@ from __future__ import annotations
 from http import HTTPMethod
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field
 
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
     BaseSimpleUpdateSchema,
+    SecretsEncryptedMixin,
 )
 from services.api_servers.types import SystemName
 
@@ -70,7 +71,7 @@ class ApiServer(BaseSimpleSchema):
     )
 
 
-class ApiServerResponse(BaseSimpleSchema):
+class ApiServerResponse(BaseSimpleSchema, SecretsEncryptedMixin):
     """API server schema for API responses with masked secrets."""
 
     url: str = Field(..., description="API server URL")
@@ -87,17 +88,6 @@ class ApiServerResponse(BaseSimpleSchema):
     secrets_encrypted: Optional[Dict[str, str]] = Field(
         default=None, description="Encrypted secrets with masked values"
     )
-
-    @field_serializer("secrets_encrypted", when_used="always")
-    def serialize_secrets_encrypted(
-        self, value: Optional[Dict[str, Any]]
-    ) -> Optional[Dict[str, str]]:
-        """Serialize secrets to show keys with masked values."""
-        if value is None:
-            return None
-        if isinstance(value, dict):
-            return {key: "***" for key in value.keys()}
-        return None
 
 
 class ApiServerCreate(BaseSimpleCreateSchema):

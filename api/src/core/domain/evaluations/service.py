@@ -15,7 +15,7 @@ class EvaluationsService(service.SQLAlchemyAsyncRepositoryService[Evaluation]):
         score_comment: str | None = None,
     ) -> bool:
         """
-        Обновить score и score_comment для конкретного result в results (ORM way).
+        Update score and score_comment for a specific result in results (ORM way).
         """
         import logging
 

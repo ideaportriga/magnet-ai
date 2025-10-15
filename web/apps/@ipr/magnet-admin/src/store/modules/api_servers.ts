@@ -19,6 +19,14 @@ const getters = {
   toolByName: (state) => (name) => {
     return state.api_server.tools?.find((tool) => tool.system_name === name)
   },
+  originalApiSecrets: (state) => {
+    const secrets = state.initialApiServer.secrets_encrypted
+    if (!secrets) return []
+    if (secrets instanceof Map) {
+      return Array.from(secrets.keys())
+    }
+    return Object.keys(secrets)
+  },
 }
 
 const mutations = {

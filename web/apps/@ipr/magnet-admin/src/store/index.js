@@ -30,6 +30,7 @@ import llmDashboard from './modules/llmDashboard'
 import conversation from './modules/conversation'
 import mcp_server from './modules/mcp_server'
 import api_servers from './modules/api_servers'
+import providers from './modules/providers'
 
 const merged = mergeModules([
   main,
@@ -57,6 +58,7 @@ const merged = mergeModules([
   conversation,
   mcp_server,
   api_servers,
+  providers,
 ])
 
 const setStoreDefaults = () => {}

@@ -1,4 +1,5 @@
 .env
+.venv
+.vscode
 generated_docs/
 openshift/
-api/src/plugins/external/

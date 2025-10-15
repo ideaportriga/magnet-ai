@@ -22,9 +22,12 @@ class FluidTopicsDataSource(DataSource[str]):
             filters (List[dict]): A list of filters for the Fluid Topics.
 
         """
-        self._search_api_key = os.getenv("FLUID_TOPICS_API_KEY")
-        self._search_api_url = os.getenv("FLUID_TOPICS_SEARCH_API_URL")
-        self._pdf_api_url = os.getenv("FLUID_TOPICS_PDF_API_URL")
+        from core.config.base import get_knowledge_source_settings
+        knowledge_settings = get_knowledge_source_settings()
+        
+        self._search_api_key = knowledge_settings.FLUID_TOPICS_API_KEY
+        self._search_api_url = knowledge_settings.FLUID_TOPICS_SEARCH_API_URL
+        self._pdf_api_url = knowledge_settings.FLUID_TOPICS_PDF_API_URL
         self._filters = filters
 
     @property
@@ -129,7 +132,9 @@ class FluidTopicsDataSource(DataSource[str]):
             raise RuntimeError(f"Failed to get data from Fluid Topics: {e}") from e
 
     def _replace_viewer_base_url(self, viewer_url: str) -> str:
-        new_base_url = os.environ.get("FLUID_TOPICS_VIEWER_BASE_URL")
+        from core.config.base import get_knowledge_source_settings
+        knowledge_settings = get_knowledge_source_settings()
+        new_base_url = knowledge_settings.FLUID_TOPICS_VIEWER_BASE_URL
         if not new_base_url or not viewer_url:
             return viewer_url
 

@@ -68,7 +68,7 @@ The Post-processing Prompt Template provides instructions on how to extract thes
 
 ## UI settings
 
-UI Settings provide additional customization options for end-user experience, such as heading and subheading and sample questions that give users a hint on what kind of questions they can ask. Here you can also enable user feedback to collect likes and dislikes. Сhanges that you make are immediately available in the Preview area.
+UI Settings provide additional customization options for end-user experience, such as heading and subheading and sample questions that give users a hint on what kind of questions they can ask. Here you can also enable user feedback to collect likes and dislikes. Changes that you make are immediately available in the Preview area.
 
 ![](../../../images/2025-06-02-14-35-12-image.png)
 

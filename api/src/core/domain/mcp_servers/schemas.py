@@ -6,12 +6,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import Field, field_serializer
+from pydantic import Field
 
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
     BaseSimpleUpdateSchema,
+    SecretsEncryptedMixin,
 )
 
 
@@ -32,7 +33,7 @@ class MCPServer(BaseSimpleSchema):
     )
 
 
-class MCPServerResponse(BaseSimpleSchema):
+class MCPServerResponse(BaseSimpleSchema, SecretsEncryptedMixin):
     """MCP server schema for API responses with masked secrets."""
 
     transport: str = Field(..., description="Transport protocol (e.g., sse)")
@@ -46,17 +47,6 @@ class MCPServerResponse(BaseSimpleSchema):
     secrets_encrypted: Optional[Dict[str, str]] = Field(
         default=None, description="Encrypted secrets with masked values"
     )
-
-    @field_serializer("secrets_encrypted", when_used="always")
-    def serialize_secrets_encrypted(
-        self, value: Optional[Dict[str, Any]]
-    ) -> Optional[Dict[str, str]]:
-        """Serialize secrets to show keys with masked values."""
-        if value is None:
-            return None
-        if isinstance(value, dict):
-            return {key: "" for key in value.keys()}
-        return None
 
 
 class MCPServerCreate(BaseSimpleCreateSchema):

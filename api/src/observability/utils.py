@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 
 from openai.types.chat import ChatCompletion
@@ -7,8 +6,7 @@ from openai.types.chat import ChatCompletion
 from observability.event_logger import EventLogger
 from open_ai.utils_new import create_chat_completion
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
-
-env = os.environ
+from core.config.base import get_general_settings
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -76,7 +74,8 @@ async def _chat_completion(prompt_template_system_name, user_message) -> ChatCom
 
 
 async def is_answered(user_message, prompt_template="IS_ANSWERED"):
-    default_answer = env.get("NO_ANSWER_TEXT", "")
+    general_settings = get_general_settings()
+    default_answer = general_settings.NO_ANSWER_TEXT
 
     try:
         if user_message == default_answer:

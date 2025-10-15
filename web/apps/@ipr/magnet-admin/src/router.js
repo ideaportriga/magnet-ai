@@ -191,7 +191,7 @@ const routes = [
     meta: {
       pageLabel: 'Model Providers',
       chroma: true,
-      entity: 'model_providers',
+      entity: 'provider',
     },
   },
   {
@@ -467,6 +467,8 @@ const routes = [
     component: KnowledgeProvidersDetails,
     meta: {
       pageLabel: 'Knowledge Source Providers',
+      chroma: true,
+      entity: 'provider',
     },
   },
   

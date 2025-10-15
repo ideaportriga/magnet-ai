@@ -1,12 +1,13 @@
 import json
-import os
 from logging import getLogger
 
 from cryptography.fernet import Fernet
 
-env = os.environ
+from core.config.base import get_general_settings
 
-SECRET_ENCRYPTION_KEY = env.get("SECRET_ENCRYPTION_KEY", "")
+general_settings = get_general_settings()
+
+SECRET_ENCRYPTION_KEY = general_settings.SECRET_ENCRYPTION_KEY
 SECRET_ENCRYPTION_ENCODING = "utf-8"
 
 logger = getLogger(__name__)
@@ -62,6 +63,10 @@ def replace_placeholders_in_dict(data: dict[str, str], values: dict[str, str]) -
     """
     result: dict[str, str] = {}
     for dict_key, dict_value in data.items():
-        result[dict_key] = replace_placeholders_in_string(dict_value, values)
+        # Only process string values, keep others as-is
+        if isinstance(dict_value, str):
+            result[dict_key] = replace_placeholders_in_string(dict_value, values)
+        else:
+            result[dict_key] = dict_value
 
     return result

@@ -17,6 +17,7 @@ from core.domain.jobs import JobsController as JobsControllerSQL
 from core.domain.mcp_servers import MCPServersController as MCPServersControllerSQL
 from core.domain.metrics import MetricsController
 from core.domain.prompts import PromptsController
+from core.domain.providers import ProvidersController
 from core.domain.rag_tools import RagToolsController as RagToolsControllerSQL
 from core.domain.retrieval_tools import (
     RetrievalToolsController as RetrievalToolsControllerSQL,
@@ -86,6 +87,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         EvaluationSetsControllerSQL,
         EvaluationsControllerSQL,
         MetricsController,
+        ProvidersController,
         RetrievalToolsControllerSQL,
         RagToolsControllerSQL,
         TracesController,
@@ -165,6 +167,29 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         import os
         print("Working directory:", os.getcwd())
 
+        # Serve static assets for each app
+        static_router_admin_assets = create_static_files_router(
+            path="/admin/assets",
+            directories=["web/admin/assets"],
+            html_mode=False,
+            opt={"exclude_from_auth": True},
+        )
+
+        static_router_panel_assets = create_static_files_router(
+            path="/panel/assets",
+            directories=["web/panel/assets"],
+            html_mode=False,
+            opt={"exclude_from_auth": True},
+        )
+
+        static_router_help_assets = create_static_files_router(
+            path="/help/assets",
+            directories=["web/help/assets"],
+            html_mode=False,
+            opt={"exclude_from_auth": True},
+        )
+
+        # Serve HTML and other root files
         static_router_admin = create_static_files_router(
             path="/admin",
             directories=["web/admin"],
@@ -186,6 +211,13 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
             opt={"exclude_from_auth": True},
         )
 
-        routes.extend([static_router_admin, static_router_panel, static_router_help])
+        routes.extend([
+            static_router_admin_assets,
+            static_router_panel_assets,
+            static_router_help_assets,
+            static_router_admin,
+            static_router_panel,
+            static_router_help,
+        ])
 
     return routes

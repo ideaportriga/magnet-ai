@@ -1,22 +1,23 @@
-import os
 from urllib.parse import quote_plus
 
+from core.config.base import get_vector_database_settings, get_general_settings
 from stores.oracle.client import OracleDbClient
 from stores.oracle.store import OracleDbStore
 
 # from open_ai.oci_embedding import oci_embedding
 
-db_type = os.environ.get("DB_TYPE", "")
+general_settings = get_general_settings()
+db_settings = get_vector_database_settings()
+
+db_type = db_settings.VECTOR_DB_TYPE
 
 if db_type == "ORACLE":
-    oracle_username = os.environ.get("ORACLE_USERNAME", "")
-    oracle_password = os.environ.get("ORACLE_PASSWORD", "")
-    oracle_host = os.environ.get("ORACLE_HOST", "")
-    oracle_port = os.environ.get("ORACLE_PORT", "")
-    oracle_service_name = os.environ.get("ORACLE_SERVICE_NAME", "")
-    oracle_mongo_connection_string = os.environ.get(
-        "ORACLE_MONGO_CONNECTION_STRING", ""
-    )
+    oracle_username = db_settings.ORACLE_USERNAME
+    oracle_password = db_settings.ORACLE_PASSWORD
+    oracle_host = db_settings.ORACLE_HOST
+    oracle_port = db_settings.ORACLE_PORT
+    oracle_service_name = db_settings.ORACLE_SERVICE_NAME
+    oracle_mongo_connection_string = db_settings.ORACLE_MONGO_CONNECTION_STRING
 
     dsn = f"(DESCRIPTION=\
                 (RETRY_COUNT=20)(RETRY_DELAY=3)\
