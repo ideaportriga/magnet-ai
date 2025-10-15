@@ -259,7 +259,7 @@ async def classify_conversation(
 
 EXECUTE_TOPIC_MAX_ITERATIONS = 5
 
-ACTION_MESSAGE_ARGUMENT_NAME: Final = "actionMessage"
+ACTION_MESSAGE_ARGUMENT_NAME: Final = "_magnetActionMessage"
 
 # TODO - avoid hardcoding
 env = os.environ
@@ -434,8 +434,13 @@ def create_action_call_requests(
 
         function = tool_call.function
         function_name = function.name
-        arguments = json.loads(function.arguments)
+        arguments: dict = json.loads(function.arguments)
         action = actions_by_function_name.get(function_name)
+        action_message=arguments.pop(
+            ACTION_MESSAGE_ARGUMENT_NAME,
+            action.display_name,
+        )
+
 
         if not action:
             logger.warning(f'Action is missing for function "{function_name}"')
@@ -454,10 +459,7 @@ def create_action_call_requests(
                 action_display_description=action.display_description,
                 requires_confirmation=action.requires_confirmation,
                 use_response_as_assistant_message=action.use_response_as_assistant_message,
-                action_message=arguments.get(
-                    ACTION_MESSAGE_ARGUMENT_NAME,
-                    action.display_name,
-                ),
+                action_message=action_message,
                 variables=variables,
             ),
         )
