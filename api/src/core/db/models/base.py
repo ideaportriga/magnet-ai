@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.mixins import UniqueMixin
-from advanced_alchemy.types import DateTimeUTC, JsonB
+from advanced_alchemy.types import JsonB
 from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql.elements import ColumnElement

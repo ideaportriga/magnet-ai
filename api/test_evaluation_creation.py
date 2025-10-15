@@ -47,7 +47,7 @@ async def test_evaluation_creation():
             evaluation = await evaluations_service.create(evaluation_data)
 
             print(f"✅ Успешно создана evaluation с ID: {evaluation.id}")
-            print(f"📊 Данные evaluation:")
+            print("📊 Данные evaluation:")
             print(f"   - ID: {evaluation.id}")
             print(f"   - Job ID: {evaluation.job_id}")
             print(f"   - Type: {evaluation.type}")

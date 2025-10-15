@@ -22,7 +22,6 @@ from services.rag_tools.models import (
 )
 from services.rerank import rerank
 from services.retrieve import retrieve
-from stores import get_db_client
 from type_defs.pagination import FilterObject
 from validation.rag_tools import (
     GenerateConfig,

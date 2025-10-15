@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, StrEnum
 from typing import Optional
 
@@ -15,7 +15,6 @@ from prompt_templates.prompt_templates import get_prompt_template_by_system_name
 from services.observability import observability_context, observe
 from services.rag_tools import execute_rag_tool
 from services.utils.metadata_filtering import metadata_filter_to_filter_object
-from stores import get_db_client
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

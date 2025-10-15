@@ -11,8 +11,6 @@ from azure.core.pipeline.policies import AsyncRetryPolicy
 from azure.core.pipeline.transport import AioHttpTransport
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
-from azure.ai.inference.aio import EmbeddingsClient
-from azure.core.credentials import AzureKeyCredential
 from models import DocumentSearchResult
 from services.ai_services.interface import AIProviderInterface
 from services.ai_services.models import EmbeddingResponse, ModelUsage, RerankResponse
