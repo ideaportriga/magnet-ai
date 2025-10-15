@@ -2,3 +2,4 @@
 .venv
 .vscode
 generated_docs/
+openshift/

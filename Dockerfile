@@ -62,6 +62,10 @@ COPY --from=web-builder /web/knowledge-magnet/admin/app ./web/admin
 COPY --from=web-builder /web/knowledge-magnet/panel/app ./web/panel
 COPY --from=web-builder /web/documentation/magnet/.vitepress/dist ./web/help
 
+# Set proper permissions for config directories (similar to nginx container)
+RUN chgrp -R 0 /app/web/admin/config /app/web/panel/config \
+    && chmod -R g+rwX /app/web/admin/config /app/web/panel/config
+
 # Copy only installed API dependencies
 COPY --from=api-builder /app/.venv ./.venv
 

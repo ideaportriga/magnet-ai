@@ -424,10 +424,6 @@ def schema_upgrades() -> None:
     op.create_index(op.f('ix_traces_status'), 'traces', ['status'], unique=False)
     op.create_index(op.f('ix_traces_type'), 'traces', ['type'], unique=False)
     op.create_index(op.f('ix_traces_user_id'), 'traces', ['user_id'], unique=False)
-    op.drop_index(op.f('test_vectors_embedding_idx'), table_name='test_vectors', postgresql_ops={'embedding': 'vector_cosine_ops'}, postgresql_with={'lists': '100'}, postgresql_using='ivfflat')
-    op.drop_table('test_vectors')
-    op.drop_index(op.f('embeddings_openai_embedding_idx'), table_name='embeddings_openai', postgresql_ops={'embedding': 'vector_cosine_ops'}, postgresql_with={'lists': '100'}, postgresql_using='ivfflat')
-    op.drop_table('embeddings_openai')
     # ### end Alembic commands ###
 
 def schema_downgrades() -> None:
