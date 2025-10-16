@@ -444,63 +444,6 @@ class AzureSettings:
     """Azure Application Insights connection string."""
 
 
-### AI PROVIDERS SETTINGS ###
-
-@dataclass
-class AIProvidersSettings:
-    """AI providers configuration"""
-
-    # OpenAI
-    OPENAI_API_KEY: str = field(default_factory=get_env("OPEN_AI_KEY", ""))
-    """OpenAI API key."""
-    OPENAI_MODEL_DEFAULT: str = field(
-        default_factory=get_env("OPENAI_MODEL_DEFAULT", "gpt-4o-mini")
-    )
-    """Default OpenAI model."""
-
-    # Groq
-    GROQ_API_KEY: str = field(default_factory=get_env("GROQ_AI_KEY", ""))
-    """Groq API key."""
-    GROQ_ENDPOINT: str = field(default_factory=get_env("GROQ_AI_ENDPOINT", ""))
-    """Groq endpoint."""
-
-    # Datakom (Temporary Local OpenAI)
-    TMP_LOCAL_OPEN_AI_KEY: str = field(default_factory=get_env("TMP_LOCAL_OPEN_AI_KEY", ""))
-    """Temporary local OpenAI API key."""
-    TMP_LOCAL_OPEN_AI_ENDPOINT: str = field(default_factory=get_env("TMP_LOCAL_OPEN_AI_ENDPOINT", ""))
-    """Temporary local OpenAI endpoint."""
-
-    # OCI
-    OCI_USER: str = field(default_factory=get_env("OCI_USER", ""))
-    """OCI user."""
-    OCI_FINGERPRINT: str = field(default_factory=get_env("OCI_FINGERPRINT", ""))
-    """OCI fingerprint."""
-    OCI_TENANCY: str = field(default_factory=get_env("OCI_TENANCY", ""))
-    """OCI tenancy."""
-    OCI_REGION: str = field(default_factory=get_env("OCI_REGION", ""))
-    """OCI region."""
-    OCI_KEY: str = field(default_factory=get_env("OCI_KEY", ""))
-    """OCI private key content."""
-    OCI_ENDPOINT: str = field(default_factory=get_env("OCI_ENDPOINT", ""))
-    """OCI endpoint."""
-    OCI_COMPARTMENT_ID: str = field(default_factory=get_env("OCI_COMPARTMENT_ID", ""))
-    """OCI compartment ID."""
-
-    # Azure OpenAI
-    AZURE_OPENAI_API_KEY: str = field(default_factory=get_env("AZURE_OPENAI_API_KEY", ""))
-    """Azure OpenAI API key."""
-    AZURE_BASE_URL: str = field(default_factory=get_env("AZURE_BASE_URL", ""))
-    """Azure OpenAI base URL."""
-    AZURE_OPENAI_API_VERSION: str = field(
-        default_factory=get_env("AZURE_OPENAI_API_VERSION", "2023-03-15-preview")
-    )
-    """Azure OpenAI API version."""
-    AZURE_OPENAI_DEPLOYMENT_NAME: str = field(
-        default_factory=get_env("AZURE_OPENAI_DEPLOYMENT_NAME", "")
-    )
-    """Azure OpenAI deployment name."""
-
-
 ### AUTHENTICATION SETTINGS ###
 
 @dataclass
@@ -694,7 +637,6 @@ class Settings:
     log: LogSettings = field(default_factory=LogSettings)
     observability: ObservabilitySettings = field(default_factory=ObservabilitySettings)
     azure: AzureSettings = field(default_factory=AzureSettings)
-    ai_providers: AIProvidersSettings = field(default_factory=AIProvidersSettings)
     knowledge_sources: KnowledgeSourceSettings = field(default_factory=KnowledgeSourceSettings)
 
     @classmethod
@@ -764,11 +706,6 @@ def get_observability_settings() -> ObservabilitySettings:
 @lru_cache(maxsize=1, typed=True)
 def get_azure_settings() -> AzureSettings:
     return get_settings().azure
-
-
-@lru_cache(maxsize=1, typed=True)
-def get_ai_providers_settings() -> AIProvidersSettings:
-    return get_settings().ai_providers
 
 
 @lru_cache(maxsize=1, typed=True)
