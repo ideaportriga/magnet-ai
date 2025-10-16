@@ -1,7 +1,7 @@
 from logging import getLogger
 
 from core.config.app import alchemy
-from core.domain.ai_models.schemas import AIModel
+from core.domain.ai_models.schemas import AIModel, AIModelUpdate
 from core.domain.ai_models.service import AIModelsService
 
 logger = getLogger(__name__)
@@ -53,9 +53,10 @@ async def set_default_model(type_value: str, system_name: str):
             models_of_type = await service.list(type=type_value)
             for model in models_of_type:
                 if model.is_default:
-                    # Create a dictionary with only the fields we want to update
+                    # Create an AIModelUpdate object with only the fields we want to update
+                    update_data = AIModelUpdate(is_default=False)
                     await service.update(
-                        {"is_default": False}, item_id=model.id, auto_commit=False
+                        update_data, item_id=model.id, auto_commit=False
                     )
 
             # Then, find the target model and set it as default
@@ -69,7 +70,7 @@ async def set_default_model(type_value: str, system_name: str):
                 )
 
             await service.update(
-                {"is_default": True}, item_id=target_model.id, auto_commit=True
+                AIModelUpdate(is_default=True), item_id=target_model.id, auto_commit=True
             )
 
     except Exception as err:
