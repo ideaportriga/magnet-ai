@@ -42,10 +42,6 @@ from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
 )
-from .admin.model_providers import (
-    ModelProvidersController,
-    ModelProvidersControllerDeprecated,
-)
 from .admin.models import ModelsController
 from .admin.observability import observability_router
 from .admin.prompt_templates import PromptTemplatesController
@@ -102,8 +98,6 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         knowledge_sources_router_deprecated,
         McpServersController,
         ModelsController,
-        ModelProvidersController,
-        ModelProvidersControllerDeprecated,
         observability_router,
         PromptsController,
         PromptTemplatesController,

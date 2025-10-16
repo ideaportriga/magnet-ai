@@ -670,7 +670,7 @@ const modelProviders = {
         if (response.error) throw response
       })
       .then(() => {
-        dispatch('get', { entity: 'model_providers' })
+        dispatch('get', { entity: 'provider' })
         return true
       })
       .catch((res) => {
