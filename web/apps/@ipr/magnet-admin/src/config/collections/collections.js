@@ -194,25 +194,25 @@ const sourceTypeChildren = {
       type: 'Number',
     },
   ],
-  BeeInfo: [
-    {
-      name: 'additional_slug',
-      label: 'Additional Slug',
-      field: 'additional_slug',
-      description: 'Optional additional slug to append to the API endpoint',
-      component: 'km-input',
-      readonly: (collection) => !!collection?.last_synced,
-      type: 'String',
-    },
-    {
-      name: 'external_only',
-      label: 'External Only',
-      field: 'external_only',
-      description: 'Only process accordion items with external=true flag',
-      component: 'km-toggle',
-      type: 'Boolean',
-    },
-  ],
+  // BeeInfo: [
+  //   {
+  //     name: 'additional_slug',
+  //     label: 'Additional Slug',
+  //     field: 'additional_slug',
+  //     description: 'Optional additional slug to append to the API endpoint',
+  //     component: 'km-input',
+  //     readonly: (collection) => !!collection?.last_synced,
+  //     type: 'String',
+  //   },
+  //   {
+  //     name: 'external_only',
+  //     label: 'External Only',
+  //     field: 'external_only',
+  //     description: 'Only process accordion items with external=true flag',
+  //     component: 'km-toggle',
+  //     type: 'Boolean',
+  //   },
+  // ],
 }
 const controls = {
   id: {
