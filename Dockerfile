@@ -71,4 +71,4 @@ ENV PYTHONPATH=/app/src
 ENV PORT=8000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD [".venv/bin/uvicorn", "app:app", "--host", "0.0.0.0", "--port", "${PORT}"]
+CMD .venv/bin/uvicorn app:app --host 0.0.0.0 --port ${PORT}
