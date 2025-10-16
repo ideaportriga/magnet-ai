@@ -45,7 +45,7 @@ export default {
         const res = await this.create(JSON.stringify(this.newTool))
         if (res.ok) {
           const data = await res.json()
-          this.$router?.push(`/api-tools/${data.inserted_id}`)
+          this.$router?.push(`/api-tools/${data?.id}`)
           this.$emit('cancel')
         }
       }

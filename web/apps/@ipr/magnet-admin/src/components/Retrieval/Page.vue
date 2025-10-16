@@ -135,15 +135,6 @@ export default {
     async openNewDetails() {
       this.showNewDialog = true
     },
-    async createRetrieval() {
-      if (this.validation(this.newRow)) {
-        this.createNew = false
-        const { inserted_id } = await this.create(JSON.stringify(this.newRow))
-        await this.useCollection.selectRecord(inserted_id)
-        this.$store.commit('setRetrieval', this.newRow)
-        this.$router.push(`/retrieval/${inserted_id}`)
-      }
-    },
     validation(retrieval, notify = true) {
       const { name, description, system_name, retrieve } = retrieval
       const { collection_system_names } = retrieve

@@ -101,15 +101,6 @@ export default {
     async openNewDetails() {
       this.showNewDialog = true
     },
-    async createRow() {
-      if (this.validation(this.newRow)) {
-        this.createNew = false
-        const result = await this.create(JSON.stringify(this.newRow))
-        await this.useCollection.selectRecord(result.inserted_id)
-        await this.$store.commit('setPromptTemplate', this.newRow)
-        this.$router.push(`/prompt-templates/${result.inserted_id}`)
-      }
-    },
     validation(row, notify = true) {
       const { name, description, system_name, category } = row
 

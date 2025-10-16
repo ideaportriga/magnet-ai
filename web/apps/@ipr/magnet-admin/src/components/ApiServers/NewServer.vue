@@ -105,13 +105,11 @@ export default {
       if (!this.validateFields()) return
 
       this.createNew = false
-      console.log(this.newRow)
-      const { inserted_id } = await this.create(JSON.stringify(this.newRow))
-      await this.useApiServers.selectRecord(inserted_id)
-      const server = this.items.find((item) => item.id === inserted_id)
-      console.log('server', server)
+      const { id } = await this.create(JSON.stringify(this.newRow))
+      await this.useApiServers.selectRecord(id)
+      const server = this.items.find((item) => item.id === id)
       this.$store.commit('setApiServer', server)
-      this.$router.push(`/api-servers/${inserted_id}`)
+      this.$router.push(`/api-servers/${id}`)
       this.$emit('cancel')
     },
   },
