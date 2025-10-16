@@ -16,6 +16,7 @@ from services.common.models import (
 )
 from .cards import create_welcome_card, create_magnet_response_card, create_feedback_result_card
 from logging import getLogger
+import traceback
 
 
 logger = getLogger(__name__)
@@ -24,7 +25,7 @@ logger = getLogger(__name__)
 async def _continue_conversation(agent_system_name: str, aad_object_id: str, text: str) -> dict[str, str | None]:
     """Continue or start an agent conversation and return the assistant's reply payload."""
     client_id = f"{aad_object_id}@{agent_system_name}"
-    logger.info("[bots] _continue_conversation started: client_id=%s", client_id)
+    logger.info("[agents] _continue_conversation started: client_id=%s", client_id)
 
     def _payload(conversation_id: str, message: Any) -> dict[str, str | None]:
         return {
@@ -45,9 +46,9 @@ async def _continue_conversation(agent_system_name: str, aad_object_id: str, tex
 
     try:
         last = await get_last_conversation_by_client_id(client_id)
-    except Exception:
-        logger.exception("[bots] failed to fetch last conversation for %s", client_id)
-        return {}
+    except Exception as e:
+        logger.exception("[agents] failed to fetch last conversation for %s", client_id)
+        raise e
 
     if not last:
         try:
@@ -58,11 +59,11 @@ async def _continue_conversation(agent_system_name: str, aad_object_id: str, tex
             )
             conv_id = str(getattr(resp, "id", "")) or ""
             assistant = _extract_assistant(resp)
-            logger.info("[bots] created conversation %s", conv_id)
+            logger.info("[agents] created conversation %s", conv_id)
             return _payload(conv_id, assistant)
-        except Exception:
-            logger.exception("[bots] create_conversation error for %s", client_id)
-            return {}
+        except Exception as e:
+            logger.exception("[agents] create_conversation error for %s", client_id)
+            raise e
 
     conv_id = str(getattr(last, "id", "")) or ""
     try:
@@ -72,11 +73,11 @@ async def _continue_conversation(agent_system_name: str, aad_object_id: str, tex
             user_message_content=text,
         )
         assistant = _extract_assistant(resp)
-        logger.info("[bots] appended user message to %s", conv_id)
+        logger.info("[agents] appended user message to %s", conv_id)
         return _payload(conv_id, assistant)
-    except Exception:
-        logger.exception("[bots] add_user_message error for conversation %s", conv_id)
-        return {}
+    except Exception as e:
+        logger.exception("[agents] add_user_message error for conversation %s", conv_id)
+        raise e
     
 
 async def _send_welcome_card(ctx: TurnContext, agent_system_name: str):
@@ -101,7 +102,7 @@ async def _send_response_card(ctx: TurnContext, payload):
 
 
 async def _send_feedback_result_card(ctx: TurnContext, payload: dict):
-    logger.info (f"[bots] _send_feedback_result_card payload: {payload}")
+    logger.info (f"[agents] _send_feedback_result_card payload: {payload}")
     card = create_feedback_result_card(payload)
     await ctx.send_activity(Activity(
         type="invokeResponse",
@@ -124,10 +125,15 @@ def _make_on_members_added_handler(agent_system_name: str):
 
 
 def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnState]):
+    def _format_exception_message(e: Exception) -> str:
+        etype = e.__class__.__name__
+        message = str(e)
+        return f"{etype}: {message}" if message else etype
+
     async def on_message(ctx: TurnContext, _state: TurnState) -> None:
         text = (getattr(getattr(ctx, "activity", None), "text", None) or "").strip()
         if not text:
-            logger.debug("[bots] on_message: empty text; ignoring")
+            logger.debug("[agents] on_message: empty text; ignoring")
             return
 
         if text.lower() in {"/welcome", "/start"}:
@@ -142,7 +148,7 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             None,
         )
         if not aad_object_id:
-            logger.error("[bots] on_message: missing aad_object_id in activity.from_property")
+            logger.error("[agents] on_message: missing aad_object_id in activity.from_property")
             await ctx.send_activity("Sorry, I couldn't identify you. Please try again.")
             return
 
@@ -150,17 +156,18 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             assistant_payload: dict[str, Any] = await _continue_conversation(
                 agent_system_name, aad_object_id, text
             )
-            logger.info("[bots] on_message assistant_payload: %s", assistant_payload)
-        except Exception:
-            logger.exception("[bots] on_message: _continue_conversation failed")
-            await ctx.send_activity("Sorry, I couldn't process your message.")
+            logger.info("[agents] on_message assistant_payload: %s", assistant_payload)
+        except Exception as e:
+            logger.exception("[agents] on_message: _continue_conversation failed")
+            await ctx.send_activity(_format_exception_message(e))
             return
 
         if assistant_payload and (assistant_payload.get("content") or assistant_payload.get("message_id")):
             await _send_response_card(ctx, assistant_payload)
         else:
-            logger.warning("[bots] on_message: empty assistant payload for aad=%s", aad_object_id)
-            await ctx.send_activity("Hmm, I didn't get a reply")
+            logger.warning("[agents] on_message: empty assistant payload for aad=%s", aad_object_id)
+            debug_msg = assistant_payload.get("content") if assistant_payload else None
+            await ctx.send_activity(debug_msg or "Hmm, I didn't get a reply")
 
     return on_message
 
@@ -171,7 +178,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
     verb = str(action.get("verb") or "").lower()
 
     if verb not in {"like", "dislike"}:
-        logger.warning("[bots] unexpected feedback verb: %s", verb)
+        logger.warning("[agents] unexpected feedback verb: %s", verb)
         return
 
     data: dict[str, Any] = action.get("data") or {}
@@ -180,7 +187,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
     text = data.get("text") or None
 
     if not conversation_id or not message_id:
-        logger.error("[bots] missing IDs: conversation_id=%s, message_id=%s", conversation_id, message_id)
+        logger.error("[agents] missing IDs: conversation_id=%s, message_id=%s", conversation_id, message_id)
         await ctx.send_activity("Sorry, feedback cannot be recorded (missing IDs).")
         return
 
@@ -218,7 +225,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 "comment": comment,
             })
     except Exception:
-        logger.exception("[bots] invoke feedback error (conv=%s, msg=%s)", conversation_id, message_id)
+        logger.exception("[agents] invoke feedback error (conv=%s, msg=%s)", conversation_id, message_id)
         await ctx.send_activity("Sorry, failed to record your feedback.")
 
 

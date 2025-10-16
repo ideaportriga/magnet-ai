@@ -1,6 +1,6 @@
 import base64
 import json
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 from litestar.exceptions import ValidationException
 
 
@@ -25,4 +25,16 @@ def read_jwt_payload_noverify(token: str) -> Mapping[str, Any]:
 
 def pick_audience(payload: Mapping[str, Any]) -> str | None:
     aud = payload.get("aud")
-    return aud
+    if isinstance(aud, str) and aud:
+        return aud
+
+    if isinstance(aud, Iterable):
+        for candidate in aud:
+            if isinstance(candidate, str) and candidate:
+                return candidate
+
+    app_id = payload.get("appid")
+    if isinstance(app_id, str) and app_id:
+        return app_id
+
+    return None

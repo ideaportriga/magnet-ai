@@ -63,7 +63,7 @@ from .user.agent_conversations import AgentConversationsController
 from .user.ai_apps import UserAiAppsController
 from .user.execute import UserExecuteController
 from .user.utils import UserUtilsController
-from .user.bots import UserBotsController
+from .user.agents import UserAgentsController
 
 
 def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[ControllerRouterHandler]:
@@ -122,7 +122,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         UserExecuteController,
         TelemetryController,
         UserUtilsController,
-        UserBotsController,
+        UserAgentsController,
     ]
 
     route_handlers_public: list[ControllerRouterHandler] = [
