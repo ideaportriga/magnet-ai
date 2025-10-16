@@ -24,11 +24,7 @@ ARG BUILD_DOCS=true
 ENV WEB_HELP_PATH="help/"
 
 # Build docs only if BUILD_DOCS=true (can skip with --build-arg BUILD_DOCS=false)
-RUN if [ "$BUILD_DOCS" = "true" ]; then \
-        echo "Building magnet-docs..." && yarn nx build magnet-docs; \
-    else \
-        echo "Skipping magnet-docs build" && mkdir -p /web/documentation/magnet/.vitepress/dist && echo "Docs skipped" > /web/documentation/magnet/.vitepress/dist/index.html; \
-    fi
+RUN yarn nx build magnet-docs;
 
 # Stage 2: Build API dependencies using Poetry
 FROM python:3.12-slim AS api-builder
@@ -72,6 +68,7 @@ COPY --from=api-builder /app/.venv ./.venv
 COPY api/src ./src
 
 ENV PYTHONPATH=/app/src
+ENV PORT=8000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD [".venv/bin/uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000"]
+CMD [".venv/bin/uvicorn", "app:app", "--host", "0.0.0.0", "--port", "${PORT}"]
