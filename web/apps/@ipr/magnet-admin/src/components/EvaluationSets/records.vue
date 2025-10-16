@@ -75,7 +75,7 @@ export default {
     },
     evaluationSetItems: {
       get() {
-        return this.$store.getters.evaluation_set?.items.map((item, index) => ({ ...item, index })) || []
+        return this.$store.getters.evaluation_set?.items?.map((item, index) => ({ ...item, index })) || []
       },
       set(value) {
         this.$store.commit('updateEvaluationSetProperty', { key: 'items', value })
