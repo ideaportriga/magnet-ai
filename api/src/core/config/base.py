@@ -492,7 +492,7 @@ class VectorDatabaseSettings:
     """PGVector database user."""
     PGVECTOR_PASSWORD: str = field(default_factory=get_env("PGVECTOR_PASSWORD", ""))
     """PGVector database password."""
-    PGVECTOR_POOL_SIZE: int = field(default_factory=get_env("PGVECTOR_POOL_SIZE", 0))
+    PGVECTOR_POOL_SIZE: int = field(default_factory=get_env("PGVECTOR_POOL_SIZE", 5))
     """PGVector connection pool size."""
 
     PGVECTOR_CONNECTION_STRING: str = field(
