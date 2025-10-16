@@ -23,7 +23,7 @@
     :pagination='pagination',
     binary-state-sort
   )
-model-providers-new-model(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
+model-providers-new-model(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 </template>
 
 <script>

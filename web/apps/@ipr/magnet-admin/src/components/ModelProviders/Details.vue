@@ -33,8 +33,8 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
         model-providers-models(v-if='tab == "models"')
         model-providers-settings(v-if='tab == "settings"')
   template(#drawer)
-    model-providers-model-drawer(v-if='tab == "models" && selectedModel')
-    model-providers-drawer(v-else-if='tab == "models" && availableModels.length > 0')
+    model-providers-model-drawer(v-if='tab == "models" && validSelectedModel')
+    model-providers-drawer(v-else-if='tab == "models" && availableModels.length > 0 && !validSelectedModel')
 </template>
 
 <script>
@@ -73,6 +73,13 @@ export default {
       }
       return this.allModels.filter((item) => item.provider_system_name === this.provider.system_name)
     },
+    validSelectedModel() {
+      // Check if selectedModel exists in availableModels for current provider
+      if (!this.selectedModel || !this.availableModels.length) {
+        return null
+      }
+      return this.availableModels.find(model => model.id === this.selectedModel.id) || null
+    },
     name: {
       get() {
         return this.provider?.name || ''
@@ -99,21 +106,44 @@ export default {
         }
       },
     },
+    availableModels: {
+      immediate: true,
+      handler(newVal, oldVal) {
+        // Reset selectedModel if it's not in availableModels for current provider
+        if (this.selectedModel && newVal.length > 0) {
+          const modelExists = newVal.find(model => model.id === this.selectedModel.id)
+          if (!modelExists) {
+            this.$store.commit('modelConfig/setEntity', null)
+            // Auto-select first model if no valid selection
+            this.autoSelectFirstModel(newVal)
+          }
+        } else if (this.selectedModel && newVal.length === 0) {
+          // No models available for this provider, clear selection
+          this.$store.commit('modelConfig/setEntity', null)
+        } else if (!this.selectedModel && newVal.length > 0) {
+          // No model selected but models are available, auto-select first
+          this.autoSelectFirstModel(newVal)
+        }
+      },
+    },
   },
   mounted() {
-    // Select the first model when component mounts
-    // Sort by is_default (descending) to prioritize default models
-    const sortedModels = [...this.availableModels].sort((a, b) => {
-      if (a.is_default && !b.is_default) return -1
-      if (!a.is_default && b.is_default) return 1
-      return 0
-    })
-    
-    if (sortedModels.length > 0) {
-      this.$store.commit('modelConfig/setEntity', sortedModels[0])
-    } else {
-      this.$store.commit('modelConfig/setEntity', null)
-    }
+    // Auto-selection will be handled by availableModels watcher
+    // No need to select here as availableModels might not be loaded yet
+  },
+  methods: {
+    autoSelectFirstModel(models) {
+      // Sort by is_default (descending) to prioritize default models
+      const sortedModels = [...models].sort((a, b) => {
+        if (a.is_default && !b.is_default) return -1
+        if (!a.is_default && b.is_default) return 1
+        return 0
+      })
+      
+      if (sortedModels.length > 0) {
+        this.$store.commit('modelConfig/setEntity', sortedModels[0])
+      }
+    },
   },
 }
 </script>

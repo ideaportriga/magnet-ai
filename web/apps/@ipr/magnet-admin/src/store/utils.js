@@ -121,6 +121,21 @@ export const createEntityStore = (namespace) => {
 
       const obj = { ...getters.entity }
 
+      // Convert numeric price fields to strings for model entities
+      if (namespace === 'modelConfig') {
+        const priceFields = [
+          'price_input', 'price_cached', 'price_output', 'price_reasoning',
+          'price_standard_input_unit_count', 'price_cached_input_unit_count',
+          'price_standard_output_unit_count', 'price_reasoning_output_unit_count'
+        ]
+        
+        priceFields.forEach(field => {
+          if (obj[field] !== undefined && obj[field] !== null && obj[field] !== '') {
+            obj[field] = String(obj[field])
+          }
+        })
+      }
+
       if (getters.entity?.created_at) {
         // Remove metadata and audit fields - they are managed by backend
         delete obj._metadata

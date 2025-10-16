@@ -32,6 +32,8 @@ class AIModelFieldsMixin(BaseModel):
     json_schema: bool = Field(
         default=False, description="Supports JSON schema validation"
     )
+    tool_calling: bool = Field(default=False, description="Supports tool calling")
+    reasoning: bool = Field(default=False, description="Supports reasoning")
 
     # Type and default settings
     type: str = Field(..., description="Model type (e.g., prompts)")
@@ -93,6 +95,8 @@ class AIModelUpdateFieldsMixin(BaseModel):
     json_schema: Optional[bool] = Field(
         None, description="Supports JSON schema validation"
     )
+    tool_calling: Optional[bool] = Field(None, description="Supports tool calling")
+    reasoning: Optional[bool] = Field(None, description="Supports reasoning")
 
     # Type and default settings
     type: Optional[str] = Field(None, description="Model type (e.g., prompts)")
