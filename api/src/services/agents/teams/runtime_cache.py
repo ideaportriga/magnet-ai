@@ -1,4 +1,5 @@
 import asyncio
+from logging import getLogger
 from typing import Dict
 
 from microsoft_agents.hosting.core import AgentApplication, AgentAuthConfiguration, AuthTypes, TurnState
@@ -11,30 +12,31 @@ from microsoft_agents.authentication.msal import MsalAuth
 
 from .config import SCOPE, ISSUER, load_credentials
 from .static_connections import StaticConnections
-from .teams_handlers import register_handlers
-from .runtime import BotRuntime
+from .handlers import register_handlers
+from .runtime import TeamsRuntime
 
 
-class BotRuntimeCache:
-    """Bot runtimes keyed by audience."""
+logger = getLogger(__name__)
+
+
+class TeamsRuntimeCache:
+    """Runtimes keyed by audience."""
 
     def __init__(self) -> None:
-        self._runtimes: Dict[str, BotRuntime] = {}
+        self._runtimes: Dict[str, TeamsRuntime] = {}
         self._lock = asyncio.Lock()
 
-    async def get_or_create(self, audience: str) -> BotRuntime:
-        print ("getting or creating bot runtime", audience) # TOOD - REMOVE Print
+    async def get_or_create(self, audience: str) -> TeamsRuntime:
         async with self._lock:
             runtime = self._runtimes.get(audience)
             if runtime is not None:
-                print("bot runtime already exists") # TOOD - REMOVE Print
                 return runtime
             runtime = await self._build_runtime(audience)
             self._runtimes[audience] = runtime
+            logger.debug("Created Teams runtime for audience=%s", audience)
             return runtime
 
-    async def _build_runtime(self, audience: str) -> BotRuntime:
-        print ("building bot runtime", audience) # TOOD - REMOVE Print
+    async def _build_runtime(self, audience: str) -> TeamsRuntime:
         credentials = await load_credentials(audience)
 
         auth_config = AgentAuthConfiguration(
@@ -57,7 +59,7 @@ class BotRuntimeCache:
         agent_app = AgentApplication[TurnState](storage=MemoryStorage(), adapter=adapter, start_typing_timer=False)
         register_handlers(agent_app, agent_system_name=credentials.agent_system_name)
 
-        return BotRuntime(
+        return TeamsRuntime(
             validation_config=validation_config,
             adapter=adapter,
             agent_app=agent_app,

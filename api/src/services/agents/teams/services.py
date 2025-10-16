@@ -6,8 +6,8 @@ from core.config.app import alchemy
 logger = getLogger(__name__)
 
 
-async def resolve_bot_by_client_id(client_id: str) -> tuple[str | None, str | None, str | None]:
-    """Resolve bot attributes by OAuth client_id stored in agents.variants.
+async def resolve_teams_by_client_id(client_id: str) -> tuple[str | None, str | None, str | None]:
+    """Resolve attributes by OAuth client_id stored in agents.variants.
 
     Returns (agent_system_name, tenant_id, secret_value).
     secret_value is returned for internal use (e.g., logging), do not expose in API responses.

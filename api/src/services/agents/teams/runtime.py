@@ -5,9 +5,7 @@ from microsoft_agents.hosting.core import AgentApplication, AgentAuthConfigurati
 
 
 @dataclass(slots=True)
-class BotRuntime:
-    """Container for a lazily created bot runtimes."""
-
+class TeamsRuntime:
     validation_config: AgentAuthConfiguration
     adapter: CloudAdapter
     agent_app: AgentApplication[TurnState]

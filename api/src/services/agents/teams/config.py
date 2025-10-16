@@ -5,7 +5,7 @@ from logging import getLogger
 
 logger = getLogger(__name__)
 
-from services.bots.services import resolve_bot_by_client_id
+from services.agents.teams.services import resolve_teams_by_client_id
 
 
 SCOPE = ["https://api.botframework.com/.default"]
@@ -13,7 +13,7 @@ ISSUER = ["https://api.botframework.com"]
 
 @dataclass(frozen=True, slots=True)
 class ClientCredentials:
-    """Resolved credentials for a configured bot audience."""
+    """Resolved credentials for a configured audience."""
 
     audience: str
     client_secret: str
@@ -22,7 +22,7 @@ class ClientCredentials:
 
 
 async def load_credentials(audience: str) -> ClientCredentials:
-    agent_system_name, tenant_id, secret_value = await resolve_bot_by_client_id(audience)
+    agent_system_name, tenant_id, secret_value = await resolve_teams_by_client_id(audience)
     if not agent_system_name:
         raise NotFoundException(
             f"Agent with client_id '{audience}' not found"

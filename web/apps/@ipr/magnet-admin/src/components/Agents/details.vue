@@ -64,6 +64,8 @@
                         agents-notes
                       template(v-if='tab == "testSets"')
                         agents-test-sets
+                      template(v-if='tab == "agents"')
+                        agents-agents-credentials
                       
 
   .col-auto
@@ -91,6 +93,7 @@ export default {
         { name: 'conversations', label: 'Conversations' },
         { name: 'notes', label: 'Notes' },
         { name: 'testSets', label: 'Test sets' },
+        { name: 'agents', label: 'Agents Credentials' },
       ]),
       showNewDialog: ref(false),
       activeAgentDetail: ref({}),
