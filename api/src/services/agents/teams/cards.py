@@ -66,8 +66,7 @@ def create_magnet_response_card(magnet_response):
                         {
                             "type": "Action.Execute",
                             "verb": "like",
-                            "title": "👍 I like it",
-                            "style": "positive",
+                            "title": "👍",
                             "data": {"message_id": message_id, "conversation_id": conversation_id, "text": text},
                             "associatedInputs": "none",
                             "isPrimary": True,
@@ -85,8 +84,7 @@ def create_magnet_response_card(magnet_response):
                     "actions": [
                         {
                             "type": "Action.ToggleVisibility",
-                            "title": "👎 I do not like it",
-                            "style": "destructive",
+                            "title": "👎",
                             "targetElements": [
                                 {"elementId": "dislike_fields", "isVisible": True},
                                 {"elementId": "action_buttons", "isVisible": False}
@@ -141,7 +139,6 @@ def create_magnet_response_card(magnet_response):
                                 "verb": "dislike",
                                 "data": {"message_id": message_id, "conversation_id": conversation_id, "text": text},
                                 "associatedInputs": "auto",
-                                "style": "positive",
                             },
                             {
                                 "type": "Action.ToggleVisibility",
@@ -150,7 +147,6 @@ def create_magnet_response_card(magnet_response):
                                     {"elementId": "dislike_fields", "isVisible": False},
                                     {"elementId": "action_buttons", "isVisible": True}
                                 ],
-                                "style": "destructive",
                                 "associatedInputs": "none",
                             },
                         ],
