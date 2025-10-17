@@ -20,7 +20,7 @@ const controls = {
     },
     type: {
       name: 'type',
-      label: 'Type',
+      label: 'API Type',
       field: 'type',
       align: 'left',
     },
