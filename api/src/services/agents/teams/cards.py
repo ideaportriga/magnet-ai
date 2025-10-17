@@ -49,9 +49,74 @@ def create_welcome_card(bot_name, agent_system_name):
 
 
 def create_magnet_response_card(magnet_response):
+    if magnet_response.get("requires_confirmation") and magnet_response.get("action_requests"):
+        return _create_confirmation_card(magnet_response)
+    return _create_standard_response_card(magnet_response)
+
+
+def _create_confirmation_card(magnet_response):
+    conversation_id = magnet_response.get("conversation_id")
+    message_id = magnet_response.get("message_id")
+    agent_system_name = magnet_response.get("agent_system_name")
+
+    action_requests = magnet_response.get("action_requests") or []
+    request_ids = [request.get("id") for request in action_requests if request.get("id")]
+
+    header = {"type": "TextBlock", "text": "AI Assistant Requires Confirmation", "weight": "Bolder", "size": "Large"}
+
+    if action_requests:
+        messages = []
+        for index, request in enumerate(action_requests, start=1):
+            text = request.get("action_message") or "The assistant requested an action."
+            if len(action_requests) > 1:
+                text = f"{index}. {text}"
+            messages.append({"type": "TextBlock", "text": text, "wrap": True})
+    else:
+        messages = [{"type": "TextBlock", "text": "The assistant requested an action.", "wrap": True}]
+
+    common_data = {
+        "conversation_id": conversation_id,
+        "message_id": message_id,
+        "agent_system_name": agent_system_name,
+        "request_ids": request_ids,
+    }
+
+    actions = [
+        {
+            "type": "Action.Execute",
+            "title": "Confirm",
+            "verb": "confirm_action_request",
+            "data": {**common_data, "confirmed": True},
+            "associatedInputs": "none",
+            "style": "positive",
+        },
+        {
+            "type": "Action.Execute",
+            "title": "Reject",
+            "verb": "reject_action_request",
+            "data": {**common_data, "confirmed": False},
+            "associatedInputs": "none",
+        },
+    ]
+
+    return {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.5",
+        "body": [
+            header,
+            *messages,
+        ],
+        "actions": actions,
+        "msteams": {"width": "Full"},
+    }
+
+
+def _create_standard_response_card(magnet_response):
     conversation_id = magnet_response.get("conversation_id")
     message_id = magnet_response.get("message_id")
     text = magnet_response.get("content")
+    is_conversation_closed = bool(magnet_response.get("is_conversation_closed"))
 
     dislike_reasons = list(dislike_reason_titles.keys())
 
@@ -97,6 +162,27 @@ def create_magnet_response_card(magnet_response):
         },
         {"type": "Column", "width": "stretch", "items": []},
     ]
+
+    if not is_conversation_closed:
+        columns.append(
+            {
+                "type": "Column",
+                "width": "auto",
+                "items": [
+                    {
+                        "type": "ActionSet",
+                        "actions": [
+                            {
+                                "type": "Action.Execute",
+                                "verb": "close_conversation",
+                                "title": "🔒",
+                                "data": {"message_id": message_id, "conversation_id": conversation_id, "text": text},
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
 
 
     return {
@@ -187,11 +273,8 @@ def create_feedback_result_card(payload):
         "msteams": {"width": "Full"},
     }
 
-
 __all__ = [
     "create_welcome_card",
     "create_magnet_response_card",
     "create_feedback_result_card",
 ]
-
-
