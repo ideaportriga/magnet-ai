@@ -15,10 +15,13 @@ class OpenAIProvider(AIProviderInterface):
         self.top_p_default = config["defaults"].get("top_p")
 
         # Create client with custom endpoint if provided
+        # For local endpoints without API key, use a dummy key
+        api_key = self.api_key or "sk-dummy-key"
+        
         if self.endpoint:
-            self.client = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.endpoint)
+            self.client = openai.AsyncOpenAI(api_key=api_key, base_url=self.endpoint)
         else:
-            self.client = openai.AsyncOpenAI(api_key=self.api_key)
+            self.client = openai.AsyncOpenAI(api_key=api_key)
 
     async def create_chat_completion(
         self,
