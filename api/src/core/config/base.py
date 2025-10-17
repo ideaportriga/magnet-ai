@@ -408,6 +408,19 @@ class ObservabilitySettings:
 
     ENABLED: bool = field(default_factory=get_env("OBSERVABILITY_ENABLED", True))
     """Enable observability features."""
+    TRACES_EXPORTERS: str = field(
+        default_factory=get_env("OBSERVABILITY_TRACES_EXPORTERS", "internal")
+    )
+    """Comma-separated list of traces exporters."""
+    TRACES_MAX_EXPORT_BATCH_SIZE: int = field(
+        default_factory=get_env("OBSERVABILITY_TRACES_MAX_EXPORT_BATCH_SIZE", 100)
+    )
+    """Maximum batch size for traces export."""
+    USAGE_SHOW_USERS: bool = field(
+        default_factory=get_env("OBSERVABILITY_USAGE_SHOW_USERS", True)
+    )
+    """Show users in usage statistics."""
+
     METRICS_EXPORTERS: str = field(
         default_factory=get_env("OBSERVABILITY_METRICS_EXPORTERS", "")
     )
@@ -416,28 +429,11 @@ class ObservabilitySettings:
         default_factory=get_env("OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS", 3000)
     )
     """Metrics export interval in milliseconds."""
-    TRACES_EXPORTERS: str = field(
-        default_factory=get_env("OBSERVABILITY_TRACES_EXPORTERS", "")
-    )
-    """Comma-separated list of traces exporters."""
-    TRACES_MAX_EXPORT_BATCH_SIZE: int = field(
-        default_factory=get_env("OBSERVABILITY_TRACES_MAX_EXPORT_BATCH_SIZE", 100)
-    )
-    """Maximum batch size for traces export."""
-    USAGE_SHOW_USERS: bool = field(
-        default_factory=get_env("OBSERVABILITY_USAGE_SHOW_USERS", False)
-    )
-    """Show users in usage statistics."""
-
 
 @dataclass
 class AzureSettings:
     """Azure services configuration"""
 
-    APPINSIGHTS_INSTRUMENTATION_KEY: str = field(
-        default_factory=get_env("APPINSIGHTS_INSTRUMENTATION_KEY", "")
-    )
-    """Azure Application Insights instrumentation key."""
     APPLICATIONINSIGHTS_CONNECTION_STRING: str = field(
         default_factory=get_env("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
     )
