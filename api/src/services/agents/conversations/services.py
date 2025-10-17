@@ -4,7 +4,7 @@ from logging import getLogger
 from typing import Any, Type, Union
 from uuid import UUID
 
-from sqlalchemy import desc
+from sqlalchemy import desc, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import TypeVar
 
@@ -179,9 +179,12 @@ async def get_conversation(
 async def get_last_conversation_by_client_id(client_id: str):
     async with alchemy.get_session() as session:
         service = AgentConversationService(session=session)
-        print(f"Fetching last conversation for client ID: {client_id}")
         records = await service.list(
             AgentConversation.client_id == client_id,
+            or_(
+                AgentConversation.status.is_(None),
+                func.lower(AgentConversation.status) != "closed"
+            ),
             order_by=[desc(AgentConversation.created_at)],
         )
         record = records[0] if records else None
@@ -361,3 +364,22 @@ async def copy_message(conversation_id: str, message_id: str):
         trace_id=conversation.trace_id,
         analytics_id=conversation.analytics_id,
     )
+
+
+async def update_conversation_status(
+    conversation_id: str,
+    status: str,
+) -> bool:
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
+
+        updated = await service.update_conversation_status(
+            db_session=session,
+            conversation_id=conversation_id,
+            status=status,
+        )
+
+        if not updated:
+            raise RecordNotFoundError()
+
+    return updated

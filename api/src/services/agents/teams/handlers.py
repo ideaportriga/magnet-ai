@@ -7,6 +7,7 @@ from services.agents.conversations import (
     create_conversation,
     add_user_message,
     set_message_feedback,
+    update_conversation_status,
 )
 from services.agents.models import AgentConversationMessageRole
 from services.common.models import (
@@ -16,10 +17,101 @@ from services.common.models import (
 )
 from .cards import create_welcome_card, create_magnet_response_card, create_feedback_result_card
 from logging import getLogger
-import traceback
+from stores import RecordNotFoundError
 
 
 logger = getLogger(__name__)
+
+async def _get_conversation_info(agent_system_name: str, aad_object_id: str) -> str:
+    client_id = f"{aad_object_id}@{agent_system_name}"
+    try:
+        last = await get_last_conversation_by_client_id(client_id)
+    except Exception:
+        logger.exception(
+            "[agents] failed to fetch last conversation for %s",
+            client_id,
+        )
+        return "Failed to load the last conversation."
+
+    if not last:
+        return "Conversation not found."
+
+    conversation_id = str(getattr(last, "id", "") or "")
+    if not conversation_id:
+        logger.error(
+            "[agents] last conversation for %s is missing an identifier",
+            client_id,
+        )
+        return "Conversation ID not found."
+
+    messages = getattr(last, "messages", []) or []
+    message_count = len(messages)
+
+    created_at = getattr(last, "created_at", None)
+    last_user_message_at = getattr(last, "last_user_message_at", None)
+
+    def _format_dt(dt):
+        if not dt:
+            return None
+        tz = getattr(dt, "tzinfo", None)
+        return dt.isoformat() + (f" [{tz}]" if tz else "")
+
+    result = [
+        f"Conversation {conversation_id} found:",
+        f"  created_at: {_format_dt(created_at)}",
+        f"  last_user_message_at: {_format_dt(last_user_message_at)}",
+        f"  total_messages: {message_count}",
+    ]
+
+    return "\n".join(result)
+
+
+async def _close_conversation(agent_system_name: str, aad_object_id: str) -> str:
+    client_id = f"{aad_object_id}@{agent_system_name}"
+    try:
+        last = await get_last_conversation_by_client_id(client_id)
+    except Exception:
+        logger.exception(
+            "[agents] failed to fetch last conversation for %s",
+            client_id,
+        )
+        return "Failed to load the last conversation."
+
+    if not last:
+        return "Conversation not found."
+
+    conversation_id = str(getattr(last, "id", "") or "")
+    if not conversation_id:
+        logger.error(
+            "[agents] last conversation for %s is missing an identifier",
+            client_id,
+        )
+        return "Conversation ID not found."
+
+    try:
+        updated = await update_conversation_status(
+            conversation_id=conversation_id,
+            status="Closed",
+        )
+    except RecordNotFoundError:
+        logger.warning(
+            "[agents] conversation %s not found while closing",
+            conversation_id,
+        )
+        return "Conversation not found."
+    except Exception:
+        logger.exception(
+            "[agents] failed to close conversation %s",
+            conversation_id,
+        )
+        return "Failed to close the conversation."
+
+    logger.info(
+        "[agents] conversation %s status updated to Closed (updated=%s)",
+        conversation_id,
+        updated,
+    )
+    return f"Conversation {conversation_id} closed."
 
 
 async def _continue_conversation(agent_system_name: str, aad_object_id: str, text: str) -> dict[str, str | None]:
@@ -140,8 +232,6 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             await _send_welcome_card(ctx, agent_system_name)
             return
 
-        await app.typing.start(ctx)
-
         aad_object_id = getattr(
             getattr(getattr(ctx, "activity", None), "from_property", None),
             "aad_object_id",
@@ -152,7 +242,19 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             await ctx.send_activity("Sorry, I couldn't identify you. Please try again.")
             return
 
+        if text.lower() in {"/close"}:
+            res = await _close_conversation(agent_system_name, aad_object_id)
+            await ctx.send_activity(res)
+            return
+
+        if text.lower() in {"/get_conversation_info"}:
+            res = await _get_conversation_info(agent_system_name, aad_object_id)
+            await ctx.send_activity(res)
+            return
+
         try:
+            await app.typing.start(ctx)
+
             assistant_payload: dict[str, Any] = await _continue_conversation(
                 agent_system_name, aad_object_id, text
             )

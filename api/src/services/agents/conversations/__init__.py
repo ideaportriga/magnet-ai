@@ -5,6 +5,7 @@ from .services import (
     get_conversation,
     get_last_conversation_by_client_id,
     set_message_feedback,
+    update_conversation_status,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "get_conversation",
     "get_last_conversation_by_client_id",
     "set_message_feedback",
+    "update_conversation_status",
 ]
