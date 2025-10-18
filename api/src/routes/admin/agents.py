@@ -4,6 +4,7 @@ from litestar import Request, get, post
 from litestar.exceptions import NotFoundException
 from litestar.params import Body, Parameter
 from litestar.status_codes import HTTP_200_OK
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.agents.conversations.services import (
     get_conversation,
@@ -124,6 +125,7 @@ class AgentsController(AgentsControllerBase):
                 description="The unique identifier of the conversation to retrieve."
             ),
         ],
+        db_session: AsyncSession,
     ) -> dict[str, Any]:
         conversation = (
             await get_conversation(id, AgentConversationWithMessages)
@@ -134,7 +136,7 @@ class AgentsController(AgentsControllerBase):
         # Add information from analytics
         analytics_id = conversation.get("analytics_id")
         if analytics_id:
-            analytics = await get_analytics_by_id(analytics_id)
+            analytics = await get_analytics_by_id(db_session, analytics_id)
             conversation["analytics"] = analytics
 
         return conversation
