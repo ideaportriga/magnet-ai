@@ -420,7 +420,7 @@ AgentConversationMessagePublic = (
 
 
 class AgentConversationWithMessages(BaseModel):
-    id: str = Field(..., description="The unique identifier of the conversation.")
+    id: UUID = Field(..., description="The unique identifier of the conversation.")
     messages: list[AgentConversationMessage] = Field(
         ...,
         description="The list of messages in the conversation.",

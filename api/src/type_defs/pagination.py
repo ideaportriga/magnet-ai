@@ -92,7 +92,7 @@ FilterObject.model_rebuild()
 
 class PaginationBase(BaseModel):
     limit: int
-    sort: str = Field("_id", description="Field for sorting")
+    sort: str = Field("id", description="Field for sorting")
     order: int = Field(1, description="1 = ASC, -1 = DESC")
     filters: FilterObject | None = Field(
         default_factory=lambda: FilterObject({}),

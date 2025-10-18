@@ -22,7 +22,7 @@
           .km-description.text-secondary-text.q-pb-4.q-pl-8 System name serves as a unique record ID
     
         .col
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Type
           .full-width
             km-select(
               data-test='select-type',
