@@ -490,15 +490,21 @@ class SqlAlchemySpanExporter(SpanExporter):
                     latest_existing_root_span_end_time = apply_utc_timezone(
                         latest_existing_root_span_end_time
                     )
+                    
+                    # Convert root span start_time to datetime if it's a string
+                    root_span_start_time = _safe_max_span_time(
+                        trace_patch.root_span.get("start_time")
+                    )
+                    
                     idle_span = {
                         "id": format_span_id(RandomIdGenerator().generate_span_id()),
                         "parent_id": trace_id,
                         "type": "idle",
                         "start_time": latest_existing_root_span_end_time,
-                        "end_time": trace_patch.root_span.get("start_time"),
+                        "end_time": root_span_start_time,
                         "latency": get_duration(
                             latest_existing_root_span_end_time,
-                            trace_patch.root_span.get("start_time"),
+                            root_span_start_time,
                         ),
                     }
                     new_spans.append(idle_span)
