@@ -22,14 +22,29 @@
               model-providers-default-models
 </template>
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
   
+const route = useRoute()
 const tab = ref('ModelProviders')
 const tabs = ref([
   { name: 'ModelProviders', label: 'Model Providers' },
   { name: 'DefaultModels', label: 'Default Models' },
-
 ])
+
+onMounted(() => {
+  // Check if there's a tab query parameter
+  if (route.query.tab) {
+    tab.value = route.query.tab
+  }
+})
+
+// Watch for route query changes
+watch(() => route.query.tab, (newTab) => {
+  if (newTab) {
+    tab.value = newTab
+  }
+})
 
 
 

@@ -32,13 +32,13 @@
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
         km-input(:model-value='description', @update:model-value='description = $event')
-      //- div.q-mt-8
-      //-   .row.items-center.q-gap-8
-      //-     km-checkbox(label='Default Model', :model-value='is_default', @update:model-value='is_default = $event', dense)
-      //-     q-icon(name='o_info', size='16px', color='secondary-text')
-      //-       q-tooltip.bg-white.block-shadow.text-secondary-text.km-description If marked as Default, model will be selected by default on related tools
-      //-   .row.items-center.q-gap-8.q-ml-24
-      //-     km-btn.q-px-sm(label='Edit defaults', flat, color='primary', size='sm', dense, no-caps)
+      div.q-mt-8
+        .row.items-center.q-gap-8
+          km-checkbox(label='Default Model', :model-value='is_default', dense, disable)
+          q-icon(name='o_info', size='16px', color='secondary-text')
+            q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') If marked as Default, model will be selected by default on related tools
+          .q-ml
+            km-btn(flat, label='Edit defaults', color='primary', @click='goToDefaultModels')
       q-separator.q-my-16
       
       // Features section for prompts models
@@ -103,8 +103,8 @@
           .text-secondary-text {{ price_output_unit_name }}
   .col-auto.q-pa-16(v-if='isEntityChanged')
     .row.justify-end.q-gap-8
-      km-btn(label='Cancel', color='secondary-text', bg='background', @click='cancelChanges')
-      km-btn(label='Save', color='primary', bg='background', @click='save')
+      km-btn(flat, label='Cancel', color='primary', @click='cancelChanges', data-test='Cancel')
+      km-btn(label='Save', @click='save', data-test='Save')
 
 q-inner-loading(:showing='loading')
 
@@ -371,6 +371,9 @@ export default {
     },
     cancelChanges() {
       this.$store.commit('modelConfig/revertEntity')
+    },
+    goToDefaultModels() {
+      this.$router.push({ name: 'ModelProviders', query: { tab: 'DefaultModels' } })
     },
   },
 }
