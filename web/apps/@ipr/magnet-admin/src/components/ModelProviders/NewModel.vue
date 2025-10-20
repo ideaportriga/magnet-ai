@@ -172,13 +172,7 @@ export default {
       return 'Create'
     },
     popupTitle() {
-      if (this.newRow.type === 're-ranking') {
-        return 'New Re-ranking Model'
-      }
-      if (this.newRow.type === 'embeddings') {
-        return 'New Embedding Model'
-      }
-      return 'New Prompt Model'
+      return 'New Model'
     },
     model: {
       get() {
