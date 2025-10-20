@@ -27,7 +27,7 @@ class RagToolsController(RagToolsBaseController):
 
     @observe(name="Previewing RAG Tool", channel="preview")
     @post("/test", status_code=HTTP_200_OK)
-    async def test(self, data: RagToolTest, user_id: str) -> RagToolTestResponse:
+    async def test(self, data: RagToolTest, user_id: str | None) -> RagToolTestResponse:
         rag_tool_config = await get_rag_by_system_name_flat(data.system_name)
 
         observability_context.update_current_baggage(
@@ -55,7 +55,7 @@ class RagToolsController(RagToolsBaseController):
     async def execute(
         self,
         data: RagToolExecute,
-        user_id: str,
+        user_id: str | None,
         request: Request,  # do not remove this, it is used to get x-attributes in observe decorator
     ) -> RagToolExecuteResponse:
         rag_tool_config = await get_rag_by_system_name_flat(data.system_name)

@@ -30,7 +30,7 @@ class DependenciesPlugin(InitPluginProtocol):
         app_config.dependencies = dependencies
         return app_config
     
-    async def _get_user_id(self, request: Request):
+    async def _get_user_id(self, request: Request) -> str | None:
         """Get user ID from request scope."""
         return request.scope.get("user_id")
     
