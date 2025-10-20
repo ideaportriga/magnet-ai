@@ -44,12 +44,12 @@ km-popup-confirm(
         )
         .km-description.text-secondary-text How the model name is displayed
 
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Category
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Type
       .full-width
         km-select(
           height='auto',
           minHeight='30px',
-          placeholder='Category',
+          placeholder='Type',
           v-model='newRow.type',
           ref='typeRef',
           :options='categoryOptions',
