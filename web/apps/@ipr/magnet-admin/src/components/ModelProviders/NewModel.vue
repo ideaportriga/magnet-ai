@@ -8,90 +8,52 @@ km-popup-confirm(
   @confirm='confirm',
   @cancel='cancel'
 )
-  km-stepper.full-width(v-if='steps?.length > 1', :steps='steps', :stepper='stepper')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
+    .full-width
+      km-input(
+        height='30px',
+        placeholder='E.g. gpt-4o-mini',
+        v-model='model',
+        ref='modelRef',
+        :rules='config?.model?.rules || []'
+      )
+      .km-description.text-secondary-text Name used by the provider to identify the model
   
-  template(v-if='stepper == 0')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
-      .full-width
-        km-input(
-          height='30px',
-          placeholder='E.g. gpt-4o-mini',
-          v-model='model',
-          ref='modelRef',
-          :rules='config?.model?.rules || []'
-        )
-        .km-description.text-secondary-text Name used by the provider to identify the model
-    
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
-      .full-width
-        km-input(
-          height='30px',
-          placeholder='E.g. GPT-4O-MINI',
-          v-model='system_name',
-          ref='system_nameRef',
-          :rules='config?.system_name?.rules || []'
-        )
-        .km-description.text-secondary-text System name serves as a unique ID
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
+    .full-width
+      km-input(
+        height='30px',
+        placeholder='E.g. GPT-4O-MINI',
+        v-model='system_name',
+        ref='system_nameRef',
+        :rules='config?.system_name?.rules || []'
+      )
+      .km-description.text-secondary-text System name serves as a unique ID
 
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Display name
-      .full-width
-        km-input(
-          height='30px',
-          placeholder='E.g. GPT 4o mini',
-          v-model='display_name',
-          ref='display_nameRef',
-          :rules='config?.display_name?.rules || []'
-        )
-        .km-description.text-secondary-text How the model name is displayed
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Display name
+    .full-width
+      km-input(
+        height='30px',
+        placeholder='E.g. GPT 4o mini',
+        v-model='display_name',
+        ref='display_nameRef',
+        :rules='config?.display_name?.rules || []'
+      )
+      .km-description.text-secondary-text How the model name is displayed
 
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Type
-      .full-width
-        km-select(
-          height='auto',
-          minHeight='30px',
-          placeholder='Type',
-          v-model='newRow.type',
-          ref='typeRef',
-          :options='categoryOptions',
-          :rules='config?.type?.rules || []',
-          emit-value,
-          map-options
-        )
-
-  template(v-if='stepper == 1')
-    div(v-if='newRow.type === "prompts"')
-      .km-title.q-mb-md Structured outputs
-      .row.items-center
-        q-toggle(v-model='newRow.json_mode')
-        .km-field.text-secondary-text Supports JSON mode
-      .row.items-center
-        q-toggle(v-model='newRow.json_schema')
-        .km-field.text-secondary-text Supports JSON schema
-
-      q-separator.q-my-md
-      .km-title.q-mb-md Tool calling
-      .row.items-center
-        q-toggle(v-model='newRow.tool_calling')
-        .km-field.text-secondary-text Tool calling
-      
-      q-separator.q-my-md
-      .km-title.q-mb-md Reasoning
-      .row.items-center
-        q-toggle(v-model='newRow.reasoning')
-        .km-field.text-secondary-text Reasoning
-    
-    div(v-if='newRow.type === "embeddings"')
-      .km-title.q-mb-md Vector Configuration
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Vector Size
-        .full-width
-          km-input(
-            height='30px',
-            placeholder='E.g. 1536',
-            v-model.number='vectorSize',
-            ref='vectorSizeRef',
-            type='number'
-          )
-          .km-description.text-secondary-text Dimension of the embedding vector (default: 1536). Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Type
+    .full-width
+      km-select(
+        height='auto',
+        minHeight='30px',
+        placeholder='Type',
+        v-model='newRow.type',
+        ref='typeRef',
+        :options='categoryOptions',
+        :rules='config?.type?.rules || []',
+        emit-value,
+        map-options
+      )
 </template>
 
 <script>
@@ -113,7 +75,6 @@ export default {
       config,
       create,
       requiredFields,
-      stepper: ref(0),
       autoChangeCode: ref(true),
       autoChangeDisplayName: ref(true),
       newRow: reactive({
@@ -151,25 +112,10 @@ export default {
     provider() {
       return this.$store.getters.provider
     },
-    steps() {
-      if (this.newRow.type === 'prompts' || this.newRow.type === 'embeddings') {
-        return [
-          { step: 0, description: 'Settings', icon: 'pen' },
-          { step: 1, description: this.newRow.type === 'prompts' ? 'Capabilities' : 'Configuration', icon: 'circle' },
-        ]
-      }
-      return [{ step: 0, description: 'Settings', icon: 'pen' }]
-    },
     cancelLabel() {
-      if (this.stepper === 0) {
-        return 'Cancel'
-      }
-      return 'Back'
+      return 'Cancel'
     },
     confirmLabel() {
-      if (this.stepper < this.steps?.length - 1) {
-        return 'Next'
-      }
       return 'Create'
     },
     popupTitle() {
@@ -243,18 +189,9 @@ export default {
         .join(' ')
     },
     confirm() {
-      if (this.stepper === this.steps?.length - 1) {
-        this.createModel()
-      } else {
-        if (!this.validateFields()) return
-        this.stepper++
-      }
+      this.createModel()
     },
     cancel() {
-      if (this.stepper === 1) {
-        this.stepper = 0
-        return
-      }
       this.$emit('cancel')
     },
     validateFields() {
