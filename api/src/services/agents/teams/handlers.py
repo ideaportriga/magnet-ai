@@ -4,12 +4,9 @@ from microsoft_agents.hosting.core import AgentApplication, TurnContext, TurnSta
 from microsoft_agents.activity import Attachment, Activity
 from services.agents.conversations import (
     get_last_conversation_by_client_id,
-    create_conversation,
-    add_user_message,
     set_message_feedback,
     update_conversation_status,
 )
-from services.agents.models import AgentConversationMessageRole, AgentActionCallConfirmation
 from services.common.models import (
     LlmResponseFeedback,
     LlmResponseFeedbackType,
@@ -19,6 +16,12 @@ from .cards import (
     create_welcome_card,
     create_magnet_response_card,
     create_feedback_result_card,
+    create_confirmation_result_card,
+)
+from .conversation_helpers import (
+    AssistantPayload,
+    _continue_conversation,
+    _handle_action_confirmation,
 )
 from logging import getLogger
 from stores import RecordNotFoundError
@@ -118,152 +121,6 @@ async def _close_conversation(agent_system_name: str, aad_object_id: str) -> str
     return f"Conversation {conversation_id} closed."
 
 
-def _extract_assistant_message(response: Any) -> Any:
-    if not response:
-        return None
-
-    message = getattr(response, "assistant_message", None)
-    if message:
-        return message
-
-    for candidate in (getattr(response, "messages", []) or []):
-        role = getattr(candidate, "role", None)
-        if role == AgentConversationMessageRole.ASSISTANT or str(role).lower() == "assistant":
-            return candidate
-
-    return None
-
-
-def _get_action_requests(message: Any) -> list[dict[str, str | None]]:
-    if not message:
-        return []
-
-    results: list[dict[str, str | None]] = []
-    for request in (getattr(message, "action_call_requests", []) or []):
-        request_id = str(getattr(request, "id", "") or "")
-        if not request_id:
-            continue
-        results.append(
-            {
-                "id": request_id,
-                "action_message": getattr(request, "action_message", None),
-            }
-        )
-    return results
-
-
-def _build_assistant_payload(
-    conversation_id: str,
-    message: Any,
-    *,
-    agent_system_name: str,
-) -> dict[str, Any]:
-    normalized_conversation_id = str(conversation_id or "") or None
-    message_id = (str(getattr(message, "id", "")) or None) if message else None
-    payload: dict[str, Any] = {
-        "conversation_id": normalized_conversation_id,
-        "message_id": message_id,
-        "content": getattr(message, "content", None) if message else None,
-        "agent_system_name": agent_system_name,
-    }
-
-    requests = _get_action_requests(message)
-    payload["requires_confirmation"] = bool(requests)
-    if requests:
-        payload["action_requests"] = requests
-
-    return payload
-
-
-async def _continue_conversation(agent_system_name: str, aad_object_id: str, text: str) -> dict[str, str | None]:
-    """Continue or start an agent conversation and return the assistant's reply payload."""
-    client_id = f"{aad_object_id}@{agent_system_name}"
-    logger.info("[agents] _continue_conversation started: client_id=%s", client_id)
-
-    try:
-        last = await get_last_conversation_by_client_id(client_id)
-    except Exception as e:
-        logger.exception("[agents] failed to fetch last conversation for %s", client_id)
-        raise e
-
-    if not last:
-        try:
-            resp = await create_conversation(
-                agent_system_name_or_config=agent_system_name,
-                content=text,
-                client_id=client_id,
-            )
-            conv_id = str(getattr(resp, "id", "")) or ""
-            assistant = _extract_assistant_message(resp)
-            logger.info("[agents] created conversation %s", conv_id)
-            return _build_assistant_payload(conv_id, assistant, agent_system_name=agent_system_name)
-        except Exception as e:
-            logger.exception("[agents] create_conversation error for %s", client_id)
-            raise e
-
-    conv_id = str(getattr(last, "id", "")) or ""
-    try:
-        resp = await add_user_message(
-            agent_system_name_or_config=agent_system_name,
-            conversation_or_id=conv_id,
-            user_message_content=text,
-        )
-        assistant = _extract_assistant_message(resp)
-        logger.info("[agents] appended user message to %s", conv_id)
-        return _build_assistant_payload(conv_id, assistant, agent_system_name=agent_system_name)
-    except Exception as e:
-        logger.exception("[agents] add_user_message error for conversation %s", conv_id)
-        raise e
-    
-
-async def _handle_action_confirmation(
-    agent_system_name: str,
-    aad_object_id: str,
-    conversation_id: str,
-    request_ids: list[str],
-    confirmed: bool,
-) -> dict[str, Any]:
-    """Submit action call confirmations and return the follow-up assistant payload."""
-    client_id = f"{aad_object_id}@{agent_system_name}"
-    logger.info(
-        "[agents] action confirmation: client_id=%s conversation_id=%s confirmed=%s request_ids=%s",
-        client_id,
-        conversation_id,
-        confirmed,
-        request_ids,
-    )
-
-    confirmations = [
-        AgentActionCallConfirmation(request_id=request_id, confirmed=confirmed)
-        for request_id in request_ids
-        if request_id
-    ]
-
-    if not confirmations:
-        logger.warning(
-            "[agents] action confirmation skipped: no valid request IDs for conversation %s",
-            conversation_id,
-        )
-        return {}
-
-    try:
-        response = await add_user_message(
-            agent_system_name_or_config=agent_system_name,
-            conversation_or_id=conversation_id,
-            user_message_content=None,
-            action_call_confirmations=confirmations,
-        )
-    except Exception:
-        logger.exception(
-            "[agents] add_user_message failed while submitting confirmations (conversation=%s)",
-            conversation_id,
-        )
-        raise
-
-    assistant = _extract_assistant_message(response)
-    return _build_assistant_payload(conversation_id, assistant, agent_system_name=agent_system_name)
-
-
 async def _send_welcome_card(ctx: TurnContext, agent_system_name: str):
     bot_name = getattr(getattr(getattr(ctx, "activity", None), "recipient", None), "name", None) or 'Magnet Agent'
     card = create_welcome_card(bot_name, agent_system_name)
@@ -275,7 +132,7 @@ async def _send_welcome_card(ctx: TurnContext, agent_system_name: str):
     await ctx.send_activity(activity)
 
 
-async def _send_response_card(ctx: TurnContext, payload):
+async def _send_response_card(ctx: TurnContext, payload: AssistantPayload) -> None:
     card = create_magnet_response_card(payload)
     attachment = Attachment(
         content_type="application/vnd.microsoft.card.adaptive",
@@ -347,7 +204,7 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
         try:
             await app.typing.start(ctx)
 
-            assistant_payload: dict[str, Any] = await _continue_conversation(
+            assistant_payload: AssistantPayload = await _continue_conversation(
                 agent_system_name, aad_object_id, text
             )
             logger.info("[agents] on_message assistant_payload: %s", assistant_payload)
@@ -387,7 +244,13 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
 
         logger.info(f"[agents] confirmation invoke data: {data}")
         confirmed_value = data.get("confirmed")
-        confirmed = confirmed_value
+        if isinstance(confirmed_value, bool):
+            confirmed = confirmed_value
+        elif isinstance(confirmed_value, str):
+            confirmed = confirmed_value.lower() == "true"
+        else:
+            confirmed = bool(confirmed_value)
+        confirmation_card_payload = data.get("confirmation_card")
 
         aad_object_id = getattr(
             getattr(getattr(ctx, "activity", None), "from_property", None),
@@ -406,7 +269,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
             return
 
         try:
-            assistant_payload = await _handle_action_confirmation(
+            assistant_payload: AssistantPayload | None = await _handle_action_confirmation(
                 agent_system_name=agent_system_name,
                 aad_object_id=aad_object_id,
                 conversation_id=conversation_id,
@@ -416,6 +279,19 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
         except Exception:
             await ctx.send_activity("Sorry, something went wrong while processing the confirmation.")
             return
+
+        ack_card = create_confirmation_result_card(confirmation_card_payload, confirmed)
+        await ctx.send_activity(Activity(
+            type="invokeResponse",
+            value={
+                "status": 200,
+                "body": {
+                    "statusCode": 200,
+                    "type": "application/vnd.microsoft.card.adaptive",
+                    "value": ack_card,
+                },
+            },
+        ))
 
         if assistant_payload:
             logger.info("[agents] confirmation invoke assistant_payload: %s", assistant_payload)
