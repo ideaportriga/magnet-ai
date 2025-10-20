@@ -2,6 +2,11 @@ from typing import Any
 
 from core.config.app import alchemy
 from core.domain.providers.service import ProvidersService
+from services.ai_services.cache import (
+    cache_provider,
+    get_cached_provider,
+    invalidate_provider_cache,
+)
 from services.ai_services.interface import AIProviderInterface
 from services.ai_services.providers.azure_ai import AzureAIProvider
 from services.ai_services.providers.azure_open_ai import AzureProvider
@@ -12,7 +17,8 @@ from services.ai_services.providers.oci_llama import OCILlamaProvider
 from services.ai_services.providers.openai import OpenAIProvider
 from utils.secrets import replace_placeholders_in_dict
 
-_provider_cache: dict[str, AIProviderInterface] = {}
+# Re-export for backward compatibility
+__all__ = ["get_ai_provider", "invalidate_provider_cache"]
 
 
 def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
@@ -33,7 +39,7 @@ def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
     resolved_connection_config = replace_placeholders_in_dict(connection_config, secrets)
     
     # Merge resolved connection_config and secrets into 'connection' key
-    connection = {**resolved_connection_config, **secrets}
+    connection = {**secrets, **resolved_connection_config}
     
     # Add endpoint if present
     if provider_data.get("endpoint"):
@@ -69,8 +75,9 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
         ValueError: If provider not found or type not supported
     """
     # Check cache first
-    if provider_system_name in _provider_cache:
-        return _provider_cache[provider_system_name]
+    cached_provider = get_cached_provider(provider_system_name)
+    if cached_provider is not None:
+        return cached_provider
 
     # Get provider data from database
     async with alchemy.get_session() as session:
@@ -119,6 +126,6 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
 
     # Create and cache provider instance
     provider_instance = provider_class(provider_config)
-    _provider_cache[provider_system_name] = provider_instance
+    cache_provider(provider_system_name, provider_instance)
     
     return provider_instance
