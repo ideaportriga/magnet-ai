@@ -38,7 +38,7 @@ km-popup-confirm(
         km-input(
           height='30px',
           placeholder='E.g. GPT 4o mini',
-          v-model='newRow.display_name',
+          v-model='display_name',
           ref='display_nameRef',
           :rules='config?.display_name?.rules || []'
         )
@@ -115,6 +115,7 @@ export default {
       requiredFields,
       stepper: ref(0),
       autoChangeCode: ref(true),
+      autoChangeDisplayName: ref(true),
       newRow: reactive({
         name: '',
         provider_name: '',
@@ -184,6 +185,10 @@ export default {
         if (this.autoChangeCode && this.isMounted && this.provider?.system_name) {
           this.newRow.system_name = toUpperCaseWithUnderscores(this.provider.system_name + '_' + val)
         }
+        if (this.autoChangeDisplayName && this.isMounted && this.provider?.name && val) {
+          const formattedProviderName = this.formatProviderName(this.provider.name)
+          this.newRow.display_name = `${formattedProviderName}: ${val}`
+        }
       },
     },
     system_name: {
@@ -193,6 +198,15 @@ export default {
       set(val) {
         this.newRow.system_name = val
         this.autoChangeCode = false
+      },
+    },
+    display_name: {
+      get() {
+        return this.newRow?.display_name || ''
+      },
+      set(val) {
+        this.newRow.display_name = val
+        this.autoChangeDisplayName = false
       },
     },
     vectorSize: {
@@ -218,6 +232,16 @@ export default {
     this.isMounted = false
   },
   methods: {
+    formatProviderName(name) {
+      if (!name) return ''
+      // Replace underscores with spaces and convert to proper case
+      return name
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+    },
     confirm() {
       if (this.stepper === this.steps?.length - 1) {
         this.createModel()
