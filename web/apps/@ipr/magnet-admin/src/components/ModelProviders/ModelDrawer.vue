@@ -27,7 +27,7 @@
         km-input(:model-value='display_name', @update:model-value='display_name = $event')
         .km-description.text-secondary-text.q-pl-8.q-pt-xs Internal name used across Magnet AI
       div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Category
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
         km-select(height='32px', :options='categoryOptions', :model-value='type', @update:model-value='type = $event', emit-value, map-options)
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description

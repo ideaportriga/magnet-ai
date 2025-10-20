@@ -22,7 +22,8 @@
     ref='table',
     :rows='visibleRows',
     :pagination='pagination',
-    :selected='selectedRow ? [selectedRow] : []'
+    :selected='selectedRow ? [selectedRow] : []',
+    binary-state-sort
   )
 model-providers-new-provider(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 
@@ -36,6 +37,13 @@ import controls from '@/config/model_providers/providers'
 
 const router = useRouter()
 const { visibleRows: providers, pagination, searchString, selectedRow } = useChroma('provider')
+
+// Set default sorting by updated_at descending
+pagination.value = {
+  ...pagination.value,
+  sortBy: 'updated_at',
+  descending: true,
+}
 
 const columns = computed(() => {
   return Object.values(controls)

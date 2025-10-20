@@ -9,6 +9,7 @@ const controls = {
       label: 'Name',
       field: 'name',
       align: 'left',
+      sortable: true,
     },
     system_name: {
       name: 'system_name',
@@ -17,18 +18,21 @@ const controls = {
       type: 'component',
       component: markRaw(ChipCopy),
       align: 'left',
+      sortable: true,
     },
     type: {
       name: 'type',
       label: 'API Type',
       field: 'type',
       align: 'left',
+      sortable: true,
     },
     created_at: {
       name: 'created_at',
       label: 'Created',
       field: 'created_at',
       align: 'left',
+      sortable: true,
       format: (val) => formatDateTime(val),
       sort: (a, b) => {
         const dateObjectA = new Date(a)
@@ -41,6 +45,7 @@ const controls = {
       label: 'Last Updated',
       field: 'updated_at',
       align: 'left',
+      sortable: true,
       format: (val) => formatDateTime(val),
       sort: (a, b) => {
         const dateObjectA = new Date(a)

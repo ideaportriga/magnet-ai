@@ -28,7 +28,7 @@
               data-test='select-type',
               height='auto',
               minHeight='36px',
-              placeholder='Select provider type',
+              placeholder='Select API Type',
               :options='typeOptions',
               v-model='newRow.type',
               ref='typeRef',
