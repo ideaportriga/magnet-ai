@@ -331,7 +331,7 @@ const controls = {
       'Hubspot',
       'Fluid Topics',
       'Documentation',
-      'BeeInfo',
+      // 'BeeInfo',
     ],
     children: sourceTypeChildren,
     columnNumber: 1,
