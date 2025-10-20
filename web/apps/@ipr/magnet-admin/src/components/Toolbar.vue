@@ -141,11 +141,11 @@ const connectors = [
     icon: 'fas fa-book',
     path: 'knowledge-sources',
   },
-  // {
-  //   label: 'Knowledge Providers',
-  //   icon: 'fas fa-plug',
-  //   path: 'knowledge-providers',
-  // },
+  {
+    label: 'Knowledge Providers',
+    icon: 'fas fa-plug',
+    path: 'knowledge-providers',
+  },
   // {
   //   label: 'Models',
   //   icon: 'fas fa-circle-nodes',

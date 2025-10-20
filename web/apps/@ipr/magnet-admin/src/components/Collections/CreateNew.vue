@@ -14,6 +14,20 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           :stepper='stepper'
         )
       .column.full-width(v-if='stepper === 0')
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge Source Provider (Optional)
+        .full-width.q-mb-md
+          km-select(
+            v-model='provider_system_name',
+            :options='providerOptions',
+            placeholder='Select provider (optional)',
+            clearable,
+            emit-value,
+            map-options,
+            option-value='system_name',
+            option-label='name',
+            @update:model-value='onProviderChange'
+          )
+          .km-description.text-secondary-text.q-mt-xs.q-ml-sm Select a provider to automatically use its connection parameters
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
         .full-width.q-mb-md
           km-input(v-model='nameCalc', ref='nameRef', :rules='config.name.rules')
@@ -191,11 +205,17 @@ export default defineComponent({
   props: {
     showNewDialog: Boolean,
     copy: Boolean,
+    providerId: {
+      type: String,
+      default: null,
+    },
   },
   emits: ['cancel'],
-  setup() {
+  setup(props) {
     const { requiredFields, config, ...useCollection } = useChroma('collections')
     const { items: promptTemplateItems } = useChroma('promptTemplates')
+    const { items: providerItems } = useChroma('provider')
+    
     const intervals = [
       { label: 'Hourly', value: 'hourly' },
       { label: 'Daily', value: 'daily' },
@@ -203,6 +223,7 @@ export default defineComponent({
     ]
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     const times = Array.from({ length: 24 }, (_, i) => ({ label: `${i.toString().padStart(2, '0')}:00`, value: i.toString().padStart(2, '0') }))
+    
     return {
       customFields: ref({}),
       metadata: ref('{}'),
@@ -213,6 +234,7 @@ export default defineComponent({
       system_name: ref(''),
       description: ref(''),
       source: ref({}),
+      provider_system_name: ref(''),
 
       // Chunking settings
       chunkingStrategy: ref('recursive_character_text_splitting'),
@@ -253,10 +275,19 @@ export default defineComponent({
         error_email: '',
       }),
       promptTemplateItems,
+      providerItems,
       // New reactive property for sync confirmation display
     }
   },
   computed: {
+    providerOptions() {
+      // Filter only knowledge providers
+      return (this.providerItems || []).filter(provider => provider.category === 'knowledge')
+    },
+    selectedProvider() {
+      if (!this.provider_system_name) return null
+      return this.providerItems?.find(p => p.system_name === this.provider_system_name)
+    },
     source_type: {
       get() {
         return this.source?.source_type || ''
@@ -331,6 +362,17 @@ export default defineComponent({
   },
   mounted() {
     this.isMounted = true
+    
+    // Set provider_system_name from providerId prop if provided
+    if (this.providerId) {
+      const provider = this.providerItems?.find(p => p.id === this.providerId)
+      if (provider) {
+        this.provider_system_name = provider.system_name
+        // Apply provider connection params
+        this.applyProviderConnectionParams(provider)
+      }
+    }
+    
     if (this.copy) {
       this.customFields = reactive(cloneDeep(this.currentRaw))
       this.name = this.customFields?.name + '_COPY'
@@ -343,6 +385,7 @@ export default defineComponent({
       this.chunkSize = this.customFields?.chunk_size ?? ''
       this.chunkOverlap = this.customFields?.chunk_overlap ?? ''
       this.ai_model = this.customFields?.ai_model
+      this.provider_system_name = this.customFields?.provider_system_name || ''
       delete this.customFields.id
       delete this.customFields.created
       delete this.customFields.last_synced
@@ -351,6 +394,32 @@ export default defineComponent({
     }
   },
   methods: {
+    onProviderChange(providerSystemName) {
+      if (!providerSystemName) {
+        // Clear provider-related data when provider is deselected
+        return
+      }
+      
+      const provider = this.providerItems?.find(p => p.system_name === providerSystemName)
+      if (provider) {
+        this.applyProviderConnectionParams(provider)
+      }
+    },
+    applyProviderConnectionParams(provider) {
+      // Apply provider connection parameters to source
+      if (provider.endpoint) {
+        this.source = { ...this.source, endpoint: provider.endpoint }
+      }
+      
+      // Apply connection_config to source fields
+      if (provider.connection_config) {
+        Object.entries(provider.connection_config).forEach(([key, value]) => {
+          this.source = { ...this.source, [key]: value }
+        })
+      }
+      
+      // Note: secrets_encrypted are handled on backend side, not exposed to frontend
+    },
     next(step) {
       if (!this.validateFields()) return
       this.stepper = step
@@ -384,6 +453,7 @@ export default defineComponent({
         chunkUsageMethod,
         supportSemanticSearch,
         supportKeywordSearch,
+        provider_system_name,
       } = this
 
       // Transform Documentation source fields
@@ -400,6 +470,7 @@ export default defineComponent({
         system_name,
         description,
         ai_model,
+        provider_system_name: provider_system_name || undefined, // Add provider_system_name
         chunking: {
           strategy: chunkingStrategy,
           chunk_size: parseInt(chunkSize),
