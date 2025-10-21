@@ -6,10 +6,10 @@
     
   ) JSON Mode
   q-chip.text-uppercase.q-ma-none(
-    v-if='row?.structured_output',
+    v-if='row?.json_schema',
     size='sm',
     
-  ) Structured Output
+  ) JSON Schema
   q-chip.text-uppercase.q-ma-none(
     v-if='row?.tool_calling',
     size='sm',

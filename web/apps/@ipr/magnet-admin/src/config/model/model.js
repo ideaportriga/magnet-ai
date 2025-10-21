@@ -12,6 +12,13 @@ const categoryOptions = [
   { label: 'Re-ranking', value: 're-ranking' },
 ]
 
+const featureOptions = [
+  { label: 'JSON Mode', value: 'json_mode' },
+  { label: 'JSON Schema', value: 'json_schema' },
+  { label: 'Tool Calling', value: 'tool_calling' },
+  { label: 'Reasoning', value: 'reasoning' },
+]
+
 
 const controls = {
   id: {
@@ -251,4 +258,4 @@ const controls = {
 }
 
 export default controls
-export { categoryOptions }
+export { categoryOptions, featureOptions }
