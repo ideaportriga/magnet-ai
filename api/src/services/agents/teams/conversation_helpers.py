@@ -12,7 +12,7 @@ from services.agents.models import (
     AgentActionCallConfirmation,
     AgentConversationMessageRole,
 )
-from services.observability import observe
+from services.observability import observe, observability_context
 
 
 logger = getLogger(__name__)
@@ -103,6 +103,7 @@ async def _continue_conversation_for_obsevability(
     """Continue or start an agent conversation and return the assistant's reply payload."""
     client_id = f"{aad_object_id}@{agent_system_name}"
     logger.info("[agents] _continue_conversation_for_obsevability started: client_id=%s", client_id)
+    observability_context.update_current_trace(name=agent_system_name, type="agent")
 
     if conversation_id is None:
         try:
@@ -157,7 +158,12 @@ async def _continue_conversation(
 
     return await _continue_conversation_for_obsevability(conversation_id=None, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text)
 
-
+@observe(
+        name="Action confirmation",
+        description="User confirmed an action.",
+        channel="production",
+        source="Teams App",
+    )
 async def _handle_action_confirmation(
     agent_system_name: str,
     aad_object_id: str,
@@ -174,6 +180,14 @@ async def _handle_action_confirmation(
         confirmed,
         request_ids,
     )
+    if confirmed:
+        observability_context.update_current_trace(
+            name=agent_system_name, type="agent", description='User confirmed an action.'
+        )
+    else:
+        observability_context.update_current_trace(
+            name=agent_system_name, type="agent", description='User rejected an action.'
+        )
 
     confirmations = [
         AgentActionCallConfirmation(request_id=request_id, confirmed=confirmed)
