@@ -59,6 +59,7 @@ km-popup-confirm(
 <script>
 import { ref, reactive } from 'vue'
 import { useChroma, toUpperCaseWithUnderscores } from '@shared'
+import { categoryOptions } from '../../config/model/model.js'
 
 export default {
   props: {
@@ -77,6 +78,7 @@ export default {
       requiredFields,
       autoChangeCode: ref(true),
       autoChangeDisplayName: ref(true),
+      categoryOptions,
       newRow: reactive({
         name: '',
         provider_name: '',
@@ -100,11 +102,6 @@ export default {
   },
   data() {
     return {
-      categoryOptions: [
-        { label: 'Chat Completion', value: 'prompts' },
-        { label: 'Vector Embedding', value: 'embeddings' },
-        { label: 'Re-ranking', value: 're-ranking' },
-      ],
       isMounted: false,
     }
   },

@@ -6,6 +6,12 @@ import { markRaw } from 'vue'
 import store from '@/store'
 import { formatDateTime } from '@shared/utils/dateTime'
 
+const categoryOptions = [
+  { label: 'Chat Completion', value: 'prompts' },
+  { label: 'Vector Embedding', value: 'embeddings' },
+  { label: 'Re-ranking', value: 're-ranking' },
+]
+
 
 const controls = {
   id: {
@@ -245,3 +251,4 @@ const controls = {
 }
 
 export default controls
+export { categoryOptions }
