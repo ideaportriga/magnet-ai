@@ -46,7 +46,7 @@
   km-popup-confirm(
     :visible='showEndpointWarning',
     title='Change Endpoint',
-    confirmButtonLabel='Yes, Clear Secrets',
+    confirmButtonLabel='Yes, Change Secrets',
     cancelButtonLabel='Cancel',
     notification='Changing the endpoint will permanently delete all encrypted secrets. You will need to re-enter all credentials after this change.',
     @confirm='confirmEndpointChange',
@@ -76,16 +76,35 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
+import { onBeforeRouteLeave } from 'vue-router'
+import { useQuasar } from 'quasar'
 
 const store = useStore()
+const $q = useQuasar()
 
 const provider = computed(() => store.getters.provider)
 
 const isEditingEndpoint = ref(false)
 const tempEndpoint = ref('')
 const showEndpointWarning = ref(false)
+
+const pendingNavigation = ref(null)
+
+// Prevent navigation when editing endpoint
+onBeforeRouteLeave((to, from, next) => {
+  if (isEditingEndpoint.value && tempEndpoint.value !== provider.value?.endpoint) {
+    pendingNavigation.value = next
+    showEndpointWarning.value = true
+  } else {
+    // If editing but no changes, just cancel editing and continue
+    if (isEditingEndpoint.value) {
+      cancelEditingEndpoint()
+    }
+    next()
+  }
+})
 
 const endpointValue = computed(() => {
   if (isEditingEndpoint.value) {
@@ -112,7 +131,7 @@ const saveEndpoint = () => {
   }
 }
 
-const confirmEndpointChange = () => {
+const confirmEndpointChange = async () => {
   // Update endpoint
   store.commit('updateProviderProperty', { 
     key: 'endpoint', 
@@ -123,14 +142,49 @@ const confirmEndpointChange = () => {
     key: 'secrets_encrypted', 
     value: {} 
   })
+  
+  try {
+    // Save provider
+    await store.dispatch('saveProvider')
+    
+    $q.notify({
+      position: 'top',
+      message: 'Endpoint updated successfully.',
+      color: 'positive',
+      textColor: 'black',
+      timeout: 1000,
+    })
+  } catch (error) {
+    console.error('Error saving provider:', error)
+    $q.notify({
+      position: 'top',
+      message: 'Failed to save endpoint changes.',
+      color: 'negative',
+      textColor: 'white',
+      timeout: 2000,
+    })
+  }
+  
   showEndpointWarning.value = false
   isEditingEndpoint.value = false
   tempEndpoint.value = ''
+  
+  // Continue navigation if it was blocked
+  if (pendingNavigation.value) {
+    pendingNavigation.value()
+    pendingNavigation.value = null
+  }
 }
 
 const cancelEndpointChange = () => {
   showEndpointWarning.value = false
   tempEndpoint.value = provider.value?.endpoint || ''
+  
+  // Cancel navigation if it was blocked
+  if (pendingNavigation.value) {
+    pendingNavigation.value(false)
+    pendingNavigation.value = null
+  }
 }
 
 const connectionEntries = computed(() => {
