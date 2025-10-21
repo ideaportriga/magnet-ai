@@ -1,21 +1,18 @@
 import { required, minLength, validJson } from '@shared/utils/validationRules'
 import NameDescription from '@/config/rag-tools/component/NameDescription.vue'
-import { markRaw } from 'vue'
+import { markRaw, ref } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
-
 import { ChipCopy } from '@ui'
+import { useKnowledgeSourcePlugins } from '@/composables/useKnowledgeSourcePlugins'
 
-const sourceTypeChildren = {
+// Initialize plugin data
+const pluginsComposable = useKnowledgeSourcePlugins()
+
+// Static sourceTypeChildren as fallback (will be replaced by dynamic data)
+const staticSourceTypeChildren = {
   '': [],
   Sharepoint: [
-    {
-      name: 'sharepoint_site_url',
-      label: 'Sharepoint URL',
-      field: 'sharepoint_site_url',
-      component: 'km-input',
-      readonly: (collection) => !!collection?.last_synced,
-      type: 'String',
-    },
+    // sharepoint_site_url is now in provider (not here)
     {
       name: 'sharepoint_library',
       label: 'Library',
@@ -42,14 +39,7 @@ const sourceTypeChildren = {
     },
   ],
   'Sharepoint Pages': [
-    {
-      name: 'sharepoint_site_url',
-      label: 'Sharepoint URL',
-      field: 'sharepoint_site_url',
-      component: 'km-input',
-      readonly: (collection) => !!collection?.last_synced,
-      type: 'String',
-    },
+    // sharepoint_site_url is now in provider (not here)
     {
       name: 'sharepoint_pages_page_name',
       label: 'Page name',
@@ -79,16 +69,6 @@ const sourceTypeChildren = {
     },
   ],
   Hubspot: [],
-  Strapi: [
-    {
-      name: 'strapi_api_url',
-      label: 'Source url',
-      field: 'strapi_api_url',
-      component: 'km-input',
-      readonly: (collection) => !!collection?.last_synced,
-      type: 'String',
-    },
-  ],
   Salesforce: [
     {
       name: 'object_api_name',
@@ -108,14 +88,7 @@ const sourceTypeChildren = {
     },
   ],
   Confluence: [
-    {
-      name: 'confluence_url',
-      label: 'Confluence URL',
-      field: 'confluence_url',
-      component: 'km-input',
-      readonly: (collection) => !!collection?.last_synced,
-      type: 'String',
-    },
+    // confluence_url is now in provider (not here)
     {
       name: 'confluence_space',
       label: 'Confluence space key',
@@ -126,25 +99,11 @@ const sourceTypeChildren = {
     },
   ],
   RightNow: [
-    {
-      name: 'rightnow_url',
-      label: 'RightNow URL',
-      field: 'rightnow_url',
-      component: 'km-input',
-      readonly: (collection) => !!collection?.last_synced,
-      type: 'String',
-    },
+    // rightnow_url is now in provider (not here)
   ],
   'Manual Upload': [],
   'Oracle Knowledge': [
-    {
-      name: 'oracle_knowledge_url',
-      label: 'Oracle Knowledge URL',
-      field: 'oracle_knowledge_url',
-      component: 'km-input',
-      readonly: (collection) => !!collection?.last_synced,
-      type: 'String',
-    },
+    // oracle_knowledge_url is now in provider (not here)
   ],
   'Fluid Topics': [
     {
@@ -157,15 +116,7 @@ const sourceTypeChildren = {
     },
   ],
   Documentation: [
-    {
-      name: 'base_url',
-      label: 'Base URL',
-      field: 'base_url',
-      description: 'Base URL of the VitePress documentation site (e.g., http://localhost:5173)',
-      component: 'km-input',
-      readonly: (collection) => !!collection?.last_synced,
-      type: 'String',
-    },
+    // base_url is now in provider (not here)
     {
       name: 'languages',
       label: 'Languages',
@@ -194,26 +145,45 @@ const sourceTypeChildren = {
       type: 'Number',
     },
   ],
-  // BeeInfo: [
-  //   {
-  //     name: 'additional_slug',
-  //     label: 'Additional Slug',
-  //     field: 'additional_slug',
-  //     description: 'Optional additional slug to append to the API endpoint',
-  //     component: 'km-input',
-  //     readonly: (collection) => !!collection?.last_synced,
-  //     type: 'String',
-  //   },
-  //   {
-  //     name: 'external_only',
-  //     label: 'External Only',
-  //     field: 'external_only',
-  //     description: 'Only process accordion items with external=true flag',
-  //     component: 'km-toggle',
-  //     type: 'Boolean',
-  //   },
-  // ],
 }
+
+// Static source type options as fallback (extracted from staticSourceTypeChildren keys)
+const staticSourceTypeOptions = Object.keys(staticSourceTypeChildren).filter(key => key !== '')
+
+// Export reactive reference that will be updated when plugins are loaded
+export const sourceTypeChildren = ref(staticSourceTypeChildren)
+export const sourceTypeOptions = ref(staticSourceTypeOptions)
+
+/**
+ * Initialize plugins data from backend
+ * Call this function when the app starts or when the collections page is loaded
+ */
+export async function initializePlugins() {
+  await pluginsComposable.fetchPlugins()
+  
+  console.log('Plugins loaded:', pluginsComposable.plugins.value.length)
+  console.log('Source type options from composable:', pluginsComposable.sourceTypeOptions.value)
+  console.log('Source type children keys from composable:', Object.keys(pluginsComposable.sourceTypeChildren.value))
+  
+  // Update reactive references with data from backend
+  if (pluginsComposable.plugins.value.length > 0) {
+    sourceTypeChildren.value = pluginsComposable.sourceTypeChildren.value
+    sourceTypeOptions.value = pluginsComposable.sourceTypeOptions.value
+    
+    console.log('Updated sourceTypeOptions to:', sourceTypeOptions.value)
+    console.log('Updated sourceTypeChildren keys to:', Object.keys(sourceTypeChildren.value))
+  }
+  
+  return {
+    plugins: pluginsComposable.plugins.value,
+    error: pluginsComposable.error.value,
+  }
+}
+
+/**
+ * Export the composable for use in components that need provider fields
+ */
+export { useKnowledgeSourcePlugins }
 const controls = {
   id: {
     name: 'id',
@@ -319,21 +289,14 @@ const controls = {
     name: 'source_type',
     label: 'Source',
     field: (row) => row?.source?.source_type,
-    options: [
-      'Sharepoint',
-      'Sharepoint Pages',
-      'Salesforce',
-      'Confluence',
-      'RightNow',
-      'Manual Upload',
-      'Oracle Knowledge',
-      'File',
-      'Hubspot',
-      'Fluid Topics',
-      'Documentation',
-      // 'BeeInfo',
-    ],
-    children: sourceTypeChildren,
+    // Use dynamic options from plugins
+    get options() {
+      return sourceTypeOptions.value
+    },
+    // Use dynamic children from plugins
+    get children() {
+      return sourceTypeChildren.value
+    },
     columnNumber: 1,
     validate: true,
     rules: [required()],

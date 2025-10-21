@@ -33,6 +33,19 @@ class FluidTopicsPlugin(KnowledgeSourcePlugin):
                         "type": "string",
                         "description": "JSON string of search filters",
                     },
+                    # Provider-level credentials (from provider config)
+                    "api_key": {
+                        "type": "string",
+                        "description": "Fluid Topics API key (from provider)",
+                    },
+                    "search_api_url": {
+                        "type": "string",
+                        "description": "Fluid Topics Search API URL (from provider)",
+                    },
+                    "pdf_api_url": {
+                        "type": "string",
+                        "description": "Fluid Topics PDF API URL (from provider)",
+                    },
                 },
             },
         )
@@ -61,8 +74,18 @@ class FluidTopicsPlugin(KnowledgeSourcePlugin):
         filters = source_config.get("fluid_topics_search_filters")
         filters = loads(filters) if filters else []
 
-        # Create data source
-        data_source = FluidTopicsDataSource(filters)
+        # Get API configuration from source_config (merged with provider config)
+        api_key = source_config.get("api_key")
+        search_api_url = source_config.get("search_api_url")
+        pdf_api_url = source_config.get("pdf_api_url")
+
+        # Create data source with explicit config if provided
+        data_source = FluidTopicsDataSource(
+            filters=filters,
+            api_key=api_key,
+            search_api_url=search_api_url,
+            pdf_api_url=pdf_api_url,
+        )
 
         # Return processor
         return FluidTopicsDataProcessor(data_source, collection_config)

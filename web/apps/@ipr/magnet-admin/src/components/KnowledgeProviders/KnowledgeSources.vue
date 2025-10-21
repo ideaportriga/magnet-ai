@@ -60,11 +60,11 @@ export default {
       return this.provider?.id
     },
     filteredRows() {
-      if (!this.provider?.id) {
+      if (!this.provider?.system_name) {
         return []
       }
-      // Filter collections by provider_id
-      return this.visibleRows.filter((item) => item.provider_id === this.provider.id)
+      // Filter collections by provider_system_name
+      return this.visibleRows.filter((item) => item.provider_system_name === this.provider.system_name)
     },
   },
   methods: {

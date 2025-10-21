@@ -37,12 +37,21 @@ class RightNowPlugin(KnowledgeSourcePlugin):
             config_schema={
                 "type": "object",
                 "properties": {
-                    "rightnow_url": {
+                    "endpoint": {
                         "type": "string",
-                        "description": "RightNow instance URL",
+                        "description": "RightNow service URL",
+                    },
+                    # Provider-level credentials (from provider config)
+                    "username": {
+                        "type": "string",
+                        "description": "RightNow username (from provider)",
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "RightNow password (from provider)",
                     },
                 },
-                "required": ["rightnow_url"],
+                "required": ["endpoint"],
             },
         )
 
@@ -67,15 +76,27 @@ class RightNowPlugin(KnowledgeSourcePlugin):
             RightNowDataProcessor instance
 
         Raises:
-            ClientException: If rightnow_url is missing
+            ClientException: If endpoint is missing
         """
-        rightnow_url = source_config.get("rightnow_url")
+        rightnow_url = source_config.get("endpoint")
 
         if not rightnow_url:
-            raise ClientException("Missing `rightnow_url` in metadata")
+            raise ClientException("Missing `endpoint` in metadata")
 
-        # Get authentication
-        auth = get_rightnow_basic_auth()
+        # Get credentials from source_config (merged with provider config)
+        username = source_config.get("username")
+        password = source_config.get("password")
+
+        # Get authentication with explicit config if provided, otherwise use env
+        if username and password:
+            from data_sources.rightnow.utils import get_rightnow_basic_auth_with_config
+            auth = get_rightnow_basic_auth_with_config(
+                username=username,
+                password=password,
+            )
+        else:
+            # Fall back to environment-based config for backward compatibility
+            auth = get_rightnow_basic_auth()
 
         # Create data source
         data_source = RightNowDataSource(rightnow_url, auth)

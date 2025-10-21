@@ -4,13 +4,13 @@
     .col.q-pt-8
       .km-input-label.q-pb-xs.q-pl-8 Source type
       km-select(
-        :options='config.source_type.options',
+        :options='dynamicSourceTypeOptions',
         v-model='source_type',
         ref='source_typeRef',
         :rules='config.source_type.rules',
         :disabled='isDisable'
       )
-    template(v-for='item in config.source_type?.children[source_type]')
+    template(v-for='item in dynamicSourceTypeChildren[source_type]')
       .col.q-pt-8
         .km-input-label.q-pb-xs.q-pl-8 {{ item.label }}
           .km-description.text-secondary-text(v-if='item?.description') {{ item?.description }}
@@ -129,8 +129,9 @@
 
 <script>
 import { isEqual, orderBy, pickBy } from 'lodash'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useChroma } from '@shared'
+import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
 
 export default {
   props: ['prompt'],
@@ -147,9 +148,22 @@ export default {
       selectedRow,
       customFields: ref({}),
       promptTemplateItems,
+      // Direct access to reactive plugin data
+      sourceTypeOptions,
+      sourceTypeChildren,
     }
   },
   computed: {
+    // Dynamic source type options from loaded plugins
+    dynamicSourceTypeOptions() {
+      return this.sourceTypeOptions || []
+    },
+    
+    // Dynamic source type children from loaded plugins
+    dynamicSourceTypeChildren() {
+      return this.sourceTypeChildren || {}
+    },
+    
     isDisable() {
       if (!this.selectedRow?.last_synced) return false
       const d = new Date(this.selectedRow.last_synced)

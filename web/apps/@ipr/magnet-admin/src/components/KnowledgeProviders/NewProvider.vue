@@ -45,9 +45,10 @@ km-popup-confirm(
 </template>
 
 <script>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useChroma, required, toUpperCaseWithUnderscores } from '@shared'
 import { useRouter } from 'vue-router'
+import { useKnowledgeSourcePlugins } from '@/composables/useKnowledgeSourcePlugins'
 
 export default {
   props: {
@@ -60,13 +61,37 @@ export default {
   setup() {
     const { create, ...useCollection } = useChroma('provider')
     const router = useRouter()
+    const pluginsComposable = useKnowledgeSourcePlugins()
 
-    const typeOptions = [
+    // Static fallback options
+    const staticTypeOptions = [
       { label: 'Oracle Knowledge', value: 'oracle_knowledge' },
       { label: 'Sharepoint', value: 'sharepoint' },
       { label: 'Confluence', value: 'confluence' },
       { label: 'Salesforce', value: 'salesforce' },
+      { label: 'Hubspot', value: 'hubspot' },
+      { label: 'RightNow', value: 'rightnow' },
+      { label: 'Fluid Topics', value: 'fluid_topics' },
     ]
+    
+    const typeOptions = ref(staticTypeOptions)
+    const loadingPlugins = ref(false)
+
+    // Load plugins on mount
+    onMounted(async () => {
+      loadingPlugins.value = true
+      await pluginsComposable.fetchPlugins()
+      
+      // Build type options from loaded plugins
+      if (pluginsComposable.plugins.value.length > 0) {
+        typeOptions.value = pluginsComposable.plugins.value.map(plugin => ({
+          label: plugin.name,
+          value: plugin.source_type,
+        }))
+      }
+      
+      loadingPlugins.value = false
+    })
 
     return {
       create,
@@ -86,6 +111,8 @@ export default {
       autoChangeCode: ref(true),
       isMounted: ref(false),
       typeOptions,
+      loadingPlugins,
+      pluginsComposable,
     }
   },
   computed: {

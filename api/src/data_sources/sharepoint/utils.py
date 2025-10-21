@@ -58,3 +58,58 @@ def create_sharepoint_client(sharepoint_site_url: str) -> ClientContext:
     ctx = get_sharepoint_context(sharepoint_site_url, sharepoint_config)
 
     return ctx
+
+
+def create_sharepoint_client_with_config(
+    sharepoint_site_url: str,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    tenant: str | None = None,
+    thumbprint: str | None = None,
+    private_key: str | None = None,
+) -> ClientContext:
+    """Create SharePoint client with explicit configuration.
+    
+    This function allows passing credentials directly instead of reading from environment.
+    Useful when credentials come from provider configuration in database.
+    
+    Args:
+        sharepoint_site_url: SharePoint site URL
+        client_id: Azure AD application client ID
+        client_secret: Azure AD application client secret (for secret-based auth)
+        tenant: Azure AD tenant ID (for certificate-based auth)
+        thumbprint: Certificate thumbprint (for certificate-based auth)
+        private_key: Certificate private key (for certificate-based auth)
+        
+    Returns:
+        ClientContext instance
+        
+    Raises:
+        ValueError: If required credentials are missing
+    """
+    # If no credentials provided, fall back to environment
+    if not client_id:
+        return create_sharepoint_client(sharepoint_site_url)
+    
+    # Build config based on provided credentials
+    if client_secret:
+        # Secret-based authentication
+        sharepoint_config = SharepointConfig(
+            client_id=client_id,
+            client_secret=client_secret,
+        )
+    elif tenant and thumbprint and private_key:
+        # Certificate-based authentication
+        sharepoint_config = SharepointConfigWithCert(
+            tenant=tenant,
+            client_id=client_id,
+            thumbprint=thumbprint,
+            private_key=private_key.replace("\\n", "\n"),
+        )
+    else:
+        raise ValueError(
+            "Either client_secret or (tenant, thumbprint, private_key) must be provided"
+        )
+    
+    ctx = get_sharepoint_context(sharepoint_site_url, sharepoint_config)
+    return ctx

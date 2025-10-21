@@ -6,6 +6,9 @@ from advanced_alchemy.extensions.litestar import repository, service
 
 from core.db.models.provider import Provider
 from services.ai_services.cache import invalidate_provider_cache
+from services.knowledge_sources.cache import (
+    invalidate_provider_config_cache as invalidate_ks_provider_cache,
+)
 
 
 class ProvidersService(service.SQLAlchemyAsyncRepositoryService[Provider]):
@@ -32,6 +35,8 @@ class ProvidersService(service.SQLAlchemyAsyncRepositoryService[Provider]):
         # Invalidate provider cache after successful creation
         # This ensures any cached lookups will fetch fresh data
         invalidate_provider_cache(created_provider.system_name)
+        # Also invalidate knowledge source provider cache
+        invalidate_ks_provider_cache(created_provider.system_name)
         
         return created_provider
 
@@ -95,6 +100,8 @@ class ProvidersService(service.SQLAlchemyAsyncRepositoryService[Provider]):
         
         # Invalidate provider cache after successful update
         invalidate_provider_cache(updated_provider.system_name)
+        # Also invalidate knowledge source provider cache
+        invalidate_ks_provider_cache(updated_provider.system_name)
         
         return updated_provider
 

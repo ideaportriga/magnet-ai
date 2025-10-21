@@ -10,6 +10,7 @@ from core.plugins.plugin_types import PluginType
 from core.plugins.registry import PluginRegistry
 from data_sync.synchronizer import Synchronizer
 from models import DocumentData
+from services.knowledge_sources.factory import get_provider_config
 from services.knowledge_sources.models import (
     MetadataAutomapRequest,
     MetadataAutomapResponse,
@@ -38,6 +39,9 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
 
     This function uses the plugin registry to dynamically load and execute
     the appropriate knowledge source plugin based on the collection's source type.
+    
+    If collection has provider_system_name, retrieves provider configuration
+    and merges it with source config.
 
     Args:
         collection_id: The ID of the collection to sync
@@ -52,6 +56,20 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
 
     source = collection_config.get("source", {})
     source_type = source.get("source_type")
+    provider_system_name = collection_config.get("provider_system_name")
+
+    # Get provider configuration if provider is linked
+    provider_config = {}
+    if provider_system_name:
+        try:
+            provider_config = await get_provider_config(provider_system_name)
+        except ValueError as e:
+            raise ClientException(f"Failed to load provider configuration: {e}")
+    
+    # Merge provider config with source config
+    # Source config takes precedence over provider config
+    # Plugins now use 'endpoint' field directly, no transformation needed
+    merged_source_config = {**provider_config, **source}
 
     # Get plugin from registry
     plugin = PluginRegistry.get(PluginType.KNOWLEDGE_SOURCE, source_type)
@@ -71,8 +89,8 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
             f"Plugin '{source_type}' is not a valid KnowledgeSourcePlugin"
         )
 
-    # Create processor using the plugin
-    processor = await plugin.create_processor(source, collection_config, store)
+    # Create processor using the plugin with merged configuration
+    processor = await plugin.create_processor(merged_source_config, collection_config, store)
 
     # Sync using the processor
     await Synchronizer(processor, store).sync(collection_id)
@@ -84,6 +102,145 @@ class KnowledgeSourcesController(Controller):
     async def list_collections(self) -> list[dict[str, Any]]:
         """List all collections"""
         return await store.list_collections()
+    
+    @get("/plugins")
+    async def list_plugins(self) -> dict[str, Any]:
+        """Get available knowledge source plugins with their configuration schemas
+        
+        Returns:
+            Dictionary with plugin information including:
+            - name: Plugin display name
+            - source_type: Unique identifier for the plugin
+            - description: Plugin description
+            - provider_fields: Fields that should be configured in the provider
+            - source_fields: Fields that can be configured in the knowledge source
+        """
+        # Get all knowledge source plugins
+        plugins = PluginRegistry.get_all(PluginType.KNOWLEDGE_SOURCE)
+        
+        # Provider-level credential fields that should not appear in collection form
+        provider_credential_fields = {
+            'client_id', 'client_secret', 'tenant', 'thumbprint', 'private_key',
+            'username', 'password', 'token', 'security_token', 'api_token',
+            'api_key', 'search_api_url', 'pdf_api_url', 'base_slug'
+        }
+        
+        # Provider-level endpoint field (standardized as 'endpoint')
+        # Plugins now use 'endpoint' directly in their config_schema
+        provider_endpoint_field = 'endpoint'
+        
+        # All provider fields combined
+        all_provider_fields = provider_credential_fields | {provider_endpoint_field}
+        
+        def determine_component(field_name: str, field_type: str) -> str:
+            """Determine the Vue component type based on field characteristics"""
+            if field_type == "boolean":
+                return "km-toggle"
+            elif field_type == "array":
+                return "km-input-list-add"
+            elif field_type == "object" or "config" in field_name or "filter" in field_name:
+                return "km-codemirror"
+            else:
+                return "km-input"
+        
+        def format_label(field_name: str) -> str:
+            """Convert field_name to human-readable label"""
+            # Remove common prefixes
+            label = field_name
+            for prefix in ['sharepoint_', 'confluence_', 'oracle_', 'rightnow_', 'fluid_topics_', 'sharepoint_pages_']:
+                if label.startswith(prefix):
+                    label = label[len(prefix):]
+                    break
+            
+            # Convert snake_case to Title Case
+            words = label.split('_')
+            return ' '.join(word.capitalize() for word in words)
+        
+        def transform_field(field_name: str, field_schema: dict, required: bool, is_provider_field: bool = False) -> dict:
+            """Transform schema field to frontend format"""
+            field_type = field_schema.get("type", "string")
+            
+            # Map JSON schema types to frontend types
+            type_mapping = {
+                "string": "String",
+                "integer": "Number",
+                "number": "Number",
+                "boolean": "Boolean",
+                "array": "Array",
+                "object": "Object"
+            }
+            
+            field_info = {
+                "name": field_name,
+                "label": format_label(field_name),
+                "field": field_name,
+                "component": determine_component(field_name, field_type),
+                "type": type_mapping.get(field_type, "String"),
+            }
+            
+            # Add description if available
+            if field_schema.get("description"):
+                field_info["description"] = field_schema["description"]
+            
+            # Add default value if present
+            if "default" in field_schema:
+                field_info["default"] = field_schema["default"]
+            
+            # Provider fields should not have readonly logic based on last_synced
+            # Collection fields should be readonly after sync to prevent data inconsistency
+            if is_provider_field:
+                field_info["readonly"] = False
+            else:
+                field_info["readonly_after_sync"] = True
+            
+            # Mark if field is required
+            field_info["required"] = required
+            
+            return field_info
+        
+        result = []
+        for plugin_id, plugin in plugins.items():
+            if not isinstance(plugin, KnowledgeSourcePlugin):
+                continue
+                
+            metadata = plugin.metadata
+            config_schema = metadata.config_schema or {}
+            
+            # Extract properties from schema
+            properties = config_schema.get("properties", {})
+            required_fields = config_schema.get("required", [])
+            
+            # Split fields into provider and source fields
+            provider_fields = []
+            source_fields = []
+            
+            for field_name, field_schema in properties.items():
+                is_provider_field = field_name in all_provider_fields
+                
+                field_info = transform_field(
+                    field_name, 
+                    field_schema, 
+                    field_name in required_fields,
+                    is_provider_field
+                )
+                
+                if is_provider_field:
+                    provider_fields.append(field_info)
+                else:
+                    source_fields.append(field_info)
+            
+            plugin_info = {
+                "name": metadata.name,
+                "source_type": plugin.source_type,
+                "description": metadata.description,
+                "version": metadata.version,
+                "author": metadata.author,
+                "provider_fields": provider_fields,
+                "source_fields": source_fields,
+            }
+            result.append(plugin_info)
+        
+        return {"plugins": result}
 
     @post()
     async def create_collection(self, data: dict[str, Any]) -> dict[str, Any]:

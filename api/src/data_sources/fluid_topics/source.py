@@ -15,19 +15,35 @@ logger = logging.getLogger(__name__)
 class FluidTopicsDataSource(DataSource[str]):
     """Data source for interacting with Fluid Topics API."""
 
-    def __init__(self, filters: list[dict]) -> None:
+    def __init__(
+        self, 
+        filters: list[dict],
+        api_key: str | None = None,
+        search_api_url: str | None = None,
+        pdf_api_url: str | None = None,
+    ) -> None:
         """Initializes the FluidTopicsDataSource with a list of filters.
 
         Args:
             filters (List[dict]): A list of filters for the Fluid Topics.
+            api_key (str, optional): Fluid Topics API key. If not provided, falls back to environment.
+            search_api_url (str, optional): Fluid Topics Search API URL. If not provided, falls back to environment.
+            pdf_api_url (str, optional): Fluid Topics PDF API URL. If not provided, falls back to environment.
 
         """
-        from core.config.base import get_knowledge_source_settings
-        knowledge_settings = get_knowledge_source_settings()
+        # Use provided values or fall back to environment
+        if api_key and search_api_url and pdf_api_url:
+            self._search_api_key = api_key
+            self._search_api_url = search_api_url
+            self._pdf_api_url = pdf_api_url
+        else:
+            from core.config.base import get_knowledge_source_settings
+            knowledge_settings = get_knowledge_source_settings()
+            
+            self._search_api_key = api_key or knowledge_settings.FLUID_TOPICS_API_KEY
+            self._search_api_url = search_api_url or knowledge_settings.FLUID_TOPICS_SEARCH_API_URL
+            self._pdf_api_url = pdf_api_url or knowledge_settings.FLUID_TOPICS_PDF_API_URL
         
-        self._search_api_key = knowledge_settings.FLUID_TOPICS_API_KEY
-        self._search_api_url = knowledge_settings.FLUID_TOPICS_SEARCH_API_URL
-        self._pdf_api_url = knowledge_settings.FLUID_TOPICS_PDF_API_URL
         self._filters = filters
 
     @property

@@ -36,8 +36,8 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           km-input(v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source type
         .full-width.q-mb-md
-          km-select(:options='config.source_type.options', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules')
-        template(v-for='item in config.source_type?.children[source_type]')
+          km-select(:options='dynamicSourceTypeOptions', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules')
+        template(v-for='item in dynamicSourceTypeChildren[source_type]')
           .col
             .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ item.label }}
             .q-mb-md
@@ -195,11 +195,12 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
     q-inner-loading(:showing='loadingCreate', color='primary', size='50px')
 </template>
 <script>
-import { defineComponent, ref, reactive } from 'vue'
+import { defineComponent, ref, reactive, computed } from 'vue'
 import { cloneDeep } from 'lodash'
 import { required, minLength } from '@shared/utils/validationRules'
 import { useChroma } from '@shared'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
 
 export default defineComponent({
   props: {
@@ -276,6 +277,9 @@ export default defineComponent({
       }),
       promptTemplateItems,
       providerItems,
+      // Direct access to reactive plugin data
+      sourceTypeOptions,
+      sourceTypeChildren,
       // New reactive property for sync confirmation display
     }
   },
@@ -295,6 +299,16 @@ export default defineComponent({
       set(val) {
         this.source = { ...this.source, source_type: val }
       },
+    },
+    
+    // Dynamic source type options from loaded plugins
+    dynamicSourceTypeOptions() {
+      return this.sourceTypeOptions || []
+    },
+    
+    // Dynamic source type children from loaded plugins
+    dynamicSourceTypeChildren() {
+      return this.sourceTypeChildren || {}
     },
 
     defaultModel() {
@@ -470,7 +484,7 @@ export default defineComponent({
         system_name,
         description,
         ai_model,
-        provider_system_name: provider_system_name || undefined, // Add provider_system_name
+        provider_system_name: provider_system_name || undefined, // Link to provider by system_name
         chunking: {
           strategy: chunkingStrategy,
           chunk_size: parseInt(chunkSize),

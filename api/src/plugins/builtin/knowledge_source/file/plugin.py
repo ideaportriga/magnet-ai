@@ -31,8 +31,11 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
                 "type": "object",
                 "properties": {
                     "file_url": {
-                        "type": "string",
-                        "description": "URL of the file to sync",
+                        "type": "array",
+                        "description": "Only links to PDF files are accepted",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                 },
                 "required": ["file_url"],
@@ -52,7 +55,7 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
         """Create File URL processor
 
         Args:
-            source_config: Source configuration containing file URL
+            source_config: Source configuration containing file URL(s)
             collection_config: Full collection configuration
             store: Database store instance
 
@@ -67,7 +70,11 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
         if not file_url:
             raise ClientException("Missing `file_url` in metadata")
 
-        # Create data source
+        # Ensure file_url is a list (can be string or list)
+        if isinstance(file_url, str):
+            file_url = [file_url]
+
+        # Create data source with list of URLs
         data_source = UrlDataSource(file_url)
 
         # Return processor

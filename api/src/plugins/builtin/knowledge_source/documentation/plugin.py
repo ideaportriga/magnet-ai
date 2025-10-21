@@ -30,7 +30,7 @@ class DocumentationPlugin(KnowledgeSourcePlugin):
             config_schema={
                 "type": "object",
                 "properties": {
-                    "base_url": {
+                    "endpoint": {
                         "type": "string",
                         "description": "Base URL of the VitePress documentation site (e.g., http://localhost:5173)",
                     },
@@ -57,7 +57,7 @@ class DocumentationPlugin(KnowledgeSourcePlugin):
                         "default": 5,
                     },
                 },
-                "required": ["base_url"],
+                "required": ["endpoint"],
             },
         )
 
@@ -82,12 +82,12 @@ class DocumentationPlugin(KnowledgeSourcePlugin):
             DocumentationDataProcessor instance
 
         Raises:
-            ClientException: If base_url is missing
+            ClientException: If endpoint is missing
         """
-        base_url = source_config.get("base_url")
+        base_url = source_config.get("endpoint")
 
         if not base_url:
-            raise ClientException("Missing `base_url` in metadata")
+            raise ClientException("Missing `endpoint` in metadata")
 
         # Get optional configuration
         languages = source_config.get("languages", ["en"])

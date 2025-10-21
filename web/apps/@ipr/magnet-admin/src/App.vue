@@ -18,6 +18,7 @@ import { useState } from '@shared'
 import { useChroma } from '@shared'
 import { useAuth } from '@shared'
 import { getCurrentInstance } from 'vue'
+import { initializePlugins } from '@/config/collections/collections'
 
 export default {
   setup() {
@@ -98,6 +99,11 @@ export default {
 
   methods: {
     async loadData() {
+      // Load plugins configuration first
+      await initializePlugins().catch(err => {
+        console.error('Failed to load plugins configuration:', err)
+      })
+      
       await Promise.all([
         this.collections.get(),
         this.rag_tools.get(),

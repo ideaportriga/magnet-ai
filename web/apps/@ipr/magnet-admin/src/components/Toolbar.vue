@@ -142,8 +142,8 @@ const connectors = [
     path: 'knowledge-sources',
   },
   {
-    label: 'Knowledge Providers',
-    icon: 'fas fa-plug',
+    label: 'Knowledge sources',
+    icon: 'fas fa-book',
     path: 'knowledge-providers',
   },
   // {
@@ -152,7 +152,7 @@ const connectors = [
   //   path: 'model',
   // },
   {
-    label: 'Model Providers',
+    label: 'Models',
     icon: 'fas fa-circle-nodes',
     // icon: 'fas fa-network-wired',
     path: 'model-providers',

@@ -38,6 +38,11 @@ class HubspotPlugin(KnowledgeSourcePlugin):
                         "type": "integer",
                         "description": "Optional chunk size for pagination",
                     },
+                    # Provider-level credentials (from provider config)
+                    "api_token": {
+                        "type": "string",
+                        "description": "HubSpot API token (from provider)",
+                    },
                 },
             },
         )
@@ -63,12 +68,13 @@ class HubspotPlugin(KnowledgeSourcePlugin):
             HubspotDataProcessor instance
         """
         chunk_size = source_config.get("chunk_size")
+        api_token = source_config.get("api_token")
 
-        # Create data source
+        # Create data source with explicit token if provided
         if chunk_size:
-            data_source = HubspotDataSource(int(chunk_size))
+            data_source = HubspotDataSource(int(chunk_size), api_token=api_token)
         else:
-            data_source = HubspotDataSource()
+            data_source = HubspotDataSource(api_token=api_token)
 
         # Return processor
         return HubspotDataProcessor(data_source)
