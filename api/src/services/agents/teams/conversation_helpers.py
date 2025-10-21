@@ -12,6 +12,7 @@ from services.agents.models import (
     AgentActionCallConfirmation,
     AgentConversationMessageRole,
 )
+from services.observability import observe
 
 
 logger = getLogger(__name__)
@@ -85,7 +86,54 @@ def _build_assistant_payload(
 
     return payload
 
+# TODO - refactor it
+@observe(
+        name="New user message",
+        description="User sent a new message.",
+        channel="production",
+        source="Teams App",
+    )
+async def _continue_conversation_for_obsevability(
+    conversation_id: str | None,
+    agent_system_name: str,
+    aad_object_id: str,
+    text: str,
 
+) -> AssistantPayload:
+    """Continue or start an agent conversation and return the assistant's reply payload."""
+    client_id = f"{aad_object_id}@{agent_system_name}"
+    logger.info("[agents] _continue_conversation_for_obsevability started: client_id=%s", client_id)
+
+    if conversation_id is None:
+        try:
+            resp = await create_conversation(
+                agent_system_name_or_config=agent_system_name,
+                content=text,
+                client_id=client_id,
+            )
+            conv_id = str(getattr(resp, "id", "")) or ""
+            assistant = _extract_assistant_message(resp)
+            logger.info("[agents] created conversation %s", conv_id)
+            return _build_assistant_payload(conv_id, assistant, agent_system_name=agent_system_name)
+        except Exception as exc:
+            logger.exception("[agents] create_conversation error for %s", client_id)
+            raise exc
+
+    try:
+        resp = await add_user_message(
+            agent_system_name_or_config=agent_system_name,
+            conversation_or_id=conversation_id,
+            user_message_content=text,
+        )
+        assistant = _extract_assistant_message(resp)
+        logger.info("[agents] appended user message to %s", conversation_id)
+        return _build_assistant_payload(conversation_id, assistant, agent_system_name=agent_system_name)
+    except Exception as exc:
+        logger.exception("[agents] add_user_message error for conversation %s", conv_id)
+        raise exc
+
+
+# TODO - refactor it
 async def _continue_conversation(
     agent_system_name: str,
     aad_object_id: str,
@@ -101,34 +149,13 @@ async def _continue_conversation(
         logger.exception("[agents] failed to fetch last conversation for %s", client_id)
         raise exc
 
-    if not last:
-        try:
-            resp = await create_conversation(
-                agent_system_name_or_config=agent_system_name,
-                content=text,
-                client_id=client_id,
-            )
-            conv_id = str(getattr(resp, "id", "")) or ""
-            assistant = _extract_assistant_message(resp)
-            logger.info("[agents] created conversation %s", conv_id)
-            return _build_assistant_payload(conv_id, assistant, agent_system_name=agent_system_name)
-        except Exception as exc:
-            logger.exception("[agents] create_conversation error for %s", client_id)
-            raise exc
+    if last:
+        conv_id = str(getattr(last, "id", "")) or ""
+        trace_id = str(getattr(last, "trace_id", "")) or ""
+        print(">>>>>>trace_id: %s", trace_id)
+        return await _continue_conversation_for_obsevability(conversation_id=conv_id, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text, _observability_overrides={"trace_id": trace_id})
 
-    conv_id = str(getattr(last, "id", "")) or ""
-    try:
-        resp = await add_user_message(
-            agent_system_name_or_config=agent_system_name,
-            conversation_or_id=conv_id,
-            user_message_content=text,
-        )
-        assistant = _extract_assistant_message(resp)
-        logger.info("[agents] appended user message to %s", conv_id)
-        return _build_assistant_payload(conv_id, assistant, agent_system_name=agent_system_name)
-    except Exception as exc:
-        logger.exception("[agents] add_user_message error for conversation %s", conv_id)
-        raise exc
+    return await _continue_conversation_for_obsevability(conversation_id=None, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text)
 
 
 async def _handle_action_confirmation(
