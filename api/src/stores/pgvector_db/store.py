@@ -123,15 +123,17 @@ class PgVectorStore(DocumentStore):
                 ON {table_name} USING hnsw (embedding vector_cosine_ops) 
                 WITH (m = 16, ef_construction = 64)
             """)
-        else:
-            # Use IVFFlat for vectors > 2000 dimensions
-            await self.client.execute_command(f"""
-                CREATE INDEX IF NOT EXISTS idx_{table_name}_embedding_ivfflat
-                ON {table_name} USING ivfflat (embedding vector_cosine_ops)
-                WITH (lists = 100)
-            """)
             logger.info(
-                "Created IVFFlat index for collection %s with %d dimensions",
+                "Created HNSW index for collection %s with %d dimensions",
+                collection_id,
+                vector_size,
+            )
+        else:
+            # For vectors > 2000 dimensions, pgvector does not support indexes
+            # Both HNSW and IVFFlat have a 2000 dimension limit
+            logger.warning(
+                "Cannot create index for collection %s with %d dimensions (exceeds pgvector limit of 2000). "
+                "Queries will use sequential scan which may be slower.",
                 collection_id,
                 vector_size,
             )

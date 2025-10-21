@@ -177,6 +177,10 @@ export default {
           this.$store.commit('modelConfig/revertEntity')
         }
 
+        if (this.routeChromaEntity === 'provider') {
+          this.$store.commit('revertProviderChanges')
+        }
+
         this.$router.push(this.nextRoute)
       }
     },
@@ -215,6 +219,10 @@ export default {
 
       if (this.routeChromaEntity === 'api_servers') {
         this.$store.dispatch('saveApiServer')
+      }
+
+      if (this.routeChromaEntity === 'provider') {
+        this.$store.dispatch('saveProvider')
       }
 
       if (this.nextRoute) {

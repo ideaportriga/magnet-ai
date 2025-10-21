@@ -46,7 +46,7 @@ class UserExecuteController(Controller):
     async def prompt_template_execute(
         self,
         data: Annotated[PromptTemplateExecuteRequest, Body()],
-        user_id: str,
+        user_id: str | None,
         request: Request,  # do not remove this, it is used to get the consumer name and type in decorator
     ) -> PromptTemplateExecutionResponse:
         prompt_template_config = await get_prompt_template_by_system_name_flat(
@@ -82,7 +82,7 @@ class UserExecuteController(Controller):
     async def rag_tool_execute(
         self,
         data: RagToolExecute,
-        user_id: str,
+        user_id: str | None,
         request: Request,  # do not remove this, it is used to get x-attributes in observe decorator
     ) -> RagToolExecuteResponse:
         rag_tool_config = await get_rag_by_system_name_flat(data.system_name)
@@ -117,7 +117,7 @@ class UserExecuteController(Controller):
     async def retrieval_tool_execute(
         self,
         data: RetrievalToolExecute,
-        user_id: str,
+        user_id: str | None,
         request: Request,  # do not remove this, it is used to get x-attributes in observe decorator
     ) -> RetrievalToolTestResult:
         observability_context.update_current_baggage(

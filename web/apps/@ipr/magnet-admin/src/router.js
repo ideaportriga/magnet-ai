@@ -503,7 +503,9 @@ router.beforeEach((to, from, next) => {
       to.name !== 'AgentTopicActionDetail') ||
     (from.name === 'McpDetail' && store.getters.isMcpServerChanged) ||
     (from.name === 'ApiServersDetail' && store.getters.isApiServerChanged) ||
-    (from.name === 'ApiToolsDetails' && store.getters.isApiServerChanged)
+    (from.name === 'ApiToolsDetails' && store.getters.isApiServerChanged) ||
+    (from.name === 'ModelProvidersDetails' && store.getters.isProviderChanged) ||
+    (from.name === 'KnowledgeProvidersDetails' && store.getters.isProviderChanged)
   ) {
     store.commit('setNextRoute', to.fullPath)
     store.commit('showPopup')
