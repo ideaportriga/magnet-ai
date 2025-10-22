@@ -56,6 +56,7 @@ def create_magnet_response_card(magnet_response):
 
 def _create_confirmation_card(magnet_response):
     conversation_id = magnet_response.get("conversation_id")
+    trace_id = magnet_response.get("trace_id") or None
     message_id = magnet_response.get("message_id")
     agent_system_name = magnet_response.get("agent_system_name")
 
@@ -78,6 +79,7 @@ def _create_confirmation_card(magnet_response):
 
     common_data = {
         "conversation_id": conversation_id,
+        "trace_id": trace_id,
         "message_id": message_id,
         "agent_system_name": agent_system_name,
         "request_ids": request_ids,

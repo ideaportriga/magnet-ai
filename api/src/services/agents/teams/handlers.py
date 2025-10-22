@@ -235,6 +235,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
     if verb in {"confirm_action_request", "reject_action_request"}:
         data: dict[str, Any] = action.get("data") or {}
         conversation_id = str(data.get("conversation_id") or "")
+        trace_id = str(data.get("trace_id") or "")
         agent_system_name = str(data.get("agent_system_name") or "")
         request_ids_raw = data.get("request_ids") or []
         if isinstance(request_ids_raw, str):
@@ -275,6 +276,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 conversation_id=conversation_id,
                 request_ids=request_ids,
                 confirmed=confirmed,
+                _observability_overrides={"trace_id": trace_id},
             )
         except Exception:
             await ctx.send_activity("Sorry, something went wrong while processing the confirmation.")

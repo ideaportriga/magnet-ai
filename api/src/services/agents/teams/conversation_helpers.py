@@ -25,6 +25,7 @@ class ActionRequest(TypedDict):
 
 class AssistantPayload(TypedDict):
     conversation_id: str | None
+    trace_id: str | None
     message_id: str | None
     content: Any
     agent_system_name: str
@@ -71,6 +72,7 @@ def _build_assistant_payload(
     message: Any,
     *,
     agent_system_name: str,
+    trace_id: str | None = None,
 ) -> AssistantPayload:
     normalized_conversation_id = str(conversation_id or "") or None
     message_id = (str(getattr(message, "id", "")) or None) if message else None
@@ -83,6 +85,8 @@ def _build_assistant_payload(
         "requires_confirmation": bool(requests),
         "action_requests": requests,
     }
+    if trace_id:
+        payload["trace_id"] = trace_id
 
     return payload
 
@@ -98,7 +102,7 @@ async def _continue_conversation_for_obsevability(
     agent_system_name: str,
     aad_object_id: str,
     text: str,
-
+    trace_id: str | None = None,
 ) -> AssistantPayload:
     """Continue or start an agent conversation and return the assistant's reply payload."""
     client_id = f"{aad_object_id}@{agent_system_name}"
@@ -128,9 +132,9 @@ async def _continue_conversation_for_obsevability(
         )
         assistant = _extract_assistant_message(resp)
         logger.info("[agents] appended user message to %s", conversation_id)
-        return _build_assistant_payload(conversation_id, assistant, agent_system_name=agent_system_name)
+        return _build_assistant_payload(conversation_id, assistant, agent_system_name=agent_system_name, trace_id=trace_id)
     except Exception as exc:
-        logger.exception("[agents] add_user_message error for conversation %s", conv_id)
+        logger.exception("[agents] add_user_message error for conversation %s", conversation_id)
         raise exc
 
 
@@ -153,8 +157,7 @@ async def _continue_conversation(
     if last:
         conv_id = str(getattr(last, "id", "")) or ""
         trace_id = str(getattr(last, "trace_id", "")) or ""
-        print(">>>>>>trace_id: %s", trace_id)
-        return await _continue_conversation_for_obsevability(conversation_id=conv_id, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text, _observability_overrides={"trace_id": trace_id})
+        return await _continue_conversation_for_obsevability(conversation_id=conv_id, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text, trace_id=trace_id, _observability_overrides={"trace_id": trace_id})
 
     return await _continue_conversation_for_obsevability(conversation_id=None, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text)
 
