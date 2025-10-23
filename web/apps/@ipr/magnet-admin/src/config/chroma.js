@@ -1925,7 +1925,7 @@ const apiAgents = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_agents`,
+      service: `agents`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1946,7 +1946,7 @@ const apiAgents = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_agents/${id}`,
+      service: `agents/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -1972,7 +1972,7 @@ const apiAgents = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_agents/${id}/sync`,
+      service: `agents/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1991,7 +1991,7 @@ const apiAgents = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_agents`,
+      service: `agents`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -2016,7 +2016,7 @@ const apiAgents = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_agents/${id}`,
+      service: `agents/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',

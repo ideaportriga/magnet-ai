@@ -4,7 +4,6 @@ from litestar import Router, get
 from litestar.types import ControllerRouterHandler
 from litestar.static_files import create_static_files_router
 
-from core.domain.agents import AgentsController as AgentsControllerSQL
 from core.domain.ai_apps import AiAppsController as AiAppsControllerSQL
 from core.domain.ai_models import AIModelsController
 from core.domain.api_servers import ApiServersController as ApiServersControllerSQL
@@ -75,7 +74,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         ApiKeysController,
         # ApiToolProvidersController,
         # ApiToolsController,
-        AgentsControllerSQL,
+        # AgentsControllerSQL,  # Removed: AgentsController now extends this
         AiAppsControllerSQL,
         ApiServersControllerSQL,
         CollectionsController,
