@@ -56,6 +56,7 @@ def create_magnet_response_card(magnet_response):
 
 def _create_confirmation_card(magnet_response):
     conversation_id = magnet_response.get("conversation_id")
+    trace_id = magnet_response.get("trace_id") or None
     message_id = magnet_response.get("message_id")
     agent_system_name = magnet_response.get("agent_system_name")
 
@@ -65,20 +66,27 @@ def _create_confirmation_card(magnet_response):
     header = {"type": "TextBlock", "text": "AI Assistant Requires Confirmation", "weight": "Bolder", "size": "Large"}
 
     if action_requests:
-        messages = []
+        confirmation_messages = []
         for index, request in enumerate(action_requests, start=1):
             text = request.get("action_message") or "The assistant requested an action."
             if len(action_requests) > 1:
                 text = f"{index}. {text}"
-            messages.append({"type": "TextBlock", "text": text, "wrap": True})
+            confirmation_messages.append(text)
     else:
-        messages = [{"type": "TextBlock", "text": "The assistant requested an action.", "wrap": True}]
+        confirmation_messages = ["The assistant requested an action."]
+
+    messages = [{"type": "TextBlock", "text": text, "wrap": True} for text in confirmation_messages]
 
     common_data = {
         "conversation_id": conversation_id,
+        "trace_id": trace_id,
         "message_id": message_id,
         "agent_system_name": agent_system_name,
         "request_ids": request_ids,
+        "confirmation_card": {
+            "header": header["text"],
+            "messages": confirmation_messages,
+        },
     }
 
     actions = [
@@ -108,6 +116,31 @@ def _create_confirmation_card(magnet_response):
             *messages,
         ],
         "actions": actions,
+        "msteams": {"width": "Full"},
+    }
+
+
+def create_confirmation_result_card(confirmation_payload, confirmed: bool):
+    confirmation_payload = confirmation_payload or {}
+    header_text = confirmation_payload.get("header") or "AI Assistant Requires Confirmation"
+    messages = confirmation_payload.get("messages") or ["The assistant requested an action."]
+
+    body = [{"type": "TextBlock", "text": header_text, "weight": "Bolder", "size": "Large"}]
+    body.extend({"type": "TextBlock", "text": text, "wrap": True} for text in messages)
+    body.append(
+        {
+            "type": "TextBlock",
+            "text": "You confirmed." if confirmed else "You rejected.",
+            "isSubtle": True,
+            "wrap": True,
+        }
+    )
+
+    return {
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "type": "AdaptiveCard",
+        "version": "1.5",
+        "body": body,
         "msteams": {"width": "Full"},
     }
 
@@ -277,4 +310,5 @@ __all__ = [
     "create_welcome_card",
     "create_magnet_response_card",
     "create_feedback_result_card",
+    "create_confirmation_result_card",
 ]

@@ -6,6 +6,19 @@ import { markRaw } from 'vue'
 import store from '@/store'
 import { formatDateTime } from '@shared/utils/dateTime'
 
+const categoryOptions = [
+  { label: 'Chat Completion', value: 'prompts' },
+  { label: 'Vector Embedding', value: 'embeddings' },
+  { label: 'Re-ranking', value: 're-ranking' },
+]
+
+const featureOptions = [
+  { label: 'JSON Mode', value: 'json_mode' },
+  { label: 'Structure output', value: 'json_schema' },
+  { label: 'Tool Calling', value: 'tool_calling' },
+  { label: 'Reasoning', value: 'reasoning' },
+]
+
 
 const controls = {
   id: {
@@ -245,3 +258,4 @@ const controls = {
 }
 
 export default controls
+export { categoryOptions, featureOptions }

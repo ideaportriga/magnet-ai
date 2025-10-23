@@ -2,10 +2,11 @@
 q-chip.text-uppercase.q-ma-none(
   v-if='row?.[name]',
   size='sm',
-) {{ row[name] }}
+) {{ displayValue }}
 </template>
 <script>
-import { defineComponent } from 'vue'
+import { defineComponent, computed } from 'vue'
+import { categoryOptions } from '../model.js'
 
 export default defineComponent({
   props: {
@@ -17,6 +18,17 @@ export default defineComponent({
       type: String,
       required: true,
     },
+  },
+  setup(props) {
+    const displayValue = computed(() => {
+      const value = props.row[props.name]
+      const option = categoryOptions.find(opt => opt.value === value)
+      return option ? option.label : value
+    })
+
+    return {
+      displayValue,
+    }
   },
 })
 </script>

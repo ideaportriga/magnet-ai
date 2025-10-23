@@ -112,6 +112,7 @@ q-inner-loading(:showing='loading')
 <script>
 import { ref } from 'vue'
 import { useChroma } from '@shared'
+import { categoryOptions } from '../../config/model/model.js'
 
 export default {
   setup() {
@@ -128,11 +129,7 @@ export default {
         { label: 'Characters', value: 'characters' },
         { label: 'Queries', value: 'queries' },
       ]),
-      categoryOptions: ref([
-        { label: 'Chat Completions', value: 'prompts' },
-        { label: 'Vector Embeddings', value: 'embeddings' },
-        { label: 'Reranking', value: 're-ranking' },
-      ]),
+      categoryOptions,
       loading: ref(false),
       items,
       update,
