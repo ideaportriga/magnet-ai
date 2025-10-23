@@ -85,7 +85,10 @@ class OracleKnowledgePlugin(KnowledgeSourcePlugin):
         oracle_knowledge_url = source_config.get("endpoint")
 
         if not oracle_knowledge_url:
-            raise ClientException("Missing `endpoint` in metadata")
+            raise ClientException(
+                "Missing `endpoint` configuration. Please ensure the provider is configured "
+                "with a valid Oracle Knowledge endpoint URL"
+            )
 
         # Get credentials from source_config (merged with provider config)
         username = source_config.get("username")

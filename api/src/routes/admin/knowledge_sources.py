@@ -4,6 +4,7 @@ from bson import errors
 from litestar import Controller, Router, delete, get, patch, post, put
 from litestar.exceptions import ClientException, NotFoundException
 from litestar.status_codes import HTTP_200_OK, HTTP_204_NO_CONTENT
+import structlog
 
 from core.plugins.interfaces import KnowledgeSourcePlugin
 from core.plugins.plugin_types import PluginType
@@ -15,6 +16,7 @@ from services.knowledge_sources.models import (
     MetadataAutomapRequest,
     MetadataAutomapResponse,
 )
+from services.knowledge_sources.security import PROVIDER_ONLY_FIELDS
 from services.knowledge_sources.services import automap_metadata
 from services.observability import observability_context, observe
 from services.observability.models import FeatureType
@@ -32,6 +34,8 @@ DOCUMENT_COLLECTION_PREFIX = "documents_"
 
 # Load all knowledge source plugins on module import
 PluginRegistry.auto_load()
+
+logger = structlog.get_logger(__name__)
 
 
 async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
@@ -57,19 +61,70 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
     source = collection_config.get("source", {})
     source_type = source.get("source_type")
     provider_system_name = collection_config.get("provider_system_name")
+    
+    logger.info(
+        "Starting collection sync",
+        collection_id=collection_id,
+        collection_name=collection_config.get("name"),
+        source_type=source_type,
+        provider_system_name=provider_system_name,
+        has_provider=bool(provider_system_name),
+    )
 
     # Get provider configuration if provider is linked
     provider_config = {}
     if provider_system_name:
         try:
             provider_config = await get_provider_config(provider_system_name)
+            logger.info(
+                "Retrieved provider configuration",
+                collection_id=collection_id,
+                provider_system_name=provider_system_name,
+                has_endpoint=bool(provider_config.get("endpoint")),
+                endpoint_value=provider_config.get("endpoint", "None"),
+            )
         except ValueError as e:
+            logger.error(
+                "Failed to load provider configuration",
+                collection_id=collection_id,
+                provider_system_name=provider_system_name,
+                error=str(e),
+            )
             raise ClientException(f"Failed to load provider configuration: {e}")
+    else:
+        logger.warning(
+            "No provider linked to collection",
+            collection_id=collection_id,
+            message="Collection has no provider_system_name set. Endpoint and credentials must be in source config.",
+        )
     
     # Merge provider config with source config
-    # Source config takes precedence over provider config
-    # Plugins now use 'endpoint' field directly, no transformation needed
-    merged_source_config = {**provider_config, **source}
+    # Provider config values for security-critical fields are NEVER overridden
+    # Other source config values can override provider values if they are truthy
+    merged_source_config = {**provider_config}
+    for key, value in source.items():
+        # Skip security-critical fields - they must only come from provider
+        if key in PROVIDER_ONLY_FIELDS:
+            logger.warning(
+                "Ignoring security-critical field from source config",
+                collection_id=collection_id,
+                field=key,
+                reason="Security-critical fields can only be set via provider configuration"
+            )
+            continue
+        
+        # For non-security fields, only override if value is truthy or key doesn't exist in provider
+        if value or key not in provider_config:
+            merged_source_config[key] = value
+    
+    logger.debug(
+        "Merged configuration",
+        collection_id=collection_id,
+        source_type=source_type,
+        has_endpoint=bool(merged_source_config.get("endpoint")),
+        endpoint_from_provider=bool(provider_config.get("endpoint")),
+        endpoint_in_source=bool(source.get("endpoint")),
+    )
 
     # Get plugin from registry
     plugin = PluginRegistry.get(PluginType.KNOWLEDGE_SOURCE, source_type)
@@ -118,19 +173,16 @@ class KnowledgeSourcesController(Controller):
         # Get all knowledge source plugins
         plugins = PluginRegistry.get_all(PluginType.KNOWLEDGE_SOURCE)
         
-        # Provider-level credential fields that should not appear in collection form
-        provider_credential_fields = {
-            'client_id', 'client_secret', 'tenant', 'thumbprint', 'private_key',
-            'username', 'password', 'token', 'security_token', 'api_token',
-            'api_key', 'search_api_url', 'pdf_api_url', 'base_slug'
+        # Additional provider-level fields (beyond PROVIDER_ONLY_FIELDS) that are provider-specific
+        # and should not appear in knowledge source form
+        additional_provider_fields = {
+            'search_api_url',  # Service-specific URLs
+            'pdf_api_url',     # Service-specific URLs
+            'base_slug',       # Service-specific configuration
         }
         
-        # Provider-level endpoint field (standardized as 'endpoint')
-        # Plugins now use 'endpoint' directly in their config_schema
-        provider_endpoint_field = 'endpoint'
-        
-        # All provider fields combined
-        all_provider_fields = provider_credential_fields | {provider_endpoint_field}
+        # All provider fields combined (security-critical + provider-specific)
+        all_provider_fields = PROVIDER_ONLY_FIELDS | additional_provider_fields
         
         def determine_component(field_name: str, field_type: str) -> str:
             """Determine the Vue component type based on field characteristics"""

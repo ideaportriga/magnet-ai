@@ -206,7 +206,7 @@ export default defineComponent({
   props: {
     showNewDialog: Boolean,
     copy: Boolean,
-    providerId: {
+    providerSystemName: {
       type: String,
       default: null,
     },
@@ -377,11 +377,11 @@ export default defineComponent({
   mounted() {
     this.isMounted = true
     
-    // Set provider_system_name from providerId prop if provided
-    if (this.providerId) {
-      const provider = this.providerItems?.find(p => p.id === this.providerId)
+    // Set provider_system_name from providerSystemName prop if provided
+    if (this.providerSystemName) {
+      this.provider_system_name = this.providerSystemName
+      const provider = this.providerItems?.find(p => p.system_name === this.providerSystemName)
       if (provider) {
-        this.provider_system_name = provider.system_name
         // Apply provider connection params
         this.applyProviderConnectionParams(provider)
       }
@@ -420,19 +420,28 @@ export default defineComponent({
       }
     },
     applyProviderConnectionParams(provider) {
-      // Apply provider connection parameters to source
-      if (provider.endpoint) {
-        this.source = { ...this.source, endpoint: provider.endpoint }
-      }
+      // DO NOT copy endpoint or credentials to source - these are security-critical fields
+      // that must only come from provider configuration on the backend.
+      // The backend will automatically merge provider config (including endpoint and credentials)
+      // when processing the knowledge source.
       
-      // Apply connection_config to source fields
+      // Apply ONLY non-security connection_config parameters to source fields
+      // (e.g., service-specific URLs like search_api_url, pdf_api_url, base_slug)
       if (provider.connection_config) {
+        const securityFields = new Set([
+          'endpoint', 'client_id', 'client_secret', 'tenant', 'thumbprint', 'private_key',
+          'username', 'password', 'token', 'security_token', 'api_token', 'api_key'
+        ])
+        
         Object.entries(provider.connection_config).forEach(([key, value]) => {
-          this.source = { ...this.source, [key]: value }
+          // Only copy non-security fields
+          if (!securityFields.has(key)) {
+            this.source = { ...this.source, [key]: value }
+          }
         })
       }
       
-      // Note: secrets_encrypted are handled on backend side, not exposed to frontend
+      // Note: secrets_encrypted and endpoint are handled on backend side only
     },
     next(step) {
       if (!this.validateFields()) return

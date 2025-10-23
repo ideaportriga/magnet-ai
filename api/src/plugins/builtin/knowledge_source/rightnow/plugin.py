@@ -81,7 +81,10 @@ class RightNowPlugin(KnowledgeSourcePlugin):
         rightnow_url = source_config.get("endpoint")
 
         if not rightnow_url:
-            raise ClientException("Missing `endpoint` in metadata")
+            raise ClientException(
+                "Missing `endpoint` configuration. Please ensure the provider is configured "
+                "with a valid RightNow endpoint URL"
+            )
 
         # Get credentials from source_config (merged with provider config)
         username = source_config.get("username")

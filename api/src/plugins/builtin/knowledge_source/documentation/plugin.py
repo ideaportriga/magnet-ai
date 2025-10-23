@@ -87,7 +87,10 @@ class DocumentationPlugin(KnowledgeSourcePlugin):
         base_url = source_config.get("endpoint")
 
         if not base_url:
-            raise ClientException("Missing `endpoint` in metadata")
+            raise ClientException(
+                "Missing `endpoint` configuration. Please ensure the provider is configured "
+                "with a valid documentation base URL"
+            )
 
         # Get optional configuration
         languages = source_config.get("languages", ["en"])

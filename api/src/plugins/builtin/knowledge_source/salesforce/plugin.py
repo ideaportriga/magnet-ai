@@ -95,9 +95,15 @@ class SalesforcePlugin(KnowledgeSourcePlugin):
         output_config_json = source_config.get("output_config")
 
         if not object_api_name:
-            raise ClientException("Missing `object_api_name` in metadata")
+            raise ClientException(
+                "Missing `object_api_name` configuration. Please specify the Salesforce object "
+                "API name in the knowledge source settings"
+            )
         if not output_config_json:
-            raise ClientException("Missing `output_config` in metadata")
+            raise ClientException(
+                "Missing `output_config` configuration. Please specify the output configuration "
+                "in the knowledge source settings"
+            )
 
         # Parse output config
         output_config = loads(output_config_json)

@@ -84,9 +84,15 @@ class ConfluencePlugin(KnowledgeSourcePlugin):
         confluence_space = source_config.get("confluence_space")
 
         if not confluence_url:
-            raise ClientException("Missing `endpoint` in metadata")
+            raise ClientException(
+                "Missing `endpoint` configuration. Please ensure the provider is configured "
+                "with a valid Confluence endpoint URL"
+            )
         if not confluence_space:
-            raise ClientException("Missing `confluence_space` in metadata")
+            raise ClientException(
+                "Missing `confluence_space` configuration. Please specify the Confluence space "
+                "in the knowledge source settings"
+            )
 
         # Get credentials from source_config (merged with provider config)
         username = source_config.get("username")

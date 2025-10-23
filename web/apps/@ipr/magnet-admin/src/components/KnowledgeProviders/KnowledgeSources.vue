@@ -22,7 +22,7 @@
     :pagination='pagination',
     binary-state-sort
   )
-collections-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', :providerId='providerId')
+collections-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', :providerSystemName='providerSystemName')
 </template>
 
 <script>
@@ -56,8 +56,8 @@ export default {
     provider() {
       return this.$store.getters.provider
     },
-    providerId() {
-      return this.provider?.id
+    providerSystemName() {
+      return this.provider?.system_name
     },
     filteredRows() {
       if (!this.provider?.system_name) {

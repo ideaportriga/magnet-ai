@@ -398,6 +398,8 @@ class LogSettings:
     ASGI_ACCESS_LEVEL: int = field(default_factory=get_env("ASGI_ACCESS_LOG_LEVEL", 10))
     """Level to log uvicorn error logs."""
     ASGI_ERROR_LEVEL: int = field(default_factory=get_env("ASGI_ERROR_LOG_LEVEL", 10))
+    """Loki URL for sending logs (optional)."""
+    LOKI_URL: str = field(default_factory=get_env("LOKI_URL", ""))
 
 
 ### OBSERVABILITY SETTINGS ###

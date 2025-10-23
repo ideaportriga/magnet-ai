@@ -68,7 +68,10 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
         file_url = source_config.get("file_url")
 
         if not file_url:
-            raise ClientException("Missing `file_url` in metadata")
+            raise ClientException(
+                "Missing `file_url` configuration. Please specify the file URL(s) "
+                "in the knowledge source settings"
+            )
 
         # Ensure file_url is a list (can be string or list)
         if isinstance(file_url, str):

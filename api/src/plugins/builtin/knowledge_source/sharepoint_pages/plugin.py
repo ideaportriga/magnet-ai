@@ -37,7 +37,11 @@ class SharePointPagesPlugin(KnowledgeSourcePlugin):
                 "properties": {
                     "endpoint": {
                         "type": "string",
-                        "description": "SharePoint site URL",
+                        "description": "SharePoint base URL (e.g., https://ideaport.sharepoint.com)",
+                    },
+                    "site_path": {
+                        "type": "string",
+                        "description": "SharePoint site path (e.g., sites/GenAI/colliers)",
                     },
                     "sharepoint_pages_page_name": {
                         "type": "string",
@@ -95,12 +99,29 @@ class SharePointPagesPlugin(KnowledgeSourcePlugin):
             SharepointPagesDataProcessor instance
 
         Raises:
-            ClientException: If endpoint is missing
+            ClientException: If endpoint or site_path is missing
         """
-        sharepoint_site_url = source_config.get("endpoint")
+        # Get base endpoint from provider
+        base_endpoint = source_config.get("endpoint")
+        if not base_endpoint:
+            raise ClientException(
+                "Missing `endpoint` configuration. Please ensure the provider is configured "
+                "with a valid SharePoint endpoint URL (e.g., https://yoursite.sharepoint.com)"
+            )
 
-        if not sharepoint_site_url:
-            raise ClientException("Missing `endpoint` in metadata")
+        # Get site path from knowledge source config
+        site_path = source_config.get("site_path")
+        if not site_path:
+            raise ClientException(
+                "Missing `site_path` configuration. Please specify the SharePoint site path "
+                "(e.g., sites/YourSite) in the knowledge source settings"
+            )
+
+        # Construct full SharePoint site URL
+        # Remove trailing slash from base_endpoint and leading slash from site_path
+        base_endpoint = base_endpoint.rstrip("/")
+        site_path = site_path.lstrip("/")
+        sharepoint_site_url = f"{base_endpoint}/{site_path}"
 
         # Get credentials from source_config (merged with provider config)
         client_id = source_config.get("client_id")
