@@ -17,7 +17,7 @@ from core.domain.mcp_servers import MCPServersController as MCPServersController
 from core.domain.metrics import MetricsController
 from core.domain.prompts import PromptsController
 from core.domain.providers import ProvidersController
-from core.domain.rag_tools import RagToolsController as RagToolsControllerSQL
+from core.domain.rag_tools import RagToolsController
 from core.domain.retrieval_tools import (
     RetrievalToolsController as RetrievalToolsControllerSQL,
 )
@@ -41,7 +41,6 @@ from .admin.knowledge_sources import (
 )
 from .admin.observability import observability_router
 from .admin.rag import RagController
-from .admin.rag_tools import RagToolsController
 from .admin.retrieval_tools import (
     RetrievalToolsController,
     RetrievalToolsControllerDeprecated,
@@ -76,7 +75,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         MetricsController,
         ProvidersController,
         RetrievalToolsControllerSQL,
-        RagToolsControllerSQL,
+        RagToolsController,
         TracesController,
         ApiServersController,
         experimental_router,
@@ -87,7 +86,6 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         observability_router,
         PromptsController,
         RagController,
-        RagToolsController,
         RetrievalToolsController,
         RetrievalToolsControllerDeprecated,
         TransferController,
