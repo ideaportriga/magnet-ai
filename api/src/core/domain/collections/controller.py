@@ -22,7 +22,7 @@ class CollectionsController(Controller):
     """Collections CRUD"""
 
     path = "/sql_collections"
-    tags = ["sql_Collections"]
+    tags = ["Admin / Collections"]
 
     dependencies = providers.create_service_dependencies(
         CollectionsService,

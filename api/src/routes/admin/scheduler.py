@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class SchedulerController(Controller):
     path = "/scheduler"
-    tags = ["scheduler"]
+    tags = ["Admin / Scheduler"]
 
     @post("/create-job")
     async def create_job(

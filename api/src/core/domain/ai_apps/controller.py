@@ -22,7 +22,7 @@ class AiAppsController(Controller):
     """AI Apps CRUD"""
 
     path = "/ai_apps"
-    tags = ["ai_apps"]
+    tags = ["Admin / AI Apps"]
 
     dependencies = providers.create_service_dependencies(
         AiAppsService,

@@ -27,7 +27,7 @@ class AIModelsController(Controller):
     """AI Models CRUD"""
 
     path = "/models"
-    tags = ["models"]
+    tags = ["Admin / Models"]
 
     dependencies = providers.create_service_dependencies(
         AIModelsService,

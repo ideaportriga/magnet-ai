@@ -2044,7 +2044,7 @@ const apiJobs = {
     console.log('apiJobs getPaginated', pagination, filter)
     // Build query parameters using universal function
     const queryString = buildQueryParams(pagination, filter)
-    const url = queryString ? `sql_jobs?${queryString}` : 'sql_jobs'
+    const url = queryString ? `jobs?${queryString}` : 'jobs'
 
     return await fetchData({
       method: 'GET',
@@ -2075,7 +2075,7 @@ const apiJobs = {
     
     // Build query parameters using universal function (no pagination for simple get)
     const queryString = buildQueryParams({}, filter)
-    const url = queryString ? `sql_jobs?${queryString}` : 'sql_jobs'
+    const url = queryString ? `jobs?${queryString}` : 'jobs'
 
     return await fetchData({
       method: 'GET',
@@ -2105,7 +2105,7 @@ const apiJobs = {
       method: 'GET',
       endpoint,
       credentials: 'include',
-      service: `sql_jobs/${payload?.id}`,
+      service: `jobs/${payload?.id}`,
 
       headers: {
         'Content-Type': 'application/json',
@@ -2133,7 +2133,7 @@ const apiJobs = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_jobs/${id}/sync`,
+      service: `jobs/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -2152,7 +2152,7 @@ const apiJobs = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_jobs/${id}`,
+      service: `jobs/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',

@@ -474,7 +474,7 @@ class KnowledgeSourceChunksController(Controller):
 
 knowledge_sources_router = Router(
     path="/collections",
-    tags=["knowledge_sources_deprecated"],
+    tags=["[Deprecated] Knowledge Sources"],
     route_handlers=[
         KnowledgeSourcesController,
         KnowledgeSourceMetadataController,
@@ -485,7 +485,7 @@ knowledge_sources_router = Router(
 
 knowledge_sources_router_deprecated = Router(
     path="/knowledge_sources",
-    tags=["knowledge_sources"],
+    tags=["Admin / Knowledge Sources"],
     route_handlers=[
         KnowledgeSourcesController,
         KnowledgeSourceMetadataController,

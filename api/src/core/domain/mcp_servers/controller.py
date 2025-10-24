@@ -39,7 +39,7 @@ class MCPServersController(Controller):
     """MCP servers CRUD"""
 
     path = "/mcp_servers"
-    tags = ["mcp_servers"]
+    tags = ["Admin / MCP Servers"]
 
     dependencies = providers.create_service_dependencies(
         MCPServersService,

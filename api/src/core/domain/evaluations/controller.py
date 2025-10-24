@@ -31,7 +31,7 @@ class EvaluationsController(Controller):
     """Evaluations CRUD"""
 
     path = "/evaluations"
-    tags = ["evaluations"]
+    tags = ["Admin / Evaluations"]
 
     dependencies = providers.create_service_dependencies(
         EvaluationsService,

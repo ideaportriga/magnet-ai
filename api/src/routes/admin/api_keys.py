@@ -7,7 +7,7 @@ from services.api_keys import services
 
 class ApiKeysController(Controller):
     path = "/api_keys"
-    tags = ["api_keys"]
+    tags = ["Admin / API Keys"]
 
     @get("/", summary="List API keys")
     async def list_api_keys(self) -> list[ApiKeyConfigEntity]:

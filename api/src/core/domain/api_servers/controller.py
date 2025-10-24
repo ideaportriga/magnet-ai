@@ -52,7 +52,7 @@ class ApiServersController(Controller):
     """API servers CRUD"""
 
     path = "/api_servers"
-    tags = ["api_servers"]
+    tags = ["Admin / API Servers"]
 
     dependencies = providers.create_service_dependencies(
         ApiServersService,

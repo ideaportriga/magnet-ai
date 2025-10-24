@@ -34,7 +34,7 @@ class EvaluationSetsController(Controller):
     """Evaluation Sets CRUD"""
 
     path = "/evaluation_sets"
-    tags = ["evaluation_sets"]
+    tags = ["Admin / Evaluation Sets"]
 
     dependencies = providers.create_service_dependencies(
         EvaluationSetsService,

@@ -27,7 +27,7 @@ class RagToolsController(Controller):
     """RAG Tools CRUD"""
 
     path = "/rag_tools"
-    tags = ["rag_tools"]
+    tags = ["Admin / RAG Tools"]
 
     dependencies = providers.create_service_dependencies(
         RagToolsService,

@@ -24,7 +24,7 @@ class TracesController(Controller):
     """Traces CRUD"""
 
     path = "/traces"
-    tags = ["traces"]
+    tags = ["Admin / Traces"]
 
     dependencies = providers.create_service_dependencies(
         TracesService,

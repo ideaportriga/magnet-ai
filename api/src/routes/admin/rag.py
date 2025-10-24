@@ -21,7 +21,7 @@ class RagRetrieve(BaseModel):
 
 class RagController(Controller):
     path = "/rag"
-    tags = ["rag_deprecated"]
+    tags = ["[Deprecated] RAG"]
 
     @observe(name="Previewing knowledge source", channel="preview", source="preview")
     @post("/retrieve")

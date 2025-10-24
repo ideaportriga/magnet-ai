@@ -20,7 +20,7 @@ class ParsePdfResponse(BaseModel):
 # duplicate of UserUtilsController TODO - rework
 class UtilsController(Controller):
     path = "/utils"
-    tags = ["utils"]
+    tags = ["Admin / Utils"]
 
     @post("/parse-pdf", status_code=HTTP_200_OK)
     async def parse_pdf(

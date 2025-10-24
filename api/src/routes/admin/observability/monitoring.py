@@ -69,7 +69,7 @@ MonitoringListResponse = MetricsQueryResult
 
 class MetricsController(Controller):
     path = "/monitoring"
-    tags = ["observability/monitoring"]
+    tags = ["Admin / Observability"]
 
     # RAG Dashboard
     @post(

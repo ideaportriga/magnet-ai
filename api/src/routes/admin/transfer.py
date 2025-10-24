@@ -14,7 +14,7 @@ from services.transfer import export_entities, import_entities
 
 class TransferController(Controller):
     path = "/transfer"
-    tags = ["transfer"]
+    tags = ["Admin / Transfer"]
 
     @post("/export/json", status_code=HTTP_200_OK)
     async def export_json(

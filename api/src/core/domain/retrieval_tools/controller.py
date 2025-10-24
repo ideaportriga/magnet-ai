@@ -34,7 +34,7 @@ class RetrievalToolsController(Controller):
     """Retrieval Tools CRUD"""
 
     path = "/retrieval_tools"
-    tags = ["retrieval_tools"]
+    tags = ["Admin / Retrieval Tools"]
 
     dependencies = providers.create_service_dependencies(
         RetrievalToolsService,

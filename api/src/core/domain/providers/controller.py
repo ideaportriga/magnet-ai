@@ -22,7 +22,7 @@ class ProvidersController(Controller):
     """Providers CRUD"""
 
     path = "/providers"
-    tags = ["providers"]
+    tags = ["Admin / Providers"]
 
     dependencies = providers.create_service_dependencies(
         ProvidersService,

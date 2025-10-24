@@ -36,7 +36,7 @@ class AgentExecuteResponse(AgentConversationMessageAssistant):
 
 class AgentsController(AgentsControllerBase):
     path = "/agents"
-    tags = ["agents"]
+    tags = ["Admin / Agents"]
 
     @observe(
         name="Conversation with agent",

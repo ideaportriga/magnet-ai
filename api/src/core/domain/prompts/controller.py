@@ -32,7 +32,7 @@ class PromptsController(Controller):
     """Prompts CRUD"""
 
     path = "/prompt_templates"
-    tags = ["prompt_templates"]
+    tags = ["Admin / Prompt Templates"]
 
     dependencies = providers.create_service_dependencies(
         PromptsService,

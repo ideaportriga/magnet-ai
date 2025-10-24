@@ -8,11 +8,9 @@ from core.domain.ai_apps import AiAppsController
 from core.domain.ai_models import AIModelsController
 from core.domain.api_servers import ApiServersController
 from core.domain.collections import CollectionsController
-from core.domain.evaluation_sets import (
-    EvaluationSetsController as EvaluationSetsControllerSQL,
-)
+from core.domain.evaluation_sets import EvaluationSetsController
 from core.domain.evaluations import EvaluationsController
-from core.domain.jobs import JobsController as JobsControllerSQL
+from core.domain.jobs import JobsController
 from core.domain.mcp_servers import MCPServersController
 from core.domain.metrics import MetricsController
 from core.domain.prompts import PromptsController
@@ -25,8 +23,6 @@ from routes.admin.api_keys import ApiKeysController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
-
-from .admin.experimental import experimental_router
 
 from .admin.knowledge_sources import (
     knowledge_sources_router,
@@ -52,39 +48,40 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         return {}
 
     route_handlers_admin: list[ControllerRouterHandler] = [
-        AgentsController,
-        AiAppsController,
-        AIModelsController,
-        ApiKeysController,
-        ApiServersController,
-        CollectionsController,
-        MCPServersController,
-        EvaluationSetsControllerSQL,
-        EvaluationsController,
-        MetricsController,
-        ProvidersController,
-        RetrievalToolsController,
-        RagToolsController,
-        TracesController,
-        experimental_router,
-        JobsControllerSQL,
-        knowledge_sources_router,
-        knowledge_sources_router_deprecated,
-        observability_router,
-        PromptsController,
-        RagController,
-        TransferController,
-        UtilsController,
-        SchedulerController,
+        # Admin routes (alphabetically sorted)
+        AgentsController,  # Admin / Agents
+        AiAppsController,  # Admin / AI Apps
+        ApiKeysController,  # Admin / API Keys
+        ApiServersController,  # Admin / API Servers
+        CollectionsController,  # Admin / Collections
+        EvaluationSetsController,  # Admin / Evaluation Sets
+        EvaluationsController,  # Admin / Evaluations
+        JobsController,  # Admin / Jobs
+        knowledge_sources_router_deprecated,  # Admin / Knowledge Sources
+        MCPServersController,  # Admin / MCP Servers
+        MetricsController,  # Admin / Metrics
+        AIModelsController,  # Admin / Models
+        observability_router,  # Admin / Observability
+        PromptsController,  # Admin / Prompt Templates
+        ProvidersController,  # Admin / Providers
+        RagToolsController,  # Admin / RAG Tools
+        RetrievalToolsController,  # Admin / Retrieval Tools
+        SchedulerController,  # Admin / Scheduler
+        TracesController,  # Admin / Traces
+        TransferController,  # Admin / Transfer
+        UtilsController,  # Admin / Utils
+        # Deprecated routes first (with [Deprecated] prefix)
+        knowledge_sources_router,  # [Deprecated] Knowledge Sources
+        RagController,  # [Deprecated] RAG
     ]
 
     route_handlers_user: list[ControllerRouterHandler] = [
-        AgentConversationsController,
-        UserAiAppsController,
-        UserExecuteController,
-        TelemetryController,
-        UserUtilsController,
-        UserAgentsController,
+        AgentConversationsController,  # User / Agent Conversations
+        UserAgentsController,  # User / Agents Messages
+        UserAiAppsController,  # User / AI Apps
+        UserExecuteController,  # User / Execute
+        TelemetryController,  # User / Telemetry
+        UserUtilsController,  # User / Utils
     ]
 
     route_handlers_public: list[ControllerRouterHandler] = [
