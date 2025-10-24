@@ -77,6 +77,8 @@ services:
       - ./api/src/core/db/migrations:/app/src/core/db/migrations
       # Copy fixtures management script
       - ./api/manage_fixtures.py:/app/manage_fixtures.py:ro
+      # Mount static files for offline documentation
+      - ./api/static:/app/static:ro
     depends_on:
       postgres:
         condition: service_healthy

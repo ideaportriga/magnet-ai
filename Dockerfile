@@ -66,6 +66,8 @@ RUN chgrp -R 0 /app/web/admin/config /app/web/panel/config \
 COPY --from=api-builder /app/.venv ./.venv
 
 COPY api/src ./src
+COPY api/scripts ./scripts
+COPY api/static ./static
 
 ENV PYTHONPATH=/app/src
 ENV PORT=8000
