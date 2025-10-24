@@ -969,7 +969,7 @@ const apiAiApps = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps`,
+      service: `ai_apps`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -990,7 +990,7 @@ const apiAiApps = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps/${id}`,
+      service: `ai_apps/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -1016,7 +1016,7 @@ const apiAiApps = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps/${id}/sync`,
+      service: `ai_apps/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1035,7 +1035,7 @@ const apiAiApps = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps`,
+      service: `ai_apps`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -1060,7 +1060,7 @@ const apiAiApps = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps/${id}`,
+      service: `ai_apps/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',

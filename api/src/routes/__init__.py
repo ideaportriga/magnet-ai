@@ -4,7 +4,7 @@ from litestar import Router, get
 from litestar.types import ControllerRouterHandler
 from litestar.static_files import create_static_files_router
 
-from core.domain.ai_apps import AiAppsController as AiAppsControllerSQL
+from core.domain.ai_apps import AiAppsController
 from core.domain.ai_models import AIModelsController
 from core.domain.api_servers import ApiServersController as ApiServersControllerSQL
 from core.domain.collections import CollectionsController
@@ -29,7 +29,6 @@ from routes.admin.mcp_servers import McpServersController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
-from .admin.ai_apps import AiAppsController
 
 # from .admin.api_tool_providers import ApiToolProvidersController
 # from .admin.api_tools import ApiToolsController
@@ -72,10 +71,6 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         AiAppsController,
         AIModelsController,
         ApiKeysController,
-        # ApiToolProvidersController,
-        # ApiToolsController,
-        # AgentsControllerSQL,  # Removed: AgentsController now extends this
-        AiAppsControllerSQL,
         ApiServersControllerSQL,
         CollectionsController,
         MCPServersControllerSQL,
@@ -88,11 +83,8 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         TracesController,
         ApiServersController,
         EvaluationsController,
-        # evaluation_router,
         experimental_router,
         JobsControllerSQL,
-        # JobsController,
-        # JobsBaseController,
         knowledge_sources_router,
         knowledge_sources_router_deprecated,
         McpServersController,
