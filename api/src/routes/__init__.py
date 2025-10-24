@@ -40,7 +40,6 @@ from .admin.knowledge_sources import (
     knowledge_sources_router_deprecated,
 )
 from .admin.observability import observability_router
-from .admin.prompt_templates import PromptTemplatesController
 from .admin.rag import RagController
 from .admin.rag_tools import RagToolsController
 from .admin.retrieval_tools import (
@@ -87,7 +86,6 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         McpServersController,
         observability_router,
         PromptsController,
-        PromptTemplatesController,
         RagController,
         RagToolsController,
         RetrievalToolsController,

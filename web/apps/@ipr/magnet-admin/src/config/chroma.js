@@ -757,7 +757,7 @@ const apiPromptTemplates = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_prompts`,
+      service: `prompt_templates`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -778,7 +778,7 @@ const apiPromptTemplates = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_prompts/${id}`,
+      service: `prompt_templates/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -823,7 +823,7 @@ const apiPromptTemplates = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_prompts`,
+      service: `prompt_templates`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -848,7 +848,7 @@ const apiPromptTemplates = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_prompts/${id}`,
+      service: `prompt_templates/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
