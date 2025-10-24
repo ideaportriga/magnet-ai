@@ -2178,7 +2178,7 @@ const apiMcpServers = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_mcp_servers`,
+      service: `mcp_servers`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -2193,7 +2193,7 @@ const apiMcpServers = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_mcp_servers`,
+      service: `mcp_servers`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -2212,7 +2212,7 @@ const apiMcpServers = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_mcp_servers/${id}`,
+      service: `mcp_servers/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -2232,7 +2232,7 @@ const apiMcpServers = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_mcp_servers/${id}`,
+      service: `mcp_servers/${id}`,
     })
       .then((response) => {
         if (response.ok) return response

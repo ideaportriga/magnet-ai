@@ -28,11 +28,8 @@ from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
 
-# from .admin.api_tool_providers import ApiToolProvidersController
-# from .admin.api_tools import ApiToolsController
 from .admin.experimental import experimental_router
 
-# from .admin.jobs import JobsBaseController, JobsController
 from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
