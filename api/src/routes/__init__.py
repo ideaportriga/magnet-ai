@@ -13,7 +13,7 @@ from core.domain.evaluation_sets import (
 )
 from core.domain.evaluations import EvaluationsController
 from core.domain.jobs import JobsController as JobsControllerSQL
-from core.domain.mcp_servers import MCPServersController as MCPServersControllerSQL
+from core.domain.mcp_servers import MCPServersController
 from core.domain.metrics import MetricsController
 from core.domain.prompts import PromptsController
 from core.domain.providers import ProvidersController
@@ -23,7 +23,6 @@ from core.domain.traces import TracesController
 from guards.role import UserRole, create_role_guard
 from routes.admin.api_keys import ApiKeysController
 from routes.admin.api_servers import ApiServersController
-from routes.admin.mcp_servers import McpServersController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
@@ -60,7 +59,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         ApiKeysController,
         ApiServersControllerSQL,
         CollectionsController,
-        MCPServersControllerSQL,
+        MCPServersController,
         EvaluationSetsControllerSQL,
         EvaluationsController,
         MetricsController,
@@ -73,7 +72,6 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         JobsControllerSQL,
         knowledge_sources_router,
         knowledge_sources_router_deprecated,
-        McpServersController,
         observability_router,
         PromptsController,
         RagController,
