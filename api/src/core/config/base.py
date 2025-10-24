@@ -183,7 +183,7 @@ class DatabaseSettings:
         
         # Convert async drivers to sync for APScheduler
         if "postgresql+asyncpg://" in async_url:
-            return async_url.replace("postgresql+asyncpg://", "postgresql://")
+            return async_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
         elif "mysql+aiomysql://" in async_url:
             return async_url.replace("mysql+aiomysql://", "mysql+pymysql://")
         elif "sqlite+aiosqlite://" in async_url:
