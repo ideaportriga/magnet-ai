@@ -2312,7 +2312,7 @@ const apiApiServers = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_api_servers`,
+      service: `api_servers`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -2327,7 +2327,7 @@ const apiApiServers = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_api_servers`,
+      service: `api_servers`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -2346,7 +2346,7 @@ const apiApiServers = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_api_servers/${id}`,
+      service: `api_servers/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -2366,7 +2366,7 @@ const apiApiServers = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_api_servers/${id}`,
+      service: `api_servers/${id}`,
     })
       .then((response) => {
         if (response.ok) return response
