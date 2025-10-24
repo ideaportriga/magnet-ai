@@ -11,7 +11,7 @@ from core.domain.collections import CollectionsController
 from core.domain.evaluation_sets import (
     EvaluationSetsController as EvaluationSetsControllerSQL,
 )
-from core.domain.evaluations import EvaluationsController as EvaluationsControllerSQL
+from core.domain.evaluations import EvaluationsController
 from core.domain.jobs import JobsController as JobsControllerSQL
 from core.domain.mcp_servers import MCPServersController as MCPServersControllerSQL
 from core.domain.metrics import MetricsController
@@ -32,7 +32,6 @@ from .admin.agents import AgentsController
 
 # from .admin.api_tool_providers import ApiToolProvidersController
 # from .admin.api_tools import ApiToolsController
-from .admin.evaluations import EvaluationsController
 from .admin.experimental import experimental_router
 
 # from .admin.jobs import JobsBaseController, JobsController
@@ -75,14 +74,13 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         CollectionsController,
         MCPServersControllerSQL,
         EvaluationSetsControllerSQL,
-        EvaluationsControllerSQL,
+        EvaluationsController,
         MetricsController,
         ProvidersController,
         RetrievalToolsControllerSQL,
         RagToolsControllerSQL,
         TracesController,
         ApiServersController,
-        EvaluationsController,
         experimental_router,
         JobsControllerSQL,
         knowledge_sources_router,

@@ -125,20 +125,13 @@ async def create_evaluation_record(
 
 
 # Function to execute RAG tool for test set item
-async def execute_test_set_item_rag_tool(rag_tool_config: dict, user_input: str) -> str:
-    logger.info(
-        f"Executing RAG tool with config keys: {list(rag_tool_config.keys()) if rag_tool_config else 'None'}"
-    )
-    logger.info(f"RAG tool config: {rag_tool_config}")
-    logger.info(f"User input: {user_input}")
-
+async def execute_test_set_item_rag_tool(rag_tool_config: dict, user_input: str, metadata_filter: Optional[dict] = None) -> str:
     rag_tool_test_result = await execute_rag_tool(
         system_name_or_config=rag_tool_config,
         user_message=user_input,
+        metadata_filter=metadata_filter,
     )
 
-    logger.info(f"RAG tool execution completed. Answer: {rag_tool_test_result.answer}")
-    logger.info(f"RAG tool result type: {type(rag_tool_test_result)}")
 
     return rag_tool_test_result.answer
 

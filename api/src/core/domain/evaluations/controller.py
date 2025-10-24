@@ -7,14 +7,18 @@ from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.params import Dependency, Parameter
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.evaluations.service import EvaluationsService
+from services.evaluation.services import (
+    list_evaluations_with_aggregations,
+)
 
 from .schemas import Evaluation, EvaluationCreate, EvaluationUpdate
 
 
-class ScoreUpdateRequest(BaseModel):
+class ResultScoreUpdateRequest(BaseModel):
     score: float
     score_comment: str | None = None
 
@@ -26,8 +30,8 @@ if TYPE_CHECKING:
 class EvaluationsController(Controller):
     """Evaluations CRUD"""
 
-    path = "/sql_evaluations"
-    tags = ["sql_Evaluations"]
+    path = "/evaluations"
+    tags = ["evaluations"]
 
     dependencies = providers.create_service_dependencies(
         EvaluationsService,
@@ -41,11 +45,18 @@ class EvaluationsController(Controller):
         },
     )
 
+    @get("/list")
+    async def list_evaluations_aggregated(
+        self, db_session: AsyncSession
+    ) -> list[dict]:
+        """List evaluations with aggregated metrics using SQLAlchemy."""
+        return await list_evaluations_with_aggregations(db_session)
+
     @patch("/{evaluation_id:uuid}/result/{result_id:str}/score")
     async def update_result_score(
         self,
         evaluations_service: EvaluationsService,
-        data: ScoreUpdateRequest,
+        data: ResultScoreUpdateRequest,
         evaluation_id: UUID = Parameter(title="Evaluation ID"),
         result_id: str = Parameter(title="Result ID"),
         db_session: Annotated[Any, Dependency] = None,
