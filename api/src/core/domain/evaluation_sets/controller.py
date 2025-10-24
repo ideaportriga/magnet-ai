@@ -33,8 +33,8 @@ class FormData:
 class EvaluationSetsController(Controller):
     """Evaluation Sets CRUD"""
 
-    path = "/sql_evaluation_sets"
-    tags = ["sql_EvaluationSets"]
+    path = "/evaluation_sets"
+    tags = ["evaluation_sets"]
 
     dependencies = providers.create_service_dependencies(
         EvaluationSetsService,

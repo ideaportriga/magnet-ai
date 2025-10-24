@@ -1205,7 +1205,7 @@ const apiEvaluationSets = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets`,
+      service: `evaluation_sets`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1227,7 +1227,7 @@ const apiEvaluationSets = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets/${id}`,
+      service: `evaluation_sets/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -1253,7 +1253,7 @@ const apiEvaluationSets = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets/${id}/sync`,
+      service: `evaluation_sets/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1284,7 +1284,7 @@ const apiEvaluationSets = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets/file`,
+      service: `evaluation_sets/file`,
       body: formData,
       headers: {},
     })
@@ -1307,7 +1307,7 @@ const apiEvaluationSets = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets/${id}`,
+      service: `evaluation_sets/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
