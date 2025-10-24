@@ -395,7 +395,7 @@ const apiRetrievalTools = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools`,
+      service: `retrieval_tools`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -418,7 +418,7 @@ const apiRetrievalTools = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools/${id}`,
+      service: `retrieval_tools/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -444,7 +444,7 @@ const apiRetrievalTools = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools/${id}/sync`,
+      service: `retrieval_tools/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -464,7 +464,7 @@ const apiRetrievalTools = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools`,
+      service: `retrieval_tools`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -489,7 +489,7 @@ const apiRetrievalTools = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools/${id}`,
+      service: `retrieval_tools/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',

@@ -5,7 +5,9 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
+from litestar.connection import Request
 from litestar.params import Dependency, Parameter
+from litestar.status_codes import HTTP_200_OK
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.retrieval_tools.schemas import (
@@ -16,6 +18,13 @@ from core.domain.retrieval_tools.schemas import (
 from core.domain.retrieval_tools.service import (
     RetrievalToolsService,
 )
+from services.flow_retrieval_execute import flow_retrieval_execute
+from services.flow_retrieval_test import RetrievalToolTestResult, flow_retrieval_test
+from services.observability import observability_context, observe
+from validation.retrieval_tools import (
+    RetrievalToolExecute,
+    RetrievalToolTest,
+)
 
 if TYPE_CHECKING:
     pass
@@ -24,8 +33,8 @@ if TYPE_CHECKING:
 class RetrievalToolsController(Controller):
     """Retrieval Tools CRUD"""
 
-    path = "/sql_retrieval_tools"
-    tags = ["sql_RetrievalTools"]
+    path = "/retrieval_tools"
+    tags = ["retrieval_tools"]
 
     dependencies = providers.create_service_dependencies(
         RetrievalToolsService,
@@ -107,3 +116,33 @@ class RetrievalToolsController(Controller):
     ) -> None:
         """Delete a Retrieval tool from the system."""
         _ = await retrieval_tools_service.delete(retrieval_tool_id)
+
+    @observe(name="Previewing Retrieval Tool", channel="preview")
+    @post("/test", status_code=HTTP_200_OK)
+    async def retrieval_tool_test(
+        self, data: RetrievalToolTest
+    ) -> RetrievalToolTestResult:
+        """Test a Retrieval tool with preview channel."""
+        observability_context.update_current_trace(
+            name=data.name, type="retrieval-tool"
+        )
+
+        result = await flow_retrieval_test(data)
+
+        return result
+
+    @observe(name="Executing Retrieval Tool", channel="production")
+    @post("/execute", status_code=HTTP_200_OK)
+    async def retrieval_tool_execute(
+        self,
+        data: RetrievalToolExecute,
+        request: Request,  # do not remove this, it is used to get x-attributes in observe decorator
+    ) -> RetrievalToolTestResult:
+        """Execute a Retrieval tool in production channel."""
+        observability_context.update_current_trace(
+            name=data.name, type="retrieval-tool"
+        )
+
+        result = await flow_retrieval_execute(data)
+
+        return result

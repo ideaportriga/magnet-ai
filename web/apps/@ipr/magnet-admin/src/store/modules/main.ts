@@ -91,7 +91,7 @@ const actions = {
         retrieval: {
           endpoint: api.aiBridge.urlAdmin,
           credentials: aiBridgeCredentials,
-          service: 'retrieval',
+          service: 'retrieval_tools',
         },
         agent: {
           endpoint: api.aiBridge.urlAdmin,

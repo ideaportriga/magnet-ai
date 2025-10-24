@@ -18,9 +18,7 @@ from core.domain.metrics import MetricsController
 from core.domain.prompts import PromptsController
 from core.domain.providers import ProvidersController
 from core.domain.rag_tools import RagToolsController
-from core.domain.retrieval_tools import (
-    RetrievalToolsController as RetrievalToolsControllerSQL,
-)
+from core.domain.retrieval_tools import RetrievalToolsController
 from core.domain.traces import TracesController
 from guards.role import UserRole, create_role_guard
 from routes.admin.api_keys import ApiKeysController
@@ -41,10 +39,6 @@ from .admin.knowledge_sources import (
 )
 from .admin.observability import observability_router
 from .admin.rag import RagController
-from .admin.retrieval_tools import (
-    RetrievalToolsController,
-    RetrievalToolsControllerDeprecated,
-)
 from .admin.scheduler import SchedulerController
 from .admin.transfer import TransferController
 from .admin.utils import UtilsController
@@ -74,7 +68,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         EvaluationsController,
         MetricsController,
         ProvidersController,
-        RetrievalToolsControllerSQL,
+        RetrievalToolsController,
         RagToolsController,
         TracesController,
         ApiServersController,
@@ -86,8 +80,6 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         observability_router,
         PromptsController,
         RagController,
-        RetrievalToolsController,
-        RetrievalToolsControllerDeprecated,
         TransferController,
         UtilsController,
         SchedulerController,
