@@ -1,28 +1,33 @@
 from __future__ import annotations
 
+from logging import getLogger
 from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
+from litestar.exceptions import ClientException, NotFoundException
 from litestar.params import Dependency, Parameter
+from litestar.status_codes import HTTP_204_NO_CONTENT
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.ai_models.service import (
     AIModelsService,
 )
 
-from .schemas import AIModel, AIModelCreate, AIModelUpdate
+from .schemas import AIModel, AIModelCreate, AIModelSetDefaultRequest, AIModelUpdate
 
 if TYPE_CHECKING:
     pass
+
+logger = getLogger(__name__)
 
 
 class AIModelsController(Controller):
     """AI Models CRUD"""
 
-    path = "/sql_ai_models"
-    tags = ["sql_AI Models"]
+    path = "/models"
+    tags = ["models"]
 
     dependencies = providers.create_service_dependencies(
         AIModelsService,
@@ -104,3 +109,22 @@ class AIModelsController(Controller):
     ) -> None:
         """Delete an AI model from the system."""
         _ = await ai_models_service.delete(ai_model_id)
+
+    @post("/set_default", status_code=HTTP_204_NO_CONTENT)
+    async def set_default_handler(
+        self, ai_models_service: AIModelsService, data: AIModelSetDefaultRequest
+    ) -> None:
+        """Set default model handler."""
+        try:
+            await ai_models_service.set_default(data.type, data.system_name)
+        except LookupError as e:
+            logger.warning(str(e))
+            raise NotFoundException(str(e))
+        except Exception as err:
+            logger.error(
+                "Unexpected error occurred while setting default model: %s",
+                err,
+            )
+            raise ClientException(
+                "Unexpected error occurred while setting default model"
+            )

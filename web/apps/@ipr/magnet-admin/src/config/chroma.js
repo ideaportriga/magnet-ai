@@ -515,7 +515,7 @@ const apiModelConfig = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models`,
+      service: `models`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -538,7 +538,7 @@ const apiModelConfig = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models/${id}`,
+      service: `models/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -564,7 +564,7 @@ const apiModelConfig = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models/${id}/sync`,
+      service: `models/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -584,7 +584,7 @@ const apiModelConfig = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models`,
+      service: `models`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -609,7 +609,7 @@ const apiModelConfig = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models/${id}`,
+      service: `models/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',

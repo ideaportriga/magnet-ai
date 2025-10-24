@@ -39,7 +39,6 @@ from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
 )
-from .admin.models import ModelsController
 from .admin.observability import observability_router
 from .admin.prompt_templates import PromptTemplatesController
 from .admin.rag import RagController
@@ -86,7 +85,6 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         knowledge_sources_router,
         knowledge_sources_router_deprecated,
         McpServersController,
-        ModelsController,
         observability_router,
         PromptsController,
         PromptTemplatesController,
