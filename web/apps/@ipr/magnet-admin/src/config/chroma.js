@@ -636,7 +636,7 @@ const modelProviders = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_providers`,
+      service: `providers`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -659,7 +659,7 @@ const modelProviders = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_providers/${id}`,
+      service: `providers/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -685,7 +685,7 @@ const modelProviders = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_providers/${id}/sync`,
+      service: `providers/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -705,7 +705,7 @@ const modelProviders = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_providers`,
+      service: `providers`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -730,7 +730,7 @@ const modelProviders = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_providers/${id}`,
+      service: `providers/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
