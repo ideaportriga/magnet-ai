@@ -6,7 +6,7 @@ from litestar.static_files import create_static_files_router
 
 from core.domain.ai_apps import AiAppsController
 from core.domain.ai_models import AIModelsController
-from core.domain.api_servers import ApiServersController as ApiServersControllerSQL
+from core.domain.api_servers import ApiServersController
 from core.domain.collections import CollectionsController
 from core.domain.evaluation_sets import (
     EvaluationSetsController as EvaluationSetsControllerSQL,
@@ -22,7 +22,6 @@ from core.domain.retrieval_tools import RetrievalToolsController
 from core.domain.traces import TracesController
 from guards.role import UserRole, create_role_guard
 from routes.admin.api_keys import ApiKeysController
-from routes.admin.api_servers import ApiServersController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
@@ -57,7 +56,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         AiAppsController,
         AIModelsController,
         ApiKeysController,
-        ApiServersControllerSQL,
+        ApiServersController,
         CollectionsController,
         MCPServersController,
         EvaluationSetsControllerSQL,
@@ -67,7 +66,6 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         RetrievalToolsController,
         RagToolsController,
         TracesController,
-        ApiServersController,
         experimental_router,
         JobsControllerSQL,
         knowledge_sources_router,
