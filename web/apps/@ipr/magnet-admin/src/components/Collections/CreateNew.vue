@@ -25,9 +25,10 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
             map-options,
             option-value='system_name',
             option-label='name',
-            @update:model-value='onProviderChange'
+            @update:model-value='onProviderChange',
+            :disable='!!providerSystemName'
           )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-sm Select a provider to automatically use its connection parameters
+          .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='providerSystemName') Provider is pre-selected and cannot be changed when creating under a specific provider
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
         .full-width.q-mb-md
           km-input(v-model='nameCalc', ref='nameRef', :rules='config.name.rules')
@@ -36,7 +37,8 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           km-input(v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source type
         .full-width.q-mb-md
-          km-select(:options='dynamicSourceTypeOptions', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules')
+          km-select(:options='dynamicSourceTypeOptions', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules', :disable='!!selectedProvider')
+          .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='selectedProvider') Source type is automatically set based on the selected provider
         template(v-for='item in dynamicSourceTypeChildren[source_type]')
           .col
             .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ item.label }}
@@ -303,6 +305,10 @@ export default defineComponent({
     
     // Dynamic source type options from loaded plugins
     dynamicSourceTypeOptions() {
+      if (this.selectedProvider) {
+        // If provider is selected, only show the source type matching the provider's type
+        return this.sourceTypeOptions.filter(option => option.value === this.selectedProvider.type) || []
+      }
       return this.sourceTypeOptions || []
     },
     
@@ -382,6 +388,7 @@ export default defineComponent({
       this.provider_system_name = this.providerSystemName
       const provider = this.providerItems?.find(p => p.system_name === this.providerSystemName)
       if (provider) {
+        this.source_type = provider.type // Set source_type to match provider's type
         // Apply provider connection params
         this.applyProviderConnectionParams(provider)
       }
@@ -411,11 +418,13 @@ export default defineComponent({
     onProviderChange(providerSystemName) {
       if (!providerSystemName) {
         // Clear provider-related data when provider is deselected
+        this.source_type = ''
         return
       }
       
       const provider = this.providerItems?.find(p => p.system_name === providerSystemName)
       if (provider) {
+        this.source_type = provider.type // Set source_type to match provider's type
         this.applyProviderConnectionParams(provider)
       }
     },
@@ -655,6 +664,7 @@ export default defineComponent({
       this.category = ''
       this.show_in_qa = false
       this.source_type = ''
+      this.provider_system_name = ''
       this.metadata = '{}'
 
       this.customFields = {}
