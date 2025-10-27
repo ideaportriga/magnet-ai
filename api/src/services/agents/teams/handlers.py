@@ -1,4 +1,3 @@
-
 from typing import Any
 from microsoft_agents.hosting.core import AgentApplication, TurnContext, TurnState
 from microsoft_agents.activity import Attachment, Activity
@@ -18,7 +17,7 @@ from .cards import (
     create_feedback_result_card,
     create_confirmation_result_card,
 )
-from .conversation_helpers import (
+from services.agents.utils.conversation_helpers import (
     AssistantPayload,
     _continue_conversation,
     _handle_action_confirmation,

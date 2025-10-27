@@ -24,8 +24,8 @@ div
     subTitle='Provide identifiers and secrets to be used by the Slack agent.'
   )
     .q-mb-lg
-      .km-input-label Name
-      km-input(v-model='name', placeholder='Enter Slack Agemt Name (to be used on the installation page)')
+      .km-input-label Client Id
+      km-input(v-model='slack_client_id', placeholder='Enter Slack client id')
     .q-mb-lg
       .km-input-label Token
       km-input(
@@ -41,9 +41,6 @@ div
         :placeholder='has_slack_signing_secret ? "Saved (leave blank to keep)" : "Enter Slack signing secret"'
       )
     .q-mb-lg
-      .km-input-label Client Id
-      km-input(v-model='slack_client_id', placeholder='Enter Slack client id')
-    .q-mb-lg
       .km-input-label Client Secret
       km-input(
         v-model='slack_client_secret_local',
@@ -58,8 +55,18 @@ div
         :placeholder='has_slack_state_secret ? "Saved (leave blank to keep)" : "Enter Slack state secret"'
       )
     .q-mb-lg
-      .km-input-label Bot Scopes
+      .km-input-label Agent Scopes
       km-input(v-model='slack_scopes', placeholder='Enter Slack Scopes (comma separated)')
+    .q-mt-md
+      .row
+        .col-auto
+          km-btn(
+            label='Connect to Slack',
+            color='white',
+            @click='openSlackInstall',
+            :disable='isSlackInstallDisabled',
+            :contentStyle='"width: auto;"'
+          )
 </template>
 
 <script>
@@ -130,6 +137,19 @@ export default {
     has_slack_state_secret() {
       return !!this.$store.getters.agentDetailVariant?.value?.secrets_encrypted?.slack?.state_secret
     },
+    agentSystemName() {
+      const agent = this.$store.getters.agent_detail
+      return agent?.system_name?.trim()
+    },
+    slackInstallUrl() {
+      const baseUrl = this.$store.getters.config?.api?.aiBridge?.urlUser
+      if (!baseUrl) return null
+      return this.agentSystemName ? `${baseUrl}/agents/slack/install?agent=${encodeURIComponent(this.agentSystemName)}` : null
+    },
+    isSlackInstallDisabled() {
+      const hasClientId = !!this.slack_client_id?.trim()
+      return !hasClientId || !this.slackInstallUrl
+    },
   },
   watch: {
     secret_value_local(newVal) {
@@ -153,7 +173,12 @@ export default {
       this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'secrets_encrypted.slack.state_secret', value: newVal })
     },
   },
+  methods: {
+    openSlackInstall() {
+      if (this.isSlackInstallDisabled || !this.slackInstallUrl) return
+      window.open(this.slackInstallUrl, '_blank', 'noopener,noreferrer')
+    },
+  },
 }
 </script>
-
 

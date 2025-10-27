@@ -10,15 +10,18 @@ from sqlalchemy import text
 
 from core.config.app import alchemy
 
-from .default_handlers import attach_default_handlers
+from .handlers import attach_default_handlers
+from .installation_store import SlackInstallationStore
+from .state_store import SlackOAuthStateStore
 
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class SlackBot:
+class SlackRuntime:
     name: str
+    agent_system_name: str
     handler: SlackRequestHandler
     verifier: SignatureVerifier
     install_path: str | None = None
@@ -43,18 +46,31 @@ def _create_oauth_settings(
     client_id: str | None,
     client_secret: str | None,
     scopes: list[str] | None,
+    agent_system_name: str,
+    agent_display_name: str | None,
 ) -> OAuthSettings | None:
 
     if not client_id or not client_secret:
         return None
 
+    installation_store = SlackInstallationStore(
+        agent_system_name=agent_system_name,
+        client_id=client_id,
+    )
+    state_store = SlackOAuthStateStore(
+        agent_system_name=agent_system_name,
+        agent_display_name=agent_display_name,
+    )
     return OAuthSettings(
         client_id=client_id,
         client_secret=client_secret,
         scopes=scopes,
         user_scopes=None,
-        install_path="/slack/install",
-        redirect_uri_path="/slack/oauth_redirect",
+        installation_store=installation_store,
+        state_store=state_store,
+        install_page_rendering_enabled=False,
+        install_path="/api/user/agents/slack/install",
+        redirect_uri_path="/api/user/agents/slack/oauth_redirect",
     )
 
 
@@ -66,25 +82,34 @@ def _build_bot_from_db(
     client_id: str | None,
     client_secret: str | None,
     scopes: str | None,
-) -> SlackBot:
+    agent_system_name: str,
+) -> SlackRuntime:
     oauth_settings = _create_oauth_settings(
         client_id=client_id,
         client_secret=client_secret,
         scopes=_parse_scopes(scopes),
+        agent_system_name=agent_system_name,
+        agent_display_name=name,
     )
-    logger.debug("Creating Slack bot '%s'", name)
-    bolt_app = App(
-        token=token,
-        signing_secret=signing_secret,
-        oauth_settings=oauth_settings,
-    )
+    logger.debug("Creating Slack bot '%s' for agent '%s'", name, agent_system_name)
+    if oauth_settings:
+        bolt_app = App(
+            signing_secret=signing_secret,
+            oauth_settings=oauth_settings,
+        )
+    else:
+        bolt_app = App(
+            token=token,
+            signing_secret=signing_secret,
+        )
     attach_default_handlers(bolt_app)
     handler = SlackRequestHandler(bolt_app)
     verifier = SignatureVerifier(signing_secret=signing_secret)
     install_path = oauth_settings.install_path if oauth_settings else None
     redirect_uri_path = oauth_settings.redirect_uri_path if oauth_settings else None
-    return SlackBot(
+    return SlackRuntime(
         name=name,
+        agent_system_name=agent_system_name,
         handler=handler,
         verifier=verifier,
         install_path=install_path,
@@ -92,21 +117,21 @@ def _build_bot_from_db(
     )
 
 
-async def discover_bots_from_db() -> Sequence[SlackBot]:
-
+async def discover_bots_from_db() -> Sequence[SlackRuntime]:
     sql = text(
         """
         SELECT
-            COALESCE(elem->'value'->'credentials'->>'name', a.name, a.system_name) AS name,
+            a.name AS name, 
+			a.system_name AS system_name,
             elem->'value'->'secrets_encrypted'->'slack'->>'token' AS token,
-            elem->'value'->'secrets_encrypted'->'slack'->>'signing_secret' AS signing_secret,
             elem->'value'->'credentials'->'slack'->>'client_id' AS client_id,
+            elem->'value'->'secrets_encrypted'->'slack'->>'signing_secret' AS signing_secret,
             elem->'value'->'secrets_encrypted'->'slack'->>'client_secret' AS client_secret,
             elem->'value'->'credentials'->'slack'->>'scopes' AS scopes
         FROM agents a,
              jsonb_array_elements(a.variants) AS elem
         WHERE 
-          COALESCE(elem->'value'->'secrets_encrypted'->'slack'->>'signing_secret', '') <> ''
+          COALESCE(elem->'value'->'credentials'->'slack'->>'client_id', '') <> ''
         """
     )
 
@@ -114,7 +139,7 @@ async def discover_bots_from_db() -> Sequence[SlackBot]:
         result = await session.execute(sql)
         rows = result.mappings().all()
 
-    bots: list[SlackBot] = []
+    bots: list[SlackRuntime] = []
     for row in rows:
         bots.append(
             _build_bot_from_db(
@@ -124,6 +149,7 @@ async def discover_bots_from_db() -> Sequence[SlackBot]:
                 client_id=row.get("client_id"),
                 client_secret=row.get("client_secret"),
                 scopes=row.get("scopes"),
+                agent_system_name=row.get('system_name'),
             )
         )
 
