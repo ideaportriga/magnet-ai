@@ -18,7 +18,10 @@ from core.plugins.base import PluginMetadata
 from core.plugins.interfaces import KnowledgeSourcePlugin
 from core.plugins.plugin_types import PluginType
 from data_sources.salesforce.source import SalesforceDataSource
-from data_sources.salesforce.utils import create_salesforce_instance
+from data_sources.salesforce.utils import (
+    create_salesforce_instance,
+    create_salesforce_instance_with_config,
+)
 from data_sync.data_processor import DataProcessor
 
 from .processor import SalesforceDataProcessor
@@ -46,6 +49,19 @@ class SalesforcePlugin(KnowledgeSourcePlugin):
                     "output_config": {
                         "type": "string",
                         "description": "JSON configuration for output format",
+                    },
+                    # Provider-level credentials (from provider config)
+                    "username": {
+                        "type": "string",
+                        "description": "Salesforce username (from provider)",
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "Salesforce password (from provider)",
+                    },
+                    "security_token": {
+                        "type": "string",
+                        "description": "Salesforce security token (from provider)",
                     },
                 },
                 "required": ["object_api_name", "output_config"],
@@ -79,15 +95,34 @@ class SalesforcePlugin(KnowledgeSourcePlugin):
         output_config_json = source_config.get("output_config")
 
         if not object_api_name:
-            raise ClientException("Missing `object_api_name` in metadata")
+            raise ClientException(
+                "Missing `object_api_name` configuration. Please specify the Salesforce object "
+                "API name in the knowledge source settings"
+            )
         if not output_config_json:
-            raise ClientException("Missing `output_config` in metadata")
+            raise ClientException(
+                "Missing `output_config` configuration. Please specify the output configuration "
+                "in the knowledge source settings"
+            )
 
         # Parse output config
         output_config = loads(output_config_json)
 
-        # Create Salesforce instance
-        salesforce = create_salesforce_instance()
+        # Get credentials from source_config (merged with provider config)
+        username = source_config.get("username")
+        password = source_config.get("password")
+        security_token = source_config.get("security_token")
+
+        # Create Salesforce instance with explicit config if provided, otherwise use env
+        if username and password and security_token:
+            salesforce = create_salesforce_instance_with_config(
+                username=username,
+                password=password,
+                security_token=security_token,
+            )
+        else:
+            # Fall back to environment-based config for backward compatibility
+            salesforce = create_salesforce_instance()
 
         # Create data source
         data_source = SalesforceDataSource(

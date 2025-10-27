@@ -22,7 +22,7 @@ class CollectionsController(Controller):
     """Collections CRUD"""
 
     path = "/sql_collections"
-    tags = ["sql_Collections"]
+    tags = ["Admin / Collections"]
 
     dependencies = providers.create_service_dependencies(
         CollectionsService,
@@ -88,8 +88,10 @@ class CollectionsController(Controller):
         ),
     ) -> Collection:
         """Update a Collection."""
+        # Only include fields that were explicitly set in the request
+        update_data = data.model_dump(exclude_unset=True)
         obj = await collections_service.update(
-            data, item_id=collection_id, auto_commit=True
+            update_data, item_id=collection_id, auto_commit=True
         )
         return collections_service.to_schema(obj, schema_type=Collection)
 

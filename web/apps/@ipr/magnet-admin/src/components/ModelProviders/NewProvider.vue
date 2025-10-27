@@ -79,6 +79,7 @@
             name: '',
             system_name: '',
             type: '',
+            category: 'llm', // Set category for Model Providers
             endpoint: '',
             connection_config: {},
             secrets_encrypted: {},

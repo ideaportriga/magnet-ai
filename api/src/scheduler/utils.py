@@ -60,7 +60,10 @@ async def update_job_status(
                     else:
                         update_data["last_run"] = last_run_value
 
-            job_update = JobUpdate(**update_data)
+            # Validate and prepare update data
+            # exclude_unset=True ensures only fields present in update_data are included
+            job_update = JobUpdate.model_validate(update_data).model_dump(exclude_unset=True)
+
             await service.update(job_update, item_id=UUID(job_id), auto_commit=True)
 
         logger.debug(f"Updated job {job_id} status to {status}")

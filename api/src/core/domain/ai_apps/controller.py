@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 class AiAppsController(Controller):
     """AI Apps CRUD"""
 
-    path = "/sql_ai_apps"
-    tags = ["sql_AiApps"]
+    path = "/ai_apps"
+    tags = ["Admin / AI Apps"]
 
     dependencies = providers.create_service_dependencies(
         AiAppsService,

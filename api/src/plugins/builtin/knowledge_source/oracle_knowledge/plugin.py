@@ -17,7 +17,10 @@ from core.plugins.base import PluginMetadata
 from core.plugins.interfaces import KnowledgeSourcePlugin
 from core.plugins.plugin_types import PluginType
 from data_sources.oracle_knowledge.source import OracleKnowledgeDataSource
-from data_sources.oracle_knowledge.utils import create_oracle_knowledge_client
+from data_sources.oracle_knowledge.utils import (
+    create_oracle_knowledge_client,
+    create_oracle_knowledge_client_with_config,
+)
 from data_sync.data_processor import DataProcessor
 
 from .processor import OracleKnowledgeDataProcessor
@@ -38,12 +41,21 @@ class OracleKnowledgePlugin(KnowledgeSourcePlugin):
             config_schema={
                 "type": "object",
                 "properties": {
-                    "oracle_knowledge_url": {
+                    "endpoint": {
                         "type": "string",
                         "description": "Oracle Knowledge base URL",
                     },
+                    # Provider-level credentials (from provider config)
+                    "username": {
+                        "type": "string",
+                        "description": "Oracle Knowledge username (from provider)",
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "Oracle Knowledge password (from provider)",
+                    },
                 },
-                "required": ["oracle_knowledge_url"],
+                "required": ["endpoint"],
             },
         )
 
@@ -68,15 +80,30 @@ class OracleKnowledgePlugin(KnowledgeSourcePlugin):
             OracleKnowledgeDataProcessor instance
 
         Raises:
-            ClientException: If oracle_knowledge_url is missing
+            ClientException: If endpoint is missing
         """
-        oracle_knowledge_url = source_config.get("oracle_knowledge_url")
+        oracle_knowledge_url = source_config.get("endpoint")
 
         if not oracle_knowledge_url:
-            raise ClientException("Missing `oracle_knowledge_url` in metadata")
+            raise ClientException(
+                "Missing `endpoint` configuration. Please ensure the provider is configured "
+                "with a valid Oracle Knowledge endpoint URL"
+            )
 
-        # Create client
-        client = create_oracle_knowledge_client(oracle_knowledge_url)
+        # Get credentials from source_config (merged with provider config)
+        username = source_config.get("username")
+        password = source_config.get("password")
+
+        # Create client with explicit config if provided, otherwise use env
+        if username and password:
+            client = create_oracle_knowledge_client_with_config(
+                oracle_knowledge_url=oracle_knowledge_url,
+                username=username,
+                password=password,
+            )
+        else:
+            # Fall back to environment-based config for backward compatibility
+            client = create_oracle_knowledge_client(oracle_knowledge_url)
 
         # Create data source
         data_source = OracleKnowledgeDataSource(client)

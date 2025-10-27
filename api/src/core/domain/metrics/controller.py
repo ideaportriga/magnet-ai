@@ -20,7 +20,7 @@ class MetricsController(Controller):
     """Metrics CRUD"""
 
     path = "/metrics"
-    tags = ["Metrics"]
+    tags = ["Admin / Metrics"]
 
     dependencies = providers.create_service_dependencies(
         MetricsService,

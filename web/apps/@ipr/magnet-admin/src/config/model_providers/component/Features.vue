@@ -9,7 +9,7 @@
     v-if='row?.structured_output',
     size='sm',
     
-  ) Structured Output
+  ) Structured Outputs
   q-chip.text-uppercase.q-ma-none(
     v-if='row?.tool_calling',
     size='sm',

@@ -6,12 +6,16 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.params import Dependency, Parameter
+from litestar.status_codes import HTTP_200_OK
+from mcp import Tool
+from mcp.types import CallToolResult
 from pydantic import BaseModel, Field
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.mcp_servers.service import (
     MCPServersService,
 )
+from services.mcp_servers import services
 
 from .schemas import MCPServerCreate, MCPServerResponse, MCPServerUpdate
 
@@ -34,8 +38,8 @@ class SecretsDeleteRequest(BaseModel):
 class MCPServersController(Controller):
     """MCP servers CRUD"""
 
-    path = "/sql_mcp_servers"
-    tags = ["sql_MCPServers"]
+    path = "/mcp_servers"
+    tags = ["Admin / MCP Servers"]
 
     dependencies = providers.create_service_dependencies(
         MCPServersService,
@@ -117,3 +121,34 @@ class MCPServersController(Controller):
     ) -> None:
         """Delete an MCP server from the system."""
         _ = await mcp_servers_service.delete(mcp_server_id)
+
+    @post(
+        "/{mcp_server_id:uuid}/tools/{tool:str}/call",
+        summary="Call MCP server tool",
+        status_code=HTTP_200_OK,
+    )
+    async def call_mcp_server_tool(
+        self, mcp_server_id: UUID, tool: str, data: dict[str, Any]
+    ) -> CallToolResult:
+        """Call a tool on the MCP server."""
+        return await services.call_mcp_server_tool(
+            mcp_server_id=str(mcp_server_id), tool=tool, arguments=data
+        )
+
+    @post(
+        "/{mcp_server_id:uuid}/sync_tools",
+        summary="Sync MCP server tools",
+        status_code=HTTP_200_OK,
+    )
+    async def sync_mcp_server_tools(self, mcp_server_id: UUID) -> list[Tool]:
+        """Sync tools from the MCP server."""
+        return await services.sync_mcp_server_tools(str(mcp_server_id))
+
+    @post(
+        "/{mcp_server_id:uuid}/test",
+        summary="Test MCP server connection",
+        status_code=HTTP_200_OK,
+    )
+    async def test_mcp_server_connection(self, mcp_server_id: UUID) -> None:
+        """Test connection to the MCP server."""
+        return await services.test_mcp_server_connection(str(mcp_server_id))

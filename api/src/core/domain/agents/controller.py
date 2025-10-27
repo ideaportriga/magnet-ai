@@ -22,7 +22,7 @@ class AgentsController(Controller):
     """Agents CRUD"""
 
     path = "/sql_agents"
-    tags = ["sql_Agents"]
+    tags = ["Admin / Agents"]
 
     dependencies = providers.create_service_dependencies(
         AgentsService,

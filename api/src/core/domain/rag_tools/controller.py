@@ -5,11 +5,19 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
+from litestar.connection import Request
 from litestar.params import Dependency, Parameter
+from litestar.status_codes import HTTP_200_OK
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.rag_tools.schemas import RagTool, RagToolCreate, RagToolUpdate
 from core.domain.rag_tools.service import RagToolsService
+from services.observability import observability_context, observe
+from services.rag_tools import execute_rag_tool
+from services.rag_tools.models import RagToolTestResult
+from services.rag_tools.services import get_rag_by_system_name_flat
+from services.utils.metadata_filtering import metadata_filter_to_filter_object
+from validation.rag_tools import RagToolExecute, RagToolTest
 
 if TYPE_CHECKING:
     pass
@@ -18,8 +26,8 @@ if TYPE_CHECKING:
 class RagToolsController(Controller):
     """RAG Tools CRUD"""
 
-    path = "/sql_rag_tools"
-    tags = ["sql_RagTools"]
+    path = "/rag_tools"
+    tags = ["Admin / RAG Tools"]
 
     dependencies = providers.create_service_dependencies(
         RagToolsService,
@@ -102,3 +110,55 @@ class RagToolsController(Controller):
     ) -> None:
         """Delete a RAG tool from the system."""
         _ = await rag_tools_service.delete(rag_tool_id)
+
+    @observe(name="Previewing RAG Tool", channel="preview")
+    @post("/test", status_code=HTTP_200_OK)
+    async def test(self, data: RagToolTest, user_id: str | None) -> RagToolTestResult:
+        """Test a RAG tool with preview channel."""
+        rag_tool_config = await get_rag_by_system_name_flat(data.system_name)
+
+        observability_context.update_current_baggage(
+            source="preview",
+            consumer_type="rag",
+            consumer_name=rag_tool_config.get("name"),
+            user_id=user_id,
+        )
+
+        observability_context.update_current_trace(
+            name=rag_tool_config.get("name"), type="rag", user_id=user_id
+        )
+
+        return await execute_rag_tool(
+            system_name_or_config=rag_tool_config,
+            user_message=data.user_message,
+            metadata_filter=metadata_filter_to_filter_object(data.metadata_filter),
+            config_override=data,
+            verbose=True,
+        )
+
+    @observe(name="Executing RAG Tool", channel="production")
+    @post("/execute", status_code=HTTP_200_OK)
+    async def execute(
+        self,
+        data: RagToolExecute,
+        user_id: str | None,
+        request: Request,  # do not remove this, it is used to get x-attributes in observe decorator
+    ) -> RagToolTestResult:
+        """Execute a RAG tool in production channel."""
+        rag_tool_config = await get_rag_by_system_name_flat(data.system_name)
+
+        observability_context.update_current_baggage(
+            source=request.headers.get("x-source"),
+            consumer_type=request.headers.get("x-consumer-type") or "rag",
+            consumer_name=request.headers.get("x-consumer-name")
+            or rag_tool_config.get("system_name"),
+            user_id=user_id,
+        )
+
+        observability_context.update_current_trace(
+            name=rag_tool_config.get("name"), type="rag", user_id=user_id
+        )
+
+        return await execute_rag_tool(
+            system_name_or_config=rag_tool_config, user_message=data.user_message
+        )

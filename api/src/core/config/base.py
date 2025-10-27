@@ -183,7 +183,7 @@ class DatabaseSettings:
         
         # Convert async drivers to sync for APScheduler
         if "postgresql+asyncpg://" in async_url:
-            return async_url.replace("postgresql+asyncpg://", "postgresql://")
+            return async_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
         elif "mysql+aiomysql://" in async_url:
             return async_url.replace("mysql+aiomysql://", "mysql+pymysql://")
         elif "sqlite+aiosqlite://" in async_url:
@@ -398,6 +398,8 @@ class LogSettings:
     ASGI_ACCESS_LEVEL: int = field(default_factory=get_env("ASGI_ACCESS_LOG_LEVEL", 10))
     """Level to log uvicorn error logs."""
     ASGI_ERROR_LEVEL: int = field(default_factory=get_env("ASGI_ERROR_LOG_LEVEL", 10))
+    """Loki URL for sending logs (optional)."""
+    LOKI_URL: str = field(default_factory=get_env("LOKI_URL", ""))
 
 
 ### OBSERVABILITY SETTINGS ###

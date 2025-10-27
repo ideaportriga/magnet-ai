@@ -14,6 +14,21 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           :stepper='stepper'
         )
       .column.full-width(v-if='stepper === 0')
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge Source Provider (Optional)
+        .full-width.q-mb-md
+          km-select(
+            v-model='provider_system_name',
+            :options='providerOptions',
+            placeholder='Select provider (optional)',
+            clearable,
+            emit-value,
+            map-options,
+            option-value='system_name',
+            option-label='name',
+            @update:model-value='onProviderChange',
+            :disable='!!providerSystemName'
+          )
+          .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='providerSystemName') Provider is pre-selected and cannot be changed when creating under a specific provider
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
         .full-width.q-mb-md
           km-input(v-model='nameCalc', ref='nameRef', :rules='config.name.rules')
@@ -22,8 +37,9 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           km-input(v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source type
         .full-width.q-mb-md
-          km-select(:options='config.source_type.options', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules')
-        template(v-for='item in config.source_type?.children[source_type]')
+          km-select(:options='dynamicSourceTypeOptions', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules', :disable='!!selectedProvider')
+          .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='selectedProvider') Source type is automatically set based on the selected provider
+        template(v-for='item in dynamicSourceTypeChildren[source_type]')
           .col
             .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ item.label }}
             .q-mb-md
@@ -181,21 +197,28 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
     q-inner-loading(:showing='loadingCreate', color='primary', size='50px')
 </template>
 <script>
-import { defineComponent, ref, reactive } from 'vue'
+import { defineComponent, ref, reactive, computed } from 'vue'
 import { cloneDeep } from 'lodash'
 import { required, minLength } from '@shared/utils/validationRules'
 import { useChroma } from '@shared'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
 
 export default defineComponent({
   props: {
     showNewDialog: Boolean,
     copy: Boolean,
+    providerSystemName: {
+      type: String,
+      default: null,
+    },
   },
   emits: ['cancel'],
-  setup() {
+  setup(props) {
     const { requiredFields, config, ...useCollection } = useChroma('collections')
     const { items: promptTemplateItems } = useChroma('promptTemplates')
+    const { items: providerItems } = useChroma('provider')
+    
     const intervals = [
       { label: 'Hourly', value: 'hourly' },
       { label: 'Daily', value: 'daily' },
@@ -203,6 +226,7 @@ export default defineComponent({
     ]
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     const times = Array.from({ length: 24 }, (_, i) => ({ label: `${i.toString().padStart(2, '0')}:00`, value: i.toString().padStart(2, '0') }))
+    
     return {
       customFields: ref({}),
       metadata: ref('{}'),
@@ -213,6 +237,7 @@ export default defineComponent({
       system_name: ref(''),
       description: ref(''),
       source: ref({}),
+      provider_system_name: ref(''),
 
       // Chunking settings
       chunkingStrategy: ref('recursive_character_text_splitting'),
@@ -253,10 +278,22 @@ export default defineComponent({
         error_email: '',
       }),
       promptTemplateItems,
+      providerItems,
+      // Direct access to reactive plugin data
+      sourceTypeOptions,
+      sourceTypeChildren,
       // New reactive property for sync confirmation display
     }
   },
   computed: {
+    providerOptions() {
+      // Filter only knowledge providers
+      return (this.providerItems || []).filter(provider => provider.category === 'knowledge')
+    },
+    selectedProvider() {
+      if (!this.provider_system_name) return null
+      return this.providerItems?.find(p => p.system_name === this.provider_system_name)
+    },
     source_type: {
       get() {
         return this.source?.source_type || ''
@@ -264,6 +301,20 @@ export default defineComponent({
       set(val) {
         this.source = { ...this.source, source_type: val }
       },
+    },
+    
+    // Dynamic source type options from loaded plugins
+    dynamicSourceTypeOptions() {
+      if (this.selectedProvider) {
+        // If provider is selected, only show the source type matching the provider's type
+        return this.sourceTypeOptions.filter(option => option.value === this.selectedProvider.type) || []
+      }
+      return this.sourceTypeOptions || []
+    },
+    
+    // Dynamic source type children from loaded plugins
+    dynamicSourceTypeChildren() {
+      return this.sourceTypeChildren || {}
     },
 
     defaultModel() {
@@ -331,6 +382,18 @@ export default defineComponent({
   },
   mounted() {
     this.isMounted = true
+    
+    // Set provider_system_name from providerSystemName prop if provided
+    if (this.providerSystemName) {
+      this.provider_system_name = this.providerSystemName
+      const provider = this.providerItems?.find(p => p.system_name === this.providerSystemName)
+      if (provider) {
+        this.source_type = provider.type // Set source_type to match provider's type
+        // Apply provider connection params
+        this.applyProviderConnectionParams(provider)
+      }
+    }
+    
     if (this.copy) {
       this.customFields = reactive(cloneDeep(this.currentRaw))
       this.name = this.customFields?.name + '_COPY'
@@ -343,6 +406,7 @@ export default defineComponent({
       this.chunkSize = this.customFields?.chunk_size ?? ''
       this.chunkOverlap = this.customFields?.chunk_overlap ?? ''
       this.ai_model = this.customFields?.ai_model
+      this.provider_system_name = this.customFields?.provider_system_name || ''
       delete this.customFields.id
       delete this.customFields.created
       delete this.customFields.last_synced
@@ -351,6 +415,43 @@ export default defineComponent({
     }
   },
   methods: {
+    onProviderChange(providerSystemName) {
+      if (!providerSystemName) {
+        // Clear provider-related data when provider is deselected
+        this.source_type = ''
+        return
+      }
+      
+      const provider = this.providerItems?.find(p => p.system_name === providerSystemName)
+      if (provider) {
+        this.source_type = provider.type // Set source_type to match provider's type
+        this.applyProviderConnectionParams(provider)
+      }
+    },
+    applyProviderConnectionParams(provider) {
+      // DO NOT copy endpoint or credentials to source - these are security-critical fields
+      // that must only come from provider configuration on the backend.
+      // The backend will automatically merge provider config (including endpoint and credentials)
+      // when processing the knowledge source.
+      
+      // Apply ONLY non-security connection_config parameters to source fields
+      // (e.g., service-specific URLs like search_api_url, pdf_api_url, base_slug)
+      if (provider.connection_config) {
+        const securityFields = new Set([
+          'endpoint', 'client_id', 'client_secret', 'tenant', 'thumbprint', 'private_key',
+          'username', 'password', 'token', 'security_token', 'api_token', 'api_key'
+        ])
+        
+        Object.entries(provider.connection_config).forEach(([key, value]) => {
+          // Only copy non-security fields
+          if (!securityFields.has(key)) {
+            this.source = { ...this.source, [key]: value }
+          }
+        })
+      }
+      
+      // Note: secrets_encrypted and endpoint are handled on backend side only
+    },
     next(step) {
       if (!this.validateFields()) return
       this.stepper = step
@@ -384,6 +485,7 @@ export default defineComponent({
         chunkUsageMethod,
         supportSemanticSearch,
         supportKeywordSearch,
+        provider_system_name,
       } = this
 
       // Transform Documentation source fields
@@ -400,6 +502,7 @@ export default defineComponent({
         system_name,
         description,
         ai_model,
+        provider_system_name: provider_system_name || undefined, // Link to provider by system_name
         chunking: {
           strategy: chunkingStrategy,
           chunk_size: parseInt(chunkSize),
@@ -561,6 +664,7 @@ export default defineComponent({
       this.category = ''
       this.show_in_qa = false
       this.source_type = ''
+      this.provider_system_name = ''
       this.metadata = '{}'
 
       this.customFields = {}

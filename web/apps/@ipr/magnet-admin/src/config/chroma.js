@@ -277,7 +277,7 @@ const apiRagTools = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_rag_tools`,
+      service: `rag_tools`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -298,7 +298,7 @@ const apiRagTools = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_rag_tools/${id}`,
+      service: `rag_tools/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -344,7 +344,7 @@ const apiRagTools = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: 'sql_rag_tools',
+      service: 'rag_tools',
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -369,7 +369,7 @@ const apiRagTools = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_rag_tools/${id}`,
+      service: `rag_tools/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -395,7 +395,7 @@ const apiRetrievalTools = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools`,
+      service: `retrieval_tools`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -418,7 +418,7 @@ const apiRetrievalTools = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools/${id}`,
+      service: `retrieval_tools/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -444,7 +444,7 @@ const apiRetrievalTools = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools/${id}/sync`,
+      service: `retrieval_tools/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -464,7 +464,7 @@ const apiRetrievalTools = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools`,
+      service: `retrieval_tools`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -489,7 +489,7 @@ const apiRetrievalTools = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_retrieval_tools/${id}`,
+      service: `retrieval_tools/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -515,7 +515,7 @@ const apiModelConfig = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models`,
+      service: `models`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -538,7 +538,7 @@ const apiModelConfig = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models/${id}`,
+      service: `models/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -564,7 +564,7 @@ const apiModelConfig = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models/${id}/sync`,
+      service: `models/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -584,7 +584,7 @@ const apiModelConfig = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models`,
+      service: `models`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -609,7 +609,7 @@ const apiModelConfig = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_models/${id}`,
+      service: `models/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -636,7 +636,7 @@ const modelProviders = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_providers`,
+      service: `providers`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -659,7 +659,7 @@ const modelProviders = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_providers/${id}`,
+      service: `providers/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -685,7 +685,7 @@ const modelProviders = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_providers/${id}/sync`,
+      service: `providers/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -705,7 +705,7 @@ const modelProviders = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_providers`,
+      service: `providers`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -730,7 +730,7 @@ const modelProviders = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_providers/${id}`,
+      service: `providers/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -757,7 +757,7 @@ const apiPromptTemplates = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_prompts`,
+      service: `prompt_templates`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -778,7 +778,7 @@ const apiPromptTemplates = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_prompts/${id}`,
+      service: `prompt_templates/${id}`,
       body: data,
       headers: {
         'Content-Type': 'application/json',
@@ -823,7 +823,7 @@ const apiPromptTemplates = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_prompts`,
+      service: `prompt_templates`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -848,7 +848,7 @@ const apiPromptTemplates = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_prompts/${id}`,
+      service: `prompt_templates/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -969,7 +969,7 @@ const apiAiApps = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps`,
+      service: `ai_apps`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -990,7 +990,7 @@ const apiAiApps = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps/${id}`,
+      service: `ai_apps/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -1016,7 +1016,7 @@ const apiAiApps = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps/${id}/sync`,
+      service: `ai_apps/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1035,7 +1035,7 @@ const apiAiApps = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps`,
+      service: `ai_apps`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -1060,7 +1060,7 @@ const apiAiApps = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_ai_apps/${id}`,
+      service: `ai_apps/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -1205,7 +1205,7 @@ const apiEvaluationSets = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets`,
+      service: `evaluation_sets`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1227,7 +1227,7 @@ const apiEvaluationSets = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets/${id}`,
+      service: `evaluation_sets/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -1253,7 +1253,7 @@ const apiEvaluationSets = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets/${id}/sync`,
+      service: `evaluation_sets/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1284,7 +1284,7 @@ const apiEvaluationSets = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets/file`,
+      service: `evaluation_sets/file`,
       body: formData,
       headers: {},
     })
@@ -1307,7 +1307,7 @@ const apiEvaluationSets = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_evaluation_sets/${id}`,
+      service: `evaluation_sets/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -1925,7 +1925,7 @@ const apiAgents = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_agents`,
+      service: `agents`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1946,7 +1946,7 @@ const apiAgents = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_agents/${id}`,
+      service: `agents/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -1972,7 +1972,7 @@ const apiAgents = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_agents/${id}/sync`,
+      service: `agents/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -1991,7 +1991,7 @@ const apiAgents = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_agents`,
+      service: `agents`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -2016,7 +2016,7 @@ const apiAgents = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_agents/${id}`,
+      service: `agents/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -2044,7 +2044,7 @@ const apiJobs = {
     console.log('apiJobs getPaginated', pagination, filter)
     // Build query parameters using universal function
     const queryString = buildQueryParams(pagination, filter)
-    const url = queryString ? `sql_jobs?${queryString}` : 'sql_jobs'
+    const url = queryString ? `jobs?${queryString}` : 'jobs'
 
     return await fetchData({
       method: 'GET',
@@ -2075,7 +2075,7 @@ const apiJobs = {
     
     // Build query parameters using universal function (no pagination for simple get)
     const queryString = buildQueryParams({}, filter)
-    const url = queryString ? `sql_jobs?${queryString}` : 'sql_jobs'
+    const url = queryString ? `jobs?${queryString}` : 'jobs'
 
     return await fetchData({
       method: 'GET',
@@ -2105,7 +2105,7 @@ const apiJobs = {
       method: 'GET',
       endpoint,
       credentials: 'include',
-      service: `sql_jobs/${payload?.id}`,
+      service: `jobs/${payload?.id}`,
 
       headers: {
         'Content-Type': 'application/json',
@@ -2133,7 +2133,7 @@ const apiJobs = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_jobs/${id}/sync`,
+      service: `jobs/${id}/sync`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -2152,7 +2152,7 @@ const apiJobs = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_jobs/${id}`,
+      service: `jobs/${id}`,
       body: '',
       headers: {
         'Content-Type': 'application/json',
@@ -2178,7 +2178,7 @@ const apiMcpServers = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_mcp_servers`,
+      service: `mcp_servers`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -2193,7 +2193,7 @@ const apiMcpServers = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_mcp_servers`,
+      service: `mcp_servers`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -2212,7 +2212,7 @@ const apiMcpServers = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_mcp_servers/${id}`,
+      service: `mcp_servers/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -2232,7 +2232,7 @@ const apiMcpServers = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_mcp_servers/${id}`,
+      service: `mcp_servers/${id}`,
     })
       .then((response) => {
         if (response.ok) return response
@@ -2312,7 +2312,7 @@ const apiApiServers = {
     return await fetchData({
       endpoint,
       credentials: 'include',
-      service: `sql_api_servers`,
+      service: `api_servers`,
     })
       .then((response) => {
         if (response.ok) return response.json()
@@ -2327,7 +2327,7 @@ const apiApiServers = {
       method: 'POST',
       endpoint,
       credentials: 'include',
-      service: `sql_api_servers`,
+      service: `api_servers`,
       body: payload,
       headers: {
         'Content-Type': 'application/json',
@@ -2346,7 +2346,7 @@ const apiApiServers = {
       method: 'PATCH',
       endpoint,
       credentials: 'include',
-      service: `sql_api_servers/${id}`,
+      service: `api_servers/${id}`,
       body: JSON.stringify(data),
       headers: {
         'Content-Type': 'application/json',
@@ -2366,7 +2366,7 @@ const apiApiServers = {
       method: 'DELETE',
       endpoint,
       credentials: 'include',
-      service: `sql_api_servers/${id}`,
+      service: `api_servers/${id}`,
     })
       .then((response) => {
         if (response.ok) return response

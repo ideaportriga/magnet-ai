@@ -11,7 +11,10 @@ from core.plugins.base import PluginMetadata
 from core.plugins.interfaces import KnowledgeSourcePlugin
 from core.plugins.plugin_types import PluginType
 from data_sources.confluence.source import ConfluenceDataSource
-from data_sources.confluence.utils import create_confluence_instance
+from data_sources.confluence.utils import (
+    create_confluence_instance,
+    create_confluence_instance_with_config,
+)
 from data_sync.data_processor import DataProcessor
 
 from .processor import ConfluenceDataProcessor
@@ -32,7 +35,7 @@ class ConfluencePlugin(KnowledgeSourcePlugin):
             config_schema={
                 "type": "object",
                 "properties": {
-                    "confluence_url": {
+                    "endpoint": {
                         "type": "string",
                         "description": "Confluence instance URL",
                     },
@@ -40,8 +43,17 @@ class ConfluencePlugin(KnowledgeSourcePlugin):
                         "type": "string",
                         "description": "Confluence space key",
                     },
+                    # Provider-level credentials (from provider config)
+                    "username": {
+                        "type": "string",
+                        "description": "Confluence username (from provider)",
+                    },
+                    "token": {
+                        "type": "string",
+                        "description": "Confluence API token (from provider)",
+                    },
                 },
-                "required": ["confluence_url", "confluence_space"],
+                "required": ["endpoint", "confluence_space"],
             },
         )
 
@@ -68,16 +80,34 @@ class ConfluencePlugin(KnowledgeSourcePlugin):
         Raises:
             ClientException: If required fields are missing
         """
-        confluence_url = source_config.get("confluence_url")
+        confluence_url = source_config.get("endpoint")
         confluence_space = source_config.get("confluence_space")
 
         if not confluence_url:
-            raise ClientException("Missing `confluence_url` in metadata")
+            raise ClientException(
+                "Missing `endpoint` configuration. Please ensure the provider is configured "
+                "with a valid Confluence endpoint URL"
+            )
         if not confluence_space:
-            raise ClientException("Missing `confluence_space` in metadata")
+            raise ClientException(
+                "Missing `confluence_space` configuration. Please specify the Confluence space "
+                "in the knowledge source settings"
+            )
 
-        # Create Confluence instance
-        confluence_instance = create_confluence_instance(confluence_url)
+        # Get credentials from source_config (merged with provider config)
+        username = source_config.get("username")
+        token = source_config.get("token")
+
+        # Create Confluence instance with explicit config if provided, otherwise use env
+        if username and token:
+            confluence_instance = create_confluence_instance_with_config(
+                url=confluence_url,
+                username=username,
+                token=token,
+            )
+        else:
+            # Fall back to environment-based config for backward compatibility
+            confluence_instance = create_confluence_instance(confluence_url)
 
         # Create data source
         data_source = ConfluenceDataSource(confluence_instance, confluence_space)

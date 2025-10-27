@@ -4,12 +4,12 @@ from litestar.openapi.spec import Tag
 
 
 class TagNames(StrEnum):
-    UserExecute = "user/execute"
-    UserAgentConversations = "user/agent_conversations"
-    UserAiApps = "user/ai_apps"
-    UserTelemetry = "user/telemetry"
-    UserUtils = "user/utils"
-    UserAgentsMessages = "user/agents/messages"
+    UserExecute = "User / Execute"
+    UserAgentConversations = "User / Agent Conversations"
+    UserAiApps = "User / AI Apps"
+    UserTelemetry = "User / Telemetry"
+    UserUtils = "User / Utils"
+    UserAgentsMessages = "User / Agents Messages"
 
 
 def get_tags() -> list[Tag]:

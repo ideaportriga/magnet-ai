@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 class ProvidersController(Controller):
     """Providers CRUD"""
 
-    path = "/sql_providers"
-    tags = ["sql_Providers"]
+    path = "/providers"
+    tags = ["Admin / Providers"]
 
     dependencies = providers.create_service_dependencies(
         ProvidersService,

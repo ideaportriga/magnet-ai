@@ -150,3 +150,10 @@ class AIModelCreate(BaseSimpleCreateSchema, AIModelFieldsMixin):
 
 class AIModelUpdate(BaseSimpleUpdateSchema, AIModelUpdateFieldsMixin):
     """Schema for updating an existing AI model."""
+
+
+class AIModelSetDefaultRequest(BaseModel):
+    """Schema for setting a model as default."""
+    
+    type: str = Field(..., description="Model type (e.g., prompts, embeddings)")
+    system_name: str = Field(..., description="System name of the model to set as default")

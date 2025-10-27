@@ -55,7 +55,7 @@ const actions = {
       const response = await fetchData({
         endpoint,
         credentials: 'include',
-        service: `sql_evaluations?${params.toString()}`,
+        service: `evaluations?${params.toString()}`,
       })
 
       if (!response.ok) throw new Error(response.error || 'Failed to fetch evaluations list')
@@ -85,7 +85,7 @@ const actions = {
       const response = await fetchData({
         endpoint,
         credentials: 'include',
-        service: `sql_evaluations?${params.toString()}`,
+        service: `evaluations?${params.toString()}`,
       })
 
       if (!response.ok) throw new Error(response.error || 'Failed to fetch data')
@@ -107,7 +107,7 @@ const actions = {
     commit('set', { loading: true })
 
     const {id, result_id, score, score_comment} = payload
-    const service = `sql_evaluations/${id}/result/${result_id}/score`
+    const service = `evaluations/${id}/result/${result_id}/score`
   
     const response = await fetchData({
       endpoint,

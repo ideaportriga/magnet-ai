@@ -907,6 +907,16 @@ async def get_metrics_by_feature_type(
         skip = 0
         order = "DESC"
 
+    # Transform sort field if it references JSONB fields
+    if sort and "." in sort:
+        parts = sort.split(".", 1)
+        if parts[0] in ["extra_data", "conversation_data", "x_attributes"]:
+            # Use JSONB accessor syntax for PostgreSQL
+            # ->> returns text, so we cast to appropriate type if needed
+            json_field = parts[0]
+            json_key = parts[1]
+            sort = f"({json_field}->>{repr(json_key)})"
+
     where_clause, params = _build_where_clause(filters)
 
     # Build feature type condition

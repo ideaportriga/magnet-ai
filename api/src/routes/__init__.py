@@ -4,53 +4,32 @@ from litestar import Router, get
 from litestar.types import ControllerRouterHandler
 from litestar.static_files import create_static_files_router
 
-from core.domain.agents import AgentsController as AgentsControllerSQL
-from core.domain.ai_apps import AiAppsController as AiAppsControllerSQL
+from core.domain.ai_apps import AiAppsController
 from core.domain.ai_models import AIModelsController
-from core.domain.api_servers import ApiServersController as ApiServersControllerSQL
+from core.domain.api_servers import ApiServersController
 from core.domain.collections import CollectionsController
-from core.domain.evaluation_sets import (
-    EvaluationSetsController as EvaluationSetsControllerSQL,
-)
-from core.domain.evaluations import EvaluationsController as EvaluationsControllerSQL
-from core.domain.jobs import JobsController as JobsControllerSQL
-from core.domain.mcp_servers import MCPServersController as MCPServersControllerSQL
+from core.domain.evaluation_sets import EvaluationSetsController
+from core.domain.evaluations import EvaluationsController
+from core.domain.jobs import JobsController
+from core.domain.mcp_servers import MCPServersController
 from core.domain.metrics import MetricsController
 from core.domain.prompts import PromptsController
 from core.domain.providers import ProvidersController
-from core.domain.rag_tools import RagToolsController as RagToolsControllerSQL
-from core.domain.retrieval_tools import (
-    RetrievalToolsController as RetrievalToolsControllerSQL,
-)
+from core.domain.rag_tools import RagToolsController
+from core.domain.retrieval_tools import RetrievalToolsController
 from core.domain.traces import TracesController
 from guards.role import UserRole, create_role_guard
 from routes.admin.api_keys import ApiKeysController
-from routes.admin.api_servers import ApiServersController
-from routes.admin.mcp_servers import McpServersController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
-from .admin.ai_apps import AiAppsController
 
-# from .admin.api_tool_providers import ApiToolProvidersController
-# from .admin.api_tools import ApiToolsController
-from .admin.evaluations import EvaluationsController
-from .admin.experimental import experimental_router
-
-# from .admin.jobs import JobsBaseController, JobsController
 from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
 )
-from .admin.models import ModelsController
 from .admin.observability import observability_router
-from .admin.prompt_templates import PromptTemplatesController
 from .admin.rag import RagController
-from .admin.rag_tools import RagToolsController
-from .admin.retrieval_tools import (
-    RetrievalToolsController,
-    RetrievalToolsControllerDeprecated,
-)
 from .admin.scheduler import SchedulerController
 from .admin.transfer import TransferController
 from .admin.utils import UtilsController
@@ -69,54 +48,40 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         return {}
 
     route_handlers_admin: list[ControllerRouterHandler] = [
-        AgentsController,
-        AiAppsController,
-        AIModelsController,
-        ApiKeysController,
-        # ApiToolProvidersController,
-        # ApiToolsController,
-        AgentsControllerSQL,
-        AiAppsControllerSQL,
-        ApiServersControllerSQL,
-        CollectionsController,
-        MCPServersControllerSQL,
-        EvaluationSetsControllerSQL,
-        EvaluationsControllerSQL,
-        MetricsController,
-        ProvidersController,
-        RetrievalToolsControllerSQL,
-        RagToolsControllerSQL,
-        TracesController,
-        ApiServersController,
-        EvaluationsController,
-        # evaluation_router,
-        experimental_router,
-        JobsControllerSQL,
-        # JobsController,
-        # JobsBaseController,
-        knowledge_sources_router,
-        knowledge_sources_router_deprecated,
-        McpServersController,
-        ModelsController,
-        observability_router,
-        PromptsController,
-        PromptTemplatesController,
-        RagController,
-        RagToolsController,
-        RetrievalToolsController,
-        RetrievalToolsControllerDeprecated,
-        TransferController,
-        UtilsController,
-        SchedulerController,
+        # Admin routes (alphabetically sorted)
+        AgentsController,  # Admin / Agents
+        AiAppsController,  # Admin / AI Apps
+        ApiKeysController,  # Admin / API Keys
+        ApiServersController,  # Admin / API Servers
+        CollectionsController,  # Admin / Collections
+        EvaluationSetsController,  # Admin / Evaluation Sets
+        EvaluationsController,  # Admin / Evaluations
+        JobsController,  # Admin / Jobs
+        knowledge_sources_router_deprecated,  # Admin / Knowledge Sources
+        MCPServersController,  # Admin / MCP Servers
+        MetricsController,  # Admin / Metrics
+        AIModelsController,  # Admin / Models
+        observability_router,  # Admin / Observability
+        PromptsController,  # Admin / Prompt Templates
+        ProvidersController,  # Admin / Providers
+        RagToolsController,  # Admin / RAG Tools
+        RetrievalToolsController,  # Admin / Retrieval Tools
+        SchedulerController,  # Admin / Scheduler
+        TracesController,  # Admin / Traces
+        TransferController,  # Admin / Transfer
+        UtilsController,  # Admin / Utils
+        # Deprecated routes first (with [Deprecated] prefix)
+        knowledge_sources_router,  # [Deprecated] Knowledge Sources
+        RagController,  # [Deprecated] RAG
     ]
 
     route_handlers_user: list[ControllerRouterHandler] = [
-        AgentConversationsController,
-        UserAiAppsController,
-        UserExecuteController,
-        TelemetryController,
-        UserUtilsController,
-        UserAgentsController,
+        AgentConversationsController,  # User / Agent Conversations
+        UserAgentsController,  # User / Agents Messages
+        UserAiAppsController,  # User / AI Apps
+        UserExecuteController,  # User / Execute
+        TelemetryController,  # User / Telemetry
+        UserUtilsController,  # User / Utils
     ]
 
     route_handlers_public: list[ControllerRouterHandler] = [

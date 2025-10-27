@@ -60,7 +60,8 @@ const debouncedUpdateSearch = debounce((value) => {
 }, 300)
 
 const visibleRows = computed(() => {
-  return providers.value || []
+  // Filter providers by category 'llm' for Model Providers
+  return (providers.value || []).filter(provider => provider.category === 'llm' || !provider.category) // Include undefined for backward compatibility
 })
 
 const openDetails = async (row) => {

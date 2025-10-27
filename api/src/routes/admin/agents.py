@@ -11,7 +11,6 @@ from services.agents.conversations.services import (
     get_conversation_by_id,
 )
 from services.agents.models import (
-    Agent,
     AgentConversationDataWithMessages,
     AgentConversationMessageAssistant,
     AgentConversationWithMessages,
@@ -24,12 +23,7 @@ from services.observability import observability_context, observe
 from services.observability.services import get_analytics_by_id
 from services.observability.utils import observability_overrides
 
-from .create_entity_controller import create_entity_controller
-
-AgentsControllerBase = create_entity_controller(
-    collection_name="agents",
-    model=Agent,
-)
+from core.domain.agents import AgentsController as AgentsControllerBase
 
 
 class AgentTestResponse(AgentConversationMessageAssistant):
@@ -42,7 +36,7 @@ class AgentExecuteResponse(AgentConversationMessageAssistant):
 
 class AgentsController(AgentsControllerBase):
     path = "/agents"
-    tags = ["agents"]
+    tags = ["Admin / Agents"]
 
     @observe(
         name="Conversation with agent",

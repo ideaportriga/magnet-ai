@@ -211,6 +211,11 @@ export default {
         delete obj._metadata
         delete obj.id
         
+        // Ensure provider_system_name is preserved
+        if (this.activeRowDB?.provider_system_name) {
+          obj.provider_system_name = this.activeRowDB.provider_system_name
+        }
+        
         // Transform source fields for Documentation type
         if (obj.source) {
           obj.source = this.transformSourceFields(obj.source)

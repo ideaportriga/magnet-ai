@@ -67,7 +67,6 @@ Path segments will be fixed in step 1
 
 ### Some other stuff
 
-- [ ] Routes folder has to contain only routes handlers (create_entity_blueprint.py -  this is utility function)
 - [ ] Services folder has to contain only services 
 - [ ] Transfer flows to flows folder
 

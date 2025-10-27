@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 class JobsController(Controller):
     """Jobs CRUD"""
 
-    path = "/sql_jobs"
-    tags = ["Jobs"]
+    path = "/jobs"
+    tags = ["Admin / Jobs"]
 
     dependencies = providers.create_service_dependencies(
         JobsService,
