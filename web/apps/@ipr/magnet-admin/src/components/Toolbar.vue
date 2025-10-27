@@ -19,7 +19,7 @@
         |
         km-separator
       template(v-for='item in connectors')
-        km-nav-btn(:icon='item.icon', :label='item.label', :path='item.path', :parentRoute='parentRoute', @navigate='navigate')
+        km-nav-btn(:icon='item.icon', :label='item.label', :path='item.path', :alternativePaths='item.alternativePaths', :parentRoute='parentRoute', @navigate='navigate')
     .column.q-mt-24.q-gap-6
       .km-button-xs-text.text-secondary.text-uppercase Test & Monitor
         km-separator
@@ -136,15 +136,16 @@ const connectors = [
     icon: 'fas fa-server',
     path: 'mcp',
   },
-  {
-    label: 'Knowledge sources',
-    icon: 'fas fa-book',
-    path: 'knowledge-sources',
-  },
+  // {
+  //   label: 'Knowledge sources',
+  //   icon: 'fas fa-book',
+  //   path: 'knowledge-sources',
+  // },
   {
     label: 'Knowledge sources',
     icon: 'fas fa-book',
     path: 'knowledge-providers',
+    alternativePaths: ['knowledge-sources'],
   },
   // {
   //   label: 'Models',

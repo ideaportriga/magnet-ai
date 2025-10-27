@@ -31,6 +31,10 @@ export default defineComponent({
       type: String,
       required: true,
     },
+    alternativePaths: {
+      type: Array as PropType<string[]>,
+      default: () => [],
+    },
     parentRoute: {
       type: String,
       required: true,
@@ -44,9 +48,14 @@ export default defineComponent({
       default: '14px',
     },
   },
+  emits: ['navigate'],
   computed: {
     isActive() {
-      return this.parentRoute === `/${this.path}` || this.parentRoute === `/` && this.label === 'AI Apps'
+      const mainPathActive = this.parentRoute === `/${this.path}`
+      const aiAppsActive = this.parentRoute === `/` && this.label === 'AI Apps'
+      const alternativePathsActive = this.alternativePaths?.some((altPath: string) => this.parentRoute === `/${altPath}`)
+      
+      return mainPathActive || aiAppsActive || alternativePathsActive
     },
   },
   methods: {
