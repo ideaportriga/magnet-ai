@@ -119,6 +119,10 @@ export default {
       if (segments[1] === 'evaluation') {
         return `/evaluation-jobs`
       }
+      if (segments[1] === 'knowledge-sources') {
+        const providerSystemName = this.$store.getters.knowledge?.provider_system_name
+        return providerSystemName ? `/knowledge-providers/${providerSystemName}` : `/${segments[1]}`
+      }
       return `/${segments[1]}`
     },
     route() {
