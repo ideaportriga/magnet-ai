@@ -2,7 +2,7 @@
 """Data transformation for knowledge sources
 
 Revision ID: 3bb93ca77f16
-Revises: f82c14db4dfc
+Revises: f9d9c0b1d4b2
 Create Date: 2025-10-27 14:15:38.309165+00:00
 
 """
