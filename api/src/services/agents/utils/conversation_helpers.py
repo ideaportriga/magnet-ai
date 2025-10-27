@@ -92,11 +92,11 @@ def _build_assistant_payload(
 
 # TODO - refactor it
 @observe(
-        name="New user message",
-        description="User sent a new message.",
-        channel="production",
-        source="Teams App",
-    )
+    name="New user message",
+    description="User sent a new message.",
+    channel="production",
+    source="Teams App",
+)
 async def _continue_conversation_for_obsevability(
     conversation_id: str | None,
     agent_system_name: str,
@@ -162,11 +162,11 @@ async def _continue_conversation(
     return await _continue_conversation_for_obsevability(conversation_id=None, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text)
 
 @observe(
-        name="Action confirmation",
-        description="User confirmed an action.",
-        channel="production",
-        source="Teams App",
-    )
+    name="Action confirmation",
+    description="User confirmed an action.",
+    channel="production",
+    source="Teams App",
+)
 async def _handle_action_confirmation(
     agent_system_name: str,
     aad_object_id: str,

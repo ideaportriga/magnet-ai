@@ -32,6 +32,7 @@ from core.db.models.prompt import Prompt  # noqa: F401
 from core.db.models.provider import Provider  # noqa: F401
 from core.db.models.rag_tool.rag_tool import RagTool  # noqa: F401
 from core.db.models.retrieval_tool import RetrievalTool  # noqa: F401
+from core.db.models.slack import SlackInstallation, SlackOAuthState  # noqa: F401
 from core.db.models.trace import Trace  # noqa: F401
 
 # Add the src directory to the Python path

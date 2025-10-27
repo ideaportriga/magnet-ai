@@ -44,6 +44,9 @@ class StartupPlugin(InitPluginProtocol):
 
         logger.info("SQLAlchemy engine initialized via plugin")
 
+        # Preload Slack runtimes
+        await self._initialize_slack_runtime_cache(app)
+
     async def _initialize_scheduler(self, app: Litestar) -> None:
         """Initialize the scheduler."""
         try:
@@ -86,3 +89,15 @@ class StartupPlugin(InitPluginProtocol):
         except Exception as e:
             logger.error(f"Failed to initialize PgVector connection pool: {e}")
             raise
+
+    async def _initialize_slack_runtime_cache(self, app: Litestar) -> None:
+        """Initialize Slack runtime"""
+        try:
+            from services.agents.slack.runtime_cache import SlackRuntimeCache
+
+            cache = SlackRuntimeCache()
+            app.state.slack_runtime_cache = cache
+            await cache.load()
+            logger.info("Slack runtime cache initialized with %d bot(s)", cache.count)
+        except Exception as exc:
+            logger.exception("Failed to initialize Slack runtime cache: %s", exc)
