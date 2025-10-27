@@ -46,7 +46,7 @@
   km-popup-confirm(
     :visible='showEndpointWarning',
     title='Change Endpoint',
-    confirmButtonLabel='Yes, Change Secrets',
+    confirmButtonLabel='Yes, Change Endpoint',
     cancelButtonLabel='Cancel',
     notification='Changing the endpoint will permanently delete all encrypted secrets. You will need to re-enter all credentials after this change.',
     @confirm='confirmEndpointChange',
