@@ -23,8 +23,6 @@ const controls = {
       name: 'type',
       label: 'Type',
       field: 'type',
-      type: 'component',
-      component: markRaw(ChipCopy),
       align: 'left',
       sortable: true,
     },

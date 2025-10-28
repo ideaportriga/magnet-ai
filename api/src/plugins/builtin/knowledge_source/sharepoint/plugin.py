@@ -41,7 +41,7 @@ class SharePointDocumentsPlugin(KnowledgeSourcePlugin):
                     },
                     "site_path": {
                         "type": "string",
-                        "description": "SharePoint site path (e.g., sites/GenAI/colliers)",
+                        "description": "SharePoint site path (e.g., sites/GenAI/siteName)",
                     },
                     "sharepoint_library": {
                         "type": "string",
