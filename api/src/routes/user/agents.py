@@ -44,6 +44,7 @@ async def _get_slack_runtime_cache(app: Any) -> SlackRuntimeCache:
 def _error(status: int, message: str) -> Response:
     return Response(status_code=status, content={"detail": message}, media_type="application/json")
 
+
 _DEFAULT_BOLT_CONTENT = object()
 
 
@@ -152,12 +153,34 @@ def _bolt_body_to_text(body: Any) -> str:
     return str(body)
 
 
-def _bolt_response_is_error(bolt_response: BoltResponse) -> bool:
-    if bolt_response.status >= HTTP_400_BAD_REQUEST:
-        return True
-    body_text = _bolt_body_to_text(bolt_response.body)
-    lowered = body_text.lower()
-    return "invalid_browser" in lowered or "oops, something went wrong!" in lowered
+def _bolt_response_oauth_result(
+    bolt_response: BoltResponse,
+    query_params: dict[str, str] | None = None,
+) -> str:
+    status = bolt_response.status or 200
+    if status >= 400:
+        return "error"
+
+    qp = {k.lower(): v for k, v in (query_params or {}).items()}
+    if "error" in qp:
+        return "error"
+    if qp.get("reason"):
+        return "error"
+
+    loc_values = None
+    if bolt_response.headers:
+        for k, vals in bolt_response.headers.items():
+            if k.lower() == "location" and vals:
+                loc_values = vals
+                break
+    if loc_values:
+        return "success"
+
+    body_text = _bolt_body_to_text(bolt_response.body).lower()
+    if "error" in body_text and "slack" in body_text:
+        return "error"
+
+    return "success"
 
 
 def _render_oauth_success_page(
@@ -448,21 +471,17 @@ class UserAgentsController(Controller):
             try:
                 bolt_response = oauth_flow.handle_callback(bolt_request)
 
-                if _bolt_response_is_error(bolt_response):
-                    logger.warning(
-                        "Slack OAuth callback returned error for agent '%s' (status=%s)",
-                        runtime.agent_system_name,
-                        bolt_response.status,
-                    )
-                    error_status = bolt_response.status or HTTP_400_BAD_REQUEST
+                oaut_result = _bolt_response_oauth_result(bolt_response, query_params)
+
+                if oaut_result == "error":
                     return _litestar_response_from_bolt(
                         bolt_response,
                         content=bolt_response.body or "",
-                        status_code=error_status,
+                        status_code=bolt_response.status or HTTP_400_BAD_REQUEST,
+                        media_type="text/html",
                     )
 
                 body_browser_url, body_deep_link = _extract_urls_from_body(bolt_response)
-
                 html_body = _render_oauth_success_page(
                     agent_name=runtime.name or runtime.agent_system_name,
                     open_app_url=body_deep_link,
