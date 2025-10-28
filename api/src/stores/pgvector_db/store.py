@@ -86,7 +86,17 @@ class PgVectorStore(DocumentStore):
             if configs and isinstance(configs, dict):
                 vector_size = configs.get("vector_size")
                 if vector_size and isinstance(vector_size, int):
+                    logger.info(
+                        "Model %s has vector_size: %d",
+                        model_system_name,
+                        vector_size
+                    )
                     return vector_size
+            logger.warning(
+                "Model %s has no vector_size in configs, using default 1536. Configs: %s",
+                model_system_name,
+                configs
+            )
         except Exception as e:
             logger.warning(
                 "Failed to get vector size from model %s: %s, using default 1536",
@@ -94,6 +104,55 @@ class PgVectorStore(DocumentStore):
                 e,
             )
         return 1536  # Default size for OpenAI ada-002
+
+    async def _get_current_vector_size(self, table_name: str) -> int | None:
+        """Get the current vector size of an existing table.
+        
+        Args:
+            table_name: Name of the table
+            
+        Returns:
+            Vector size if found, None otherwise
+        """
+        try:
+            # Query to get the vector dimension from pg_attribute and pg_type
+            row = await self.client.fetchrow(
+                """
+                SELECT 
+                    pg_attribute.attname,
+                    pg_type.typname,
+                    pg_attribute.atttypmod
+                FROM pg_attribute
+                JOIN pg_class ON pg_attribute.attrelid = pg_class.oid
+                JOIN pg_type ON pg_attribute.atttypid = pg_type.oid
+                WHERE pg_class.relname = $1
+                AND pg_attribute.attname = 'embedding'
+                AND pg_type.typname = 'vector'
+                """,
+                table_name,
+            )
+            
+            if row:
+                logger.info(
+                    "Table %s has vector column with atttypmod: %s",
+                    table_name,
+                    row["atttypmod"]
+                )
+                if row["atttypmod"] > 0:
+                    # atttypmod for vector type stores the dimension
+                    return row["atttypmod"]
+            else:
+                logger.warning(
+                    "No vector column found in table %s",
+                    table_name
+                )
+        except Exception as e:
+            logger.warning(
+                "Failed to get current vector size for table %s: %s",
+                table_name,
+                e,
+            )
+        return None
 
     async def _create_documents_table(self, collection_id: str, vector_size: int = 1536) -> None:
         """Create documents table for a collection.
@@ -179,6 +238,36 @@ class PgVectorStore(DocumentStore):
                 )
                 vector_size = 1536
             await self._create_documents_table(collection_id, vector_size)
+        else:
+            # Table exists, check if vector size matches current model
+            try:
+                collection_metadata = await self.get_collection_metadata(collection_id)
+                model_name = collection_metadata.get("ai_model")
+                if model_name:
+                    expected_vector_size = await self._get_vector_size_from_model(model_name)
+                    current_vector_size = await self._get_current_vector_size(table_name)
+                    
+                    if current_vector_size is not None and current_vector_size != expected_vector_size:
+                        logger.warning(
+                            "Vector size mismatch for collection %s: table has %d dimensions, model expects %d. Recreating table.",
+                            collection_id,
+                            current_vector_size,
+                            expected_vector_size,
+                        )
+                        # Drop and recreate table with correct vector size
+                        await self._drop_documents_table(collection_id)
+                        await self._create_documents_table(collection_id, expected_vector_size)
+                    elif current_vector_size is None:
+                        logger.warning(
+                            "Could not determine current vector size for collection %s, assuming it's correct",
+                            collection_id,
+                        )
+            except Exception as e:
+                logger.warning(
+                    "Could not check vector size for collection %s: %s",
+                    collection_id,
+                    e,
+                )
 
     async def _drop_documents_table(self, collection_id: str) -> None:
         """Drop documents table for a collection."""
@@ -334,7 +423,33 @@ class PgVectorStore(DocumentStore):
         logger.info("Collection metadata inserted, id: %s", collection_id)
 
         # Create documents table for this collection
-        await self._create_documents_table(collection_id)
+        # Get vector size from the collection's model
+        model_name = metadata.get("ai_model")
+        if model_name:
+            try:
+                vector_size = await self._get_vector_size_from_model(model_name)
+                logger.info(
+                    "Using vector_size %d for collection %s with model %s",
+                    vector_size,
+                    collection_id,
+                    model_name
+                )
+            except Exception as e:
+                logger.warning(
+                    "Could not get vector size from model %s for collection %s: %s, using default 1536",
+                    model_name,
+                    collection_id,
+                    e,
+                )
+                vector_size = 1536
+        else:
+            logger.warning(
+                "No model specified for collection %s, using default vector_size 1536",
+                collection_id
+            )
+            vector_size = 1536  # Default
+
+        await self._create_documents_table(collection_id, vector_size)
 
         logger.info("Collection created completely, id: '%s'", collection_id)
         return collection_id
