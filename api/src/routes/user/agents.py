@@ -1,8 +1,7 @@
 import html
-import re
 from http.cookies import SimpleCookie
 from logging import getLogger
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable
 from urllib.parse import parse_qsl, quote, urlencode
 
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
@@ -18,6 +17,7 @@ from litestar.status_codes import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 from microsoft_agents.hosting.aiohttp import jwt_authorization_middleware, start_agent_process
+from slack_bolt.oauth.callback_options import CallbackOptions, FailureArgs, SuccessArgs
 from slack_bolt.request import BoltRequest
 from slack_bolt.response import BoltResponse
 
@@ -122,66 +122,72 @@ def _litestar_response_from_bolt(
     return response
 
 
-def _extract_urls_from_body(bolt_response: BoltResponse) -> tuple[str | None, str | None]:
-    """Attempt to find browser/deep links inside Bolt's HTML body."""
-    body = bolt_response.body or ""
-    if isinstance(body, (bytes, bytearray)):
+def _success_renderer(agent_display_name: str):
+
+    def success(args: SuccessArgs) -> BoltResponse:
+        inst = args.installation
+        team_id = (inst.team_id or "").strip() or None
+        app_id = (getattr(inst, "app_id", None) or "").strip() or None
+
+        if app_id and team_id:
+            open_app_url = f"slack://app?team={quote(team_id)}&id={quote(app_id)}"
+            open_browser_url = f"https://slack.com/app_redirect?app={quote(app_id)}&team={quote(team_id)}"
+        elif app_id:
+            open_app_url = "slack://open"
+            open_browser_url = f"https://slack.com/app_redirect?app={quote(app_id)}"
+        elif team_id:
+            open_app_url = f"slack://open?team={quote(team_id)}"
+            open_browser_url = f"https://app.slack.com/client/{quote(team_id)}"
+        else:
+            open_app_url = "slack://open"
+            open_browser_url = "https://app.slack.com/client"
+
+        html = _render_oauth_success_page(
+            agent_name=agent_display_name,
+            open_app_url=open_app_url,
+            open_browser_url=open_browser_url,
+        )
+        return BoltResponse(
+            status=HTTP_200_OK,
+            body=html,
+            headers={"Content-Type": "text/html; charset=utf-8"},
+        )
+
+    return success
+
+
+def _failure_renderer(agent_display_name: str):
+
+    def failure(args: FailureArgs) -> BoltResponse:
         try:
-            body = body.decode("utf-8", errors="ignore")
+            reason = (getattr(args, "reason", None) or "unknown_error")
+            msg = f"Installation failed ({reason})."
+            err = getattr(args, "error", None)
+            if isinstance(err, Exception):
+                msg += " " + html.escape(str(err))
+
+            html_body = f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{html.escape(agent_display_name or "Slack App")} • Install failed</title>
+  </head>
+  <body style="font-family: system-ui, -apple-system, Segoe UI, sans-serif; padding: 32px; color: #0f172a;">
+    <h1>We couldn’t finish installing {html.escape(agent_display_name or "the Slack App")}</h1>
+    <p>{html.escape(msg)}</p>
+  </body>
+</html>"""
+
+            return BoltResponse(
+                status=HTTP_200_OK,
+                body=html_body,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+            )
         except Exception:
-            body = ""
-    if not isinstance(body, str):
-        body = str(body)
-
-    browser_match = re.search(r"https://app\.slack\.com/[^\s\"'>]+", body)
-    browser_url = browser_match.group(0) if browser_match else None
-
-    deep_link_match = re.search(r"slack://[^\s\"'>]+", body)
-    deep_link_url = deep_link_match.group(0) if deep_link_match else None
-
-    return browser_url, deep_link_url
-
-
-def _bolt_body_to_text(body: Any) -> str:
-    if isinstance(body, (bytes, bytearray)):
-        try:
-            return body.decode("utf-8", errors="ignore")
-        except Exception:
-            return ""
-    if isinstance(body, str):
-        return body
-    return str(body)
-
-
-def _bolt_response_oauth_result(
-    bolt_response: BoltResponse,
-    query_params: dict[str, str] | None = None,
-) -> str:
-    status = bolt_response.status or 200
-    if status >= 400:
-        return "error"
-
-    qp = {k.lower(): v for k, v in (query_params or {}).items()}
-    if "error" in qp:
-        return "error"
-    if qp.get("reason"):
-        return "error"
-
-    loc_values = None
-    if bolt_response.headers:
-        for k, vals in bolt_response.headers.items():
-            if k.lower() == "location" and vals:
-                loc_values = vals
-                break
-    if loc_values:
-        return "success"
-
-    body_text = _bolt_body_to_text(bolt_response.body).lower()
-    if "error" in body_text and "slack" in body_text:
-        return "error"
-
-    return "success"
-
+            fallback = "<!doctype html><meta charset='utf-8'><title>Install failed</title><p>Installation failed.</p>"
+            return BoltResponse(status=HTTP_400_BAD_REQUEST, body=fallback, headers={"Content-Type": "text/html; charset=utf-8"})
+    
+    return failure
 
 def _render_oauth_success_page(
     *,
@@ -462,6 +468,14 @@ class UserAgentsController(Controller):
             if oauth_flow is None:
                 return _error(HTTP_500_INTERNAL_SERVER_ERROR, "OAuth flow is not configured for this Slack runtime")
 
+            co = CallbackOptions(
+                success=_success_renderer(runtime.name),
+                failure=_failure_renderer(runtime.name),
+            )
+            oauth_flow.settings.callback_options = co
+            oauth_flow.success_handler = co.success
+            oauth_flow.failure_handler = co.failure
+
             bolt_request = BoltRequest(
                 body="",
                 query=query_string or None,
@@ -470,29 +484,13 @@ class UserAgentsController(Controller):
 
             try:
                 bolt_response = oauth_flow.handle_callback(bolt_request)
-
-                oaut_result = _bolt_response_oauth_result(bolt_response, query_params)
-
-                if oaut_result == "error":
-                    return _litestar_response_from_bolt(
-                        bolt_response,
-                        content=bolt_response.body or "",
-                        status_code=bolt_response.status or HTTP_400_BAD_REQUEST,
-                        media_type="text/html",
-                    )
-
-                body_browser_url, body_deep_link = _extract_urls_from_body(bolt_response)
-                html_body = _render_oauth_success_page(
-                    agent_name=runtime.name or runtime.agent_system_name,
-                    open_app_url=body_deep_link,
-                    open_browser_url=body_browser_url,
-                )
                 return _litestar_response_from_bolt(
                     bolt_response,
-                    content=html_body,
-                    status_code=HTTP_200_OK,
+                    content=bolt_response.body or "",
+                    status_code=bolt_response.status or HTTP_200_OK,
                     media_type="text/html",
                     drop_headers={"location"},
+                    default_cookie_path=runtime.redirect_uri_path or "/",
                 )
             except Exception:
                 logger.exception("Slack OAuth callback failed during token exchange/processing")
