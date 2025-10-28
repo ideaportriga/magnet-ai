@@ -17,8 +17,8 @@ from litestar.status_codes import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 from microsoft_agents.hosting.aiohttp import jwt_authorization_middleware, start_agent_process
-from slack_bolt.oauth.callback_options import CallbackOptions, FailureArgs, SuccessArgs
-from slack_bolt.request import BoltRequest
+from slack_bolt.oauth.async_callback_options import AsyncCallbackOptions, AsyncFailureArgs, AsyncSuccessArgs
+from slack_bolt.request.async_request import AsyncBoltRequest
 from slack_bolt.response import BoltResponse
 
 from api.tags import TagNames
@@ -124,7 +124,7 @@ def _litestar_response_from_bolt(
 
 def _success_renderer(agent_display_name: str):
 
-    def success(args: SuccessArgs) -> BoltResponse:
+    async def success(args: AsyncSuccessArgs) -> BoltResponse:
         inst = args.installation
         team_id = (inst.team_id or "").strip() or None
         app_id = (getattr(inst, "app_id", None) or "").strip() or None
@@ -158,7 +158,7 @@ def _success_renderer(agent_display_name: str):
 
 def _failure_renderer(agent_display_name: str):
 
-    def failure(args: FailureArgs) -> BoltResponse:
+    async def failure(args: AsyncFailureArgs) -> BoltResponse:
         try:
             reason = (getattr(args, "reason", None) or "unknown_error")
             msg = f"Installation failed ({reason})."
@@ -248,12 +248,12 @@ async def _handle_slack_bolt_request(request: Request, *, error_message: str) ->
             return _error(HTTP_400_BAD_REQUEST, "No Slack agent found")
 
         body_text = raw_body.decode("utf-8", errors="replace")
-        bolt_request = BoltRequest(
+        bolt_request = AsyncBoltRequest(
             body=body_text,
             query=request.url.query or None,
             headers=headers,
         )
-        bolt_response = slack_agent.handler.app.dispatch(bolt_request)
+        bolt_response = await slack_agent.handler.app.async_dispatch(bolt_request)
     except Exception:
         logger.exception(error_message)
         return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Slack runtime unavailable")
@@ -404,14 +404,14 @@ class UserAgentsController(Controller):
         sanitized_query = urlencode(query_params, doseq=True)
         headers = _request_headers(request)
 
-        bolt_request = BoltRequest(
+        bolt_request = AsyncBoltRequest(
             body="",
             query=sanitized_query or None,
             headers=headers,
         )
 
         try:
-            bolt_response = oauth_flow.handle_installation(bolt_request)
+            bolt_response = await oauth_flow.handle_installation(bolt_request)
         except Exception:
             logger.exception("Slack OAuth installation failed for agent '%s'", selected_agent.name)
             return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Slack OAuth installation failed")
@@ -450,7 +450,7 @@ class UserAgentsController(Controller):
 
         runtime: SlackRuntime | None = None
         if state_value:
-            lookup = SlackOAuthStateStore.lookup_agent_by_state(state_value)
+            lookup = await SlackOAuthStateStore.async_lookup_agent_by_state(state_value)
             if lookup is None:
                 return _error(HTTP_500_INTERNAL_SERVER_ERROR, "No state found for OAuth callback")
             
@@ -468,7 +468,7 @@ class UserAgentsController(Controller):
             if oauth_flow is None:
                 return _error(HTTP_500_INTERNAL_SERVER_ERROR, "OAuth flow is not configured for this Slack runtime")
 
-            co = CallbackOptions(
+            co = AsyncCallbackOptions(
                 success=_success_renderer(runtime.name),
                 failure=_failure_renderer(runtime.name),
             )
@@ -476,14 +476,14 @@ class UserAgentsController(Controller):
             oauth_flow.success_handler = co.success
             oauth_flow.failure_handler = co.failure
 
-            bolt_request = BoltRequest(
+            bolt_request = AsyncBoltRequest(
                 body="",
                 query=query_string or None,
                 headers=headers,
             )
 
             try:
-                bolt_response = oauth_flow.handle_callback(bolt_request)
+                bolt_response = await oauth_flow.handle_callback(bolt_request)
                 return _litestar_response_from_bolt(
                     bolt_response,
                     content=bolt_response.body or "",
