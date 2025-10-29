@@ -1,8 +1,3 @@
-"""VitePress Documentation Data Source
-
-This module provides a data source for crawling VitePress documentation sites.
-"""
-
 import logging
 from typing import Dict, List, Set
 from urllib.parse import urljoin, urlparse
@@ -60,6 +55,7 @@ class VitePressDataSource(DataSource[DocumentationPage]):
         self._max_depth = max_depth
         self._visited_urls: Set[str] = set()
         self._pages: List[DocumentationPage] = []
+        self._base_path = urlparse(self._base_url).path
 
     @property
     def name(self) -> str:
@@ -288,8 +284,8 @@ class VitePressDataSource(DataSource[DocumentationPage]):
         """
         links = set()
         
-        # Pattern: /docs/{language}/{section}/...
-        section_pattern = f"/docs/{language}/{section}/"
+        # Pattern: {base_path}/docs/{language}/{section}/...
+        section_pattern = f"{self._base_path}/docs/{language}/{section}/"
         
         # Find all links
         all_links = soup.find_all("a", href=True)
@@ -393,8 +389,8 @@ class VitePressDataSource(DataSource[DocumentationPage]):
             clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
             
             # Only follow links within the same section and language
-            # Pattern: /docs/{language}/{section}/...
-            expected_prefix = f"/docs/{language}/{section}/"
+            # Pattern: {base_path}/docs/{language}/{section}/...
+            expected_prefix = f"{self._base_path}/docs/{language}/{section}/"
             
             if parsed.path.startswith(expected_prefix) and clean_url not in self._visited_urls:
                 # Ensure it's an HTML page (ends with .html or is a directory)

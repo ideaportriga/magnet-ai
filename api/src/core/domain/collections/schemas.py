@@ -46,6 +46,10 @@ class CollectionFieldsMixin(BaseModel):
         None, description="Indexing configuration for the collection"
     )
 
+    metadata_config: Optional[list[dict[str, Any]]] = Field(
+        None, description="Metadata configuration for the collection"
+    )
+
     # Sync timestamp
     last_synced: Optional[datetime] = Field(
         None, description="Last synced timestamp for the collection"
@@ -84,6 +88,10 @@ class CollectionUpdateFieldsMixin(BaseModel):
 
     indexing: Optional[dict[str, Any]] = Field(
         None, description="Indexing configuration for the collection"
+    )
+
+    metadata_config: Optional[list[dict[str, Any]]] = Field(
+        None, description="Metadata configuration for the collection"
     )
 
     # Sync timestamp

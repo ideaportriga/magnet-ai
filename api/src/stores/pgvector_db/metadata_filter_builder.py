@@ -39,9 +39,19 @@ class PgVectorMetadataFilterBuilder:
         # Convert dot notation to PostgreSQL JSON path notation
         if "." in mapped_path:
             parts = mapped_path.split(".")
-            return "->".join(f"'{part}'" for part in parts[:-1]) + f"->>'{parts[-1]}'"
+            # Strip surrounding quotes if present (e.g., from escaped field names)
+            parts = [part.strip('"') for part in parts]
+            operators = ["->"] * (len(parts) - 1) + ["->>"]
+            path = ""
+            for op, part in zip(operators, parts):
+                path += f" {op} '{part}'"
+            return path
         else:
-            return f"->>'{mapped_path}'"
+            last_part = mapped_path
+            # Strip surrounding quotes if present
+            if last_part.startswith('"') and last_part.endswith('"'):
+                last_part = last_part[1:-1]
+            return f" ->> '{last_part}'"
 
     def _parse_node(
         self, node: Union[dict, list], field_mapping: dict[str, str]
