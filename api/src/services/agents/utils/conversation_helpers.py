@@ -138,15 +138,14 @@ async def _continue_conversation_for_obsevability(
         raise exc
 
 
-# TODO - refactor it
-async def _continue_conversation(
+async def continue_conversation(
     agent_system_name: str,
     aad_object_id: str,
     text: str,
 ) -> AssistantPayload:
     """Continue or start an agent conversation and return the assistant's reply payload."""
     client_id = f"{aad_object_id}@{agent_system_name}"
-    logger.info("[agents] _continue_conversation started: client_id=%s", client_id)
+    logger.debug("[agents] continue_conversation started: client_id=%s", client_id)
 
     try:
         last = await get_last_conversation_by_client_id(client_id)
@@ -167,7 +166,7 @@ async def _continue_conversation(
     channel="production",
     source="Teams App",
 )
-async def _handle_action_confirmation(
+async def handle_action_confirmation(
     agent_system_name: str,
     aad_object_id: str,
     conversation_id: str,
@@ -224,11 +223,7 @@ async def _handle_action_confirmation(
 
 
 __all__ = [
-    "ActionRequest",
     "AssistantPayload",
-    "_build_assistant_payload",
-    "_continue_conversation",
-    "_extract_assistant_message",
-    "_get_action_requests",
-    "_handle_action_confirmation",
+    "continue_conversation",
+    "handle_action_confirmation",
 ]

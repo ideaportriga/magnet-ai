@@ -19,8 +19,8 @@ from .cards import (
 )
 from services.agents.utils.conversation_helpers import (
     AssistantPayload,
-    _continue_conversation,
-    _handle_action_confirmation,
+    continue_conversation,
+    handle_action_confirmation,
 )
 from logging import getLogger
 from stores import RecordNotFoundError
@@ -176,7 +176,7 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             logger.debug("[agents] on_message: empty text; ignoring")
             return
 
-        if text.lower() in {"/welcome", "/start"}:
+        if text.strip().lower() in {"/welcome", "/start"}:
             await _send_welcome_card(ctx, agent_system_name)
             return
 
@@ -190,12 +190,12 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             await ctx.send_activity("Sorry, I couldn't identify you. Please try again.")
             return
 
-        if text.lower() in {"/close", "/restart"}:
+        if text.strip().lower() in {"/close", "/restart"}:
             res = await _close_conversation(agent_system_name, aad_object_id)
             await ctx.send_activity(res)
             return
 
-        if text.lower() in {"/get_conversation_info"}:
+        if text.strip().lower() in {"/get_conversation_info"}:
             res = await _get_conversation_info(agent_system_name, aad_object_id)
             await ctx.send_activity(res)
             return
@@ -203,12 +203,12 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
         try:
             await app.typing.start(ctx)
 
-            assistant_payload: AssistantPayload = await _continue_conversation(
+            assistant_payload: AssistantPayload = await continue_conversation(
                 agent_system_name, aad_object_id, text
             )
             logger.info("[agents] on_message assistant_payload: %s", assistant_payload)
         except Exception as e:
-            logger.exception("[agents] on_message: _continue_conversation failed")
+            logger.exception("[agents] on_message: continue_conversation failed")
             await ctx.send_activity(_format_exception_message(e))
             return
 
@@ -269,7 +269,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
             return
 
         try:
-            assistant_payload: AssistantPayload | None = await _handle_action_confirmation(
+            assistant_payload: AssistantPayload | None = await handle_action_confirmation(
                 agent_system_name=agent_system_name,
                 aad_object_id=aad_object_id,
                 conversation_id=conversation_id,

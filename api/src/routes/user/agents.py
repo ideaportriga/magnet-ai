@@ -27,6 +27,7 @@ from services.agents.teams.runtime_cache import TeamsRuntimeCache
 from services.agents.slack.runtime_cache import SlackRuntimeCache
 from services.agents.slack.runtime import SlackRuntime
 from services.agents.slack.state_store import SlackOAuthStateStore
+from services.agents.slack.install import send_installation_welcome_message
 from .agents_utils.aiohttp_like import AiohttpLikeRequest
 from .agents_utils.jwt_utils import pick_audience, read_jwt_payload_noverify
 
@@ -125,9 +126,17 @@ def _litestar_response_from_bolt(
 def _success_renderer(agent_display_name: str):
 
     async def success(args: AsyncSuccessArgs) -> BoltResponse:
-        inst = args.installation
-        team_id = (inst.team_id or "").strip() or None
-        app_id = (getattr(inst, "app_id", None) or "").strip() or None
+        installation = args.installation
+        try:
+            await send_installation_welcome_message(
+                installation=installation,
+                agent_display_name=agent_display_name,
+            )
+        except Exception:
+            logger.exception("Failed to send Slack welcome message after installation.")
+
+        team_id = (getattr(installation, "team_id", None) or "").strip() or None
+        app_id = (getattr(installation, "app_id", None) or "").strip() or None
 
         if app_id and team_id:
             open_app_url = f"slack://app?team={quote(team_id)}&id={quote(app_id)}"
@@ -361,7 +370,7 @@ class UserAgentsController(Controller):
             "The endpoint configured under Slack 'Interactivity & Shortcuts' for interactive components."
         ),
     )
-    async def handle_slack_interactive(self, request: Request, data: Dict[str, Any] | None = Body()) -> Response:
+    async def handle_slack_interactive(self, request: Request) -> Response:
         return await _handle_slack_bolt_request(
             request,
             error_message="Slack runtime failed to handle interactivity request",

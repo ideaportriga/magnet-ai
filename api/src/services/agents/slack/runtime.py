@@ -102,7 +102,7 @@ def _build_bot_from_db(
             token=token,
             signing_secret=signing_secret,
         )
-    attach_default_handlers(bolt_app)
+    attach_default_handlers(bolt_app, agent_system_name)
     handler = AsyncSlackRequestHandler(bolt_app)
     verifier = SignatureVerifier(signing_secret=signing_secret)
     install_path = oauth_settings.install_path if oauth_settings else None
