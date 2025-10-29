@@ -1,5 +1,6 @@
 """Database-backed OAuth state store for Slack installations."""
 
+import asyncio
 import logging
 from contextlib import contextmanager
 from functools import lru_cache
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Iterator, Optional
 from uuid import uuid4
 
-from slack_sdk.oauth.state_store import OAuthStateStore
+from slack_sdk.oauth.state_store.async_state_store import AsyncOAuthStateStore
 from sqlalchemy import Engine, create_engine, delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -41,7 +42,7 @@ def _get_sync_engine() -> Engine:
     )
 
 
-class SlackOAuthStateStore(OAuthStateStore):
+class SlackOAuthStateStore(AsyncOAuthStateStore):
     """Persistent OAuth state store using PostgreSQL."""
 
     def __init__(
@@ -82,7 +83,7 @@ class SlackOAuthStateStore(OAuthStateStore):
             delete(SlackOAuthState).where(SlackOAuthState.expires_at < now)
         )
 
-    def issue(self, *args, **kwargs) -> str:  # type: ignore[override]
+    def _issue_sync(self, *args, **kwargs) -> str:
         state = str(uuid4())
         expires_at = _get_default_expiration(self._expiration_seconds)
         with self._session() as session:
@@ -97,7 +98,7 @@ class SlackOAuthStateStore(OAuthStateStore):
             )
         return state
 
-    def consume(self, state: str) -> bool:  # type: ignore[override]
+    def _consume_sync(self, state: str) -> bool:
         now = _utc_now()
         with self._session() as session:
             record = (
@@ -145,3 +146,23 @@ class SlackOAuthStateStore(OAuthStateStore):
                 session.commit()
                 return None
             return record.agent_system_name, record.agent_display_name
+
+    # ------------------------------------------------------------------
+    # AsyncOAuthStateStore interface
+    # ------------------------------------------------------------------
+
+    def issue(self, *args, **kwargs) -> str:
+        return self._issue_sync(*args, **kwargs)
+
+    async def async_issue(self, *args, **kwargs) -> str:
+        return await asyncio.to_thread(self._issue_sync, *args, **kwargs)
+
+    def consume(self, state: str) -> bool:
+        return self._consume_sync(state)
+
+    async def async_consume(self, state: str) -> bool:
+        return await asyncio.to_thread(self._consume_sync, state)
+
+    @classmethod
+    async def async_lookup_agent_by_state(cls, state: str) -> Optional[tuple[str, Optional[str]]]:
+        return await asyncio.to_thread(cls.lookup_agent_by_state, state)

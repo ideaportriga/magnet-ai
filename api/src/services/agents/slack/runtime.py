@@ -2,9 +2,9 @@ import logging
 from dataclasses import dataclass
 from typing import Sequence
 
-from slack_bolt import App
-from slack_bolt.adapter.asgi import SlackRequestHandler
-from slack_bolt.oauth.oauth_settings import OAuthSettings
+from slack_bolt.adapter.asgi.async_handler import AsyncSlackRequestHandler
+from slack_bolt.async_app import AsyncApp
+from slack_bolt.oauth.async_oauth_settings import AsyncOAuthSettings
 from slack_sdk.signature import SignatureVerifier
 from sqlalchemy import text
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class SlackRuntime:
     name: str
     agent_system_name: str
-    handler: SlackRequestHandler
+    handler: AsyncSlackRequestHandler
     verifier: SignatureVerifier
     install_path: str | None = None
     redirect_uri_path: str | None = None
@@ -48,7 +48,7 @@ def _create_oauth_settings(
     scopes: list[str] | None,
     agent_system_name: str,
     agent_display_name: str | None,
-) -> OAuthSettings | None:
+) -> AsyncOAuthSettings | None:
 
     if not client_id or not client_secret:
         return None
@@ -61,7 +61,7 @@ def _create_oauth_settings(
         agent_system_name=agent_system_name,
         agent_display_name=agent_display_name,
     )
-    return OAuthSettings(
+    return AsyncOAuthSettings(
         client_id=client_id,
         client_secret=client_secret,
         scopes=scopes,
@@ -71,6 +71,7 @@ def _create_oauth_settings(
         install_page_rendering_enabled=False,
         install_path="/api/user/agents/slack/install",
         redirect_uri_path="/api/user/agents/slack/oauth_redirect",
+        # state_validation_enabled=False, # TODO: only for testing install using Slack shareable link
     )
 
 
@@ -93,17 +94,17 @@ def _build_bot_from_db(
     )
     logger.debug("Creating Slack bot '%s' for agent '%s'", name, agent_system_name)
     if oauth_settings:
-        bolt_app = App(
+        bolt_app = AsyncApp(
             signing_secret=signing_secret,
             oauth_settings=oauth_settings,
         )
     else:
-        bolt_app = App(
+        bolt_app = AsyncApp(
             token=token,
             signing_secret=signing_secret,
         )
-    attach_default_handlers(bolt_app)
-    handler = SlackRequestHandler(bolt_app)
+    attach_default_handlers(bolt_app, agent_system_name, name)
+    handler = AsyncSlackRequestHandler(bolt_app)
     verifier = SignatureVerifier(signing_secret=signing_secret)
     install_path = oauth_settings.install_path if oauth_settings else None
     redirect_uri_path = oauth_settings.redirect_uri_path if oauth_settings else None

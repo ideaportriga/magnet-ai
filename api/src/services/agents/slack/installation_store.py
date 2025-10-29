@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Iterator, Optional
 
-from slack_sdk.oauth.installation_store import InstallationStore
+from slack_sdk.oauth.installation_store.async_installation_store import AsyncInstallationStore
 from slack_sdk.oauth.installation_store.models import Bot, Installation
 from sqlalchemy import Engine, create_engine, delete, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -195,7 +196,7 @@ def _get_sync_engine() -> Engine:
     )
 
 
-class SlackInstallationStore(InstallationStore):
+class SlackInstallationStore(AsyncInstallationStore):
     """Persistent installation store backed by PostgreSQL."""
 
     def __init__(
@@ -264,7 +265,7 @@ class SlackInstallationStore(InstallationStore):
             SlackInstallation.created_at.desc(),
         )
 
-    def save(self, installation: Installation) -> None:
+    def _save_sync(self, installation: Installation) -> None:
         enterprise_id = _normalize(installation.enterprise_id)
         team_id = _normalize(installation.team_id)
         user_id = installation.user_id
@@ -311,7 +312,7 @@ class SlackInstallationStore(InstallationStore):
                 record.installation_data = payload
                 record.bot_data = bot_payload
 
-    def save_bot(self, bot: Bot) -> None:
+    def _save_bot_sync(self, bot: Bot) -> None:
         enterprise_id = _normalize(bot.enterprise_id)
         team_id = _normalize(bot.team_id)
         bot_payload = _serialize_bot(bot, self._agent_system_name)
@@ -341,7 +342,7 @@ class SlackInstallationStore(InstallationStore):
             record.installed_at = _timestamp_to_datetime(bot.installed_at)
             record.bot_data = bot_payload
 
-    def find_bot(
+    def _find_bot_sync(
         self,
         *,
         enterprise_id: Optional[str],
@@ -370,7 +371,7 @@ class SlackInstallationStore(InstallationStore):
 
             return bot
 
-    def find_installation(
+    def _find_installation_sync(
         self,
         *,
         enterprise_id: Optional[str],
@@ -404,7 +405,7 @@ class SlackInstallationStore(InstallationStore):
 
             return installation
 
-    def delete_bot(
+    def _delete_bot_sync(
         self,
         *,
         enterprise_id: Optional[str],
@@ -424,7 +425,7 @@ class SlackInstallationStore(InstallationStore):
             for record in records:
                 record.bot_data = None
 
-    def delete_installation(
+    def _delete_installation_sync(
         self,
         *,
         enterprise_id: Optional[str],
@@ -447,7 +448,7 @@ class SlackInstallationStore(InstallationStore):
             for record in records:
                 session.delete(record)
 
-    def delete_all(
+    def _delete_all_sync(
         self,
         *,
         enterprise_id: Optional[str],
@@ -475,3 +476,116 @@ class SlackInstallationStore(InstallationStore):
                 stmt = stmt.where(SlackInstallation.team_id == normalized_team)
 
             session.execute(stmt)
+
+    # ------------------------------------------------------------------
+    # AsyncInstallationStore interface
+    # ------------------------------------------------------------------
+
+    def save(self, installation: Installation) -> None:
+        self._save_sync(installation)
+
+    async def async_save(self, installation: Installation):
+        await asyncio.to_thread(self._save_sync, installation)
+
+    def save_bot(self, bot: Bot) -> None:
+        self._save_bot_sync(bot)
+
+    async def async_save_bot(self, bot: Bot):
+        await asyncio.to_thread(self._save_bot_sync, bot)
+
+    async def async_find_bot(
+        self,
+        *,
+        enterprise_id: Optional[str],
+        team_id: Optional[str],
+        is_enterprise_install: Optional[bool] = False,
+    ) -> Optional[Bot]:
+        return await asyncio.to_thread(
+            self._find_bot_sync,
+            enterprise_id=enterprise_id,
+            team_id=team_id,
+            is_enterprise_install=is_enterprise_install,
+        )
+
+    async def async_find_installation(
+        self,
+        *,
+        enterprise_id: Optional[str],
+        team_id: Optional[str],
+        user_id: Optional[str] = None,
+        is_enterprise_install: Optional[bool] = False,
+    ) -> Optional[Installation]:
+        return await asyncio.to_thread(
+            self._find_installation_sync,
+            enterprise_id=enterprise_id,
+            team_id=team_id,
+            user_id=user_id,
+            is_enterprise_install=is_enterprise_install,
+        )
+
+    def delete_bot(
+        self,
+        *,
+        enterprise_id: Optional[str],
+        team_id: Optional[str],
+    ) -> None:
+        self._delete_bot_sync(enterprise_id=enterprise_id, team_id=team_id)
+
+    async def async_delete_bot(
+        self,
+        *,
+        enterprise_id: Optional[str],
+        team_id: Optional[str],
+    ) -> None:
+        await asyncio.to_thread(
+            self._delete_bot_sync,
+            enterprise_id=enterprise_id,
+            team_id=team_id,
+        )
+
+    def delete_installation(
+        self,
+        *,
+        enterprise_id: Optional[str],
+        team_id: Optional[str],
+        user_id: Optional[str] = None,
+    ) -> None:
+        self._delete_installation_sync(
+            enterprise_id=enterprise_id,
+            team_id=team_id,
+            user_id=user_id,
+        )
+
+    async def async_delete_installation(
+        self,
+        *,
+        enterprise_id: Optional[str],
+        team_id: Optional[str],
+        user_id: Optional[str] = None,
+    ) -> None:
+        await asyncio.to_thread(
+            self._delete_installation_sync,
+            enterprise_id=enterprise_id,
+            team_id=team_id,
+            user_id=user_id,
+        )
+
+    def delete_all(
+        self,
+        *,
+        enterprise_id: Optional[str],
+        team_id: Optional[str],
+    ) -> None:
+        self._delete_all_sync(enterprise_id=enterprise_id, team_id=team_id)
+
+    async def async_delete_all(
+        self,
+        *,
+        enterprise_id: Optional[str],
+        team_id: Optional[str],
+    ):
+        await asyncio.to_thread(
+            self._delete_all_sync,
+            enterprise_id=enterprise_id,
+            team_id=team_id,
+        )
