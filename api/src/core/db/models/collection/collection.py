@@ -59,6 +59,10 @@ class Collection(UUIDAuditSimpleBase):
         JsonB, nullable=True, comment="Indexing configuration for the collection"
     )
 
+    metadata_config: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB, nullable=True, comment="Metadata configuration for the collection"
+    )
+
     last_synced: Mapped[Optional[datetime]] = mapped_column(
         DateTimeUTC, nullable=True, comment="Last synced timestamp for the collection"
     )
