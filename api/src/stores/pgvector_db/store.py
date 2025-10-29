@@ -318,6 +318,7 @@ class PgVectorStore(DocumentStore):
                 source,
                 chunking,
                 indexing,
+                metadata_config,
                 last_synced,
                 created_at,
                 updated_at,
@@ -344,6 +345,7 @@ class PgVectorStore(DocumentStore):
                 "source": row["source"] or {},
                 "chunking": row["chunking"] or {},
                 "indexing": row["indexing"] or {},
+                "metadata_config": row["metadata_config"] or [],
                 "last_synced": row["last_synced"].isoformat()
                 if row["last_synced"]
                 else None,
@@ -386,13 +388,14 @@ class PgVectorStore(DocumentStore):
                 source,
                 chunking,
                 indexing,
+                metadata_config,
                 last_synced,
                 created_at,
                 updated_at,
                 created_by,
                 updated_by
             ) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) 
             RETURNING id::text
         """,
             metadata.get("name", ""),
@@ -407,6 +410,9 @@ class PgVectorStore(DocumentStore):
             else None,
             json.dumps(metadata.get("indexing", {}))
             if metadata.get("indexing")
+            else None,
+            json.dumps(metadata.get("metadata_config", []))
+            if metadata.get("metadata_config")
             else None,
             (
                 datetime.fromisoformat(metadata["last_synced"].replace("Z", "+00:00"))
@@ -470,6 +476,7 @@ class PgVectorStore(DocumentStore):
                 source,
                 chunking,
                 indexing,
+                metadata_config,
                 last_synced,
                 created_at,
                 updated_at,
@@ -497,6 +504,7 @@ class PgVectorStore(DocumentStore):
             "source": row["source"] or {},
             "chunking": row["chunking"] or {},
             "indexing": row["indexing"] or {},
+            "metadata_config": row["metadata_config"] or [],
             "last_synced": row["last_synced"].isoformat()
             if row["last_synced"]
             else None,
@@ -530,7 +538,7 @@ class PgVectorStore(DocumentStore):
                 update_fields.append(f"{field} = ${param_idx}")
                 params.append(value)
                 param_idx += 1
-            elif field in ["source", "chunking", "indexing"]:
+            elif field in ["source", "chunking", "indexing", "metadata_config"]:
                 update_fields.append(f"{field} = ${param_idx}")
                 params.append(json.dumps(value) if value else None)
                 param_idx += 1
@@ -589,11 +597,12 @@ class PgVectorStore(DocumentStore):
                 source = $7,
                 chunking = $8,
                 indexing = $9,
-                last_synced = $10,
+                metadata_config = $10,
+                last_synced = $11,
                 updated_at = CURRENT_TIMESTAMP,
-                created_by = $11,
-                updated_by = $12
-            WHERE id = $13
+                created_by = $12,
+                updated_by = $13
+            WHERE id = $14
         """,
             metadata.get("name", ""),
             metadata.get("description"),
@@ -607,6 +616,9 @@ class PgVectorStore(DocumentStore):
             else None,
             json.dumps(metadata.get("indexing", {}))
             if metadata.get("indexing")
+            else None,
+            json.dumps(metadata.get("metadata_config", []))
+            if metadata.get("metadata_config")
             else None,
             (
                 datetime.fromisoformat(metadata["last_synced"].replace("Z", "+00:00"))
@@ -1209,8 +1221,7 @@ class PgVectorStore(DocumentStore):
             where_clause += f" AND ({metadata_filter})"
 
         # Perform cosine similarity search
-        rows = await self.client.execute_query(
-            f"""
+        sql = f"""
             SELECT 
                 id::text,
                 content,
@@ -1220,10 +1231,9 @@ class PgVectorStore(DocumentStore):
             {where_clause}
             ORDER BY similarity_score DESC
             LIMIT $2
-        """,
-            vector,
-            num_results,
-        )
+        """
+        logger.debug(f"Executing vector search query: {sql.strip()}")
+        rows = await self.client.execute_query(sql, vector, num_results)
 
         result: DocumentSearchResult = []
         for row in rows:
