@@ -17,6 +17,7 @@ from .blocks import create_assistant_response_blocks, to_slack_mrkdwn, update_bl
 logger = logging.getLogger(__name__)
 
 _MENTION_PATTERN = re.compile(r"<@[^>]+>")
+_PLACEHOLDER_TEXT = ":hourglass_flowing_sand: Magnet is thinking..."
 
 
 def _strip_bot_mentions(text: str | None) -> str:
@@ -51,6 +52,70 @@ def _get_first(iterable: Iterable[Any]) -> Any:
 
 
 def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
+    async def _send_placeholder_message(
+        client: AsyncWebClient,
+        channel: str,
+        logger: logging.Logger,
+    ) -> str | None:
+        try:
+            response = await client.chat_postMessage(channel=channel, text=_PLACEHOLDER_TEXT)
+        except SlackApiError:
+            logger.warning("Failed to send placeholder message (channel=%s)", channel, exc_info=True)
+            return None
+
+        return response.get("ts")
+
+    async def _finalize_response_message(
+        client: AsyncWebClient,
+        channel: str,
+        message_payload: dict[str, Any],
+        placeholder_ts: str | None,
+        logger: logging.Logger,
+        *,
+        log_context: str,
+    ) -> None:
+        payload = {"channel": channel, **message_payload}
+        if placeholder_ts:
+            try:
+                await client.chat_update(ts=placeholder_ts, **payload)
+                return
+            except SlackApiError:
+                logger.warning(
+                    "Failed to update placeholder message (%s channel=%s ts=%s)",
+                    log_context,
+                    channel,
+                    placeholder_ts,
+                    exc_info=True,
+                )
+
+        try:
+            await client.chat_postMessage(**payload)
+        except SlackApiError:
+            logger.exception(
+                "Failed to deliver Slack response (%s channel=%s)",
+                log_context,
+                channel,
+            )
+
+    async def _handle_error_message(
+        client: AsyncWebClient,
+        channel: str,
+        placeholder_ts: str | None,
+        logger: logging.Logger,
+        log_context: str,
+    ) -> None:
+        error_payload: dict[str, Any] = {
+            "text": ":warning: Sorry, something went wrong while preparing my response.",
+        }
+        await _finalize_response_message(
+            client,
+            channel,
+            error_payload,
+            placeholder_ts,
+            logger,
+            log_context=log_context,
+        )
+
     @app.event("app_mention")
     async def handle_app_mention(
         event: dict[str, Any],
@@ -71,6 +136,8 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
 
         logger.info("app mention received channel=%s", channel)
 
+        placeholder_ts = await _send_placeholder_message(client, channel, logger)
+
         try:
             assistant_payload = await continue_conversation(
                 agent_system_name=agent_system_name,
@@ -79,22 +146,24 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
             )
         except Exception:
             logger.exception("Error while continuing conversation for app_mention (channel=%s)", channel)
+            await _handle_error_message(client, channel, placeholder_ts, logger, "app_mention")
             return
 
         raw_text = _payload_text(assistant_payload)
         fallback_text = to_slack_mrkdwn(raw_text)
         blocks = create_assistant_response_blocks(assistant_payload)
-        message_payload: dict[str, Any] = {
-            "channel": channel,
-            "text": fallback_text,
-        }
+        message_payload: dict[str, Any] = {"text": fallback_text}
         if blocks:
             message_payload["blocks"] = blocks
 
-        try:
-            await client.chat_postMessage(**message_payload)
-        except SlackApiError:
-            logger.exception("Failed to post Slack message for app_mention (channel=%s)", channel)
+        await _finalize_response_message(
+            client,
+            channel,
+            message_payload,
+            placeholder_ts,
+            logger,
+            log_context="app_mention",
+        )
 
 
     @app.event("message")
@@ -117,6 +186,8 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
 
         logger.info("message received channel=%s", channel)
 
+        placeholder_ts = await _send_placeholder_message(client, channel, logger)
+
         try:
             assistant_payload = await continue_conversation(
                 agent_system_name=agent_system_name,
@@ -125,15 +196,24 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
             )
         except Exception:
             logger.exception("Error while continuing conversation for message (channel=%s)", channel)
+            await _handle_error_message(client, channel, placeholder_ts, logger, "message")
             return
 
         raw_text = _payload_text(assistant_payload)
         fallback_text = to_slack_mrkdwn(raw_text) or "Magnet answer"
         blocks = create_assistant_response_blocks(assistant_payload)
+        message_payload: dict[str, Any] = {"text": fallback_text}
         if blocks:
-            await say({"text": fallback_text, "blocks": blocks})
-        else:
-            await say(fallback_text)
+            message_payload["blocks"] = blocks
+
+        await _finalize_response_message(
+            client,
+            channel,
+            message_payload,
+            placeholder_ts,
+            logger,
+            log_context="message",
+        )
 
 
     @app.error
