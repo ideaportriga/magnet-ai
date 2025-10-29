@@ -1,9 +1,11 @@
 import logging
 from typing import Any
 
+from services.agents.slack.blocks import build_welcome_message_blocks
 from slack_sdk.errors import SlackApiError
 from slack_sdk.oauth.installation_store.models import Installation
 from slack_sdk.web.async_client import AsyncWebClient
+from services.agents.utils.conversation_helpers import DEFAULT_AGENT_DISPLAY_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -54,35 +56,6 @@ async def _fetch_bot_display_name(client: AsyncWebClient, bot_user_id: str | Non
     )
 
 
-def _build_welcome_blocks(bot_name: str, agent_display_name: str | None) -> list[dict[str, Any]]:
-
-    message_intro = f":wave: Hi there! I'm *{bot_name}* and I'm happy to connect you with {agent_display_name}."
-    message_tips = (
-        "- Mention me in a channel to ask a question together with your team.\n"
-        "- Send me a direct message to have the conversation privately.\n"
-        "- Use the feedback buttons under my replies to help me improve."
-    )
-    url = "https://pro.ideaportriga.com/magnet-ai"
-
-    blocks: list[dict[str, Any]] = [
-        {"type": "section", "text": {"type": "mrkdwn", "text": message_intro}},
-        {"type": "section", "text": {"type": "mrkdwn", "text": message_tips}},
-        {
-            "type": "actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "action_id": "open_magnet_ai",
-                    "text": {"type": "plain_text", "text": "Learn more", "emoji": True},
-                    "url": url,
-                }
-            ],
-        }
-    ]
-
-    return blocks
-
-
 async def send_installation_welcome_message(
     installation: Installation,
     agent_display_name: str,
@@ -103,7 +76,7 @@ async def send_installation_welcome_message(
     client = AsyncWebClient(token=bot_token)
     try:
         bot_name = await _fetch_bot_display_name(client, bot_user_id)
-        display_name = bot_name or "Magnet Agent"
+        display_name = bot_name or DEFAULT_AGENT_DISPLAY_NAME
 
         try:
             open_response = await client.conversations_open(users=installer_user_id)
@@ -116,8 +89,7 @@ async def send_installation_welcome_message(
             logger.error("No conversation ID returned when opening DM with %s", installer_user_id)
             return
 
-        blocks = _build_welcome_blocks(display_name, agent_display_name)
-        message_text = f"Hi! I'm {display_name} and I'm ready to help you get answers from Magnet AI."
+        blocks, message_text = build_welcome_message_blocks(display_name, agent_display_name)
 
         await client.chat_postMessage(
             channel=channel_id,

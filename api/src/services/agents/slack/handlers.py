@@ -10,7 +10,14 @@ from slack_sdk.errors import SlackApiError
 from slack_sdk.web.async_client import AsyncWebClient
 
 from services.agents.conversations import set_message_feedback
-from services.agents.utils.conversation_helpers import AssistantPayload, continue_conversation
+from services.agents.utils.conversation_helpers import (
+    AssistantPayload,
+    close_conversation,
+    continue_conversation,
+    get_conversation_info,
+    DEFAULT_AGENT_DISPLAY_NAME,
+)
+from services.agents.slack.blocks import build_welcome_message_blocks
 from services.common.models import LlmResponseFeedback, LlmResponseFeedbackReason, LlmResponseFeedbackType
 from .blocks import create_assistant_response_blocks, to_slack_mrkdwn, update_blocks_with_feedback
 
@@ -20,7 +27,7 @@ _MENTION_PATTERN = re.compile(r"<@[^>]+>")
 _PLACEHOLDER_TEXT = ":hourglass_flowing_sand: Magnet is thinking..."
 
 
-def _strip_bot_mentions(text: str | None) -> str:
+def _strip_agent_mentions(text: str | None) -> str:
     if not text:
         return ""
 
@@ -51,7 +58,7 @@ def _get_first(iterable: Iterable[Any]) -> Any:
     return None
 
 
-def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
+def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display_name: str) -> None:
     async def _send_placeholder_message(
         client: AsyncWebClient,
         channel: str,
@@ -116,6 +123,126 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
             log_context=log_context,
         )
 
+    async def _resolve_agent_display_name(
+        context: dict[str, Any] | None,
+        client: AsyncWebClient,
+        logger: logging.Logger,
+    ) -> str | None:
+        agent_user_id = None
+        if context:
+            agent_user_id = context.get("bot_user_id") or context.get("botUserId")
+
+        if not agent_user_id:
+            return DEFAULT_AGENT_DISPLAY_NAME
+
+        try:
+            user_info = await client.users_info(user=agent_user_id)
+        except SlackApiError:
+            logger.warning("users.info failed while resolving agent display name (user=%s).", agent_user_id, exc_info=True)
+            return None
+
+        user_data = user_info.get("user") or {}
+        profile = user_data.get("profile") or {}
+        for candidate in (
+            profile.get("display_name"),
+            profile.get("real_name"),
+            user_data.get("name"),
+        ):
+            if isinstance(candidate, str):
+                candidate = candidate.strip()
+                if candidate:
+                    return candidate
+        return None
+
+    async def _respond_ephemeral(respond: AsyncRespond, text: str) -> None:
+        await respond(text=text, response_type="ephemeral")
+
+    async def _handle_conversation_closure_command(
+        command_name: str,
+        ack: Any,
+        body: dict[str, Any],
+        respond: AsyncRespond,
+        logger: logging.Logger,
+    ) -> None:
+        await ack()
+
+        user_id = body.get("user_id")
+        if not user_id:
+            logger.warning("Missing user_id in %s command payload: %s", command_name, body)
+            await _respond_ephemeral(respond, "I couldn't determine which conversation to close.")
+            return
+
+        try:
+            result = await close_conversation(agent_system_name=agent_system_name, user_id=user_id)
+        except Exception:
+            logger.exception("Failed to close conversation via %s command.", command_name)
+            result = "Failed to close the conversation."
+
+        await _respond_ephemeral(respond, result)
+
+    async def _handle_conversation_info_command(
+        ack: Any,
+        body: dict[str, Any],
+        respond: AsyncRespond,
+        logger: logging.Logger,
+    ) -> None:
+        await ack()
+
+        user_id = body.get("user_id")
+        if not user_id:
+            logger.warning("Missing user_id in /get_conversation_info payload: %s", body)
+            await _respond_ephemeral(respond, "I couldn't determine which conversation to inspect.")
+            return
+
+        try:
+            result = await get_conversation_info(agent_system_name=agent_system_name, user_id=user_id)
+        except Exception:
+            logger.exception("Failed to gather conversation info via /get_conversation_info.")
+            result = "Failed to load the last conversation."
+
+        await _respond_ephemeral(respond, result)
+
+    @app.command("/welcome")
+    async def handle_welcome_command(
+        ack: Any,
+        body: dict[str, Any],
+        client: AsyncWebClient,
+        respond: AsyncRespond,
+        logger: logging.Logger,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        await ack()
+
+        agent_display_name = await _resolve_agent_display_name(context, client, logger)
+        blocks,message_text = build_welcome_message_blocks(agent_display_name, agent_display_name)
+
+        try:
+            await respond(
+                text=message_text,
+                blocks=blocks,
+                response_type="ephemeral",
+            )
+        except Exception:
+            logger.exception("Failed to deliver welcome card response.")
+
+    @app.command("/restart")
+    async def handle_restart_command(
+        ack: Any,
+        body: dict[str, Any],
+        respond: AsyncRespond,
+        logger: logging.Logger,
+    ) -> None:
+        await _handle_conversation_closure_command("/restart", ack, body, respond, logger)
+
+    @app.command("/get_conversation_info")
+    async def handle_get_conversation_info_command(
+        ack: Any,
+        body: dict[str, Any],
+        respond: AsyncRespond,
+        logger: logging.Logger,
+    ) -> None:
+        await _handle_conversation_info_command(ack, body, respond, logger)
+
     @app.event("app_mention")
     async def handle_app_mention(
         event: dict[str, Any],
@@ -129,7 +256,7 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
             return
 
         user_id = event.get("user") or context.get("user_id") or channel
-        user_message = _strip_bot_mentions(event.get("text"))
+        user_message = _strip_agent_mentions(event.get("text"))
         if not user_message:
             logger.info("Ignoring empty app mention message on channel %s", channel)
             return
@@ -141,7 +268,7 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
         try:
             assistant_payload = await continue_conversation(
                 agent_system_name=agent_system_name,
-                aad_object_id=user_id,
+                user_id=user_id,
                 text=user_message,
             )
         except Exception:
@@ -191,7 +318,7 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str) -> None:
         try:
             assistant_payload = await continue_conversation(
                 agent_system_name=agent_system_name,
-                aad_object_id=user_id,
+                user_id=user_id,
                 text=user_message,
             )
         except Exception:

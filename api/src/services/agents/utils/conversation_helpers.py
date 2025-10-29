@@ -1,12 +1,13 @@
-from __future__ import annotations
-
 from logging import getLogger
 from typing import Any, TypedDict
+from stores import RecordNotFoundError
+
 
 from services.agents.conversations import (
     add_user_message,
     create_conversation,
     get_last_conversation_by_client_id,
+    update_conversation_status,
 )
 from services.agents.models import (
     AgentActionCallConfirmation,
@@ -17,6 +18,10 @@ from services.observability import observe, observability_context
 
 logger = getLogger(__name__)
 
+
+WELCOME_LEARN_MORE_URL = "https://pro.ideaportriga.com/magnet-ai"
+
+DEFAULT_AGENT_DISPLAY_NAME = "Magnet Agent"
 
 class ActionRequest(TypedDict):
     id: str
@@ -100,12 +105,12 @@ def _build_assistant_payload(
 async def _continue_conversation_for_obsevability(
     conversation_id: str | None,
     agent_system_name: str,
-    aad_object_id: str,
+    user_id: str,
     text: str,
     trace_id: str | None = None,
 ) -> AssistantPayload:
     """Continue or start an agent conversation and return the assistant's reply payload."""
-    client_id = f"{aad_object_id}@{agent_system_name}"
+    client_id = f"{user_id}@{agent_system_name}"
     logger.info("[agents] _continue_conversation_for_obsevability started: client_id=%s", client_id)
     observability_context.update_current_trace(name=agent_system_name, type="agent")
 
@@ -140,11 +145,11 @@ async def _continue_conversation_for_obsevability(
 
 async def continue_conversation(
     agent_system_name: str,
-    aad_object_id: str,
+    user_id: str,
     text: str,
 ) -> AssistantPayload:
     """Continue or start an agent conversation and return the assistant's reply payload."""
-    client_id = f"{aad_object_id}@{agent_system_name}"
+    client_id = f"{user_id}@{agent_system_name}"
     logger.debug("[agents] continue_conversation started: client_id=%s", client_id)
 
     try:
@@ -156,9 +161,9 @@ async def continue_conversation(
     if last:
         conv_id = str(getattr(last, "id", "")) or ""
         trace_id = str(getattr(last, "trace_id", "")) or ""
-        return await _continue_conversation_for_obsevability(conversation_id=conv_id, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text, trace_id=trace_id, _observability_overrides={"trace_id": trace_id})
+        return await _continue_conversation_for_obsevability(conversation_id=conv_id, agent_system_name=agent_system_name, user_id=user_id, text=text, trace_id=trace_id, _observability_overrides={"trace_id": trace_id})
 
-    return await _continue_conversation_for_obsevability(conversation_id=None, agent_system_name=agent_system_name, aad_object_id=aad_object_id, text=text)
+    return await _continue_conversation_for_obsevability(conversation_id=None, agent_system_name=agent_system_name, user_id=user_id, text=text)
 
 @observe(
     name="Action confirmation",
@@ -168,13 +173,13 @@ async def continue_conversation(
 )
 async def handle_action_confirmation(
     agent_system_name: str,
-    aad_object_id: str,
+    user_id: str,
     conversation_id: str,
     request_ids: list[str],
     confirmed: bool,
 ) -> AssistantPayload | None:
     """Submit action call confirmations and return the follow-up assistant payload."""
-    client_id = f"{aad_object_id}@{agent_system_name}"
+    client_id = f"{user_id}@{agent_system_name}"
     logger.info(
         "[agents] action confirmation: client_id=%s conversation_id=%s confirmed=%s request_ids=%s",
         client_id,
@@ -222,8 +227,115 @@ async def handle_action_confirmation(
     return _build_assistant_payload(conversation_id, assistant, agent_system_name=agent_system_name)
 
 
+async def get_conversation_info(agent_system_name: str, user_id: str) -> str:
+    client_id = f"{user_id}@{agent_system_name}"
+
+    try:
+        last = await get_last_conversation_by_client_id(client_id)
+    except Exception:
+        logger.exception(
+            "[agents] failed to fetch last conversation for %s",
+            client_id,
+        )
+        return "Failed to load the last conversation."
+
+    if not last:
+        return "Conversation not found."
+
+    conversation_id = str(getattr(last, "id", "") or "")
+    if not conversation_id:
+        logger.error(
+            "[agents] last conversation for %s is missing an identifier",
+            client_id,
+        )
+        return "Conversation ID not found."
+
+    messages = getattr(last, "messages", []) or []
+    message_count = len(messages)
+
+    created_at = getattr(last, "created_at", None)
+    last_user_message_at = getattr(last, "last_user_message_at", None)
+
+    def _format_dt(dt):
+        if not dt:
+            return None
+        tz = getattr(dt, "tzinfo", None)
+        return dt.isoformat() + (f" [{tz}]" if tz else "")
+
+    result = [
+        f"Conversation {conversation_id} found:",
+        f"  created_at: {_format_dt(created_at)}",
+        f"  last_user_message_at: {_format_dt(last_user_message_at)}",
+        f"  total_messages: {message_count}",
+    ]
+
+    return "\n".join(result)
+
+
+async def close_conversation(agent_system_name: str, user_id: str) -> str:
+    client_id = f"{user_id}@{agent_system_name}"
+    try:
+        last = await get_last_conversation_by_client_id(client_id)
+    except Exception:
+        logger.exception(
+            "[agents] failed to fetch last conversation for %s",
+            client_id,
+        )
+        return "Failed to load the last conversation."
+
+    if not last:
+        return "Conversation not found."
+
+    conversation_id = str(getattr(last, "id", "") or "")
+    if not conversation_id:
+        logger.error(
+            "[agents] last conversation for %s is missing an identifier",
+            client_id,
+        )
+        return "Conversation ID not found."
+
+    try:
+        await close_conversation_by_id(conversation_id)
+    except RecordNotFoundError:
+        logger.warning(
+            "[agents] conversation %s not found while closing",
+            conversation_id,
+        )
+        return "Conversation not found."
+    except Exception:
+        logger.exception(
+            "[agents] failed to close conversation %s",
+            conversation_id,
+        )
+        return "Failed to close the conversation."
+
+    return f"Conversation {conversation_id} closed."
+
+
+async def close_conversation_by_id(conversation_id: str) -> None:
+    if not conversation_id:
+        logger.error("[agents] no conversation_id supplied to close_conversation_by_id")
+        raise ValueError("conversation_id must be provided")
+    try:
+        await update_conversation_status(
+            conversation_id=conversation_id,
+            status="Closed",
+        )
+    except Exception:
+        logger.exception(
+            "[agents] failed to close conversation %s",
+            conversation_id,
+        )
+        raise
+
+
 __all__ = [
     "AssistantPayload",
     "continue_conversation",
     "handle_action_confirmation",
+    "get_conversation_info",
+    "close_conversation",
+    "close_conversation_by_id",
+    "WELCOME_LEARN_MORE_URL",
+    "DEFAULT_AGENT_DISPLAY_NAME",
 ]

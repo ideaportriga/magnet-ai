@@ -71,6 +71,7 @@ def _create_oauth_settings(
         install_page_rendering_enabled=False,
         install_path="/api/user/agents/slack/install",
         redirect_uri_path="/api/user/agents/slack/oauth_redirect",
+        # state_validation_enabled=False, # TODO: only for testing install using Slack shareable link
     )
 
 
@@ -102,7 +103,7 @@ def _build_bot_from_db(
             token=token,
             signing_secret=signing_secret,
         )
-    attach_default_handlers(bolt_app, agent_system_name)
+    attach_default_handlers(bolt_app, agent_system_name, name)
     handler = AsyncSlackRequestHandler(bolt_app)
     verifier = SignatureVerifier(signing_secret=signing_secret)
     install_path = oauth_settings.install_path if oauth_settings else None

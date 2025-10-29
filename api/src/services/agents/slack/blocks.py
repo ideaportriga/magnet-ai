@@ -3,7 +3,7 @@ import os
 import re
 from typing import Any
 
-from services.agents.utils.conversation_helpers import AssistantPayload
+from services.agents.utils.conversation_helpers import WELCOME_LEARN_MORE_URL, AssistantPayload
 
 _BOLD_PATTERN = re.compile(r"\*\*([^*\n]+)\*\*")
 
@@ -224,3 +224,31 @@ def update_blocks_with_feedback(
         existing_blocks.append(feedback_context)
 
     return existing_blocks
+
+
+def build_welcome_message_blocks(bot_name: str, agent_display_name: str | None) -> list[dict[str, Any]]:
+
+    message_intro = f":wave: Hi there! I'm *{bot_name}* and I'm happy to connect you with {agent_display_name}."
+    message_tips = (
+        "- Mention me in a channel to ask a question together with your team.\n"
+        "- Send me a direct message to have the conversation privately.\n"
+        "- Use the feedback buttons under my replies to help me improve."
+    )
+
+    blocks: list[dict[str, Any]] = [
+        {"type": "section", "text": {"type": "mrkdwn", "text": message_intro}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": message_tips}},
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "action_id": "open_magnet_ai",
+                    "text": {"type": "plain_text", "text": "Learn more", "emoji": True},
+                    "url": WELCOME_LEARN_MORE_URL,
+                }
+            ],
+        }
+    ]
+
+    return blocks, message_intro

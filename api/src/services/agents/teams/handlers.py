@@ -1,11 +1,7 @@
 from typing import Any
 from microsoft_agents.hosting.core import AgentApplication, TurnContext, TurnState
 from microsoft_agents.activity import Attachment, Activity
-from services.agents.conversations import (
-    get_last_conversation_by_client_id,
-    set_message_feedback,
-    update_conversation_status,
-)
+from services.agents.conversations import set_message_feedback
 from services.common.models import (
     LlmResponseFeedback,
     LlmResponseFeedbackType,
@@ -21,107 +17,19 @@ from services.agents.utils.conversation_helpers import (
     AssistantPayload,
     continue_conversation,
     handle_action_confirmation,
+    get_conversation_info,
+    close_conversation,
+    close_conversation_by_id,
+    DEFAULT_AGENT_DISPLAY_NAME,
 )
 from logging import getLogger
-from stores import RecordNotFoundError
 
 
 logger = getLogger(__name__)
 
-async def _get_conversation_info(agent_system_name: str, aad_object_id: str) -> str:
-    client_id = f"{aad_object_id}@{agent_system_name}"
-    try:
-        last = await get_last_conversation_by_client_id(client_id)
-    except Exception:
-        logger.exception(
-            "[agents] failed to fetch last conversation for %s",
-            client_id,
-        )
-        return "Failed to load the last conversation."
-
-    if not last:
-        return "Conversation not found."
-
-    conversation_id = str(getattr(last, "id", "") or "")
-    if not conversation_id:
-        logger.error(
-            "[agents] last conversation for %s is missing an identifier",
-            client_id,
-        )
-        return "Conversation ID not found."
-
-    messages = getattr(last, "messages", []) or []
-    message_count = len(messages)
-
-    created_at = getattr(last, "created_at", None)
-    last_user_message_at = getattr(last, "last_user_message_at", None)
-
-    def _format_dt(dt):
-        if not dt:
-            return None
-        tz = getattr(dt, "tzinfo", None)
-        return dt.isoformat() + (f" [{tz}]" if tz else "")
-
-    result = [
-        f"Conversation {conversation_id} found:",
-        f"  created_at: {_format_dt(created_at)}",
-        f"  last_user_message_at: {_format_dt(last_user_message_at)}",
-        f"  total_messages: {message_count}",
-    ]
-
-    return "\n".join(result)
-
-
-async def _close_conversation(agent_system_name: str, aad_object_id: str) -> str:
-    client_id = f"{aad_object_id}@{agent_system_name}"
-    try:
-        last = await get_last_conversation_by_client_id(client_id)
-    except Exception:
-        logger.exception(
-            "[agents] failed to fetch last conversation for %s",
-            client_id,
-        )
-        return "Failed to load the last conversation."
-
-    if not last:
-        return "Conversation not found."
-
-    conversation_id = str(getattr(last, "id", "") or "")
-    if not conversation_id:
-        logger.error(
-            "[agents] last conversation for %s is missing an identifier",
-            client_id,
-        )
-        return "Conversation ID not found."
-
-    try:
-        updated = await update_conversation_status(
-            conversation_id=conversation_id,
-            status="Closed",
-        )
-    except RecordNotFoundError:
-        logger.warning(
-            "[agents] conversation %s not found while closing",
-            conversation_id,
-        )
-        return "Conversation not found."
-    except Exception:
-        logger.exception(
-            "[agents] failed to close conversation %s",
-            conversation_id,
-        )
-        return "Failed to close the conversation."
-
-    logger.info(
-        "[agents] conversation %s status updated to Closed (updated=%s)",
-        conversation_id,
-        updated,
-    )
-    return f"Conversation {conversation_id} closed."
-
 
 async def _send_welcome_card(ctx: TurnContext, agent_system_name: str):
-    bot_name = getattr(getattr(getattr(ctx, "activity", None), "recipient", None), "name", None) or 'Magnet Agent'
+    bot_name = getattr(getattr(getattr(ctx, "activity", None), "recipient", None), "name", None) or DEFAULT_AGENT_DISPLAY_NAME
     card = create_welcome_card(bot_name, agent_system_name)
     attachment = Attachment(
         content_type="application/vnd.microsoft.card.adaptive",
@@ -191,12 +99,12 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             return
 
         if text.strip().lower() in {"/close", "/restart"}:
-            res = await _close_conversation(agent_system_name, aad_object_id)
+            res = await close_conversation(agent_system_name, aad_object_id)
             await ctx.send_activity(res)
             return
 
         if text.strip().lower() in {"/get_conversation_info"}:
-            res = await _get_conversation_info(agent_system_name, aad_object_id)
+            res = await get_conversation_info(agent_system_name, aad_object_id)
             await ctx.send_activity(res)
             return
 
@@ -271,7 +179,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
         try:
             assistant_payload: AssistantPayload | None = await handle_action_confirmation(
                 agent_system_name=agent_system_name,
-                aad_object_id=aad_object_id,
+                user_id=aad_object_id,
                 conversation_id=conversation_id,
                 request_ids=request_ids,
                 confirmed=confirmed,
@@ -353,10 +261,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 "comment": comment,
             })
         else: # close_conversation
-            await update_conversation_status(
-                conversation_id=conversation_id,
-                status="Closed",
-            )
+            await close_conversation_by_id(conversation_id)
             card_payload = {
                 "conversation_id": conversation_id,
                 "message_id": message_id,

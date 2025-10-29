@@ -1,4 +1,4 @@
-import os
+from services.agents.utils.conversation_helpers import WELCOME_LEARN_MORE_URL
 
 
 dislike_reason_titles = {
@@ -41,7 +41,7 @@ def create_welcome_card(bot_name, agent_system_name):
             {
                 "type": "Action.OpenUrl",
                 "title": "Learn More",
-                "url": "https://pro.ideaportriga.com/magnet-ai",
+                "url": WELCOME_LEARN_MORE_URL,
             },
         ],
         "msteams": {"width": "Full"},
