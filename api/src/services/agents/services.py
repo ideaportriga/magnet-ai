@@ -733,7 +733,7 @@ async def get_metadata_fields_from_rag_tool(system_name: str):
 
             knowledge_source_metadata_fields = [
                 config
-                for config in knowledge_source_dict.get("metadata_config", [])
+                for config in knowledge_source_dict.get("metadata_config") or []
                 if config.get("enabled")
             ]
             for field in knowledge_source_metadata_fields:
@@ -779,7 +779,7 @@ async def get_metadata_fields_from_retrieval_tool(system_name: str):
 
             knowledge_source_metadata_fields = [
                 config
-                for config in knowledge_source_dict.get("metadata_config", [])
+                for config in knowledge_source_dict.get("metadata_config") or []
                 if config.get("enabled")
             ]
             for field in knowledge_source_metadata_fields:
