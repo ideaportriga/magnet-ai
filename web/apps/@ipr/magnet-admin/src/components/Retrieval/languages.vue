@@ -119,7 +119,7 @@ export default {
     },
     RetrievalToolSourceLangualge: {
       get() {
-        return this.$store.getters.retrieval.language.multilanguage.source_language || ''
+        return this.$store.getters.retrievalVariant?.language?.multilanguage?.source_language || ''
       },
       set(value) {
         this.$store.dispatch('updateNestedRetrievalProperty', { path: 'language.multilanguage.source_language', value: value.value })
