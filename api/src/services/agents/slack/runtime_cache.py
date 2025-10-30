@@ -96,6 +96,14 @@ class SlackRuntimeCache:
         return None
 
 
+    async def clear(self) -> None:
+        async with self._lock:
+            removed = len(self._bots)
+            self._bots.clear()
+
+        logger.info("Slack runtime cache cleared (removed %d bot(s))", removed)
+
+
     @property
     def count(self) -> int:
         return len(self._bots)

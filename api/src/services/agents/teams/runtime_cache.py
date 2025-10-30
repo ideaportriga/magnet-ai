@@ -64,3 +64,10 @@ class TeamsRuntimeCache:
             adapter=adapter,
             agent_app=agent_app,
         )
+
+    async def clear(self) -> None:
+        async with self._lock:
+            removed = len(self._runtimes)
+            self._runtimes.clear()
+
+        logger.info("Teams runtime cache cleared (removed %d runtime(s))", removed)
