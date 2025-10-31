@@ -26,25 +26,45 @@ async def create_api_client_session(
 
     match type:
         case "oauth2":
-            token_url = (
-                security_scheme.get("flows", {})
-                .get("clientCredentials", {})
-                .get("tokenUrl")
-            )
-            client_id = security_values.get("client_id")
-            client_secret = security_values.get("client_secret")
+            flows = security_scheme.get("flows", {})
+            
+            # Check for password flow first
+            if "password" in flows:
+                token_url = flows.get("password", {}).get("tokenUrl")
+                username = security_values.get("username")
+                password = security_values.get("password")
 
-            # TODO - better validation
-            if not client_id or not client_secret:
-                raise ValueError("Auth params missing")
+                # TODO - better validation
+                if not username or not password:
+                    raise ValueError("Username and password required for password flow")
 
-            client = await create_oauth2_client(
-                client_id=client_id,
-                client_secret=client_secret,
-                token_url=token_url,
-            )
+                client = await create_oauth2_password_client(
+                    username=username,
+                    password=password,
+                    token_url=token_url,
+                )
 
-            return client
+                return client
+            
+            # Fall back to client credentials flow
+            elif "clientCredentials" in flows:
+                token_url = flows.get("clientCredentials", {}).get("tokenUrl")
+                client_id = security_values.get("client_id")
+                client_secret = security_values.get("client_secret")
+
+                # TODO - better validation
+                if not client_id or not client_secret:
+                    raise ValueError("Auth params missing")
+
+                client = await create_oauth2_client(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    token_url=token_url,
+                )
+
+                return client
+            
+            raise ValueError("Unsupported OAuth2 flow")
 
         case "http":
             scheme = security_scheme.get("scheme")
@@ -116,6 +136,37 @@ async def create_oauth2_client(
                     "client_secret": client_secret,
                 },
             ) as auth_response:
+                auth_response.raise_for_status()
+                resp_json = await auth_response.json()
+                token = resp_json.get("access_token")
+                if not token:
+                    raise RuntimeError("No access_token in OAuth2 response")
+        except Exception as e:
+            raise RuntimeError(f"Failed to obtain OAuth2 token: {e}")
+
+    session = aiohttp.ClientSession(
+        headers={"Authorization": f"Bearer {token}"},
+        connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
+    )
+    return session
+
+
+async def create_oauth2_password_client(
+    username: str,
+    password: str,
+    token_url: str,
+    verify_ssl: bool = True,
+) -> aiohttp.ClientSession:
+    connector = aiohttp.TCPConnector(verify_ssl=verify_ssl)
+    async with aiohttp.ClientSession(connector=connector) as temp_session:
+        try:
+            data = {
+                "grant_type": "password",
+                "username": username,
+                "password": password,
+            }
+            
+            async with temp_session.post(token_url, data=data) as auth_response:
                 auth_response.raise_for_status()
                 resp_json = await auth_response.json()
                 token = resp_json.get("access_token")
