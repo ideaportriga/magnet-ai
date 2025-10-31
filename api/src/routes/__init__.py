@@ -35,6 +35,7 @@ from .admin.transfer import TransferController
 from .admin.utils import UtilsController
 from .auth import AuthController
 from .user.agent_conversations import AgentConversationsController
+from .user.ask_magnet import AskMagnetController
 from .user.ai_apps import UserAiAppsController
 from .user.execute import UserExecuteController
 from .user.utils import UserUtilsController
@@ -77,6 +78,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
     ]
 
     route_handlers_user: list[ControllerRouterHandler] = [
+        AskMagnetController,  # User / Ask Magnet (form submissions)
         AgentConversationsController,  # User / Agent Conversations
         UserAgentsController,  # User / Agents Messages
         UserAiAppsController,  # User / AI Apps
