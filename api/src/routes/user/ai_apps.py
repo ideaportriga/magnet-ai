@@ -121,6 +121,39 @@ class UserAiAppsController(Controller):
                 raise InternalServerException(f"Failed to process entity: {e!s}")
             raise
 
+    @get(
+        "/agents/{system_name:str}",
+        summary="Retrieve Agent",
+        description="Retrieves the configuration of a specific Agent by its system name.",
+    )
+    async def get_agent_by_system_name(
+        self,
+        db_session: AsyncSession,
+        system_name: Annotated[
+            str,
+            Parameter(
+                description="Unique Agent system name.",
+            ),
+        ],
+    ) -> dict[str, Any]:
+        try:
+            imitate_tab = {
+                "name": "Agent",
+                "config": {
+                    "agent": system_name
+                }
+            }
+            agent_settings = await self._get_agent_config(imitate_tab, db_session)
+            
+            if agent_settings:
+                imitate_tab["entityObject"] = agent_settings
+                return imitate_tab
+            else:
+                raise NotFoundException(f"Agent with system_name '{system_name}' not found")
+        except Exception as e:
+            logger.exception(f"Error retrieving agent '{system_name}': {e!s}")
+            raise InternalServerException(f"Failed to retrieve agent: {e!s}") from e
+
     async def _process_tabs(self, tabs: list[dict[str, Any]], db_session: AsyncSession) -> None:
         """Process tabs recursively to enrich with entity objects.
 
@@ -197,7 +230,6 @@ class UserAiAppsController(Controller):
         system_name = tab.get("config", {}).get("agent")
         if not system_name:
             return None
-
         service = AgentsService(session=db_session)
         agent = await service.get_one_or_none(system_name=system_name)
         
