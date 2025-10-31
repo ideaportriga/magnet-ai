@@ -39,6 +39,7 @@ from .user.ai_apps import UserAiAppsController
 from .user.execute import UserExecuteController
 from .user.utils import UserUtilsController
 from .user.agents import UserAgentsController
+from .static import serve_static_file
 
 
 def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[ControllerRouterHandler]:
@@ -86,6 +87,7 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
 
     route_handlers_public: list[ControllerRouterHandler] = [
         health_route_handler,
+        serve_static_file,
     ]
 
     if auth_enabled:

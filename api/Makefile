@@ -1,4 +1,4 @@
-.PHONY: run help docker-up docker-down docker-restart docker-logs docker-status docker-clean db-init db-migrate db-upgrade db-downgrade db-current db-history db-stamp db-merge db-reset db-create db-drop db-status db-docker-status fixtures-load fixtures-list fixtures-load-entity migration-check migration-dry-run migration-run migration-collection migration-collection-dry
+.PHONY: run help docker-up docker-down docker-restart docker-logs docker-status docker-clean db-init db-migrate db-upgrade db-downgrade db-current db-history db-stamp db-merge db-reset db-create db-drop db-status db-docker-status fixtures-load fixtures-list fixtures-load-entity migration-check migration-dry-run migration-run migration-collection migration-collection-dry download-static
 
 # PostgreSQL connection parameters from .env
 POSTGRES_HOST := $(or $(shell grep '^DATABASE_URL=' .env 2>/dev/null | sed -n 's|.*@\([^:]*\):.*|\1|p'),localhost)
@@ -24,6 +24,7 @@ help:
 	@echo ""
 	@echo "🚀 Application commands:"
 	@echo "  run            - Start the server using Poetry"
+	@echo "  download-static - Download static files for ReDoc and Stoplight Elements"
 	@echo ""
 	@echo "🗄️ Database commands:"
 	@echo "  db-docker-status - Check Docker PostgreSQL container status"
@@ -105,6 +106,11 @@ docker-clean:
 # Start the server
 run:
 	poetry run python run.py
+
+# Download static files
+download-static:
+	@echo "📥 Downloading static files for ReDoc and Stoplight Elements..."
+	poetry run python scripts/download_static_files.py
 
 # PostgreSQL database management commands
 db-docker-status:

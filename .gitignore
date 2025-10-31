@@ -3,3 +3,9 @@
 .vscode
 generated_docs/
 openshift/
+
+# Offline static files for Swagger UI and ReDoc
+api/static/*.js
+api/static/*.css
+api/static/*.png
+api/static/*.map
