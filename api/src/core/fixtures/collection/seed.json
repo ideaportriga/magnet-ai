@@ -2,11 +2,9 @@
     {
         "type": "",
         "ai_model": "AZURE_AI_TEXT-EMBEDDING-3-SMALL",
+        "provider_system_name": "Documentation",
         "source": {
-            "file_url": [
-                "https://pro.ideaportriga.com/hubfs/AI%20UX%202023/Magnet_AI_Admin_Manual.pdf"
-            ],
-            "source_type": "File"
+            "source_type": "Documentation"
         },
         "chunking": {
             "strategy": "recursive_character_text_splitting",
@@ -21,15 +19,10 @@
             "fulltext_search_supported": false,
             "semantic_search_supported": true
         },
-        "last_synced": "2025-08-12T23:30:48.684+03:00",
-        "id": "6ded6919-8910-49ce-88a4-f0adf5cdf28f",
-        "created_at": "2025-08-11T19:43:19.084590Z",
-        "updated_at": "2025-08-12T20:30:48.684974Z",
-        "created_by": null,
-        "updated_by": null,
-        "name": "MagnetAI",
+        "job_id": null,
+        "name": "Magnet AI Help",
         "description": "",
-        "system_name": "MAGNETAI",
+        "system_name": "MAGNET_AI_HELP",
         "category": ""
     }
 ]

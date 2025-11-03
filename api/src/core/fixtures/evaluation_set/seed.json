@@ -1,0 +1,51 @@
+[
+    {
+        "name": "Demo Test Set - Magnet AI Help",
+        "description": "",
+        "system_name": "DEMO_TEST_SET_-_MAGNET_AI_HELP",
+        "category": null,
+        "type": "rag_tool",
+        "items": [
+            {
+                "user_input": "What is the difference between RAG and Retrieval Tool?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "How to set up a Prompt Template?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "Can I connect my models in Magnet AI?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "What Knowledge Sources are supported my Magnet AI?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "What are Variants in Magnet AI?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "Can i optimize a RAG Tool for multilingual use cases?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "What's the difference between topics and actions in Agents?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "How do I copy tools in Magnet AI?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "Can I preview my tools before saving them?",
+                "expected_result": ""
+            },
+            {
+                "user_input": "Does Magnet AI support evaluations?",
+                "expected_result": ""
+            }
+        ]
+    }
+]
