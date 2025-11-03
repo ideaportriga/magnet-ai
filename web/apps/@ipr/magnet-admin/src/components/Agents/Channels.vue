@@ -46,13 +46,16 @@ div
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
       km-input(v-model='slack_client_id', placeholder='Enter Slack Client ID')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Token
-      km-input(v-model='slack_token', placeholder='Enter Slack Token')
+      km-input(v-model='slack_token', placeholder='Enter Slack Token', :type='"password"', :placeholder='has_slack_encryptes.token ? "Saved (leave blank to keep)" : "Enter Slack Token"')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client Secret
-      km-input(v-model='slack_client_secret', placeholder='Enter Slack Client Secret')
+      km-input(v-model='slack_client_secret', placeholder='Enter Slack Client Secret', :type='"password"', :placeholder='has_slack_encryptes.client_secret ? "Saved (leave blank to keep)" : "Enter Slack Client Secret"')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Signing Secret
-      km-input(v-model='slack_signing_secret', placeholder='Enter Slack Signing Secret')
+      km-input(v-model='slack_signing_secret', placeholder='Enter Slack Signing Secret', :type='"password"', :placeholder='has_slack_encryptes.signing_secret ? "Saved (leave blank to keep)" : "Enter Slack Signing Secret"')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 State Secret
+      km-input(v-model='slack_state_secret', placeholder='Enter Slack State Secret', :type='"password"', :placeholder='has_slack_encryptes.state_secret ? "Saved (leave blank to keep)" : "Enter Slack State Secret"')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
       km-input(v-model='slack_scopes', placeholder='Enter Slack Agent Scopes (comma separated)')
+      km-btn(label='Connect to Slack', color='white', @click='openSlackInstall', :disable='isSlackInstallDisabled', :contentStyle='"width: auto;"').q-mt-md
 
 </template>
 <script setup>
@@ -203,6 +206,23 @@ const slack_scopes = computed({
     store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.scopes', value: value })
   }
 })
+const has_slack_encryptes = computed(() => {
+  return {
+    token: store.getters.agent_detail?.channels?.slack?.token_encrypted,
+    signing_secret: store.getters.agent_detail?.channels?.slack?.signing_secret_encrypted,
+    client_secret: store.getters.agent_detail?.channels?.slack?.client_secret_encrypted,
+    state_secret: store.getters.agent_detail?.channels?.slack?.state_secret_encrypted,
+  }
+})
+
+const isSlackInstallDisabled = computed(() => {
+  const hasClientId = !!slack_client_id.value?.trim()
+  return !hasClientId || !slackInstallUrl.value
+})
+const openSlackInstall = () => {
+  window.open(`${store.getters.config?.api?.aiBridge?.urlUser}/agents/slack/install?agent=${system_name.value}`, '_blank')
+}
+
 const openInNewTab = () => {
   window.open(appUrl.value, '_blank')
 }
