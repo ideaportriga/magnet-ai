@@ -66,6 +66,8 @@
                         agents-test-sets
                       template(v-if='tab == "agents"')
                         agents-agents-credentials
+                      template(v-if='tab == "channels"')
+                        agents-channels
                       
 
   .col-auto
@@ -82,7 +84,7 @@ export default {
   setup() {
     const { selected, visibleRows, selectedRow, ...useCollection } = useChroma('agents')
     return {
-      tab: ref('topics'),
+      tab: ref('channels'),
       tabs: ref([
         // { name: 'overview', label: 'Overview' },
         { name: 'topics', label: 'Topics' },
@@ -94,6 +96,7 @@ export default {
         { name: 'notes', label: 'Notes' },
         { name: 'testSets', label: 'Test sets' },
         { name: 'agents', label: 'Agents Credentials' },
+        { name: 'channels', label: 'Channels'}
       ]),
       showNewDialog: ref(false),
       activeAgentDetail: ref({}),
