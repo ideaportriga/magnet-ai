@@ -59,8 +59,9 @@ div
 
 </template>
 <script setup>
-import { ref, computed} from 'vue'
+import { ref, computed } from 'vue'
 import { useStore } from 'vuex'
+import { copyToClipboard } from 'quasar'
 
 
 const store = useStore()
