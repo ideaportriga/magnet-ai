@@ -39,6 +39,20 @@ const useAiApps = defineStore('ai_apps', {
         }
       }
     },
+    async getAgent(system_name: string) {
+      const mainStore = useMainStore()
+      const response = await fetchData({
+        endpoint: mainStore.endpoint.panel,
+        service: `ai_apps/agents/${system_name}`,
+        credentials: mainStore.config?.credentials,
+      })
+      if (response.error) {
+        this.selectedTab = undefined
+      } else {
+        const agent = await response.json()
+        this.selectedTab = agent
+      }
+    },
     setSelectedTab(tab: any) {
       this.selectedTab = tab
     },

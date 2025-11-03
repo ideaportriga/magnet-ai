@@ -20,7 +20,9 @@ from core.domain.base.schemas import (
 # Pydantic schemas for serialization with variant validation
 class Agent(BaseEntitySchema):
     """Agent schema for serialization."""
-
+    channels: Optional[dict] = Field(
+        default=None, description="List of agent channels"
+    )
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(
         default=None, description="List of agent variants"
     )
@@ -28,7 +30,9 @@ class Agent(BaseEntitySchema):
 
 class AgentCreate(BaseEntityCreateSchema):
     """Schema for creating a new agent."""
-
+    channels: Optional[dict] = Field(
+        default=None, description="List of agent channels"
+    )
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(
         default=None, description="List of agent variants"
     )
@@ -36,7 +40,9 @@ class AgentCreate(BaseEntityCreateSchema):
 
 class AgentUpdate(BaseEntityUpdateSchema):
     """Schema for updating an existing agent."""
-
+    channels: Optional[dict] = Field(
+        default=None, description="List of agent channels"
+    )
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(
         default=None, description="List of agent variants"
     )

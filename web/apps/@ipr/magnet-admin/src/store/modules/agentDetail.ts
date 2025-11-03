@@ -11,6 +11,11 @@ const state = () => ({
     id: '',
     variants: [],
     active_variant: null,
+    channels: {
+      web: {},
+      ms_teams: {},
+      slack: {},
+    }
   },
   selectedAgentDetailVariant: null,
   initialAgentDetail: null,
@@ -160,6 +165,18 @@ const mutations = {
     } else {
       Object.assign(item, { ...data, metadata: { ...item.metadata, modified_at: new Date().toISOString() } })
     }
+  },
+  updateNestedHighLevelAgentDetailProperty(state, { path, value }) {
+    const keys = path.split('.')
+    let target = state.agent_detail
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!(keys[i] in target) || target[keys[i]] === null) {
+        target = target[keys[i]] = {}
+      } else {
+        target = target[keys[i]]
+      }
+    }
+    target[keys[keys.length - 1]] = value
   },
 }
 
@@ -424,6 +441,9 @@ const actions = {
       const result = await response.json()
       return result
     }
+  },
+  updateNestedHighLevelAgentDetailProperty({ commit }, payload) {
+    commit('updateNestedHighLevelAgentDetailProperty', payload)
   },
 }
 
