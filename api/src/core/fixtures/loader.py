@@ -208,12 +208,17 @@ class FixtureLoader:
         if hasattr(model_class, "__table__"):
             for column in model_class.__table__.columns:
                 # Check if column type is DateTimeUTC or similar datetime type
+                try:
+                    if (
+                        hasattr(column.type, "python_type")
+                        and column.type.python_type == datetime
+                    ):
+                        datetime_fields.append(column.name)
+                except NotImplementedError:
+                    # Some custom types (like EncryptedJsonB) don't implement python_type
+                    pass
+                
                 if (
-                    hasattr(column.type, "python_type")
-                    and column.type.python_type == datetime
-                ):
-                    datetime_fields.append(column.name)
-                elif (
                     "datetime" in str(column.type).lower()
                     or "timestamp" in str(column.type).lower()
                 ):

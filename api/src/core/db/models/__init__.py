@@ -8,8 +8,8 @@ from .api_key import APIKey
 
 # from .api_tool import APITool
 from .base import UUIDAuditEntityBase, UUIDAuditSimpleBase
+from .collection import Collection
 
-# from .collection import Collection
 # from .evaluation import Evaluation
 from .evaluation import Evaluation
 from .job import Job
@@ -22,6 +22,7 @@ __all__ = [
     "UUIDAuditSimpleBase",
     "AIModel",
     "APIKey",
+    "Collection",
     "Job",
     "Metric",
     "Provider",
@@ -30,7 +31,6 @@ __all__ = [
     # "Agent",
     # "AIApp",
     # "APITool",
-    # "Collection",
     # "EvaluationSet",
     "Evaluation",
     # "Prompt",
