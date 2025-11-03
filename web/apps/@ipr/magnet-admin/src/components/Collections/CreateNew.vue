@@ -14,31 +14,31 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           :stepper='stepper'
         )
       .column.full-width(v-if='stepper === 0')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge Source Provider (Optional)
-        .full-width.q-mb-md
-          km-select(
-            v-model='provider_system_name',
-            :options='providerOptions',
-            placeholder='Select provider (optional)',
-            clearable,
-            emit-value,
-            map-options,
-            option-value='system_name',
-            option-label='name',
-            @update:model-value='onProviderChange',
-            :disable='!!providerSystemName'
-          )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='providerSystemName') Provider is pre-selected and cannot be changed when creating under a specific provider
+        //- .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge Source Provider (Optional)
+        //- .full-width.q-mb-md
+        //-   km-select(
+        //-     v-model='provider_system_name',
+        //-     :options='providerOptions',
+        //-     placeholder='Select provider (optional)',
+        //-     clearable,
+        //-     emit-value,
+        //-     map-options,
+        //-     option-value='system_name',
+        //-     option-label='name',
+        //-     @update:model-value='onProviderChange',
+        //-     :disable='!!providerSystemName'
+        //-   )
+        //-   .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='providerSystemName') Provider is pre-selected and cannot be changed when creating under a specific provider
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
         .full-width.q-mb-md
           km-input(v-model='nameCalc', ref='nameRef', :rules='config.name.rules')
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 System name
         .full-width.q-mb-md
           km-input(v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source type
-        .full-width.q-mb-md
-          km-select(:options='dynamicSourceTypeOptions', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules', :disable='!!selectedProvider')
-          .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='selectedProvider') Source type is automatically set based on the selected provider
+        //- .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source type
+        //- .full-width.q-mb-md
+        //-   km-select(:options='dynamicSourceTypeOptions', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules', :disable='!!selectedProvider')
+        //-   .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='selectedProvider') Source type is automatically set based on the selected provider
         template(v-for='item in dynamicSourceTypeChildren[source_type]')
           .col
             .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ item.label }}

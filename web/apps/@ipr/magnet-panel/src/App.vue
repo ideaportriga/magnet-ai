@@ -7,7 +7,10 @@
     template(v-else)
       login()
   template(v-else)
-    router-view
+    template(v-if='appType === "agent"')
+      agent-container
+    template(v-else)
+      router-view
   km-error-dialog(v-if='mainStore.errorMessage?.technicalError')
   template(v-if='env === "development"')
     .fixed-bottom-right.q-pa-sm.row(:style='{ zIndex: 100 }')
@@ -55,6 +58,10 @@ export default {
     openTest() {
       return true
     },
+    appType() {
+      if (this.$route.query.agent) return 'agent'
+      return 'ai_app'
+    }
   },
   watch: {
     loading: {
@@ -86,9 +93,14 @@ export default {
     async loadData() {
       await this.$router.isReady()
 
-      await Promise.all([
-        this.aiApps.getApp(this.$route.query.ai_app),
-      ])
+      if (this.appType === 'ai_app') {
+        await this.aiApps.getApp(this.$route.query.ai_app)
+      } else if (this.appType === 'agent') {
+        await this.aiApps.getAgent(this.$route.query.agent)
+      }
+      //await Promise.all([
+      //   this.aiApps.getApp(this.$route.query.ai_app),
+      // ])
     },
   },
 }

@@ -162,7 +162,7 @@ export default {
       return this.panel?.entityObject?.settings?.sample_questions?.questions
     },
     client_id() {
-      const ai_app = this.ai_app_param
+      const ai_app = this.ai_app_param || 'standalone'
       const tab = this.tab?.system_name
       const agent = this.agent
       const user = this.authStore.userInfo?.user_id
