@@ -92,11 +92,11 @@ export default {
         // { name: 'prompts', label: 'Prompt Templates' },
         // { name: 'actions', label: 'Actions' },
         { name: 'settings', label: 'Settings' },
+        { name: 'channels', label: 'Channels'},
         { name: 'conversations', label: 'Conversations' },
         { name: 'notes', label: 'Notes' },
         { name: 'testSets', label: 'Test sets' },
         { name: 'agents', label: 'Agents Credentials' },
-        { name: 'channels', label: 'Channels'}
       ]),
       showNewDialog: ref(false),
       activeAgentDetail: ref({}),

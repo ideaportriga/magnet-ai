@@ -28,15 +28,32 @@ div
     template(v-if='enable_ms_teams')
       q-separator
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
-      km-input(v-model='ms_teams_client_id', placeholder='Enter client_id')
+      km-input(v-model='ms_teams_client_id', placeholder='Enter MS Teams Client ID')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Tenant ID
-      km-input(v-model='ms_teams_tenant_id', placeholder='Enter tenant_id')
+      km-input(v-model='ms_teams_tenant_id', placeholder='Enter MS Teams Tenant ID')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Secret value
       km-input(
         v-model='ms_teams_secret_value',
         :type='"password"',
-        :placeholder='has_ms_teams_secret_value ? "Saved (leave blank to keep)" : "Enter secret_value"'
+        :placeholder='has_ms_teams_secret_value ? "Saved (leave blank to keep)" : "Enter MS Teams Secret Value"'
       )
+  q-separator.q-my-lg
+  km-section(title='Slack', subTitle='Make the Agent available as a Slack app')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
+      q-toggle(v-model='enable_slack', color='primary', size='sm', :disable='false')
+    template(v-if='enable_slack')
+      q-separator
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
+      km-input(v-model='slack_client_id', placeholder='Enter Slack Client ID')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Token
+      km-input(v-model='slack_token', placeholder='Enter Slack Token')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client Secret
+      km-input(v-model='slack_client_secret', placeholder='Enter Slack Client Secret')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Signing Secret
+      km-input(v-model='slack_signing_secret', placeholder='Enter Slack Signing Secret')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
+      km-input(v-model='slack_scopes', placeholder='Enter Slack Agent Scopes (comma separated)')
+
 </template>
 <script setup>
 import { ref, computed} from 'vue'
@@ -136,6 +153,56 @@ const has_ms_teams_secret_value = computed(() => {
   return store.getters.agent_detail?.channels?.ms_teams?.secret_encrypted 
 })
 
+// Slack
+const enable_slack = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.slack?.enabled || false
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.enabled', value: value })
+  }
+})
+const slack_client_id = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.slack?.client_id || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.client_id', value: value })
+  }
+})
+const slack_token = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.slack?.token || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.token', value: value })
+  }
+})
+
+const slack_client_secret = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.slack?.client_secret || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.client_secret', value: value })
+  }
+})
+const slack_signing_secret = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.slack?.signing_secret || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.signing_secret', value: value })
+  }
+})
+const slack_scopes = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.slack?.scopes || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.scopes', value: value })
+  }
+})
 const openInNewTab = () => {
   window.open(appUrl.value, '_blank')
 }
