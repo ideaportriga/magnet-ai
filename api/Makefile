@@ -33,9 +33,10 @@ help:
 	@echo "  db-status      - Check database connection status"
 	@echo ""
 	@echo "📦 Migration commands:"
+	@echo "  db-ensure      - Ensure database exists (create if needed)"
 	@echo "  db-init        - Initialize database with initial migration"
 	@echo "  db-migrate     - Create a new migration"
-	@echo "  db-upgrade     - Apply all pending migrations"
+	@echo "  db-upgrade     - Apply all pending migrations (auto-ensures DB exists)"
 	@echo "  db-downgrade   - Downgrade database by one migration"
 	@echo "  db-current     - Show current migration version"
 	@echo "  db-history     - Show migration history"
@@ -146,7 +147,11 @@ db-migrate:
 	fi
 	PYTHONPATH=src poetry run alembic -c src/core/db/migrations/alembic.ini revision --autogenerate -m "$(msg)"
 
-db-upgrade:
+db-ensure:
+	@echo "Ensuring database exists..."
+	PYTHONPATH=src poetry run python scripts/ensure_database.py
+
+db-upgrade: db-ensure
 	@echo "Applying all pending migrations..."
 	PYTHONPATH=src poetry run alembic -c src/core/db/migrations/alembic.ini upgrade head
 
