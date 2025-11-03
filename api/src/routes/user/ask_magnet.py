@@ -14,7 +14,7 @@ from services.agents.models import (
     AgentConversationWithMessagesPublic,
 )
 from services.agents.services import get_agent_by_system_name
-from services.observability import observability_context
+from services.observability import observability_context, observe, observability_overrides
 
 logger = getLogger(__name__)
 
@@ -24,6 +24,7 @@ class AskMagnetRequest(BaseModel):
     user_message_content: str
     user_id: str | None = None	
     conversation_id: str | None = None
+    trace_id: str | None = None
 
     model_config = ConfigDict(extra="ignore")
 
@@ -136,7 +137,11 @@ async def _extract_payload_from_request(
 
     return payload, normalized_content_type
 
-
+@observe(
+    name="The user asks a question to the agent",
+    channel="production",
+    source="Runtime API",
+)
 async def _process_ask_magnet_request(data: AskMagnetRequest) -> AskMagnetResponse:
     agent_config = await get_agent_by_system_name(data.agent)
 
@@ -240,11 +245,5 @@ class AskMagnetController(Controller):
 
         request_model = AskMagnetRequest.model_validate(payload)
 
-        observability_context.update_current_baggage(
-            source="Hugo App",
-            consumer_type="app",
-            consumer_name="Hugo App",
-            user_id=request_model.user_id,
-        )
-        response = await _process_ask_magnet_request(request_model)
+        response = await _process_ask_magnet_request(request_model, **observability_overrides(trace_id=request_model.trace_id))
         return response
