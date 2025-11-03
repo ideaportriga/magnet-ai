@@ -68,8 +68,7 @@ def transform_agent(config: dict[str, Any]) -> dict[str, Any]:
     config_copy = config.copy()
     active_variant = get_active_variant(config_copy)
 
-    transformed = filter_keys(config_copy, ["name"])
-
+    transformed = filter_keys(config_copy, ["name", "channels"])
     if active_variant:
         transformed["settings"] = active_variant.get("value", {}).get("settings", {})
 

@@ -103,7 +103,8 @@ const theme = computed({
 })
 const show_close_button = computed({
   get(){
-    return store.getters.agent_detail?.channels?.web?.show_close_button || false
+    const web = store.getters.agent_detail?.channels?.web
+    return web.hasOwnProperty('show_close_button') ? web.show_close_button : true
   },
   set(value){
     store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.show_close_button', value: value })
@@ -111,12 +112,20 @@ const show_close_button = computed({
 })
 const isIconHide = computed({
   get(){
-    return store.getters.agent_detail?.channels?.web?.is_icon_hide || false
+    return !store.getters.agent_detail?.channels?.web?.is_icon_hide
   },
   set(value){
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.is_icon_hide', value: value })
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.is_icon_hide', value: !value })
   }
 })
+
+const openInNewTab = () => {
+  window.open(appUrl.value, '_blank')
+}
+
+const copy = () => {
+  copyToClipboard(appUrl.value)
+}
 
 // Teams
 const enable_ms_teams = computed({
@@ -153,7 +162,8 @@ const ms_teams_secret_value = computed({
 })
 
 const has_ms_teams_secret_value = computed(() => {
-  return store.getters.agent_detail?.channels?.ms_teams?.secret_encrypted 
+  // TODO: map to actual secrets when we have them 
+  return false
 })
 
 // Slack
@@ -207,11 +217,12 @@ const slack_scopes = computed({
   }
 })
 const has_slack_encryptes = computed(() => {
+  // TODO: map to actual secrets when we have them 
   return {
-    token: store.getters.agent_detail?.channels?.slack?.token_encrypted,
-    signing_secret: store.getters.agent_detail?.channels?.slack?.signing_secret_encrypted,
-    client_secret: store.getters.agent_detail?.channels?.slack?.client_secret_encrypted,
-    state_secret: store.getters.agent_detail?.channels?.slack?.state_secret_encrypted,
+    token: false,  
+    signing_secret: false,
+    client_secret: false,
+    state_secret: false,
   }
 })
 
@@ -223,12 +234,6 @@ const openSlackInstall = () => {
   window.open(`${store.getters.config?.api?.aiBridge?.urlUser}/agents/slack/install?agent=${system_name.value}`, '_blank')
 }
 
-const openInNewTab = () => {
-  window.open(appUrl.value, '_blank')
-}
 
-const copy = () => {
-  copyToClipboard(appUrl.value)
-}
 
 </script>
