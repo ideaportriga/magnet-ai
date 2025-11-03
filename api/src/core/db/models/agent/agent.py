@@ -10,5 +10,5 @@ from ..base import UUIDAuditEntityBase
 
 class Agent(UUIDAuditEntityBase):
     """Main AI app table using base entity class with variant validation."""
-    # channels: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True, comment="List of agent channels")
+    channels: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True, comment="List of agent channels")
     __tablename__ = "agents"
