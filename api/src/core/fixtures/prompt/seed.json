@@ -102,7 +102,6 @@
         "category": "agent",
         "active_variant": "variant_1",
         "variants": [
-            
             {
                 "variant": "variant_1",
                 "topP": 1,
@@ -207,6 +206,29 @@
                 },
                 "description": "",
                 "text": "You are a specialized assistant focused on the topic \"{TOPIC_NAME}\".\nYour goal is to provide clear, accurate, and helpful information aligned with the specific context and tools defined for this topic.\n\nInstructions:\n{TOPIC_INSTRUCTIONS}\n\nBased on the above topic and instructions, generate a helpful and relevant response.\nIf a question does not require any tool calls - respond directly.\nIf a tool call is required, select the appropriate function and provide the necessary parameters.\nIf there is no right tool to call - respond directly with \"Sorry, I cannot help.\".\nDo not make up argument values for tool calls.\nIf you cannot retrieve some value from the user message - treat them as missing data. \nAsk for clarification if a user request is ambiguous.",
+                "sample_text": null,
+                "response_format": {
+                    "type": "text"
+                },
+                "sample_test_set": null
+            }
+        ]
+    },
+    {
+        "name": "Default Language Detection",
+        "description": "Default Prompt Template for language detection",
+        "system_name": "DEFAULT_LANGUAGE_DETECTION",
+        "category": "rag",
+        "active_variant": "variant_1",
+        "variants": [
+            {
+                "variant": "variant_1",
+                "topP": 1,
+                "temperature": 1,
+                "system_name_for_model": "OPENAI_GPT-4O-MINI",
+                "retrieve": null,
+                "description": null,
+                "text": "Detect the language of provided text detect its language according to ISO 639-3 system. Important: output only the name of language in English.",
                 "sample_text": null,
                 "response_format": {
                     "type": "text"
