@@ -20,12 +20,20 @@
 <script setup>
 import { storeToRefs } from 'pinia'
 import { useAiApps } from '@/pinia'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
+import { getCurrentInstance } from 'vue'
+const { appContext } = getCurrentInstance()
 const aiApps = useAiApps()
 const { selectedTab } = storeToRefs(aiApps)
 
 const show_close_button = computed(() => selectedTab?.value?.entityObject?.channels?.web?.show_close_button || false)
 const is_icon_hide = computed(() => selectedTab?.value?.entityObject?.channels?.web?.is_icon_hide || false)
+
+const theme = computed(() => selectedTab?.value?.entityObject?.channels?.web?.theme || 'siebel')
+
+watch(theme, (newVal) => {
+  appContext.config.globalProperties.$setTheme(newVal)
+}, { immediate: true })
 // const channels = computed(() => selectedTab?.value?.entityObject?.channels)
  
 

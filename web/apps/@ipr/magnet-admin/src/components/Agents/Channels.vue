@@ -1,5 +1,5 @@
 <template lang="pug">
-div
+div.q-mr-8
   km-section(title='Web', subTitle='Make the Agent available as an iframe')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_iframe', color='primary', size='sm', :disable='false')
@@ -24,9 +24,11 @@ div
   km-section(title='Ms Teams', subTitle='Make the Agent available as a mobile app')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_ms_teams', color='primary', size='sm', :disable='false')
-    
     template(v-if='enable_ms_teams')
-      q-separator
+      q-separator.q-mb-lg
+      km-notification-text(
+        notification='MS Teams credentials are stored on Agent level, not on the variant.' 
+      )
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
       km-input(v-model='ms_teams_client_id', placeholder='Enter MS Teams Client ID')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Tenant ID
@@ -37,12 +39,19 @@ div
         :type='"password"',
         :placeholder='has_ms_teams_secret_value ? "Saved (leave blank to keep)" : "Enter MS Teams Secret Value"'
       )
+      km-notification-text.q-mt-lg
+        div Check&nbsp;
+          a.text-primary(href='https://docs.magnet.ai/docs/admin-manual/ms-teams-agent', target='_blank') Admin Manual
+          | &nbsp;for further steps on MS Teams Agent installation
   q-separator.q-my-lg
   km-section(title='Slack', subTitle='Make the Agent available as a Slack app')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_slack', color='primary', size='sm', :disable='false')
     template(v-if='enable_slack')
-      q-separator
+      q-separator.q-mb-lg
+      km-notification-text(
+        notification='Slack credentials are stored on Agent level, not on the variant.' 
+      )
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
       km-input(v-model='slack_client_id', placeholder='Enter Slack Client ID')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Token
