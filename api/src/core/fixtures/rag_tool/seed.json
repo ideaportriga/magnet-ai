@@ -1,0 +1,91 @@
+[{
+    "name": "Demo RAG Tool - Magnet AI Help",
+    "description": "",
+    "system_name": "DEMO_RAG_TOOL_-_MAGNET_AI_HELP",
+    "category": null,
+    "active_variant": "variant_1",
+    "variants": [
+        {
+            "retrieve": {
+                "collection_system_names": [
+                    "MAGNET_AI_HELP"
+                ],
+                "allow_metadata_filter": false,
+                "use_keyword_search": false,
+                "similarity_score_threshold": 0.6,
+                "max_chunks_retrieved": 5,
+                "chunk_context_window_expansion_size": 0,
+                "rerank": {
+                    "enabled": false,
+                    "model": "",
+                    "top_n": 5,
+                    "return_documents": false,
+                    "truncation": false,
+                    "max_chunks_retrieved": 5
+                }
+            },
+            "generate": {
+                "prompt_template": "DEFAULT_ANSWER_GENERATION"
+            },
+            "post_process": {
+                "answered_check": {
+                    "enabled": false,
+                    "prompt_template": "Q&A_RESPONSE_CHECK"
+                },
+                "detect_question_language": {
+                    "enabled": false,
+                    "prompt_template": "RAG_TOOL_DETECT_LANGUAGE"
+                },
+                "check_is_hallucinate": {
+                    "enabled": false,
+                    "prompt_template": "QA_HALLUCINATION_CHECK"
+                },
+                "categorization": {
+                    "enabled": false,
+                    "prompt_template": "DEFAULT_RAG_POST_PROCESSING",
+                    "categories": [
+                        "AI Apps",
+                        "Prompt Templates",
+                        "RAG Tools",
+                        "Retrieval Tools",
+                        "Agents",
+                        "Usage",
+                        "Other"
+                    ]
+                },
+                "enabled": true
+            },
+            "ui_settings": {
+                "header_configuration": {
+                    "header": "Welcome to the Magnet AI Help",
+                    "sub_header": ""
+                },
+                "user_fideback": true,
+                "show_link_titles": false,
+                "offer_to_bypass_cache": false,
+                "sample_questions": {
+                    "enabled": true,
+                    "questions": {
+                        "question1": "What is the difference between RAG and Retrieval Tool?",
+                        "question2": "What are Variants in Magnet AI?",
+                        "question3": "What are the building blocks of an Agent?"
+                    }
+                }
+            },
+            "sample_test_set": null,
+            "language": {
+                "detect_question_language": {
+                    "enabled": false,
+                    "prompt_template": "RAG_TOOL_DETECT_LANGUAGE"
+                },
+                "multilanguage": {
+                    "enabled": true,
+                    "source_language": "English",
+                    "prompt_template_translation": "RAG_TOOL_TRANSLATE_TEXT"
+                }
+            },
+            "variant": "variant_1",
+            "description": "Without citations in answer body"
+        }
+    ]
+}]

@@ -1,0 +1,42 @@
+{
+    "name": "Fetch",
+    "description": null,
+    "system_name": "FETCH",
+    "category": null,
+    "transport": "streamable-http",
+    "url": "https://remote.mcpservers.org/fetch/mcp",
+    "headers": null,
+    "tools": [
+        {
+            "name": "fetch",
+            "annotations": null,
+            "description": null,
+            "inputSchema": {
+                "type": "object",
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "required": [
+                    "url"
+                ],
+                "properties": {
+                    "raw": {
+                        "type": "boolean",
+                        "default": false
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "max_length": {
+                        "type": "number",
+                        "default": 5000
+                    },
+                    "start_index": {
+                        "type": "number",
+                        "default": 0
+                    }
+                },
+                "additionalProperties": false
+            }
+        }
+    ],
+    "secrets_encrypted": null
+}

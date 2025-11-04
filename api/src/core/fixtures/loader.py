@@ -157,6 +157,12 @@ class FixtureLoader:
             if entity_name == "ai_model":
                 module_path = "src.core.db.models.ai_model"
                 class_name = "AIModel"
+            elif entity_name == "ai_app":
+                module_path = "src.core.db.models.ai_app"
+                class_name = "AIApp"
+            elif entity_name == "mcp_server":
+                module_path = "src.core.db.models.mcp_server"
+                class_name = "MCPServer"
             elif entity_name == "evaluation_set":
                 module_path = "src.core.db.models.evaluation_set.evaluation_set"
                 class_name = "EvaluationSet"
@@ -208,12 +214,17 @@ class FixtureLoader:
         if hasattr(model_class, "__table__"):
             for column in model_class.__table__.columns:
                 # Check if column type is DateTimeUTC or similar datetime type
+                try:
+                    if (
+                        hasattr(column.type, "python_type")
+                        and column.type.python_type == datetime
+                    ):
+                        datetime_fields.append(column.name)
+                except NotImplementedError:
+                    # Some custom types (like EncryptedJsonB) don't implement python_type
+                    pass
+                
                 if (
-                    hasattr(column.type, "python_type")
-                    and column.type.python_type == datetime
-                ):
-                    datetime_fields.append(column.name)
-                elif (
                     "datetime" in str(column.type).lower()
                     or "timestamp" in str(column.type).lower()
                 ):

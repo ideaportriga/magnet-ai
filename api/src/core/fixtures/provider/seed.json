@@ -1,0 +1,36 @@
+[
+  {
+    "name": "openai",
+    "description": "Auto-generated provider for openai",
+    "system_name": "OPENAI",
+    "category": null,
+    "type": "openai",
+    "endpoint": null,
+    "secrets_encrypted": {
+      "api_key": ""
+    },
+    "metadata_info": null
+  },
+  {
+    "name": "File",
+    "description": null,
+    "system_name": "File",
+    "category": "knowledge",
+    "type": "File",
+    "endpoint": null,
+    "connection_config": null,
+    "secrets_encrypted": null,
+    "metadata_info": null
+  },
+  {
+    "name": "Documentation",
+    "description": null,
+    "system_name": "Documentation",
+    "category": "knowledge",
+    "type": "Documentation",
+    "endpoint": "https://magnetai-test.wonderfulmeadow-bef11b6a.westeurope.azurecontainerapps.io/help",
+    "connection_config": null,
+    "secrets_encrypted": null,
+    "metadata_info": null
+  }
+]
