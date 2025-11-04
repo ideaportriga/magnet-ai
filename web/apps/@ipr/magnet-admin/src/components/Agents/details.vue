@@ -84,7 +84,7 @@ export default {
   setup() {
     const { selected, visibleRows, selectedRow, ...useCollection } = useChroma('agents')
     return {
-      tab: ref('channels'),
+      tab: ref('topics'),
       tabs: ref([
         // { name: 'overview', label: 'Overview' },
         { name: 'topics', label: 'Topics' },
