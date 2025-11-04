@@ -44,7 +44,7 @@ div.q-mr-8
       ).q-mt-md
       km-notification-text.q-mt-lg
         div Check&nbsp;
-          a.text-primary(href='https://docs.magnet.ai/docs/admin-manual/ms-teams-agent', target='_blank') Admin Manual
+          a.text-primary.cursor-pointer(@click='openHelp') Admin Manual
           | &nbsp;for further steps on MS Teams Agent installation
   q-separator.q-my-lg
   km-section(title='Slack', subTitle='Make the Agent available as a Slack app')
@@ -286,5 +286,8 @@ const openSlackInstall = () => {
 }
 
 
+const openHelp = () => {
+  window.open('/help/docs/en/', '_blank')
+}
 
 </script>

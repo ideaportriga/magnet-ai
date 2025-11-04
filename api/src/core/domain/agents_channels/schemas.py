@@ -29,7 +29,7 @@ class MsTeamsChannelBase(BaseModel):
 
 class MsTeamsChannel(MsTeamsChannelBase):   
     """MS Teams channel schema."""
-    secret_value_encrypted: str = Field(default=None, alias="secret_value", description="MS Teams secret value encrypted")
+    secret_value_encrypted: Optional[str] = Field(default=None, alias="secret_value", description="MS Teams secret value encrypted")
 
 class MsTeamsChannelUpdate(MsTeamsChannelBase):
     """MS Teams channel update schema."""
@@ -66,10 +66,10 @@ class SlackChannelBase(BaseModel):
 
 class SlackChannel(SlackChannelBase):
     """Slack channel schema."""
-    token_encrypted: str = Field(default=None, alias="token", description="Slack token encrypted")
-    signing_secret_encrypted: str = Field(default=None, alias="signing_secret", description="Slack signing secret encrypted")
-    client_secret_encrypted: str = Field(default=None, alias="client_secret", description="Slack client secret encrypted")
-    state_secret_encrypted: str = Field(default=None, alias="state_secret", description="Slack state secret encrypted")
+    token_encrypted: Optional[str] = Field(default=None, alias="token", description="Slack token encrypted")
+    signing_secret_encrypted: Optional[str] = Field(default=None, alias="signing_secret", description="Slack signing secret encrypted")
+    client_secret_encrypted: Optional[str] = Field(default=None, alias="client_secret", description="Slack client secret encrypted")
+    state_secret_encrypted: Optional[str] = Field(default=None, alias="state_secret", description="Slack state secret encrypted")
 
 class SlackChannelUpdate(SlackChannelBase):
     """Slack channel update schema."""

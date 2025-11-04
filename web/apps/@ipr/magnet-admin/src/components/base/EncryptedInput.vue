@@ -75,7 +75,7 @@ const localValue = computed(() => {
 
 const cancelEditMode = () => {
   editMode.value = false
-  emit('update:value', undefined)
+  emit('update:value', null)
 }
 const enterEditMode = () => {
   editMode.value = true
