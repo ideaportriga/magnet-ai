@@ -99,7 +99,7 @@ const theme = computed({
     return themeOptions.value.find((option) => option.value === theme)
   },
   set(value){
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.theme', value: value })
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.theme', value: value.value })
   }
 })
 const show_close_button = computed({

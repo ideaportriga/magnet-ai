@@ -9,7 +9,6 @@
       q-item(clickable, dense, v-if='show_close_button')
         q-icon.q-pa-xs.rounded-borders(name='close', rounded, size='20px', color='white', @click='hidePanel')
   km-image.redwood-strip(src='strip.png', v-if='$theme === "siebel"')
-  .col
   // main scrollable content
   .col.overflow-auto
     agent-tab(:agent='selectedTab.config.agent' :tab='selectedTab' v-if='selectedTab')
@@ -25,8 +24,8 @@ import { computed } from 'vue'
 const aiApps = useAiApps()
 const { selectedTab } = storeToRefs(aiApps)
 
-const show_close_button = computed(() => selectedTab?.value?.show_close_button || false)
-const is_icon_hide = computed(() => selectedTab?.value?.is_icon_hide || false)
+const show_close_button = computed(() => selectedTab?.value?.entityObject?.channels?.web?.show_close_button || false)
+const is_icon_hide = computed(() => selectedTab?.value?.entityObject?.channels?.web?.is_icon_hide || false)
 // const channels = computed(() => selectedTab?.value?.entityObject?.channels)
  
 
