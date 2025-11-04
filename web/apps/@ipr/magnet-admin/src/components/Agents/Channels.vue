@@ -227,6 +227,12 @@ const has_slack_encryptes = computed(() => {
   }
 })
 
+const slackInstallUrl = computed(() => {
+  const baseUrl = store.getters.config?.api?.aiBridge?.urlUser
+  if (!baseUrl) return null
+  return `${baseUrl}/agents/slack/install?agent=${encodeURIComponent(system_name.value)}`
+})
+
 const isSlackInstallDisabled = computed(() => {
   const hasClientId = !!slack_client_id.value?.trim()
   return !hasClientId || !slackInstallUrl.value
