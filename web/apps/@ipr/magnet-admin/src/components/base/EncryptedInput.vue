@@ -83,7 +83,6 @@ const enterEditMode = () => {
 }
 
 watch(() => props.encryptedValue, (newVal) => {
-  console.log('newVal', newVal)
   if (newVal) {
     editMode.value = false
   }
