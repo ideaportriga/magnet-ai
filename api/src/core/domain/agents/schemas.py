@@ -16,27 +16,11 @@ from core.domain.base.schemas import (
     BaseEntityUpdateSchema,
 )
 
-
-# class WebChannel(BaseModel):
-#     """Web channel schema."""
-#     enabled: bool = Field(default=False, description="Web channel enabled")
-#     theme: str = Field(default="siebel", description="Web channel theme")
-#     show_close_button: bool = Field(default=False, description="Web channel show close button")
-#     is_icon_hide: bool = Field(default=False, description="Web channel hide icon")
-
-# class AgentChannels(BaseModel):
-#     """Agent channels schema"""
-#     # temporary, for additional channels support
-#     model_config = ConfigDict(extra="allow")
-    
-#     web: Optional[WebChannel] = Field(
-#         default_factory=WebChannel, description="Web channel configuration"
-#     )
-
+from core.domain.agents_channels.schemas import AgentChannels, AgentChannelsUpdate
 # Pydantic schemas for serialization with variant validation
 class Agent(BaseEntitySchema):
     """Agent schema for serialization."""
-    channels: Optional[dict] = Field(
+    channels: Optional[AgentChannels] = Field(
         default=None, description="List of agent channels"
     )
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(
@@ -46,9 +30,9 @@ class Agent(BaseEntitySchema):
 
 class AgentCreate(BaseEntityCreateSchema):
     """Schema for creating a new agent."""
-    channels: Optional[dict] = Field(
-        default=None, description="List of agent channels"
-    )
+    # channels: Optional[AgentChannelsUpdate] = Field(
+    #     default=None, description="List of agent channels"
+    # )
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(
         default=None, description="List of agent variants"
     )
@@ -56,7 +40,7 @@ class AgentCreate(BaseEntityCreateSchema):
 
 class AgentUpdate(BaseEntityUpdateSchema):
     """Schema for updating an existing agent."""
-    channels: Optional[dict] = Field(
+    channels: Optional[AgentChannelsUpdate] = Field(
         default=None, description="List of agent channels"
     )
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(

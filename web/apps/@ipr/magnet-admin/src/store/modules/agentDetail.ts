@@ -398,7 +398,7 @@ const actions = {
     } else {
       await dispatch('chroma/create', { payload: obj, entity }, { root: true })
     }
-    commit('setInitAgentDetail')
+    commit('setAgentDetailById', getters.agent_detail.id)
   },
   updateAgentDetail({ commit }, payload) {
     commit('updateAgentDetail', payload)
@@ -444,6 +444,12 @@ const actions = {
   },
   updateNestedHighLevelAgentDetailProperty({ commit }, payload) {
     commit('updateNestedHighLevelAgentDetailProperty', payload)
+  },
+  setAgentDetailById({ commit, getters }, id) {
+    const agent = getters.chroma.agents.items.find((el) => el.id === id)
+    if (agent) {
+      commit('setAgentDetail', agent)
+    }
   },
 }
 

@@ -31,6 +31,7 @@ export default defineConfig({
     }),
     nxViteTsPaths(),
     nxCopyAssetsPlugin(['*.md']),
+    vueDevTools(),
   ],
   build: {
     outDir: '../../../knowledge-magnet/admin/app',

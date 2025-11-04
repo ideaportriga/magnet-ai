@@ -153,7 +153,7 @@ export default {
       } else {
         await this.create(this.currentRow)
       }
-      this.$store.commit('setInitAgentDetail')
+      this.$store.dispatch('setAgentDetailById', this.currentRow.id)
       this.loading = false
     },
     formatDate(date) {

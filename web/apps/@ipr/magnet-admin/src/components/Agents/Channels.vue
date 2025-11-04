@@ -33,12 +33,15 @@ div.q-mr-8
       km-input(v-model='ms_teams_client_id', placeholder='Enter MS Teams Client ID')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Tenant ID
       km-input(v-model='ms_teams_tenant_id', placeholder='Enter MS Teams Tenant ID')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Secret value
-      km-input(
-        v-model='ms_teams_secret_value',
-        :type='"password"',
-        :placeholder='has_ms_teams_secret_value ? "Saved (leave blank to keep)" : "Enter MS Teams Secret Value"'
-      )
+      //- .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Secret value
+      km-encrypted-input(
+        :value='ms_teams_secret_value',
+        @update:value='ms_teams_secret_value = $event',
+        :encrypted-value='has_ms_teams_secret_value',
+        label='Secret value',
+        placeholder='Enter MS Teams Secret Value',
+        fake-encrypted-value='******',
+      ).q-mt-md
       km-notification-text.q-mt-lg
         div Check&nbsp;
           a.text-primary(href='https://docs.magnet.ai/docs/admin-manual/ms-teams-agent', target='_blank') Admin Manual
@@ -54,14 +57,38 @@ div.q-mr-8
       )
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
       km-input(v-model='slack_client_id', placeholder='Enter Slack Client ID')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Token
-      km-input(v-model='slack_token', placeholder='Enter Slack Token', :type='"password"', :placeholder='has_slack_encryptes.token ? "Saved (leave blank to keep)" : "Enter Slack Token"')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client Secret
-      km-input(v-model='slack_client_secret', placeholder='Enter Slack Client Secret', :type='"password"', :placeholder='has_slack_encryptes.client_secret ? "Saved (leave blank to keep)" : "Enter Slack Client Secret"')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Signing Secret
-      km-input(v-model='slack_signing_secret', placeholder='Enter Slack Signing Secret', :type='"password"', :placeholder='has_slack_encryptes.signing_secret ? "Saved (leave blank to keep)" : "Enter Slack Signing Secret"')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 State Secret
-      km-input(v-model='slack_state_secret', placeholder='Enter Slack State Secret', :type='"password"', :placeholder='has_slack_encryptes.state_secret ? "Saved (leave blank to keep)" : "Enter Slack State Secret"')
+      km-encrypted-input(
+        :value='slack_token',
+        @update:value='slack_token = $event',
+        :encrypted-value='has_slack_encryptes.token',
+        label='Token',
+        placeholder='Enter Slack Token',
+        fake-encrypted-value='******',
+      ).q-mt-md
+      km-encrypted-input(
+        :value='slack_client_secret',
+        @update:value='slack_client_secret = $event',
+        :encrypted-value='has_slack_encryptes.client_secret',
+        label='Client Secret',
+        placeholder='Enter Slack Client Secret',
+        fake-encrypted-value='******',
+      ).q-mt-md
+      km-encrypted-input(
+        :value='slack_signing_secret',
+        @update:value='slack_signing_secret = $event',
+        :encrypted-value='has_slack_encryptes.signing_secret',
+        label='Signing Secret',
+        placeholder='Enter Slack Signing Secret',
+        fake-encrypted-value='******',
+      ).q-mt-md
+      km-encrypted-input(
+        :value='slack_state_secret',
+        @update:value='slack_state_secret = $event',
+        :encrypted-value='has_slack_encryptes.state_secret',
+        label='State Secret',
+        placeholder='Enter Slack State Secret',
+        fake-encrypted-value='******',
+      ).q-mt-md
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
       km-input(v-model='slack_scopes', placeholder='Enter Slack Agent Scopes (comma separated)')
       km-btn(label='Connect to Slack', color='white', @click='openSlackInstall', :disable='isSlackInstallDisabled', :contentStyle='"width: auto;"').q-mt-md
@@ -173,7 +200,7 @@ const ms_teams_secret_value = computed({
 
 const has_ms_teams_secret_value = computed(() => {
   // TODO: map to actual secrets when we have them 
-  return false
+  return store.getters.agent_detail?.channels?.ms_teams?.secret_value_encrypted || false
 })
 
 // Slack
@@ -218,22 +245,36 @@ const slack_signing_secret = computed({
     store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.signing_secret', value: value })
   }
 })
-const slack_scopes = computed({
+
+const slack_state_secret = computed({
   get(){
-    return store.getters.agent_detail?.channels?.slack?.scopes || ''
+    return store.getters.agent_detail?.channels?.slack?.state_secret || ''
   },
   set(value){
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.scopes', value: value })
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.state_secret', value: value })
+  }
+})
+const slack_scopes = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.slack?.agent_scopes || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.agent_scopes', value: value })
   }
 })
 const has_slack_encryptes = computed(() => {
   // TODO: map to actual secrets when we have them 
   return {
-    token: false,  
-    signing_secret: false,
-    client_secret: false,
-    state_secret: false,
+    token: store.getters.agent_detail?.channels?.slack?.token_encrypted || false,  
+    signing_secret: store.getters.agent_detail?.channels?.slack?.signing_secret_encrypted || false,
+    client_secret: store.getters.agent_detail?.channels?.slack?.client_secret_encrypted || false,
+    state_secret: store.getters.agent_detail?.channels?.slack?.state_secret_encrypted || false,
   }
+})
+
+
+const slackInstallUrl = computed(() => {
+  return `${store.getters.config?.api?.aiBridge?.urlUser}/agents/slack/install?agent=${system_name.value}`
 })
 
 const isSlackInstallDisabled = computed(() => {

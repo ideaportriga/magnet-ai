@@ -1956,8 +1956,8 @@ const apiAgents = {
         if (response.ok) return true
         if (response.error) throw response
       })
-      .then(() => {
-        dispatch('get', { entity: 'agents' })
+      .then(async () => {
+        await dispatch('get', { entity: 'agents' })
         return true
       })
       .catch((res) => {
