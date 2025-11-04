@@ -141,7 +141,7 @@ const theme = computed({
 const show_close_button = computed({
   get(){
     const web = store.getters.agent_detail?.channels?.web
-    return web.hasOwnProperty('show_close_button') ? web.show_close_button : true
+    return web.hasOwnProperty('show_close_button') ? web.show_close_button : false
   },
   set(value){
     store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.show_close_button', value: value })
