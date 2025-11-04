@@ -30,9 +30,8 @@ class Agent(BaseEntitySchema):
 
 class AgentCreate(BaseEntityCreateSchema):
     """Schema for creating a new agent."""
-    # channels: Optional[AgentChannelsUpdate] = Field(
-    #     default=None, description="List of agent channels"
-    # )
+    # chanels are not included in create schema to avoid copying chanels
+    # when creating new agent from existing agent
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(
         default=None, description="List of agent variants"
     )
