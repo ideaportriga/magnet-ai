@@ -14,6 +14,7 @@ from services.agents.models import (
     AgentConversationMessageRole,
 )
 from services.observability import observe, observability_context
+from services.observability.utils import observability_overrides
 
 
 logger = getLogger(__name__)
@@ -95,12 +96,11 @@ def _build_assistant_payload(
 
     return payload
 
-# TODO - refactor it
 @observe(
     name="New user message",
     description="User sent a new message.",
     channel="production",
-    source="Teams App",
+    source="Runtime AI App",
 )
 async def _continue_conversation_for_obsevability(
     conversation_id: str | None,
@@ -147,29 +147,43 @@ async def continue_conversation(
     agent_system_name: str,
     user_id: str,
     text: str,
+    *,
+    consumer_name: str | None = None,
 ) -> AssistantPayload:
     """Continue or start an agent conversation and return the assistant's reply payload."""
     client_id = f"{user_id}@{agent_system_name}"
     logger.debug("[agents] continue_conversation started: client_id=%s", client_id)
 
     try:
-        last = await get_last_conversation_by_client_id(client_id)
+        conversation = await get_last_conversation_by_client_id(client_id)
     except Exception as exc:
         logger.exception("[agents] failed to fetch last conversation for %s", client_id)
         raise exc
 
-    if last:
-        conv_id = str(getattr(last, "id", "")) or ""
-        trace_id = str(getattr(last, "trace_id", "")) or ""
-        return await _continue_conversation_for_obsevability(conversation_id=conv_id, agent_system_name=agent_system_name, user_id=user_id, text=text, trace_id=trace_id, _observability_overrides={"trace_id": trace_id})
+    decorator_kwargs = {}
+    if consumer_name is not None:
+        decorator_kwargs["consumer_name"] = consumer_name
 
-    return await _continue_conversation_for_obsevability(conversation_id=None, agent_system_name=agent_system_name, user_id=user_id, text=text)
+    conversation_id = None
+    trace_id = None
+    if conversation:
+        conversation_id = str(getattr(conversation, "id", ""))
+        trace_id = str(getattr(conversation, "trace_id", ""))
+
+    return await _continue_conversation_for_obsevability(
+        conversation_id=conversation_id,
+        agent_system_name=agent_system_name,
+        user_id=user_id,
+        text=text,
+        trace_id=trace_id,
+        **observability_overrides(trace_id=trace_id, **decorator_kwargs),
+    )
 
 @observe(
     name="Action confirmation",
     description="User confirmed an action.",
     channel="production",
-    source="Teams App",
+    source="Runtime AI App",
 )
 async def handle_action_confirmation(
     agent_system_name: str,
