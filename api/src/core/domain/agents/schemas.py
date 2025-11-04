@@ -31,7 +31,7 @@ class Agent(BaseEntitySchema):
 class AgentCreate(BaseEntityCreateSchema):
     """Schema for creating a new agent."""
     # chanels are not included in create schema to avoid copying chanels
-    # when creating new agent from existing agent
+    # when cloning new agent from existing agent
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(
         default=None, description="List of agent variants"
     )
