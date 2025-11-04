@@ -28,9 +28,12 @@ from services.agents.models import (
 from services.agents.post_process.utils import extract_analytics_from_conversation
 from services.agents.services import execute_agent, get_agent_by_system_name
 from services.common.models import ConversationMessageFeedback
-from services.observability import observability_context
+from services.observability import observability_context, observability_overrides
 from services.observability.models import FeatureType, ObservedFeature
-from services.telemetry.services import record_tool_response_copy
+from services.telemetry.services import (
+    record_tool_response_copy,
+    record_tool_response_feedback,
+)
 from stores import RecordNotFoundError
 from utils.datetime_utils import utc_now
 
@@ -303,26 +306,102 @@ async def add_user_message(
 
     return response
 
-
 async def set_message_feedback(
     conversation_id: str,
     message_id: str,
     data: AgentConversationMessageFeedbackRequest,
-):
+    *,
+    consumer_name: str | None = None,
+) -> None:
     async with alchemy.get_session() as session:
         service = AgentConversationService(session=session)
-
-        success = await service.update_message_feedback(
+        updated = await service.update_message_feedback(
             db_session=session,
             conversation_id=conversation_id,
             message_id=message_id,
             feedback_data=data.model_dump(),
         )
-
-        if not success:
+        if not updated:
             raise RecordNotFoundError()
 
-    # TODO: Record feedback metrics
+    conversation_document = await get_conversation_by_id(conversation_id)
+    conversation = AgentConversationDataWithMessages(**conversation_document)
+    payload = data.model_dump()
+
+    await _record_feedback_observability(
+        conversation=conversation,
+        conversation_id=conversation_id,
+        message_id=message_id,
+        payload=payload,
+        consumer_name=consumer_name,
+    )
+
+
+async def _record_feedback_observability(
+    *,
+    conversation: AgentConversationDataWithMessages,
+    conversation_id: str,
+    message_id: str,
+    payload: dict[str, Any],
+    consumer_name: str | None,
+) -> None:
+    feedback_type = payload.get("type") or "unknown"
+    trace_overrides = observability_overrides(
+        trace_id=conversation.trace_id,
+        consumer_name=consumer_name,
+    )
+
+    @observability_context.observe(
+        name=f"Set message feedback ({feedback_type})",
+        description="Record user feedback for an agent message",
+        channel="production",
+        source="Runtime API App",
+    )
+    async def _run():
+        observability_context.update_current_span(
+            extra_data={
+                "message_id": message_id,
+                "feedback": payload,
+                "feedback_type": feedback_type,
+                "feedback_reason": payload.get("reason"),
+                "feedback_comment": payload.get("comment"),
+            },
+        )
+
+        agent = await get_agent_by_system_name(conversation.agent)
+        feature = ObservedFeature(
+            type=FeatureType.AGENT,
+            id=str(agent.id) if agent.id else None,
+            system_name=agent.system_name,
+            display_name=agent.name,
+        )
+
+        with observability_context.observe_feature(feature, conversation.analytics_id):
+            observability_context.update_current_span(
+                name="Setting user feedback",
+                extra_data={
+                    "message_id": message_id,
+                    "feedback_type": feedback_type,
+                    "feedback_reason": payload.get("reason"),
+                    "feedback_comment": payload.get("comment"),
+                },
+            )
+            observability_context.update_current_trace(
+                extra_data={"conversation_id": conversation_id}
+            )
+            await record_tool_response_feedback(
+                trace_id=conversation.trace_id,
+                analytics_id=conversation.analytics_id,
+                feedback=AgentConversationMessageFeedbackRequest(**payload),
+            )
+
+            analytics = await extract_analytics_from_conversation(conversation_id)
+            observability_context.update_current_baggage(
+                conversation_id=conversation_id,
+                conversation_data=analytics,
+            )
+
+    await _run(**trace_overrides)
 
 
 async def set_message_custom_feedback(

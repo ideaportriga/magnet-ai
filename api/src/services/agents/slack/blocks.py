@@ -1,5 +1,4 @@
 import json
-import os
 import re
 from typing import Any
 
@@ -100,12 +99,152 @@ def _truncate(text: str, max_length: int = 100) -> str:
     return text[: max_length - 1] + "..."
 
 
+def create_confirmation_blocks(payload: AssistantPayload | None) -> list[dict[str, Any]]:
+    if not payload:
+        return []
+
+    conversation_id = payload.get("conversation_id")
+    message_id = payload.get("message_id")
+    trace_id = payload.get("trace_id")
+    agent_system_name = payload.get("agent_system_name")
+
+    raw_requests = payload.get("action_requests") or []
+    request_ids = [
+        str(request.get("id"))
+        for request in raw_requests
+        if isinstance(request, dict) and request.get("id")
+    ]
+
+    header_text = "AI Assistant Requires Confirmation"
+
+    confirmation_messages: list[str] = []
+    if raw_requests:
+        multiple = len(raw_requests) > 1
+        for index, request in enumerate(raw_requests, start=1):
+            if not isinstance(request, dict):
+                continue
+            message = request.get("action_message") or "The assistant requested an action."
+            prefix = f"{index}. " if multiple else ""
+            confirmation_messages.append(f"{prefix}{message}")
+    if not confirmation_messages:
+        confirmation_messages = ["The assistant requested an action."]
+
+    confirmation_payload = {
+        "header": header_text,
+        "messages": confirmation_messages,
+    }
+
+    common_payload = {
+        "conversation_id": conversation_id,
+        "trace_id": trace_id,
+        "message_id": message_id,
+        "agent_system_name": agent_system_name,
+        "request_ids": request_ids,
+        "confirmation_card": confirmation_payload,
+    }
+
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*{to_slack_mrkdwn(header_text)}*"},
+        }
+    ]
+    for message in confirmation_messages:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": to_slack_mrkdwn(message),
+                },
+            }
+        )
+
+    blocks.append(
+        {
+            "type": "actions",
+            "block_id": "action_confirmation_block",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Confirm", "emoji": True},
+                    "style": "primary",
+                    "action_id": "confirm_action_request",
+                    "value": json.dumps({**common_payload, "confirmed": True}),
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Reject", "emoji": True},
+                    "style": "danger",
+                    "action_id": "reject_action_request",
+                    "value": json.dumps({**common_payload, "confirmed": False}),
+                },
+            ],
+        }
+    )
+
+    return blocks
+
+
+def create_confirmation_ack_blocks(
+    confirmation_payload: dict[str, Any] | None,
+    confirmed: bool,
+) -> list[dict[str, Any]]:
+    payload = confirmation_payload or {}
+    header_text = payload.get("header") or "AI Assistant Requires Confirmation"
+    messages = payload.get("messages") or ["The assistant requested an action."]
+
+    status_text = (
+        ":white_check_mark: You confirmed this action."
+        if confirmed
+        else ":x: You rejected this action."
+    )
+
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*{to_slack_mrkdwn(str(header_text))}*"},
+        }
+    ]
+
+    for message in messages:
+        text = to_slack_mrkdwn(str(message))
+        blocks.append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"> {text}"},
+            }
+        )
+
+    blocks.append(
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": status_text,
+                }
+            ],
+        }
+    )
+
+    return blocks
+
+
 def create_assistant_response_blocks(payload: AssistantPayload | None) -> list[dict[str, Any]]:
     if not payload:
         return []
 
-    message_id = payload.get("message_id") or payload.get("messageId")
-    conversation_id = payload.get("conversation_id") or payload.get("conversationId")
+    requires_confirmation = bool(
+        payload.get("requires_confirmation")
+    )
+
+    action_requests = payload.get("action_requests") or []
+    if requires_confirmation and action_requests:
+        return create_confirmation_blocks(payload)
+
+    message_id = payload.get("message_id")
+    conversation_id = payload.get("conversation_id")
     content = payload.get("content") or "No answer available."
 
     raw_text = _normalize_content(content)
@@ -126,25 +265,24 @@ def create_assistant_response_blocks(payload: AssistantPayload | None) -> list[d
             "text": {"type": "plain_text", "text": "👍", "emoji": True},
             "action_id": "like_answer",
             "style": "primary",
-            "value": json.dumps({"feedback": 'like', "messageId":  message_id, "conversationId": conversation_id}),
+            "value": json.dumps({"feedback": 'like', "message_id":  message_id, "conversation_id": conversation_id}),
         },
         {
             "type": "button",
             "text": {"type": "plain_text", "text": "👎", "emoji": True},
             "action_id": "dislike_answer",
             "style": "danger",
-            "value": json.dumps({"feedback": 'dislike', "messageId":  message_id, "conversationId": conversation_id}),
+            "value": json.dumps({"feedback": 'dislike', "message_id":  message_id, "conversation_id": conversation_id}),
         },
     ]
 
-    frontend_url = os.getenv("MAGNET_FRONTEND_URL")
-    if frontend_url and conversation_id:
+    if conversation_id:
         elements.append(
             {
                 "type": "button",
-                "action_id": "open_conversation",
-                "text": {"type": "plain_text", "text": "💬 Open Conversation", "emoji": True},
-                "url": f"{frontend_url.rstrip('/')}/#/conversation/{conversation_id}",
+                "action_id": "close_conversation",
+                "text": {"type": "plain_text", "text": "🔒", "emoji": True},
+                "value": json.dumps({"message_id": message_id, "conversation_id": conversation_id}),
             }
         )
 
@@ -175,8 +313,7 @@ def update_blocks_with_feedback(
         message = "Thanks for your feedback: *Do not like*"
 
     if feedback_action == "dislike_answer":
-        reason = data.get("reason") or "other"
-        message += f"\nReason: {reason}"
+        message += f"\nReason: {data.get("reason")}"
         comment = data.get("comment")
         if comment:
             message += f"\nComment: {comment}"
@@ -194,8 +331,21 @@ def update_blocks_with_feedback(
 
     target_index = -1
     for idx, block in enumerate(existing_blocks):
-        if isinstance(block, dict) and block.get("type") == "actions" and block.get("block_id") == "feedback_actions_block":
-            target_index = idx
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") != "actions":
+            continue
+        elements = block.get("elements") or []
+        if not isinstance(elements, list):
+            continue
+        for element in elements:
+            if not isinstance(element, dict):
+                continue
+            action_id = element.get("action_id")
+            if action_id in {"like_answer", "dislike_answer"}:
+                target_index = idx
+                break
+        if target_index >= 0:
             break
 
     if target_index >= 0:
@@ -213,15 +363,89 @@ def update_blocks_with_feedback(
             filtered.append(element)
 
         if filtered:
-            existing_blocks[target_index] = {
+            updated_block = {
                 "type": "actions",
                 "elements": filtered,
+            }
+            block_id = block.get("block_id")
+            if isinstance(block_id, str) and block_id:
+                updated_block["block_id"] = block_id
+            existing_blocks[target_index] = {
+                **updated_block,
             }
             existing_blocks.insert(target_index + 1, feedback_context)
         else:
             existing_blocks[target_index] = feedback_context
     else:
         existing_blocks.append(feedback_context)
+
+    return existing_blocks
+
+
+def update_blocks_with_closed_conversation(
+    blocks: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """Remove the close button and add a status note when a conversation is closed."""
+    existing_blocks = list(blocks or [])
+    status_insert_index: int | None = None
+
+    for idx, block in enumerate(existing_blocks):
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") != "actions":
+            continue
+        elements = block.get("elements")
+        if not isinstance(elements, list):
+            continue
+
+        filtered: list[dict[str, Any]] = []
+        removed = False
+        for element in elements:
+            if not isinstance(element, dict):
+                continue
+            if element.get("action_id") == "close_conversation":
+                removed = True
+                continue
+            filtered.append(element)
+
+        if not removed:
+            continue
+
+        if filtered:
+            updated_block = dict(block)
+            updated_block["elements"] = filtered
+            existing_blocks[idx] = updated_block
+            status_insert_index = idx + 1
+        else:
+            existing_blocks.pop(idx)
+            status_insert_index = idx
+        break
+
+    if status_insert_index is None:
+        return existing_blocks
+
+    already_has_status = any(
+        isinstance(block, dict) and block.get("block_id") == "conversation_status_block"
+        for block in existing_blocks
+    )
+    if already_has_status:
+        return existing_blocks
+
+    status_block = {
+        "type": "context",
+        "block_id": "conversation_status_block",
+        "elements": [
+            {
+                "type": "mrkdwn",
+                "text": ":lock: Conversation closed.",
+            }
+        ],
+    }
+
+    if status_insert_index >= len(existing_blocks):
+        existing_blocks.append(status_block)
+    else:
+        existing_blocks.insert(status_insert_index, status_block)
 
     return existing_blocks
 

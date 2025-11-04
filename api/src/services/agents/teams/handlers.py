@@ -22,6 +22,7 @@ from services.agents.utils.conversation_helpers import (
     close_conversation_by_id,
     DEFAULT_AGENT_DISPLAY_NAME,
 )
+from services.observability.utils import observability_overrides
 from logging import getLogger
 
 
@@ -112,7 +113,10 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             await app.typing.start(ctx)
 
             assistant_payload: AssistantPayload = await continue_conversation(
-                agent_system_name, aad_object_id, text
+                agent_system_name=agent_system_name,
+                user_id=aad_object_id,
+                text=text,
+                consumer_name="MS Teams",
             )
             logger.info("[agents] on_message assistant_payload: %s", assistant_payload)
         except Exception as e:
@@ -183,7 +187,7 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 conversation_id=conversation_id,
                 request_ids=request_ids,
                 confirmed=confirmed,
-                _observability_overrides={"trace_id": trace_id},
+                **observability_overrides(trace_id=trace_id, consumer_name="MS Teams"),
             )
         except Exception:
             await ctx.send_activity("Sorry, something went wrong while processing the confirmation.")
@@ -230,7 +234,12 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
     try:
         if verb == "like":
             feedback = LlmResponseFeedback(type=LlmResponseFeedbackType.LIKE)
-            await set_message_feedback(conversation_id=conversation_id, message_id=message_id, data=feedback)
+            await set_message_feedback(
+                conversation_id=conversation_id, 
+                message_id=message_id, 
+                data=feedback, 
+                consumer_name="MS Teams"
+            )
             await _send_feedback_result_card(ctx, {
                 "conversation_id": conversation_id,
                 "text": text,
@@ -252,7 +261,12 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 reason=reason,
                 comment=comment,
             )
-            await set_message_feedback(conversation_id=conversation_id, message_id=message_id, data=feedback)
+            await set_message_feedback(
+                conversation_id=conversation_id, 
+                message_id=message_id, 
+                data=feedback,
+                consumer_name="MS Teams",
+            )
             await _send_feedback_result_card(ctx, {
                 "conversation_id": conversation_id,
                 "text": text,

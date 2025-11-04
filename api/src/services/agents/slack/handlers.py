@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from copy import deepcopy
 from typing import Any, Iterable
 
 from slack_bolt.async_app import AsyncApp
@@ -13,13 +14,23 @@ from services.agents.conversations import set_message_feedback
 from services.agents.utils.conversation_helpers import (
     AssistantPayload,
     close_conversation,
+    close_conversation_by_id,
     continue_conversation,
+    handle_action_confirmation,
     get_conversation_info,
     DEFAULT_AGENT_DISPLAY_NAME,
 )
 from services.agents.slack.blocks import build_welcome_message_blocks
 from services.common.models import LlmResponseFeedback, LlmResponseFeedbackReason, LlmResponseFeedbackType
-from .blocks import create_assistant_response_blocks, to_slack_mrkdwn, update_blocks_with_feedback
+from .blocks import (
+    create_assistant_response_blocks,
+    create_confirmation_ack_blocks,
+    to_slack_mrkdwn,
+    update_blocks_with_feedback,
+    update_blocks_with_closed_conversation,
+)
+from services.observability.utils import observability_overrides
+
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +134,41 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             log_context=log_context,
         )
 
+    async def _update_confirmation_message(
+        client: AsyncWebClient,
+        channel_id: str | None,
+        message_ts: str | None,
+        *,
+        text: str,
+        blocks: list[dict[str, Any]] | None,
+        logger: logging.Logger,
+        log_context: str,
+    ) -> None:
+        if not channel_id or not message_ts:
+            logger.warning(
+                "Cannot update confirmation message (%s) without channel or timestamp.",
+                log_context,
+            )
+            return
+
+        payload: dict[str, Any] = {
+            "channel": channel_id,
+            "ts": message_ts,
+            "text": text,
+        }
+        if blocks:
+            payload["blocks"] = blocks
+
+        try:
+            await client.chat_update(**payload)
+        except SlackApiError:
+            logger.exception(
+                "Failed to update Slack message after %s (channel=%s ts=%s)",
+                log_context,
+                channel_id,
+                message_ts,
+            )
+
     async def _resolve_agent_display_name(
         context: dict[str, Any] | None,
         client: AsyncWebClient,
@@ -202,6 +248,150 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
 
         await _respond_ephemeral(respond, result)
 
+    async def _handle_action_confirmation_interaction(
+        ack: Any,
+        body: dict[str, Any],
+        client: AsyncWebClient,
+        logger: logging.Logger,
+    ) -> None:
+        await ack()
+
+        action = _get_first(body.get("actions") or [])
+        if not isinstance(action, dict):
+            logger.warning("Confirmation action payload is missing action details: %s", body)
+            return
+
+        raw_value = action.get("value") or ""
+        try:
+            confirmation_payload = json.loads(raw_value) if raw_value else {}
+        except (TypeError, ValueError):
+            logger.warning("Failed to parse confirmation payload: %s", raw_value)
+            return
+
+        confirmed = bool(confirmation_payload.get("confirmed"))
+        conversation_id = confirmation_payload.get("conversation_id")
+        trace_id = confirmation_payload.get("trace_id")
+        agent_name = (
+            confirmation_payload.get("agent_system_name")
+            or agent_system_name
+        )
+        confirmation_card_payload = (
+            confirmation_payload.get("confirmation_card") or {}
+        )
+
+        raw_request_ids = confirmation_payload.get("request_ids") or []
+        if isinstance(raw_request_ids, list):
+            request_ids = [str(item) for item in raw_request_ids if item]
+        elif raw_request_ids:
+            request_ids = [str(raw_request_ids)]
+        else:
+            request_ids = []
+
+        user_id = (body.get("user") or {}).get("id")
+        channel_id = (body.get("channel") or {}).get("id") or body.get("container", {}).get("channel_id")
+        message_ts = (body.get("message") or {}).get("ts") or body.get("container", {}).get("message_ts")
+
+        if not conversation_id or not user_id or not request_ids:
+            logger.warning(
+                "Confirmation interaction missing data (conversation=%s user=%s request_ids=%s)",
+                conversation_id,
+                user_id,
+                request_ids,
+            )
+            warning_text = ":warning: Sorry, I couldn't process your confirmation."
+            await _update_confirmation_message(
+                client,
+                channel_id,
+                message_ts,
+                text=warning_text,
+                blocks=[
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": warning_text},
+                    }
+                ],
+                logger=logger,
+                log_context="action_confirmation_missing_data",
+            )
+            return
+
+        try:
+            assistant_payload = await handle_action_confirmation(
+                agent_system_name=agent_name,
+                user_id=user_id,
+                conversation_id=conversation_id,
+                request_ids=request_ids,
+                confirmed=confirmed,
+                **observability_overrides(trace_id=trace_id, consumer_name="Slack"),
+            )
+        except Exception:
+            logger.exception(
+                "Failed to process action confirmation (conversation=%s user=%s)",
+                conversation_id,
+                user_id,
+            )
+            error_text = ":warning: Something went wrong while processing your response."
+            await _update_confirmation_message(
+                client,
+                channel_id,
+                message_ts,
+                text=error_text,
+                blocks=[
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": error_text},
+                    }
+                ],
+                logger=logger,
+                log_context="action_confirmation_failure",
+            )
+            return
+
+        ack_text = ":white_check_mark: Action confirmed." if confirmed else ":x: Action rejected."
+        ack_blocks = create_confirmation_ack_blocks(confirmation_card_payload, confirmed)
+
+        await _update_confirmation_message(
+            client,
+            channel_id,
+            message_ts,
+            text=ack_text,
+            blocks=ack_blocks,
+            logger=logger,
+            log_context="action_confirmation_update",
+        )
+
+        if not assistant_payload:
+            logger.info(
+                "Confirmation interaction returned no follow-up payload (conversation=%s)",
+                conversation_id,
+            )
+            return
+
+        if not channel_id:
+            logger.warning(
+                "Missing channel_id for follow-up response after confirmation (conversation=%s)",
+                conversation_id,
+            )
+            return
+
+        fallback_text = to_slack_mrkdwn(_payload_text(assistant_payload)) or "Magnet response"
+        response_blocks = create_assistant_response_blocks(assistant_payload)
+        follow_up_payload: dict[str, Any] = {
+            "channel": channel_id,
+            "text": fallback_text,
+        }
+        if response_blocks:
+            follow_up_payload["blocks"] = response_blocks
+
+        try:
+            await client.chat_postMessage(**follow_up_payload)
+        except SlackApiError:
+            logger.exception(
+                "Failed to send follow-up response after confirmation (conversation=%s channel=%s)",
+                conversation_id,
+                channel_id,
+            )
+
     @app.command("/welcome")
     async def handle_welcome_command(
         ack: Any,
@@ -270,6 +460,7 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                 agent_system_name=agent_system_name,
                 user_id=user_id,
                 text=user_message,
+                consumer_name="Slack",
             )
         except Exception:
             logger.exception("Error while continuing conversation for app_mention (channel=%s)", channel)
@@ -278,6 +469,13 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
 
         raw_text = _payload_text(assistant_payload)
         fallback_text = to_slack_mrkdwn(raw_text)
+        if not fallback_text:
+            if assistant_payload and (
+                assistant_payload.get("requires_confirmation")
+            ):
+                fallback_text = "Magnet needs your confirmation before running the requested action."
+            else:
+                fallback_text = "Magnet response"
         blocks = create_assistant_response_blocks(assistant_payload)
         message_payload: dict[str, Any] = {"text": fallback_text}
         if blocks:
@@ -320,6 +518,7 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                 agent_system_name=agent_system_name,
                 user_id=user_id,
                 text=user_message,
+                consumer_name="Slack",
             )
         except Exception:
             logger.exception("Error while continuing conversation for message (channel=%s)", channel)
@@ -327,7 +526,14 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             return
 
         raw_text = _payload_text(assistant_payload)
-        fallback_text = to_slack_mrkdwn(raw_text) or "Magnet answer"
+        fallback_text = to_slack_mrkdwn(raw_text)
+        if not fallback_text:
+            if assistant_payload and (
+                assistant_payload.get("requires_confirmation")
+            ):
+                fallback_text = "Magnet needs your confirmation before running the requested action."
+            else:
+                fallback_text = "Magnet answer"
         blocks = create_assistant_response_blocks(assistant_payload)
         message_payload: dict[str, Any] = {"text": fallback_text}
         if blocks:
@@ -341,6 +547,26 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             logger,
             log_context="message",
         )
+
+
+    @app.action("confirm_action_request")
+    async def handle_confirm_action_request(
+        ack: Any,
+        body: dict[str, Any],
+        client: AsyncWebClient,
+        logger: logging.Logger,
+    ) -> None:
+        await _handle_action_confirmation_interaction(ack, body, client, logger)
+
+
+    @app.action("reject_action_request")
+    async def handle_reject_action_request(
+        ack: Any,
+        body: dict[str, Any],
+        client: AsyncWebClient,
+        logger: logging.Logger,
+    ) -> None:
+        await _handle_action_confirmation_interaction(ack, body, client, logger)
 
 
     @app.error
@@ -386,10 +612,10 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             except (TypeError, ValueError):
                 logger.warning("Failed to parse like_answer action payload: %s", action["value"])
 
-        message_id = payload.get("messageId")
-        conversation_id = payload.get("conversationId")
+        message_id = payload.get("message_id")
+        conversation_id = payload.get("conversation_id")
         logger.info(
-            "like_answer payload: channel=%s ts=%s messageId=%s conversationId=%s",
+            "like_answer payload: channel=%s ts=%s message_id=%s conversation_id=%s",
             channel_id,
             ts,
             message_id,
@@ -421,6 +647,7 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                 conversation_id=conversation_id,
                 message_id=message_id,
                 data=feedback,
+                consumer_name="Slack",
             )
         except Exception:
             logger.exception("Failed to persist like feedback (conversation=%s message=%s)", conversation_id, message_id)
@@ -448,27 +675,27 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             except (TypeError, ValueError):
                 logger.warning("Failed to parse dislike_answer action payload: %s", action["value"])
 
-        message_id = payload.get("messageId")
-        conversation_id = payload.get("conversationId")
+        message_id = payload.get("message_id")
+        conversation_id = payload.get("conversation_id")
         logger.info(
-            "dislike_answer payload: channel=%s ts=%s messageId=%s conversationId=%s",
+            "dislike_answer payload: channel=%s ts=%s message_id=%s conversation_id=%s",
             channel_id,
             ts,
             message_id,
             conversation_id,
         )
 
+        metadata_payload: dict[str, Any] = {
+            "channel_id": channel_id,
+            "ts": ts,
+            "message_id": message_id,
+            "conversation_id": conversation_id,
+        }
+
         view = {
             "type": "modal",
             "callback_id": "dislike_feedback_modal",
-            "private_metadata": json.dumps(
-                {
-                    "channelId": channel_id,
-                    "ts": ts,
-                    "messageId": message_id,
-                    "conversationId": conversation_id,
-                }
-            ),
+            "private_metadata": json.dumps(metadata_payload),
             "title": {"type": "plain_text", "text": "Feedback"},
             "submit": {"type": "plain_text", "text": "Submit"},
             "close": {"type": "plain_text", "text": "Cancel"},
@@ -514,6 +741,80 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             logger.exception("views.open failed for dislike_answer action.")
 
 
+    @app.action("close_conversation")
+    async def handle_close_conversation(
+        body: dict[str, Any],
+        ack: Any,
+        respond: AsyncRespond,
+        logger: logging.Logger,
+    ) -> None:
+        await ack()
+
+        message_blocks = body.get("message", {}).get("blocks") or []
+        action = _get_first(body.get("actions") or [])
+        payload: dict[str, Any] = {}
+        if action and action.get("value"):
+            try:
+                payload = json.loads(action["value"])
+            except (TypeError, ValueError):
+                logger.warning("Failed to parse close_conversation action payload: %s", action["value"])
+
+        conversation_id = payload.get("conversation_id")
+        message_id = payload.get("message_id")
+        logger.info(
+            "close_conversation payload: conversation_id=%s message_id=%s",
+            conversation_id,
+            message_id,
+        )
+
+        if not conversation_id:
+            try:
+                await respond(
+                    {
+                        "response_type": "ephemeral",
+                        "text": "I couldn't determine which conversation to close.",
+                    }
+                )
+            except Exception:
+                logger.exception("Failed to send close_conversation missing ID response.")
+            return
+
+        try:
+            await close_conversation_by_id(conversation_id)
+        except Exception:
+            logger.exception(
+                "Failed to close conversation via button (conversation_id=%s message_id=%s)",
+                conversation_id,
+                message_id,
+            )
+            try:
+                await respond(
+                    {
+                        "response_type": "ephemeral",
+                        "text": "Failed to close the conversation. Please try again.",
+                    }
+                )
+            except Exception:
+                logger.exception("Failed to send close_conversation failure response.")
+            return
+
+        updated_blocks = update_blocks_with_closed_conversation(message_blocks)
+        try:
+            await respond(
+                {
+                    "replace_original": True,
+                    "text": "Conversation closed.",
+                    "blocks": updated_blocks or message_blocks,
+                }
+            )
+        except Exception:
+            logger.exception(
+                "Failed to update message after close_conversation action (conversation_id=%s message_id=%s)",
+                conversation_id,
+                message_id,
+            )
+
+
     @app.action("open_conversation")
     async def handle_open_conversation(ack: Any) -> None:
         await ack()
@@ -542,10 +843,11 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             except (TypeError, ValueError):
                 logger.warning("Failed to parse private metadata for dislike modal: %s", metadata_raw)
 
-        channel_id = metadata.get("channelId")
+        channel_id = metadata.get("channel_id")
         ts = metadata.get("ts")
-        message_id = metadata.get("messageId")
-        conversation_id = metadata.get("conversationId")
+        message_id = metadata.get("message_id")
+        conversation_id = metadata.get("conversation_id")
+        initial_blocks: list[dict[str, Any]] = []
         reason = (
             view.get("state", {})
             .get("values", {})
@@ -562,7 +864,7 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             .get("value", "")
         )
 
-        history_blocks: list[dict[str, Any]] = []
+        history_blocks: list[dict[str, Any]] = deepcopy(initial_blocks)
         if channel_id and ts:
             try:
                 history = await client.conversations_history(
@@ -572,6 +874,12 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                     limit=1,
                 )
                 history_blocks = (history.get("messages") or [{}])[0].get("blocks") or []
+                logger.debug(
+                    "dislike_feedback_modal fetched blocks: channel=%s ts=%s blocks_count=%s",
+                    channel_id,
+                    ts,
+                    len(history_blocks),
+                )
             except SlackApiError:
                 logger.exception("Failed to fetch conversation history for dislike feedback.")
 
@@ -580,15 +888,28 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             "dislike_answer",
             {"reason": reason, "comment": comment},
         )
+        logger.debug(
+            "dislike_feedback_modal updated blocks prepared: channel=%s ts=%s updated_count=%s",
+            channel_id,
+            ts,
+            len(updated_blocks),
+        )
 
         if channel_id and ts:
             try:
-                await client.chat_update(
+                response = await client.chat_update(
                     channel=channel_id,
                     ts=ts,
                     text="Thanks for your feedback!",
                     blocks=updated_blocks or history_blocks,
                 )
+                if not response.get("ok", False):
+                    logger.warning(
+                        "chat_update returned non-ok for dislike feedback (channel=%s ts=%s error=%s)",
+                        channel_id,
+                        ts,
+                        response.get("error"),
+                    )
             except SlackApiError:
                 logger.exception("Failed to update message after dislike feedback (channel=%s ts=%s)", channel_id, ts)
 
@@ -608,6 +929,7 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                     conversation_id=conversation_id,
                     message_id=message_id,
                     data=feedback,
+                    consumer_name="Slack",
                 )
             except Exception:
                 logger.exception(
