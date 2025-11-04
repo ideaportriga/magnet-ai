@@ -2,7 +2,7 @@
 
 # from .agent import Agent
 # from .agent_conversation import AgentConversation
-# from .ai_app import AIApp
+from .ai_app import AIApp
 from .ai_model import AIModel
 from .api_key import APIKey
 
@@ -20,6 +20,7 @@ from .trace import Trace
 __all__ = [
     "UUIDAuditEntityBase",
     "UUIDAuditSimpleBase",
+    "AIApp",
     "AIModel",
     "APIKey",
     "Collection",
@@ -29,7 +30,6 @@ __all__ = [
     "Trace",
     # "AgentConversation",
     # "Agent",
-    # "AIApp",
     # "APITool",
     # "EvaluationSet",
     "Evaluation",

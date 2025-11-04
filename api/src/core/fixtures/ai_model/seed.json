@@ -21,7 +21,7 @@
         "resources": "",
         "configs": null,
         "name": "",
-        "description": "_COPY_COPY",
+        "description": "",
         "system_name": "OPENAI_GPT-5-CHAT-LATEST",
         "category": null
     },
@@ -47,7 +47,7 @@
         "resources": "",
         "configs": null,
         "name": "",
-        "description": "_COPY",
+        "description": "",
         "system_name": "OPENAI_GPT-5-MINI",
         "category": null
     },
@@ -73,7 +73,7 @@
         "resources": "",
         "configs": null,
         "name": "",
-        "description": "_COPY",
+        "description": "",
         "system_name": "OPENAI_GPT-5",
         "category": null
     },

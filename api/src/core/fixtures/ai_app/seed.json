@@ -9,7 +9,13 @@
       {
         "name": "Agent",
         "config": {
-          "agent": "DEMO_AGENT_-_MAGNET_AI_HELP"
+          "agent": {
+            "name": "Demo Agent - Magnet AI Help",
+            "label": "Demo Agent - Magnet AI Help",
+            "description": "Demo Agent that helps users with Magnet AI admin panel",
+            "system_name": "DEMO_AGENT_-_MAGNET_AI_HELP",
+            "active_variant": "variant_1"
+          }
         },
         "tab_type": "Agent",
         "description": "",

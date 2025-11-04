@@ -157,6 +157,12 @@ class FixtureLoader:
             if entity_name == "ai_model":
                 module_path = "src.core.db.models.ai_model"
                 class_name = "AIModel"
+            elif entity_name == "ai_app":
+                module_path = "src.core.db.models.ai_app"
+                class_name = "AIApp"
+            elif entity_name == "mcp_server":
+                module_path = "src.core.db.models.mcp_server"
+                class_name = "MCPServer"
             elif entity_name == "evaluation_set":
                 module_path = "src.core.db.models.evaluation_set.evaluation_set"
                 class_name = "EvaluationSet"
