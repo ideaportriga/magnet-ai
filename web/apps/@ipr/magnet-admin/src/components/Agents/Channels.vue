@@ -81,14 +81,6 @@ div.q-mr-8
         placeholder='Enter Slack Signing Secret',
         fake-encrypted-value='******',
       ).q-mt-md
-      km-encrypted-input(
-        :value='slack_state_secret',
-        @update:value='slack_state_secret = $event',
-        :encrypted-value='has_slack_encryptes.state_secret',
-        label='State Secret',
-        placeholder='Enter Slack State Secret',
-        fake-encrypted-value='******',
-      ).q-mt-md
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
       km-input(v-model='slack_scopes', placeholder='Enter Slack Agent Scopes (comma separated)')
       km-btn(label='Connect to Slack', color='white', @click='openSlackInstall', :disable='isSlackInstallDisabled', :contentStyle='"width: auto;"').q-mt-md
@@ -246,14 +238,6 @@ const slack_signing_secret = computed({
   }
 })
 
-const slack_state_secret = computed({
-  get(){
-    return store.getters.agent_detail?.channels?.slack?.state_secret || ''
-  },
-  set(value){
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.state_secret', value: value })
-  }
-})
 const slack_scopes = computed({
   get(){
     return store.getters.agent_detail?.channels?.slack?.agent_scopes || ''
@@ -268,7 +252,6 @@ const has_slack_encryptes = computed(() => {
     token: store.getters.agent_detail?.channels?.slack?.token_encrypted || false,  
     signing_secret: store.getters.agent_detail?.channels?.slack?.signing_secret_encrypted || false,
     client_secret: store.getters.agent_detail?.channels?.slack?.client_secret_encrypted || false,
-    state_secret: store.getters.agent_detail?.channels?.slack?.state_secret_encrypted || false,
   }
 })
 

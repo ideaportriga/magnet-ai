@@ -69,23 +69,20 @@ class SlackChannel(SlackChannelBase):
     token_encrypted: Optional[str] = Field(default=None, alias="token", description="Slack token encrypted")
     signing_secret_encrypted: Optional[str] = Field(default=None, alias="signing_secret", description="Slack signing secret encrypted")
     client_secret_encrypted: Optional[str] = Field(default=None, alias="client_secret", description="Slack client secret encrypted")
-    state_secret_encrypted: Optional[str] = Field(default=None, alias="state_secret", description="Slack state secret encrypted")
 
 class SlackChannelUpdate(SlackChannelBase):
     """Slack channel update schema."""
     token: Optional[str] = Field(default=None, description="Slack token")
     signing_secret: Optional[str] = Field(default=None, description="Slack signing secret")
     client_secret: Optional[str] = Field(default=None, description="Slack client secret")
-    state_secret: Optional[str] = Field(default=None, description="Slack state secret")
     #encrypted are only used for validation, not saved to database
     token_encrypted: Optional[str] = Field(default=None, exclude=True, description="Slack token encrypted")
     signing_secret_encrypted: Optional[str] = Field(default=None, exclude=True, description="Slack signing secret encrypted")
     client_secret_encrypted: Optional[str] = Field(default=None, exclude=True, description="Slack client secret encrypted")
-    state_secret_encrypted: Optional[str] = Field(default=None, exclude=True, description="Slack state secret encrypted")
     @model_validator(mode="after")
     def encrypt_secrets(self):
         """Encrypt secrets before sending to database."""
-        secret_fields = ["token", "signing_secret", "client_secret", "state_secret"]
+        secret_fields = ["token", "signing_secret", "client_secret"]
         
         for field_name in secret_fields:
             value = getattr(self, field_name)

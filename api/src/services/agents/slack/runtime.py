@@ -13,6 +13,7 @@ from core.config.app import alchemy
 from .handlers import attach_default_handlers
 from .installation_store import SlackInstallationStore
 from .state_store import SlackOAuthStateStore
+from utils.secrets import decrypt_string
 
 
 logger = logging.getLogger(__name__)
@@ -124,15 +125,13 @@ async def discover_bots_from_db() -> Sequence[SlackRuntime]:
         SELECT
             a.name AS name, 
 			a.system_name AS system_name,
-            elem->'value'->'secrets_encrypted'->'slack'->>'token' AS token,
-            elem->'value'->'credentials'->'slack'->>'client_id' AS client_id,
-            elem->'value'->'secrets_encrypted'->'slack'->>'signing_secret' AS signing_secret,
-            elem->'value'->'secrets_encrypted'->'slack'->>'client_secret' AS client_secret,
-            elem->'value'->'credentials'->'slack'->>'scopes' AS scopes
-        FROM agents a,
-             jsonb_array_elements(a.variants) AS elem
-        WHERE 
-          COALESCE(elem->'value'->'credentials'->'slack'->>'client_id', '') <> ''
+   		    a.channels #>> '{slack,client_id}' AS client_id,
+   		    a.channels #>> '{slack,client_secret}' AS client_secret,
+   		    a.channels #>> '{slack,signing_secret}' AS signing_secret,
+   		    a.channels #>> '{slack,token}' AS token,
+   		    a.channels #>> '{slack,scopes}' AS scopes
+        FROM agents a
+        WHERE COALESCE((a.channels -> 'slack' -> 'enabled')::boolean, false ) = true        
         """
     )
 
@@ -145,10 +144,10 @@ async def discover_bots_from_db() -> Sequence[SlackRuntime]:
         bots.append(
             _build_bot_from_db(
                 name=row.get("name"),
-                token=row.get("token"),
-                signing_secret=row.get("signing_secret"),
                 client_id=row.get("client_id"),
-                client_secret=row.get("client_secret"),
+                client_secret=decrypt_string(row.get("client_secret")),
+                signing_secret=decrypt_string(row.get("signing_secret")),
+                token=decrypt_string(row.get("token")),
                 scopes=row.get("scopes"),
                 agent_system_name=row.get('system_name'),
             )

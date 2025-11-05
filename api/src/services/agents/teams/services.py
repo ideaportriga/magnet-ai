@@ -21,7 +21,7 @@ async def resolve_teams_by_client_id(client_id: str) -> tuple[str | None, str | 
             a.channels #>> '{ms_teams,tenant_id}'  AS tenant_id,
             a.channels #>> '{ms_teams,secret_value}' AS secret_value
         FROM agents a
-            WHERE COALESCE(a.channels -> 'ms_teams' ->> 'client_id', '') = '3'
+            WHERE COALESCE(a.channels -> 'ms_teams' ->> 'client_id', '') = :client_id
             AND COALESCE((a.channels -> 'ms_teams' -> 'enabled')::boolean, false ) = true
         LIMIT 1
         """
