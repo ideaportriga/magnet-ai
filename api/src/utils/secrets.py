@@ -1,5 +1,6 @@
 import json
 from logging import getLogger
+from advanced_alchemy.types import EncryptedText
 from cryptography.fernet import Fernet
 
 from core.config.base import get_general_settings
@@ -42,35 +43,37 @@ def decrypt_secrets(secrets_encrypted: str) -> dict[str, str]:
 
 
 def encrypt_string(value: str) -> str:
-    """Encrypt a single string value using Fernet."""
+    """Encrypt a single string value using EncryptedText."""
     if not SECRET_ENCRYPTION_KEY:
         logger.error("Cannot encrypt string - SECRET_ENCRYPTION_KEY is not set.")
         raise ValueError("SECRET_ENCRYPTION_KEY is not set. Cannot encrypt value.")
 
     try:
-        fernet = Fernet(SECRET_ENCRYPTION_KEY)
-        value = value.encode(SECRET_ENCRYPTION_ENCODING)
-        encrypted_value = fernet.encrypt(value).decode(SECRET_ENCRYPTION_ENCODING)
+        encrypted_type = EncryptedText(key=SECRET_ENCRYPTION_KEY)
+        encrypted_value = encrypted_type.process_bind_param(value, None)
+        if isinstance(encrypted_value, bytes):
+            encrypted_value = encrypted_value.decode(SECRET_ENCRYPTION_ENCODING)
     except ValueError as e:
         logger.error(f"Invalid SECRET_ENCRYPTION_KEY format: {str(e)}")
         raise ValueError(f"Invalid SECRET_ENCRYPTION_KEY format: {str(e)}") from e
     except Exception as e:
         logger.error(f"Failed to encrypt string: {str(e)}")
-        raise ValueError(f"Failed to encrypt string: {str(e)}") from e
+        raise ValueError(f"Failed to encrypt string: {str(e)}")
 
     return encrypted_value
 
 
 def decrypt_string(encrypted_value: str) -> str:
-    """Decrypt a single string value using Fernet."""
+    """Decrypt a single string value using EncryptedText."""
     if not SECRET_ENCRYPTION_KEY:
         logger.error("Cannot decrypt string - SECRET_ENCRYPTION_KEY is not set.")
         raise ValueError("SECRET_ENCRYPTION_KEY is not set. Cannot decrypt value.")
 
     try:
-        fernet = Fernet(SECRET_ENCRYPTION_KEY)
-        encrypted_value = encrypted_value.encode(SECRET_ENCRYPTION_ENCODING)
-        decrypted_value = fernet.decrypt(encrypted_value).decode(SECRET_ENCRYPTION_ENCODING)
+        encrypted_type = EncryptedText(key=SECRET_ENCRYPTION_KEY)
+        decrypted_value = encrypted_type.process_result_value(encrypted_value, None)
+        if isinstance(decrypted_value, bytes):
+            decrypted_value = decrypted_value.decode(SECRET_ENCRYPTION_ENCODING)
     except ValueError as e:
         logger.error(f"Invalid SECRET_ENCRYPTION_KEY format: {str(e)}")
         raise ValueError(f"Invalid SECRET_ENCRYPTION_KEY format: {str(e)}") from e
