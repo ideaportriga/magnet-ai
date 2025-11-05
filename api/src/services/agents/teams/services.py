@@ -2,6 +2,8 @@ from logging import getLogger
 from sqlalchemy import text
 from core.config.app import alchemy
 
+from utils.secrets import decrypt_string
+
 
 logger = getLogger(__name__)
 
@@ -14,12 +16,13 @@ async def resolve_teams_by_client_id(client_id: str) -> tuple[str | None, str | 
     """
     sql = text(
         """
-        SELECT a.system_name AS agent_system_name,
-               elem->'value'->'credentials'->>'tenant_id' AS tenant_id,
-               elem->'value'->'secrets_encrypted'->>'secret_value' AS secret_value
-        FROM agents a,
-             jsonb_array_elements(a.variants) AS elem
-        WHERE elem->'value'->'credentials'->>'client_id' = :client_id
+        SELECT
+            a.system_name AS agent_system_name,
+            a.channels #>> '{ms_teams,tenant_id}'  AS tenant_id,
+            a.channels #>> '{ms_teams,secret_value}' AS secret_value
+        FROM agents a
+            WHERE COALESCE(a.channels -> 'ms_teams' ->> 'client_id', '') = '3'
+            AND COALESCE((a.channels -> 'ms_teams' -> 'enabled')::boolean, false ) = true
         LIMIT 1
         """
     )
@@ -31,6 +34,6 @@ async def resolve_teams_by_client_id(client_id: str) -> tuple[str | None, str | 
     if not row:
         return None, None, None
 
-    return row.agent_system_name, row.tenant_id, row.secret_value
+    return row.agent_system_name, row.tenant_id, decrypt_string(row.secret_value)
 
 
