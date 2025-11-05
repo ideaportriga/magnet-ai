@@ -79,14 +79,14 @@ export default {
         }))
     },
     isIconHide() {
-      return this.ai_app?.is_icon_hide
+      return this.ai_app?.settings?.is_icon_hide
     },
     show_close_button() {
-      return this.ai_app?.show_close_button || false
+      return this.ai_app?.settings?.show_close_button || false
     },
     appTheme() {
       if (!this.ai_app) return
-      return this.ai_app.theme ?? 'siebel'
+      return this.ai_app.settings.theme ?? 'siebel'
     },
   },
   watch: {
@@ -120,6 +120,8 @@ export default {
       window.addEventListener(
         'message',
         (event) => {
+          debugger;
+          console.log('event', event)
           if (event.origin !== this.baseUrl?.admin) return
           this.parentApp = JSON.parse(event.data.app) // JSON.parse(event.data.app)
         },
