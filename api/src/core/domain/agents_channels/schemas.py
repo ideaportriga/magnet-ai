@@ -57,6 +57,28 @@ class MsTeamsChannelUpdate(MsTeamsChannelBase):
         
         return self
 
+    @model_validator(mode="after")
+    def validate_required_fields(self):
+        if self.enabled:
+            missing_fields = []
+
+            if not (self.client_id or "").strip():
+                missing_fields.append("client_id")
+
+            if not (self.tenant_id or "").strip():
+                missing_fields.append("tenant_id")
+
+            if not self.secret_value:
+                missing_fields.append("secret_value")
+
+            if missing_fields:
+                joined = ", ".join(missing_fields)
+                raise ValueError(
+                    f"MS Teams channel requires {joined} when enabled"
+                )
+
+        return self
+
 
 class SlackChannelBase(BaseModel):
     """Slack channel base schema."""
@@ -101,6 +123,28 @@ class SlackChannelUpdate(SlackChannelBase):
                 except ValueError as e:
                     raise ValueError(f"Failed to encrypt {field_name}: {str(e)}") from e
         
+        return self
+
+    @model_validator(mode="after")
+    def validate_required_fields(self):
+        if self.enabled:
+            if not (self.client_id or "").strip():
+                raise ValueError("Slack channel requires client_id when enabled")
+
+            has_token = bool(self.token)
+            has_full_credentials = all(
+                [
+                    self.client_secret,
+                    self.signing_secret,
+                    (self.agent_scopes or "").strip(),
+                ]
+            )
+
+            if not (has_token or has_full_credentials):
+                raise ValueError(
+                    "Slack channel requires either token or signing_secret, client_secret, and agent_scopes when enabled"
+                )
+
         return self
 
 
