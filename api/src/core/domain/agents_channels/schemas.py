@@ -57,6 +57,28 @@ class MsTeamsChannelUpdate(MsTeamsChannelBase):
         
         return self
 
+    @model_validator(mode="after")
+    def validate_required_fields(self):
+        if self.enabled:
+            missing_fields = []
+
+            if not (self.client_id or "").strip():
+                missing_fields.append("client_id")
+
+            if not (self.tenant_id or "").strip():
+                missing_fields.append("tenant_id")
+
+            if not self.secret_value:
+                missing_fields.append("secret_value")
+
+            if missing_fields:
+                joined = ", ".join(missing_fields)
+                raise ValueError(
+                    f"MS Teams channel requires {joined} when enabled"
+                )
+
+        return self
+
 
 class SlackChannelBase(BaseModel):
     """Slack channel base schema."""
@@ -69,23 +91,20 @@ class SlackChannel(SlackChannelBase):
     token_encrypted: Optional[str] = Field(default=None, alias="token", description="Slack token encrypted")
     signing_secret_encrypted: Optional[str] = Field(default=None, alias="signing_secret", description="Slack signing secret encrypted")
     client_secret_encrypted: Optional[str] = Field(default=None, alias="client_secret", description="Slack client secret encrypted")
-    state_secret_encrypted: Optional[str] = Field(default=None, alias="state_secret", description="Slack state secret encrypted")
 
 class SlackChannelUpdate(SlackChannelBase):
     """Slack channel update schema."""
     token: Optional[str] = Field(default=None, description="Slack token")
     signing_secret: Optional[str] = Field(default=None, description="Slack signing secret")
     client_secret: Optional[str] = Field(default=None, description="Slack client secret")
-    state_secret: Optional[str] = Field(default=None, description="Slack state secret")
     #encrypted are only used for validation, not saved to database
     token_encrypted: Optional[str] = Field(default=None, exclude=True, description="Slack token encrypted")
     signing_secret_encrypted: Optional[str] = Field(default=None, exclude=True, description="Slack signing secret encrypted")
     client_secret_encrypted: Optional[str] = Field(default=None, exclude=True, description="Slack client secret encrypted")
-    state_secret_encrypted: Optional[str] = Field(default=None, exclude=True, description="Slack state secret encrypted")
     @model_validator(mode="after")
     def encrypt_secrets(self):
         """Encrypt secrets before sending to database."""
-        secret_fields = ["token", "signing_secret", "client_secret", "state_secret"]
+        secret_fields = ["token", "signing_secret", "client_secret"]
         
         for field_name in secret_fields:
             value = getattr(self, field_name)
@@ -104,6 +123,28 @@ class SlackChannelUpdate(SlackChannelBase):
                 except ValueError as e:
                     raise ValueError(f"Failed to encrypt {field_name}: {str(e)}") from e
         
+        return self
+
+    @model_validator(mode="after")
+    def validate_required_fields(self):
+        if self.enabled:
+            if not (self.client_id or "").strip():
+                raise ValueError("Slack channel requires client_id when enabled")
+
+            has_token = bool(self.token)
+            has_full_credentials = all(
+                [
+                    self.client_secret,
+                    self.signing_secret,
+                    (self.agent_scopes or "").strip(),
+                ]
+            )
+
+            if not (has_token or has_full_credentials):
+                raise ValueError(
+                    "Slack channel requires either token or signing_secret, client_secret, and agent_scopes when enabled"
+                )
+
         return self
 
 

@@ -48,7 +48,7 @@ km-popup-confirm(
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useChroma, required, toUpperCaseWithUnderscores } from '@shared'
 import { useRouter } from 'vue-router'
-import { useKnowledgeSourcePlugins } from '@/composables/useKnowledgeSourcePlugins'
+import { useStore } from 'vuex'
 
 export default {
   props: {
@@ -61,7 +61,7 @@ export default {
   setup() {
     const { create, ...useCollection } = useChroma('provider')
     const router = useRouter()
-    const pluginsComposable = useKnowledgeSourcePlugins()
+    const store = useStore()
 
     // Static fallback options
     const staticTypeOptions = [
@@ -74,23 +74,18 @@ export default {
       { label: 'Fluid Topics', value: 'fluid_topics' },
     ]
     
-    const typeOptions = ref(staticTypeOptions)
-    const loadingPlugins = ref(false)
-
-    // Load plugins on mount
-    onMounted(async () => {
-      loadingPlugins.value = true
-      await pluginsComposable.fetchPlugins()
-      
-      // Build type options from loaded plugins
-      if (pluginsComposable.plugins.value.length > 0) {
-        typeOptions.value = pluginsComposable.plugins.value.map(plugin => ({
+    // Get plugins from store
+    const plugins = computed(() => store.state.chroma?.plugins?.items || [])
+    
+    // Build type options from plugins in store
+    const typeOptions = computed(() => {
+      if (plugins.value.length > 0) {
+        return plugins.value.map(plugin => ({
           label: plugin.name,
           value: plugin.source_type,
         }))
       }
-      
-      loadingPlugins.value = false
+      return staticTypeOptions
     })
 
     return {
@@ -111,8 +106,7 @@ export default {
       autoChangeCode: ref(true),
       isMounted: ref(false),
       typeOptions,
-      loadingPlugins,
-      pluginsComposable,
+      plugins,
     }
   },
   computed: {

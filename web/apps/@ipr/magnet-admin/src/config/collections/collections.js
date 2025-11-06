@@ -3,10 +3,26 @@ import NameDescription from '@/config/rag-tools/component/NameDescription.vue'
 import { markRaw, ref } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { ChipCopy } from '@ui'
-import { useKnowledgeSourcePlugins } from '@/composables/useKnowledgeSourcePlugins'
+import store from '@/store'
 
-// Initialize plugin data
-const pluginsComposable = useKnowledgeSourcePlugins()
+/**
+ * Transform plugin field schema to frontend component config
+ */
+function transformFieldToComponent(field) {
+  const config = { ...field }
+
+  // Convert readonly_after_sync boolean to a function
+  if (field.readonly_after_sync) {
+    config.readonly = (collection) => !!collection?.last_synced
+    delete config.readonly_after_sync
+  } else if (typeof field.readonly === 'boolean') {
+    // Keep boolean readonly as-is
+    const readonlyValue = field.readonly
+    config.readonly = () => readonlyValue
+  }
+
+  return config
+}
 
 // Static sourceTypeChildren as fallback (will be replaced by dynamic data)
 const staticSourceTypeChildren = {
@@ -150,40 +166,61 @@ const staticSourceTypeChildren = {
 // Static source type options as fallback (extracted from staticSourceTypeChildren keys)
 const staticSourceTypeOptions = Object.keys(staticSourceTypeChildren).filter(key => key !== '')
 
-// Export reactive reference that will be updated when plugins are loaded
+// Export reactive references that will be updated when plugins are loaded
 export const sourceTypeChildren = ref(staticSourceTypeChildren)
 export const sourceTypeOptions = ref(staticSourceTypeOptions)
 
 /**
- * Initialize plugins data from backend
- * Call this function when the app starts or when the collections page is loaded
+ * Initialize plugins data from store
+ * Call this function after plugins have been loaded into the store
  */
-export async function initializePlugins() {
-  await pluginsComposable.fetchPlugins()
+export function initializePlugins() {
+  const plugins = store.state?.chroma?.plugins?.items || []
   
-  console.log('Plugins loaded:', pluginsComposable.plugins.value.length)
-  console.log('Source type options from composable:', pluginsComposable.sourceTypeOptions.value)
-  console.log('Source type children keys from composable:', Object.keys(pluginsComposable.sourceTypeChildren.value))
+  console.log('Initializing plugins from store:', plugins.length, 'plugins')
   
-  // Update reactive references with data from backend
-  if (pluginsComposable.plugins.value.length > 0) {
-    sourceTypeChildren.value = pluginsComposable.sourceTypeChildren.value
-    sourceTypeOptions.value = pluginsComposable.sourceTypeOptions.value
-    
-    console.log('Updated sourceTypeOptions to:', sourceTypeOptions.value)
-    console.log('Updated sourceTypeChildren keys to:', Object.keys(sourceTypeChildren.value))
+  if (plugins.length === 0) {
+    console.warn('No plugins found in store. Using static configuration.')
+    return
   }
-  
-  return {
-    plugins: pluginsComposable.plugins.value,
-    error: pluginsComposable.error.value,
+
+  // Build sourceTypeChildren from plugins
+  const children = {
+    '': [], // Empty source type
   }
+
+  plugins.forEach(plugin => {
+    const fields = plugin.source_fields || []
+    children[plugin.source_type] = fields.map(transformFieldToComponent)
+  })
+
+  // Build sourceTypeOptions
+  const options = plugins.map(plugin => plugin.source_type)
+
+  // Update reactive references with data from store
+  sourceTypeChildren.value = children
+  sourceTypeOptions.value = options
+  
+  console.log('Updated sourceTypeOptions to:', sourceTypeOptions.value)
+  console.log('Updated sourceTypeChildren keys to:', Object.keys(sourceTypeChildren.value))
 }
 
 /**
- * Export the composable for use in components that need provider fields
+ * Get provider fields configuration for a specific plugin type
  */
-export { useKnowledgeSourcePlugins }
+export function getProviderFields(pluginType) {
+  const plugins = store.state?.chroma?.plugins?.items || []
+  const plugin = plugins.find(p => p.source_type === pluginType)
+  
+  if (!plugin) return []
+
+  return (plugin.provider_fields || []).map(field => ({
+    ...transformFieldToComponent(field),
+    // Provider fields should not be readonly based on last_synced
+    readonly: false,
+  }))
+}
+
 const controls = {
   id: {
     name: 'id',

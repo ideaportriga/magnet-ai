@@ -2384,6 +2384,29 @@ const apiApiServers = {
   },
 }
 
+const apiPlugins = {
+  get: async (service, endpoint) => {
+    return await fetchData({
+      endpoint,
+      credentials: 'include',
+      service: `knowledge_sources/plugins`,
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+      })
+      .then((data) => {
+        return data?.plugins || []
+      })
+      .catch((response) => {
+        throw {
+          technicalError: response?.error,
+          text: `Error getting plugins`,
+        }
+      })
+  },
+}
+
 //entities
 export default {
   collections: {
@@ -2577,6 +2600,13 @@ export default {
     keyField: {
       field: 'id',
       urlKey: 'id',
+    },
+  },
+  plugins: {
+    config: { ...controlsDefaultProps },
+    api: apiPlugins,
+    keyField: {
+      field: 'source_type',
     },
   },
   // DONT' use "format" as the entity key
