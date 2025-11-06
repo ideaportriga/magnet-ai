@@ -37,10 +37,11 @@ export const registerGlobalProperties = (app) => {
   })
 }
 export const errorHandler = (err) => {
-  const errorMessage = {
-    technicalError: err.toString(),
-  }
   console.error(err)
+  // Uncomment when store is available:
+  // const errorMessage = {
+  //   technicalError: err.toString(),
+  // }
   // store.commit('set', { errorMessage, globalLoading: false, lockUI: false })
 }
 
