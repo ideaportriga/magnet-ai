@@ -1,4 +1,3 @@
-import _ from 'lodash'
 import { fetchData } from '@shared'
 
 const state = () => ({
