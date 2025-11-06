@@ -5,6 +5,7 @@
       .col-auto(style='width: 60px')
         .row.items-center(v-if='hovered[row.system_name] && !isMoving')
           km-btn(flat, icon='fas fa-bars', iconSize='20px', color='secondary-text')
+          q-tooltip(anchor='top middle', self='bottom middle') Drag to reorder AI Tab
       .col
         .row
           .col-auto.km-heading-4 {{ row.name }}
@@ -16,15 +17,19 @@
           div {{ getTabByVal(row.tab_type)?.label }}
       .col-auto(style='min-width: 85px')
         .row.items-center
-          km-btn.q-mr-sm(
-            v-if='hovered[row.system_name] || row.inactive',
-            flat,
-            :icon='row?.inactive ? "fas fa-eye-slash" : "fas fa-eye"',
-            @click.stop='setInactive',
-            iconSize='14px',
-            color='secondary-text'
-          )
-          km-btn(v-if='hovered[row.system_name]', flat, icon='fas fa-trash', @click.stop='removeRecord', iconSize='14px', color='secondary-text')
+          .col-auto
+            km-btn.q-mr-sm(
+              v-if='hovered[row.system_name] || row.inactive',
+              flat,
+              :icon='row?.inactive ? "fas fa-eye-slash" : "fas fa-eye"',
+              @click.stop='setInactive',
+              iconSize='14px',
+              color='secondary-text'
+            )
+            q-tooltip(anchor='top middle', self='bottom middle') {{ row?.inactive ? 'Activate AI Tab' : 'Deactivate AI Tab' }}
+          .col-auto
+            km-btn(v-if='hovered[row.system_name]', flat, icon='fas fa-trash', @click.stop='removeRecord', iconSize='14px', color='secondary-text')
+            q-tooltip(anchor='top middle', self='bottom middle') Delete AI Tab
 </template>
 <script>
 import { getTabByVal } from '@/config/ai_apps/tab_types'
