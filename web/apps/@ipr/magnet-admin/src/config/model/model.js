@@ -14,7 +14,7 @@ const categoryOptions = [
 
 const featureOptions = [
   { label: 'JSON Mode', value: 'json_mode' },
-  { label: 'Structure output', value: 'json_schema' },
+  { label: 'Structured Outputs', value: 'json_schema' },
   { label: 'Tool Calling', value: 'tool_calling' },
   { label: 'Reasoning', value: 'reasoning' },
 ]
