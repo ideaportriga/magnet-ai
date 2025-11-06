@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { useChroma } from '@shared'
+import { useStore } from 'vuex'
 
 /**
  * Composable for loading and managing knowledge source plugins from backend
@@ -8,32 +8,26 @@ import { useChroma } from '@shared'
  * into the format expected by the frontend forms.
  */
 export function useKnowledgeSourcePlugins() {
-  const plugins = ref([])
-  const loading = ref(false)
+  const store = useStore()
+  const entity = 'plugins'
+
+  const plugins = computed(() => store.state.chroma?.[entity]?.items || [])
+  const loading = computed(() => store.state.chroma?.[entity]?.loading || false)
   const error = ref(null)
 
   /**
-   * Fetch plugins from backend
+   * Fetch plugins from backend using standard chroma approach
    */
   async function fetchPlugins() {
-    loading.value = true
-    error.value = null
-
     try {
-      const response = await fetch('/api/admin/knowledge_sources/plugins')
-      if (!response.ok) {
-        throw new Error(`Failed to fetch plugins: ${response.statusText}`)
-      }
-      const data = await response.json()
-      plugins.value = data.plugins || []
+      error.value = null
+      await store.dispatch('chroma/get', { entity })
       
       console.log('Fetched plugins from API:', plugins.value.length, 'plugins')
       console.log('Plugin source types:', plugins.value.map(p => p.source_type))
     } catch (err) {
       error.value = err.message
       console.error('Error fetching knowledge source plugins:', err)
-    } finally {
-      loading.value = false
     }
   }
 

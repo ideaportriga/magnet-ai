@@ -7,6 +7,7 @@ div
       .col
       .col-auto
         km-btn(label='Delete all chunks', :loading='deleteLoading', @click='onDeleteAll')
+      .col.q-mx-sm
     .row
       km-table(
         ref='tableRef',

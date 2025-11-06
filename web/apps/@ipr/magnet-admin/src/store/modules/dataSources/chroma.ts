@@ -360,6 +360,7 @@ export const [baseGetters, chromaWrapperGetters] = generateGetters({
     'mcp_servers',
     'api_keys',
     'api_servers',
+    'plugins',
   ],
   namespace: 'chroma',
   getters,

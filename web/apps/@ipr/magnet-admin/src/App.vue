@@ -37,10 +37,12 @@ export default {
     const { ...mcp_servers } = useChroma('mcp_servers')
     const { ...api_keys } = useChroma('api_keys')
     const { ...api_servers } = useChroma('api_servers')
+    const { ...plugins } = useChroma('plugins')
     // const { ...jobs } = useChroma('jobs')
 
     const auth = useAuth()
     const { appContext } = getCurrentInstance()
+    
     return {
       loading,
       collections,
@@ -58,6 +60,7 @@ export default {
       mcp_servers,
       api_keys,
       api_servers,
+      plugins,
       // jobs,
       ...auth,
     }
@@ -99,10 +102,11 @@ export default {
 
   methods: {
     async loadData() {
-      // Load plugins configuration first
-      await initializePlugins().catch(err => {
-        console.error('Failed to load plugins configuration:', err)
-      })
+      // Load plugins first (needed for dynamic forms)
+      await this.plugins.get()
+      
+      // Initialize plugins configuration for collections (uses data from store)
+      initializePlugins()
       
       await Promise.all([
         this.collections.get(),
