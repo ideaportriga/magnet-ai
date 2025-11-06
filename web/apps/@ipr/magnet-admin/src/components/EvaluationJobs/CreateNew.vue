@@ -124,7 +124,6 @@ export default {
       default: false,
       type: Boolean,
     },
-    // eslint-disable-next-line vue/prop-name-casing
     system_name: {
       type: String,
       default: '',
@@ -244,28 +243,6 @@ export default {
       if (!this.validateFields()) return
 
       this.loading = true
-      // POST /scheduler/create-job
-      // Content-Type: application/json
-
-      // {
-      //     "name": "Custom Evaluation Job",
-      //     "job_type": "one_time_immediate",
-      //     "run_configuration": {
-      //         "type": "evaluation",
-      //         "params": {
-      //             "type": "rag_eval",
-      //             "iteration_count": 1,
-      //             "config": [
-      //                 {
-      //                     "system_name": "MAGNET_AI_MANUAL",
-      //                     "test_set_system_names": ["MANUAL_TEST_SET"],
-      //                     "variants": ["variant_1"]
-      //                 }
-      //             ],
-      //             "result_entity": "evaluations"
-      //         }
-      //     }
-      // }
       try {
         const job_type = this.evaluationSetType === 'prompt_template' ? 'prompt_eval' : 'rag_eval'
 
