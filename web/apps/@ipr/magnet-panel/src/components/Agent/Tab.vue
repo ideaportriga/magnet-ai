@@ -61,6 +61,8 @@
       .row.justify-end.q-py-md.items-center.justify-between
         .col-auto.q-mr-md(v-if='isUserMode')
           km-btn(flat, simple, icon='fas fa-redo', iconSize='16px', @click='clearChat')
+          q-tooltip(anchor='top middle', self='bottom middle') 
+            .km-label Start a new conversation
         .col-auto.q-mr-md(v-if='!isUserMode')
           km-btn(
             flat,

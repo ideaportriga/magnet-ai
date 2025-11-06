@@ -23,7 +23,7 @@ km-popup-confirm(
 
   template(v-if='newRow.tab_type === "RAG"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 RAG Tool
-      km-select(height='30px', placeholder='RAG Tool', :options='ragToolsOptions', v-model='ragToolCode', hasDropdownSearch, option-value='value')
+      km-select(height='30px', placeholder='RAG Tool', :options='ragToolsOptions', v-model='ragToolCode', hasDropdownSearch, option-value='value', ref='ragToolRef', :rules='ragToolRules')
   template(v-if='newRow.tab_type === "Retrieval"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Retrieval Tool
       km-select(
@@ -32,7 +32,9 @@ km-popup-confirm(
         :options='retrievalToolsOptions',
         v-model='retrievalToolCode',
         hasDropdownSearch,
-        option-value='value'
+        option-value='value',
+        ref='retrievalToolRef',
+        :rules='retrievalToolRules'
       ) 
   template(v-if='newRow.tab_type === "Custom"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Custom code
@@ -40,7 +42,7 @@ km-popup-confirm(
       .km-description.text-secondary-text.q-pb-4 Enter your custom code in JSON format
   template(v-if='newRow.tab_type === "Agent"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Agent
-      km-select(height='30px', placeholder='Agent', :options='agentsOptions', v-model='agentsCode', hasDropdownSearch, option-value='value')
+      km-select(height='30px', placeholder='Agent', :options='agentsOptions', v-model='agentsCode', hasDropdownSearch, option-value='value', ref='agentsRef', :rules='agentsRules')
 </template>
 <script>
 import { ref, reactive } from 'vue'
@@ -152,6 +154,33 @@ export default {
         this.newRow.config.retrieval_tool = val?.value
       },
     },
+    ragToolRules() {
+      if (this.newRow.tab_type !== 'RAG') return []
+      return [
+        (value) => {
+          const configValue = this.newRow.config.rag_tool
+          return !!configValue || 'RAG Tool is required'
+        }
+      ]
+    },
+    retrievalToolRules() {
+      if (this.newRow.tab_type !== 'Retrieval') return []
+      return [
+        (value) => {
+          const configValue = this.newRow.config.retrieval_tool
+          return !!configValue || 'Retrieval Tool is required'
+        }
+      ]
+    },
+    agentsRules() {
+      if (this.newRow.tab_type !== 'Agent') return []
+      return [
+        (value) => {
+          const configValue = this.newRow.config.agent
+          return !!configValue || 'Agent is required'
+        }
+      ]
+    },
   },
   watch: {},
   mounted() {
@@ -177,6 +206,19 @@ export default {
     },
     validateFields() {
       const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
+      
+      // Validate tool/agent fields based on tab type
+      if (this.newRow.tab_type === 'RAG') {
+        const ragToolValid = this.$refs.ragToolRef?.validate()
+        if (ragToolValid === false) return false
+      } else if (this.newRow.tab_type === 'Retrieval') {
+        const retrievalToolValid = this.$refs.retrievalToolRef?.validate()
+        if (retrievalToolValid === false) return false
+      } else if (this.newRow.tab_type === 'Agent') {
+        const agentsValid = this.$refs.agentsRef?.validate()
+        if (agentsValid === false) return false
+      }
+      
       return !validStates.includes(false)
     },
 

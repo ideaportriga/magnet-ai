@@ -29,7 +29,7 @@ layouts-details-layout(v-model:name='name', v-model:description='description', v
         template(v-else)
           .col.q-pt-md
             .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ tab_type }}
-            km-select(height='30px', placeholder='Retrieval Tool', :options='options', v-model='value', hasDropdownSearch, option-value='value')
+            km-select(height='30px', :placeholder='tab_type', :options='options', v-model='value', hasDropdownSearch, option-value='value')
           .row.q-pt-sm
             km-btn(flat, simple, :label='button_label', iconSize='16px', icon='fas fa-comment-dots', @click='openNewTab()')
   template(#drawer)
@@ -153,8 +153,8 @@ const path = computed(() => {
   } else if (tab_type.value === 'Agent') {
     link = `agents/`
   }
-  if (link && value.value) {
-    link += options.value.find((item) => item.system_name === value.value)?.id
+  if (link && value.value?.id) {
+    link += value.value.id 
   }
   return link
 })
@@ -200,7 +200,9 @@ watch(selectedRow, (newVal, oldVal) => {
 })
 
 onMounted(() => {
-  store.commit('setAIApp', selectedRow.value)
+  if (selectedRow.value?.id !== store.getters.ai_app?.id) {
+    store.commit('setAIApp', selectedRow.value)
+  }
 })
 </script>
 
