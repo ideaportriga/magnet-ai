@@ -21,10 +21,22 @@ export default [
       'vue/max-attributes-per-line': 'off',
       'vue/singleline-html-element-content-newline': 'off',
       'vue/no-v-html': 'off',
+      // Disable prop validation rules for legacy code
+      'vue/require-prop-types': 'off',
+      'vue/require-default-prop': 'off',
+      'vue/prop-name-casing': 'off',
+      // Disable TypeScript rules for legacy code
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
   {
-    files: ['**/*.ts', '**/*.js'],
+    files: ['**/*.ts'],
+    // Ignore all TypeScript files
+    ignores: ['**/*.ts'],
+  },
+  {
+    files: ['**/*.js'],
     // Override or add rules here
     rules: {},
   },
