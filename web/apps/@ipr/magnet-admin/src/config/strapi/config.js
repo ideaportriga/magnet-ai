@@ -125,9 +125,6 @@ const apiPrompts = {
   get: async () => {
     return store.getters?.strapi?.templates?.selectedRow?.prompts
   },
-  update: async () => {},
-  create: async () => {},
-  delete: async () => {},
 }
 
 export default {
