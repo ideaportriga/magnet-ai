@@ -112,7 +112,7 @@ export const createEntityStore = (namespace) => {
 
   // actions
   const actions = {
-    async saveEntity({ commit, dispatch, getters }, payload) {
+    async saveEntity({ commit, dispatch, getters }) {
       // TO FIX: This is a temporary solution. We need to find a better way to handle relationships between chroma and inner entities
       let entity = namespace
       if (namespace === 'modelConfig') {

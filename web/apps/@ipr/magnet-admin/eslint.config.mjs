@@ -7,6 +7,10 @@ export default [
   ...baseConfig,
   ...vue.configs['flat/recommended'],
   {
+    // Ignore all TypeScript files for this app
+    ignores: ['**/*.ts', '**/*.tsx'],
+  },
+  {
     files: ['**/*.vue'],
     languageOptions: {
       parserOptions: {
@@ -15,7 +19,7 @@ export default [
     },
   },
   {
-    files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.vue'],
+    files: ['**/*.js', '**/*.jsx', '**/*.vue'],
     rules: {
       'vue/multi-word-component-names': 'off',
       'vue/max-attributes-per-line': 'off',
@@ -25,23 +29,6 @@ export default [
       'vue/require-prop-types': 'off',
       'vue/require-default-prop': 'off',
       'vue/prop-name-casing': 'off',
-      // Disable TypeScript rules for legacy code
-      '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
     },
-  },
-  {
-    files: ['**/*.ts'],
-    // Ignore all TypeScript files
-    ignores: ['**/*.ts'],
-  },
-  {
-    files: ['**/*.js'],
-    // Override or add rules here
-    rules: {},
-  },
-  {
-    // Override or add rules here
-    rules: {},
   },
 ]
