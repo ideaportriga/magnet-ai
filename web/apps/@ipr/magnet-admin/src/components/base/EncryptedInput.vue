@@ -48,7 +48,7 @@ const props = defineProps({
   },
   fakeEncryptedValue: {
     type: String,
-    default: false,
+    default: '',
   },
 })
 
