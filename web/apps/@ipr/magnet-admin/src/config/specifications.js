@@ -208,7 +208,7 @@ export default [
       options: (context) => {
         const code = context['module']?.['content'] || ''
         const regex = /def\s+(\w+)\s*\([^()]*\):/g
-        let items = []
+        const items = []
         let match
         while ((match = regex.exec(code)) !== null) {
           items.push(match[1])
@@ -307,7 +307,7 @@ export default [
       options: (context) => {
         const code = context['module']?.['content'] || ''
         const regex = /def\s+(\w+)\s*\([^()]*\):/g
-        let items = []
+        const items = []
         let match
         while ((match = regex.exec(code)) !== null) {
           items.push(match[1])
@@ -381,7 +381,7 @@ export default [
       options: (context) => {
         const code = context['module']?.['content'] || ''
         const regex = /def\s+(\w+)\s*\([^()]*\):/g
-        let items = []
+        const items = []
         let match
         while ((match = regex.exec(code)) !== null) {
           items.push(match[1])
@@ -469,7 +469,7 @@ export default [
       options: (context) => {
         const code = context['module']?.['content'] || ''
         const regex = /def\s+(\w+)\s*\([^()]*\):/g
-        let items = []
+        const items = []
         let match
         while ((match = regex.exec(code)) !== null) {
           items.push(match[1])
@@ -556,7 +556,7 @@ export default [
       options: (context) => {
         const code = context['module']?.['content'] || ''
         const regex = /def\s+(\w+)\s*\([^()]*\):/g
-        let items = []
+        const items = []
         let match
         while ((match = regex.exec(code)) !== null) {
           items.push(match[1])
@@ -621,7 +621,7 @@ export default [
       options: (context) => {
         const code = context['module']?.['content'] || ''
         const regex = /def\s+(\w+)\s*\([^()]*\):/g
-        let items = []
+        const items = []
         let match
         while ((match = regex.exec(code)) !== null) {
           items.push(match[1])

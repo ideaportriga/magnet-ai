@@ -3,7 +3,7 @@ export default async ({ store }) => {
   const views = store.getters.views
   Object.keys(views).forEach((viewName) => (entities = { ...entities, ...(views[viewName]?.entities ?? {}) }))
 
-  let meta = {}
+  const meta = {}
   // await Promise.all(
   //   Object.keys(entities).map(async (entity) => {
   //     const location = `${window.__vite_public_path__ ?? ''}metadata/${entity}.json`

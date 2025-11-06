@@ -4,8 +4,8 @@ Pydantic schemas for agents channels validation.
 
 from __future__ import annotations
 from typing import Optional
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from utils.secrets import encrypt_string, decrypt_string
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from utils.secrets import encrypt_string
 
 
 
@@ -19,7 +19,6 @@ class WebChannel(BaseModel):
 
 class WebChannelUpdate(WebChannel):
     """Web channel update schema."""
-    pass
 
 class MsTeamsChannelBase(BaseModel):
     """MS Teams channel base schema."""

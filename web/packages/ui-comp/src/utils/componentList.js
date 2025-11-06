@@ -5,7 +5,7 @@ export function getComponentList(components) {
   // Automatic Global Registration of Components
   const baseComponentPrefix = 'km'
   const matchFile = /[\w-]+\.vue$/
-  let list = []
+  const list = []
 
   Object.entries(components).forEach(([path, definition]) => {
     let relativePath = getRelativePath(path)

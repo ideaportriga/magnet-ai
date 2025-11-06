@@ -20,7 +20,7 @@ import advanced_alchemy.types.datetime
 from core.db.types import EncryptedJsonB
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 __all__ = [
     "downgrade",

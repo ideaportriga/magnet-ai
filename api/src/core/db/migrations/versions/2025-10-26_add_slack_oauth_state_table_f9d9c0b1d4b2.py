@@ -18,7 +18,7 @@ import advanced_alchemy.types
 import advanced_alchemy.types.datetime
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 __all__ = [
     "downgrade",

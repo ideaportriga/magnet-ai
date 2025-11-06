@@ -73,7 +73,7 @@ function fieldmapToVueMock(controls, item) {
 // FUNCTIONS TO simplify PropSet <=> JS Object coversion
 function convertPropSetToJS(propSet, omitPropTypes = []) {
   if (propSet instanceof window.JSSPropertySet && !omitPropTypes.includes(propSet.GetType() ?? '')) {
-    let res = {}
+    const res = {}
 
     // map type, value
     const propType = propSet.GetType(),
@@ -88,7 +88,7 @@ function convertPropSetToJS(propSet, omitPropTypes = []) {
 
     // map props
     if (Object.prototype.hasOwnProperty.call(propSet, 'propArray')) {
-      for (let [key, value] of Object.entries(propSet.propArray)) {
+      for (const [key, value] of Object.entries(propSet.propArray)) {
         res[key] = value
       }
     }
@@ -97,7 +97,7 @@ function convertPropSetToJS(propSet, omitPropTypes = []) {
     if (Array.isArray(propSet.childArray) && propSet.childArray.length) {
       res.propChildren = []
       propSet.childArray.forEach((item) => {
-        let child = convertPropSetToJS(item, omitPropTypes)
+        const child = convertPropSetToJS(item, omitPropTypes)
         if (child) res.propChildren.push(child)
       })
     }
@@ -110,7 +110,7 @@ function convertPropSetToJS(propSet, omitPropTypes = []) {
 
 function convertJSToPropSet(obj) {
   if (typeof obj === 'object') {
-    let res = window.SiebelApp.S_App.NewPropertySet()
+    const res = window.SiebelApp.S_App.NewPropertySet()
 
     const { propType, propValue, propChildren, ...props } = obj
     // const props = {}
@@ -120,7 +120,7 @@ function convertJSToPropSet(obj) {
 
     // map props
     if (typeof props === 'object') {
-      for (let [key, value] of Object.entries(props)) {
+      for (const [key, value] of Object.entries(props)) {
         if (value !== undefined) res.SetProperty(key, value)
       }
     }
@@ -128,7 +128,7 @@ function convertJSToPropSet(obj) {
     // map children
     if (Array.isArray(propChildren)) {
       propChildren.forEach((item) => {
-        let child = convertJSToPropSet(item)
+        const child = convertJSToPropSet(item)
         if (child) res.AddChild(child)
       })
     }

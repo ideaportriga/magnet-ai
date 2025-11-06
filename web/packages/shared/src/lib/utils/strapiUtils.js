@@ -5,7 +5,7 @@ function transformStrapiResponse(data) {
   const config = this
   if (!data?.length) return []
   return data?.map((item) => {
-    let formated = {
+    const formated = {
       ...item,
       ...(item.attributes ?? {}),
     }

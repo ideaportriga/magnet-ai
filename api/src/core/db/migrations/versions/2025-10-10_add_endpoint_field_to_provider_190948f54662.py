@@ -15,13 +15,8 @@ import sqlalchemy as sa
 from alembic import op
 from advanced_alchemy.types import EncryptedString, EncryptedText, GUID, ORA_JSONB, DateTimeUTC
 from sqlalchemy import Text  # noqa: F401
-import advanced_alchemy.types
-import advanced_alchemy.types.datetime
-import advanced_alchemy.types.json
-from sqlalchemy.dialects import postgresql
-from sqlalchemy.dialects import postgresql
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 __all__ = ["downgrade", "upgrade", "schema_upgrades", "schema_downgrades", "data_upgrades", "data_downgrades"]
 

@@ -4,7 +4,7 @@ Provides the foundation for all plugins in the Magnet AI system.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from dataclasses import dataclass, field
 
 from core.plugins.plugin_types import PluginType
@@ -34,13 +34,11 @@ class BasePlugin(ABC):
     @abstractmethod
     def metadata(self) -> PluginMetadata:
         """Return plugin metadata including name, version, author, etc."""
-        pass
 
     @property
     @abstractmethod
     def plugin_type(self) -> PluginType:
         """Return the type of this plugin"""
-        pass
 
     async def initialize(self, config: Dict[str, Any]) -> None:
         """Initialize the plugin with the provided configuration
@@ -51,14 +49,12 @@ class BasePlugin(ABC):
         Args:
             config: Plugin-specific configuration dictionary
         """
-        pass
 
     async def shutdown(self) -> None:
         """Perform cleanup when the plugin is being shut down
 
         Override this method to release resources, close connections, etc.
         """
-        pass
 
     def validate_config(self, config: Dict[str, Any]) -> None:
         """Validate plugin configuration
@@ -72,4 +68,3 @@ class BasePlugin(ABC):
         Raises:
             ValueError: If configuration is invalid
         """
-        pass

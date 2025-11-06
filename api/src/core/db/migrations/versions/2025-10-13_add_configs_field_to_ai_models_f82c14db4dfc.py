@@ -19,10 +19,8 @@ import advanced_alchemy.types
 import advanced_alchemy.types.datetime
 import advanced_alchemy.types.json
 from sqlalchemy.dialects import postgresql
-from sqlalchemy import Text
-from sqlalchemy.dialects import postgresql
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    pass
 
 __all__ = ["downgrade", "upgrade", "schema_upgrades", "schema_downgrades", "data_upgrades", "data_downgrades"]
 

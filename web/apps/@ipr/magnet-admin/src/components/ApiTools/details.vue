@@ -97,11 +97,6 @@ export default {
       },
     },
   },
-  methods: {
-    navigate(path) {
-      this.$router.push(path)
-    },
-  },
   watch: {
     apiServer: {
       handler(newVal) {
@@ -129,6 +124,11 @@ export default {
   mounted() {
     // this.$store.commit('setApiServer', _.cloneDeep(this.apiTool))
     // this.$store.commit('setApiTool', _.cloneDeep(this.apiTool))
+  },
+  methods: {
+    navigate(path) {
+      this.$router.push(path)
+    },
   },
 }
 </script>

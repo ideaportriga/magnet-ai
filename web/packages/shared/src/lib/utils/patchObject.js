@@ -7,7 +7,7 @@ export default function patchObject(obj, props) {
   const newObj = JSON.parse(JSON.stringify(obj))
 
   // Iterate over each key in the object
-  for (let key in newObj) {
+  for (const key in newObj) {
     if (Object.prototype.hasOwnProperty.call(newObj, key)) {
       newObj[key] = { ...props, ...obj[key] }
     }

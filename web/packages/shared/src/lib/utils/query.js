@@ -12,14 +12,14 @@ function parseClauseToString({ field, options, op = '=', concatenator }) {
 
   let fieldSpec = ''
   if (Array.isArray(options) && options.length > 0) {
-    let queryItems = options.filter((item) => typeof item === 'string')
+    const queryItems = options.filter((item) => typeof item === 'string')
     fieldSpec = queryItems.map((val) => `[${field}] ${op} '${val}'`).join(` ${concatenator} `)
   }
   return fieldSpec
 }
 
 function parseExprToString(obj) {
-  let op = obj?.op ?? 'AND'
+  const op = obj?.op ?? 'AND'
   let expList = obj?.exp
 
   if (expList && typeof expList === 'object') {
@@ -27,7 +27,7 @@ function parseExprToString(obj) {
 
     const parsedItems = expList
       .map((item) => {
-        let parsedItem = parseItemToString(item)
+        const parsedItem = parseItemToString(item)
         return expList.length > 1 ? `(${parsedItem})` : parsedItem
       })
       .filter((item) => ![undefined, null, '', '()'].includes(item))
@@ -77,8 +77,8 @@ function parseClause({ field, options, op = '=', concatenator }) {
 
   concatenator = (concatenator ?? op === '<>') ? 'AND' : 'OR'
 
-  var jsConcatenator = concatenatorMap[concatenator] ?? concatenator
-  var jsop = operatorMap[op] ?? op
+  const jsConcatenator = concatenatorMap[concatenator] ?? concatenator
+  const jsop = operatorMap[op] ?? op
   let fieldSpec = ''
 
   if (op === 'LIKE') {
@@ -105,7 +105,7 @@ function parseClause({ field, options, op = '=', concatenator }) {
 }
 
 function parseExpr(obj) {
-  let op = obj?.op ?? 'AND'
+  const op = obj?.op ?? 'AND'
   let expList = obj?.exp
 
   if (expList && typeof expList === 'object') {
@@ -113,7 +113,7 @@ function parseExpr(obj) {
 
     const parsedItems = expList
       .map((item) => {
-        let parsedItem = parseItem(item)
+        const parsedItem = parseItem(item)
         return expList.length > 1 ? `(${parsedItem})` : parsedItem
       })
       .filter((item) => ![undefined, null, '', '()'].includes(item))

@@ -1,5 +1,5 @@
 function getLabel(raw_name) {
-  let name = raw_name.replace(/-/g, '_')
+  const name = raw_name.replace(/-/g, '_')
   let words = name.match(/[A-Za-z][a-z]*/g)
   words = words.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
   return words.join(' ')

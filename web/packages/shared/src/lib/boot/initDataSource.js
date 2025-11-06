@@ -9,7 +9,7 @@ export default async ({ store }) => {
 
     const viewName = store.getters.getViewName()
     store.commit('set', { viewName })
-    let entities = views?.[viewName]?.entities ?? []
+    const entities = views?.[viewName]?.entities ?? []
     const viewAppletList = Object.keys(window.SiebelApp.S_App.GetActiveView().GetAppletMap())
 
     // connect nexus  store

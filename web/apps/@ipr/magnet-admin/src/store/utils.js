@@ -8,7 +8,7 @@ const emptyModule = {
 }
 
 export const mergeModules = (modules = []) => {
-  let merged = emptyModule
+  const merged = emptyModule
   modules.forEach((module) => {
     ;['state', 'getters', 'actions', 'mutations'].forEach((prop) => {
       merged[prop] = { ...merged[prop], ...module[prop] }

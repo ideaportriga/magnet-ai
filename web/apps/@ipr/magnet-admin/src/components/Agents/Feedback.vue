@@ -8,6 +8,21 @@
 <script>
 import { ref } from 'vue'
 export default {
+  props: {
+    message: {
+      type: Boolean,
+      default: false,
+    },
+    reaction: {
+      type: Boolean,
+      default: null,
+    },
+    index: {
+      type: Number,
+      default: null,
+    },
+  },
+  emits: ['react'],
   setup() {
     const feedbackModal = ref(false)
     const feedbackConfirmModal = ref(false)
@@ -25,21 +40,6 @@ export default {
       reasonsList,
     }
   },
-  props: {
-    message: {
-      type: Boolean,
-      default: false,
-    },
-    reaction: {
-      type: Boolean,
-      default: null,
-    },
-    index: {
-      type: Number,
-      default: null,
-    },
-  },
-  emits: ['react'],
   computed: {
     liked() {
       if (typeof this.reaction != 'boolean') return false

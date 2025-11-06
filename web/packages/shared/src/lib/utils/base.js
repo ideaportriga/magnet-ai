@@ -38,8 +38,8 @@ const toKebabCase = (str) =>
 
 function getUrlParameter(location, name, decodeConcatSymbol = true) {
   name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]')
-  var regex = new RegExp('[\\?&]' + name + '=([^&#]*)')
-  var results = regex.exec(location)
+  const regex = new RegExp('[\\?&]' + name + '=([^&#]*)')
+  const results = regex.exec(location)
   if (results === null) {
     return ''
   } else {
@@ -95,7 +95,7 @@ function sortAlphabetically(array, fieldPath) {
 function formatOptions(options, labelProp = 'label', valueProp = 'value') {
   // console.log('formatOptions:', options)
   if (Array.isArray(options)) {
-    let result = options
+    const result = options
       .map((item) => {
         let res = {}
         if (isObject(item)) {

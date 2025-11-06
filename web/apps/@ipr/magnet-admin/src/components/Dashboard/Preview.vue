@@ -123,14 +123,6 @@ export default {
       filter: ref(filter),
     }
   },
-  methods: {
-    updateVisibleFilters({ value }) {
-      this.filter[value].hide = false
-    },
-    hideFilter(key) {
-      this.filter[key].hide = true
-    },
-  },
   computed: {
     hiddenFilters() {
       return Object.values(this.filter)
@@ -141,6 +133,14 @@ export default {
             value: f.key,
           }
         })
+    },
+  },
+  methods: {
+    updateVisibleFilters({ value }) {
+      this.filter[value].hide = false
+    },
+    hideFilter(key) {
+      this.filter[key].hide = true
     },
   },
 }

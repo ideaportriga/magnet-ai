@@ -1,11 +1,11 @@
 from dataclasses import dataclass
-from litestar.exceptions import NotFoundException
-
 from logging import getLogger
 
-logger = getLogger(__name__)
+from litestar.exceptions import NotFoundException
 
 from services.agents.teams.services import resolve_teams_by_client_id
+
+logger = getLogger(__name__)
 
 
 SCOPE = ["https://api.botframework.com/.default"]

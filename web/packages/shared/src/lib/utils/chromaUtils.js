@@ -14,7 +14,7 @@ function transformChromaResponse(items, ignoreFormat = false) {
     //     delete item.metadata
     // }
     const formated = {}
-    let children = []
+    const children = []
     Object.keys(item).forEach((key) => {
       if (!config[key]) {
         formated[key] = valueConverter(item[key], config[key]?.type, ignoreFormat)

@@ -124,12 +124,12 @@ async def discover_bots_from_db() -> Sequence[SlackRuntime]:
         """
         SELECT
             a.name AS name, 
-			a.system_name AS system_name,
-   		    a.channels #>> '{slack,client_id}' AS client_id,
-   		    a.channels #>> '{slack,client_secret}' AS client_secret,
-   		    a.channels #>> '{slack,signing_secret}' AS signing_secret,
-   		    a.channels #>> '{slack,token}' AS token,
-   		    a.channels #>> '{slack,agent_scopes}' AS scopes
+            a.system_name AS system_name,
+            a.channels #>> '{slack,client_id}' AS client_id,
+            a.channels #>> '{slack,client_secret}' AS client_secret,
+            a.channels #>> '{slack,signing_secret}' AS signing_secret,
+            a.channels #>> '{slack,token}' AS token,
+            a.channels #>> '{slack,agent_scopes}' AS scopes
         FROM agents a
         WHERE COALESCE((a.channels -> 'slack' -> 'enabled')::boolean, false ) = true        
         """

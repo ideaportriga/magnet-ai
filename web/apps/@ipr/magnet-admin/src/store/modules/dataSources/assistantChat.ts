@@ -37,7 +37,7 @@ const [baseGetters] = generateGetters({
   namespace: 'assistantChat',
 })
 
-let getters = {
+const getters = {
   isTyping: (state) => state.isTyping,
   currentUser: (state) => state.currentUser,
   messageList: (state) => state.messageList,

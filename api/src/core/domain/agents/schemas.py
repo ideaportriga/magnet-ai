@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from services.agents.models import AgentVariantValue
 from services.entities.types import EntityVariant

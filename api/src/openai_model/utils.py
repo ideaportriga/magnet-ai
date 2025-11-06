@@ -1,7 +1,7 @@
 from logging import getLogger
 
 from core.config.app import alchemy
-from core.domain.ai_models.schemas import AIModel, AIModelUpdate
+from core.domain.ai_models.schemas import AIModel
 from core.domain.ai_models.service import AIModelsService
 
 logger = getLogger(__name__)
