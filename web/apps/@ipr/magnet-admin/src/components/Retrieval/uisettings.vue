@@ -9,9 +9,9 @@ div
       .km-input-label Subheading text
       km-input(@input='subHeadingText = $event', :model-value='subHeadingText', placeholder='E.g. Use this tool to search our knowledge base')
       .km-tiny Not displayed if left blank
-  q-separator.q-my-lg
-  km-section(title='User feedback', subTitle='Allow users to send their feedback in form of like or dislike')
-    q-toggle.q-mb-lg(v-model='isUserFeedbackOn', dense)
+  //- q-separator.q-my-lg
+  //- km-section(title='User feedback', subTitle='Allow users to send their feedback in form of like or dislike')
+  //-   q-toggle.q-mb-lg(v-model='isUserFeedbackOn', dense)
   q-separator.q-my-lg
   km-section(title='Sample questions', subTitle='Display up to 3 question suggestions to help users formulate their questions')
     q-toggle.q-mb-lg(v-model='isSampleQestion', dense)

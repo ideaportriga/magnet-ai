@@ -179,7 +179,7 @@ const value = computed({
     return config.value[store_key.value]
   },
   set(value) {
-    config.value[store_key.value] = value
+    config.value[store_key.value] = value.system_name
   },
 })
 
