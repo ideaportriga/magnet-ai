@@ -259,7 +259,8 @@ export default {
         })
 
         if (response.ok) {
-          this.message.custom_feedback = { ...this.custom_feedback }
+          // Update custom_feedback via emit instead of direct mutation
+          this.$emit('update:message', { ...this.message, custom_feedback: { ...this.custom_feedback } })
         }
 
       } finally {
