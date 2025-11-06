@@ -61,8 +61,6 @@ const merged = mergeModules([
   providers,
 ])
 
-const setStoreDefaults = () => {}
-
 export default createStore({
   modules: {
     global: merged,
@@ -77,6 +75,5 @@ export default createStore({
       key: 'persistedStateKey',
       paths: ['chroma.collections.publicSelected', 'global.conversationRecords'],
     }),
-    setStoreDefaults,
   ],
 })
