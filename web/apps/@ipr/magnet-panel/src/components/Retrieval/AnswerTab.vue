@@ -1,6 +1,6 @@
 <template lang="pug">
-search-feedback(v-model:modal='showFeedback', @onSubmit='react')
-search-feedback-confirm(v-model:modal='showFeedbackConfirm')
+//- search-feedback(v-model:modal='showFeedback', @onSubmit='react')
+//- search-feedback-confirm(v-model:modal='showFeedbackConfirm')
 .column.no-wrap.height-fit.search-answer-container.border-radius-12.q-pa-12(:class='{ "bg-white": $theme === "default" }')
   //- QUESTION
   .col-auto
@@ -160,17 +160,7 @@ export default {
 
     openURL(val) {
       window.open(val, '_blank')
-    },
-
-    async react({ like, comment = '' }) {
-      this.showFeedbackConfirm = false
-      const res = await this.$store.dispatch('sendFeedback', {
-        id: this.answer.id,
-        like,
-        comment,
-      })
-      if (res && !like && comment) this.showFeedbackConfirm = true
-    },
+    }
   },
 }
 </script>

@@ -330,7 +330,7 @@ export default {
     },
     like(message_id) {
       this.react(message_id, { type: 'like' })
-      this.feedbackConfirmModal = true
+      // this.feedbackConfirmModal = true
     },
     dislike(message_id) {
       console.log('dislike', message_id)
