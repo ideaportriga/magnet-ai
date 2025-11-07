@@ -1,4 +1,6 @@
 import html
+import json
+from datetime import datetime, timezone
 from http.cookies import SimpleCookie
 from logging import getLogger
 from typing import Any, Dict, Iterable
@@ -13,6 +15,7 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_401_UNAUTHORIZED,
     HTTP_400_BAD_REQUEST,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
@@ -28,8 +31,13 @@ from services.agents.slack.runtime_cache import SlackRuntimeCache
 from services.agents.slack.runtime import SlackRuntime
 from services.agents.slack.state_store import SlackOAuthStateStore
 from services.agents.slack.install import send_installation_welcome_message
+from services.agents.whatsapp.services import resolve_whatsapp_by_phone_number_id
 from .agents_utils.aiohttp_like import AiohttpLikeRequest
 from .agents_utils.jwt_utils import pick_audience, read_jwt_payload_noverify
+from .agents_utils.whatsapp_utils import (
+    extract_whatsapp_phone_number_id,
+    verify_whatsapp_signature,
+)
 
 logger = getLogger(__name__)
 
@@ -273,6 +281,79 @@ async def _handle_slack_bolt_request(request: Request, *, error_message: str) ->
 class UserAgentsController(Controller):
     path = "/agents"
     tags = [TagNames.UserAgentsMessages]
+
+    @get(
+        "/whatsapp/messages",
+        status_code=HTTP_200_OK,
+        exclude_from_auth=True,
+        summary="WhatsApp webhook verification",
+        description="Verification endpoint for WhatsApp webhook handshakes.",
+    )
+    async def verify_whatsapp_webhook(self, request: Request) -> Response:
+        mode = request.query_params.get("hub.mode")
+        challenge = request.query_params.get("hub.challenge")
+
+        if mode == "subscribe" and challenge:
+            logger.info("WEBHOOK VERIFIED")
+            return Response(status_code=HTTP_200_OK, content=str(challenge), media_type="text/plain")
+
+        return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
+
+    @post(
+        "/whatsapp/messages",
+        status_code=HTTP_200_OK,
+        exclude_from_auth=True,
+        summary="WhatsApp webhook endpoint",
+        description="Receives WhatsApp webhook notifications and validates the signature.",
+    )
+    async def handle_whatsapp_message(self, request: Request) -> Response:
+        signature = request.headers.get("x-hub-signature-256")
+        raw_body = await request.body() or b""
+        logger.info(f"WhatsApp webhook request: {raw_body}")
+
+        if not signature:
+            logger.warning("Missing x-hub-signature-256 header. Cannot verify webhook authenticity.")
+            return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
+
+        try:
+            payload = json.loads(raw_body.decode("utf-8")) if raw_body else {}
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            logger.warning("Invalid JSON payload received on WhatsApp webhook.")
+            return Response(content=b"", status_code=HTTP_400_BAD_REQUEST)
+
+        phone_number_id = extract_whatsapp_phone_number_id(payload)
+        if not phone_number_id:
+            logger.warning("WhatsApp webhook missing phone_number_id. Rejecting request.")
+            return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
+        logger.info(f"WhatsApp phone_number_id: {phone_number_id}")
+
+        try:
+            agent_system_name, _token, app_secret = await resolve_whatsapp_by_phone_number_id(phone_number_id)
+        except Exception:
+            logger.exception(
+                "Failed to resolve WhatsApp credentials for phone_number_id=%s.",
+                phone_number_id,
+            )
+            return Response(content=b"", status_code=HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        if not app_secret:
+            logger.warning(
+                "WhatsApp webhook could not resolve app secret for phone_number_id=%s (agent=%s).",
+                phone_number_id,
+                agent_system_name,
+            )
+            return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
+
+        if not verify_whatsapp_signature(signature, raw_body, app_secret):
+            logger.warning("Invalid webhook signature. Rejecting request.")
+            return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        logger.info("Webhook received %s", timestamp)
+
+        # TODO: IMPLEMENT
+
+        return Response(content=b"", status_code=HTTP_200_OK)
 
     @post(
         "/teams/messages",
