@@ -7,7 +7,13 @@ from typing import Any, Dict
 import httpx
 
 from services.agents.conversations import set_message_feedback
-from services.agents.utils.conversation_helpers import AssistantPayload, continue_conversation
+from services.agents.utils.conversation_helpers import (
+    AssistantPayload,
+    WELCOME_LEARN_MORE_URL,
+    close_conversation,
+    continue_conversation,
+    get_conversation_info,
+)
 from services.common.models import (
     LlmResponseFeedback,
     LlmResponseFeedbackReason,
@@ -385,6 +391,16 @@ async def _handle_whatsapp_interactive_reply(
     logger.info("Unhandled interactive message type: %s", interactive_type)
 
 
+def _build_whatsapp_welcome_text(agent_system_name: str) -> str:
+    return (
+        "👋 Welcome aboard!\n\n"
+        "I'm your assistant for "
+        f"**{agent_system_name or 'Magnet AI'}**.\n\n"
+        "• Ask me a question and I'll pass it to the Magnet AI Agent and deliver the response back to WhatsApp.\n"
+        f"• Learn more: {WELCOME_LEARN_MORE_URL}"
+    )
+
+
 async def _handle_whatsapp_text_message(
     client: httpx.AsyncClient,
     runtime: WhatsappRuntime,
@@ -400,12 +416,31 @@ async def _handle_whatsapp_text_message(
         logger.warning("Skipping WhatsApp text message with missing data: from=%s id=%s", from_number, message_id)
         return
 
+    lower_text = text_body.lower()
+    if lower_text in {"/welcome", "welcome", "/start", "start"}:
+        await _mark_whatsapp_message_as_read(client, runtime, message_id)
+        welcome_text = _build_whatsapp_welcome_text(runtime.agent_system_name)
+        await _send_whatsapp_text_message(client, runtime, from_number, welcome_text)
+        return
+
     if not user_id:
         logger.warning(
             "WhatsApp payload missing contacts[].wa_id; falling back to sender number %s",
             from_number,
         )
     resolved_user_id = user_id or from_number
+
+    if lower_text in {"/close", "close", "/restart", "restart"}:
+        await _mark_whatsapp_message_as_read(client, runtime, message_id)
+        result = await close_conversation(runtime.agent_system_name, resolved_user_id)
+        await _send_whatsapp_text_message(client, runtime, from_number, result)
+        return
+
+    if lower_text in {"/get_conversation_info", "get_conversation_info"}:
+        await _mark_whatsapp_message_as_read(client, runtime, message_id)
+        info = await get_conversation_info(runtime.agent_system_name, resolved_user_id)
+        await _send_whatsapp_text_message(client, runtime, from_number, info)
+        return
 
     await _mark_whatsapp_message_as_read(client, runtime, message_id)
     await _send_whatsapp_typing_indicator(client, runtime, message_id)
@@ -465,7 +500,13 @@ async def _process_whatsapp_change(
         return
 
     user_id = _extract_contact_wa_id(value)
+    
+    print(f">>> user_id: {user_id}")
+    if user_id != "37126182745": # TODO: remove this
+        print(f">>> user_id not allowed: {user_id}")
+        # return
 
+    
     statuses = value.get("statuses") or []
     for status in statuses:
         logger.info(
