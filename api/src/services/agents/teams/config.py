@@ -32,7 +32,6 @@ async def load_credentials(audience: str) -> ClientCredentials:
             f"Missing client_secret or tenant_id for audience '{audience}'"
         )
 
-    # TOOD - REMOVE Print secret to console
     masked_secret_value = (
         secret_value[:4] +
         "-***-"  +

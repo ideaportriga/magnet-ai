@@ -84,6 +84,38 @@ div.q-mr-8
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
       km-input(v-model='slack_scopes', placeholder='Enter Slack Agent Scopes (comma separated)')
       km-btn(label='Connect to Slack', color='white', @click='openSlackInstall', :disable='isSlackInstallDisabled', :contentStyle='"width: auto;"').q-mt-md
+  q-separator.q-my-lg
+  km-section(title='WhatsApp', subTitle='Make the Agent available as a WhatsApp integration')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
+      q-toggle(v-model='enable_whatsapp', color='primary', size='sm', :disable='false')
+    template(v-if='enable_whatsapp')
+      q-separator.q-mb-lg
+      km-notification-text(
+        notification='WhatsApp credentials are stored on Agent level, not on the variant.' 
+      )
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Phone Number ID
+      km-input(v-model='whatsapp_phone_number_id', placeholder='Enter WhatsApp Phone Number ID')
+      km-encrypted-input(
+        :value='whatsapp_token',
+        @update:value='whatsapp_token = $event',
+        :encrypted-value='has_whatsapp_encrypted.token',
+        label='Token',
+        placeholder='Enter WhatsApp Token',
+        fake-encrypted-value='******',
+      ).q-mt-md
+      km-encrypted-input(
+        :value='whatsapp_app_secret',
+        @update:value='whatsapp_app_secret = $event',
+        :encrypted-value='has_whatsapp_encrypted.app_secret',
+        label='App Secret',
+        placeholder='Enter WhatsApp App Secret',
+        fake-encrypted-value='******',
+      ).q-mt-md
+      km-notification-text.q-mt-lg
+        div Check&nbsp;
+          a.text-primary.cursor-pointer(@click='openHelp') Admin Manual
+          | &nbsp;for further steps on WhatsApp Agent installation
+
 
 </template>
 <script setup>
@@ -252,6 +284,45 @@ const has_slack_encryptes = computed(() => {
     token: store.getters.agent_detail?.channels?.slack?.token_encrypted || false,  
     signing_secret: store.getters.agent_detail?.channels?.slack?.signing_secret_encrypted || false,
     client_secret: store.getters.agent_detail?.channels?.slack?.client_secret_encrypted || false,
+  }
+})
+
+const enable_whatsapp = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.whatsapp?.enabled || false
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.whatsapp.enabled', value: value })
+  }
+})
+const whatsapp_phone_number_id = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.whatsapp?.phone_number_id || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.whatsapp.phone_number_id', value: value })
+  }
+})
+const whatsapp_token = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.whatsapp?.token || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.whatsapp.token', value: value })
+  }
+})
+const whatsapp_app_secret = computed({
+  get(){
+    return store.getters.agent_detail?.channels?.whatsapp?.app_secret || ''
+  },
+  set(value){
+    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.whatsapp.app_secret', value: value })
+  }
+})
+const has_whatsapp_encrypted = computed(() => {
+  return {
+    token: store.getters.agent_detail?.channels?.whatsapp?.token_encrypted || false,
+    app_secret: store.getters.agent_detail?.channels?.whatsapp?.app_secret_encrypted || false,
   }
 })
 

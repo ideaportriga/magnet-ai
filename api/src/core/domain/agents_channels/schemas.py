@@ -148,6 +148,70 @@ class SlackChannelUpdate(SlackChannelBase):
 
 
 
+class WhatsAppChannelBase(BaseModel):
+    """WhatsApp channel base schema."""
+    enabled: bool = Field(default=False, description="WhatsApp channel enabled")
+    phone_number_id: str = Field(default="", description="WhatsApp phone number ID")
+
+
+class WhatsAppChannel(WhatsAppChannelBase):
+    """WhatsApp channel schema."""
+    token_encrypted: Optional[str] = Field(default=None, alias="token", description="WhatsApp access token encrypted")
+    app_secret_encrypted: Optional[str] = Field(default=None, alias="app_secret", description="WhatsApp app secret encrypted")
+
+
+class WhatsAppChannelUpdate(WhatsAppChannelBase):
+    """WhatsApp channel update schema."""
+    token: Optional[str] = Field(default=None, description="WhatsApp access token")
+    app_secret: Optional[str] = Field(default=None, description="WhatsApp app secret")
+    # encrypted are only used for validation, not saved to database
+    token_encrypted: Optional[str] = Field(default=None, exclude=True, description="WhatsApp access token encrypted")
+    app_secret_encrypted: Optional[str] = Field(default=None, exclude=True, description="WhatsApp app secret encrypted")
+
+    @model_validator(mode="after")
+    def encrypt_secrets(self):
+        secret_fields = ["token", "app_secret"]
+
+        for field_name in secret_fields:
+            value = getattr(self, field_name)
+            encrypted_field_name = f"{field_name}_encrypted"
+            encrypted_value = getattr(self, encrypted_field_name, None)
+
+            if value is None:
+                setattr(self, field_name, encrypted_value if encrypted_value else None)
+            elif value == "":
+                setattr(self, field_name, None)
+            else:
+                try:
+                    setattr(self, field_name, encrypt_string(value))
+                except ValueError as e:
+                    raise ValueError(f"Failed to encrypt {field_name}: {str(e)}") from e
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_required_fields(self):
+        if self.enabled:
+            missing_fields: list[str] = []
+
+            if not (self.phone_number_id or "").strip():
+                missing_fields.append("phone_number_id")
+
+            if not self.token:
+                missing_fields.append("token")
+
+            if not self.app_secret:
+                missing_fields.append("app_secret")
+
+            if missing_fields:
+                joined = ", ".join(missing_fields)
+                raise ValueError(
+                    f"WhatsApp channel requires {joined} when enabled"
+                )
+
+        return self
+
+
 class AgentChannels(BaseModel):
     """Agent channels schema."""
 
@@ -157,6 +221,7 @@ class AgentChannels(BaseModel):
     web: Optional[WebChannel] = Field(default=None, description="Web channel configuration")
     ms_teams: Optional[MsTeamsChannel] = Field(default=None, description="MS Teams channel configuration")
     slack: Optional[SlackChannel] = Field(default=None, description="Slack channel configuration")
+    whatsapp: Optional[WhatsAppChannel] = Field(default=None, description="WhatsApp channel configuration")
 
 class AgentChannelsUpdate(BaseModel):
     """Agent channels update schema."""
@@ -167,3 +232,4 @@ class AgentChannelsUpdate(BaseModel):
     web: Optional[WebChannelUpdate] = Field(default=None, description="Web channel configuration")
     ms_teams: Optional[MsTeamsChannelUpdate] = Field(default=None, description="MS Teams channel configuration")
     slack: Optional[SlackChannelUpdate] = Field(default=None, description="Slack channel configuration")
+    whatsapp: Optional[WhatsAppChannelUpdate] = Field(default=None, description="WhatsApp channel configuration")

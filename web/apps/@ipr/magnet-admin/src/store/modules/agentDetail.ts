@@ -15,6 +15,7 @@ const state = () => ({
       web: {},
       ms_teams: {},
       slack: {},
+      whatsapp: {},
     }
   },
   selectedAgentDetailVariant: null,
