@@ -146,6 +146,17 @@ async def _sync_runtime_caches(
         if slack_cache is not None and hasattr(slack_cache, "refresh"):
             await slack_cache.refresh()
 
+    whatsapp_changed = _channel_enabled_changed(
+        previous_channels=previous_channels,
+        current_channels=current_channels,
+        section="whatsapp",
+    )
+
+    if whatsapp_changed:
+        whatsapp_cache = getattr(request.app.state, "whatsapp_runtime_cache", None)
+        if whatsapp_cache is not None and hasattr(whatsapp_cache, "clear"):
+            await whatsapp_cache.clear()
+
 
 
 def _channel_enabled_changed(
