@@ -23,7 +23,17 @@ if [ -n "$WEB_FILES" ]; then
   echo "🔍 Running eslint for Web (changed files only)..."
   cd web
   # Lint only the staged files
-  echo "$WEB_FILES" | sed 's|^web/||' | xargs yarn eslint --fix || true
+  WEB_FILES_RELATIVE=$(echo "$WEB_FILES" | sed 's|^web/||')
+  echo "$WEB_FILES_RELATIVE" | xargs yarn eslint --fix --max-warnings 0
+  ESLINT_EXIT=$?
+  
+  # Re-add fixed files to staging
+  if [ $ESLINT_EXIT -eq 0 ]; then
+    echo "$WEB_FILES_RELATIVE" | xargs git add
+  else
+    echo "❌ ESLint found issues. Please fix them and try again."
+    exit 1
+  fi
   cd ..
 fi
 
