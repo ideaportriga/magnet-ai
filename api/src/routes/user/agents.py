@@ -1,3 +1,4 @@
+import asyncio
 import html
 import json
 from datetime import datetime, timezone
@@ -32,6 +33,7 @@ from services.agents.slack.runtime import SlackRuntime
 from services.agents.slack.state_store import SlackOAuthStateStore
 from services.agents.slack.install import send_installation_welcome_message
 from services.agents.whatsapp.runtime_cache import WhatsappRuntimeCache
+from services.agents.whatsapp.webhook import process_whatsapp_webhook_payload
 from .agents_utils.aiohttp_like import AiohttpLikeRequest
 from .agents_utils.jwt_utils import pick_audience, read_jwt_payload_noverify
 from .agents_utils.whatsapp_utils import (
@@ -341,7 +343,7 @@ class UserAgentsController(Controller):
         if not phone_number_id:
             logger.warning("WhatsApp webhook missing phone_number_id. Rejecting request.")
             return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
-        logger.info(f"WhatsApp phone_number_id: {phone_number_id}")
+        logger.info("WhatsApp phone_number_id: %s", phone_number_id)
 
         try:
             whatsapp_runtime_cache = await _get_whatsapp_runtime_cache(request.app)
@@ -371,7 +373,12 @@ class UserAgentsController(Controller):
             whatsapp_runtime.agent_system_name,
         )
 
-        # TODO: IMPLEMENT
+        asyncio.create_task(
+            process_whatsapp_webhook_payload(
+                payload,
+                whatsapp_runtime,
+            )
+        )
 
         return Response(content=b"", status_code=HTTP_200_OK)
 
