@@ -142,8 +142,14 @@ async def _extract_payload_from_request(
     channel="production",
     source="Runtime API",
 )
-async def _process_ask_magnet_request(data: AskMagnetRequest) -> AskMagnetResponse:
+async def _process_ask_magnet_request(
+    data: AskMagnetRequest,
+    consumer_name: str | None = None,
+) -> AskMagnetResponse:
     agent_config = await get_agent_by_system_name(data.agent)
+
+    if consumer_name:
+        observability_context.update_current_baggage(consumer_name=consumer_name)
 
     observability_context.update_current_trace(
         name=agent_config.name,
@@ -212,6 +218,8 @@ class AskMagnetController(Controller):
     ) -> AskMagnetResponse:
         headers = dict(request.headers)
         content_type = headers.get("content-type", "")
+        consumer_name = request.headers.get("x-consumer-name")
+        logger.info(f"AskMagnet consumer_name: {consumer_name}")
         raw = await request.body()
         try:
             body_preview = (
@@ -245,5 +253,13 @@ class AskMagnetController(Controller):
 
         request_model = AskMagnetRequest.model_validate(payload)
 
-        response = await _process_ask_magnet_request(request_model, **observability_overrides(trace_id=request_model.trace_id))
+        observability_kwargs: dict[str, str | None] = {"trace_id": request_model.trace_id}
+        if consumer_name:
+            observability_kwargs["consumer_name"] = consumer_name
+
+        response = await _process_ask_magnet_request(
+            request_model,
+            consumer_name=consumer_name,
+            **observability_overrides(**observability_kwargs),
+        )
         return response

@@ -355,7 +355,7 @@ async def _record_feedback_observability(
         name=f"Set message feedback ({feedback_type})",
         description="Record user feedback for an agent message",
         channel="production",
-        source="Runtime API App",
+        source="Runtime AI App",
     )
     async def _run():
         observability_context.update_current_span(
