@@ -8,7 +8,7 @@ from urllib.parse import parse_qsl, quote, urlencode
 
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 from litestar import Controller, Request, get, post
-from litestar.exceptions import ValidationException
+from litestar.exceptions import NotFoundException, ValidationException
 from litestar.params import Body
 from litestar.response import Response
 from litestar.status_codes import (
@@ -31,7 +31,7 @@ from services.agents.slack.runtime_cache import SlackRuntimeCache
 from services.agents.slack.runtime import SlackRuntime
 from services.agents.slack.state_store import SlackOAuthStateStore
 from services.agents.slack.install import send_installation_welcome_message
-from services.agents.whatsapp.services import resolve_whatsapp_by_phone_number_id
+from services.agents.whatsapp.runtime_cache import WhatsappRuntimeCache
 from .agents_utils.aiohttp_like import AiohttpLikeRequest
 from .agents_utils.jwt_utils import pick_audience, read_jwt_payload_noverify
 from .agents_utils.whatsapp_utils import (
@@ -48,6 +48,22 @@ async def _get_slack_runtime_cache(app: Any) -> SlackRuntimeCache:
         app.state.slack_runtime_cache = slack_runtime_cache
         await slack_runtime_cache.load()
     return slack_runtime_cache
+
+
+async def _get_teams_runtime_cache(app: Any) -> TeamsRuntimeCache:
+    teams_runtime_cache: TeamsRuntimeCache | None = getattr(app.state, "teams_runtime_cache", None)
+    if teams_runtime_cache is None:
+        teams_runtime_cache = TeamsRuntimeCache()
+        app.state.teams_runtime_cache = teams_runtime_cache
+    return teams_runtime_cache
+
+
+async def _get_whatsapp_runtime_cache(app: Any) -> WhatsappRuntimeCache:
+    whatsapp_runtime_cache: WhatsappRuntimeCache | None = getattr(app.state, "whatsapp_runtime_cache", None)
+    if whatsapp_runtime_cache is None:
+        whatsapp_runtime_cache = WhatsappRuntimeCache()
+        app.state.whatsapp_runtime_cache = whatsapp_runtime_cache
+    return whatsapp_runtime_cache
 
 
 def _error(status: int, message: str) -> Response:
@@ -328,28 +344,32 @@ class UserAgentsController(Controller):
         logger.info(f"WhatsApp phone_number_id: {phone_number_id}")
 
         try:
-            agent_system_name, _token, app_secret = await resolve_whatsapp_by_phone_number_id(phone_number_id)
+            whatsapp_runtime_cache = await _get_whatsapp_runtime_cache(request.app)
+            whatsapp_runtime = await whatsapp_runtime_cache.get_or_create(phone_number_id)
+        except NotFoundException:
+            logger.warning(
+                "WhatsApp runtime not configured for phone_number_id=%s.",
+                phone_number_id,
+            )
+            return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
         except Exception:
             logger.exception(
-                "Failed to resolve WhatsApp credentials for phone_number_id=%s.",
+                "Failed to initialize WhatsApp runtime for phone_number_id=%s.",
                 phone_number_id,
             )
             return Response(content=b"", status_code=HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        if not app_secret:
-            logger.warning(
-                "WhatsApp webhook could not resolve app secret for phone_number_id=%s (agent=%s).",
-                phone_number_id,
-                agent_system_name,
-            )
-            return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
 
-        if not verify_whatsapp_signature(signature, raw_body, app_secret):
+        if not verify_whatsapp_signature(signature, raw_body, whatsapp_runtime.app_secret):
             logger.warning("Invalid webhook signature. Rejecting request.")
             return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
 
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        logger.info("Webhook received %s", timestamp)
+        logger.info(
+            "Webhook received %s for phone_number_id=%s agent=%s",
+            timestamp,
+            phone_number_id,
+            whatsapp_runtime.agent_system_name,
+        )
 
         # TODO: IMPLEMENT
 
@@ -378,10 +398,7 @@ class UserAgentsController(Controller):
             return _error(HTTP_400_BAD_REQUEST, "Invalid audience/appid")
 
         try:
-            teams_runtime_cache = getattr(request.app.state, "teams_runtime_cache", None)
-            if teams_runtime_cache is None:
-                teams_runtime_cache = TeamsRuntimeCache()
-                request.app.state.teams_runtime_cache = teams_runtime_cache
+            teams_runtime_cache = await _get_teams_runtime_cache(request.app)
             team_agent = await teams_runtime_cache.get_or_create(audience)
         except Exception:
             logger.exception("TeamsRuntimeCache get_or_create failed for audience=%s", audience)
