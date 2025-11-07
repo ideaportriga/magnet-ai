@@ -86,6 +86,11 @@ km-section(
                 .row.q-mt-xs(v-if='opt.provider_system_name')
                   q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
         .km-field.text-secondary-text Use LLM to rank candidate results. Makes extra calls to LLM
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-md Max number of chunks to retrieve for re-ranking
+      div(style='max-width: 200px')
+        km-input(type='number', height='30px', placeholder='Number of chunks to select', v-model='reRankingMaxChankRetrieve')
+      .km-description.text-secondary-text.q-pb-4 If re-ranking is turned on, these chunks will be re-ordered to select the most relevant results.
+
 q-separator.q-my-lg
 
 <!-- Similarity score section -->
@@ -104,13 +109,6 @@ q-separator.q-my-lg
 
 <!-- Chunk limits section -->
 km-section(title='Chunk limits', subTitle='Control how many chunks are passed to the language model')
-  template(v-if='isReRanking')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max number of chunks to retrieve for re-ranking
-    div(style='max-width: 200px')
-      km-input(type='number', height='30px', placeholder='Number of chunks to select', v-model='reRankingMaxChankRetrieve')
-    .km-description.text-secondary-text.q-pb-4 If re-ranking is turned on, these chunks will be re-ordered to select the most relevant results.
-
-    q-separator.q-my-lg
   .km-field.text-secondary-text.q-pb-xs.q-pl-8 Number of chunks to select
   div(style='max-width: 200px')
     km-input(type='number', height='30px', placeholder='Number of chunks to select', v-model='maxChunksRetrieved')
