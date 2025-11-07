@@ -1,10 +1,6 @@
 import { defineConfig } from 'vitepress'
 
-const basePath = process.env.WEB_BASE_PATH || "/"
-const helpPath = process.env.WEB_HELP_PATH || ""
-
-const base = `${basePath}${helpPath}`
-
+const base = process.env.HELP_BASE_URL ? (process.env.HELP_BASE_URL.endsWith('/') ? process.env.HELP_BASE_URL : `${process.env.HELP_BASE_URL}/`) : '/'
 
 //  https:vitepress.dev/reference/site-config
 export default defineConfig({
