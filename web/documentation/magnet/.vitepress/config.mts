@@ -33,6 +33,7 @@ export default defineConfig({
           { text: 'Home', link: '/docs/en/' },
           { text: 'Quickstarts', link: '/docs/en/quickstarts/introduction/what-is-magnet-ai' },
           { text: 'Admin Guide', link: '/docs/en/admin/connect/models/overview' },
+          { text: 'Developer Guide', link: '/docs/en/developers/overview' },
         ],
         sidebar: {
           '/docs/en/quickstarts/': [
@@ -211,6 +212,53 @@ export default defineConfig({
             }
           ]
         },
+        '/docs/en/developers/': [
+          {
+            text: 'Developer Guide',
+            items: [
+              { text: 'Overview', link: '/docs/en/developers/overview' },
+              {
+                text: 'Architecture',
+                collapsed: true,
+                items: [
+                  { text: 'System Architecture', link: '/docs/en/developers/architecture/system-architecture' },
+                  { text: 'Backend Architecture', link: '/docs/en/developers/architecture/backend' },
+                  { text: 'Frontend Architecture', link: '/docs/en/developers/architecture/frontend' },
+                  { text: 'Database Schema', link: '/docs/en/developers/architecture/database' },
+                ]
+              },
+              {
+                text: 'API Reference',
+                collapsed: true,
+                items: [
+                  { text: 'REST API', link: '/docs/en/developers/api/rest-api' },
+                  { text: 'Authentication', link: '/docs/en/developers/api/authentication' },
+                  { text: 'API Endpoints', link: '/docs/en/developers/api/endpoints' },
+                ]
+              },
+              {
+                text: 'Plugin Development',
+                collapsed: true,
+                items: [
+                  { text: 'Plugin System', link: '/docs/en/developers/plugins/plugin-system' },
+                  { text: 'Creating Plugins', link: '/docs/en/developers/plugins/creating-plugins' },
+                  { text: 'Plugin API', link: '/docs/en/developers/plugins/plugin-api' },
+                  { text: 'Plugin Examples', link: '/docs/en/developers/plugins/examples' },
+                ]
+              },
+              {
+                text: 'Development Setup',
+                collapsed: true,
+                items: [
+                  { text: 'Getting Started', link: '/docs/en/developers/setup/getting-started' },
+                  { text: 'Local Development', link: '/docs/en/developers/setup/local-development' },
+                  { text: 'Testing', link: '/docs/en/developers/setup/testing' },
+                  { text: 'Deployment', link: '/docs/en/developers/setup/deployment' },
+                ]
+              },
+            ]
+          }
+        ],
         socialLinks: [
           { icon: 'github', link: 'https:github.com/vuejs/vitepress' }
         ]

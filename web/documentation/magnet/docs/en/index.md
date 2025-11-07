@@ -11,6 +11,9 @@ hero:
     - theme: alt
       text: Admin Guide
       link: /docs/en/admin/connect/models/overview
+    - theme: alt
+      text: Developer Guide
+      link: /docs/en/developers/overview
 features:
   - icon: 🛠️
     title: Use cases
@@ -24,6 +27,10 @@ features:
     title: Building a Q&A Agent in Magnet AI
     details: Make your own simple Agent by the cookbook
     link: /docs/en/quickstarts/how-tos/build-qa-agent/overview.html
+  - icon: 💻
+    title: Developer Guide
+    details: Extend and customize Magnet AI with plugins and integrations
+    link: /docs/en/developers/overview
 footer:
   links:
     - icon: GitHub
