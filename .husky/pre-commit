@@ -11,12 +11,16 @@ WEB_FILES=$(echo "$STAGED_FILES" | grep "^web/.*\.\(js\|ts\|vue\)$" || true)
 if [ -n "$API_FILES" ]; then
   echo "🔍 Running lint for API..."
   npm run lint:api || exit 1
+  # Re-add fixed files to staging
+  echo "$API_FILES" | xargs git add
 fi
 
 # Run eslint for Web changes (only on changed files to avoid blocking on existing issues)
 if [ -n "$WEB_FILES" ]; then
   echo "🔍 Running lint for Web..."
   npm run lint:web || exit 1
+  # Re-add fixed files to staging
+  echo "$WEB_FILES" | xargs git add
 fi
 
 echo "✅ Pre-commit checks passed!"
