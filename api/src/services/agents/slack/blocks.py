@@ -1,83 +1,8 @@
 import json
-import re
 from typing import Any
 
 from services.agents.utils.conversation_helpers import WELCOME_LEARN_MORE_URL, AssistantPayload
-
-_BOLD_PATTERN = re.compile(r"\*\*([^*\n]+)\*\*")
-
-
-def _escape_link_text(text: str) -> str:
-    return text.replace("|", r"\|")
-
-
-def _escape_link_url(url: str) -> str:
-    replacements = {
-        " ": "%20",
-        "<": "%3C",
-        ">": "%3E",
-        "|": "%7C",
-    }
-    for char, replacement in replacements.items():
-        url = url.replace(char, replacement)
-    return url
-
-
-def _rewrite_links(markdown: str) -> str:
-    """Convert [label](url) patterns into Slack's <url|label> format."""
-    if "[" not in markdown:
-        return markdown
-
-    result: list[str] = []
-    index = 0
-    length = len(markdown)
-
-    while index < length:
-        start = markdown.find("[", index)
-        if start == -1:
-            result.append(markdown[index:])
-            break
-
-        close_label = markdown.find("](", start)
-        if close_label == -1:
-            result.append(markdown[index:])
-            break
-
-        label = markdown[start + 1 : close_label]
-        url_start = close_label + 2
-        pos = url_start
-        depth = 1
-
-        while pos < length and depth > 0:
-            char = markdown[pos]
-            if char == "(":
-                depth += 1
-            elif char == ")":
-                depth -= 1
-                if depth == 0:
-                    break
-            pos += 1
-
-        if depth != 0:
-            result.append(markdown[index:])
-            break
-
-        url = markdown[url_start:pos]
-        result.append(markdown[index:start])
-        formatted = f"<{_escape_link_url(url.strip())}|{_escape_link_text(label.strip())}>"
-        result.append(formatted)
-        index = pos + 1
-
-    return "".join(result)
-
-
-def to_slack_mrkdwn(value: str | None) -> str:
-    """Normalize markdown so it renders correctly in Slack."""
-    if not value:
-        return ""
-    normalized = value.replace("\r", "")
-    bold_converted = _BOLD_PATTERN.sub(r"*\1*", normalized)
-    return _rewrite_links(bold_converted)
+from services.agents.utils.markdown import to_slack_mrkdwn
 
 
 def _normalize_content(content: Any) -> str:

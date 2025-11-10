@@ -14,6 +14,7 @@ from services.agents.utils.conversation_helpers import (
     continue_conversation,
     get_conversation_info,
 )
+from services.agents.utils.markdown import to_whatsapp_markdown
 from services.common.models import (
     LlmResponseFeedback,
     LlmResponseFeedbackReason,
@@ -107,11 +108,11 @@ def _prepare_reply_text(payload: AssistantPayload | None) -> str:
             f"{base_text}\n\nLet me know if you'd like to proceed by tapping 👍Like or decline with 👎Dislike."
         )
 
-    base_text = base_text.strip()
-    if len(base_text) > 1024:
-        base_text = base_text[:1021].rstrip() + "..."
+    formatted_text = to_whatsapp_markdown(base_text).strip()
+    if len(formatted_text) > 1024:
+        formatted_text = formatted_text[:1021].rstrip() + "..."
 
-    return base_text or "I don't have anything to share yet, but I'm here to help!"
+    return formatted_text or "I don't have anything to share yet, but I'm here to help!"
 
 
 async def _post_whatsapp_message(
@@ -500,13 +501,8 @@ async def _process_whatsapp_change(
         return
 
     user_id = _extract_contact_wa_id(value)
-    
-    print(f">>> user_id: {user_id}")
-    if user_id != "37126182745": # TODO: remove this
-        print(f">>> user_id not allowed: {user_id}")
-        # return
+    logger.info("WhatsApp message received from user_id=%s", user_id)
 
-    
     statuses = value.get("statuses") or []
     for status in statuses:
         logger.info(
@@ -538,8 +534,6 @@ async def process_whatsapp_webhook_payload(
     payload: Dict[str, Any],
     runtime: WhatsappRuntime,
 ) -> None:
-    if not isinstance(payload, dict):
-        return
 
     try:
         async with httpx.AsyncClient(timeout=WHATSAPP_HTTP_TIMEOUT_SECONDS) as client:
