@@ -12,6 +12,7 @@ from services.agents.utils.conversation_helpers import (
     WELCOME_LEARN_MORE_URL,
     close_conversation,
     continue_conversation,
+    handle_action_confirmation,
     get_conversation_info,
 )
 from services.agents.utils.markdown import to_whatsapp_markdown
@@ -20,6 +21,7 @@ from services.common.models import (
     LlmResponseFeedbackReason,
     LlmResponseFeedbackType,
 )
+from services.observability.utils import observability_overrides
 
 from .runtime import WhatsappRuntime
 
@@ -103,16 +105,130 @@ def _prepare_reply_text(payload: AssistantPayload | None) -> str:
     if not base_text:
         base_text = "I'm still thinking about that. Could you rephrase your question?"
 
-    if payload.get("requires_confirmation"):
-        base_text = (
-            f"{base_text}\n\nLet me know if you'd like to proceed by tapping 👍Like or decline with 👎Dislike."
-        )
-
     formatted_text = to_whatsapp_markdown(base_text).strip()
     if len(formatted_text) > 1024:
         formatted_text = formatted_text[:1021].rstrip() + "..."
 
     return formatted_text or "I don't have anything to share yet, but I'm here to help!"
+
+
+def _build_confirmation_prompt(
+    payload: AssistantPayload,
+    *,
+    agent_system_name: str,
+) -> tuple[str, dict[str, Any], list[dict[str, str]], list[str]]:
+    action_requests = payload.get("action_requests") or []
+    if not action_requests:
+        action_requests = [{}]
+
+    multiple = len(action_requests) > 1
+    confirmation_messages: list[str] = []
+    request_ids: list[str] = []
+
+    for index, request in enumerate(action_requests, start=1):
+        message = ""
+        request_id = None
+        if isinstance(request, dict):
+            message = request.get("action_message") or ""
+            request_id = request.get("id")
+        if not message:
+            message = "The assistant requested an action."
+        if multiple:
+            message = f"{index}. {message}"
+        confirmation_messages.append(message)
+        if request_id:
+            request_ids.append(str(request_id))
+
+    header_text = "AI Assistant Requires Confirmation"
+
+    text_sections = [f"*{header_text}*"]
+    text_sections.extend(confirmation_messages)
+    text_sections.append("Tap Confirm to proceed or Reject to cancel.")
+    text_sections.append(f"Agent: {agent_system_name}")
+
+    formatted_text = to_whatsapp_markdown("\n\n".join(text_sections)).strip()
+    if len(formatted_text) > 1024:
+        formatted_text = formatted_text[:1021].rstrip() + "..."
+
+    confirmation_card = {
+        "header": header_text,
+        "messages": confirmation_messages,
+    }
+
+    buttons = [
+        {"id": "confirm", "title": "✅ Confirm"},
+        {"id": "reject", "title": "✋ Reject"},
+    ]
+
+    return formatted_text or header_text, confirmation_card, buttons, request_ids
+
+
+async def _deliver_assistant_payload(
+    client: httpx.AsyncClient,
+    runtime: WhatsappRuntime,
+    recipient: str,
+    payload: AssistantPayload | None,
+    reply_source_id: str | None,
+    *,
+    user_id: str | None,
+) -> None:
+    if not payload:
+        logger.info("No assistant payload to deliver for WhatsApp recipient=%s", recipient)
+        return
+
+    conversation_id = payload.get("conversation_id")
+    agent_message_id = payload.get("message_id")
+    trace_id = payload.get("trace_id")
+    agent_system_name = payload.get("agent_system_name") or runtime.agent_system_name
+
+    action_requests = payload.get("action_requests") or []
+    requires_confirmation = bool(payload.get("requires_confirmation") and action_requests)
+
+    if requires_confirmation:
+        confirmation_text, confirmation_card, buttons, request_ids = _build_confirmation_prompt(
+            payload, agent_system_name=agent_system_name
+        )
+        if request_ids:
+            context_payload = {
+                "type": "action_confirmation",
+                "conversation_id": conversation_id,
+                "message_id": agent_message_id or reply_source_id,
+                "request_ids": request_ids,
+                "user_id": user_id,
+                "trace_id": trace_id,
+                "agent_system_name": agent_system_name,
+                "confirmation_card": confirmation_card,
+            }
+            await _send_whatsapp_buttons_message(
+                client,
+                runtime,
+                recipient,
+                confirmation_text,
+                reply_source_id,
+                buttons=buttons,
+                context=context_payload,
+            )
+            return
+
+    reply_text = _prepare_reply_text(payload)
+    buttons = [
+        {"id": "like", "title": "👍Like"},
+        {"id": "dislike", "title": "👎Dislike"},
+    ]
+    context_payload = {
+        "type": "feedback",
+        "conversation_id": conversation_id,
+        "message_id": agent_message_id,
+    }
+    await _send_whatsapp_buttons_message(
+        client,
+        runtime,
+        recipient,
+        reply_text,
+        reply_source_id,
+        buttons=buttons,
+        context=context_payload,
+    )
 
 
 async def _post_whatsapp_message(
@@ -208,9 +324,28 @@ async def _send_whatsapp_text_message(
         )
 
 
-def _build_interactive_buttons_payload(body: str, inbound_message_id: str | None) -> Dict[str, Any]:
+def _build_interactive_buttons_payload(
+    body: str,
+    inbound_message_id: str | None,
+    buttons: list[dict[str, str]],
+) -> Dict[str, Any]:
     hash_input = inbound_message_id or secrets.token_hex(8)
     hash_suffix = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()[:16]
+
+    button_entries: list[Dict[str, Any]] = []
+    for button in buttons:
+        button_id_prefix = (button.get("id") or secrets.token_hex(4)).strip()
+        button_title = (button.get("title") or "Select").strip()
+        button_id = f"{button_id_prefix}_{hash_suffix}"
+        button_entries.append(
+            {
+                "type": "reply",
+                "reply": {
+                    "id": button_id,
+                    "title": button_title[:24],
+                },
+            }
+        )
 
     return {
         "type": "interactive",
@@ -218,22 +353,7 @@ def _build_interactive_buttons_payload(body: str, inbound_message_id: str | None
             "type": "button",
             "body": {"text": body},
             "action": {
-                "buttons": [
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": f"like_{hash_suffix}",
-                            "title": "👍Like",
-                        },
-                    },
-                    {
-                        "type": "reply",
-                        "reply": {
-                            "id": f"dislike_{hash_suffix}",
-                            "title": "👎Dislike",
-                        },
-                    },
-                ]
+                "buttons": button_entries[:3]
             },
         },
     }
@@ -246,14 +366,14 @@ async def _send_whatsapp_buttons_message(
     body: str,
     inbound_message_id: str | None,
     *,
-    conversation_id: str | None,
-    agent_message_id: str | None,
+    buttons: list[dict[str, str]],
+    context: dict | None = None,
 ) -> None:
     payload = {
         "messaging_product": "whatsapp",
         "to": recipient,
     }
-    payload.update(_build_interactive_buttons_payload(body, inbound_message_id))
+    payload.update(_build_interactive_buttons_payload(body, inbound_message_id, buttons))
 
     data = await _post_whatsapp_message(
         client,
@@ -269,15 +389,11 @@ async def _send_whatsapp_buttons_message(
             sent_message_id,
             inbound_message_id,
         )
-        if (
-            sent_message_id
-            and conversation_id
-            and agent_message_id
-        ):
-            runtime.feedback_context[sent_message_id] = (conversation_id, agent_message_id)
-            if len(runtime.feedback_context) > 500:
-                oldest_key = next(iter(runtime.feedback_context))
-                runtime.feedback_context.pop(oldest_key, None)
+        if sent_message_id and context:
+            runtime.interactive_context[sent_message_id] = context
+            if len(runtime.interactive_context) > 500:
+                oldest_key = next(iter(runtime.interactive_context))
+                runtime.interactive_context.pop(oldest_key, None)
 
 
 async def _handle_whatsapp_interactive_reply(
@@ -294,15 +410,12 @@ async def _handle_whatsapp_interactive_reply(
         logger.info("Duplicate interactive reply ignored for message %s", reply_context_id)
         return
 
-    context_conversation_id: str | None = None
-    context_message_id: str | None = None
+    stored_context: dict[str, Any] | None = None
     if reply_context_id:
-        stored_context = runtime.feedback_context.pop(reply_context_id, None)
-        if stored_context:
-            context_conversation_id, context_message_id = stored_context
-        else:
+        stored_context = runtime.interactive_context.pop(reply_context_id, None)
+        if stored_context is None:
             logger.warning(
-                "No feedback context found for WhatsApp interactive reply message_id=%s",
+                "No interactive context found for WhatsApp reply message_id=%s",
                 reply_context_id,
             )
 
@@ -324,6 +437,78 @@ async def _handle_whatsapp_interactive_reply(
 
         if not from_number:
             return
+
+        context_type = (stored_context or {}).get("type") or "feedback"
+
+        if context_type == "action_confirmation":
+            conversation_id = (stored_context or {}).get("conversation_id")
+            request_ids = (stored_context or {}).get("request_ids") or []
+            user_id = (stored_context or {}).get("user_id")
+            trace_id = (stored_context or {}).get("trace_id")
+            agent_name = (stored_context or {}).get("agent_system_name") or runtime.agent_system_name
+            message_id = (stored_context or {}).get("message_id") or reply_context_id
+
+            if not (conversation_id and request_ids and user_id):
+                logger.warning(
+                    "Missing confirmation context for WhatsApp reply (conversation=%s, request_ids=%s, user_id=%s)",
+                    conversation_id,
+                    request_ids,
+                    user_id,
+                )
+                await _send_whatsapp_text_message(
+                    client,
+                    runtime,
+                    from_number,
+                    "Sorry, I couldn't process that confirmation. Please try again.",
+                )
+                return
+
+            confirmed = button_id.startswith("confirm_")
+            acknowledgement = (
+                "Thanks! I'll proceed with the requested action."
+                if confirmed
+                else "No problem, I won't run that action."
+            )
+
+            try:
+                assistant_payload = await handle_action_confirmation(
+                    agent_system_name=agent_name,
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    request_ids=[str(item) for item in request_ids],
+                    confirmed=confirmed,
+                    **observability_overrides(trace_id=trace_id, consumer_name="WhatsApp"),
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to process WhatsApp action confirmation (conversation=%s user=%s)",
+                    conversation_id,
+                    user_id,
+                )
+                await _send_whatsapp_text_message(
+                    client,
+                    runtime,
+                    from_number,
+                    "Sorry, something went wrong while processing your confirmation.",
+                )
+                return
+
+            await _send_whatsapp_text_message(client, runtime, from_number, acknowledgement)
+
+            if assistant_payload:
+                reply_source_id = assistant_payload.get("message_id") or message_id
+                await _deliver_assistant_payload(
+                    client,
+                    runtime,
+                    from_number,
+                    assistant_payload,
+                    reply_source_id,
+                    user_id=user_id,
+                )
+            return
+
+        context_conversation_id = (stored_context or {}).get("conversation_id")
+        context_message_id = (stored_context or {}).get("message_id")
 
         if button_id.startswith("like_"):
             acknowledgement = "Thanks for the Like! I've disabled further voting on this message."
@@ -447,9 +632,6 @@ async def _handle_whatsapp_text_message(
     await _send_whatsapp_typing_indicator(client, runtime, message_id)
 
     assistant_payload: AssistantPayload | None = None
-    conversation_id: str | None = None
-    assistant_message_id: str | None = None
-    reply_source_id: str | None = None
     try:
         assistant_payload = await continue_conversation(
             agent_system_name=runtime.agent_system_name,
@@ -463,22 +645,26 @@ async def _handle_whatsapp_text_message(
             resolved_user_id,
             runtime.agent_system_name,
         )
-        reply_text = "Sorry, I'm having trouble responding right now."
-    else:
-        reply_text = _prepare_reply_text(assistant_payload)
-        conversation_id = assistant_payload.get("conversation_id") if assistant_payload else None
-        assistant_message_id = assistant_payload.get("message_id") if assistant_payload else None
-        reply_source_id = assistant_message_id or conversation_id
+        await _send_whatsapp_text_message(
+            client,
+            runtime,
+            from_number,
+            "Sorry, I'm having trouble responding right now.",
+        )
+        return
 
-    reply_source_id = reply_source_id or message_id
-    await _send_whatsapp_buttons_message(
+    reply_source_id = (
+        assistant_payload.get("message_id")
+        or assistant_payload.get("conversation_id")
+        or message_id
+    )
+    await _deliver_assistant_payload(
         client,
         runtime,
         from_number,
-        reply_text,
+        assistant_payload,
         reply_source_id,
-        conversation_id=conversation_id,
-        agent_message_id=assistant_message_id,
+        user_id=resolved_user_id,
     )
 
 
