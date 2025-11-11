@@ -2331,28 +2331,28 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@fortawesome/fontawesome-common-types@npm:6.7.2":
-  version: 6.7.2
-  resolution: "@fortawesome/fontawesome-common-types@npm:6.7.2"
-  checksum: 10c0/0785df560542d9c08a0ba07bb7a39902274a3cd65c018672eb2520a99efccce18bdb7f7f4b1c6089763bc5627bf0f0837c3af963a8427eaeb535bd57c820a723
+"@fortawesome/fontawesome-common-types@npm:7.1.0":
+  version: 7.1.0
+  resolution: "@fortawesome/fontawesome-common-types@npm:7.1.0"
+  checksum: 10c0/8d10a6bfaa33f66fd042fe9f8159926a3e9b12d5cbf31698a88980b0e9b84ebc8c6b4b25e5c865c1d8542a67ed4fa1fadfaabfec250b991f018f2b45aa3b005d
   languageName: node
   linkType: hard
 
-"@fortawesome/free-regular-svg-icons@npm:^6.6.0":
-  version: 6.7.2
-  resolution: "@fortawesome/free-regular-svg-icons@npm:6.7.2"
+"@fortawesome/free-regular-svg-icons@npm:^6.6.0 || ^7.0.1":
+  version: 7.1.0
+  resolution: "@fortawesome/free-regular-svg-icons@npm:7.1.0"
   dependencies:
-    "@fortawesome/fontawesome-common-types": "npm:6.7.2"
-  checksum: 10c0/3a334cb0c837170f7b14759ddc8ef2a821b8d2c59b23a7b852d7e3fb16b066dd5fe8649e47bc1ef91764c78a78f51d1c0c8c5b8567e1680eeb21e8afdc70f5f7
+    "@fortawesome/fontawesome-common-types": "npm:7.1.0"
+  checksum: 10c0/541fa44db8c0e1c3ad8c2cb7b8285070cb5c1e7d2feb593447a1f1a6c85bacb72fb53a8313f0510736f79572582925fcdf6cc57567c6ab7edcff7c99dd86090b
   languageName: node
   linkType: hard
 
-"@fortawesome/free-solid-svg-icons@npm:^6.6.0":
-  version: 6.7.2
-  resolution: "@fortawesome/free-solid-svg-icons@npm:6.7.2"
+"@fortawesome/free-solid-svg-icons@npm:^6.6.0 || ^7.0.1":
+  version: 7.1.0
+  resolution: "@fortawesome/free-solid-svg-icons@npm:7.1.0"
   dependencies:
-    "@fortawesome/fontawesome-common-types": "npm:6.7.2"
-  checksum: 10c0/e900f3bb7b7d821421f11439ff78cd2b3c98ca31e848e1afebf7caa578d29a31fb6cf8ef283d4df342de777126a71fcbb154dd395b9d9ab6914a40a86df81413
+    "@fortawesome/fontawesome-common-types": "npm:7.1.0"
+  checksum: 10c0/0e3129fa9c972be9a897a17329958d7fe0a322fef794ace3589941fa97c41761222a071b50e47e1f3f81a0c398dfca7c5a1d9ed93576f76b91c514e372f6da30
   languageName: node
   linkType: hard
 
@@ -2794,12 +2794,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jsonquerylang/jsonquery@npm:^3.1.1 || ^4.0.0":
-  version: 4.1.1
-  resolution: "@jsonquerylang/jsonquery@npm:4.1.1"
+"@jsonquerylang/jsonquery@npm:^3.1.1 || ^4.0.0 || ^5.0.0":
+  version: 5.0.4
+  resolution: "@jsonquerylang/jsonquery@npm:5.0.4"
   bin:
     jsonquery: bin/cli.js
-  checksum: 10c0/863812e0c361f58c482e85bb8e3805c0962321f2d65b9e78a5ca1ab2f908e30b3aa211592cd332df3431871d2e1344f5184d6b25547b175295c1578e0deb16da
+  checksum: 10c0/83c37ef7606bfdef46d06c124245604a495ad0d0e8b005aadb649b088c59c07055f6f707507a9d5a720fac8b8799f8c9add7a203ae363b1f9fcc51546aa0c494
   languageName: node
   linkType: hard
 
@@ -2930,7 +2930,7 @@ __metadata:
     tslib: "npm:^2.3.0"
     typescript: "npm:^5.7.3"
     typescript-eslint: "npm:^8.19.0"
-    vanilla-jsoneditor: "npm:^2.4.0"
+    vanilla-jsoneditor: "npm:^3.10.0"
     vite: "npm:^6.1.1"
     vite-plugin-static-copy: "npm:^2.2.0"
     vite-plugin-vue-devtools: "npm:^7.7.2"
@@ -14309,7 +14309,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jsonpath-plus@npm:^9.0.0 || ^10.2.0":
+"jsonpath-plus@npm:^10.3.0":
   version: 10.3.0
   resolution: "jsonpath-plus@npm:10.3.0"
   dependencies:
@@ -20104,9 +20104,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"svelte@npm:^3.54.0 || ^4.0.0 || ^5.0.0":
-  version: 5.43.3
-  resolution: "svelte@npm:5.43.3"
+"svelte@npm:^5.0.0":
+  version: 5.43.6
+  resolution: "svelte@npm:5.43.6"
   dependencies:
     "@jridgewell/remapping": "npm:^2.3.4"
     "@jridgewell/sourcemap-codec": "npm:^1.5.0"
@@ -20122,7 +20122,7 @@ __metadata:
     locate-character: "npm:^3.0.0"
     magic-string: "npm:^0.30.11"
     zimmerframe: "npm:^1.1.2"
-  checksum: 10c0/1b3923ce079558eed0ebdfa3152137b711c168376f2de73392a78afd1519ad74721cd36904b022b88f3beae8abd80c732e140e02e2c2820180154f224c213f61
+  checksum: 10c0/59dcd9a49efac7be5aefb633ba1f389349936e0a431046bba940b813d17b9ba617d2648dcd8c23661bae4872e8a6e345c98df4386d88b48d3aa4c9b9df341207
   languageName: node
   linkType: hard
 
@@ -21363,9 +21363,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vanilla-jsoneditor@npm:^2.4.0":
-  version: 2.4.0
-  resolution: "vanilla-jsoneditor@npm:2.4.0"
+"vanilla-jsoneditor@npm:^3.10.0":
+  version: 3.10.0
+  resolution: "vanilla-jsoneditor@npm:3.10.0"
   dependencies:
     "@codemirror/autocomplete": "npm:^6.18.1"
     "@codemirror/commands": "npm:^6.7.1"
@@ -21375,9 +21375,9 @@ __metadata:
     "@codemirror/search": "npm:^6.5.6"
     "@codemirror/state": "npm:^6.4.1"
     "@codemirror/view": "npm:^6.34.1"
-    "@fortawesome/free-regular-svg-icons": "npm:^6.6.0"
-    "@fortawesome/free-solid-svg-icons": "npm:^6.6.0"
-    "@jsonquerylang/jsonquery": "npm:^3.1.1 || ^4.0.0"
+    "@fortawesome/free-regular-svg-icons": "npm:^6.6.0 || ^7.0.1"
+    "@fortawesome/free-solid-svg-icons": "npm:^6.6.0 || ^7.0.1"
+    "@jsonquerylang/jsonquery": "npm:^3.1.1 || ^4.0.0 || ^5.0.0"
     "@lezer/highlight": "npm:^1.2.1"
     "@replit/codemirror-indentation-markers": "npm:^6.5.3"
     ajv: "npm:^8.17.1"
@@ -21386,14 +21386,14 @@ __metadata:
     immutable-json-patch: "npm:^6.0.1"
     jmespath: "npm:^0.16.0"
     json-source-map: "npm:^0.6.1"
-    jsonpath-plus: "npm:^9.0.0 || ^10.2.0"
+    jsonpath-plus: "npm:^10.3.0"
     jsonrepair: "npm:^3.0.0"
     lodash-es: "npm:^4.17.21"
     memoize-one: "npm:^6.0.0"
     natural-compare-lite: "npm:^1.4.0"
-    svelte: "npm:^3.54.0 || ^4.0.0 || ^5.0.0"
+    svelte: "npm:^5.0.0"
     vanilla-picker: "npm:^2.12.3"
-  checksum: 10c0/299af9d74f49ca9855187f50685ffabc14966bd628b7076463d8af1bc73227ddf2719d9acb4874b6b691e04e001ea9ea649bc989f3a4774bb4ea197918529218
+  checksum: 10c0/36eff1ca69a62ce3e1c37eee6c4aee446ea2f85c268cfcaed857a23df7b43f55cd4dcc0734f6853b7fda50bac6cb2e1628b637ab064c8d15827758c14006e0aa
   languageName: node
   linkType: hard
 
