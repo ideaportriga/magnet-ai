@@ -1,5 +1,5 @@
 # Stage 1: Build WEB with nx
-FROM node:20-alpine AS web-builder
+FROM node:25-alpine AS web-builder
 
 WORKDIR /web
 
