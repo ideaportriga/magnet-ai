@@ -1,5 +1,5 @@
 # Stage 1: Build dependencies using Poetry
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY poetry.lock poetry.toml pyproject.toml ./
 RUN poetry install --no-interaction --no-root --only main
 
 # Stage 2: Create a smaller image with just the application
-FROM python:3.12-slim AS runner
+FROM python:3.14-slim AS runner
 
 WORKDIR /app
 
