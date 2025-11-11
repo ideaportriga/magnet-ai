@@ -1,0 +1,72 @@
+version: 2
+updates:
+  # Python dependencies (API)
+  - package-ecosystem: "pip"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "ideaportriga/magnet-ai-team"
+    labels:
+      - "dependencies"
+      - "python"
+
+  # JavaScript/Node.js dependencies (Web)
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "ideaportriga/magnet-ai-team"
+    labels:
+      - "dependencies"
+      - "javascript"
+    versioning-strategy: "increase"
+
+  # Root JavaScript dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "ideaportriga/magnet-ai-team"
+    labels:
+      - "dependencies"
+      - "javascript"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "ideaportriga/magnet-ai-team"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # Docker dependencies (API)
+  - package-ecosystem: "docker"
+    directory: "/api"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "ideaportriga/magnet-ai-team"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
