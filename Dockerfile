@@ -27,7 +27,7 @@ ENV WEB_HELP_PATH="help/"
 RUN yarn nx build magnet-docs;
 
 # Stage 2: Build API dependencies using Poetry
-FROM python:3.12-slim AS api-builder
+FROM python:3.14-slim AS api-builder
 
 WORKDIR /app
 
@@ -38,7 +38,7 @@ COPY api/poetry.lock api/poetry.toml api/pyproject.toml ./
 RUN poetry install --no-interaction --no-root --only main
 
 # Stage 3: Create a smaller image with just the application
-FROM python:3.12-slim as final
+FROM python:3.14-slim as final
 
 # Install netcat for database connectivity checks
 RUN apt-get update && apt-get install -y netcat-traditional && rm -rf /var/lib/apt/lists/*
