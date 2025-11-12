@@ -14,7 +14,11 @@ from services.agents.models import (
     AgentConversationWithMessagesPublic,
 )
 from services.agents.services import get_agent_by_system_name
-from services.observability import observability_context, observe, observability_overrides
+from services.observability import (
+    observability_context,
+    observe,
+    observability_overrides,
+)
 
 logger = getLogger(__name__)
 
@@ -22,7 +26,7 @@ logger = getLogger(__name__)
 class AskMagnetRequest(BaseModel):
     agent: str
     user_message_content: str
-    user_id: str | None = None	
+    user_id: str | None = None
     conversation_id: str | None = None
     trace_id: str | None = None
 
@@ -137,6 +141,7 @@ async def _extract_payload_from_request(
 
     return payload, normalized_content_type
 
+
 @observe(
     name="The user asks a question to the agent",
     channel="production",
@@ -191,14 +196,18 @@ async def _process_ask_magnet_request(
     )
 
     if assistant_message is None:
-        raise ValidationException("Assistant response is missing from the conversation.")
+        raise ValidationException(
+            "Assistant response is missing from the conversation."
+        )
 
     return AskMagnetResponse(
         conversation_id=str(conversation.id),
         message_id=str(assistant_message.id),
         content=assistant_message.content,
         trace_id=conversation.trace_id,
-        analytics_id=str(conversation.analytics_id) if conversation.analytics_id is not None else None,
+        analytics_id=str(conversation.analytics_id)
+        if conversation.analytics_id is not None
+        else None,
     )
 
 
@@ -253,7 +262,9 @@ class AskMagnetController(Controller):
 
         request_model = AskMagnetRequest.model_validate(payload)
 
-        observability_kwargs: dict[str, str | None] = {"trace_id": request_model.trace_id}
+        observability_kwargs: dict[str, str | None] = {
+            "trace_id": request_model.trace_id
+        }
         if consumer_name:
             observability_kwargs["consumer_name"] = consumer_name
 

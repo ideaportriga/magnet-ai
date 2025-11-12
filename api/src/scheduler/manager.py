@@ -165,7 +165,7 @@ async def create_scheduler() -> AsyncIOScheduler:
     # Get database and scheduler settings from configuration
     db_settings = get_database_settings()
     scheduler_settings = get_scheduler_settings()
-    
+
     # Get synchronous database URL for APScheduler
     sync_connection_string = scheduler_settings.get_scheduler_database_url(db_settings)
 
@@ -177,7 +177,7 @@ async def create_scheduler() -> AsyncIOScheduler:
 
     # Get engine options from scheduler settings
     engine_options = scheduler_settings.get_engine_options()
-    
+
     # Add database-specific connect_args
     if "postgresql" in sync_connection_string:
         engine_options["connect_args"] = {"application_name": "magnetui_scheduler"}

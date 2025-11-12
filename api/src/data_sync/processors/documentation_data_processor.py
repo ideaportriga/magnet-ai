@@ -70,7 +70,7 @@ class DocumentationDataProcessor(DataProcessor):
         for page in self.__pages:
             # Use URL as unique identifier
             source_id = page.url
-            
+
             # Modified date is not available for static docs, use empty string
             # This means pages will be re-synced every time, which is acceptable
             # for documentation that might change frequently

@@ -108,4 +108,3 @@ def _format_whatsapp_link(label: str, url: str) -> str:
 
 def to_whatsapp_markdown(value: str | None) -> str:
     return _convert_markdown(value, _format_whatsapp_link)
-

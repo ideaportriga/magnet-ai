@@ -36,7 +36,10 @@ class KnowledgeSourcePlugin(BasePlugin):
 
     @abstractmethod
     async def create_processor(
-        self, source_config: Dict[str, Any], collection_config: Dict[str, Any], store: Any
+        self,
+        source_config: Dict[str, Any],
+        collection_config: Dict[str, Any],
+        store: Any,
     ) -> Any:  # Returns DataProcessor
         """Create a data processor for syncing this source
 

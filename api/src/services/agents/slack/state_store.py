@@ -79,9 +79,7 @@ class SlackOAuthStateStore(AsyncOAuthStateStore):
 
     def _cleanup_expired(self, session: Session) -> None:
         now = _utc_now()
-        session.execute(
-            delete(SlackOAuthState).where(SlackOAuthState.expires_at < now)
-        )
+        session.execute(delete(SlackOAuthState).where(SlackOAuthState.expires_at < now))
 
     def _issue_sync(self, *args, **kwargs) -> str:
         state = str(uuid4())
@@ -103,9 +101,7 @@ class SlackOAuthStateStore(AsyncOAuthStateStore):
         with self._session() as session:
             record = (
                 session.execute(
-                    select(SlackOAuthState).where(
-                        SlackOAuthState.state_token == state
-                    )
+                    select(SlackOAuthState).where(SlackOAuthState.state_token == state)
                 )
                 .scalars()
                 .one_or_none()
@@ -132,9 +128,7 @@ class SlackOAuthStateStore(AsyncOAuthStateStore):
         with SessionFactory() as session:
             record = (
                 session.execute(
-                    select(SlackOAuthState).where(
-                        SlackOAuthState.state_token == state
-                    )
+                    select(SlackOAuthState).where(SlackOAuthState.state_token == state)
                 )
                 .scalars()
                 .one_or_none()
@@ -164,5 +158,7 @@ class SlackOAuthStateStore(AsyncOAuthStateStore):
         return await asyncio.to_thread(self._consume_sync, state)
 
     @classmethod
-    async def async_lookup_agent_by_state(cls, state: str) -> Optional[tuple[str, Optional[str]]]:
+    async def async_lookup_agent_by_state(
+        cls, state: str
+    ) -> Optional[tuple[str, Optional[str]]]:
         return await asyncio.to_thread(cls.lookup_agent_by_state, state)

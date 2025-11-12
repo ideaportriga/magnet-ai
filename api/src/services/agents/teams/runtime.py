@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 
 from microsoft_agents.hosting.aiohttp import CloudAdapter
-from microsoft_agents.hosting.core import AgentApplication, AgentAuthConfiguration, TurnState
+from microsoft_agents.hosting.core import (
+    AgentApplication,
+    AgentAuthConfiguration,
+    TurnState,
+)
 
 
 @dataclass(slots=True)

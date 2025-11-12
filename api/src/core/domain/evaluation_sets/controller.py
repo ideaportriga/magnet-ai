@@ -135,7 +135,9 @@ class EvaluationSetsController(Controller):
         ),
     ) -> EvaluationSet:
         """Update an evaluation set."""
-        obj = await evaluation_sets_service.update(data, item_id=evaluation_set_id, auto_commit=True)
+        obj = await evaluation_sets_service.update(
+            data, item_id=evaluation_set_id, auto_commit=True
+        )
         return evaluation_sets_service.to_schema(obj, schema_type=EvaluationSet)
 
     @delete("/{evaluation_set_id:uuid}")

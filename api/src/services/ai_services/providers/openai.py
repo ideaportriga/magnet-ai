@@ -17,7 +17,7 @@ class OpenAIProvider(AIProviderInterface):
         # Create client with custom endpoint if provided
         # For local endpoints without API key, use a dummy key
         api_key = self.api_key or "sk-dummy-key"
-        
+
         if self.endpoint:
             self.client = openai.AsyncOpenAI(api_key=api_key, base_url=self.endpoint)
         else:
@@ -35,7 +35,9 @@ class OpenAIProvider(AIProviderInterface):
         model_config: dict | None = None,
     ) -> ChatCompletion:
         model = model or self.model_default
-        temperature = temperature if temperature is not None else self.temperature_default
+        temperature = (
+            temperature if temperature is not None else self.temperature_default
+        )
         top_p = top_p if top_p is not None else self.top_p_default
 
         params = {
@@ -49,7 +51,9 @@ class OpenAIProvider(AIProviderInterface):
         if model_config and model_config.get("reasoning"):
             params["reasoning_effort"] = model_config.get("reasoning_effort") or "low"
         else:
-            params["temperature"] = temperature if temperature is not None else openai.NOT_GIVEN
+            params["temperature"] = (
+                temperature if temperature is not None else openai.NOT_GIVEN
+            )
 
         # if model_config and model_config.get("tool_calling"):
         params["tools"] = tools or openai.NOT_GIVEN

@@ -4,7 +4,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from litestar.openapi import OpenAPIConfig
-from litestar.openapi.plugins import RedocRenderPlugin, StoplightRenderPlugin, SwaggerRenderPlugin
+from litestar.openapi.plugins import (
+    RedocRenderPlugin,
+    StoplightRenderPlugin,
+    SwaggerRenderPlugin,
+)
 from litestar.openapi.spec import Components, SecurityScheme
 from litestar.plugins import InitPluginProtocol
 
@@ -28,11 +32,19 @@ SWAGGER_PRESET_LOCAL = STATIC_DIR / "swagger-ui-standalone-preset.js"
 REDOC_VERSION = "2.1.3"
 ELEMENTS_VERSION = "7.7.18"
 SWAGGER_VERSION = "5.18.2"
-REDOC_CDN = f"https://cdn.jsdelivr.net/npm/redoc@{REDOC_VERSION}/bundles/redoc.standalone.js"
-ELEMENTS_JS_CDN = f"https://unpkg.com/@stoplight/elements@{ELEMENTS_VERSION}/web-components.min.js"
-ELEMENTS_CSS_CDN = f"https://unpkg.com/@stoplight/elements@{ELEMENTS_VERSION}/styles.min.css"
+REDOC_CDN = (
+    f"https://cdn.jsdelivr.net/npm/redoc@{REDOC_VERSION}/bundles/redoc.standalone.js"
+)
+ELEMENTS_JS_CDN = (
+    f"https://unpkg.com/@stoplight/elements@{ELEMENTS_VERSION}/web-components.min.js"
+)
+ELEMENTS_CSS_CDN = (
+    f"https://unpkg.com/@stoplight/elements@{ELEMENTS_VERSION}/styles.min.css"
+)
 SWAGGER_JS_CDN = f"https://cdn.jsdelivr.net/npm/swagger-ui-dist@{SWAGGER_VERSION}/swagger-ui-bundle.js"
-SWAGGER_CSS_CDN = f"https://cdn.jsdelivr.net/npm/swagger-ui-dist@{SWAGGER_VERSION}/swagger-ui.css"
+SWAGGER_CSS_CDN = (
+    f"https://cdn.jsdelivr.net/npm/swagger-ui-dist@{SWAGGER_VERSION}/swagger-ui.css"
+)
 SWAGGER_PRESET_CDN = f"https://cdn.jsdelivr.net/npm/swagger-ui-dist@{SWAGGER_VERSION}/swagger-ui-standalone-preset.js"
 
 
@@ -42,12 +54,30 @@ class OpenAPIPlugin(InitPluginProtocol):
     def on_app_init(self, app_config: "AppConfig") -> "AppConfig":
         """Configure OpenAPI settings."""
         # Determine which URLs to use (local files or CDN fallback)
-        redoc_js_url = "/static/redoc.standalone.js" if REDOC_LOCAL.exists() else REDOC_CDN
-        elements_js_url = "/static/elements.min.js" if ELEMENTS_JS_LOCAL.exists() else ELEMENTS_JS_CDN
-        elements_css_url = "/static/elements.min.css" if ELEMENTS_CSS_LOCAL.exists() else ELEMENTS_CSS_CDN
-        swagger_js_url = "/static/swagger-ui-bundle.js" if SWAGGER_JS_LOCAL.exists() else SWAGGER_JS_CDN
-        swagger_css_url = "/static/swagger-ui.css" if SWAGGER_CSS_LOCAL.exists() else SWAGGER_CSS_CDN
-        swagger_preset_url = "/static/swagger-ui-standalone-preset.js" if SWAGGER_PRESET_LOCAL.exists() else SWAGGER_PRESET_CDN
+        redoc_js_url = (
+            "/static/redoc.standalone.js" if REDOC_LOCAL.exists() else REDOC_CDN
+        )
+        elements_js_url = (
+            "/static/elements.min.js" if ELEMENTS_JS_LOCAL.exists() else ELEMENTS_JS_CDN
+        )
+        elements_css_url = (
+            "/static/elements.min.css"
+            if ELEMENTS_CSS_LOCAL.exists()
+            else ELEMENTS_CSS_CDN
+        )
+        swagger_js_url = (
+            "/static/swagger-ui-bundle.js"
+            if SWAGGER_JS_LOCAL.exists()
+            else SWAGGER_JS_CDN
+        )
+        swagger_css_url = (
+            "/static/swagger-ui.css" if SWAGGER_CSS_LOCAL.exists() else SWAGGER_CSS_CDN
+        )
+        swagger_preset_url = (
+            "/static/swagger-ui-standalone-preset.js"
+            if SWAGGER_PRESET_LOCAL.exists()
+            else SWAGGER_PRESET_CDN
+        )
 
         # Log which mode is being used
         missing_files = []
@@ -63,9 +93,10 @@ class OpenAPIPlugin(InitPluginProtocol):
             missing_files.append("swagger-ui.css")
         if not SWAGGER_PRESET_LOCAL.exists():
             missing_files.append("swagger-ui-standalone-preset.js")
-        
+
         if missing_files:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(
                 f"Static files not found: {', '.join(missing_files)}. "

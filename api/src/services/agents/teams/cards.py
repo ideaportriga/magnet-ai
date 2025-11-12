@@ -49,7 +49,9 @@ def create_welcome_card(bot_name, agent_system_name):
 
 
 def create_magnet_response_card(magnet_response):
-    if magnet_response.get("requires_confirmation") and magnet_response.get("action_requests"):
+    if magnet_response.get("requires_confirmation") and magnet_response.get(
+        "action_requests"
+    ):
         return _create_confirmation_card(magnet_response)
     return _create_standard_response_card(magnet_response)
 
@@ -61,9 +63,16 @@ def _create_confirmation_card(magnet_response):
     agent_system_name = magnet_response.get("agent_system_name")
 
     action_requests = magnet_response.get("action_requests") or []
-    request_ids = [request.get("id") for request in action_requests if request.get("id")]
+    request_ids = [
+        request.get("id") for request in action_requests if request.get("id")
+    ]
 
-    header = {"type": "TextBlock", "text": "AI Assistant Requires Confirmation", "weight": "Bolder", "size": "Large"}
+    header = {
+        "type": "TextBlock",
+        "text": "AI Assistant Requires Confirmation",
+        "weight": "Bolder",
+        "size": "Large",
+    }
 
     if action_requests:
         confirmation_messages = []
@@ -75,7 +84,10 @@ def _create_confirmation_card(magnet_response):
     else:
         confirmation_messages = ["The assistant requested an action."]
 
-    messages = [{"type": "TextBlock", "text": text, "wrap": True} for text in confirmation_messages]
+    messages = [
+        {"type": "TextBlock", "text": text, "wrap": True}
+        for text in confirmation_messages
+    ]
 
     common_data = {
         "conversation_id": conversation_id,
@@ -122,10 +134,16 @@ def _create_confirmation_card(magnet_response):
 
 def create_confirmation_result_card(confirmation_payload, confirmed: bool):
     confirmation_payload = confirmation_payload or {}
-    header_text = confirmation_payload.get("header") or "AI Assistant Requires Confirmation"
-    messages = confirmation_payload.get("messages") or ["The assistant requested an action."]
+    header_text = (
+        confirmation_payload.get("header") or "AI Assistant Requires Confirmation"
+    )
+    messages = confirmation_payload.get("messages") or [
+        "The assistant requested an action."
+    ]
 
-    body = [{"type": "TextBlock", "text": header_text, "weight": "Bolder", "size": "Large"}]
+    body = [
+        {"type": "TextBlock", "text": header_text, "weight": "Bolder", "size": "Large"}
+    ]
     body.extend({"type": "TextBlock", "text": text, "wrap": True} for text in messages)
     body.append(
         {
@@ -165,7 +183,11 @@ def _create_standard_response_card(magnet_response):
                             "type": "Action.Execute",
                             "verb": "like",
                             "title": "👍",
-                            "data": {"message_id": message_id, "conversation_id": conversation_id, "text": text},
+                            "data": {
+                                "message_id": message_id,
+                                "conversation_id": conversation_id,
+                                "text": text,
+                            },
                             "associatedInputs": "none",
                             "isPrimary": True,
                         }
@@ -185,7 +207,7 @@ def _create_standard_response_card(magnet_response):
                             "title": "👎",
                             "targetElements": [
                                 {"elementId": "dislike_fields", "isVisible": True},
-                                {"elementId": "action_buttons", "isVisible": False}
+                                {"elementId": "action_buttons", "isVisible": False},
                             ],
                             "associatedInputs": "none",
                         }
@@ -209,7 +231,11 @@ def _create_standard_response_card(magnet_response):
                                 "type": "Action.Execute",
                                 "verb": "close_conversation",
                                 "title": "🔒",
-                                "data": {"message_id": message_id, "conversation_id": conversation_id, "text": text},
+                                "data": {
+                                    "message_id": message_id,
+                                    "conversation_id": conversation_id,
+                                    "text": text,
+                                },
                             }
                         ],
                     }
@@ -217,13 +243,17 @@ def _create_standard_response_card(magnet_response):
             }
         )
 
-
     return {
         "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
         "type": "AdaptiveCard",
         "version": "1.5",
         "body": [
-            {"type": "TextBlock", "text": "AI Assistant Response", "weight": "Bolder", "size": "Large"},
+            {
+                "type": "TextBlock",
+                "text": "AI Assistant Response",
+                "weight": "Bolder",
+                "size": "Large",
+            },
             {"type": "TextBlock", "text": text, "wrap": True},
             {
                 "type": "Container",
@@ -256,7 +286,11 @@ def _create_standard_response_card(magnet_response):
                                 "type": "Action.Execute",
                                 "title": "✅ Confirm",
                                 "verb": "dislike",
-                                "data": {"message_id": message_id, "conversation_id": conversation_id, "text": text},
+                                "data": {
+                                    "message_id": message_id,
+                                    "conversation_id": conversation_id,
+                                    "text": text,
+                                },
                                 "associatedInputs": "auto",
                             },
                             {
@@ -264,7 +298,7 @@ def _create_standard_response_card(magnet_response):
                                 "title": "✖️ Cancel",
                                 "targetElements": [
                                     {"elementId": "dislike_fields", "isVisible": False},
-                                    {"elementId": "action_buttons", "isVisible": True}
+                                    {"elementId": "action_buttons", "isVisible": True},
                                 ],
                                 "associatedInputs": "none",
                             },
@@ -272,7 +306,12 @@ def _create_standard_response_card(magnet_response):
                     },
                 ],
             },
-            {"type": "ColumnSet", "id": "action_buttons", "spacing": "Medium", "columns": columns},
+            {
+                "type": "ColumnSet",
+                "id": "action_buttons",
+                "spacing": "Medium",
+                "columns": columns,
+            },
         ],
         "msteams": {"width": "Full"},
     }
@@ -292,8 +331,22 @@ def create_feedback_result_card(payload):
         {"type": "TextBlock", "text": header, "weight": "Bolder", "size": "Large"},
         {"type": "TextBlock", "text": text, "wrap": True},
         {"type": "TextBlock", "text": ack, "isSubtle": True, "wrap": True},
-        {"type": "TextBlock", "text": f"Reason: {reason}", "isSubtle": True, "wrap": True} if reason else None,
-        {"type": "TextBlock", "text": f"Comment: {comment}", "isSubtle": True, "wrap": True} if comment else None,
+        {
+            "type": "TextBlock",
+            "text": f"Reason: {reason}",
+            "isSubtle": True,
+            "wrap": True,
+        }
+        if reason
+        else None,
+        {
+            "type": "TextBlock",
+            "text": f"Comment: {comment}",
+            "isSubtle": True,
+            "wrap": True,
+        }
+        if comment
+        else None,
     ]
 
     body = [item for item in body if item is not None]
@@ -305,6 +358,7 @@ def create_feedback_result_card(payload):
         "body": body,
         "msteams": {"width": "Full"},
     }
+
 
 __all__ = [
     "create_welcome_card",

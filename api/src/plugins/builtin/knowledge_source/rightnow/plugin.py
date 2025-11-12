@@ -93,6 +93,7 @@ class RightNowPlugin(KnowledgeSourcePlugin):
         # Get authentication with explicit config if provided, otherwise use env
         if username and password:
             from data_sources.rightnow.utils import get_rightnow_basic_auth_with_config
+
             auth = get_rightnow_basic_auth_with_config(
                 username=username,
                 password=password,

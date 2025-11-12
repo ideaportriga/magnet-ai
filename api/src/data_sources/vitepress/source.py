@@ -26,7 +26,7 @@ class DocumentationPage:
 
 class VitePressDataSource(DataSource[DocumentationPage]):
     """Data source for VitePress documentation sites.
-    
+
     This data source crawls documentation pages from a VitePress site,
     following links within specified sections and languages.
     """
@@ -76,7 +76,7 @@ class VitePressDataSource(DataSource[DocumentationPage]):
             List of DocumentationPage objects
         """
         logger.info(f"Starting documentation crawl from {self._base_url}")
-        
+
         # Build starting URLs for each language
         # We'll start from the language root and then filter by sections
         start_urls = []
@@ -114,35 +114,43 @@ class VitePressDataSource(DataSource[DocumentationPage]):
             depth: Current crawl depth
         """
         logger.info(f"Crawling section '{section}' for language '{language}'")
-        
+
         # First, fetch the language root page to find section links
         try:
             logger.debug(f"Fetching language root: {lang_url}")
             response = await client.get(lang_url)
             response.raise_for_status()
-            
+
             soup = BeautifulSoup(response.text, "html.parser")
-            
+
             # Find all links that belong to this section
             section_links = self._find_section_links(soup, lang_url, language, section)
-            
-            logger.info(f"Found {len(section_links)} starting links for section '{section}'")
-            
+
+            logger.info(
+                f"Found {len(section_links)} starting links for section '{section}'"
+            )
+
             # If no links found, try configured start URL or common entry points
             if not section_links:
                 # Check if user provided a specific start URL for this section
                 if section in self._section_start_urls:
                     start_url = self._section_start_urls[section]
-                    logger.info(f"Using configured start URL for section '{section}': {start_url}")
+                    logger.info(
+                        f"Using configured start URL for section '{section}': {start_url}"
+                    )
                     section_links = [start_url]
                 else:
-                    logger.warning(f"No links found for section '{section}' on root page. Trying common entry points...")
-                    section_links = await self._try_common_entry_points(client, language, section)
-            
+                    logger.warning(
+                        f"No links found for section '{section}' on root page. Trying common entry points..."
+                    )
+                    section_links = await self._try_common_entry_points(
+                        client, language, section
+                    )
+
             # Crawl each link in the section
             for link in section_links:
                 await self._crawl_recursive(client, link, language, section, depth)
-                
+
         except httpx.HTTPStatusError as e:
             logger.warning(f"HTTP error fetching {lang_url}: {e.response.status_code}")
         except httpx.RequestError as e:
@@ -248,7 +256,11 @@ class VitePressDataSource(DataSource[DocumentationPage]):
             Extracted text content
         """
         # VitePress typically uses a main content area with class .content or .vp-doc
-        content_area = soup.find("div", class_="vp-doc") or soup.find("main") or soup.find("article")
+        content_area = (
+            soup.find("div", class_="vp-doc")
+            or soup.find("main")
+            or soup.find("article")
+        )
 
         if not content_area:
             # Fall back to body if specific content area not found
@@ -263,7 +275,7 @@ class VitePressDataSource(DataSource[DocumentationPage]):
 
         # Get text content
         text = content_area.get_text(separator="\n", strip=True)
-        
+
         # Clean up excessive whitespace
         lines = [line.strip() for line in text.split("\n") if line.strip()]
         return "\n".join(lines)
@@ -283,27 +295,27 @@ class VitePressDataSource(DataSource[DocumentationPage]):
             List of absolute URLs in this section
         """
         links = set()
-        
+
         # Pattern: {base_path}/docs/{language}/{section}/...
         section_pattern = f"{self._base_path}/docs/{language}/{section}/"
-        
+
         # Find all links
         all_links = soup.find_all("a", href=True)
         logger.debug(f"Found {len(all_links)} total links on {lang_url}")
-        
+
         for a_tag in all_links:
             href = a_tag["href"]
             logger.debug(f"Processing link: {href}")
-            
+
             # Convert to absolute URL
             absolute_url = urljoin(lang_url, href)
-            
+
             # Parse URL
             parsed = urlparse(absolute_url)
-            
+
             # Remove fragment and query
             clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-            
+
             # Check if link belongs to this section
             if parsed.path.startswith(section_pattern):
                 logger.debug(f"Found section link: {clean_url}")
@@ -311,8 +323,10 @@ class VitePressDataSource(DataSource[DocumentationPage]):
                 if clean_url.endswith((".html", "/")):
                     links.add(clean_url)
             else:
-                logger.debug(f"Link does not match section pattern {section_pattern}: {parsed.path}")
-        
+                logger.debug(
+                    f"Link does not match section pattern {section_pattern}: {parsed.path}"
+                )
+
         logger.info(f"Found {len(links)} links matching section '{section}'")
         return list(links)
 
@@ -337,9 +351,9 @@ class VitePressDataSource(DataSource[DocumentationPage]):
             f"{self._base_url}/docs/{language}/{section}/introduction.html",
             f"{self._base_url}/docs/{language}/{section}/getting-started.html",
         ]
-        
+
         valid_urls = []
-        
+
         for url in patterns:
             try:
                 logger.debug(f"Trying entry point: {url}")
@@ -351,12 +365,12 @@ class VitePressDataSource(DataSource[DocumentationPage]):
             except Exception as e:
                 logger.debug(f"Entry point not available: {url} - {e}")
                 continue
-        
+
         if valid_urls:
             logger.info(f"Using entry point(s): {valid_urls}")
         else:
             logger.warning(f"No valid entry points found for section '{section}'")
-        
+
         return valid_urls
 
     def _extract_links(
@@ -374,25 +388,28 @@ class VitePressDataSource(DataSource[DocumentationPage]):
             List of absolute URLs to follow
         """
         links = []
-        
+
         # Find all links
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"]
-            
+
             # Convert to absolute URL
             absolute_url = urljoin(current_url, href)
-            
+
             # Parse URL
             parsed = urlparse(absolute_url)
-            
+
             # Remove fragment and query
             clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-            
+
             # Only follow links within the same section and language
             # Pattern: {base_path}/docs/{language}/{section}/...
             expected_prefix = f"{self._base_path}/docs/{language}/{section}/"
-            
-            if parsed.path.startswith(expected_prefix) and clean_url not in self._visited_urls:
+
+            if (
+                parsed.path.startswith(expected_prefix)
+                and clean_url not in self._visited_urls
+            ):
                 # Ensure it's an HTML page (ends with .html or is a directory)
                 if clean_url.endswith((".html", "/")):
                     links.append(clean_url)

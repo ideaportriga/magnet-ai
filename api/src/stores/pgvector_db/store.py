@@ -73,10 +73,10 @@ class PgVectorStore(DocumentStore):
 
     async def _get_vector_size_from_model(self, model_system_name: str) -> int:
         """Get vector size from model configuration.
-        
+
         Args:
             model_system_name: System name of the AI model
-            
+
         Returns:
             Vector size (dimensions), defaults to 1536 if not configured
         """
@@ -87,15 +87,13 @@ class PgVectorStore(DocumentStore):
                 vector_size = configs.get("vector_size")
                 if vector_size and isinstance(vector_size, int):
                     logger.info(
-                        "Model %s has vector_size: %d",
-                        model_system_name,
-                        vector_size
+                        "Model %s has vector_size: %d", model_system_name, vector_size
                     )
                     return vector_size
             logger.warning(
                 "Model %s has no vector_size in configs, using default 1536. Configs: %s",
                 model_system_name,
-                configs
+                configs,
             )
         except Exception as e:
             logger.warning(
@@ -107,10 +105,10 @@ class PgVectorStore(DocumentStore):
 
     async def _get_current_vector_size(self, table_name: str) -> int | None:
         """Get the current vector size of an existing table.
-        
+
         Args:
             table_name: Name of the table
-            
+
         Returns:
             Vector size if found, None otherwise
         """
@@ -131,21 +129,18 @@ class PgVectorStore(DocumentStore):
                 """,
                 table_name,
             )
-            
+
             if row:
                 logger.info(
                     "Table %s has vector column with atttypmod: %s",
                     table_name,
-                    row["atttypmod"]
+                    row["atttypmod"],
                 )
                 if row["atttypmod"] > 0:
                     # atttypmod for vector type stores the dimension
                     return row["atttypmod"]
             else:
-                logger.warning(
-                    "No vector column found in table %s",
-                    table_name
-                )
+                logger.warning("No vector column found in table %s", table_name)
         except Exception as e:
             logger.warning(
                 "Failed to get current vector size for table %s: %s",
@@ -154,9 +149,11 @@ class PgVectorStore(DocumentStore):
             )
         return None
 
-    async def _create_documents_table(self, collection_id: str, vector_size: int = 1536) -> None:
+    async def _create_documents_table(
+        self, collection_id: str, vector_size: int = 1536
+    ) -> None:
         """Create documents table for a collection.
-        
+
         Args:
             collection_id: Collection ID
             vector_size: Size of the embedding vector (default 1536)
@@ -244,10 +241,17 @@ class PgVectorStore(DocumentStore):
                 collection_metadata = await self.get_collection_metadata(collection_id)
                 model_name = collection_metadata.get("ai_model")
                 if model_name:
-                    expected_vector_size = await self._get_vector_size_from_model(model_name)
-                    current_vector_size = await self._get_current_vector_size(table_name)
-                    
-                    if current_vector_size is not None and current_vector_size != expected_vector_size:
+                    expected_vector_size = await self._get_vector_size_from_model(
+                        model_name
+                    )
+                    current_vector_size = await self._get_current_vector_size(
+                        table_name
+                    )
+
+                    if (
+                        current_vector_size is not None
+                        and current_vector_size != expected_vector_size
+                    ):
                         logger.warning(
                             "Vector size mismatch for collection %s: table has %d dimensions, model expects %d. Recreating table.",
                             collection_id,
@@ -256,7 +260,9 @@ class PgVectorStore(DocumentStore):
                         )
                         # Drop and recreate table with correct vector size
                         await self._drop_documents_table(collection_id)
-                        await self._create_documents_table(collection_id, expected_vector_size)
+                        await self._create_documents_table(
+                            collection_id, expected_vector_size
+                        )
                     elif current_vector_size is None:
                         logger.warning(
                             "Could not determine current vector size for collection %s, assuming it's correct",
@@ -438,7 +444,7 @@ class PgVectorStore(DocumentStore):
                     "Using vector_size %d for collection %s with model %s",
                     vector_size,
                     collection_id,
-                    model_name
+                    model_name,
                 )
             except Exception as e:
                 logger.warning(
@@ -451,7 +457,7 @@ class PgVectorStore(DocumentStore):
         else:
             logger.warning(
                 "No model specified for collection %s, using default vector_size 1536",
-                collection_id
+                collection_id,
             )
             vector_size = 1536  # Default
 

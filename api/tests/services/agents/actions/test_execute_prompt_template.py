@@ -21,12 +21,13 @@ def test_execute_agent_action_prompt_template(mocker: MockerFixture):
     response = action_execute_prompt_template(tool_system_name, arguments)
 
     mock_execute_prompt_template.assert_called_once_with(
-        system_name_or_config=tool_system_name, template_additional_messages=[
-                {
-                    "role": "user",
-                    "content": user_message,
-                },
-            ],
+        system_name_or_config=tool_system_name,
+        template_additional_messages=[
+            {
+                "role": "user",
+                "content": user_message,
+            },
+        ],
     )
 
     assert response.content == "Prompt template response content"

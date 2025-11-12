@@ -9,7 +9,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 BASE_DIR: Final[Path] = Path(__file__).parent.parent
-TRUE_VALUES: Final[frozenset[str]] = frozenset({"True", "true", "1", "yes", "YES", "Y", "y", "T", "t"})
+TRUE_VALUES: Final[frozenset[str]] = frozenset(
+    {"True", "true", "1", "yes", "YES", "Y", "y", "T", "t"}
+)
 
 T = TypeVar("T")
 ParseTypes = bool | int | str | list[str] | Path | list[Path]
@@ -26,35 +28,51 @@ _UNSET = UnsetType()
 
 
 @overload
-def get_env(key: str, default: bool, type_hint: UnsetType = _UNSET) -> Callable[[], bool]: ...
+def get_env(
+    key: str, default: bool, type_hint: UnsetType = _UNSET
+) -> Callable[[], bool]: ...
 
 
 @overload
-def get_env(key: str, default: int, type_hint: UnsetType = _UNSET) -> Callable[[], int]: ...
+def get_env(
+    key: str, default: int, type_hint: UnsetType = _UNSET
+) -> Callable[[], int]: ...
 
 
 @overload
-def get_env(key: str, default: str, type_hint: UnsetType = _UNSET) -> Callable[[], str]: ...
+def get_env(
+    key: str, default: str, type_hint: UnsetType = _UNSET
+) -> Callable[[], str]: ...
 
 
 @overload
-def get_env(key: str, default: Path, type_hint: UnsetType = _UNSET) -> Callable[[], Path]: ...
+def get_env(
+    key: str, default: Path, type_hint: UnsetType = _UNSET
+) -> Callable[[], Path]: ...
 
 
 @overload
-def get_env(key: str, default: list[Path], type_hint: UnsetType = _UNSET) -> Callable[[], list[Path]]: ...
+def get_env(
+    key: str, default: list[Path], type_hint: UnsetType = _UNSET
+) -> Callable[[], list[Path]]: ...
 
 
 @overload
-def get_env(key: str, default: list[str], type_hint: UnsetType = _UNSET) -> Callable[[], list[str]]: ...
+def get_env(
+    key: str, default: list[str], type_hint: UnsetType = _UNSET
+) -> Callable[[], list[str]]: ...
 
 
 @overload
-def get_env(key: str, default: None, type_hint: UnsetType = _UNSET) -> Callable[[], None]: ...
+def get_env(
+    key: str, default: None, type_hint: UnsetType = _UNSET
+) -> Callable[[], None]: ...
 
 
 @overload
-def get_env(key: str, default: ParseTypes | None, type_hint: type[T]) -> Callable[[], T]: ...
+def get_env(
+    key: str, default: ParseTypes | None, type_hint: type[T]
+) -> Callable[[], T]: ...
 
 
 def get_env(
@@ -80,11 +98,15 @@ def get_config_val(key: str, default: Path, type_hint: UnsetType = _UNSET) -> Pa
 
 
 @overload
-def get_config_val(key: str, default: list[Path], type_hint: UnsetType = _UNSET) -> list[Path]: ...
+def get_config_val(
+    key: str, default: list[Path], type_hint: UnsetType = _UNSET
+) -> list[Path]: ...
 
 
 @overload
-def get_config_val(key: str, default: list[str], type_hint: UnsetType = _UNSET) -> list[str]: ...
+def get_config_val(
+    key: str, default: list[str], type_hint: UnsetType = _UNSET
+) -> list[str]: ...
 
 
 @overload

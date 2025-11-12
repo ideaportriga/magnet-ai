@@ -186,7 +186,7 @@ async def get_last_conversation_by_client_id(client_id: str):
             AgentConversation.client_id == client_id,
             or_(
                 AgentConversation.status.is_(None),
-                func.lower(AgentConversation.status) != "closed"
+                func.lower(AgentConversation.status) != "closed",
             ),
             order_by=[desc(AgentConversation.created_at)],
         )
@@ -305,6 +305,7 @@ async def add_user_message(
     )
 
     return response
+
 
 async def set_message_feedback(
     conversation_id: str,

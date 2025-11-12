@@ -32,22 +32,22 @@ def create_salesforce_instance_with_config(
     security_token: str | None = None,
 ) -> Salesforce:
     """Create Salesforce instance with explicit configuration.
-    
+
     This function allows passing credentials directly instead of reading from environment.
     Useful when credentials come from provider configuration in database.
-    
+
     Args:
         username: Salesforce username
         password: Salesforce password
         security_token: Salesforce security token
-        
+
     Returns:
         Salesforce instance
     """
     # If no credentials provided, fall back to environment
     if not username or not password or not security_token:
         return create_salesforce_instance()
-    
+
     return Salesforce(
         username=username,
         password=password,

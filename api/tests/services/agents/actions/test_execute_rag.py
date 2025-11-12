@@ -21,7 +21,9 @@ def test_execute_agent_action_rag(mocker: MockerFixture):
 
     response = action_execute_rag(tool_system_name, arguments)
 
-    mock_execute_rag_tool.assert_called_once_with(system_name_or_config="rag_tool_test", user_message="test_query")
+    mock_execute_rag_tool.assert_called_once_with(
+        system_name_or_config="rag_tool_test", user_message="test_query"
+    )
 
     assert response.content == "RAG answer"
     assert response.verbose_details

@@ -50,7 +50,6 @@ def _create_oauth_settings(
     agent_system_name: str,
     agent_display_name: str | None,
 ) -> AsyncOAuthSettings | None:
-
     if not client_id or not client_secret:
         return None
 
@@ -149,9 +148,13 @@ async def discover_bots_from_db() -> Sequence[SlackRuntime]:
                 signing_secret=decrypt_string(row.get("signing_secret")),
                 token=decrypt_string(row.get("token")),
                 scopes=row.get("scopes"),
-                agent_system_name=row.get('system_name'),
+                agent_system_name=row.get("system_name"),
             )
         )
 
-    logger.info("Initialized %d Slack bot(s): %s", len(bots), ", ".join(bot.name for bot in bots) or "<none>")
+    logger.info(
+        "Initialized %d Slack bot(s): %s",
+        len(bots),
+        ", ".join(bot.name for bot in bots) or "<none>",
+    )
     return bots

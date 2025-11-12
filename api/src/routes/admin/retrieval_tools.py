@@ -3,7 +3,9 @@ DEPRECATED: This file is deprecated and kept for backward compatibility.
 Use core.domain.retrieval_tools.controller.RetrievalToolsController instead.
 """
 
-from core.domain.retrieval_tools.controller import RetrievalToolsController as RetrievalToolsControllerBase
+from core.domain.retrieval_tools.controller import (
+    RetrievalToolsController as RetrievalToolsControllerBase,
+)
 
 
 class RetrievalToolsController(RetrievalToolsControllerBase):
@@ -15,7 +17,7 @@ class RetrievalToolsController(RetrievalToolsControllerBase):
 
 class RetrievalToolsControllerDeprecated(RetrievalToolsControllerBase):
     """Deprecated retrieval path for backward compatibility."""
-    
+
     path = "/retrieval"
     tags = ["retrieval_deprecated"]
 

@@ -30,7 +30,7 @@ def parse_page(page_content: str, base_url: str):
 
     # replace the Unicode character \u200b (a zero-width space) with an empty string
     clean_html = str(soup).replace("\u200b", "")
-    
+
     # Convert HTML to Markdown preserving structure (headings, lists, links, etc.)
     page_text = md(clean_html, heading_style="ATX", bullets="-")
 

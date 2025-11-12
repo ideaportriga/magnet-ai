@@ -2,7 +2,12 @@ import asyncio
 from logging import getLogger
 from typing import Dict
 
-from microsoft_agents.hosting.core import AgentApplication, AgentAuthConfiguration, AuthTypes, TurnState
+from microsoft_agents.hosting.core import (
+    AgentApplication,
+    AgentAuthConfiguration,
+    AuthTypes,
+    TurnState,
+)
 from microsoft_agents.hosting.core.storage import MemoryStorage
 from microsoft_agents.hosting.core.rest_channel_service_client_factory import (
     RestChannelServiceClientFactory,
@@ -53,10 +58,14 @@ class TeamsRuntimeCache:
         )
 
         token_provider = MsalAuth(auth_config)
-        channel_factory = RestChannelServiceClientFactory(StaticConnections(token_provider))
+        channel_factory = RestChannelServiceClientFactory(
+            StaticConnections(token_provider)
+        )
         adapter = CloudAdapter(channel_service_client_factory=channel_factory)
 
-        agent_app = AgentApplication[TurnState](storage=MemoryStorage(), adapter=adapter, start_typing_timer=False)
+        agent_app = AgentApplication[TurnState](
+            storage=MemoryStorage(), adapter=adapter, start_typing_timer=False
+        )
         register_handlers(agent_app, agent_system_name=credentials.agent_system_name)
 
         return TeamsRuntime(

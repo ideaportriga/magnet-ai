@@ -48,15 +48,18 @@ class GeneralSettings:
 
     """Default text when no answer is available."""
     NO_ANSWER_TEXT: str = field(
-        default_factory=get_env("NO_ANSWER_TEXT", "It seems that the answer to your question is not available in the resources I have access to. Please modify your question.")
+        default_factory=get_env(
+            "NO_ANSWER_TEXT",
+            "It seems that the answer to your question is not available in the resources I have access to. Please modify your question.",
+        )
     )
-    
+
     """Application port."""
     PORT: int = field(default_factory=get_env("PORT", 8000))
-    
+
     """Enable serving web static files (admin, panel, help)."""
     WEB_INCLUDED: bool = field(default_factory=get_env("WEB_INCLUDED", True))
-    
+
     """CORS allowed origins."""
     CORS_OVERRIDE_ALLOWED_ORIGINS: str = field(
         default_factory=get_env("CORS_OVERRIDE_ALLOWED_ORIGINS", "")
@@ -67,10 +70,12 @@ class GeneralSettings:
         default_factory=get_env("SECRET_ENCRYPTION_KEY", "my-secret-key-tsmh5r")
     )
 
+
 ### DATABASE SETTINGS ###
 @dataclass
 class DatabaseSettings:
     """Enable SQLAlchemy engine logs."""
+
     ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", True))
     """Enable SQLAlchemy connection pool logs."""
     ECHO_POOL: bool = field(default_factory=get_env("DATABASE_ECHO_POOL", True))
@@ -95,9 +100,7 @@ class DatabaseSettings:
         default_factory=get_env("DATABASE_PRE_POOL_PING", False)
     )
     """SQLAlchemy Database URL."""
-    URL: str = field(
-        default_factory=get_env("DATABASE_URL", "")
-    )
+    URL: str = field(default_factory=get_env("DATABASE_URL", ""))
     """Database type (postgresql, mysql, sqlite, etc.)."""
     TYPE: str = field(default_factory=get_env("DB_TYPE", "postgresql"))
     """Database host."""
@@ -135,22 +138,22 @@ class DatabaseSettings:
         """Build database URL from individual components."""
         if not self.TYPE or not self.HOST:
             return ""
-        
+
         # Map database types to their SQLAlchemy drivers
         driver_mapping = {
             "postgresql": "postgresql+asyncpg",
-            "mysql": "mysql+aiomysql", 
+            "mysql": "mysql+aiomysql",
             "sqlite": "sqlite+aiosqlite",
             "oracle": "oracle+oracledb",
         }
-        
+
         driver = driver_mapping.get(self.TYPE.lower(), self.TYPE)
-        
+
         if self.TYPE.lower() == "sqlite":
             # SQLite doesn't use host/port/user/password
             db_name = self.NAME or "db.sqlite3"
             return f"{driver}:///{db_name}"
-        
+
         # Build URL for other database types
         auth_part = ""
         if self.USER:
@@ -158,10 +161,10 @@ class DatabaseSettings:
                 auth_part = f"{self.USER}:{self.PASSWORD}@"
             else:
                 auth_part = f"{self.USER}@"
-        
+
         port_part = f":{self.PORT}" if self.PORT else ""
         db_part = f"/{self.NAME}" if self.NAME else ""
-        
+
         return f"{driver}://{auth_part}{self.HOST}{port_part}{db_part}"
 
     @property
@@ -170,12 +173,12 @@ class DatabaseSettings:
         # If DATABASE_URL is explicitly set to something other than default, use it
         if self.URL != "":
             return self.URL
-        
+
         # Try to build URL from components
         built_url = self.build_database_url()
         if built_url:
             return built_url
-        
+
         # Fall back to the default URL
         return self.URL
 
@@ -183,7 +186,7 @@ class DatabaseSettings:
     def sync_url(self) -> str:
         """Get synchronous database URL for APScheduler (converts async drivers to sync)."""
         async_url = self.effective_url
-        
+
         # Convert async drivers to sync for APScheduler
         if "postgresql+asyncpg://" in async_url:
             return async_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
@@ -193,7 +196,7 @@ class DatabaseSettings:
             return async_url.replace("sqlite+aiosqlite://", "sqlite://")
         elif "oracle+oracledb://" in async_url:
             return async_url.replace("oracle+oracledb://", "oracle+cx_oracle://")
-        
+
         # Return as-is if no async driver detected
         return async_url
 
@@ -204,7 +207,7 @@ class DatabaseSettings:
     def get_engine(self) -> AsyncEngine:
         if self._engine_instance is not None:
             return self._engine_instance
-        
+
         effective_url = self.effective_url
         if effective_url.startswith("postgresql+asyncpg"):
             engine = create_async_engine(
@@ -279,9 +282,7 @@ class DatabaseSettings:
 class SchedulerSettings:
     """Scheduler pool settings"""
 
-    SCHEDULER_POOL_SIZE: int = field(
-        default_factory=get_env("SCHEDULER_POOL_SIZE", 10)
-    )
+    SCHEDULER_POOL_SIZE: int = field(default_factory=get_env("SCHEDULER_POOL_SIZE", 10))
     """Scheduler connection pool size."""
     SCHEDULER_MAX_POOL_OVERFLOW: int = field(
         default_factory=get_env("SCHEDULER_MAX_POOL_OVERFLOW", 20)
@@ -299,11 +300,11 @@ class SchedulerSettings:
         default_factory=get_env("SCHEDULER_POOL_PRE_PING", True)
     )
     """Scheduler connection pool pre-ping."""
-    
+
     def get_scheduler_database_url(self, db_settings: DatabaseSettings) -> str:
         """Get synchronous database URL for APScheduler jobstore."""
         return db_settings.sync_url
-    
+
     def get_engine_options(self) -> dict:
         """Get SQLAlchemy engine options for APScheduler jobstore."""
         return {
@@ -316,7 +317,6 @@ class SchedulerSettings:
             "echo_pool": get_env("DATABASE_ECHO_POOL", False)(),
             "pool_reset_on_return": "commit",
         }
-
 
 
 ### LOGGING SETTINGS ###
@@ -407,6 +407,7 @@ class LogSettings:
 
 ### OBSERVABILITY SETTINGS ###
 
+
 @dataclass
 class ObservabilitySettings:
     """Observability configuration"""
@@ -435,6 +436,7 @@ class ObservabilitySettings:
     )
     """Metrics export interval in milliseconds."""
 
+
 @dataclass
 class AzureSettings:
     """Azure services configuration"""
@@ -446,6 +448,7 @@ class AzureSettings:
 
 
 ### AUTHENTICATION SETTINGS ###
+
 
 @dataclass
 class AuthSettings:
@@ -473,6 +476,7 @@ class AuthSettings:
 
 ### VECTOR DATABASE SETTINGS ###
 
+
 @dataclass
 class VectorDatabaseSettings:
     """Database connection configuration"""
@@ -485,9 +489,7 @@ class VectorDatabaseSettings:
     """PGVector database host."""
     PGVECTOR_PORT: str = field(default_factory=get_env("PGVECTOR_PORT", ""))
     """PGVector database port."""
-    PGVECTOR_DATABASE: str = field(
-        default_factory=get_env("PGVECTOR_DATABASE", "")
-    )
+    PGVECTOR_DATABASE: str = field(default_factory=get_env("PGVECTOR_DATABASE", ""))
     """PGVector database name."""
     PGVECTOR_USER: str = field(default_factory=get_env("PGVECTOR_USER", ""))
     """PGVector database user."""
@@ -511,8 +513,6 @@ class VectorDatabaseSettings:
     )
     """Cosmos DB database name."""
 
-
-    
     # Oracle configuration
     ORACLE_HOST: str = field(default_factory=get_env("ORACLE_HOST", ""))
     """Oracle database host."""
@@ -528,7 +528,7 @@ class VectorDatabaseSettings:
         default_factory=get_env("ORACLE_MONGO_CONNECTION_STRING", "")
     )
     """Oracle MongoDB connection string."""
-    
+
     # MongoDB configuration
     MONGO_DB_CONNECTION_STRING: str = field(
         default_factory=get_env("MONGO_DB_CONNECTION_STRING", "")
@@ -538,7 +538,7 @@ class VectorDatabaseSettings:
         default_factory=get_env("MONGO_DB_DB_NAME", "magnet-dev")
     )
     """MongoDB database name."""
-    
+
     # QDrant configuration
     DB_VECTOR_TYPE: str = field(default_factory=get_env("DB_VECTOR_TYPE", ""))
     """Vector database type."""
@@ -557,24 +557,24 @@ class VectorDatabaseSettings:
         # Only apply defaults if database type is PostgreSQL
         if db_settings.TYPE.lower() != "postgresql":
             return
-        
+
         # Check if PGVECTOR settings are not explicitly set via environment variables
         # If they are empty strings or default values, use DatabaseSettings values
         if not self.PGVECTOR_HOST or self.PGVECTOR_HOST == "localhost":
             self.PGVECTOR_HOST = db_settings.HOST
-        
+
         if not self.PGVECTOR_PORT or self.PGVECTOR_PORT == "5432":
             self.PGVECTOR_PORT = db_settings.PORT
-        
+
         if not self.PGVECTOR_DATABASE or self.PGVECTOR_DATABASE == "magnet_dev":
             self.PGVECTOR_DATABASE = db_settings.NAME
-        
+
         if not self.PGVECTOR_USER or self.PGVECTOR_USER == "postgres":
             self.PGVECTOR_USER = db_settings.USER
-        
+
         if not self.PGVECTOR_PASSWORD or self.PGVECTOR_PASSWORD == "password":
             self.PGVECTOR_PASSWORD = db_settings.PASSWORD
-        
+
         if self.PGVECTOR_POOL_SIZE == 0:
             self.PGVECTOR_POOL_SIZE = db_settings.POOL_SIZE
 
@@ -584,7 +584,9 @@ class Settings:
     general: GeneralSettings = field(default_factory=GeneralSettings)
     auth: AuthSettings = field(default_factory=AuthSettings)
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
-    db_connections: VectorDatabaseSettings = field(default_factory=VectorDatabaseSettings)
+    db_connections: VectorDatabaseSettings = field(
+        default_factory=VectorDatabaseSettings
+    )
     scheduler: SchedulerSettings = field(default_factory=SchedulerSettings)
     log: LogSettings = field(default_factory=LogSettings)
     observability: ObservabilitySettings = field(default_factory=ObservabilitySettings)
@@ -614,13 +616,13 @@ class Settings:
             )
 
             load_dotenv(env_file, override=True)
-        
+
         # Create settings instance
         settings = Settings()
-        
+
         # Apply database defaults to vector database settings if PostgreSQL is used
         settings.db_connections.apply_database_defaults(settings.db)
-        
+
         return settings
 
 
@@ -672,4 +674,5 @@ def get_scheduler_settings() -> SchedulerSettings:
 def get_env_vars_with_prefix(prefix: str) -> dict[str, str]:
     """Get all environment variables with a specific prefix."""
     import os
+
     return {key: value for key, value in os.environ.items() if key.startswith(prefix)}

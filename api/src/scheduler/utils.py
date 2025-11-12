@@ -62,7 +62,9 @@ async def update_job_status(
 
             # Validate and prepare update data
             # exclude_unset=True ensures only fields present in update_data are included
-            job_update = JobUpdate.model_validate(update_data).model_dump(exclude_unset=True)
+            job_update = JobUpdate.model_validate(update_data).model_dump(
+                exclude_unset=True
+            )
 
             await service.update(job_update, item_id=UUID(job_id), auto_commit=True)
 

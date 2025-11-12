@@ -436,11 +436,10 @@ def create_action_call_requests(
         function_name = function.name
         arguments: dict = json.loads(function.arguments)
         action = actions_by_function_name.get(function_name)
-        action_message=arguments.pop(
+        action_message = arguments.pop(
             ACTION_MESSAGE_ARGUMENT_NAME,
             action.display_name,
         )
-
 
         if not action:
             logger.warning(f'Action is missing for function "{function_name}"')

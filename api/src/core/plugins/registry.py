@@ -32,9 +32,7 @@ class PluginRegistry:
     _loaded = False
 
     @classmethod
-    def register(
-        cls, plugin: BasePlugin, plugin_id: Optional[str] = None
-    ) -> None:
+    def register(cls, plugin: BasePlugin, plugin_id: Optional[str] = None) -> None:
         """Register a plugin in the registry
 
         Args:
@@ -60,9 +58,7 @@ class PluginRegistry:
         logger.info(f"Registered plugin: {plugin_type}/{plugin_id}")
 
     @classmethod
-    def get(
-        cls, plugin_type: PluginType, plugin_id: str
-    ) -> Optional[BasePlugin]:
+    def get(cls, plugin_type: PluginType, plugin_id: str) -> Optional[BasePlugin]:
         """Retrieve a specific plugin by type and ID
 
         Args:
@@ -102,19 +98,14 @@ class PluginRegistry:
             Dictionary mapping plugin types to lists of plugin IDs
         """
         if plugin_type:
-            return {
-                plugin_type.value: list(cls._plugins.get(plugin_type, {}).keys())
-            }
+            return {plugin_type.value: list(cls._plugins.get(plugin_type, {}).keys())}
 
         return {
-            ptype.value: list(plugins.keys())
-            for ptype, plugins in cls._plugins.items()
+            ptype.value: list(plugins.keys()) for ptype, plugins in cls._plugins.items()
         }
 
     @classmethod
-    def load_builtin_plugins(
-        cls, plugin_type: Optional[PluginType] = None
-    ) -> None:
+    def load_builtin_plugins(cls, plugin_type: Optional[PluginType] = None) -> None:
         """Load built-in plugins from the plugins/builtin directory
 
         Args:
@@ -156,7 +147,7 @@ class PluginRegistry:
 
         if external_path.exists():
             logger.info(f"Scanning external plugins directory: {external_path}")
-            
+
             # If specific type requested, load only that type
             if plugin_type:
                 type_path = external_path / plugin_type.value
@@ -182,9 +173,7 @@ class PluginRegistry:
                 importlib.import_module(plugin_module)
                 logger.info(f"Loaded external plugin module from env: {plugin_module}")
             except ImportError as e:
-                logger.warning(
-                    f"Failed to load external plugin {plugin_module}: {e}"
-                )
+                logger.warning(f"Failed to load external plugin {plugin_module}: {e}")
 
     @classmethod
     def auto_load(cls) -> None:
@@ -274,9 +263,7 @@ class PluginRegistry:
 
             try:
                 # Calculate relative import path
-                relative_path = path.relative_to(
-                    Path(__file__).parent.parent.parent
-                )
+                relative_path = path.relative_to(Path(__file__).parent.parent.parent)
                 module_path = (
                     str(relative_path).replace("/", ".") + f".{module_info.name}"
                 )

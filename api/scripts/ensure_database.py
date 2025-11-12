@@ -40,38 +40,38 @@ def extract_db_name(db_url: str) -> str:
 def ensure_database_exists():
     """Check if database exists and create it if it doesn't."""
     settings = get_settings()
-    
+
     # Get the database URL (convert async to sync for this operation)
     db_url = settings.db.effective_url
-    
+
     # Convert async URL to sync
     if "postgresql+asyncpg://" in db_url:
         sync_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
     else:
         sync_url = db_url
-    
+
     db_name = extract_db_name(sync_url)
-    
+
     if not db_name:
         print("❌ Could not extract database name from URL")
         sys.exit(1)
-    
+
     print(f"🔍 Checking if database '{db_name}' exists...")
-    
+
     # Connect to 'postgres' database to check if target database exists
     admin_url = get_postgres_url_without_db(sync_url)
-    
+
     try:
         # Create engine for admin connection
         engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
-        
+
         with engine.connect() as conn:
             # Check if database exists
             result = conn.execute(
                 text("SELECT 1 FROM pg_database WHERE datname = :dbname"),
-                {"dbname": db_name}
+                {"dbname": db_name},
             )
-            
+
             if result.fetchone():
                 print(f"✅ Database '{db_name}' already exists")
             else:
@@ -79,13 +79,17 @@ def ensure_database_exists():
                 # Create the database
                 conn.execute(text(f'CREATE DATABASE "{db_name}"'))
                 print(f"✅ Database '{db_name}' created successfully")
-        
+
         engine.dispose()
-        
+
     except OperationalError as e:
         print(f"❌ Connection error: {e}")
-        print("\nMake sure PostgreSQL is running and connection parameters are correct.")
-        print(f"Connection URL (without password): {admin_url.split('@')[1] if '@' in admin_url else admin_url}")
+        print(
+            "\nMake sure PostgreSQL is running and connection parameters are correct."
+        )
+        print(
+            f"Connection URL (without password): {admin_url.split('@')[1] if '@' in admin_url else admin_url}"
+        )
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error: {e}")

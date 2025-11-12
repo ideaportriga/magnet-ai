@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Iterator, Optional
 
-from slack_sdk.oauth.installation_store.async_installation_store import AsyncInstallationStore
+from slack_sdk.oauth.installation_store.async_installation_store import (
+    AsyncInstallationStore,
+)
 from slack_sdk.oauth.installation_store.models import Bot, Installation
 from sqlalchemy import Engine, create_engine, delete, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -80,7 +82,9 @@ def _serialize_installation(
     }
 
 
-def _serialize_bot(bot: Optional[Bot], agent_system_name: str) -> Optional[dict[str, Any]]:
+def _serialize_bot(
+    bot: Optional[Bot], agent_system_name: str
+) -> Optional[dict[str, Any]]:
     if bot is None:
         return None
 
@@ -138,14 +142,20 @@ def _deserialize_installation(record: SlackInstallation) -> Optional[Installatio
             incoming_webhook_url=payload.get("incoming_webhook_url"),
             incoming_webhook_channel=payload.get("incoming_webhook_channel"),
             incoming_webhook_channel_id=payload.get("incoming_webhook_channel_id"),
-            incoming_webhook_configuration_url=payload.get("incoming_webhook_configuration_url"),
-            is_enterprise_install=payload.get("is_enterprise_install", record.is_enterprise_install),
+            incoming_webhook_configuration_url=payload.get(
+                "incoming_webhook_configuration_url"
+            ),
+            is_enterprise_install=payload.get(
+                "is_enterprise_install", record.is_enterprise_install
+            ),
             token_type=payload.get("token_type"),
             installed_at=installed_at,
             custom_values=payload.get("custom_values") or {},
         )
     except Exception:
-        logger.exception("Failed to deserialize Slack installation from record %s", record.id)
+        logger.exception(
+            "Failed to deserialize Slack installation from record %s", record.id
+        )
         return None
 
 
@@ -175,7 +185,9 @@ def _deserialize_bot(record: SlackInstallation) -> Optional[Bot]:
             bot_scopes=payload.get("bot_scopes"),
             bot_refresh_token=payload.get("bot_refresh_token"),
             bot_token_expires_at=payload.get("bot_token_expires_at"),
-            is_enterprise_install=payload.get("is_enterprise_install", record.is_enterprise_install),
+            is_enterprise_install=payload.get(
+                "is_enterprise_install", record.is_enterprise_install
+            ),
             installed_at=installed_at,
             custom_values=payload.get("custom_values") or {},
         )
@@ -366,7 +378,9 @@ class SlackInstallationStore(AsyncInstallationStore):
             if bot is None:
                 return None
 
-            if is_enterprise_install is not None and bot.is_enterprise_install != bool(is_enterprise_install):
+            if is_enterprise_install is not None and bot.is_enterprise_install != bool(
+                is_enterprise_install
+            ):
                 return None
 
             return bot
@@ -400,7 +414,10 @@ class SlackInstallationStore(AsyncInstallationStore):
             if installation is None:
                 return None
 
-            if is_enterprise_install is not None and installation.is_enterprise_install != bool(is_enterprise_install):
+            if (
+                is_enterprise_install is not None
+                and installation.is_enterprise_install != bool(is_enterprise_install)
+            ):
                 return None
 
             return installation
@@ -458,17 +475,16 @@ class SlackInstallationStore(AsyncInstallationStore):
         normalized_team = _normalize(team_id)
 
         with self._session() as session:
-            stmt = (
-                delete(SlackInstallation)
-                .where(
-                    SlackInstallation.client_id == self._client_id,
-                    SlackInstallation.agent_system_name == self._agent_system_name,
-                )
+            stmt = delete(SlackInstallation).where(
+                SlackInstallation.client_id == self._client_id,
+                SlackInstallation.agent_system_name == self._agent_system_name,
             )
             if normalized_enterprise is None:
                 stmt = stmt.where(SlackInstallation.enterprise_id.is_(None))
             else:
-                stmt = stmt.where(SlackInstallation.enterprise_id == normalized_enterprise)
+                stmt = stmt.where(
+                    SlackInstallation.enterprise_id == normalized_enterprise
+                )
 
             if normalized_team is None:
                 stmt = stmt.where(SlackInstallation.team_id.is_(None))

@@ -4,6 +4,7 @@ env = os.environ
 
 API_KEY_PREFIX = "API_KEY_"
 
+
 def get_api_key_client_mapping() -> dict[str, str]:
     api_key_client_mapping = {}
 
@@ -29,4 +30,3 @@ def get_api_key_client_mapping() -> dict[str, str]:
             api_key_client_mapping[api_key] = api_client_code
 
     return api_key_client_mapping
-

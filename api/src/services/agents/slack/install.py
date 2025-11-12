@@ -36,7 +36,9 @@ def _extract_installer_user_id(installation: Installation) -> str | None:
     return None
 
 
-async def _fetch_bot_display_name(client: AsyncWebClient, bot_user_id: str | None) -> str | None:
+async def _fetch_bot_display_name(
+    client: AsyncWebClient, bot_user_id: str | None
+) -> str | None:
     if not bot_user_id:
         return None
 
@@ -60,7 +62,6 @@ async def send_installation_welcome_message(
     installation: Installation,
     agent_display_name: str,
 ) -> None:
-
     bot_token = getattr(installation, "bot_token", None)
     bot_user_id = getattr(installation, "bot_user_id", None)
     installer_user_id = _extract_installer_user_id(installation)
@@ -81,15 +82,21 @@ async def send_installation_welcome_message(
         try:
             open_response = await client.conversations_open(users=installer_user_id)
         except SlackApiError as exc:
-            logger.error("Failed to open DM channel with %s: %s", installer_user_id, exc)
+            logger.error(
+                "Failed to open DM channel with %s: %s", installer_user_id, exc
+            )
             return
 
         channel_id = (open_response.get("channel") or {}).get("id")
         if not channel_id:
-            logger.error("No conversation ID returned when opening DM with %s", installer_user_id)
+            logger.error(
+                "No conversation ID returned when opening DM with %s", installer_user_id
+            )
             return
 
-        blocks, message_text = build_welcome_message_blocks(display_name, agent_display_name)
+        blocks, message_text = build_welcome_message_blocks(
+            display_name, agent_display_name
+        )
 
         await client.chat_postMessage(
             channel=channel_id,

@@ -84,7 +84,8 @@ def test_get_extended_chunks_query():
     ]
 
     result = get_extended_chunks_query(
-        search_result=search_result, context_window=context_window,
+        search_result=search_result,
+        context_window=context_window,
     )
 
     assert result == {
@@ -107,7 +108,8 @@ def test_get_extended_chunks_query():
     ],
 )
 def test_get_chat_completion_input_documents_no_context_window(
-    mock_document_store, context_window,
+    mock_document_store,
+    context_window,
 ):
     """It should not call store for extended context if there is no context window (it's less than 1).
     It should just convert retrieved chunks to input documents.
@@ -162,7 +164,8 @@ def test_get_chat_completion_input_documents_no_context_window(
     ]
 
     result = get_chat_completion_input_documents(
-        search_result=search_result, context_window=context_window,
+        search_result=search_result,
+        context_window=context_window,
     )
 
     mock_document_store.document_collections_query_chunks_context.assert_not_called()
@@ -249,7 +252,8 @@ def test_get_chat_completion_input_documents(mocker, mock_document_store):
     }
 
     mocker.patch(
-        "tools.rag.utils.get_extended_chunks_query", return_value=extended_chunks_query,
+        "tools.rag.utils.get_extended_chunks_query",
+        return_value=extended_chunks_query,
     )
 
     mocked_chunks_by_collections: ChunksByCollection = {
@@ -344,7 +348,8 @@ def test_get_chat_completion_input_documents(mocker, mock_document_store):
     )
 
     result = get_chat_completion_input_documents(
-        search_result=search_result, context_window=context_window,
+        search_result=search_result,
+        context_window=context_window,
     )
 
     mock_document_store.document_collections_query_chunks_context.assert_called_once_with(

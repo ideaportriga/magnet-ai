@@ -43,7 +43,9 @@ from .user.agents import UserAgentsController
 from .static import serve_static_file
 
 
-def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[ControllerRouterHandler]:
+def get_route_handlers(
+    auth_enabled: bool, web_included: bool
+) -> list[ControllerRouterHandler]:
     @get("/health", exclude_from_auth=True, tags=["health"])
     async def health_route_handler() -> dict[str, Any]:
         """Health Check endpoint"""
@@ -121,13 +123,14 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
         ],
     )
 
-    routes =  [
+    routes = [
         router_api,
         router_api_public,
     ]
 
     if web_included:
         import os
+
         print("Working directory:", os.getcwd())
 
         # Serve static assets for each app
@@ -174,13 +177,15 @@ def get_route_handlers(auth_enabled: bool, web_included: bool) -> list[Controlle
             opt={"exclude_from_auth": True},
         )
 
-        routes.extend([
-            static_router_admin_assets,
-            static_router_panel_assets,
-            static_router_help_assets,
-            static_router_admin,
-            static_router_panel,
-            static_router_help,
-        ])
+        routes.extend(
+            [
+                static_router_admin_assets,
+                static_router_panel_assets,
+                static_router_help_assets,
+                static_router_admin,
+                static_router_panel,
+                static_router_help,
+            ]
+        )
 
     return routes

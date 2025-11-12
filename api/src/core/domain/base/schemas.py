@@ -16,7 +16,7 @@ from pydantic import BaseModel, field_serializer
 class SecretsEncryptedMixin(BaseModel):
     """
     Mixin for masking encrypted secrets in API responses.
-    
+
     This mixin provides a field serializer that masks the values of encrypted secrets
     while preserving the keys. Used in Response schemas to prevent exposing sensitive data.
     """

@@ -6,6 +6,7 @@ Revises: f3e0d1b0e4ab
 Create Date: 2025-11-07 10:15:00.000000+00:00
 
 """
+
 from __future__ import annotations
 
 import warnings
@@ -74,5 +75,3 @@ def data_upgrades() -> None:
 
 def data_downgrades() -> None:
     """Add any optional data downgrade migrations here!"""
-
-

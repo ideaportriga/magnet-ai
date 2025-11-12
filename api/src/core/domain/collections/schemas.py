@@ -31,7 +31,9 @@ class CollectionFieldsMixin(BaseModel):
     )
 
     # Provider information
-    provider_system_name: Optional[str] = Field(None, description="Foreign key to provider system_name")
+    provider_system_name: Optional[str] = Field(
+        None, description="Foreign key to provider system_name"
+    )
 
     # Configuration fields
     source: Optional[dict[str, Any]] = Field(
@@ -75,7 +77,9 @@ class CollectionUpdateFieldsMixin(BaseModel):
     )
 
     # Provider information
-    provider_system_name: Optional[str] = Field(None, description="Foreign key to provider system_name")
+    provider_system_name: Optional[str] = Field(
+        None, description="Foreign key to provider system_name"
+    )
 
     # Configuration fields
     source: Optional[dict[str, Any]] = Field(

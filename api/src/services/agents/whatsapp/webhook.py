@@ -29,8 +29,6 @@ from .runtime import WhatsappRuntime
 logger = getLogger(__name__)
 
 
-
-
 WHATSAPP_GRAPH_VERSION = "v24.0"
 _WHATSAPP_GRAPH_BASE_URL = f"https://graph.facebook.com/{WHATSAPP_GRAPH_VERSION}"
 WHATSAPP_HTTP_TIMEOUT_SECONDS = 20.0
@@ -173,7 +171,9 @@ async def _deliver_assistant_payload(
     user_id: str | None,
 ) -> None:
     if not payload:
-        logger.info("No assistant payload to deliver for WhatsApp recipient=%s", recipient)
+        logger.info(
+            "No assistant payload to deliver for WhatsApp recipient=%s", recipient
+        )
         return
 
     conversation_id = payload.get("conversation_id")
@@ -182,11 +182,13 @@ async def _deliver_assistant_payload(
     agent_system_name = payload.get("agent_system_name") or runtime.agent_system_name
 
     action_requests = payload.get("action_requests") or []
-    requires_confirmation = bool(payload.get("requires_confirmation") and action_requests)
+    requires_confirmation = bool(
+        payload.get("requires_confirmation") and action_requests
+    )
 
     if requires_confirmation:
-        confirmation_text, confirmation_card, buttons, request_ids = _build_confirmation_prompt(
-            payload, agent_system_name=agent_system_name
+        confirmation_text, confirmation_card, buttons, request_ids = (
+            _build_confirmation_prompt(payload, agent_system_name=agent_system_name)
         )
         if request_ids:
             context_payload = {
@@ -241,7 +243,9 @@ async def _post_whatsapp_message(
 ) -> Dict[str, Any] | None:
     url = _whatsapp_messages_url(runtime)
     try:
-        response = await client.post(url, json=payload, headers=_whatsapp_headers(runtime))
+        response = await client.post(
+            url, json=payload, headers=_whatsapp_headers(runtime)
+        )
         response.raise_for_status()
         return response.json()
     except httpx.HTTPStatusError as exc:
@@ -352,9 +356,7 @@ def _build_interactive_buttons_payload(
         "interactive": {
             "type": "button",
             "body": {"text": body},
-            "action": {
-                "buttons": button_entries[:3]
-            },
+            "action": {"buttons": button_entries[:3]},
         },
     }
 
@@ -373,7 +375,9 @@ async def _send_whatsapp_buttons_message(
         "messaging_product": "whatsapp",
         "to": recipient,
     }
-    payload.update(_build_interactive_buttons_payload(body, inbound_message_id, buttons))
+    payload.update(
+        _build_interactive_buttons_payload(body, inbound_message_id, buttons)
+    )
 
     data = await _post_whatsapp_message(
         client,
@@ -407,7 +411,9 @@ async def _handle_whatsapp_interactive_reply(
     reply_context_id = (message.get("context") or {}).get("id")
 
     if reply_context_id and reply_context_id in runtime.handled_interactive_message_ids:
-        logger.info("Duplicate interactive reply ignored for message %s", reply_context_id)
+        logger.info(
+            "Duplicate interactive reply ignored for message %s", reply_context_id
+        )
         return
 
     stored_context: dict[str, Any] | None = None
@@ -445,7 +451,9 @@ async def _handle_whatsapp_interactive_reply(
             request_ids = (stored_context or {}).get("request_ids") or []
             user_id = (stored_context or {}).get("user_id")
             trace_id = (stored_context or {}).get("trace_id")
-            agent_name = (stored_context or {}).get("agent_system_name") or runtime.agent_system_name
+            agent_name = (stored_context or {}).get(
+                "agent_system_name"
+            ) or runtime.agent_system_name
             message_id = (stored_context or {}).get("message_id") or reply_context_id
 
             if not (conversation_id and request_ids and user_id):
@@ -477,7 +485,9 @@ async def _handle_whatsapp_interactive_reply(
                     conversation_id=conversation_id,
                     request_ids=[str(item) for item in request_ids],
                     confirmed=confirmed,
-                    **observability_overrides(trace_id=trace_id, consumer_name="WhatsApp"),
+                    **observability_overrides(
+                        trace_id=trace_id, consumer_name="WhatsApp"
+                    ),
                 )
             except Exception:
                 logger.exception(
@@ -493,7 +503,9 @@ async def _handle_whatsapp_interactive_reply(
                 )
                 return
 
-            await _send_whatsapp_text_message(client, runtime, from_number, acknowledgement)
+            await _send_whatsapp_text_message(
+                client, runtime, from_number, acknowledgement
+            )
 
             if assistant_payload:
                 reply_source_id = assistant_payload.get("message_id") or message_id
@@ -511,7 +523,9 @@ async def _handle_whatsapp_interactive_reply(
         context_message_id = (stored_context or {}).get("message_id")
 
         if button_id.startswith("like_"):
-            acknowledgement = "Thanks for the Like! I've disabled further voting on this message."
+            acknowledgement = (
+                "Thanks for the Like! I've disabled further voting on this message."
+            )
             if context_conversation_id and context_message_id:
                 try:
                     feedback = LlmResponseFeedback(type=LlmResponseFeedbackType.LIKE)
@@ -532,7 +546,9 @@ async def _handle_whatsapp_interactive_reply(
                     "Unable to record WhatsApp like feedback (missing context)."
                 )
         elif button_id.startswith("dislike_"):
-            acknowledgement = "Dislike recorded. You will not be able to vote again on this message."
+            acknowledgement = (
+                "Dislike recorded. You will not be able to vote again on this message."
+            )
             if context_conversation_id and context_message_id:
                 try:
                     feedback = LlmResponseFeedback(
@@ -599,7 +615,11 @@ async def _handle_whatsapp_text_message(
     text_body = ((message.get("text") or {}).get("body") or "").strip()
 
     if not from_number or not message_id or not text_body:
-        logger.warning("Skipping WhatsApp text message with missing data: from=%s id=%s", from_number, message_id)
+        logger.warning(
+            "Skipping WhatsApp text message with missing data: from=%s id=%s",
+            from_number,
+            message_id,
+        )
         return
 
     lower_text = text_body.lower()
@@ -677,7 +697,9 @@ async def _process_whatsapp_change(
         return
 
     value = change.get("value") or {}
-    metadata_phone_number_id = ((value.get("metadata") or {}).get("phone_number_id") or "").strip()
+    metadata_phone_number_id = (
+        (value.get("metadata") or {}).get("phone_number_id") or ""
+    ).strip()
     if metadata_phone_number_id and metadata_phone_number_id != runtime.phone_number_id:
         logger.warning(
             "Skipping WhatsApp message for unexpected phone_number_id=%s (expected %s)",
@@ -720,7 +742,6 @@ async def process_whatsapp_webhook_payload(
     payload: Dict[str, Any],
     runtime: WhatsappRuntime,
 ) -> None:
-
     try:
         async with httpx.AsyncClient(timeout=WHATSAPP_HTTP_TIMEOUT_SECONDS) as client:
             entries = payload.get("entry") or []
@@ -736,4 +757,3 @@ async def process_whatsapp_webhook_payload(
 
 
 __all__ = ["process_whatsapp_webhook_payload"]
-

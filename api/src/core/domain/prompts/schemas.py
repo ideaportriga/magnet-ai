@@ -56,7 +56,7 @@ class Prompt(BaseEntitySchema):
         default=None, description="List of prompt variants with model override support"
     )
 
-    @field_validator('variants', mode='before')
+    @field_validator("variants", mode="before")
     @classmethod
     def parse_variants_if_string(cls, v):
         """Parse variants from JSON string if needed."""

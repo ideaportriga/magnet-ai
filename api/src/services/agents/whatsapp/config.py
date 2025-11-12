@@ -17,7 +17,9 @@ class WhatsappCredentials:
 
 
 async def load_credentials(phone_number_id: str) -> WhatsappCredentials:
-    agent_system_name, token, app_secret = await resolve_whatsapp_by_phone_number_id(phone_number_id)
+    agent_system_name, token, app_secret = await resolve_whatsapp_by_phone_number_id(
+        phone_number_id
+    )
 
     if not agent_system_name:
         raise NotFoundException(
@@ -46,4 +48,3 @@ async def load_credentials(phone_number_id: str) -> WhatsappCredentials:
         token=token,
         app_secret=app_secret,
     )
-

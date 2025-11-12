@@ -37,7 +37,9 @@ class SlackRuntimeCache:
         logger.info(
             "Slack runtime cache loaded %d bot(s)%s",
             len(mapping),
-            f" (duplicate names: {', '.join(sorted(duplicates))})" if duplicates else "",
+            f" (duplicate names: {', '.join(sorted(duplicates))})"
+            if duplicates
+            else "",
         )
 
     async def refresh(self) -> None:
@@ -52,7 +54,9 @@ class SlackRuntimeCache:
         """Return an iterable with the cached runtimes."""
         return list(self._bots.values())
 
-    def find(self, raw_body: bytes | str | dict[str, Any], headers: dict[str, str]) -> SlackRuntime | None:
+    def find(
+        self, raw_body: bytes | str | dict[str, Any], headers: dict[str, str]
+    ) -> SlackRuntime | None:
         """Try each agent's signing secret to find the correct one.
 
         Slack signature verification requires the exact raw request body as a string
@@ -95,14 +99,12 @@ class SlackRuntimeCache:
         logger.info("No Slack agent found")
         return None
 
-
     async def clear(self) -> None:
         async with self._lock:
             removed = len(self._bots)
             self._bots.clear()
 
         logger.info("Slack runtime cache cleared (removed %d bot(s))", removed)
-
 
     @property
     def count(self) -> int:

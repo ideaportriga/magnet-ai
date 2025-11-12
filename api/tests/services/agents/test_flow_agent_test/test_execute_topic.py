@@ -23,8 +23,7 @@ pytest.skip(allow_module_level=True, reason="TODO - Skip/mock @observe decorator
 
 
 def test_no_tool_calls(mocker: MockerFixture):
-    """Tests that execute_topic correctly processes a topic with actions and returns expected result
-    """
+    """Tests that execute_topic correctly processes a topic with actions and returns expected result"""
     messages: list[AgentConversationMessage] = [
         AgentConversationMessageUser(id="1", content="Test message"),
     ]
@@ -69,7 +68,9 @@ def test_no_tool_calls(mocker: MockerFixture):
     )
 
     result = execute_topic(
-        topic=topic, messages=messages, prompt_template="test_prompt_template",
+        topic=topic,
+        messages=messages,
+        prompt_template="test_prompt_template",
     )
 
     mock_chat_completion.assert_called_once()
@@ -163,7 +164,9 @@ def test_tool_calls(mocker: MockerFixture):
     )
 
     result = execute_topic(
-        topic=topic, messages=messages, prompt_template=prompt_template,
+        topic=topic,
+        messages=messages,
+        prompt_template=prompt_template,
     )
 
     mock_get_prompt_template.assert_called_once_with(

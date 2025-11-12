@@ -27,7 +27,7 @@ async def create_api_client_session(
     match type:
         case "oauth2":
             flows = security_scheme.get("flows", {})
-            
+
             # Check for password flow first
             if "password" in flows:
                 token_url = flows.get("password", {}).get("tokenUrl")
@@ -45,7 +45,7 @@ async def create_api_client_session(
                 )
 
                 return client
-            
+
             # Fall back to client credentials flow
             elif "clientCredentials" in flows:
                 token_url = flows.get("clientCredentials", {}).get("tokenUrl")
@@ -63,7 +63,7 @@ async def create_api_client_session(
                 )
 
                 return client
-            
+
             raise ValueError("Unsupported OAuth2 flow")
 
         case "http":
@@ -165,7 +165,7 @@ async def create_oauth2_password_client(
                 "username": username,
                 "password": password,
             }
-            
+
             async with temp_session.post(token_url, data=data) as auth_response:
                 auth_response.raise_for_status()
                 resp_json = await auth_response.json()

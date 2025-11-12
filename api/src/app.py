@@ -19,7 +19,12 @@ from core.server.plugin_registry import (
     structlog,
 )
 from routes import get_route_handlers
-from core.config.base import get_auth_settings, get_vector_database_settings, get_general_settings, get_log_settings
+from core.config.base import (
+    get_auth_settings,
+    get_vector_database_settings,
+    get_general_settings,
+    get_log_settings,
+)
 
 logger = getLogger(__name__)
 
@@ -36,7 +41,9 @@ DEBUG_MODE = log_settings.DEBUG_MODE
 
 def create_app() -> Litestar:
     """Create the Litestar application with plugins."""
-    route_handlers = get_route_handlers(auth_enabled=AUTH_ENABLED, web_included=WEB_INCLUDED)
+    route_handlers = get_route_handlers(
+        auth_enabled=AUTH_ENABLED, web_included=WEB_INCLUDED
+    )
 
     # Create the application with all plugins
     app = Litestar(

@@ -46,9 +46,7 @@ class EvaluationsController(Controller):
     )
 
     @get("/list")
-    async def list_evaluations_aggregated(
-        self, db_session: AsyncSession
-    ) -> list[dict]:
+    async def list_evaluations_aggregated(self, db_session: AsyncSession) -> list[dict]:
         """List evaluations with aggregated metrics using SQLAlchemy."""
         return await list_evaluations_with_aggregations(db_session)
 

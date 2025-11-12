@@ -125,13 +125,14 @@ async def create_evaluation_record(
 
 
 # Function to execute RAG tool for test set item
-async def execute_test_set_item_rag_tool(rag_tool_config: dict, user_input: str, metadata_filter: Optional[dict] = None) -> str:
+async def execute_test_set_item_rag_tool(
+    rag_tool_config: dict, user_input: str, metadata_filter: Optional[dict] = None
+) -> str:
     rag_tool_test_result = await execute_rag_tool(
         system_name_or_config=rag_tool_config,
         user_message=user_input,
         metadata_filter=metadata_filter,
     )
-
 
     return rag_tool_test_result.answer
 

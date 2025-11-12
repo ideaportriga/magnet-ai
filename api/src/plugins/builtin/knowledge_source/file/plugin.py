@@ -33,9 +33,7 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
                     "file_url": {
                         "type": "array",
                         "description": "Only links to PDF files are accepted",
-                        "items": {
-                            "type": "string"
-                        }
+                        "items": {"type": "string"},
                     },
                 },
                 "required": ["file_url"],

@@ -126,9 +126,10 @@ class AIModel(UUIDAuditSimpleBase):
 
     # Additional configurations (for embeddings vector_size, etc.)
     configs: Mapped[Optional[dict]] = mapped_column(
-        JsonB, nullable=True, comment="Additional model configurations (e.g., vector_size for embeddings)"
+        JsonB,
+        nullable=True,
+        comment="Additional model configurations (e.g., vector_size for embeddings)",
     )
-
 
     def __repr__(self) -> str:
         return f"<AIModel(system_name='{self.system_name}', provider='{self.provider_name}', ai_model='{self.ai_model}')>"

@@ -26,6 +26,7 @@ logger = getLogger(__name__)
 
 API_KEY_CLIENT_MAPPING_DEPRECATED: Final = get_api_key_client_mapping()
 
+
 @dataclass
 class Auth:
     data: dict
@@ -126,8 +127,7 @@ def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> A
     except KeyError:
         logger.warning("API key not found")
         # raise NotAuthorizedException("API key not found")
-    
-        
+
         # Deprecated: TODO - remove after transition to new API keys and raise NotAuthorizedException instead
         if api_key not in API_KEY_CLIENT_MAPPING_DEPRECATED:
             raise NotAuthorizedException("Deprecated API key not found")

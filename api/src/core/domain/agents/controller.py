@@ -158,7 +158,6 @@ async def _sync_runtime_caches(
             await whatsapp_cache.clear()
 
 
-
 def _channel_enabled_changed(
     *,
     previous_channels: Mapping[str, Any] | None,

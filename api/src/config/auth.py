@@ -50,6 +50,7 @@ AUTH_SCOPE = "openid profile email offline_access"
 API_KEY_HEADER_NAME = "x-api-key"
 API_USER_ID_HEADER_NAME = "x-user-id"
 
+
 @dataclass
 class Tokens:
     token: str

@@ -1,7 +1,10 @@
 import json
 from typing import Any
 
-from services.agents.utils.conversation_helpers import WELCOME_LEARN_MORE_URL, AssistantPayload
+from services.agents.utils.conversation_helpers import (
+    WELCOME_LEARN_MORE_URL,
+    AssistantPayload,
+)
 from services.agents.utils.markdown import to_slack_mrkdwn
 
 
@@ -24,7 +27,9 @@ def _truncate(text: str, max_length: int = 100) -> str:
     return text[: max_length - 1] + "..."
 
 
-def create_confirmation_blocks(payload: AssistantPayload | None) -> list[dict[str, Any]]:
+def create_confirmation_blocks(
+    payload: AssistantPayload | None,
+) -> list[dict[str, Any]]:
     if not payload:
         return []
 
@@ -48,7 +53,9 @@ def create_confirmation_blocks(payload: AssistantPayload | None) -> list[dict[st
         for index, request in enumerate(raw_requests, start=1):
             if not isinstance(request, dict):
                 continue
-            message = request.get("action_message") or "The assistant requested an action."
+            message = (
+                request.get("action_message") or "The assistant requested an action."
+            )
             prefix = f"{index}. " if multiple else ""
             confirmation_messages.append(f"{prefix}{message}")
     if not confirmation_messages:
@@ -128,7 +135,10 @@ def create_confirmation_ack_blocks(
     blocks: list[dict[str, Any]] = [
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"*{to_slack_mrkdwn(str(header_text))}*"},
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*{to_slack_mrkdwn(str(header_text))}*",
+            },
         }
     ]
 
@@ -156,13 +166,13 @@ def create_confirmation_ack_blocks(
     return blocks
 
 
-def create_assistant_response_blocks(payload: AssistantPayload | None) -> list[dict[str, Any]]:
+def create_assistant_response_blocks(
+    payload: AssistantPayload | None,
+) -> list[dict[str, Any]]:
     if not payload:
         return []
 
-    requires_confirmation = bool(
-        payload.get("requires_confirmation")
-    )
+    requires_confirmation = bool(payload.get("requires_confirmation"))
 
     action_requests = payload.get("action_requests") or []
     if requires_confirmation and action_requests:
@@ -182,7 +192,7 @@ def create_assistant_response_blocks(payload: AssistantPayload | None) -> list[d
             "text": {"type": "mrkdwn", "text": text},
         },
         {"type": "divider"},
-    ]  
+    ]
 
     elements: list[dict[str, Any]] = [
         {
@@ -190,14 +200,26 @@ def create_assistant_response_blocks(payload: AssistantPayload | None) -> list[d
             "text": {"type": "plain_text", "text": "👍", "emoji": True},
             "action_id": "like_answer",
             "style": "primary",
-            "value": json.dumps({"feedback": 'like', "message_id":  message_id, "conversation_id": conversation_id}),
+            "value": json.dumps(
+                {
+                    "feedback": "like",
+                    "message_id": message_id,
+                    "conversation_id": conversation_id,
+                }
+            ),
         },
         {
             "type": "button",
             "text": {"type": "plain_text", "text": "👎", "emoji": True},
             "action_id": "dislike_answer",
             "style": "danger",
-            "value": json.dumps({"feedback": 'dislike', "message_id":  message_id, "conversation_id": conversation_id}),
+            "value": json.dumps(
+                {
+                    "feedback": "dislike",
+                    "message_id": message_id,
+                    "conversation_id": conversation_id,
+                }
+            ),
         },
     ]
 
@@ -207,7 +229,9 @@ def create_assistant_response_blocks(payload: AssistantPayload | None) -> list[d
                 "type": "button",
                 "action_id": "close_conversation",
                 "text": {"type": "plain_text", "text": "🔒", "emoji": True},
-                "value": json.dumps({"message_id": message_id, "conversation_id": conversation_id}),
+                "value": json.dumps(
+                    {"message_id": message_id, "conversation_id": conversation_id}
+                ),
             }
         )
 
@@ -238,7 +262,7 @@ def update_blocks_with_feedback(
         message = "Thanks for your feedback: *Do not like*"
 
     if feedback_action == "dislike_answer":
-        message += f"\nReason: {data.get("reason")}"
+        message += f"\nReason: {data.get('reason')}"
         comment = data.get("comment")
         if comment:
             message += f"\nComment: {comment}"
@@ -375,8 +399,9 @@ def update_blocks_with_closed_conversation(
     return existing_blocks
 
 
-def build_welcome_message_blocks(bot_name: str, agent_display_name: str | None) -> list[dict[str, Any]]:
-
+def build_welcome_message_blocks(
+    bot_name: str, agent_display_name: str | None
+) -> list[dict[str, Any]]:
     message_intro = f":wave: Hi there! I'm *{bot_name}* and I'm happy to connect you with {agent_display_name}."
     message_tips = (
         "- Mention me in a channel to ask a question together with your team.\n"
@@ -397,7 +422,7 @@ def build_welcome_message_blocks(bot_name: str, agent_display_name: str | None) 
                     "url": WELCOME_LEARN_MORE_URL,
                 }
             ],
-        }
+        },
     ]
 
     return blocks, message_intro

@@ -20,8 +20,15 @@ from litestar.status_codes import (
     HTTP_404_NOT_FOUND,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
-from microsoft_agents.hosting.aiohttp import jwt_authorization_middleware, start_agent_process
-from slack_bolt.oauth.async_callback_options import AsyncCallbackOptions, AsyncFailureArgs, AsyncSuccessArgs
+from microsoft_agents.hosting.aiohttp import (
+    jwt_authorization_middleware,
+    start_agent_process,
+)
+from slack_bolt.oauth.async_callback_options import (
+    AsyncCallbackOptions,
+    AsyncFailureArgs,
+    AsyncSuccessArgs,
+)
 from slack_bolt.request.async_request import AsyncBoltRequest
 from slack_bolt.response import BoltResponse
 
@@ -43,8 +50,11 @@ from .agents_utils.whatsapp_utils import (
 
 logger = getLogger(__name__)
 
+
 async def _get_slack_runtime_cache(app: Any) -> SlackRuntimeCache:
-    slack_runtime_cache: SlackRuntimeCache | None = getattr(app.state, "slack_runtime_cache", None)
+    slack_runtime_cache: SlackRuntimeCache | None = getattr(
+        app.state, "slack_runtime_cache", None
+    )
     if slack_runtime_cache is None:
         slack_runtime_cache = SlackRuntimeCache()
         app.state.slack_runtime_cache = slack_runtime_cache
@@ -53,7 +63,9 @@ async def _get_slack_runtime_cache(app: Any) -> SlackRuntimeCache:
 
 
 async def _get_teams_runtime_cache(app: Any) -> TeamsRuntimeCache:
-    teams_runtime_cache: TeamsRuntimeCache | None = getattr(app.state, "teams_runtime_cache", None)
+    teams_runtime_cache: TeamsRuntimeCache | None = getattr(
+        app.state, "teams_runtime_cache", None
+    )
     if teams_runtime_cache is None:
         teams_runtime_cache = TeamsRuntimeCache()
         app.state.teams_runtime_cache = teams_runtime_cache
@@ -61,7 +73,9 @@ async def _get_teams_runtime_cache(app: Any) -> TeamsRuntimeCache:
 
 
 async def _get_whatsapp_runtime_cache(app: Any) -> WhatsappRuntimeCache:
-    whatsapp_runtime_cache: WhatsappRuntimeCache | None = getattr(app.state, "whatsapp_runtime_cache", None)
+    whatsapp_runtime_cache: WhatsappRuntimeCache | None = getattr(
+        app.state, "whatsapp_runtime_cache", None
+    )
     if whatsapp_runtime_cache is None:
         whatsapp_runtime_cache = WhatsappRuntimeCache()
         app.state.whatsapp_runtime_cache = whatsapp_runtime_cache
@@ -69,7 +83,9 @@ async def _get_whatsapp_runtime_cache(app: Any) -> WhatsappRuntimeCache:
 
 
 def _error(status: int, message: str) -> Response:
-    return Response(status_code=status, content={"detail": message}, media_type="application/json")
+    return Response(
+        status_code=status, content={"detail": message}, media_type="application/json"
+    )
 
 
 _DEFAULT_BOLT_CONTENT = object()
@@ -128,11 +144,19 @@ def _litestar_response_from_bolt(
                 max_age = int(morsel["max-age"]) if morsel["max-age"] else None
                 expires = morsel["expires"] or None
                 domain = morsel["domain"] or None
-                path = default_path if default_cookie_path else (morsel["path"] or default_path)
+                path = (
+                    default_path
+                    if default_cookie_path
+                    else (morsel["path"] or default_path)
+                )
                 secure = "secure" in morsel.keys()
                 httponly = "httponly" in morsel.keys()
                 samesite_value = morsel["samesite"] or None
-                samesite = samesite_value.lower() if isinstance(samesite_value, str) and samesite_value else None
+                samesite = (
+                    samesite_value.lower()
+                    if isinstance(samesite_value, str) and samesite_value
+                    else None
+                )
 
                 response.set_cookie(
                     key=morsel.key,
@@ -150,7 +174,6 @@ def _litestar_response_from_bolt(
 
 
 def _success_renderer(agent_display_name: str):
-
     async def success(args: AsyncSuccessArgs) -> BoltResponse:
         installation = args.installation
         try:
@@ -192,10 +215,9 @@ def _success_renderer(agent_display_name: str):
 
 
 def _failure_renderer(agent_display_name: str):
-
     async def failure(args: AsyncFailureArgs) -> BoltResponse:
         try:
-            reason = (getattr(args, "reason", None) or "unknown_error")
+            reason = getattr(args, "reason", None) or "unknown_error"
             msg = f"Installation failed ({reason})."
             err = getattr(args, "error", None)
             if isinstance(err, Exception):
@@ -220,9 +242,14 @@ def _failure_renderer(agent_display_name: str):
             )
         except Exception:
             fallback = "<!doctype html><meta charset='utf-8'><title>Install failed</title><p>Installation failed.</p>"
-            return BoltResponse(status=HTTP_400_BAD_REQUEST, body=fallback, headers={"Content-Type": "text/html; charset=utf-8"})
-    
+            return BoltResponse(
+                status=HTTP_400_BAD_REQUEST,
+                body=fallback,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+            )
+
     return failure
+
 
 def _render_oauth_success_page(
     *,
@@ -244,7 +271,10 @@ def _render_oauth_success_page(
         else ""
     )
 
-    buttons_markup = "".join(filter(None, [open_app_markup, open_browser_markup])) or "<p>You're all set! You can now open Slack to start using the app.</p>"
+    buttons_markup = (
+        "".join(filter(None, [open_app_markup, open_browser_markup]))
+        or "<p>You're all set! You can now open Slack to start using the app.</p>"
+    )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -272,7 +302,9 @@ def _render_oauth_success_page(
 </html>"""
 
 
-async def _handle_slack_bolt_request(request: Request, *, error_message: str) -> Response:
+async def _handle_slack_bolt_request(
+    request: Request, *, error_message: str
+) -> Response:
     try:
         slack_runtime_cache = await _get_slack_runtime_cache(request.app)
         raw_body = await request.body()
@@ -313,7 +345,9 @@ class UserAgentsController(Controller):
 
         if mode == "subscribe" and challenge:
             logger.info("WEBHOOK VERIFIED")
-            return Response(status_code=HTTP_200_OK, content=str(challenge), media_type="text/plain")
+            return Response(
+                status_code=HTTP_200_OK, content=str(challenge), media_type="text/plain"
+            )
 
         return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
 
@@ -330,7 +364,9 @@ class UserAgentsController(Controller):
         logger.info(f"WhatsApp webhook request: {raw_body}")
 
         if not signature:
-            logger.warning("Missing x-hub-signature-256 header. Cannot verify webhook authenticity.")
+            logger.warning(
+                "Missing x-hub-signature-256 header. Cannot verify webhook authenticity."
+            )
             return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
 
         try:
@@ -341,13 +377,17 @@ class UserAgentsController(Controller):
 
         phone_number_id = extract_whatsapp_phone_number_id(payload)
         if not phone_number_id:
-            logger.warning("WhatsApp webhook missing phone_number_id. Rejecting request.")
+            logger.warning(
+                "WhatsApp webhook missing phone_number_id. Rejecting request."
+            )
             return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
         logger.info("WhatsApp phone_number_id: %s", phone_number_id)
 
         try:
             whatsapp_runtime_cache = await _get_whatsapp_runtime_cache(request.app)
-            whatsapp_runtime = await whatsapp_runtime_cache.get_or_create(phone_number_id)
+            whatsapp_runtime = await whatsapp_runtime_cache.get_or_create(
+                phone_number_id
+            )
         except NotFoundException:
             logger.warning(
                 "WhatsApp runtime not configured for phone_number_id=%s.",
@@ -361,7 +401,9 @@ class UserAgentsController(Controller):
             )
             return Response(content=b"", status_code=HTTP_500_INTERNAL_SERVER_ERROR)
 
-        if not verify_whatsapp_signature(signature, raw_body, whatsapp_runtime.app_secret):
+        if not verify_whatsapp_signature(
+            signature, raw_body, whatsapp_runtime.app_secret
+        ):
             logger.warning("Invalid webhook signature. Rejecting request.")
             return Response(content=b"", status_code=HTTP_403_FORBIDDEN)
 
@@ -389,7 +431,9 @@ class UserAgentsController(Controller):
         summary="Messaging endpoint for Azure Bot Service (Teams integration)",
         description="Azure Bot Service messaging endpoint.",
     )
-    async def handle_teams_message(self, request: Request, data: Dict[str, Any] | None = Body()) -> Response:
+    async def handle_teams_message(
+        self, request: Request, data: Dict[str, Any] | None = Body()
+    ) -> Response:
         auth_header = request.headers.get("authorization", "")
         if not auth_header.lower().startswith("bearer "):
             return _error(HTTP_401_UNAUTHORIZED, "Missing Bearer token")
@@ -408,7 +452,9 @@ class UserAgentsController(Controller):
             teams_runtime_cache = await _get_teams_runtime_cache(request.app)
             team_agent = await teams_runtime_cache.get_or_create(audience)
         except Exception:
-            logger.exception("TeamsRuntimeCache get_or_create failed for audience=%s", audience)
+            logger.exception(
+                "TeamsRuntimeCache get_or_create failed for audience=%s", audience
+            )
             return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Teams runtime unavailable")
 
         if data is None:
@@ -425,21 +471,32 @@ class UserAgentsController(Controller):
 
         aiohttp_response = None
         try:
+
             async def _next(req: AiohttpLikeRequest):
-                return await start_agent_process(req, team_agent.agent_app, team_agent.adapter)
+                return await start_agent_process(
+                    req, team_agent.agent_app, team_agent.adapter
+                )
 
             aiohttp_response = await jwt_authorization_middleware(fake_request, _next)
         except (ExpiredSignatureError, InvalidTokenError):
             return _error(HTTP_401_UNAUTHORIZED, "Unauthorized")
         except Exception:
-            logger.exception("Error while processing activity for audience %s", audience)
-            return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Internal error while processing activity")
-    
+            logger.exception(
+                "Error while processing activity for audience %s", audience
+            )
+            return _error(
+                HTTP_500_INTERNAL_SERVER_ERROR,
+                "Internal error while processing activity",
+            )
+
         if aiohttp_response is None:
             return Response(status_code=HTTP_200_OK)
 
         status = getattr(aiohttp_response, "status", HTTP_200_OK)
-        headers = {str(key): str(value) for key, value in getattr(aiohttp_response, "headers", {}).items()}
+        headers = {
+            str(key): str(value)
+            for key, value in getattr(aiohttp_response, "headers", {}).items()
+        }
 
         response_body = getattr(aiohttp_response, "body", b"")
         if isinstance(response_body, (bytes, bytearray)):
@@ -450,7 +507,6 @@ class UserAgentsController(Controller):
             content = response_body
 
         return Response(status_code=status, content=content, headers=headers)
-
 
     @post(
         "/slack/events",
@@ -467,7 +523,6 @@ class UserAgentsController(Controller):
             error_message="Slack runtime failed to handle request",
         )
 
-
     @get(
         "/slack/install",
         status_code=HTTP_200_OK,
@@ -476,30 +531,50 @@ class UserAgentsController(Controller):
         description="The endpoint for Slack installation (opened from admin ui).",
     )
     async def handle_slack_install(self, request: Request) -> Response:
-
         try:
             slack_runtime_cache = await _get_slack_runtime_cache(request.app)
         except Exception:
-            logger.exception("Failed to initialize Slack runtime cache for install endpoint")
+            logger.exception(
+                "Failed to initialize Slack runtime cache for install endpoint"
+            )
             return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Slack runtime unavailable")
 
-        oauth_agents = [runtime for runtime in slack_runtime_cache.all() if runtime.install_path]
+        oauth_agents = [
+            runtime for runtime in slack_runtime_cache.all() if runtime.install_path
+        ]
         if not oauth_agents:
-            return _error(HTTP_404_NOT_FOUND, "No Slack agents configured for installation")
+            return _error(
+                HTTP_404_NOT_FOUND, "No Slack agents configured for installation"
+            )
 
         query_params = dict(parse_qsl(request.url.query or "", keep_blank_values=True))
         target_agent_system_name = query_params.pop("agent", None)
 
         if not target_agent_system_name:
-            return _error(HTTP_400_BAD_REQUEST, "No Slack agent system name specified for installation")
+            return _error(
+                HTTP_400_BAD_REQUEST,
+                "No Slack agent system name specified for installation",
+            )
 
-        selected_agent = next((agent for agent in oauth_agents if agent.agent_system_name == target_agent_system_name), None)
+        selected_agent = next(
+            (
+                agent
+                for agent in oauth_agents
+                if agent.agent_system_name == target_agent_system_name
+            ),
+            None,
+        )
         if selected_agent is None:
-            return _error(HTTP_404_NOT_FOUND, f"Slack agent '{target_agent_system_name}' not found")
+            return _error(
+                HTTP_404_NOT_FOUND,
+                f"Slack agent '{target_agent_system_name}' not found",
+            )
 
         oauth_flow = getattr(selected_agent.handler.app, "oauth_flow", None)
         if oauth_flow is None:
-            return _error(HTTP_400_BAD_REQUEST, "Slack agent does not support OAuth installation")
+            return _error(
+                HTTP_400_BAD_REQUEST, "Slack agent does not support OAuth installation"
+            )
 
         sanitized_query = urlencode(query_params, doseq=True)
         headers = _request_headers(request)
@@ -513,15 +588,19 @@ class UserAgentsController(Controller):
         try:
             bolt_response = await oauth_flow.handle_installation(bolt_request)
         except Exception:
-            logger.exception("Slack OAuth installation failed for agent '%s'", selected_agent.name)
-            return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Slack OAuth installation failed")
+            logger.exception(
+                "Slack OAuth installation failed for agent '%s'", selected_agent.name
+            )
+            return _error(
+                HTTP_500_INTERNAL_SERVER_ERROR, "Slack OAuth installation failed"
+            )
 
         return _litestar_response_from_bolt(
             bolt_response,
             content=bolt_response.body or "",
-            default_cookie_path=selected_agent.redirect_uri_path or "/", # request.url.path
+            default_cookie_path=selected_agent.redirect_uri_path
+            or "/",  # request.url.path
         )
-
 
     @get(
         "/slack/oauth_redirect",
@@ -531,16 +610,21 @@ class UserAgentsController(Controller):
         description="Completes the Slack OAuth installation flow.",
     )
     async def handle_slack_oauth_redirect(self, request: Request) -> Response:
-
         try:
             slack_runtime_cache = await _get_slack_runtime_cache(request.app)
         except Exception:
-            logger.exception("Failed to initialize Slack runtime cache for OAuth callback endpoint")
+            logger.exception(
+                "Failed to initialize Slack runtime cache for OAuth callback endpoint"
+            )
             return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Slack runtime unavailable")
 
-        oauth_agents = [runtime for runtime in slack_runtime_cache.all() if runtime.install_path]
+        oauth_agents = [
+            runtime for runtime in slack_runtime_cache.all() if runtime.install_path
+        ]
         if not oauth_agents:
-            return _error(HTTP_404_NOT_FOUND, "No Slack agents configured for installation")
+            return _error(
+                HTTP_404_NOT_FOUND, "No Slack agents configured for installation"
+            )
 
         query_string = request.url.query or ""
         query_params = dict(parse_qsl(query_string, keep_blank_values=True))
@@ -553,25 +637,42 @@ class UserAgentsController(Controller):
         if state_value:
             lookup = await SlackOAuthStateStore.async_lookup_agent_by_state(state_value)
             if lookup is None:
-                return _error(HTTP_500_INTERNAL_SERVER_ERROR, "No state found for OAuth callback")
+                return _error(
+                    HTTP_500_INTERNAL_SERVER_ERROR, "No state found for OAuth callback"
+                )
 
             agent_system_name = lookup[0]
 
         if agent_system_name is None:
-            return _error(HTTP_400_BAD_REQUEST, "Could not determine Slack agent for OAuth callback")
+            return _error(
+                HTTP_400_BAD_REQUEST,
+                "Could not determine Slack agent for OAuth callback",
+            )
 
-        runtime = next((agent for agent in oauth_agents if agent.agent_system_name == agent_system_name), None)
+        runtime = next(
+            (
+                agent
+                for agent in oauth_agents
+                if agent.agent_system_name == agent_system_name
+            ),
+            None,
+        )
         if runtime is None:
             logger.warning(
                 "Slack OAuth callback referenced unknown agent '%s'. state=%s",
                 agent_system_name,
                 state_value,
             )
-            return _error(HTTP_404_NOT_FOUND, f"Slack agent '{agent_system_name}' not found")
+            return _error(
+                HTTP_404_NOT_FOUND, f"Slack agent '{agent_system_name}' not found"
+            )
 
         oauth_flow = getattr(runtime.handler.app, "oauth_flow", None)
         if oauth_flow is None:
-            return _error(HTTP_500_INTERNAL_SERVER_ERROR, "OAuth flow is not configured for this Slack runtime")
+            return _error(
+                HTTP_500_INTERNAL_SERVER_ERROR,
+                "OAuth flow is not configured for this Slack runtime",
+            )
 
         co = AsyncCallbackOptions(
             success=_success_renderer(runtime.name),
@@ -598,5 +699,8 @@ class UserAgentsController(Controller):
                 default_cookie_path=runtime.redirect_uri_path or "/",
             )
         except Exception:
-            logger.exception("Slack OAuth callback failed during token exchange/processing for agent '%s'", agent_system_name)
+            logger.exception(
+                "Slack OAuth callback failed during token exchange/processing for agent '%s'",
+                agent_system_name,
+            )
             return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Slack OAuth callback failed")

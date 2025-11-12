@@ -19,8 +19,11 @@ logger = getLogger(__name__)
 
 def _get_metrics_exporters() -> list[MetricsExporterType]:
     observability_settings = get_observability_settings()
-    
-    if not observability_settings.ENABLED or not observability_settings.METRICS_EXPORTERS:
+
+    if (
+        not observability_settings.ENABLED
+        or not observability_settings.METRICS_EXPORTERS
+    ):
         return []
 
     result = []
@@ -73,8 +76,11 @@ def get_metrics_readers() -> list[MetricReader]:
 
 def _get_traces_exporters() -> list[TracesExporterType]:
     observability_settings = get_observability_settings()
-    
-    if not observability_settings.ENABLED or not observability_settings.TRACES_EXPORTERS:
+
+    if (
+        not observability_settings.ENABLED
+        or not observability_settings.TRACES_EXPORTERS
+    ):
         return []
 
     result = []

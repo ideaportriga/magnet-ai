@@ -25,7 +25,6 @@ def mock_cosmos_db_client(mock_cosmos_db_client_database):
 
 @pytest.fixture
 def cosmos_db_store(mock_cosmos_db_client, mocker: MockerFixture) -> CosmosDbStore:
-
     return CosmosDbStore(client=mock_cosmos_db_client)
 
 
@@ -64,7 +63,9 @@ def test_list_collections(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client)
 
 def test_create_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
     mock_collection_collections = MagicMock()
-    mock_collection_collections.insert_one.return_value = InsertOneResult(inserted_id="1", acknowledged=True)
+    mock_collection_collections.insert_one.return_value = InsertOneResult(
+        inserted_id="1", acknowledged=True
+    )
     mock_cosmos_db_client.get_collection.return_value = mock_collection_collections
 
     result = cosmos_db_store.create_collection({"name": "Collection #1"})
@@ -72,7 +73,9 @@ def test_create_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
     assert result == "1"
 
     mock_collection_collections.insert_one.assert_called_once()
-    mock_cosmos_db_client.database.create_collection.assert_called_once_with("documents_1")
+    mock_cosmos_db_client.database.create_collection.assert_called_once_with(
+        "documents_1"
+    )
     mock_cosmos_db_client.database.command.assert_called_once_with(
         {
             "createIndexes": "documents_1",
@@ -80,7 +83,12 @@ def test_create_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
                 {
                     "name": "VectorSearchIndex",
                     "key": {"embedding": "cosmosSearch"},
-                    "cosmosSearchOptions": {"kind": "vector-ivf", "numLists": 1, "similarity": "COS", "dimensions": 1536},
+                    "cosmosSearchOptions": {
+                        "kind": "vector-ivf",
+                        "numLists": 1,
+                        "similarity": "COS",
+                        "dimensions": 1536,
+                    },
                 },
             ],
         },
@@ -102,7 +110,9 @@ def test_get_collection_metadata(cosmos_db_store: CosmosDbStore, mock_cosmos_db_
     mock_collection.find_one.assert_called_once_with({"_id": collection_object_id})
 
 
-def test_get_collection_metadata_not_existent(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
+def test_get_collection_metadata_not_existent(
+    cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
+):
     collection_id = "65d754785baec301dcce36db"
     mock_collection = MagicMock()
     mock_collection.find_one.return_value = None
@@ -114,31 +124,47 @@ def test_get_collection_metadata_not_existent(cosmos_db_store: CosmosDbStore, mo
     mock_collection.find_one.assert_called_once_with({"_id": ObjectId(collection_id)})
 
 
-def test_update_collection_metadata(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
+def test_update_collection_metadata(
+    cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
+):
     collection_id = "65d754785baec301dcce36db"
     collection_object_id = ObjectId(collection_id)
     mock_collection = MagicMock()
-    mock_collection.update_one.return_value = UpdateResult(raw_result={"n": 1}, acknowledged=True)
+    mock_collection.update_one.return_value = UpdateResult(
+        raw_result={"n": 1}, acknowledged=True
+    )
     mock_cosmos_db_client.get_collection.return_value = mock_collection
 
-    result = cosmos_db_store.update_collection_metadata(collection_id, {"name": "Updated name"})
+    result = cosmos_db_store.update_collection_metadata(
+        collection_id, {"name": "Updated name"}
+    )
 
     assert result is None
 
-    mock_collection.update_one.assert_called_once_with({"_id": collection_object_id}, {"$set": {"name": "Updated name"}})
+    mock_collection.update_one.assert_called_once_with(
+        {"_id": collection_object_id}, {"$set": {"name": "Updated name"}}
+    )
 
 
-def test_update_collection_metadata_not_existent(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
+def test_update_collection_metadata_not_existent(
+    cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
+):
     collection_id = "65d754785baec301dcce36db"
     collection_object_id = ObjectId(collection_id)
     mock_collection = MagicMock()
-    mock_collection.update_one.return_value = UpdateResult(raw_result={"n": 0}, acknowledged=True)
+    mock_collection.update_one.return_value = UpdateResult(
+        raw_result={"n": 0}, acknowledged=True
+    )
     mock_cosmos_db_client.get_collection.return_value = mock_collection
 
     with pytest.raises(LookupError, match="Nothing was updated"):
-        cosmos_db_store.update_collection_metadata(collection_id, {"name": "Updated name"})
+        cosmos_db_store.update_collection_metadata(
+            collection_id, {"name": "Updated name"}
+        )
 
-    mock_collection.update_one.assert_called_once_with({"_id": collection_object_id}, {"$set": {"name": "Updated name"}})
+    mock_collection.update_one.assert_called_once_with(
+        {"_id": collection_object_id}, {"$set": {"name": "Updated name"}}
+    )
 
 
 def test_delete_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
@@ -147,7 +173,9 @@ def test_delete_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
     mock_collection_collections = MagicMock()
     mock_collection_documents = MagicMock()
 
-    mock_collection_collections.delete_one.return_value = DeleteResult(raw_result={"n": 1}, acknowledged=True)
+    mock_collection_collections.delete_one.return_value = DeleteResult(
+        raw_result={"n": 1}, acknowledged=True
+    )
     mock_cosmos_db_client.get_collection.side_effect = get_collection_side_effect(
         {
             "collections": mock_collection_collections,
@@ -159,11 +187,15 @@ def test_delete_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
 
     assert result is None
 
-    mock_collection_collections.delete_one.assert_called_once_with({"_id": collection_object_id})
+    mock_collection_collections.delete_one.assert_called_once_with(
+        {"_id": collection_object_id}
+    )
     mock_collection_documents.drop.assert_called_once()
 
 
-def test_document_collection_similarity_search_collection_non_existent(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
+def test_document_collection_similarity_search_collection_non_existent(
+    cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
+):
     collection_id = "65d754785baec301dcce36db"
     query = "Hi"
     num_results = 3
@@ -249,7 +281,9 @@ def test_document_collection_similarity_search_collection_non_existent(cosmos_db
 #     assert result[2] == DocumentSearchResultItem(content="Content 3", metadata={"name": "Name 3"}, score=Decimal("0.81"), collection_id=collection_id)
 
 
-def test_document_collections_query_chunks_context(mocker: MockerFixture, cosmos_db_store: CosmosDbStore):
+def test_document_collections_query_chunks_context(
+    mocker: MockerFixture, cosmos_db_store: CosmosDbStore
+):
     collection_id_1 = "65d754785baec301dcce36db"
     collection_id_2 = "65d754785baec301dcce36dc"
     chunks_by_collection_id_by_source_id = {
@@ -285,15 +319,23 @@ def test_document_collections_query_chunks_context(mocker: MockerFixture, cosmos
         ],
     )
 
-    result = cosmos_db_store.document_collections_query_chunks_context(chunks_by_collection_id_by_source_id)
+    result = cosmos_db_store.document_collections_query_chunks_context(
+        chunks_by_collection_id_by_source_id
+    )
 
     list_documents_expected_calls = [
         call(
             collection_id=collection_id_1,
             query={
                 "$or": [
-                    {"metadata.sourceId": "doc_1", "metadata.chunkNumber": {"$in": [1, 2, 3, 4, 5, 6]}},
-                    {"metadata.sourceId": "doc_2", "metadata.chunkNumber": {"$in": [9, 10, 11]}},
+                    {
+                        "metadata.sourceId": "doc_1",
+                        "metadata.chunkNumber": {"$in": [1, 2, 3, 4, 5, 6]},
+                    },
+                    {
+                        "metadata.sourceId": "doc_2",
+                        "metadata.chunkNumber": {"$in": [9, 10, 11]},
+                    },
                 ],
             },
         ),
@@ -301,13 +343,18 @@ def test_document_collections_query_chunks_context(mocker: MockerFixture, cosmos
             collection_id=collection_id_2,
             query={
                 "$or": [
-                    {"metadata.sourceId": "doc_3", "metadata.chunkNumber": {"$in": [4, 5, 6]}},
+                    {
+                        "metadata.sourceId": "doc_3",
+                        "metadata.chunkNumber": {"$in": [4, 5, 6]},
+                    },
                 ],
             },
         ),
     ]
 
-    assert cosmos_db_store.list_documents.call_count == len(list_documents_expected_calls)
+    assert cosmos_db_store.list_documents.call_count == len(
+        list_documents_expected_calls
+    )
     cosmos_db_store.list_documents.assert_has_calls(list_documents_expected_calls)
 
     expected_result: ChunksByCollection = {

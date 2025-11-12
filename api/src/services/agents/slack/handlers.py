@@ -21,7 +21,11 @@ from services.agents.utils.conversation_helpers import (
     DEFAULT_AGENT_DISPLAY_NAME,
 )
 from services.agents.slack.blocks import build_welcome_message_blocks
-from services.common.models import LlmResponseFeedback, LlmResponseFeedbackReason, LlmResponseFeedbackType
+from services.common.models import (
+    LlmResponseFeedback,
+    LlmResponseFeedbackReason,
+    LlmResponseFeedbackType,
+)
 from .blocks import (
     create_assistant_response_blocks,
     create_confirmation_ack_blocks,
@@ -69,16 +73,24 @@ def _get_first(iterable: Iterable[Any]) -> Any:
     return None
 
 
-def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display_name: str) -> None:
+def attach_default_handlers(
+    app: AsyncApp, agent_system_name: str, agent_display_name: str
+) -> None:
     async def _send_placeholder_message(
         client: AsyncWebClient,
         channel: str,
         logger: logging.Logger,
     ) -> str | None:
         try:
-            response = await client.chat_postMessage(channel=channel, text=_PLACEHOLDER_TEXT)
+            response = await client.chat_postMessage(
+                channel=channel, text=_PLACEHOLDER_TEXT
+            )
         except SlackApiError:
-            logger.warning("Failed to send placeholder message (channel=%s)", channel, exc_info=True)
+            logger.warning(
+                "Failed to send placeholder message (channel=%s)",
+                channel,
+                exc_info=True,
+            )
             return None
 
         return response.get("ts")
@@ -184,7 +196,11 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
         try:
             user_info = await client.users_info(user=agent_user_id)
         except SlackApiError:
-            logger.warning("users.info failed while resolving agent display name (user=%s).", agent_user_id, exc_info=True)
+            logger.warning(
+                "users.info failed while resolving agent display name (user=%s).",
+                agent_user_id,
+                exc_info=True,
+            )
             return None
 
         user_data = user_info.get("user") or {}
@@ -214,14 +230,22 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
 
         user_id = body.get("user_id")
         if not user_id:
-            logger.warning("Missing user_id in %s command payload: %s", command_name, body)
-            await _respond_ephemeral(respond, "I couldn't determine which conversation to close.")
+            logger.warning(
+                "Missing user_id in %s command payload: %s", command_name, body
+            )
+            await _respond_ephemeral(
+                respond, "I couldn't determine which conversation to close."
+            )
             return
 
         try:
-            result = await close_conversation(agent_system_name=agent_system_name, user_id=user_id)
+            result = await close_conversation(
+                agent_system_name=agent_system_name, user_id=user_id
+            )
         except Exception:
-            logger.exception("Failed to close conversation via %s command.", command_name)
+            logger.exception(
+                "Failed to close conversation via %s command.", command_name
+            )
             result = "Failed to close the conversation."
 
         await _respond_ephemeral(respond, result)
@@ -236,14 +260,22 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
 
         user_id = body.get("user_id")
         if not user_id:
-            logger.warning("Missing user_id in /get_conversation_info payload: %s", body)
-            await _respond_ephemeral(respond, "I couldn't determine which conversation to inspect.")
+            logger.warning(
+                "Missing user_id in /get_conversation_info payload: %s", body
+            )
+            await _respond_ephemeral(
+                respond, "I couldn't determine which conversation to inspect."
+            )
             return
 
         try:
-            result = await get_conversation_info(agent_system_name=agent_system_name, user_id=user_id)
+            result = await get_conversation_info(
+                agent_system_name=agent_system_name, user_id=user_id
+            )
         except Exception:
-            logger.exception("Failed to gather conversation info via /get_conversation_info.")
+            logger.exception(
+                "Failed to gather conversation info via /get_conversation_info."
+            )
             result = "Failed to load the last conversation."
 
         await _respond_ephemeral(respond, result)
@@ -258,7 +290,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
 
         action = _get_first(body.get("actions") or [])
         if not isinstance(action, dict):
-            logger.warning("Confirmation action payload is missing action details: %s", body)
+            logger.warning(
+                "Confirmation action payload is missing action details: %s", body
+            )
             return
 
         raw_value = action.get("value") or ""
@@ -271,13 +305,8 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
         confirmed = bool(confirmation_payload.get("confirmed"))
         conversation_id = confirmation_payload.get("conversation_id")
         trace_id = confirmation_payload.get("trace_id")
-        agent_name = (
-            confirmation_payload.get("agent_system_name")
-            or agent_system_name
-        )
-        confirmation_card_payload = (
-            confirmation_payload.get("confirmation_card") or {}
-        )
+        agent_name = confirmation_payload.get("agent_system_name") or agent_system_name
+        confirmation_card_payload = confirmation_payload.get("confirmation_card") or {}
 
         raw_request_ids = confirmation_payload.get("request_ids") or []
         if isinstance(raw_request_ids, list):
@@ -288,8 +317,12 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             request_ids = []
 
         user_id = (body.get("user") or {}).get("id")
-        channel_id = (body.get("channel") or {}).get("id") or body.get("container", {}).get("channel_id")
-        message_ts = (body.get("message") or {}).get("ts") or body.get("container", {}).get("message_ts")
+        channel_id = (body.get("channel") or {}).get("id") or body.get(
+            "container", {}
+        ).get("channel_id")
+        message_ts = (body.get("message") or {}).get("ts") or body.get(
+            "container", {}
+        ).get("message_ts")
 
         if not conversation_id or not user_id or not request_ids:
             logger.warning(
@@ -330,7 +363,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                 conversation_id,
                 user_id,
             )
-            error_text = ":warning: Something went wrong while processing your response."
+            error_text = (
+                ":warning: Something went wrong while processing your response."
+            )
             await _update_confirmation_message(
                 client,
                 channel_id,
@@ -347,8 +382,14 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             )
             return
 
-        ack_text = ":white_check_mark: Action confirmed." if confirmed else ":x: Action rejected."
-        ack_blocks = create_confirmation_ack_blocks(confirmation_card_payload, confirmed)
+        ack_text = (
+            ":white_check_mark: Action confirmed."
+            if confirmed
+            else ":x: Action rejected."
+        )
+        ack_blocks = create_confirmation_ack_blocks(
+            confirmation_card_payload, confirmed
+        )
 
         await _update_confirmation_message(
             client,
@@ -374,7 +415,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             )
             return
 
-        fallback_text = to_slack_mrkdwn(_payload_text(assistant_payload)) or "Magnet response"
+        fallback_text = (
+            to_slack_mrkdwn(_payload_text(assistant_payload)) or "Magnet response"
+        )
         response_blocks = create_assistant_response_blocks(assistant_payload)
         follow_up_payload: dict[str, Any] = {
             "channel": channel_id,
@@ -404,7 +447,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
         await ack()
 
         agent_display_name = await _resolve_agent_display_name(context, client, logger)
-        blocks,message_text = build_welcome_message_blocks(agent_display_name, agent_display_name)
+        blocks, message_text = build_welcome_message_blocks(
+            agent_display_name, agent_display_name
+        )
 
         try:
             await respond(
@@ -422,7 +467,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
         respond: AsyncRespond,
         logger: logging.Logger,
     ) -> None:
-        await _handle_conversation_closure_command("/restart", ack, body, respond, logger)
+        await _handle_conversation_closure_command(
+            "/restart", ack, body, respond, logger
+        )
 
     @app.command("/get_conversation_info")
     async def handle_get_conversation_info_command(
@@ -442,7 +489,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
     ) -> None:
         channel = event.get("channel")
         if not channel:
-            logger.warning("Slack app_mention event is missing channel information: %s", event)
+            logger.warning(
+                "Slack app_mention event is missing channel information: %s", event
+            )
             return
 
         user_id = event.get("user") or context.get("user_id") or channel
@@ -463,16 +512,19 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                 consumer_name="Slack",
             )
         except Exception:
-            logger.exception("Error while continuing conversation for app_mention (channel=%s)", channel)
-            await _handle_error_message(client, channel, placeholder_ts, logger, "app_mention")
+            logger.exception(
+                "Error while continuing conversation for app_mention (channel=%s)",
+                channel,
+            )
+            await _handle_error_message(
+                client, channel, placeholder_ts, logger, "app_mention"
+            )
             return
 
         raw_text = _payload_text(assistant_payload)
         fallback_text = to_slack_mrkdwn(raw_text)
         if not fallback_text:
-            if assistant_payload and (
-                assistant_payload.get("requires_confirmation")
-            ):
+            if assistant_payload and (assistant_payload.get("requires_confirmation")):
                 fallback_text = "Magnet needs your confirmation before running the requested action."
             else:
                 fallback_text = "Magnet response"
@@ -489,7 +541,6 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             logger,
             log_context="app_mention",
         )
-
 
     @app.event("message")
     async def handle_message_event(
@@ -521,16 +572,18 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                 consumer_name="Slack",
             )
         except Exception:
-            logger.exception("Error while continuing conversation for message (channel=%s)", channel)
-            await _handle_error_message(client, channel, placeholder_ts, logger, "message")
+            logger.exception(
+                "Error while continuing conversation for message (channel=%s)", channel
+            )
+            await _handle_error_message(
+                client, channel, placeholder_ts, logger, "message"
+            )
             return
 
         raw_text = _payload_text(assistant_payload)
         fallback_text = to_slack_mrkdwn(raw_text)
         if not fallback_text:
-            if assistant_payload and (
-                assistant_payload.get("requires_confirmation")
-            ):
+            if assistant_payload and (assistant_payload.get("requires_confirmation")):
                 fallback_text = "Magnet needs your confirmation before running the requested action."
             else:
                 fallback_text = "Magnet answer"
@@ -548,7 +601,6 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             log_context="message",
         )
 
-
     @app.action("confirm_action_request")
     async def handle_confirm_action_request(
         ack: Any,
@@ -557,7 +609,6 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
         logger: logging.Logger,
     ) -> None:
         await _handle_action_confirmation_interaction(ack, body, client, logger)
-
 
     @app.action("reject_action_request")
     async def handle_reject_action_request(
@@ -568,9 +619,10 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
     ) -> None:
         await _handle_action_confirmation_interaction(ack, body, client, logger)
 
-
     @app.error
-    async def handle_error(error: Exception, body: dict, say: AsyncSay, logger: logging.Logger) -> None:
+    async def handle_error(
+        error: Exception, body: dict, say: AsyncSay, logger: logging.Logger
+    ) -> None:
         error_message = f"Bolt app error: {error}"
         logger.error(error_message, exc_info=error)
         # Also send the error message to the chat if possible
@@ -588,7 +640,6 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             except Exception:
                 logger.error("Failed to send error message to channel %s", channel)
 
-
     @app.action("like_answer")
     async def handle_like_answer(
         body: dict[str, Any],
@@ -598,11 +649,12 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
     ) -> None:
         await ack()
 
-        channel_id = (
-            body.get("channel", {}).get("id")
-            or body.get("container", {}).get("channel_id")
+        channel_id = body.get("channel", {}).get("id") or body.get("container", {}).get(
+            "channel_id"
         )
-        ts = body.get("message", {}).get("ts") or body.get("container", {}).get("message_ts")
+        ts = body.get("message", {}).get("ts") or body.get("container", {}).get(
+            "message_ts"
+        )
         message_blocks = body.get("message", {}).get("blocks") or []
         action = _get_first(body.get("actions") or [])
         payload: dict[str, Any] = {}
@@ -610,7 +662,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             try:
                 payload = json.loads(action["value"])
             except (TypeError, ValueError):
-                logger.warning("Failed to parse like_answer action payload: %s", action["value"])
+                logger.warning(
+                    "Failed to parse like_answer action payload: %s", action["value"]
+                )
 
         message_id = payload.get("message_id")
         conversation_id = payload.get("conversation_id")
@@ -650,8 +704,11 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                 consumer_name="Slack",
             )
         except Exception:
-            logger.exception("Failed to persist like feedback (conversation=%s message=%s)", conversation_id, message_id)
-
+            logger.exception(
+                "Failed to persist like feedback (conversation=%s message=%s)",
+                conversation_id,
+                message_id,
+            )
 
     @app.action("dislike_answer")
     async def handle_dislike_answer(
@@ -662,18 +719,21 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
     ) -> None:
         await ack()
 
-        channel_id = (
-            body.get("channel", {}).get("id")
-            or body.get("container", {}).get("channel_id")
+        channel_id = body.get("channel", {}).get("id") or body.get("container", {}).get(
+            "channel_id"
         )
-        ts = body.get("message", {}).get("ts") or body.get("container", {}).get("message_ts")
+        ts = body.get("message", {}).get("ts") or body.get("container", {}).get(
+            "message_ts"
+        )
         action = _get_first(body.get("actions") or [])
         payload: dict[str, Any] = {}
         if action and action.get("value"):
             try:
                 payload = json.loads(action["value"])
             except (TypeError, ValueError):
-                logger.warning("Failed to parse dislike_answer action payload: %s", action["value"])
+                logger.warning(
+                    "Failed to parse dislike_answer action payload: %s", action["value"]
+                )
 
         message_id = payload.get("message_id")
         conversation_id = payload.get("conversation_id")
@@ -706,16 +766,31 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                     "element": {
                         "type": "static_select",
                         "action_id": "reason_select",
-                        "placeholder": {"type": "plain_text", "text": "Select a reason"},
+                        "placeholder": {
+                            "type": "plain_text",
+                            "text": "Select a reason",
+                        },
                         "initial_option": {
                             "text": {"type": "plain_text", "text": "Other"},
                             "value": "other",
                         },
                         "options": [
-                            {"text": {"type": "plain_text", "text": "Not relevant"}, "value": "not_relevant"},
-                            {"text": {"type": "plain_text", "text": "Inaccurate"}, "value": "inaccurate"},
-                            {"text": {"type": "plain_text", "text": "Outdated"}, "value": "outdated"},
-                            {"text": {"type": "plain_text", "text": "Other"}, "value": "other"},
+                            {
+                                "text": {"type": "plain_text", "text": "Not relevant"},
+                                "value": "not_relevant",
+                            },
+                            {
+                                "text": {"type": "plain_text", "text": "Inaccurate"},
+                                "value": "inaccurate",
+                            },
+                            {
+                                "text": {"type": "plain_text", "text": "Outdated"},
+                                "value": "outdated",
+                            },
+                            {
+                                "text": {"type": "plain_text", "text": "Other"},
+                                "value": "other",
+                            },
                         ],
                     },
                     "label": {"type": "plain_text", "text": "Reason"},
@@ -728,7 +803,10 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                         "type": "plain_text_input",
                         "action_id": "comment_input",
                         "multiline": True,
-                        "placeholder": {"type": "plain_text", "text": "Optional comment"},
+                        "placeholder": {
+                            "type": "plain_text",
+                            "text": "Optional comment",
+                        },
                     },
                     "label": {"type": "plain_text", "text": "Comment"},
                 },
@@ -739,7 +817,6 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             await client.views_open(trigger_id=body.get("trigger_id"), view=view)
         except SlackApiError:
             logger.exception("views.open failed for dislike_answer action.")
-
 
     @app.action("close_conversation")
     async def handle_close_conversation(
@@ -757,7 +834,10 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             try:
                 payload = json.loads(action["value"])
             except (TypeError, ValueError):
-                logger.warning("Failed to parse close_conversation action payload: %s", action["value"])
+                logger.warning(
+                    "Failed to parse close_conversation action payload: %s",
+                    action["value"],
+                )
 
         conversation_id = payload.get("conversation_id")
         message_id = payload.get("message_id")
@@ -776,7 +856,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                     }
                 )
             except Exception:
-                logger.exception("Failed to send close_conversation missing ID response.")
+                logger.exception(
+                    "Failed to send close_conversation missing ID response."
+                )
             return
 
         try:
@@ -814,16 +896,13 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                 message_id,
             )
 
-
     @app.action("open_conversation")
     async def handle_open_conversation(ack: Any) -> None:
         await ack()
 
-
     @app.action("open_magnet_ai")
     async def handle_open_magnet_ai(ack: Any) -> None:
         await ack()
-
 
     @app.view("dislike_feedback_modal")
     async def handle_dislike_feedback_modal(
@@ -841,7 +920,10 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
             try:
                 metadata = json.loads(metadata_raw)
             except (TypeError, ValueError):
-                logger.warning("Failed to parse private metadata for dislike modal: %s", metadata_raw)
+                logger.warning(
+                    "Failed to parse private metadata for dislike modal: %s",
+                    metadata_raw,
+                )
 
         channel_id = metadata.get("channel_id")
         ts = metadata.get("ts")
@@ -873,7 +955,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                     inclusive=True,
                     limit=1,
                 )
-                history_blocks = (history.get("messages") or [{}])[0].get("blocks") or []
+                history_blocks = (history.get("messages") or [{}])[0].get(
+                    "blocks"
+                ) or []
                 logger.debug(
                     "dislike_feedback_modal fetched blocks: channel=%s ts=%s blocks_count=%s",
                     channel_id,
@@ -881,7 +965,9 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                     len(history_blocks),
                 )
             except SlackApiError:
-                logger.exception("Failed to fetch conversation history for dislike feedback.")
+                logger.exception(
+                    "Failed to fetch conversation history for dislike feedback."
+                )
 
         updated_blocks = update_blocks_with_feedback(
             history_blocks,
@@ -911,7 +997,11 @@ def attach_default_handlers(app: AsyncApp, agent_system_name: str, agent_display
                         response.get("error"),
                     )
             except SlackApiError:
-                logger.exception("Failed to update message after dislike feedback (channel=%s ts=%s)", channel_id, ts)
+                logger.exception(
+                    "Failed to update message after dislike feedback (channel=%s ts=%s)",
+                    channel_id,
+                    ts,
+                )
 
         if conversation_id and message_id:
             reason_value = reason or "other"

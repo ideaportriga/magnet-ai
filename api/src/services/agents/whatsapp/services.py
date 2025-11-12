@@ -8,7 +8,9 @@ from utils.secrets import decrypt_string
 logger = getLogger(__name__)
 
 
-async def resolve_whatsapp_by_phone_number_id(phone_number_id: str) -> tuple[str | None, str | None, str | None]:
+async def resolve_whatsapp_by_phone_number_id(
+    phone_number_id: str,
+) -> tuple[str | None, str | None, str | None]:
     """Resolve WhatsApp credentials by phone_number_id stored in agent channels.
 
     Returns (agent_system_name, token, app_secret).
@@ -38,5 +40,3 @@ async def resolve_whatsapp_by_phone_number_id(phone_number_id: str) -> tuple[str
     app_secret = decrypt_string(row.app_secret) if row.app_secret else None
 
     return row.agent_system_name, token, app_secret
-
-

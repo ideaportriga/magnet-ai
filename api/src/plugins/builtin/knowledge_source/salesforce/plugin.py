@@ -125,9 +125,7 @@ class SalesforcePlugin(KnowledgeSourcePlugin):
             salesforce = create_salesforce_instance()
 
         # Create data source
-        data_source = SalesforceDataSource(
-            salesforce, object_api_name, output_config
-        )
+        data_source = SalesforceDataSource(salesforce, object_api_name, output_config)
 
         # Return processor
         return SalesforceDataProcessor(data_source, output_config)

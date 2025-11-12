@@ -48,7 +48,9 @@ def test_executes_prompt_template_intent_topic(mocker: MockerFixture):
     )
 
     result = classify_conversation(
-        prompt_template=prompt_template, messages=messages, topics=topics,
+        prompt_template=prompt_template,
+        messages=messages,
+        topics=topics,
     )
 
     expected_completion_messsage = {
@@ -106,7 +108,9 @@ def test_executes_prompt_template_intent_no_topics(mocker: MockerFixture):
     mock_prompt_template_execute.return_value.content = '{"intent": "off_topic", "assistant_message": "Assistant message", "reason": "test reason"}'
 
     result = classify_conversation(
-        prompt_template=prompt_template, messages=messages, topics=topics,
+        prompt_template=prompt_template,
+        messages=messages,
+        topics=topics,
     )
 
     expected_completion_messsage = {

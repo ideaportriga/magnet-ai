@@ -469,7 +469,7 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
                     root_span_start_time = _safe_max_span_time(
                         trace_patch.root_span.get("start_time")
                     )
-                    
+
                     idle_span = {
                         "id": format_span_id(RandomIdGenerator().generate_span_id()),
                         "parent_id": trace_id,

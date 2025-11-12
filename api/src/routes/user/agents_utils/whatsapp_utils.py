@@ -38,7 +38,9 @@ def extract_whatsapp_phone_number_id(payload: Any) -> str | None:
     return None
 
 
-def verify_whatsapp_signature(signature: str, raw_body: bytes, app_secret: str | None) -> bool:
+def verify_whatsapp_signature(
+    signature: str, raw_body: bytes, app_secret: str | None
+) -> bool:
     if not app_secret:
         return False
 
@@ -57,6 +59,3 @@ def verify_whatsapp_signature(signature: str, raw_body: bytes, app_secret: str |
 
     digest = hmac.new(app_secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(provided, digest)
-
-
-

@@ -218,10 +218,12 @@ async def get_embeddings(text: str, model_system_name: str):
         model_display_name = model_config.get("display_name")
         if model_display_name and isinstance(model_display_name, str):
             call_model.update(display_name=model_display_name)
-        
+
         # Use provider_system_name instead of legacy provider field
         provider_system_name_from_config = model_config.get("provider_system_name")
-        if provider_system_name_from_config and isinstance(provider_system_name_from_config, str):
+        if provider_system_name_from_config and isinstance(
+            provider_system_name_from_config, str
+        ):
             provider_system_name = provider_system_name_from_config
             call_model.update(provider=provider_system_name)
     else:

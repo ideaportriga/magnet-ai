@@ -43,7 +43,7 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
 
     This function uses the plugin registry to dynamically load and execute
     the appropriate knowledge source plugin based on the collection's source type.
-    
+
     If collection has provider_system_name, retrieves provider configuration
     and merges it with source config.
 
@@ -61,7 +61,7 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
     source = collection_config.get("source", {})
     source_type = source.get("source_type")
     provider_system_name = collection_config.get("provider_system_name")
-    
+
     logger.info(
         "Starting collection sync",
         collection_id=collection_id,
@@ -97,7 +97,7 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
             collection_id=collection_id,
             message="Collection has no provider_system_name set. Endpoint and credentials must be in source config.",
         )
-    
+
     # Merge provider config with source config
     # Provider config values for security-critical fields are NEVER overridden
     # Other source config values can override provider values if they are truthy
@@ -109,14 +109,14 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
                 "Ignoring security-critical field from source config",
                 collection_id=collection_id,
                 field=key,
-                reason="Security-critical fields can only be set via provider configuration"
+                reason="Security-critical fields can only be set via provider configuration",
             )
             continue
-        
+
         # For non-security fields, only override if value is truthy or key doesn't exist in provider
         if value or key not in provider_config:
             merged_source_config[key] = value
-    
+
     logger.debug(
         "Merged configuration",
         collection_id=collection_id,
@@ -145,7 +145,9 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
         )
 
     # Create processor using the plugin with merged configuration
-    processor = await plugin.create_processor(merged_source_config, collection_config, store)
+    processor = await plugin.create_processor(
+        merged_source_config, collection_config, store
+    )
 
     # Sync using the processor
     await Synchronizer(processor, store).sync(collection_id)
@@ -157,11 +159,11 @@ class KnowledgeSourcesController(Controller):
     async def list_collections(self) -> list[dict[str, Any]]:
         """List all collections"""
         return await store.list_collections()
-    
+
     @get("/plugins")
     async def list_plugins(self) -> dict[str, Any]:
         """Get available knowledge source plugins with their configuration schemas
-        
+
         Returns:
             Dictionary with plugin information including:
             - name: Plugin display name
@@ -172,46 +174,62 @@ class KnowledgeSourcesController(Controller):
         """
         # Get all knowledge source plugins
         plugins = PluginRegistry.get_all(PluginType.KNOWLEDGE_SOURCE)
-        
+
         # Additional provider-level fields (beyond PROVIDER_ONLY_FIELDS) that are provider-specific
         # and should not appear in knowledge source form
         additional_provider_fields = {
-            'search_api_url',  # Service-specific URLs
-            'pdf_api_url',     # Service-specific URLs
-            'base_slug',       # Service-specific configuration
+            "search_api_url",  # Service-specific URLs
+            "pdf_api_url",  # Service-specific URLs
+            "base_slug",  # Service-specific configuration
         }
-        
+
         # All provider fields combined (security-critical + provider-specific)
         all_provider_fields = PROVIDER_ONLY_FIELDS | additional_provider_fields
-        
+
         def determine_component(field_name: str, field_type: str) -> str:
             """Determine the Vue component type based on field characteristics"""
             if field_type == "boolean":
                 return "km-toggle"
             elif field_type == "array":
                 return "km-input-list-add"
-            elif field_type == "object" or "config" in field_name or "filter" in field_name:
+            elif (
+                field_type == "object"
+                or "config" in field_name
+                or "filter" in field_name
+            ):
                 return "km-codemirror"
             else:
                 return "km-input"
-        
+
         def format_label(field_name: str) -> str:
             """Convert field_name to human-readable label"""
             # Remove common prefixes
             label = field_name
-            for prefix in ['sharepoint_', 'confluence_', 'oracle_', 'rightnow_', 'fluid_topics_', 'sharepoint_pages_']:
+            for prefix in [
+                "sharepoint_",
+                "confluence_",
+                "oracle_",
+                "rightnow_",
+                "fluid_topics_",
+                "sharepoint_pages_",
+            ]:
                 if label.startswith(prefix):
-                    label = label[len(prefix):]
+                    label = label[len(prefix) :]
                     break
-            
+
             # Convert snake_case to Title Case
-            words = label.split('_')
-            return ' '.join(word.capitalize() for word in words)
-        
-        def transform_field(field_name: str, field_schema: dict, required: bool, is_provider_field: bool = False) -> dict:
+            words = label.split("_")
+            return " ".join(word.capitalize() for word in words)
+
+        def transform_field(
+            field_name: str,
+            field_schema: dict,
+            required: bool,
+            is_provider_field: bool = False,
+        ) -> dict:
             """Transform schema field to frontend format"""
             field_type = field_schema.get("type", "string")
-            
+
             # Map JSON schema types to frontend types
             type_mapping = {
                 "string": "String",
@@ -219,9 +237,9 @@ class KnowledgeSourcesController(Controller):
                 "number": "Number",
                 "boolean": "Boolean",
                 "array": "Array",
-                "object": "Object"
+                "object": "Object",
             }
-            
+
             field_info = {
                 "name": field_name,
                 "label": format_label(field_name),
@@ -229,58 +247,58 @@ class KnowledgeSourcesController(Controller):
                 "component": determine_component(field_name, field_type),
                 "type": type_mapping.get(field_type, "String"),
             }
-            
+
             # Add description if available
             if field_schema.get("description"):
                 field_info["description"] = field_schema["description"]
-            
+
             # Add default value if present
             if "default" in field_schema:
                 field_info["default"] = field_schema["default"]
-            
+
             # Provider fields should not have readonly logic based on last_synced
             # Collection fields should be readonly after sync to prevent data inconsistency
             if is_provider_field:
                 field_info["readonly"] = False
             else:
                 field_info["readonly_after_sync"] = True
-            
+
             # Mark if field is required
             field_info["required"] = required
-            
+
             return field_info
-        
+
         result = []
         for plugin_id, plugin in plugins.items():
             if not isinstance(plugin, KnowledgeSourcePlugin):
                 continue
-                
+
             metadata = plugin.metadata
             config_schema = metadata.config_schema or {}
-            
+
             # Extract properties from schema
             properties = config_schema.get("properties", {})
             required_fields = config_schema.get("required", [])
-            
+
             # Split fields into provider and source fields
             provider_fields = []
             source_fields = []
-            
+
             for field_name, field_schema in properties.items():
                 is_provider_field = field_name in all_provider_fields
-                
+
                 field_info = transform_field(
-                    field_name, 
-                    field_schema, 
+                    field_name,
+                    field_schema,
                     field_name in required_fields,
-                    is_provider_field
+                    is_provider_field,
                 )
-                
+
                 if is_provider_field:
                     provider_fields.append(field_info)
                 else:
                     source_fields.append(field_info)
-            
+
             plugin_info = {
                 "name": metadata.name,
                 "source_type": plugin.source_type,
@@ -291,7 +309,7 @@ class KnowledgeSourcesController(Controller):
                 "source_fields": source_fields,
             }
             result.append(plugin_info)
-        
+
         return {"plugins": result}
 
     @post()

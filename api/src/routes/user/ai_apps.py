@@ -106,7 +106,7 @@ class UserAiAppsController(Controller):
             # Convert to schema and then to dict
             ai_app_schema = ai_apps_service.to_schema(ai_app, schema_type=AiApp)
             entity = ai_app_schema.model_dump()
-            
+
             tabs: list[dict[str, Any]] = entity.get("tabs", [])
 
             await self._process_tabs(tabs, db_session)
@@ -136,24 +136,23 @@ class UserAiAppsController(Controller):
         ],
     ) -> dict[str, Any]:
         try:
-            imitate_tab = {
-                "name": "Agent",
-                "config": {
-                    "agent": system_name
-                }
-            }
+            imitate_tab = {"name": "Agent", "config": {"agent": system_name}}
             agent_settings = await self._get_agent_config(imitate_tab, db_session)
-            
+
             if agent_settings:
                 imitate_tab["entityObject"] = agent_settings
                 return imitate_tab
             else:
-                raise NotFoundException(f"Agent with system_name '{system_name}' not found")
+                raise NotFoundException(
+                    f"Agent with system_name '{system_name}' not found"
+                )
         except Exception as e:
             logger.exception(f"Error retrieving agent '{system_name}': {e!s}")
             raise InternalServerException(f"Failed to retrieve agent: {e!s}") from e
 
-    async def _process_tabs(self, tabs: list[dict[str, Any]], db_session: AsyncSession) -> None:
+    async def _process_tabs(
+        self, tabs: list[dict[str, Any]], db_session: AsyncSession
+    ) -> None:
         """Process tabs recursively to enrich with entity objects.
 
         Args:
@@ -194,7 +193,7 @@ class UserAiAppsController(Controller):
 
         service = RagToolsService(session=db_session)
         rag_tool = await service.get_one_or_none(system_name=system_name)
-        
+
         if rag_tool:
             rag_tool_schema = service.to_schema(rag_tool, schema_type=RagTool)
             config = rag_tool_schema.model_dump()
@@ -213,9 +212,11 @@ class UserAiAppsController(Controller):
 
         service = RetrievalToolsService(session=db_session)
         retrieval_tool = await service.get_one_or_none(system_name=system_name)
-        
+
         if retrieval_tool:
-            retrieval_tool_schema = service.to_schema(retrieval_tool, schema_type=RetrievalTool)
+            retrieval_tool_schema = service.to_schema(
+                retrieval_tool, schema_type=RetrievalTool
+            )
             config = retrieval_tool_schema.model_dump()
             return transform_retrieval_tool(config)
         return None
@@ -231,7 +232,7 @@ class UserAiAppsController(Controller):
             return None
         service = AgentsService(session=db_session)
         agent = await service.get_one_or_none(system_name=system_name)
-        
+
         if agent:
             logger.debug(f"Agent configuration found: {system_name}")
             agent_schema = service.to_schema(agent, schema_type=Agent)

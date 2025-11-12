@@ -21,7 +21,9 @@ class AIModelFieldsMixin(BaseModel):
 
     # Provider information
     provider_name: str = Field(..., description="AI provider (e.g., azure_open_ai)")
-    provider_system_name: Optional[str] = Field(None, description="Foreign key to provider system_name")
+    provider_system_name: Optional[str] = Field(
+        None, description="Foreign key to provider system_name"
+    )
 
     # Model identification
     ai_model: str = Field(..., description="Model identifier (e.g., gpt-4o)")
@@ -72,7 +74,8 @@ class AIModelFieldsMixin(BaseModel):
 
     # Additional configurations (for embeddings vector_size, etc.)
     configs: Optional[dict] = Field(
-        None, description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)"
+        None,
+        description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)",
     )
 
 
@@ -84,7 +87,9 @@ class AIModelUpdateFieldsMixin(BaseModel):
     provider_name: Optional[str] = Field(
         None, description="AI provider (e.g., azure_open_ai)"
     )
-    provider_system_name: Optional[str] = Field(None, description="Foreign key to provider system_name")
+    provider_system_name: Optional[str] = Field(
+        None, description="Foreign key to provider system_name"
+    )
 
     # Model identification
     ai_model: Optional[str] = Field(None, description="Model identifier (e.g., gpt-4o)")
@@ -135,7 +140,8 @@ class AIModelUpdateFieldsMixin(BaseModel):
 
     # Additional configurations (for embeddings vector_size, etc.)
     configs: Optional[dict] = Field(
-        None, description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)"
+        None,
+        description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)",
     )
 
 
@@ -154,6 +160,8 @@ class AIModelUpdate(BaseSimpleUpdateSchema, AIModelUpdateFieldsMixin):
 
 class AIModelSetDefaultRequest(BaseModel):
     """Schema for setting a model as default."""
-    
+
     type: str = Field(..., description="Model type (e.g., prompts, embeddings)")
-    system_name: str = Field(..., description="System name of the model to set as default")
+    system_name: str = Field(
+        ..., description="System name of the model to set as default"
+    )

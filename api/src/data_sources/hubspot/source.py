@@ -7,7 +7,9 @@ from data_sources.data_source import DataSource
 
 
 class HubspotDataSource(DataSource[dict]):
-    def __init__(self, chunk_size: int = 2000, page_limit: int = 10, api_token: str | None = None) -> None:
+    def __init__(
+        self, chunk_size: int = 2000, page_limit: int = 10, api_token: str | None = None
+    ) -> None:
         """Initializes the HubspotDataSource with the provided chunk size and page limit.
 
         Args:
@@ -18,14 +20,15 @@ class HubspotDataSource(DataSource[dict]):
         """
         self.max_chunk_size = chunk_size
         self.page_limit = page_limit
-        
+
         # Use provided token or fall back to environment
         if api_token:
             self.token = api_token
         else:
             from core.config._utils import get_env
+
             self.token = get_env("KNOWLEDGE_SOURCE_HUBSPOT", "")()
-        
+
         self.base_url = "https://api.hubapi.com"
 
     @property

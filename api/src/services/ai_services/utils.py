@@ -10,7 +10,9 @@ async def get_provider_by_model(system_name_for_model: str):
         if system_name_for_model:
             model_config = await get_model_by_system_name(system_name_for_model)
             if model_config:
-                provider_system_name_from_config = model_config.get("provider_system_name")
+                provider_system_name_from_config = model_config.get(
+                    "provider_system_name"
+                )
                 if isinstance(provider_system_name_from_config, str):
                     provider_system_name = provider_system_name_from_config
 

@@ -26,7 +26,7 @@ class Provider(UUIDAuditSimpleBase):
 
     This model stores connection information for various external providers
     like LLM providers, embedding providers, and data sources.
-    
+
     Inherited fields from UUIDAuditSimpleBase:
     - id, created_at, updated_at (from UUIDv7AuditBase)
     - name: provider name
@@ -34,7 +34,7 @@ class Provider(UUIDAuditSimpleBase):
     - system_name: provider identifier (e.g., 'azure_open_ai', 'openai', 'oci')
     - category: provider type (e.g., 'llm', 'embedding', 'data_source')
     - created_by, updated_by: user tracking
-    
+
     Credentials and sensitive data are encrypted using EncryptedJsonB.
     """
 
@@ -94,4 +94,6 @@ class Provider(UUIDAuditSimpleBase):
     )
 
     def __repr__(self) -> str:
-        return f"<Provider(system_name='{self.system_name}', category='{self.category}')>"
+        return (
+            f"<Provider(system_name='{self.system_name}', category='{self.category}')>"
+        )

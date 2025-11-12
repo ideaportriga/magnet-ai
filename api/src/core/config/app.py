@@ -97,7 +97,9 @@ _structlog_loki_processors.insert(
 
 # Handlers configuration - console + optionally Loki
 _default_handlers = ["queue_listener"] + (["loki"] if settings.log.LOKI_URL else [])
-_console_only_handlers = ["queue_listener"]  # For urllib3/requests to avoid infinite loop
+_console_only_handlers = [
+    "queue_listener"
+]  # For urllib3/requests to avoid infinite loop
 
 log = StructlogConfig(
     structlog_logging_config=StructLoggingConfig(
@@ -127,7 +129,9 @@ log = StructlogConfig(
                     "version": "1",
                     "formatter": "loki",
                 }
-            } if settings.log.LOKI_URL else {},
+            }
+            if settings.log.LOKI_URL
+            else {},
             loggers={
                 # Uvicorn ASGI server
                 "uvicorn": {

@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from pypdf import PdfReader
 
 
-
 class ParsePdfResponse(BaseModel):
     pages: list[str]
 
@@ -50,4 +49,3 @@ class UtilsController(Controller):
         secret_encryption_key = Fernet.generate_key().decode()
 
         return {"key": secret_encryption_key}
-

@@ -16,7 +16,7 @@ class FluidTopicsDataSource(DataSource[str]):
     """Data source for interacting with Fluid Topics API."""
 
     def __init__(
-        self, 
+        self,
         filters: list[dict],
         api_key: str | None = None,
         search_api_url: str | None = None,
@@ -38,11 +38,13 @@ class FluidTopicsDataSource(DataSource[str]):
             self._pdf_api_url = pdf_api_url
         else:
             from core.config._utils import get_env
-            
+
             self._search_api_key = api_key or get_env("FLUID_TOPICS_API_KEY", "")()
-            self._search_api_url = search_api_url or get_env("FLUID_TOPICS_SEARCH_API_URL", "")()
+            self._search_api_url = (
+                search_api_url or get_env("FLUID_TOPICS_SEARCH_API_URL", "")()
+            )
             self._pdf_api_url = pdf_api_url or get_env("FLUID_TOPICS_PDF_API_URL", "")()
-        
+
         self._filters = filters
 
     @property
@@ -148,6 +150,7 @@ class FluidTopicsDataSource(DataSource[str]):
 
     def _replace_viewer_base_url(self, viewer_url: str) -> str:
         from core.config._utils import get_env
+
         new_base_url = get_env("FLUID_TOPICS_VIEWER_BASE_URL", "")()
         if not new_base_url or not viewer_url:
             return viewer_url

@@ -30,7 +30,12 @@ logger = getLogger(__name__)
 
 
 async def _send_welcome_card(ctx: TurnContext, agent_system_name: str):
-    bot_name = getattr(getattr(getattr(ctx, "activity", None), "recipient", None), "name", None) or DEFAULT_AGENT_DISPLAY_NAME
+    bot_name = (
+        getattr(
+            getattr(getattr(ctx, "activity", None), "recipient", None), "name", None
+        )
+        or DEFAULT_AGENT_DISPLAY_NAME
+    )
     card = create_welcome_card(bot_name, agent_system_name)
     attachment = Attachment(
         content_type="application/vnd.microsoft.card.adaptive",
@@ -51,19 +56,21 @@ async def _send_response_card(ctx: TurnContext, payload: AssistantPayload) -> No
 
 
 async def _send_feedback_result_card(ctx: TurnContext, payload: dict):
-    logger.info (f"[agents] _send_feedback_result_card payload: {payload}")
+    logger.info(f"[agents] _send_feedback_result_card payload: {payload}")
     card = create_feedback_result_card(payload)
-    await ctx.send_activity(Activity(
-        type="invokeResponse",
-        value={
-            "status": 200,
-            "body": {
-                "statusCode": 200,
-                "type": "application/vnd.microsoft.card.adaptive",
-                "value": card
-            }
-        }
-    ))    
+    await ctx.send_activity(
+        Activity(
+            type="invokeResponse",
+            value={
+                "status": 200,
+                "body": {
+                    "statusCode": 200,
+                    "type": "application/vnd.microsoft.card.adaptive",
+                    "value": card,
+                },
+            },
+        )
+    )
 
 
 def _make_on_members_added_handler(agent_system_name: str):
@@ -95,7 +102,9 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             None,
         )
         if not aad_object_id:
-            logger.error("[agents] on_message: missing aad_object_id in activity.from_property")
+            logger.error(
+                "[agents] on_message: missing aad_object_id in activity.from_property"
+            )
             await ctx.send_activity("Sorry, I couldn't identify you. Please try again.")
             return
 
@@ -131,7 +140,9 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
         ):
             await _send_response_card(ctx, assistant_payload)
         else:
-            logger.warning("[agents] on_message: empty assistant payload for aad=%s", aad_object_id)
+            logger.warning(
+                "[agents] on_message: empty assistant payload for aad=%s", aad_object_id
+            )
             debug_msg = assistant_payload.get("content") if assistant_payload else None
             await ctx.send_activity(debug_msg or "Hmm, I didn't get a reply")
 
@@ -177,11 +188,15 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 agent_system_name,
                 aad_object_id,
             )
-            await ctx.send_activity("Sorry, I couldn't process the confirmation request.")
+            await ctx.send_activity(
+                "Sorry, I couldn't process the confirmation request."
+            )
             return
 
         try:
-            assistant_payload: AssistantPayload | None = await handle_action_confirmation(
+            assistant_payload: (
+                AssistantPayload | None
+            ) = await handle_action_confirmation(
                 agent_system_name=agent_system_name,
                 user_id=aad_object_id,
                 conversation_id=conversation_id,
@@ -190,31 +205,39 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 **observability_overrides(trace_id=trace_id, consumer_name="MS Teams"),
             )
         except Exception:
-            await ctx.send_activity("Sorry, something went wrong while processing the confirmation.")
+            await ctx.send_activity(
+                "Sorry, something went wrong while processing the confirmation."
+            )
             return
 
         ack_card = create_confirmation_result_card(confirmation_card_payload, confirmed)
-        await ctx.send_activity(Activity(
-            type="invokeResponse",
-            value={
-                "status": 200,
-                "body": {
-                    "statusCode": 200,
-                    "type": "application/vnd.microsoft.card.adaptive",
-                    "value": ack_card,
+        await ctx.send_activity(
+            Activity(
+                type="invokeResponse",
+                value={
+                    "status": 200,
+                    "body": {
+                        "statusCode": 200,
+                        "type": "application/vnd.microsoft.card.adaptive",
+                        "value": ack_card,
+                    },
                 },
-            },
-        ))
+            )
+        )
 
         if assistant_payload:
-            logger.info("[agents] confirmation invoke assistant_payload: %s", assistant_payload)
+            logger.info(
+                "[agents] confirmation invoke assistant_payload: %s", assistant_payload
+            )
             await _send_response_card(ctx, assistant_payload)
         else:
             logger.warning(
                 "[agents] confirmation invoke returned empty payload (conversation=%s)",
                 conversation_id,
             )
-            await ctx.send_activity("Thanks! I'll let you know if I find anything else.")
+            await ctx.send_activity(
+                "Thanks! I'll let you know if I find anything else."
+            )
         return
 
     if verb not in {"like", "dislike", "close_conversation"}:
@@ -227,7 +250,11 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
     text = data.get("text") or None
 
     if not conversation_id or not message_id:
-        logger.error("[agents] missing IDs: conversation_id=%s, message_id=%s", conversation_id, message_id)
+        logger.error(
+            "[agents] missing IDs: conversation_id=%s, message_id=%s",
+            conversation_id,
+            message_id,
+        )
         await ctx.send_activity("Sorry, feedback cannot be recorded (missing IDs).")
         return
 
@@ -235,16 +262,19 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
         if verb == "like":
             feedback = LlmResponseFeedback(type=LlmResponseFeedbackType.LIKE)
             await set_message_feedback(
-                conversation_id=conversation_id, 
-                message_id=message_id, 
-                data=feedback, 
-                consumer_name="MS Teams"
+                conversation_id=conversation_id,
+                message_id=message_id,
+                data=feedback,
+                consumer_name="MS Teams",
             )
-            await _send_feedback_result_card(ctx, {
-                "conversation_id": conversation_id,
-                "text": text,
-                "reaction": "like",
-            })
+            await _send_feedback_result_card(
+                ctx,
+                {
+                    "conversation_id": conversation_id,
+                    "text": text,
+                    "reaction": "like",
+                },
+            )
         elif verb == "dislike":
             reason = str(data.get("dislike_reason") or "other").lower()
             try:
@@ -262,19 +292,22 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 comment=comment,
             )
             await set_message_feedback(
-                conversation_id=conversation_id, 
-                message_id=message_id, 
+                conversation_id=conversation_id,
+                message_id=message_id,
                 data=feedback,
                 consumer_name="MS Teams",
             )
-            await _send_feedback_result_card(ctx, {
-                "conversation_id": conversation_id,
-                "text": text,
-                "reaction": "dislike",
-                "reason": reason.value,
-                "comment": comment,
-            })
-        else: # close_conversation
+            await _send_feedback_result_card(
+                ctx,
+                {
+                    "conversation_id": conversation_id,
+                    "text": text,
+                    "reaction": "dislike",
+                    "reason": reason.value,
+                    "comment": comment,
+                },
+            )
+        else:  # close_conversation
             await close_conversation_by_id(conversation_id)
             card_payload = {
                 "conversation_id": conversation_id,
@@ -283,25 +316,35 @@ async def on_invoke_feedback(ctx: TurnContext, _state: TurnState) -> None:
                 "is_conversation_closed": True,
             }
             card = create_magnet_response_card(card_payload)
-            await ctx.send_activity(Activity(
-                type="invokeResponse",
-                value={
-                    "status": 200,
-                    "body": {
-                        "statusCode": 200,
-                        "type": "application/vnd.microsoft.card.adaptive",
-                        "value": card
-                    }
-                }
-            ))
+            await ctx.send_activity(
+                Activity(
+                    type="invokeResponse",
+                    value={
+                        "status": 200,
+                        "body": {
+                            "statusCode": 200,
+                            "type": "application/vnd.microsoft.card.adaptive",
+                            "value": card,
+                        },
+                    },
+                )
+            )
     except Exception:
-        logger.exception("[agents] invoke feedback error (conv=%s, msg=%s)", conversation_id, message_id)
+        logger.exception(
+            "[agents] invoke feedback error (conv=%s, msg=%s)",
+            conversation_id,
+            message_id,
+        )
         await ctx.send_activity("Sorry, failed to record your feedback.")
 
 
-def register_handlers(app: AgentApplication[TurnState], *, agent_system_name: str | None = None) -> None:
+def register_handlers(
+    app: AgentApplication[TurnState], *, agent_system_name: str | None = None
+) -> None:
     """Register the activity handlers on the provided application."""
 
-    app.conversation_update("membersAdded")(_make_on_members_added_handler(agent_system_name or ""))
+    app.conversation_update("membersAdded")(
+        _make_on_members_added_handler(agent_system_name or "")
+    )
     app.activity("message")(_make_on_message_handler(agent_system_name or "", app))
     app.activity("invoke")(on_invoke_feedback)

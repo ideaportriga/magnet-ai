@@ -55,7 +55,6 @@ class RagToolsController(Controller):
 
     @post()
     async def create_rag_tool(
-        
         self, rag_tools_service: RagToolsService, data: RagToolCreate
     ) -> RagTool:
         """Create a new RAG tool."""

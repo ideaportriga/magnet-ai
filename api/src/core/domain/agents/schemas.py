@@ -17,9 +17,12 @@ from core.domain.base.schemas import (
 )
 
 from core.domain.agents_channels.schemas import AgentChannels, AgentChannelsUpdate
+
+
 # Pydantic schemas for serialization with variant validation
 class Agent(BaseEntitySchema):
     """Agent schema for serialization."""
+
     channels: Optional[AgentChannels] = Field(
         default=None, description="List of agent channels"
     )
@@ -30,6 +33,7 @@ class Agent(BaseEntitySchema):
 
 class AgentCreate(BaseEntityCreateSchema):
     """Schema for creating a new agent."""
+
     # chanels are not included in create schema to avoid copying chanels
     # when cloning new agent from existing agent
     variants: Optional[list[EntityVariant[AgentVariantValue]]] = Field(
@@ -39,6 +43,7 @@ class AgentCreate(BaseEntityCreateSchema):
 
 class AgentUpdate(BaseEntityUpdateSchema):
     """Schema for updating an existing agent."""
+
     channels: Optional[AgentChannelsUpdate] = Field(
         default=None, description="List of agent channels"
     )

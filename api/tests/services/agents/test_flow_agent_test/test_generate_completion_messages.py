@@ -57,7 +57,9 @@ def test_topic_processing_no_action_calls():
                     AgentConversationRunStepClassification(
                         started_at=utc_now(),
                         details=AgentConversationClassification(
-                            intent=ConversationIntent.TOPIC, reason="", topic="TOPIC_1",
+                            intent=ConversationIntent.TOPIC,
+                            reason="",
+                            topic="TOPIC_1",
                         ),
                     ),
                     AgentConversationRunStepTopicCompletion(
@@ -89,7 +91,8 @@ def test_topic_processing_no_action_calls():
 def test_assistant_message_without_run():
     messages = [
         AgentConversationMessageAssistant(
-            id="1", content="Hello, how can I assist you today?",
+            id="1",
+            content="Hello, how can I assist you today?",
         ),
         AgentConversationMessageUser(id="1", content="Hello, I want to unsubsribe."),
     ]

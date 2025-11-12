@@ -24,7 +24,7 @@ class AzureAIProvider(AIProviderInterface):
         self.api_key = config["connection"]["api_key"]
         self.endpoint = config["connection"]["endpoint"]
         self.api_version = config["connection"].get("api_version", "2025-01-01-preview")
-        
+
         # Default values
         self.model_default = config["defaults"].get("ai_model")
         self.temperature_default = config["defaults"].get("temperature")
@@ -43,10 +43,12 @@ class AzureAIProvider(AIProviderInterface):
             retry_total=3,
             retry_backoff_factor=0.8,
         )
-        
+
         # Construct endpoint for specific deployment/model with API version
-        model_endpoint = f"{self.endpoint}/openai/deployments/{llm}?api-version={self.api_version}"
-        
+        model_endpoint = (
+            f"{self.endpoint}/openai/deployments/{llm}?api-version={self.api_version}"
+        )
+
         return EmbeddingsClient(
             endpoint=model_endpoint,
             credential=AzureKeyCredential(key=self.api_key),
@@ -145,7 +147,7 @@ class AzureAIProvider(AIProviderInterface):
     ) -> RerankResponse:
         # Construct endpoint for specific model/deployment with API version
         model_endpoint = f"{self.endpoint}/openai/deployments/{llm}/rerank?api-version={self.api_version}"
-        
+
         headers = {
             "api-key": self.api_key,
             "Content-Type": "application/json",

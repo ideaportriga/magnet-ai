@@ -24,6 +24,7 @@ WELCOME_LEARN_MORE_URL = "https://pro.ideaportriga.com/magnet-ai"
 
 DEFAULT_AGENT_DISPLAY_NAME = "Magnet Agent"
 
+
 class ActionRequest(TypedDict):
     id: str
     action_message: str | None
@@ -47,9 +48,12 @@ def _extract_assistant_message(response: Any) -> Any:
     if message:
         return message
 
-    for candidate in (getattr(response, "messages", []) or []):
+    for candidate in getattr(response, "messages", []) or []:
         role = getattr(candidate, "role", None)
-        if role == AgentConversationMessageRole.ASSISTANT or str(role).lower() == "assistant":
+        if (
+            role == AgentConversationMessageRole.ASSISTANT
+            or str(role).lower() == "assistant"
+        ):
             return candidate
 
     return None
@@ -60,7 +64,7 @@ def _get_action_requests(message: Any) -> list[ActionRequest]:
         return []
 
     results: list[ActionRequest] = []
-    for request in (getattr(message, "action_call_requests", []) or []):
+    for request in getattr(message, "action_call_requests", []) or []:
         request_id = str(getattr(request, "id", "") or "")
         if not request_id:
             continue
@@ -96,6 +100,7 @@ def _build_assistant_payload(
 
     return payload
 
+
 @observe(
     name="New user message",
     description="User sent a new message.",
@@ -111,7 +116,10 @@ async def _continue_conversation_for_obsevability(
 ) -> AssistantPayload:
     """Continue or start an agent conversation and return the assistant's reply payload."""
     client_id = f"{user_id}@{agent_system_name}"
-    logger.info("[agents] _continue_conversation_for_obsevability started: client_id=%s", client_id)
+    logger.info(
+        "[agents] _continue_conversation_for_obsevability started: client_id=%s",
+        client_id,
+    )
     observability_context.update_current_trace(name=agent_system_name, type="agent")
 
     if conversation_id is None:
@@ -124,7 +132,9 @@ async def _continue_conversation_for_obsevability(
             conv_id = str(getattr(resp, "id", "")) or ""
             assistant = _extract_assistant_message(resp)
             logger.info("[agents] created conversation %s", conv_id)
-            return _build_assistant_payload(conv_id, assistant, agent_system_name=agent_system_name)
+            return _build_assistant_payload(
+                conv_id, assistant, agent_system_name=agent_system_name
+            )
         except Exception as exc:
             logger.exception("[agents] create_conversation error for %s", client_id)
             raise exc
@@ -137,9 +147,16 @@ async def _continue_conversation_for_obsevability(
         )
         assistant = _extract_assistant_message(resp)
         logger.info("[agents] appended user message to %s", conversation_id)
-        return _build_assistant_payload(conversation_id, assistant, agent_system_name=agent_system_name, trace_id=trace_id)
+        return _build_assistant_payload(
+            conversation_id,
+            assistant,
+            agent_system_name=agent_system_name,
+            trace_id=trace_id,
+        )
     except Exception as exc:
-        logger.exception("[agents] add_user_message error for conversation %s", conversation_id)
+        logger.exception(
+            "[agents] add_user_message error for conversation %s", conversation_id
+        )
         raise exc
 
 
@@ -179,6 +196,7 @@ async def continue_conversation(
         **observability_overrides(trace_id=trace_id, **decorator_kwargs),
     )
 
+
 @observe(
     name="Action confirmation",
     description="User confirmed an action.",
@@ -203,11 +221,13 @@ async def handle_action_confirmation(
     )
     if confirmed:
         observability_context.update_current_trace(
-            name=agent_system_name, type="agent", description='User confirmed an action.'
+            name=agent_system_name,
+            type="agent",
+            description="User confirmed an action.",
         )
     else:
         observability_context.update_current_trace(
-            name=agent_system_name, type="agent", description='User rejected an action.'
+            name=agent_system_name, type="agent", description="User rejected an action."
         )
 
     confirmations = [
@@ -238,7 +258,9 @@ async def handle_action_confirmation(
         raise
 
     assistant = _extract_assistant_message(response)
-    return _build_assistant_payload(conversation_id, assistant, agent_system_name=agent_system_name)
+    return _build_assistant_payload(
+        conversation_id, assistant, agent_system_name=agent_system_name
+    )
 
 
 async def get_conversation_info(agent_system_name: str, user_id: str) -> str:

@@ -32,7 +32,9 @@ def get_mongo_cursor_mock(mock_cursor_data):
 def create_side_effect(data: list[dict]) -> Callable:
     def side_effect(*args, **kwargs):
         for data_item in data:
-            if args == data_item.get("args", ()) and kwargs == data_item.get("kwargs", {}):
+            if args == data_item.get("args", ()) and kwargs == data_item.get(
+                "kwargs", {}
+            ):
                 return data_item.get("return_value")
 
         raise ValueError("Invalid input")
@@ -68,13 +70,29 @@ def test_export_entities(mock_db_client, mock_db_store):
     ]
 
     collections_mocked = [
-        {"name": "KNOWLEDGE_SOURCE_1", "code": "KNOWLEDGE_SOURCE_1", "id": "65d754785baec301dcce36db"},
+        {
+            "name": "KNOWLEDGE_SOURCE_1",
+            "code": "KNOWLEDGE_SOURCE_1",
+            "id": "65d754785baec301dcce36db",
+        },
     ]
 
     collection_1_documents_mocked: list[dict] = [
-        {"content": "Content 1", "metadata": {"name": "Name 1"}, "id": "65d6139128defdcf0816c101"},
-        {"content": "Content 2", "metadata": {"name": "Name 2"}, "id": "65d6139128defdcf0816c102"},
-        {"content": "Content 3", "metadata": {"name": "Name 3"}, "id": "65d6139128defdcf0816c103"},
+        {
+            "content": "Content 1",
+            "metadata": {"name": "Name 1"},
+            "id": "65d6139128defdcf0816c101",
+        },
+        {
+            "content": "Content 2",
+            "metadata": {"name": "Name 2"},
+            "id": "65d6139128defdcf0816c102",
+        },
+        {
+            "content": "Content 3",
+            "metadata": {"name": "Name 3"},
+            "id": "65d6139128defdcf0816c103",
+        },
     ]
 
     collections_exported = [
@@ -93,13 +111,19 @@ def test_export_entities(mock_db_client, mock_db_store):
     mock_collection_ai_apps.find.return_value = get_mongo_cursor_mock(ai_apps_mocked)
 
     mock_collection_rag_tools = MagicMock()
-    mock_collection_rag_tools.find.return_value = get_mongo_cursor_mock(rag_tools_mocked)
+    mock_collection_rag_tools.find.return_value = get_mongo_cursor_mock(
+        rag_tools_mocked
+    )
 
     mock_collection_retrieval_tools = MagicMock()
-    mock_collection_retrieval_tools.find.return_value = get_mongo_cursor_mock(retrieval_tools_mocked)
+    mock_collection_retrieval_tools.find.return_value = get_mongo_cursor_mock(
+        retrieval_tools_mocked
+    )
 
     mock_collection_prompt_templates = MagicMock()
-    mock_collection_prompt_templates.find.return_value = get_mongo_cursor_mock(prompt_templates_mocked)
+    mock_collection_prompt_templates.find.return_value = get_mongo_cursor_mock(
+        prompt_templates_mocked
+    )
 
     mock_collection_models = MagicMock()
     mock_collection_models.find.return_value = get_mongo_cursor_mock(models_mocked)
@@ -108,9 +132,18 @@ def test_export_entities(mock_db_client, mock_db_store):
         [
             {"args": ("ai_apps",), "return_value": mock_collection_ai_apps},
             {"args": ("rag_tools",), "return_value": mock_collection_rag_tools},
-            {"args": ("retrieval_tools",), "return_value": mock_collection_retrieval_tools},
-            {"args": ("prompts",), "return_value": mock_collection_prompt_templates},  # TODO - rename collection
-            {"args": ("models",), "return_value": mock_collection_models},  # TODO - rename collection
+            {
+                "args": ("retrieval_tools",),
+                "return_value": mock_collection_retrieval_tools,
+            },
+            {
+                "args": ("prompts",),
+                "return_value": mock_collection_prompt_templates,
+            },  # TODO - rename collection
+            {
+                "args": ("models",),
+                "return_value": mock_collection_models,
+            },  # TODO - rename collection
         ],
     )
 
@@ -118,7 +151,10 @@ def test_export_entities(mock_db_client, mock_db_store):
 
     mock_db_store.list_documents.side_effect = create_side_effect(
         [
-            {"kwargs": {"collection_id": "65d754785baec301dcce36db"}, "return_value": collection_1_documents_mocked},
+            {
+                "kwargs": {"collection_id": "65d754785baec301dcce36db"},
+                "return_value": collection_1_documents_mocked,
+            },
         ],
     )
 

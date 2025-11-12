@@ -21,7 +21,9 @@ def mock_embedding_function():
 
 @pytest.fixture
 def cosmos_db_store(mock_db_client, mock_embedding_function):
-    return CosmosDbStore(client=mock_db_client, embedding_function=mock_embedding_function)
+    return CosmosDbStore(
+        client=mock_db_client, embedding_function=mock_embedding_function
+    )
 
 
 # TODO - make reusable?
@@ -101,6 +103,10 @@ def test_import_entities(mock_db_client):
 
     mock_collection_ai_apps.insert_many.assert_called_once_with(ai_apps_to_transfer)
     mock_collection_rag_tools.insert_many.assert_called_once_with(rag_tools_to_transfer)
-    mock_collection_retrieval_tools.insert_many.assert_called_once_with(retrieval_tools_to_transfer)
-    mock_collection_prompt_templates.insert_many.assert_called_once_with(prompt_templates_to_transfer)
+    mock_collection_retrieval_tools.insert_many.assert_called_once_with(
+        retrieval_tools_to_transfer
+    )
+    mock_collection_prompt_templates.insert_many.assert_called_once_with(
+        prompt_templates_to_transfer
+    )
     mock_collection_models.insert_many.assert_called_once_with(models_to_transfer)

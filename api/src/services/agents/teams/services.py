@@ -8,7 +8,9 @@ from utils.secrets import decrypt_string
 logger = getLogger(__name__)
 
 
-async def resolve_teams_by_client_id(client_id: str) -> tuple[str | None, str | None, str | None]:
+async def resolve_teams_by_client_id(
+    client_id: str,
+) -> tuple[str | None, str | None, str | None]:
     """Resolve attributes by OAuth client_id stored in agents.variants.
 
     Returns (agent_system_name, tenant_id, secret_value).
@@ -35,5 +37,3 @@ async def resolve_teams_by_client_id(client_id: str) -> tuple[str | None, str | 
         return None, None, None
 
     return row.agent_system_name, row.tenant_id, decrypt_string(row.secret_value)
-
-

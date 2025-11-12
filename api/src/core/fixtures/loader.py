@@ -223,7 +223,7 @@ class FixtureLoader:
                 except NotImplementedError:
                     # Some custom types (like EncryptedJsonB) don't implement python_type
                     pass
-                
+
                 if (
                     "datetime" in str(column.type).lower()
                     or "timestamp" in str(column.type).lower()

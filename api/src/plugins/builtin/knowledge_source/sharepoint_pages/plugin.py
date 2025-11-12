@@ -152,6 +152,4 @@ class SharePointPagesPlugin(KnowledgeSourcePlugin):
         data_source = SharePointPagesDataSource(client, page_name)
 
         # Return processor
-        return SharepointPagesDataProcessor(
-            data_source, collection_config, embed_title
-        )
+        return SharepointPagesDataProcessor(data_source, collection_config, embed_title)

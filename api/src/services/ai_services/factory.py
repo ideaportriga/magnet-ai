@@ -24,31 +24,33 @@ __all__ = ["get_ai_provider", "invalidate_provider_cache"]
 def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
     """
     Build provider config from database data in the format expected by provider classes.
-    
+
     Args:
         provider_data: Provider data from database (secrets_encrypted is already decrypted by EncryptedJsonB)
-        
+
     Returns:
         Config dict with 'connection' and 'defaults' keys
     """
     connection_config = provider_data.get("connection_config", {})
     # secrets_encrypted is already decrypted by EncryptedJsonB when read from database
     secrets = provider_data.get("secrets_encrypted", {})
-    
+
     # Resolve placeholders like {api_key} in connection_config with actual secret values
-    resolved_connection_config = replace_placeholders_in_dict(connection_config, secrets)
-    
+    resolved_connection_config = replace_placeholders_in_dict(
+        connection_config, secrets
+    )
+
     # Merge resolved connection_config and secrets into 'connection' key
     connection = {**secrets, **resolved_connection_config}
-    
+
     # Add endpoint if present
     if provider_data.get("endpoint"):
         connection["endpoint"] = provider_data["endpoint"]
-    
+
     # Extract defaults from metadata_info if present
     metadata_info = provider_data.get("metadata_info") or {}
     defaults = metadata_info.get("defaults", {})
-    
+
     return {
         "connection": connection,
         "defaults": defaults,
@@ -61,16 +63,16 @@ def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
 async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
     """
     Get AI provider instance by provider_system_name.
-    
-    Retrieves provider configuration from database, resolves placeholders 
+
+    Retrieves provider configuration from database, resolves placeholders
     in connection_config using secrets, and creates/caches provider instance.
-    
+
     Args:
         provider_system_name: The system_name of the provider from the providers table
-        
+
     Returns:
         AIProviderInterface instance
-        
+
     Raises:
         ValueError: If provider not found or type not supported
     """
@@ -83,9 +85,11 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
     async with alchemy.get_session() as session:
         providers_service = ProvidersService(session=session)
         provider = await providers_service.get_one(system_name=provider_system_name)
-        
+
         if not provider:
-            raise ValueError(f"Provider '{provider_system_name}' is not found in database.")
+            raise ValueError(
+                f"Provider '{provider_system_name}' is not found in database."
+            )
 
         # Convert to dict for easier handling
         # EncryptedJsonB automatically decrypts secrets_encrypted field
@@ -127,5 +131,5 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
     # Create and cache provider instance
     provider_instance = provider_class(provider_config)
     cache_provider(provider_system_name, provider_instance)
-    
+
     return provider_instance
