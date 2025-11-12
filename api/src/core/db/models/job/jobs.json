@@ -1,0 +1,27 @@
+{
+  "_id": {
+    "$oid": "67e29be9956614b27c314554"
+  },
+  "definition": {
+    "name": "Sync TEST KS 2",
+    "interval": null,
+    "job_type": "one_time_immediate",
+    "notification_email": "",
+    "cron": null,
+    "scheduled_start_time": null,
+    "status": "Configuration",
+    "run_configuration": {
+      "type": "sync_collection",
+      "params": {
+        "system_name": "TEST_KS_2"
+      }
+    },
+    "timezone": "Europe/Riga"
+  },
+  "created_at": {
+    "$date": "2025-03-25T14:04:57.590Z"
+  },
+  "status": "Completed",
+  "next_run": null,
+  "last_run": "2025-03-25T12:05:11.029635+00:00"
+}

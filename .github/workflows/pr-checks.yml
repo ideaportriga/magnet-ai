@@ -1,0 +1,341 @@
+name: PR - Code Quality Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Cancels previous runs for the same PR on new push
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # Detect changes to optimize CI
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check for file changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'api/**'
+            web:
+              - 'web/**'
+            docker:
+              - 'Dockerfile'
+              - 'docker-compose*.yml'
+              - 'api/Dockerfile'
+
+  # API checks (runs only if there are changes in API)
+  api-lint:
+    name: API - Ruff Lint
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true'
+    defaults:
+      run:
+        working-directory: ./api
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Cache Poetry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            api/.venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('api/poetry.lock') }}
+      
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Install dependencies
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --no-interaction --only main,dev
+      
+      - name: Run Ruff check
+        run: |
+          poetry run ruff check . --output-format=github --exit-non-zero-on-fix
+      
+      - name: Run Ruff format check
+        run: |
+          poetry run ruff format --check . --diff
+
+  api-test:
+    name: API - Tests
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.api == 'true'
+    defaults:
+      run:
+        working-directory: ./api
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Cache Poetry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            api/.venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('api/poetry.lock') }}
+      
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Install dependencies
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --no-interaction
+      
+      - name: Run pytest
+        run: |
+          poetry run pytest \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-report=html \
+            -v
+      
+      - name: Comment PR with coverage
+        uses: py-cov-action/python-coverage-comment-action@v3
+        if: always()
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 80
+          MINIMUM_ORANGE: 60
+        continue-on-error: true
+
+  # Web checks (runs only if there are changes in Web)
+  web-lint:
+    name: Web - ESLint
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
+    defaults:
+      run:
+        working-directory: ./web
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: web/yarn.lock
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Run ESLint
+        run: |
+          yarn nx run-many --target=lint --all \
+            --configuration=ci \
+            --skip-nx-cache
+
+  web-typecheck:
+    name: Web - TypeScript Check
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
+    defaults:
+      run:
+        working-directory: ./web
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: web/yarn.lock
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Run TypeScript compiler
+        run: yarn nx run-many --target=typecheck --all
+        continue-on-error: true
+
+  web-format:
+    name: Web - Prettier Check
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
+    defaults:
+      run:
+        working-directory: ./web
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: web/yarn.lock
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Run Prettier
+        run: |
+          yarn prettier --check "**/*.{ts,tsx,js,jsx,vue,json,css,scss,md}" \
+            --ignore-path .gitignore
+
+  web-test:
+    name: Web - Tests
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
+    defaults:
+      run:
+        working-directory: ./web
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: web/yarn.lock
+      
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      
+      - name: Run tests
+        run: |
+          yarn nx run-many --target=test --all \
+            --coverage \
+            --skip-nx-cache
+
+  # PR size check
+  pr-size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Check PR size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const additions = pr.data.additions;
+            const deletions = pr.data.deletions;
+            const changes = additions + deletions;
+            
+            let label = '';
+            let message = '';
+            
+            if (changes < 100) {
+              label = 'size/XS';
+              message = '✅ Very small PR';
+            } else if (changes < 300) {
+              label = 'size/S';
+              message = '✅ Small PR';
+            } else if (changes < 600) {
+              label = 'size/M';
+              message = '⚠️ Medium PR';
+            } else if (changes < 1000) {
+              label = 'size/L';
+              message = '⚠️ Large PR - consider splitting';
+            } else {
+              label = 'size/XL';
+              message = '❌ Very large PR - strongly recommended to split';
+            }
+            
+            core.info(`${message} (${changes} changes: +${additions} -${deletions})`);
+            
+            // Add label
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                labels: [label]
+              });
+            } catch (error) {
+              core.warning(`Failed to add label: ${error.message}`);
+            }
+
+  # Final status check
+  pr-checks-status:
+    name: PR Checks Status
+    runs-on: ubuntu-latest
+    needs: [detect-changes, api-lint, api-test, web-lint, web-typecheck, web-format, web-test]
+    if: always()
+    
+    steps:
+      - name: Check results
+        run: |
+          echo "API Lint: ${{ needs.api-lint.result }}"
+          echo "API Test: ${{ needs.api-test.result }}"
+          echo "Web Lint: ${{ needs.web-lint.result }}"
+          echo "Web TypeCheck: ${{ needs.web-typecheck.result }}"
+          echo "Web Format: ${{ needs.web-format.result }}"
+          echo "Web Test: ${{ needs.web-test.result }}"
+          
+          # Check only jobs that ran
+          if [[ "${{ needs.api-lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.api-test.result }}" == "failure" ]] || \
+             [[ "${{ needs.web-lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.web-typecheck.result }}" == "failure" ]] || \
+             [[ "${{ needs.web-format.result }}" == "failure" ]] || \
+             [[ "${{ needs.web-test.result }}" == "failure" ]]; then
+            echo "❌ Some checks failed"
+            exit 1
+          else
+            echo "✅ All checks passed successfully!"
+          fi

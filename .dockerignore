@@ -1,0 +1,7 @@
+web/.husky
+web/.nx
+web/.vscode
+web/.yarn
+web/node_modules
+web/knowledge_magnet
+web/*.md

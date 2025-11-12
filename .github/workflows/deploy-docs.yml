@@ -1,0 +1,77 @@
+# GitHub Actions workflow to deploy VitePress documentation to GitHub Pages
+name: Deploy VitePress Docs
+
+on:
+  # Runs on push to main branch
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/documentation/magnet/**'
+      - '.github/workflows/deploy-docs.yml'
+  
+  # Allows workflow to be run manually
+  workflow_dispatch:
+
+# Permissions settings for GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # Build documentation
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+          cache-dependency-path: web/yarn.lock
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Install dependencies
+        run: |
+          cd web
+          yarn install --frozen-lockfile
+      
+      - name: Build with VitePress (using Nx)
+        env:
+          # Set base URL for GitHub Pages
+          # Replace 'magnet-ai' with your repository name if different
+          HELP_BASE_URL: /magnet-ai/
+        run: |
+          cd web
+          yarn nx run magnet-docs:build
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/documentation/magnet/.vitepress/dist
+
+  # Deploy to GitHub Pages
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

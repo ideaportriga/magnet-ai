@@ -1,0 +1,259 @@
+{
+    "items": [
+        {
+            "Id": "1-1J1Z",
+            "SR Number": "1-71351",
+            "Status": "Open",
+            "Contact First Name": "Marissa",
+            "Contact Last Name": "Reyes",
+            "Contact Account": "",
+            "Contact Business Phone": "+34887262291",
+            "Contact Home Phone": "",
+            "Contact Email": "marisa.reyes@brightwave.xy",
+            "Owner": "SADMIN",
+            "IPR Rag Response": "",
+            "Priority": "3-Medium",
+            "Integration Id": "6744439f0082618c851dac6a",
+            "Description": "SR Description",
+            "Severity": "4-Low",
+            "SR Type": "General Knowledge",
+            "SR Sub Type": "",
+            "Abstract": "SR Summary",
+            "Sentiment": "Negative"
+        }
+    ],
+    "controls": {
+        "NewQuery": {},
+        "ExecuteQuery": {},
+        "UndoQuery": {},
+        "Collaborate": {},
+        "CreateTeamSpace": {},
+        "GotoPreviousSet": {},
+        "GotoNextSet": {},
+        "QueryAssistant": {},
+        "NewRecord": {},
+        "DeleteRecord": {},
+        "WriteRecord": {},
+        "PositionOnRow": {},
+        "ToggleListRowCount": {},
+        "QueryComboBox": {},
+        "QuerySrchSpec": {},
+        "PopupQueryExecute": {},
+        "Id": {},
+        "SR Number": {},
+        "Status": {},
+        "Contact First Name": {},
+        "Contact Last Name": {},
+        "Contact Account": {},
+        "Contact Business Phone": {},
+        "Contact Home Phone": {},
+        "Contact Email": {},
+        "Owner": {},
+        "IPR Rag Response": {},
+        "Priority": {},
+        "Integration Id": {},
+        "Description": {},
+        "Severity": {},
+        "SR Type": {},
+        "SR Sub Type": {},
+        "Abstract": {},
+        "Sentiment": {}
+    },
+    "controlsTable": [
+        {
+            "name": "GotoPreviousSet",
+            "label": "",
+            "fieldName": ""
+        },
+        {
+            "name": "GotoNextSet",
+            "label": "",
+            "fieldName": ""
+        },
+        {
+            "name": "PositionOnRow",
+            "label": "",
+            "fieldName": ""
+        },
+        {
+            "name": "ToggleListRowCount",
+            "label": "",
+            "fieldName": ""
+        },
+        {
+            "name": "IPR Rag Response",
+            "label": "Answer",
+            "fieldName": "IPR Rag Response",
+            "value": ""
+        },
+        {
+            "name": "UndoQuery",
+            "label": "Cancel",
+            "fieldName": ""
+        },
+        {
+            "name": "Collaborate",
+            "label": "Collaborate",
+            "fieldName": ""
+        },
+        {
+            "name": "Contact Account",
+            "label": "Contact Account",
+            "fieldName": "Contact Account",
+            "value": ""
+        },
+        {
+            "name": "Contact Email",
+            "label": "Contact Email",
+            "fieldName": "Contact Email",
+            "value": "marisa.reyes@brightwave.xy"
+        },
+        {
+            "name": "CreateTeamSpace",
+            "label": "Create Team Space",
+            "fieldName": ""
+        },
+        {
+            "name": "DeleteRecord",
+            "label": "Delete",
+            "fieldName": ""
+        },
+        {
+            "name": "Description",
+            "label": "Description",
+            "fieldName": "Description",
+            "value": "SR Description"
+        },
+        {
+            "name": "QueryComboBox",
+            "label": "Find",
+            "fieldName": ""
+        },
+        {
+            "name": "Contact First Name",
+            "label": "First Name",
+            "fieldName": "Contact First Name",
+            "value": "Marissa"
+        },
+        {
+            "name": "ExecuteQuery",
+            "label": "Go",
+            "fieldName": ""
+        },
+        {
+            "name": "PopupQueryExecute",
+            "label": "Go",
+            "fieldName": ""
+        },
+        {
+            "name": "Contact Home Phone",
+            "label": "Home Phone #",
+            "fieldName": "Contact Home Phone",
+            "value": ""
+        },
+        {
+            "name": "Id",
+            "label": "ID",
+            "fieldName": "Id",
+            "value": "1-1J1Z"
+        },
+        {
+            "name": "Integration Id",
+            "label": "Integration ID",
+            "fieldName": "Integration Id",
+            "value": "6744439f0082618c851dac6a"
+        },
+        {
+            "name": "Contact Last Name",
+            "label": "Last Name",
+            "fieldName": "Contact Last Name",
+            "value": "Reyes"
+        },
+        {
+            "name": "NewRecord",
+            "label": "New",
+            "fieldName": ""
+        },
+        {
+            "name": "Owner",
+            "label": "Owner",
+            "fieldName": "Owner",
+            "value": "SADMIN"
+        },
+        {
+            "name": "Priority",
+            "label": "Priority",
+            "fieldName": "Priority",
+            "value": "3-Medium"
+        },
+        {
+            "name": "NewQuery",
+            "label": "Query",
+            "fieldName": ""
+        },
+        {
+            "name": "QueryAssistant",
+            "label": "Query Assistant",
+            "fieldName": ""
+        },
+        {
+            "name": "WriteRecord",
+            "label": "Save",
+            "fieldName": ""
+        },
+        {
+            "name": "Sentiment",
+            "label": "Sentiment",
+            "fieldName": "Sentiment",
+            "value": "Negative"
+        },
+        {
+            "name": "Severity",
+            "label": "Severity",
+            "fieldName": "Severity",
+            "value": "4-Low"
+        },
+        {
+            "name": "SR Number",
+            "label": "SR #",
+            "fieldName": "SR Number",
+            "value": "1-71351"
+        },
+        {
+            "name": "SR Type",
+            "label": "SR Type",
+            "fieldName": "SR Type",
+            "value": "General Knowledge"
+        },
+        {
+            "name": "QuerySrchSpec",
+            "label": "Starting with",
+            "fieldName": ""
+        },
+        {
+            "name": "Status",
+            "label": "Status",
+            "fieldName": "Status",
+            "value": "Open"
+        },
+        {
+            "name": "SR Sub Type",
+            "label": "Sub Type",
+            "fieldName": "SR Sub Type",
+            "value": ""
+        },
+        {
+            "name": "Abstract",
+            "label": "Summary",
+            "fieldName": "Abstract",
+            "value": "SR Summary"
+        },
+        {
+            "name": "Contact Business Phone",
+            "label": "Work Phone #",
+            "fieldName": "Contact Business Phone",
+            "value": "+34887262291"
+        }
+    ],
+    "busComp": "Service Request"
+}

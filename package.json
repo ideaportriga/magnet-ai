@@ -1,0 +1,14 @@
+{
+  "name": "magnet-ai",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prepare": "husky || true",
+    "lint:api": "cd api && poetry run ruff check . --fix",
+    "lint:web": "cd web && yarn nx run-many --target=lint --all --fix",
+    "lint": "npm run lint:api && npm run lint:web"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}

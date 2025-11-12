@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popup Callback Page</title>
+</head>
+<script>
+completeLogin()
+
+function completeLogin() {
+    console.log("completeLogin")
+
+    // TODO - change "*" to specific origin of CRM
+    // TODO - set additional info (identifier, nonce?)
+    const message = JSON.stringify({
+      token: "{{ token }}",
+      refreshToken: "{{ refresh_token }}",
+    })
+    window.opener.postMessage(message, '*');
+    window.close();
+  }
+  
+  
+</script>
+<body>
+</body>
+</html>

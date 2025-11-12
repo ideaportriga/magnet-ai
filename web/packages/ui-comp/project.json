@@ -1,0 +1,9 @@
+{
+  "name": "ui-comp",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/ui-comp/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project ui-comp --web",
+  "targets": {}
+}

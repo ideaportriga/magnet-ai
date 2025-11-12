@@ -1,0 +1,223 @@
+{
+    "system_name": "RETRIEVE_CONTACT_INFORMATION",
+    "name": "Retrieve Contact Information",
+    "description": "Retrieves detailed information for a specified contact.",
+    "variants": [
+        {
+            "variant": "variant_1",
+            "description": null,
+            "value": {
+                "parameters": {
+                    "input": {
+                        "type": "object",
+                        "properties": {
+                            "requestBody": {
+                                "properties": {
+                                    "ContactId": {
+                                        "description": "Unique identifier for the contact whose information is being requested.",
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "ContactId"
+                                ],
+                                "type": "object"
+                            },
+                            "queryParams": {
+                                "type": "object",
+                                "properties": {
+                                    "matchrequestformat": {
+                                        "enum": [
+                                            "y"
+                                        ],
+                                        "type": "string",
+                                        "description": ""
+                                    }
+                                },
+                                "required": [
+                                    "matchrequestformat"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "requestBody",
+                            "queryParams"
+                        ]
+                    },
+                    "output": {}
+                }
+            }
+        },
+        {
+            "variant": "variant_2",
+            "description": null,
+            "value": {
+                "parameters": {
+                    "input": {
+                        "type": "object",
+                        "properties": {
+                            "requestBody": {
+                                "properties": {
+                                    "ContactId": {
+                                        "description": "Unique identifier for the contact whose information is being requested.",
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "ContactId"
+                                ],
+                                "type": "object"
+                            },
+                            "queryParams": {
+                                "type": "object",
+                                "properties": {
+                                    "matchrequestformat": {
+                                        "enum": [
+                                            "y"
+                                        ],
+                                        "type": "string",
+                                        "description": ""
+                                    }
+                                },
+                                "required": [
+                                    "matchrequestformat"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "requestBody",
+                            "queryParams"
+                        ]
+                    },
+                    "output": {}
+                }
+            }
+        }
+    ],
+    "active_variant": "variant_1",
+    "api_provider": "SIEBEL",
+    "path": "/IPROpenAIServiceSF/GetContactInfo",
+    "method": "POST",
+    "original_parameters": {
+        "input": {
+            "type": "object",
+            "properties": {
+                "requestBody": {
+                    "properties": {
+                        "ContactId": {
+                            "description": "Unique identifier for the contact whose information is being requested.",
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "ContactId"
+                    ],
+                    "type": "object"
+                },
+                "queryParams": {
+                    "type": "object",
+                    "properties": {
+                        "matchrequestformat": {
+                            "enum": [
+                                "y"
+                            ],
+                            "type": "string",
+                            "description": ""
+                        }
+                    },
+                    "required": [
+                        "matchrequestformat"
+                    ]
+                }
+            },
+            "required": [
+                "requestBody",
+                "queryParams"
+            ]
+        },
+        "output": {}
+    },
+    "original_operation_definition": {
+        "description": "Retrieves detailed information for a specified contact.",
+        "operationId": "retrieveContactInformation",
+        "parameters": [
+            {
+                "in": "query",
+                "name": "matchrequestformat",
+                "required": true,
+                "schema": {
+                    "enum": [
+                        "y"
+                    ],
+                    "type": "string"
+                }
+            }
+        ],
+        "requestBody": {
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "properties": {
+                            "ContactId": {
+                                "description": "Unique identifier for the contact whose information is being requested.",
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "ContactId"
+                        ],
+                        "type": "object"
+                    }
+                }
+            }
+        },
+        "responses": {
+            "200": {
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "properties": {
+                                "CellPhone": {
+                                    "description": "The cell phone number associated with the contact.",
+                                    "type": "string"
+                                },
+                                "Email": {
+                                    "description": "The email address of the contact.",
+                                    "type": "string"
+                                },
+                                "FirstName": {
+                                    "description": "The first name of the contact.",
+                                    "type": "string"
+                                },
+                                "LastName": {
+                                    "description": "The last name of the contact.",
+                                    "type": "string"
+                                },
+                                "MiddleName": {
+                                    "description": "The middle name of the contact.",
+                                    "type": "string"
+                                },
+                                "Time": {
+                                    "description": "A time-related attribute of the contact, possibly indicating the best time to call or the duration of the contact's availability.",
+                                    "type": "string"
+                                },
+                                "WorkPhone": {
+                                    "description": "The work phone number associated with the contact.",
+                                    "type": "string"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    }
+                },
+                "description": "Contact information."
+            }
+        },
+        "summary": "Retrieve Contact Information"
+    },
+    "_metadata": {
+        "created_at": "2025-02-20T17:16:24.243000",
+        "modified_at": "2025-03-20T08:06:04.463000"
+    },
+    "id": "67b76368732a4b0bad4a42af"
+}

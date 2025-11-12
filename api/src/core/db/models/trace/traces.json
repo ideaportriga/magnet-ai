@@ -1,0 +1,133 @@
+{
+  "_id": {
+    "$oid": "6bf4f4142491b515fff37315"
+  },
+  "status": "success",
+  "cost_details": {
+    "chat": 0.00591,
+    "embed": 0,
+    "rerank": 0,
+    "total": 0.00591
+  },
+  "name": "NPS Feedback Summary",
+  "type": "prompt-template",
+  "channel": "production",
+  "source": "Runtime API",
+  "extra_data": {},
+  "user_id": "api_key:EXPERIENCE",
+  "start_time": {
+    "$date": "2025-08-07T11:54:39.327Z"
+  },
+  "end_time": {
+    "$date": "2025-08-07T11:54:49.076Z"
+  },
+  "latency": 9748.601,
+  "spans": [
+    {
+      "id": "d8381e5d84233b06",
+      "parent_id": "65cd6db93a8d3358",
+      "name": "Generate text",
+      "type": "chat",
+      "start_time": {
+        "$date": "2025-08-07T11:54:39.501Z"
+      },
+      "end_time": {
+        "$date": "2025-08-07T11:54:49.075Z"
+      },
+      "latency": 9574.481,
+      "status": "success",
+      "status_message": null,
+      "prompt_template": {
+        "name": "NPS_FEEDBACK_SUMMARY",
+        "display_name": "NPS Feedback Summary",
+        "variant": "variant_2"
+      },
+      "model": {
+        "name": "OPENAI_GPT-4O",
+        "display_name": "OpenAI GPT 4o",
+        "provider": "openai",
+        "provider_display_name": "OpenAI",
+        "otel_gen_ai_system": "None",
+        "parameters": {
+          "llm": "gpt-4o",
+          "temperature": 1,
+          "top_p": 1,
+          "max_tokens": null,
+          "top_n": null,
+          "tools": null
+        }
+      },
+      "description": "Generating text using chat completion API powered by \"gpt-4o\" LLM, provided by OpenAI.",
+      "extra_data": {},
+      "input": [
+        {
+          "role": "system",
+          "content": "You are a profession HR expert specialising in performance management in the Latvia-based company that provide IT services to the enterprise and mid-sized companies in Europe. \n\nYou will receive a JSON object containing several feedbacks from different responders on the performance of a particular employee. Responders are both colleagues and clients' employees. \n\nEach feedback record contains the following properties:\n1. Number for Net Promoter Score Calculation:\n\t* 1-6: Demoter\n\t* 7-8: Neutral\n\t* 9-10: Promoter\n2. Aggregated text, which can have both general comments and answer to questions related to different performance areas. Answers can be Yes/No or extended. Some feedbacks may be missing this property. \n\n\nYou jobs is to carefully review all the feedbacks and generate the summary using the following rules:\n\n1. Pay equal attention to the records that are \n\t* short and include only NPS Number\n\t* extended and include general comments and answers to particular questions\n2. Start with “Overall Summary” section taking into account NPS Number and comments\n3. Continue with “Continue Doing” section, summarising what respondents liked about working with the employee\n4. Continue with “Stop Doing” section, summarising what respondents did not like about working with the employee \n5. Continue with “Start Doing” section, summarising what respondents suggest respondent start doing while working.\n5. Finish with “Recommendations” what the employee should do to score high performance marks, provide examples.\n\n\nOutput your summary in the structured format using markdown."
+        },
+        {
+          "role": "user",
+          "content": "[{\"respondentType\":\"External\",\"recommendationScore\":8,\"text\":\"Is this person eager and proactive in addressing assignments, regardless of their size or complexity? A bit more of productivity during the end of the week would be nice. Does this person regularly express appreciation and recognition to colleagues for their contributions and efforts? Sometimes. How would you rate this persons ongoing development of professional skills and adaptability to new technologies? High to Very High. He grows for sure. Does this person consistently treat colleagues and team members with respect and professionalism? Yes, 100%. Does this person proactively identify opportunities for improvement and suggest valuable changes or solutions? At times. Could do it more I guess. Is this person consistently reliable and trustworthy in meeting their commitments and deadlines? Sometimes this is a problem. Which could be addressed by asking for help earlier. How would you rate this persons skills and knowledge in his/her role or field? Great in his role. Does what needs to be done Is this person able to clearly and efficiently communicate, making it easy for colleagues and/or client to understand? Yes. What is the one thing that this person could do to make you happier? Ask more questions... and do it earlier. Hes trying to figure out all by himself (which is normally great) but doing it a tiny bit too long.\"},{\"respondentType\":\"External\",\"recommendationScore\":8,\"text\":\"Is this person eager and proactive in addressing assignments, regardless of their size or complexity? A bit more of productivity during the end of the week would be nice. Does this person regularly express appreciation and recognition to colleagues for their contributions and efforts? Sometimes. How would you rate this persons ongoing development of professional skills and adaptability to new technologies? High to Very High. He grows for sure. Does this person consistently treat colleagues and team members with respect and professionalism? Yes, 100%. Does this person proactively identify opportunities for improvement and suggest valuable changes or solutions? At times. Could do it more I guess. Is this person consistently reliable and trustworthy in meeting their commitments and deadlines? Sometimes this is a problem. Which could be addressed by asking for help earlier. How would you rate this persons skills and knowledge in his/her role or field? Great in his role. Does what needs to be done Is this person able to clearly and efficiently communicate, making it easy for colleagues and/or client to understand? Yes. What is the one thing that this person could do to make you happier? Ask more questions... and do it earlier. Hes trying to figure out all by himself (which is normally great) but doing it a tiny bit too long.\"}]"
+        }
+      ],
+      "output": {
+        "id": "chatcmpl-C1tUebxFra59RktIlhswvhVUkqKh7",
+        "role": "assistant",
+        "content": "```markdown\n# Performance Summary\n\n## Overall Summary\nBased on the feedback received, the employee has been rated predominantly as Neutral (NPS Score: 8). While the competence in their role and the respect and professionalism shown towards colleagues are remarkable strengths, there are areas such as reliability in meeting commitments and asking for support earlier which need improvement. The employee is regarded as growing in professional skills and adaptability but can further elevate productivity toward the end of the week.\n\n## Continue Doing\nRespondents appreciate the employee’s:\n- High skill level and knowledge in their role.\n- Demonstrated professional growth and adaptability to new technologies.\n- Consistent treatment of colleagues with respect and professionalism.\n- Clear and efficient communication skills.\n- Initiative in trying to resolve issues independently.\n\n## Stop Doing\nRespondents suggest the employee should:\n- Avoid attempting to solve all tasks independently for too long without seeking clarification or assistance when needed.\n- Rely less on trying to figure out tasks alone, potentially leading to delays in meeting deadlines.\n\n## Start Doing\nRespondents encourage the employee to:\n- Increase proactive engagement and productivity, particularly towards the end of the week.\n- More frequently acknowledge and appreciate colleagues' contributions.\n- Consistently identify opportunities for improvement and propose valuable solutions.\n- Seek assistance and ask questions sooner to ensure commitments and deadlines are reliably met.\n\n## Recommendations\nTo score higher performance marks, the employee should:\n- Enhance end-of-week productivity by setting more tangible goals or engaging with colleagues to brainstorm efficient ways to wrap up weekly tasks.\n- Cultivate a habit of regular appreciation to bolster team morale.\n- Adopt a more proactive approach to identifying process improvements and potential solutions early.\n- Develop a more collaborative mindset by leveraging team resources and support sooner, especially when facing challenges.\n\nBy integrating these practices, the employee can strengthen their impact in their role and further align with clients' and colleagues' expectations.\n```",
+        "tool_calls": null
+      },
+      "usage_details": {
+        "input": 856,
+        "input_details": {
+          "units": "tokens",
+          "standard": 856,
+          "cached": 0
+        },
+        "output": 377,
+        "output_details": {
+          "units": "tokens",
+          "standard": 377,
+          "reasoning": 0
+        },
+        "total": 1233
+      },
+      "cost_details": {
+        "input": 0.00214,
+        "input_details": {
+          "standard": 0.00214,
+          "cached": 0
+        },
+        "output": 0.0037700000000000003,
+        "output_details": {
+          "standard": 0.0037700000000000003,
+          "reasoning": 0
+        },
+        "total": 0.00591
+      },
+      "conversation_id": null
+    },
+    {
+      "id": "65cd6db93a8d3358",
+      "parent_id": "6bf4f4142491b515fff37315",
+      "name": "Executing Prompt Template",
+      "type": "span",
+      "start_time": {
+        "$date": "2025-08-07T11:54:39.327Z"
+      },
+      "end_time": {
+        "$date": "2025-08-07T11:54:49.076Z"
+      },
+      "latency": 9748.601,
+      "status": "success",
+      "status_message": null,
+      "prompt_template": null,
+      "model": null,
+      "description": null,
+      "extra_data": {},
+      "input": null,
+      "output": null,
+      "usage_details": null,
+      "cost_details": null,
+      "conversation_id": null
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+name: Release - Semantic Versioning
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (leave empty for auto)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install semantic-release
+        run: |
+          npm install -g \
+            semantic-release@24 \
+            @semantic-release/git@10 \
+            @semantic-release/changelog@6 \
+            @semantic-release/exec@6 \
+            conventional-changelog-conventionalcommits@8
+      
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if [ -n "$VERSION" ]; then
+            echo "Manual version specified: $VERSION"
+            git tag -a "v$VERSION" -m "Release v$VERSION"
+            git push origin "v$VERSION"
+          else
+            echo "Running semantic-release for automatic versioning"
+            npx semantic-release
+          fi
+      
+      - name: Generate changelog
+        if: success()
+        run: |
+          git log --pretty=format:"- %s (%h)" $(git describe --tags --abbrev=0 HEAD^)..HEAD > /tmp/changelog.txt
+          echo "Changelog generated"
+        continue-on-error: true
+      
+      - name: Create GitHub Release
+        if: success() && github.event.inputs.version != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let changelog = '';
+            
+            try {
+              changelog = fs.readFileSync('/tmp/changelog.txt', 'utf8');
+            } catch (e) {
+              changelog = 'No changelog available';
+            }
+            
+            const version = '${{ github.event.inputs.version }}';
+            
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${version}`,
+              name: `Release v${version}`,
+              body: `## Changes\n\n${changelog}\n\n## Installation\n\nSee [README.md](README.md) for installation instructions.`,
+              draft: false,
+              prerelease: false
+            });

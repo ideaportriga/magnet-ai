@@ -1,0 +1,104 @@
+name: Auto Fix - Format & Lint
+
+on:
+  # Can be run manually from GitHub interface
+  workflow_dispatch:
+  # Or automatically on schedule (e.g., every Sunday at 00:00)
+  schedule:
+    - cron: '0 0 * * 0'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-fix:
+    name: Auto Fix Code
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Cache Poetry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            api/.venv
+          key: ${{ runner.os }}-poetry-${{ hashFiles('api/poetry.lock') }}
+      
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      
+      - name: Install API dependencies
+        working-directory: ./api
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --no-interaction --only main,dev
+      
+      - name: Run Ruff format on API
+        working-directory: ./api
+        run: poetry run ruff format .
+      
+      - name: Run Ruff fix on API
+        working-directory: ./api
+        run: poetry run ruff check . --fix
+        continue-on-error: true
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: web/yarn.lock
+      
+      - name: Install Web dependencies
+        working-directory: ./web
+        run: yarn install --frozen-lockfile
+      
+      - name: Run ESLint fix on Web
+        working-directory: ./web
+        run: yarn nx run-many --target=lint --all --fix
+        continue-on-error: true
+      
+      - name: Run Prettier format on Web
+        working-directory: ./web
+        run: yarn prettier --write "**/*.{ts,tsx,js,jsx,vue,json,css,scss,md}" --ignore-path .gitignore
+        continue-on-error: true
+      
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --exit-code || echo "has_changes=true" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push changes
+        if: steps.git-check.outputs.has_changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -A
+          git commit -m "style: auto-fix formatting and linting issues"
+          git push
+      
+      - name: Create PR comment
+        if: steps.git-check.outputs.has_changes == 'true' && github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: '🤖 Automatic formatting and linting fixes applied'
+            })

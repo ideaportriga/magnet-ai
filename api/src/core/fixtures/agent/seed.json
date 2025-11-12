@@ -1,0 +1,102 @@
+[
+    {
+    "name": "Demo Agent - Magnet AI Help",
+    "description": "Demo Agent that helps users with Magnet AI admin panel",
+    "system_name": "DEMO_AGENT_-_MAGNET_AI_HELP",
+    "category": null,
+    "active_variant": "variant_1",
+    "variants": [
+        {
+            "variant": "variant_1",
+            "description": "",
+            "value": {
+                "topics": [
+                    {
+                        "name": "Answer from Knowledge Source",
+                        "system_name": "ANSWER_FROM_KNOWLEDGE_SOURCE",
+                        "description": "Use this topic to answer user queries about using Magnet AI Admin Panel, configuring tools, evaluating and publishing them",
+                        "instructions": "Do not make up your own questions if you cannot find answer in the Knowledge Source. Use citations (links to documents) to support your response.",
+                        "actions": [
+                            {
+                                "name": "Demo Retrieval Tool - Magnet AI Help",
+                                "system_name": "DEMO_RETRIEVAL_TOOL_-_MAGNET_AI_HELP",
+                                "description": "",
+                                "type": "retrieval",
+                                "display_name": "Demo Retrieval Tool - Magnet AI Help",
+                                "display_description": "",
+                                "tool_system_name": "DEMO_RETRIEVAL_TOOL_-_MAGNET_AI_HELP",
+                                "tool_provider": null,
+                                "function_name": "AnswerFromKnowledgeSource",
+                                "function_description": "Answer user questions about using the Magnet AI Admin panel, such as configuring tools, evaluating them, building Agents, and publishing configuring tools. ",
+                                "metadata": {
+                                    "modified_at": "2025-10-30T07:32:34.640000Z",
+                                    "created_at": "2025-10-30T07:29:30.655000Z"
+                                },
+                                "requires_confirmation": false,
+                                "use_response_as_assistant_message": false,
+                                "action_message_llm_description": null
+                            }
+                        ],
+                        "metadata": {
+                            "modified_at": "2025-10-30T07:33:56.804000Z",
+                            "created_at": "2025-10-30T07:29:30.655000Z"
+                        }
+                    },
+                    {
+                        "name": "Answer from website",
+                        "system_name": "ANSWER_FROM_WEBSITE",
+                        "description": "Use this topic to answer user questions regarding Magnet AI from the business perspective, i.e. questions that do not fall into \"how to configure\" category",
+                        "instructions": "Provide links to source when using this topic. Do not make up your own response if you cannot fetch relevant content.",
+                        "actions": [
+                            {
+                                "name": "fetch",
+                                "system_name": "fetch",
+                                "description": null,
+                                "type": "mcp_tool",
+                                "display_name": "fetch",
+                                "display_description": null,
+                                "tool_system_name": "fetch",
+                                "tool_provider": "FETCH",
+                                "function_name": "AnswerFromWebsite",
+                                "function_description": "Fetch data from https://pro.ideaportriga.com/magnet-ai to answer user questions about use cases and services that Magnet AI supports. ",
+                                "metadata": {
+                                    "modified_at": "2025-10-31T08:06:21.997000Z",
+                                    "created_at": "2025-10-31T08:00:37.545000Z"
+                                },
+                                "requires_confirmation": false,
+                                "use_response_as_assistant_message": false,
+                                "action_message_llm_description": null
+                            }
+                        ],
+                        "metadata": {
+                            "modified_at": "2025-10-31T08:08:46.441000Z",
+                            "created_at": "2025-10-31T08:00:37.545000Z"
+                        }
+                    }
+                ],
+                "prompt_templates": {
+                    "classification": "DEFAULT_AGENT_CLASSIFICATION",
+                    "topic_processing": "DEFAULT_AGENT_TOPIC_PROCESSING"
+                },
+                "post_processing": {
+                    "enabled": true,
+                    "template": "DEFAULT_AGENT_POST_PROCESSING"
+                },
+                "settings": {
+                    "welcome_message": "Welcome to Magnet AI Demo Agent",
+                    "conversation_closure_interval": "1D",
+                    "sample_questions": {
+                        "enabled": true,
+                        "questions": {
+                            "question1": "How to configure an Agent?",
+                            "question2": "What's the difference between RAG And Retrieval Tool?",
+                            "question3": ""
+                        }
+                    },
+                    "user_feedback": true
+                }
+            }
+        }
+    ]
+}
+]

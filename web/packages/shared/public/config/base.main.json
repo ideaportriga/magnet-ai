@@ -1,0 +1,9 @@
+{
+  "auth": {
+    "enabled": false,
+    "popup": {
+      "width": "600",
+      "height": "400"
+    }
+  }
+}

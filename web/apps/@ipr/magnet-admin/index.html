@@ -1,0 +1,21 @@
+<html lang="en" style="height: 100%">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- <link rel="stylesheet" href="assets/loaders.css"> -->
+    <title>Magnet AI</title>
+  </head>
+  <body style="margin: 0px; height: 100%">
+    <div id="km-app"></div>
+    <script type="module" src="src/main.js"></script>
+    <script type="module">
+      if (import.meta.env.MODE === 'production') {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'assets/loaders.css'
+        document.head.appendChild(link)
+      }
+    </script>
+  </body>
+</html>

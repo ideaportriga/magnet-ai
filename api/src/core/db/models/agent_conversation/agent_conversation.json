@@ -1,0 +1,150 @@
+{
+  "_id": {
+    "$oid": "6878c6b0b63fd4fa6078dfd4"
+  },
+  "agent": "AGENT_2",
+  "created_at": {
+    "$date": "2025-07-17T09:47:26.717Z"
+  },
+  "last_user_message_at": {
+    "$date": "2025-07-17T09:47:26.717Z"
+  },
+  "client_id": "R_TEST_APP-AGENT1-AGENT_2-42a29c44-5cd8-4cd4-8bf2-d8fbce34a057",
+  "trace_id": "c41df6ad5b52f4794423eb8ad7cd2d1d",
+  "analytics_id": "04943e945c97e9b098d4dec1eac111f9",
+  "variables": null,
+  "messages": [
+    {
+      "id": "4a09a5df-84bc-4fe3-b2c4-4e496916a313",
+      "created_at": {
+        "$date": "2025-07-17T09:47:26.717Z"
+      },
+      "role": "user",
+      "content": "Hi, can you help?",
+      "action_call_confirmations": null
+    },
+    {
+      "id": "61cf988c-9a36-420b-b9ac-4e80c2c18efa",
+      "created_at": {
+        "$date": "2025-07-17T09:47:28.098Z"
+      },
+      "role": "assistant",
+      "content": "Hello! Of course, I'd be happy to help. Could you please provide more details about what you need assistance with?",
+      "action_call_requests": null,
+      "run": {
+        "steps": [
+          {
+            "started_at": {
+              "$date": "2025-07-17T09:47:26.717Z"
+            },
+            "completed_at": {
+              "$date": "2025-07-17T09:47:28.098Z"
+            },
+            "type": "classification",
+            "details": {
+              "intent": "greeting",
+              "reason": "The user message is a greeting and introductory comment asking for help, but does not specify the nature of the help needed.",
+              "assistant_message": "Hello! Of course, I'd be happy to help. Could you please provide more details about what you need assistance with?",
+              "topic": null
+            }
+          }
+        ]
+      },
+      "feedback": {
+        "type": "like",
+        "reason": null,
+        "comment": null
+      },
+      "topic": null,
+      "copied": false,
+      "custom_feedback": null
+    },
+    {
+      "id": "26b7a9ae-9ed6-4e7e-9149-29b4b63b21cb",
+      "created_at": {
+        "$date": "2025-07-17T09:47:36.796Z"
+      },
+      "role": "user",
+      "content": "cancelled flight",
+      "action_call_confirmations": null
+    },
+    {
+      "id": "8b87d113-55c9-4ea7-82a3-98dec3f55c31",
+      "created_at": {
+        "$date": "2025-07-17T09:47:38.472Z"
+      },
+      "role": "assistant",
+      "content": "I'm sorry to hear about your cancelled flight. Unfortunately, I don't have information on flight cancellations. You might want to contact the airline directly for assistance.",
+      "action_call_requests": null,
+      "run": {
+        "steps": [
+          {
+            "started_at": {
+              "$date": "2025-07-17T09:47:36.879Z"
+            },
+            "completed_at": {
+              "$date": "2025-07-17T09:47:38.472Z"
+            },
+            "type": "classification",
+            "details": {
+              "intent": "off_topic",
+              "reason": "The user's message about a 'cancelled flight' does not relate to the provided topics of 'Contact information' or 'Magnet AI documentation'.",
+              "assistant_message": "I'm sorry to hear about your cancelled flight. Unfortunately, I don't have information on flight cancellations. You might want to contact the airline directly for assistance.",
+              "topic": null
+            }
+          }
+        ]
+      },
+      "feedback": {
+        "type": "dislike",
+        "reason": "outdated",
+        "comment": ""
+      },
+      "topic": null,
+      "copied": true,
+      "custom_feedback": null
+    },
+    {
+      "id": "7f33501f-0a5b-4cc2-bae1-5998660587ac",
+      "created_at": {
+        "$date": "2025-07-17T10:24:36.072Z"
+      },
+      "role": "user",
+      "content": "ffsdfsdsdfsdf",
+      "action_call_confirmations": null
+    },
+    {
+      "id": "28859214-af6f-42f3-8fe0-7702b91a51e7",
+      "created_at": {
+        "$date": "2025-07-17T10:24:38.905Z"
+      },
+      "role": "assistant",
+      "content": "I'm sorry, I didn't quite understand your last message. Could you please clarify or provide more details?",
+      "action_call_requests": null,
+      "run": {
+        "steps": [
+          {
+            "started_at": {
+              "$date": "2025-07-17T10:24:36.184Z"
+            },
+            "completed_at": {
+              "$date": "2025-07-17T10:24:38.905Z"
+            },
+            "type": "classification",
+            "details": {
+              "intent": "request_not_clear",
+              "reason": "The user's most recent message 'ffsdfsdsdfsdf' appears to be a random string or typo, making the request unclear and not related to any specific topic.",
+              "assistant_message": "I'm sorry, I didn't quite understand your last message. Could you please clarify or provide more details?",
+              "topic": null
+            }
+          }
+        ]
+      },
+      "feedback": null,
+      "topic": null,
+      "copied": false,
+      "custom_feedback": null
+    }
+  ],
+  "status": "Closed"
+}

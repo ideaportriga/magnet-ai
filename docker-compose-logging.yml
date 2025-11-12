@@ -1,0 +1,47 @@
+version: '3.8'
+
+# Standalone logging stack with Grafana Loki
+# Run with: docker-compose -f docker-compose-logging.yml up -d
+# Access Grafana at: http://localhost:3000 (admin/admin)
+
+services:
+  loki:
+    image: grafana/loki:2.9.3
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    networks:
+      - logging
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./logging/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    depends_on:
+      - loki
+    networks:
+      - logging
+
+volumes:
+  loki_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  logging:
+    driver: bridge
