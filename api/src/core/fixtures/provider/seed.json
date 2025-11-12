@@ -1,7 +1,7 @@
 [
   {
-    "name": "openai",
-    "description": "Auto-generated provider for openai",
+    "name": "OpenAI",
+    "description": "Auto-generated provider for OpenAI",
     "system_name": "OPENAI",
     "category": null,
     "type": "openai",
@@ -28,9 +28,33 @@
     "system_name": "Documentation",
     "category": "knowledge",
     "type": "Documentation",
-    "endpoint": "https://magnetai-test.wonderfulmeadow-bef11b6a.westeurope.azurecontainerapps.io/help",
+    "endpoint": "https://magnetai-demo.wonderfulmeadow-bef11b6a.westeurope.azurecontainerapps.io/help",
     "connection_config": null,
     "secrets_encrypted": null,
+    "metadata_info": null
+  },
+  {
+    "name": "OpenRouter",
+    "description": "Auto-generated provider for OpenRouter",
+    "system_name": "OPENROUTER",
+    "category": null,
+    "type": "openai",
+    "endpoint": "https://openrouter.ai/api/v1",
+    "secrets_encrypted": {
+      "api_key": ""
+    },
+    "metadata_info": null
+  },
+  {
+    "name": "Azure OpenAI",
+    "description": "Auto-generated provider for Azure OpenAI",
+    "system_name": "AZURE_OPENAI",
+    "category": null,
+    "type": "openai",
+    "endpoint": "https://your-azure-openai-endpoint.openai.azure.com/openai/v1",
+    "secrets_encrypted": {
+      "api_key": ""
+    },
     "metadata_info": null
   }
 ]

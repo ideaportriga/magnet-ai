@@ -6,7 +6,7 @@ from typing import Any, override
 
 import oracledb
 import regex
-import yake
+from rake_nltk import Rake
 
 from models import (
     ChunksByCollection,
@@ -578,17 +578,17 @@ class OracleDbStore(DocumentStore):
         )
 
         def extract_keywords(query: str, num_results: int):
-            max_ngram_size = 2
-            windowSize = 1
-
-            kw_extractor = yake.KeywordExtractor(
-                n=max_ngram_size,
-                windowsSize=windowSize,
-                top=num_results,
-                features=None,
-            )
-            keywords = kw_extractor.extract_keywords(query.strip().lower())
-            return sorted(keywords, key=lambda kw: kw[1])
+            # Use RAKE (Rapid Automatic Keyword Extraction) instead of YAKE
+            rake = Rake(max_length=2)  # max_ngram_size equivalent
+            rake.extract_keywords_from_text(query.strip().lower())
+            
+            # Get ranked phrases with scores
+            ranked_phrases = rake.get_ranked_phrases_with_scores()
+            
+            # Sort by score (lower is better for RAKE) and take top results
+            # Convert to (keyword, score) tuples similar to YAKE format
+            keywords = [(phrase, score) for score, phrase in ranked_phrases[:num_results]]
+            return keywords
 
         keywords = extract_keywords(query, 4)
         if len(keywords) == 0:

@@ -37,12 +37,11 @@ class FluidTopicsDataSource(DataSource[str]):
             self._search_api_url = search_api_url
             self._pdf_api_url = pdf_api_url
         else:
-            from core.config.base import get_knowledge_source_settings
-            knowledge_settings = get_knowledge_source_settings()
+            from core.config._utils import get_env
             
-            self._search_api_key = api_key or knowledge_settings.FLUID_TOPICS_API_KEY
-            self._search_api_url = search_api_url or knowledge_settings.FLUID_TOPICS_SEARCH_API_URL
-            self._pdf_api_url = pdf_api_url or knowledge_settings.FLUID_TOPICS_PDF_API_URL
+            self._search_api_key = api_key or get_env("FLUID_TOPICS_API_KEY", "")()
+            self._search_api_url = search_api_url or get_env("FLUID_TOPICS_SEARCH_API_URL", "")()
+            self._pdf_api_url = pdf_api_url or get_env("FLUID_TOPICS_PDF_API_URL", "")()
         
         self._filters = filters
 
@@ -148,9 +147,8 @@ class FluidTopicsDataSource(DataSource[str]):
             raise RuntimeError(f"Failed to get data from Fluid Topics: {e}") from e
 
     def _replace_viewer_base_url(self, viewer_url: str) -> str:
-        from core.config.base import get_knowledge_source_settings
-        knowledge_settings = get_knowledge_source_settings()
-        new_base_url = knowledge_settings.FLUID_TOPICS_VIEWER_BASE_URL
+        from core.config._utils import get_env
+        new_base_url = get_env("FLUID_TOPICS_VIEWER_BASE_URL", "")()
         if not new_base_url or not viewer_url:
             return viewer_url
 

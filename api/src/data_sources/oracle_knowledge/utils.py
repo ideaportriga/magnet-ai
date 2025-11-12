@@ -1,14 +1,13 @@
 import httpx
 
-from core.config.base import get_knowledge_source_settings
+from core.config._utils import get_env
 from data_sources.oracle_knowledge.types import OracleKnowledgeConfig
 
 
 def get_oracle_knowledge_config(oracle_knowledge_url) -> OracleKnowledgeConfig:
     try:
-        settings = get_knowledge_source_settings()
-        username = settings.ORACLE_KNOWLEDGE_USERNAME
-        password = settings.ORACLE_KNOWLEDGE_PASSWORD
+        username = get_env("ORACLE_KNOWLEDGE_USERNAME", "")()
+        password = get_env("ORACLE_KNOWLEDGE_PASSWORD", "")()
         auth = httpx.BasicAuth(username, password)
 
         config = OracleKnowledgeConfig(

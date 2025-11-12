@@ -54,6 +54,9 @@ class GeneralSettings:
     """Application port."""
     PORT: int = field(default_factory=get_env("PORT", 8000))
     
+    """Enable serving web static files (admin, panel, help)."""
+    WEB_INCLUDED: bool = field(default_factory=get_env("WEB_INCLUDED", True))
+    
     """CORS allowed origins."""
     CORS_OVERRIDE_ALLOWED_ORIGINS: str = field(
         default_factory=get_env("CORS_OVERRIDE_ALLOWED_ORIGINS", "")
@@ -576,55 +579,6 @@ class VectorDatabaseSettings:
             self.PGVECTOR_POOL_SIZE = db_settings.POOL_SIZE
 
 
-### KNOWLEDGE SOURCE SETTINGS ###
-
-@dataclass
-class KnowledgeSourceSettings:
-    """Knowledge source configuration"""
-    # HubSpot configuration
-    HUBSPOT: str = field(default_factory=get_env("KNOWLEDGE_SOURCE_HUBSPOT", ""))
-    """HubSpot knowledge source token."""
-
-    # Fluid Topics configuration
-    FLUID_TOPICS_API_KEY: str = field(default_factory=get_env("FLUID_TOPICS_API_KEY", ""))
-    """Fluid Topics API key."""
-    FLUID_TOPICS_SEARCH_API_URL: str = field(default_factory=get_env("FLUID_TOPICS_SEARCH_API_URL", ""))
-    """Fluid Topics search API URL."""
-    FLUID_TOPICS_PDF_API_URL: str = field(default_factory=get_env("FLUID_TOPICS_PDF_API_URL", ""))
-    """Fluid Topics PDF API URL."""
-    FLUID_TOPICS_VIEWER_BASE_URL: str = field(default_factory=get_env("FLUID_TOPICS_VIEWER_BASE_URL", ""))
-    """Fluid Topics viewer base URL."""
-    
-    # Oracle Knowledge configuration
-    ORACLE_KNOWLEDGE_USERNAME: str = field(
-        default_factory=get_env("ORACLE_KNOWLEDGE_USERNAME", "")
-    )
-    """Oracle Knowledge username."""
-    ORACLE_KNOWLEDGE_PASSWORD: str = field(
-        default_factory=get_env("ORACLE_KNOWLEDGE_PASSWORD", "")
-    )
-    """Oracle Knowledge password."""
-    
-    # SharePoint configuration
-    SHAREPOINT_TENANT_ID: str = field(default_factory=get_env("SHAREPOINT_TENANT_ID", ""))
-    """SharePoint tenant ID."""
-    SHAREPOINT_CLIENT_ID: str = field(default_factory=get_env("SHAREPOINT_CLIENT_ID", ""))
-    """SharePoint client ID."""
-    SHAREPOINT_CLIENT_SECRET: str = field(default_factory=get_env("SHAREPOINT_CLIENT_SECRET", ""))
-    """SharePoint client secret."""
-    SHAREPOINT_CLIENT_CERT_THUMBPRINT: str = field(
-        default_factory=get_env("SHAREPOINT_CLIENT_CERT_THUMBPRINT", "")
-    )
-    """SharePoint client certificate thumbprint."""
-    SHAREPOINT_CLIENT_CERT_PRIVATE_KEY: str = field(
-        default_factory=get_env("SHAREPOINT_CLIENT_CERT_PRIVATE_KEY", "")
-    )
-    """SharePoint client certificate private key."""
-
-
-
-
-
 @dataclass
 class Settings:
     general: GeneralSettings = field(default_factory=GeneralSettings)
@@ -635,7 +589,6 @@ class Settings:
     log: LogSettings = field(default_factory=LogSettings)
     observability: ObservabilitySettings = field(default_factory=ObservabilitySettings)
     azure: AzureSettings = field(default_factory=AzureSettings)
-    knowledge_sources: KnowledgeSourceSettings = field(default_factory=KnowledgeSourceSettings)
 
     @classmethod
     def from_env(cls, dotenv_filename: str = ".env") -> Settings:
@@ -714,11 +667,6 @@ def get_vector_database_settings() -> VectorDatabaseSettings:
 @lru_cache(maxsize=1, typed=True)
 def get_scheduler_settings() -> SchedulerSettings:
     return get_settings().scheduler
-
-
-@lru_cache(maxsize=1, typed=True)
-def get_knowledge_source_settings() -> KnowledgeSourceSettings:
-    return get_settings().knowledge_sources
 
 
 def get_env_vars_with_prefix(prefix: str) -> dict[str, str]:
