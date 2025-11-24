@@ -59,7 +59,7 @@ jobs:
           yarn nx run magnet-docs:build
       
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: web/documentation/magnet/.vitepress/dist
 
