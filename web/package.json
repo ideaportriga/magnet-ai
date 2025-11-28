@@ -1,7 +1,7 @@
 {
   "name": "@magnet-monorepo/source",
-  "version": "0.0.0",
-  "license": "MIT",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
   "private": true,
   "scripts": {
     "dev": "nx run-many --target=dev --projects=magnet-panel,magnet-admin",

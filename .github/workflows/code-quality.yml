@@ -1,6 +1,8 @@
 name: Code Quality - Advanced Checks
 
 on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
 
 permissions:
@@ -25,7 +27,6 @@ jobs:
         uses: wagoid/commitlint-github-action@v6
         with:
           configFile: .commitlintrc.json
-        continue-on-error: true
 
   # Check for TODO/FIXME comments
   todo-check:

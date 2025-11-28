@@ -2,6 +2,7 @@
 name = "magnet-ai-api"
 version = "0.1.0"
 description = ""
+license = "Apache-2.0"
 authors = []
 readme = "README.md"
 package-mode = false

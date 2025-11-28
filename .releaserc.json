@@ -50,15 +50,33 @@
       }
     ],
     [
+      "@semantic-release/npm",
+      {
+        "npmPublish": false
+      }
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        "npmPublish": false,
+        "pkgRoot": "web"
+      }
+    ],
+    [
       "@semantic-release/exec",
       {
-        "prepareCmd": "echo 'Preparing release ${nextRelease.version}'"
+        "prepareCmd": "cd api && poetry version ${nextRelease.version} && cd .."
       }
     ],
     [
       "@semantic-release/git",
       {
-        "assets": ["CHANGELOG.md", "package.json"],
+        "assets": [
+          "CHANGELOG.md",
+          "package.json",
+          "web/package.json",
+          "api/pyproject.toml"
+        ],
         "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ],

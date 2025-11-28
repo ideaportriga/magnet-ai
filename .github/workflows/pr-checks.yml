@@ -269,23 +269,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Build API Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./api
-          file: ./api/Dockerfile
-          push: false
-          tags: magnet-ai-api:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      
-      - name: Build Web Docker image
+      - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: false
-          tags: magnet-ai-web:test
+          tags: magnet-ai:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
