@@ -1,0 +1,14 @@
+# Plugin System - .gitignore
+
+# Exclude external/client-specific plugins from public repository
+# These should be in separate private repositories
+
+# Exclude all plugin type directories and their contents
+src/plugins/external/*/
+# But keep the __init__.py files and README
+!src/plugins/external/*/__init__.py
+!src/plugins/external/README.md
+
+# Alternative: If you want to keep external plugins for development,
+# comment out the above lines and they will be included.
+# (Remember to exclude them before pushing to public GitHub!)

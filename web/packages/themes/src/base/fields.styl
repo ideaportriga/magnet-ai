@@ -1,0 +1,144 @@
+$fieldHeight = 34px
+
+.km-control, .km-picker
+  min-height: var(--field-height)
+  // background: var(--q-control-bg)
+  transition: background, border-color 300ms
+
+
+// PICKER
+.km-picker
+  cursor: pointer
+  &.km-field-error
+    border: 2px solid var(--q-status-rejected)
+
+// DROPDOWN
+.km-select
+  border-radius: 4px
+  overflow: hidden !important
+  &.km-open-popup
+    background: var(--q-control-active-bg) !important
+    border-color: var(--q-control-active-border) !important
+
+  // &.km-chips-input
+  .q-field__native
+    height: var(--field-height) !important
+    max-height: var(--field-max-height) !important
+    min-height: var(--field-min-height) !important;
+    gap: 4px !important
+    // padding: 4px 0px 4px 0px !important
+    .q-chip
+      margin:0px !important
+      max-width: 300px
+      .q-icon
+        margin-top: auto;
+        margin-bottom: auto;
+        margin-right: -0.2em;
+        line-height: 18px;
+
+  .q-field__control
+    height: var(--field-height) !important
+    max-height: var(--field-max-height) !important
+    min-height: var(--field-min-height) !important;
+    padding: 0px 8px 0px 8px !important
+
+    .q-field__native
+      min-height: var(--field-min-height) !important;
+      max-height: var(--field-max-height) !important
+      font-family: var(--font-default)
+      font-size: 14px
+      font-weight: 500
+      color: var(--q-secondary-text)
+
+    .q-field__marginal
+      min-height: var(--field-min-height) !important;
+      max-height: var(--field-max-height) !important
+      color: var(--q-icon)
+
+    .q-field__append
+      height: var(--field-height) !important
+      max-height: var(--field-max-height) !important
+      color: var(--q-seemless)
+
+
+
+// INPUT
+
+
+// All input (including readonly)
+.km-input
+  height: var(--field-height) !important
+
+  .q-field--dense
+    height: var(--field-height) !important
+  
+  .q-field__prefix
+    padding: 0px 0px 0px 0px !important;
+
+  .q-field__control
+    height: var(--field-height) !important
+    padding: 0px 6px 0px 8px !important;
+    border-radius: var(--field--border-radius) !important
+    transition: background, border 600ms
+    & .q-field__prepend
+      height: auto !important
+    & .q-field__append
+      height: auto !important
+    .q-field__native
+      padding-left: 6px
+      padding-right: 6px
+      //padding-top: 11px
+      font-family: var(--font-default)
+      line-height: 17px
+      font-size: 14px
+      font-weight: 400
+    &:hover::before
+      border-color: var(--q-control-border) !important
+      transition: background, border 600ms
+
+  &.q-textarea
+    .q-field__control
+      height: 100% !important
+      min-height: var(--field-min-height) !important;
+      max-height: var(--field-max-height) !important;
+      &-container
+        padding: 0;
+      .q-field__native
+        min-height: var(--field-initial-height) !important;
+        max-height: var(--field-max-height) !important;
+
+        padding-top: calc((var(--field-initial-height) - 17px) / 2);
+        padding-bottom: calc((var(--field-initial-height) - 17px) / 2);
+
+// Only editable
+.km-input:not(.q-field--readonly)
+
+  .q-field__control
+
+    & .q-field__prepend
+      padding: 0px
+      height: auto !important
+      max-height: auto !important
+      color: rgba(92, 92, 92, 0.5)
+
+    & .q-field__append
+      padding: 0px
+      height: auto !important
+      max-height: auto !important
+      color: rgba(92, 92, 92, 0.5)
+
+    &::before
+      border-color: var(--q-control-border) !important
+      transition: all 600ms
+      background: var(--q-control-bg)
+
+    &:hover::before
+      border-color: var(--q-control-hover-border) !important
+      background: var(--q-control-hover-bg)
+      transition: background, border 600ms
+
+  &.q-field--outlined.q-field--highlighted .q-field__control::before
+      border-color: var(--q-control-active-border)
+      transition: background, border 600ms
+      background: var(--q-control-active-bg) !important
+

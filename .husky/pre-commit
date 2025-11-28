@@ -1,0 +1,26 @@
+# Get the list of staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Check if there are any Python files in api/
+API_FILES=$(echo "$STAGED_FILES" | grep "^api/.*\.py$" || true)
+
+# Check if there are any JS/TS/Vue files in web/
+WEB_FILES=$(echo "$STAGED_FILES" | grep "^web/.*\.\(js\|ts\|vue\)$" || true)
+
+# Run ruff for API changes
+if [ -n "$API_FILES" ]; then
+  echo "🔍 Running lint for API..."
+  npm run lint:api || exit 1
+  # Re-add fixed files to staging
+  echo "$API_FILES" | xargs git add
+fi
+
+# Run eslint for Web changes (only on changed files to avoid blocking on existing issues)
+if [ -n "$WEB_FILES" ]; then
+  echo "🔍 Running lint for Web..."
+  npm run lint:web || exit 1
+  # Re-add fixed files to staging
+  echo "$WEB_FILES" | xargs git add
+fi
+
+echo "✅ Pre-commit checks passed!"

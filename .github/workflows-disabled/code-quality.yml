@@ -1,0 +1,250 @@
+name: Code Quality - Advanced Checks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  # Check commit messages for Conventional Commits compliance
+  commit-lint:
+    name: Commit Message Lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check commit messages
+        uses: wagoid/commitlint-github-action@v6
+        with:
+          configFile: .commitlintrc.json
+        continue-on-error: true
+
+  # Check for TODO/FIXME comments
+  todo-check:
+    name: TODO/FIXME Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Find TODOs and FIXMEs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            
+            try {
+              const todos = execSync('git grep -n -i "TODO\\|FIXME\\|XXX\\|HACK" -- "*.py" "*.ts" "*.tsx" "*.js" "*.jsx" "*.vue" || true').toString();
+              
+              if (todos.trim()) {
+                const lines = todos.trim().split('\n');
+                const count = lines.length;
+                
+                const comment = `## 📝 TODO/FIXME Found: ${count}\n\n` +
+                  `TODO/FIXME comments detected in code:\n\n` +
+                  '```\n' + lines.slice(0, 20).join('\n') + '\n```\n\n' +
+                  (count > 20 ? `... and ${count - 20} more entries\n\n` : '') +
+                  `💡 Consider creating issues for these tasks.`;
+                
+                github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: comment
+                });
+              }
+            } catch (error) {
+              core.info('No TODOs found or error occurred: ' + error.message);
+            }
+
+  # Code complexity check (Python)
+  complexity-check-python:
+    name: Python - Complexity Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install tools
+        run: |
+          pip install radon
+      
+      - name: Check cyclomatic complexity
+        working-directory: ./api
+        run: |
+          echo "## 🔍 Cyclomatic Complexity Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Files with high complexity (> 10):" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          radon cc src -s -a --total-average >> $GITHUB_STEP_SUMMARY || true
+        continue-on-error: true
+      
+      - name: Check maintainability index
+        working-directory: ./api
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Maintainability Index" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          radon mi src -s >> $GITHUB_STEP_SUMMARY || true
+        continue-on-error: true
+
+  # File size check
+  file-size-check:
+    name: File Size Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check for large files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            const fs = require('fs');
+            
+            const maxSize = 500; // KB
+            const files = execSync('find . -type f -name "*.py" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.vue" | grep -v node_modules | grep -v .venv | grep -v dist | grep -v build').toString().split('\n').filter(Boolean);
+            
+            const largeFiles = [];
+            
+            for (const file of files) {
+              try {
+                const stats = fs.statSync(file);
+                const sizeKB = stats.size / 1024;
+                
+                if (sizeKB > maxSize) {
+                  largeFiles.push({ file, size: sizeKB.toFixed(2) });
+                }
+              } catch (e) {
+                // Skip files that can't be read
+              }
+            }
+            
+            if (largeFiles.length > 0) {
+              const comment = `## ⚠️ Large Files Detected\n\n` +
+                `The following files exceed ${maxSize} KB:\n\n` +
+                largeFiles.map(f => `- \`${f.file}\` - ${f.size} KB`).join('\n') +
+                `\n\n💡 Consider splitting these files into smaller modules.`;
+              
+              core.info(comment);
+            } else {
+              core.info('No large files found.');
+            }
+
+  # Code duplication check
+  duplication-check:
+    name: Code Duplication Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install tools
+        run: pip install pylint
+      
+      - name: Check for code duplication (Python)
+        working-directory: ./api
+        run: |
+          echo "## 🔄 Code Duplication Report (Python)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          pylint --disable=all --enable=duplicate-code src/ >> $GITHUB_STEP_SUMMARY || true
+        continue-on-error: true
+
+  # Dependency review and analysis
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate
+          comment-summary-in-pr: always
+        continue-on-error: true
+
+  # Performance hints check
+  performance-hints:
+    name: Performance Hints
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Check for performance anti-patterns
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+            
+            const issues = [];
+            
+            // Python anti-patterns
+            try {
+              const pyLoops = execSync('git grep -n "for.*in.*range.*len" -- "*.py" || true').toString();
+              if (pyLoops.trim()) {
+                issues.push('🐌 Found `for i in range(len(x))` loops - use `enumerate()` instead');
+              }
+            } catch (e) {}
+            
+            try {
+              const pyAppend = execSync('git grep -n "\\.append.*for.*in" -- "*.py" || true').toString();
+              if (pyAppend.trim()) {
+                issues.push('🐌 Found loops with `.append()` - consider list comprehensions');
+              }
+            } catch (e) {}
+            
+            // JavaScript/TypeScript anti-patterns
+            try {
+              const jsForIn = execSync('git grep -n "for.*in.*Array\\|for.*in.*\\[" -- "*.ts" "*.tsx" "*.js" "*.jsx" || true').toString();
+              if (jsForIn.trim()) {
+                issues.push('🐌 Found `for...in` loops for arrays - use `for...of` or `.forEach()` instead');
+              }
+            } catch (e) {}
+            
+            if (issues.length > 0) {
+              core.info('## 💡 Performance Hints\n\n' + issues.join('\n'));
+            }
+
+  # Summary
+  quality-checks-summary:
+    name: Quality Checks Summary
+    runs-on: ubuntu-latest
+    needs: [commit-lint, todo-check, complexity-check-python, file-size-check, duplication-check, dependency-review, performance-hints]
+    if: always()
+    
+    steps:
+      - name: Create summary
+        run: |
+          echo "# 🎯 Code Quality Checks Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All advanced quality checks have been executed." >> $GITHUB_STEP_SUMMARY
+          echo "Review the individual job results for details." >> $GITHUB_STEP_SUMMARY

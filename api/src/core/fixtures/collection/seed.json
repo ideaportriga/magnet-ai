@@ -1,0 +1,28 @@
+[
+    {
+        "type": "",
+        "ai_model": "AZURE_AI_TEXT-EMBEDDING-3-SMALL",
+        "provider_system_name": "Documentation",
+        "source": {
+            "source_type": "Documentation"
+        },
+        "chunking": {
+            "strategy": "recursive_character_text_splitting",
+            "chunk_size": 12000,
+            "chunk_overlap": 2000,
+            "chunk_usage_method": "transformed_indexing_original_retrieval",
+            "transformation_method": "replace",
+            "transformation_enabled": false,
+            "transformation_prompt_template": ""
+        },
+        "indexing": {
+            "fulltext_search_supported": false,
+            "semantic_search_supported": true
+        },
+        "job_id": null,
+        "name": "Magnet AI Help",
+        "description": "",
+        "system_name": "MAGNET_AI_HELP",
+        "category": ""
+    }
+]

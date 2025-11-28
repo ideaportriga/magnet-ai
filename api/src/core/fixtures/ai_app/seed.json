@@ -1,0 +1,21 @@
+[
+  {
+
+    "name": "Demo AI App - Magnet AI Help",
+    "description": "",
+    "system_name": "DEMO_AI_APP_-_MAGNET_AI_HELP",
+    "category": null,
+    "settings": null,
+    "tabs": [
+      {
+        "name": "Agent",
+        "config": {
+          "agent": "DEMO_AGENT_-_MAGNET_AI_HELP"
+        },
+        "tab_type": "Agent",
+        "description": "",
+        "system_name": "AGENT"
+      }
+    ]
+  }
+]

@@ -1,0 +1,249 @@
+@import '../../base/functions.styl'
+// @import '../../base/redwood.styl'
+$colors = {
+  primary:  rgb(49, 83, 87)
+  primary-light: #CFE9FE
+  primary-bg: #F1EFED
+  secondary:  #F1EFED
+  secondary-bg:  #F0F6F5
+
+  light:#FBF9F8
+  
+  black: #312E2B
+  //placeholder: #FFFFFF
+  control-active-border: var(--q-primary-light)
+  grey:#424242
+  light-grey: #424242
+  //buttons
+  btn-primary-hover-bg: rgba(49, 83, 87, 0.9) 
+  btn-primary-active-bg: rgb(43, 73, 77)
+  //control
+  control-bg: #fff
+  control-active-bg: #fff
+  control-border: #16151380
+  
+  success:#D6E5E5
+  btn-flat-icon: var(--q-primary)
+  btn-flat-text: var(--q-primary)
+
+  success-chip: rgba(80, 130, 35, 1)
+  neutral-chip: rgba(122, 115, 110, 1)
+  user-grey: #999999
+  btn-primary-bg: var(--q-primary)
+
+  tooltip-bg:  #fff
+  tooltip-text: #161513
+  user-input-bg:  var(--q-secondary)
+  picker-list-bg: #F0F6F5
+  header-bg: var(--q-black)
+  message-bg: var(--q-white)
+  footer-bg: var(--secondary)
+  score-relevant: var(--q-primary)
+  score-relevant-text: #fff
+  panel-main-bg: var(--q-light)
+  btn-flat-hover-icon:rgb(49, 83, 87)
+
+  system-message-bg: #D6E5E5
+
+
+  //assitant
+
+
+  assistant-bg: #E8F1F0
+  assistant-chat-bg: #F5F4F2
+  assistant-brown: #554828
+
+  agent-message: #F1EFED
+  agent-user-message:#D6E5E5
+}
+
+
+
+
+
+
+.select-option
+    border-top: 1px solid #EAEAF6
+    height: 37px
+.select-options
+  transform: translateY(10px)
+
+
+[data-theme=siebel]
+  font-family: "Oracle Sans" !important
+  --button-sm: 44px
+  --button-xs: 36px
+  --font-default: "Oracle Sans" !important
+  --chip-radius: 6px;
+  --field--border-radius: 4px
+  --checkbox-size: 30px
+  --prompt-input-height: 44px
+  --input-height-default: 42px
+  --field-height: 44px;
+  --prompt-input-icon-size: 18px
+
+  generateColorClasses($colors)
+  #km-app
+    :before,:after
+      font-weight: unset !important
+      font-family: inherit !important
+      font-size: inherit !important
+  .km-input-reversed
+    .q-field__control
+      flex-direction: row-reverse !important
+  .auth-container
+    --q-primary:#433F3B
+  .km-tooltip
+    box-shadow: 0px 1px 4px 0px #0000001F !important;
+
+    
+  .position-chip-normal:hover
+    background: transparent !important
+  .km-button
+    font-size: 13.75px;
+    font-weight: 600;
+    line-height: 16px;
+    padding-left: 16px;
+    padding-right: 16px;
+    
+    &-flat
+      padding: 0 6px;
+
+
+
+  #km-app
+    .header-select
+      & > .km-select
+        &.km-open-popup
+          background: transparent !important
+        .q-field__control 
+          .q-field__append
+            color: var(--q-secondary) !important
+          .q-field__native
+            color: var(--q-secondary) !important
+  .km-heading-1
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 28px;
+
+
+  .km-heading-2
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 20px;
+    text-align: center;
+  .q-tab-panels
+    background: var(--q-light) !important;
+  .q-field--dense .q-field__label
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 20px;
+  .km-heading-3 
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 20px;
+  .km-title
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 20px;
+    text-align: left;
+  .km-field
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 20px;
+    text-align: left;
+
+  .km-paragraph
+    font-size: 16px
+    font-weight: 400;
+    line-height: 20px;
+    text-align: left;
+  .km-description
+    font-size: 13.75px;
+    font-weight: 400;
+    line-height: 16px;
+    text-align: left;
+
+  .km-link-title
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 20px;
+    text-align: left;
+    color: var(--q-primary);
+  .km-chip-text //new
+    font-family: "Open Sans Condensed";
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: left;
+  .km-input-label
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: left;
+    color: #161513B2;
+  .km-input
+    .q-field__prepend 
+      position relative
+    .q-field__control
+      .q-field__native
+        font-size: 16px;
+        font-weight: 400;
+        line-height: 20px;
+        text-align: left;
+  .q-field--outlined.q-field--readonly .q-field__control
+    &:before
+      border-style: solid !important
+      background: transparent
+      border: 0
+    textarea
+      padding-left: 0 !important;
+  .redwood-strip
+    object-fit: cover
+    width: 100%
+    height: 10px
+  .km-button-sm-text
+    font-size: 13.75px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: left;
+  .q-tabs
+    background: rgba(214, 229, 229, 1);
+    .q-tabs__content
+      //gap: 35px;
+    .q-tabs__content.km-tabs
+      .q-tab
+        .q-focus-helper
+          // opacity: 1
+
+        .q-tab__content
+          .q-tab__label
+            font-size: 16px
+            font-weight: 600
+            color: rgba(49, 83, 87, 1)
+      
+    .q-focus-helper
+      &:before,
+      &:after
+        // border-top-left-radius: 6px !important;
+        // border-top-right-radius: 6px !important;
+        // overflow: hidden
+    .q-tab
+        background: transparent !important;
+        min-height: 48px !important;
+        &--active
+          border-bottom: rgba(49, 83, 87, 1) 2px solid
+
+        &:not(&--active)
+          border-bottom: transparent 2px solid
+
+
+  .km-label
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 20px;
+
+  .q-item__label.km-label
+    line-height: 30px !important;
+  .cm-editor
+    text-align: left;

@@ -1,0 +1,37 @@
+{
+  "_id": {
+    "$oid": "68946d5760be0437775b396b"
+  },
+  "feature_type": "agent",
+  "feature_system_name": "DEMO_SALESFORCE_AGENT",
+  "feature_name": "Demo Salesforce Agent",
+  "feature_variant": "variant_4",
+  "trace_id": "b8afdb4e5928fa031a01a2d7",
+  "channel": "production",
+  "source": "Runtime AI App",
+  "user_id": "2a533c48-c1ca-4088-b413-a32e8a39a057",
+  "consumer_name": "DEMO_SALESFORCE_AGENT",
+  "consumer_type": "agent",
+  "status": "success",
+  "start_time": {
+    "$date": "2025-08-07T09:12:14.885Z"
+  },
+  "end_time": {
+    "$date": "2025-08-07T09:12:19.091Z"
+  },
+  "latency": 4206.187,
+  "conversation_id": "68946d5a60be0437775b396e",
+  "extra_data": {
+    "status": "In Progress"
+  },
+  "conversation_data": {
+    "avg_tool_call_latency": 3216.5,
+    "topics": [
+      "SALESFORCE_CONTACTS_AND_ORDERS"
+    ],
+    "dislikes": 0,
+    "likes": 0,
+    "messages_count": 8
+  },
+  "cost": 0.016962500000000002
+}

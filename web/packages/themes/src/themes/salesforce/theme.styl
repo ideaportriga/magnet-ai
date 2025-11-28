@@ -1,0 +1,149 @@
+@import '../../base/functions.styl'
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+$colors = {
+  primary: #0070D2
+  light: #FFFFFF
+  primary-bg: #EAF5FE
+
+  btn-primary-bg: var(--q-primary)
+  user-input-bg: #CFE9FE
+  btn-primary-hover-bg: var(--q-primary)
+  btn-primary-active-bg:var(--q-primary)
+  btn-flat-hover-bg: #f3f3f3
+  header-bg: var(--q-primary)
+  control-bg:#FFFFFF
+  control-border: #DDDBDA
+  success:#ffffff
+  message-bg: #FAFAF9
+  message-border:#F3F2F2
+  chip-bg: #ECEBEA
+  success-chip:#04844B
+  black: #080707
+  control-bg: #fff
+  control-active-bg: #fff
+  control-hover-bg: #fff
+  footer-bg: #FAFAF9
+  user-grey: #C9C7C5
+  score-relevant: transparent
+  score-relevant-text: var(--q-black)
+  panel-main-bg: var(--q-light)
+  btn-flat-hover-icon:  #00417a
+
+  system-message-bg: rgba(0, 112, 210, 0.2)
+
+
+  agent-message: #F1EFED
+  agent-user-message: #D8EDFF
+}
+
+[data-theme=salesforce]
+  --button-sm: 36px
+  --button-xs: 30px
+  --font-default: 'Noto Sans' !important; 
+  --prompt-input-height: 44px
+  --checkbox-size: 30px
+  --input-height-default: 34px
+  --field-height: 32px;
+  font-family: 'Noto Sans', serif;
+  .km-tab-text
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 20px;
+      text-align: left;
+
+
+  generateColorClasses($colors)
+  #km-app
+    .header-select
+      --q-control-bg: transparent
+      --q-control-active-bg: transparent
+      --q-control-hover-bg: transparent
+      & > .km-select
+        border: 1px solid var(--q-light) !important
+
+        .q-field__control 
+          .q-field__append
+            color: var(--q-light) !important
+          .q-field__native
+            color: var(--q-light) !important
+
+  .km-input
+    .q-field__prepend 
+      position relative
+    .q-field__control
+      .q-field__native
+        font-size: 13px;
+        font-weight: 400;
+  .q-file
+      --field-height: 40px;
+  .km-button 
+    &.km-button-flat:not(.km-button-icon)
+      background-color: transparent
+      color: var(--q-primary)
+      border: 1px solid var(--q-control-border)
+      border-radius: 4px
+    .km-button-text
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 20px;
+      text-align: center;
+  .km-small-chip
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: left;
+
+  .km-heading-3
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 20px;
+  .km-paragraph
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+  .km-title
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 20px;
+  .km-chip-text
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 18px;
+  .km-input-label
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 18px;
+  .q-field--auto-height.q-field--dense .q-field__control
+    min-height: none;
+  .q-tabs
+    background: var(--q-user-input-bg);
+    .q-tabs__content.km-tabs
+      .q-tab
+        .q-focus-helper
+          // opacity: 1
+
+        .q-tab__content
+          .q-tab__label
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 20px;
+            text-align: left;
+    .q-tab
+        background: transparent !important;
+        min-height: 48px !important;
+        text-align: left;
+        .q-tab__content  
+          width: 100%;
+          text-align: left;
+          align-items: flex-start;
+        &--active
+          border-bottom: var(--q-primary) 2px solid
+          .km-tab-text
+            color var(--q-primary)
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 20px;
+            text-align: left;
+
+        &:not(&--active)
+          border-bottom: transparent 2px solid

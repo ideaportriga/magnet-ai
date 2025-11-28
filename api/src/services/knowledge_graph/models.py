@@ -1,0 +1,97 @@
+from enum import StrEnum
+from typing import Any, Optional, TypedDict
+
+from pydantic import BaseModel, Field
+
+
+class SourceType(StrEnum):
+    """Source types for knowledge graph documents."""
+
+    UPLOAD = "upload"
+    SHAREPOINT = "sharepoint"
+    SHAREPOINT_PAGES = "sharepoint_pages"
+    CONFLUENCE = "confluence"
+    FILE = "file"
+    SALESFORCE = "salesforce"
+    RIGHTNOW = "rightnow"
+    ORACLE_KNOWLEDGE = "oracle_knowledge"
+    HUBSPOT = "hubspot"
+    FLUID_TOPICS = "fluid_topics"
+
+
+class ContentReaderName(StrEnum):
+    """Content reader types for knowledge graph ingestion."""
+
+    PDF = "pdf"
+    PLAIN_TEXT = "plain_text"
+
+
+class ChunkerStrategy(StrEnum):
+    """Chunker strategies for knowledge graph ingestion."""
+
+    LLM = "llm"
+    RECURSIVE = "recursive_character_text_splitting"
+
+
+class DocumentMetadata(BaseModel):
+    """Document-level metadata extracted during chunking."""
+
+    title: Optional[str] = Field(None, description="Document title")
+    summary: Optional[str] = Field(None, description="Document summary")
+    toc: Optional[str] = Field(None, description="Table of contents in markdown format")
+
+
+class ChunkerResult(BaseModel):
+    """Result returned by chunker implementations."""
+
+    chunks: list[dict[str, Any]] = Field(..., description="List of processed chunks")
+    document_metadata: Optional[DocumentMetadata] = Field(
+        None, description="Document-level metadata (title, summary, TOC)"
+    )
+
+
+class ContentConfig(BaseModel):
+    """Configuration for a specific content type."""
+
+    name: str = Field(..., description="Content type name (e.g., PDF or Plain Text)")
+    enabled: bool = Field(True, description="Whether this content type is enabled")
+    glob_pattern: str = Field(
+        ..., description="Glob pattern to match files (e.g., *.pdf)"
+    )
+    source_types: list[str] = Field(
+        default_factory=list,
+        description="List of source types to match. If specified, both glob_pattern AND source_types must match (AND logic).",
+    )
+    reader: dict[str, Any] = Field(
+        default_factory=lambda: {"name": ContentReaderName.PLAIN_TEXT, "options": {}},
+        description="Reader configuration",
+    )
+    chunker: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "strategy": ChunkerStrategy.RECURSIVE,
+            "options": {
+                # LLM segmenting settings (upstream splitting before LLM-based chunking)
+                "llm_batch_size": 18000,
+                "llm_batch_overlap": 0.1,
+                "llm_last_segment_increase": 0.0,
+                # Recursive splitter settings (direct deterministic chunking)
+                "recursive_chunk_size": 18000,
+                "recursive_chunk_overlap": 0.1,
+                # Chunk-level constraints (applies to all strategies)
+                "chunk_max_size": 18000,
+                "splitters": ["\n\n", "\n", " ", ""],
+                # Optional prompt template for LLM-based chunking
+                "prompt_template_system_name": "",
+                # Optional pattern for chunk title generation
+                "chunk_title_pattern": "",
+            },
+        },
+        description="Chunker configuration with strategy and options",
+    )
+
+
+class LoadedContent(TypedDict):
+    """Result of loading content from raw bytes."""
+
+    text: str
+    metadata: dict[str, Any]

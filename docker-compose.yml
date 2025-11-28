@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: magnet-postgres
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${DB_NAME:-magnet_dev}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
+      - POSTGRES_HOST_AUTH_METHOD=${POSTGRES_HOST_AUTH_METHOD:-trust}
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Initialize pgvector extension
+      - ./api/scripts/sql/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-magnet_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - magnet-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Set to "false" to skip docs build for faster development builds
+        # Usage: docker-compose build --build-arg BUILD_DOCS=false
+        BUILD_DOCS: ${BUILD_DOCS:-true}
+        WEB_BASE_PATH: ${WEB_BASE_PATH:-/}
+    container_name: magnet-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - ENV=${ENV:-development}
+      # Database configuration (separate parameters)
+      - DB_TYPE=postgresql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-magnet_dev}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      # PGVector configuration (same as main DB)
+      - PGVECTOR_HOST=postgres
+      - PGVECTOR_PORT=5432
+      - PGVECTOR_DATABASE=${DB_NAME:-magnet_dev}
+      - PGVECTOR_USER=${DB_USER:-postgres}
+      - PGVECTOR_PASSWORD=${DB_PASSWORD:-password}
+      # Disable CONNECTION_STRING from .env (we use separate params)
+      - PGVECTOR_CONNECTION_STRING=
+      - DATABASE_URL=
+      # Runtime configuration
+      - RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}
+      - RUN_FIXTURES=${RUN_FIXTURES:-false}
+      - RESET_DB=${RESET_DB:-false}
+      - PORT=5000
+      # Web configuration
+      - WEB_INCLUDED=true
+      - CORS_OVERRIDE_ALLOWED_ORIGINS=${CORS_OVERRIDE_ALLOWED_ORIGINS:-http://localhost:5000}
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
+      - WEB_AUTH_PROVIDER_TITLE=${WEB_AUTH_PROVIDER_TITLE:-Microsoft}
+      - WEB_AUTH_POPUP_WIDTH=${WEB_AUTH_POPUP_WIDTH:-600}
+      - WEB_AUTH_POPUP_HEIGHT=${WEB_AUTH_POPUP_HEIGHT:-400}
+    ports:
+      - "${PORT:-5000}:5000"
+    volumes:
+      - ./api/files:/app/files
+      # Mount migrations directory for persistence
+      - ./api/src/core/db/migrations:/app/src/core/db/migrations
+      # Copy fixtures management script
+      - ./api/manage_fixtures.py:/app/manage_fixtures.py:ro
+      # Mount static files for offline documentation
+      - ./api/static:/app/static:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - magnet-network
+
+# Named volumes
+volumes:
+  postgres_data:
+    driver: local
+
+# Networks
+networks:
+  magnet-network:
+    driver: bridge

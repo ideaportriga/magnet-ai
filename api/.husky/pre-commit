@@ -1,0 +1,11 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" = "main" ]; then
+  poetry run ruff check .
+  if [ $? -ne 0 ]; then
+    echo "Ruff check failed. Commit aborted."
+    exit 1
+  fi
+fi
