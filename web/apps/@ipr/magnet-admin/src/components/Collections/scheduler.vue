@@ -247,7 +247,7 @@ export default {
       }
     },
     async openDetails(row) {
-      await this.$router.push(`/observability-traces/${row.id}`)
+      window.open(this.$router.resolve({ path: `/observability-traces/${row.id}` }).href, '_blank')
     },
     openJob() {
       if (!this.jobId) return

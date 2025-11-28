@@ -1,9 +1,14 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-const base = process.env.HELP_BASE_URL ? (process.env.HELP_BASE_URL.endsWith('/') ? process.env.HELP_BASE_URL : `${process.env.HELP_BASE_URL}/`) : '/'
+const basePath = process.env.WEB_BASE_PATH || "/"
+const helpPath = process.env.WEB_HELP_PATH || ""
+
+const base = `${basePath}${helpPath}`
+
 
 //  https:vitepress.dev/reference/site-config
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: "Magnet AI",
   description: "Magnet AI",
   head: [
@@ -148,7 +153,8 @@ export default defineConfig({
                   items: [
                     { text: 'Overview', link: '/docs/en/admin/connect/models/overview' },
                     { text: 'Adding Models', link: '/docs/en/admin/connect/models/adding-models' },
-                    { text: 'Model pricing', link: '/docs/en/admin/connect/models/model-pricing' },
+                    { text: 'Model Providers', link: '/docs/en/admin/connect/models/model-providers' },
+                    { text: 'Model Configuration', link: '/docs/en/admin/connect/models/model-configuration' },
                   ]
                 },
                 {
@@ -204,61 +210,71 @@ export default defineConfig({
                   collapsed: true,
                   items: [
                     { text: 'Overview', link: '/docs/en/admin/configure/agents/overview' },
-                    { text: 'Topics and Actions', link: '/docs/en/admin/configure/agents/topics-actions' },
-                    { text: 'Configuration', link: '/docs/en/admin/configure/agents/configuration' },
+                    { text: 'Topics and Actions Overview', link: '/docs/en/admin/configure/agents/topics-actions' },
+                    { text: 'Configuring Topics and Actions', link: '/docs/en/admin/configure/agents/configuration-topics' },
+                    { text: 'Configuring Channels', link: '/docs/en/admin/configure/agents/configuration-channels' },
+                    { text: 'Other Settings', link: '/docs/en/admin/configure/agents/configuration-other' },
                   ]
                 }
               ]
             }
-          ]
+          ],
+          '/docs/en/developers/': [
+            {
+              text: 'General',
+              items: [
+                { text: 'Overview', link: '/docs/en/developers/overview' },
+              ]
+            },
+            {
+              text: 'Development Setup',
+              items: [
+                { text: 'Getting Started', link: '/docs/en/developers/setup/getting-started' },
+                { text: 'Local Development', link: '/docs/en/developers/setup/local-development' },
+                { text: 'Testing', link: '/docs/en/developers/setup/testing' },
+                { text: 'Deployment', link: '/docs/en/developers/setup/deployment' },
+              ]
+            },
+
+            {
+              text: 'Guides',
+              items: [
+                { text: 'Git Workflow', link: '/docs/en/developers/guides/git-workflow' },
+                { text: 'Logging', link: '/docs/en/developers/guides/logging' },
+                { text: 'Security', link: '/docs/en/developers/guides/security' },
+                { text: 'API Structure', link: '/docs/en/developers/guides/api-structure' },
+                { text: 'Plugins Guide', link: '/docs/en/developers/guides/plugins' },
+              ]
+            },
+            {
+              text: 'Architecture',
+              items: [
+                { text: 'System Architecture', link: '/docs/en/developers/architecture/system-architecture' },
+                { text: 'Backend Architecture', link: '/docs/en/developers/architecture/backend' },
+                { text: 'Frontend Architecture', link: '/docs/en/developers/architecture/frontend' },
+                { text: 'Database Schema', link: '/docs/en/developers/architecture/database' },
+              ]
+            },
+            {
+              text: 'API Reference',
+              items: [
+                { text: 'REST API', link: '/docs/en/developers/api/rest-api' },
+                { text: 'Authentication', link: '/docs/en/developers/api/authentication' },
+                { text: 'API Endpoints', link: '/docs/en/developers/api/endpoints' },
+              ]
+            },
+            {
+              text: 'Plugin Development',
+              items: [
+                { text: 'Plugin System', link: '/docs/en/developers/plugins/plugin-system' },
+                { text: 'Creating Plugins', link: '/docs/en/developers/plugins/creating-plugins' },
+                { text: 'Plugin API', link: '/docs/en/developers/plugins/plugin-api' },
+                { text: 'Plugin Examples', link: '/docs/en/developers/plugins/examples' },
+              ]
+            },
+          ],
         },
-        '/docs/en/developers/': [
-          {
-            text: 'Developer Guide',
-            items: [
-              { text: 'Overview', link: '/docs/en/developers/overview' },
-              {
-                text: 'Architecture',
-                collapsed: true,
-                items: [
-                  { text: 'System Architecture', link: '/docs/en/developers/architecture/system-architecture' },
-                  { text: 'Backend Architecture', link: '/docs/en/developers/architecture/backend' },
-                  { text: 'Frontend Architecture', link: '/docs/en/developers/architecture/frontend' },
-                  { text: 'Database Schema', link: '/docs/en/developers/architecture/database' },
-                ]
-              },
-              {
-                text: 'API Reference',
-                collapsed: true,
-                items: [
-                  { text: 'REST API', link: '/docs/en/developers/api/rest-api' },
-                  { text: 'Authentication', link: '/docs/en/developers/api/authentication' },
-                  { text: 'API Endpoints', link: '/docs/en/developers/api/endpoints' },
-                ]
-              },
-              {
-                text: 'Plugin Development',
-                collapsed: true,
-                items: [
-                  { text: 'Plugin System', link: '/docs/en/developers/plugins/plugin-system' },
-                  { text: 'Creating Plugins', link: '/docs/en/developers/plugins/creating-plugins' },
-                  { text: 'Plugin API', link: '/docs/en/developers/plugins/plugin-api' },
-                  { text: 'Plugin Examples', link: '/docs/en/developers/plugins/examples' },
-                ]
-              },
-              {
-                text: 'Development Setup',
-                collapsed: true,
-                items: [
-                  { text: 'Getting Started', link: '/docs/en/developers/setup/getting-started' },
-                  { text: 'Local Development', link: '/docs/en/developers/setup/local-development' },
-                  { text: 'Testing', link: '/docs/en/developers/setup/testing' },
-                  { text: 'Deployment', link: '/docs/en/developers/setup/deployment' },
-                ]
-              },
-            ]
-          }
-        ],
+
         socialLinks: [
           { icon: 'github', link: 'https:github.com/vuejs/vitepress' }
         ]
@@ -440,4 +456,4 @@ export default defineConfig({
     //   }
     // }
   }
-})
+}))

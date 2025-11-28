@@ -10,7 +10,7 @@
 ### Install
 
 Once installed, from the project root directory run `poetry install`.
-It will install `ai-bridge` project and its dependencies.
+It will install `magnet-ai` project and its dependencies.
 
 ### Virtual environment
 
@@ -26,7 +26,7 @@ source .venv/bin/activate  # Linux
 
 ### Executing commands
 
-If virtual environment is activated - just execute cmmand/script, for example:
+If virtual environment is activated - just execute command/script, for example:
 ```
 python some_script.py
 uvicorn app:app
@@ -95,7 +95,7 @@ TBD
 Run the Ruff linter over the project:
 
 ```
-run check
+ruff check
 ```
 
 with automatic issue resolving:

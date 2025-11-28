@@ -18,6 +18,6 @@ Configuring an Agent includes 8 major steps:
 
 8. Preview your Agent and save it.
 
-[Read more](../../../en/admin/configure/agents/configuration.md) about configuring an Agent.
+[Read more](../../../en/admin/configure/agents/configuration-topics.md) about configuring an Agent.
 
 ![](../../images/2025-05-23-16-15-16-image.png)

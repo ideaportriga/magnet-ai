@@ -17,62 +17,72 @@ Magnet AI users can rapidly create AI-powered features, even without Python skil
 
 ### Prerequisites
 
-- Python 3.11+
-- Node.js 20+
-- PostgreSQL 16+ with pgvector extension
-- Docker & Docker Compose (for containerized deployment)
+- **Node.js** (v18+)
+- **Python** (v3.12+)
+- **Docker** & **Docker Compose** (for containerized database)
+- **Poetry** (Python dependency manager)
 
-### Quick Start with Docker
+### 1. Setup
 
-```bash
-# First time setup (creates DB schema + loads fixtures)
-./magnet.sh first-run
-
-# Normal startup
-./magnet.sh start
-
-# View logs
-./magnet.sh logs
-```
-
-### Local Development Setup
-
-**Backend:**
+Run the setup script to install all dependencies (Python API, Web Frontend, and tooling).
 
 ```bash
-cd api
-poetry install
-poetry shell
-
-# Start database
-make docker-up
-
-# Run migrations
-make db-upgrade
-
-# Load sample data
-make fixtures-load
-
-# Start API server
-poetry run python run.py
+# Installs root dependencies, API dependencies (poetry), and Web dependencies (npm)
+npm install
+npm run setup
 ```
 
-**Frontend:**
+### 2. Configuration
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` and configure the necessary variables.
+   - For local development with Docker, the defaults usually work.
+
+### 3. Running the Application
+
+#### Option A: Local Development (Recommended)
+
+This runs the API and Web frontend locally, but uses Docker for the database (Postgres + pgvector).
+
+1. **Start the Database**:
+   ```bash
+   npm run docker:up
+   ```
+   *Wait for "PostgreSQL is ready!" message.*
+
+2. **Run the App**:
+   ```bash
+   npm run dev
+   ```
+   *This starts both the API (port 8000) and Web (port 3000).*
+
+#### Option B: API Only
 
 ```bash
-cd web
-corepack enable
-yarn install
-
-# Start development servers
-yarn nx dev magnet-admin
-# or
-yarn nx run-many --target=dev --projects=magnet-admin,magnet-panel
+npm run dev:api
 ```
 
-See detailed setup instructions in:
-- [API README](api/README.md)
-- [Web README](web/README.md)
+#### Option C: Web Only
+
+```bash
+npm run dev:web
+```
+
+### 4. Database Management
+
+- **Create Migration**: `npm run db:migrate -- -m "message"`
+- **Apply Migrations**: `npm run db:upgrade`
+- **Reset Database**: `npm run db:reset` (Warning: Deletes data!)
+
+### 5. Troubleshooting
+
+- **Port Conflicts**: Ensure ports 5432 (Postgres), 8000 (API), and 3000 (Web) are free.
+- **Windows**: Use PowerShell or Git Bash. If using CMD, ensure `npm` is in your PATH.
+
 
 ## 💻 Development
 

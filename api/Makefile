@@ -1,3 +1,8 @@
+# DEPRECATION NOTICE:
+# This Makefile is deprecated and will be removed in future versions.
+# Please use the root `package.json` scripts instead.
+# See README.md for details.
+
 .PHONY: run help docker-up docker-down docker-restart docker-logs docker-status docker-clean db-init db-migrate db-upgrade db-downgrade db-current db-history db-stamp db-merge db-reset db-create db-drop db-status db-docker-status fixtures-load fixtures-list fixtures-load-entity migration-check migration-dry-run migration-run migration-collection migration-collection-dry download-static
 
 # PostgreSQL connection parameters from .env

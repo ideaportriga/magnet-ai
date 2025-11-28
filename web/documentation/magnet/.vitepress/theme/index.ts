@@ -2,6 +2,7 @@
 import { h } from 'vue'
 import type { Theme } from 'vitepress'
 import DefaultTheme from 'vitepress/theme'
+import Mermaid from 'vitepress-plugin-mermaid/Mermaid.vue'
 import './style.css'
 
 export default {
@@ -12,6 +13,6 @@ export default {
     })
   },
   enhanceApp({ app, router, siteData }) {
-    // ...
+    app.component('Mermaid', Mermaid)
   },
 } satisfies Theme

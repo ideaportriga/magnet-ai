@@ -1,7 +1,7 @@
 import time
 import traceback
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from logging import getLogger
 from typing import Any, Sequence
 
@@ -64,49 +64,45 @@ def _to_datetime(dt: Any) -> datetime | None:
     if dt is None:
         return None
     if isinstance(dt, datetime):
-        return dt
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    if isinstance(dt, str):
+        try:
+            dt_obj = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+            return dt_obj if dt_obj.tzinfo else dt_obj.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
     # Handle advanced_alchemy DateTimeUTC type
     if hasattr(dt, "replace") and hasattr(dt, "year"):
-        return dt.replace(tzinfo=None) if hasattr(dt, "tzinfo") and dt.tzinfo else dt
+        return dt if getattr(dt, "tzinfo", None) else dt.replace(tzinfo=timezone.utc)
     return dt
 
 
 def _safe_min_datetime(dt1: Any, dt2: datetime | None) -> datetime | None:
     """Safely compare two datetime objects."""
-    if dt1 is None:
-        return dt2
-    if dt2 is None:
-        return _to_datetime(dt1)
     dt1_converted = _to_datetime(dt1)
+    dt2_converted = _to_datetime(dt2)
+
     if dt1_converted is None:
-        return dt2
-    return min(dt1_converted, dt2)
+        return dt2_converted
+    if dt2_converted is None:
+        return dt1_converted
+    return min(dt1_converted, dt2_converted)
 
 
 def _safe_max_datetime(dt1: Any, dt2: datetime | None) -> datetime | None:
     """Safely compare two datetime objects."""
-    if dt1 is None:
-        return dt2
-    if dt2 is None:
-        return _to_datetime(dt1)
     dt1_converted = _to_datetime(dt1)
+    dt2_converted = _to_datetime(dt2)
+
     if dt1_converted is None:
-        return dt2
-    return max(dt1_converted, dt2)
+        return dt2_converted
+    if dt2_converted is None:
+        return dt1_converted
+    return max(dt1_converted, dt2_converted)
 
 
 def _safe_max_span_time(span_time: Any) -> datetime | None:
     """Safely extract datetime from span data."""
-    if span_time is None:
-        return None
-    if isinstance(span_time, datetime):
-        return span_time
-    # Convert from ISO string or other formats
-    if isinstance(span_time, str):
-        try:
-            return datetime.fromisoformat(span_time.replace("Z", "+00:00"))
-        except Exception:
-            return None
     return _to_datetime(span_time)
 
 
@@ -576,7 +572,39 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
         if existing_metric:
             # Update existing metric
             update_values = {}
+
+            # Handle start_time and end_time specifically to preserve min/max
+            patch_start_time = patch.get("start_time")
+            patch_end_time = patch.get("end_time")
+
+            if patch_start_time:
+                logger.info(
+                    f"Sync updating start_time for metric {metric_id}. Existing: {existing_metric.start_time} ({type(existing_metric.start_time)}), New: {patch_start_time} ({type(patch_start_time)})"
+                )
+                update_values["start_time"] = _safe_min_datetime(
+                    existing_metric.start_time, patch_start_time
+                )
+                logger.info(f"Result start_time: {update_values['start_time']}")
+
+            if patch_end_time:
+                update_values["end_time"] = _safe_max_datetime(
+                    existing_metric.end_time, patch_end_time
+                )
+
+            # Recalculate latency if we have times
+            current_start = (
+                update_values.get("start_time") or existing_metric.start_time
+            )
+            current_end = update_values.get("end_time") or existing_metric.end_time
+
+            if current_start and current_end:
+                update_values["latency"] = get_duration(
+                    _to_datetime(current_start), _to_datetime(current_end)
+                )
+
             for key, value in patch.items():
+                if key in ["start_time", "end_time", "latency"]:
+                    continue
                 if hasattr(Metric, key):
                     update_values[key] = value
 

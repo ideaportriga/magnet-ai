@@ -1,0 +1,184 @@
+"""
+Pydantic schemas for Knowledge Graph domain.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from pydantic import BaseModel, Field
+
+
+class KnowledgeGraphExternalSchema(BaseModel):
+    """Item model for knowledge graph list endpoint."""
+
+    id: str
+    name: str
+    system_name: Optional[str]
+    description: Optional[str]
+    documents_count: int = 0
+    chunks_count: int = 0
+    created_at: Optional[str]
+    updated_at: Optional[str]
+    settings: Optional[dict[str, Any]] = None
+
+
+class KnowledgeGraphCreateRequest(BaseModel):
+    """Request model for creating a knowledge graph."""
+
+    name: str = Field(..., description="Display name of the knowledge graph")
+    system_name: Optional[str] = Field(
+        None, description="Optional system name; derived from name if omitted"
+    )
+    description: Optional[str] = Field(None, description="Optional description")
+
+
+class KnowledgeGraphCreateResponse(BaseModel):
+    """Response model for create_graph route."""
+
+    id: str
+
+
+class KnowledgeGraphUpdateRequest(BaseModel):
+    """Request model for updating a knowledge graph."""
+
+    name: Optional[str] = Field(None, description="New display name")
+    description: Optional[str] = Field(None, description="New description")
+    settings: Optional[dict[str, Any]] = Field(
+        None, description="Graph settings object to fully replace"
+    )
+    content_configs: Optional[list[dict[str, Any]]] = Field(
+        None, description="Override for chunking.content_settings in settings"
+    )
+
+
+class KnowledgeGraphUpdateResponse(BaseModel):
+    """Response model for update_graph route."""
+
+    id: str
+    name: str
+    system_name: Optional[str]
+    description: Optional[str]
+
+
+class KnowledgeGraphSourceExternalSchema(BaseModel):
+    """Item model for knowledge graph source list endpoint."""
+
+    id: str
+    name: str
+    type: str
+    config: Optional[dict[str, Any]] = None
+    status: Optional[str] = None
+    documents_count: int = 0
+    last_sync_at: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class KnowledgeGraphSourceCreateRequest(BaseModel):
+    """Request model for creating a knowledge graph source (generic)."""
+
+    type: str = Field(..., description="Source type, e.g., 'sharepoint', 'file'")
+    name: Optional[str] = Field(None, description="Optional display name")
+    config: Optional[dict[str, Any]] = Field(
+        None, description="Source-specific configuration payload"
+    )
+
+
+class KnowledgeGraphSourceUpdateRequest(BaseModel):
+    """Request model for updating a knowledge graph source."""
+
+    name: Optional[str] = Field(None, description="Optional new display name")
+    config: Optional[dict[str, Any]] = Field(
+        None, description="Partial config to merge into existing config"
+    )
+    status: Optional[str] = Field(None, description="Optional status override")
+
+
+class SharePointSourceCreateRequest(BaseModel):
+    """Request model for creating a SharePoint source."""
+
+    graph_id: str = Field(..., description="Target knowledge graph id")
+    name: Optional[str] = Field(None, description="Optional display name")
+    site_url: str = Field(..., description="SharePoint site URL")
+    folder_path: Optional[str] = Field(None, description="Optional folder path")
+    client_id: Optional[str] = Field(None, description="OAuth client id")
+    tenant_id: Optional[str] = Field(None, description="Azure tenant id")
+    provider_system_name: Optional[str] = Field(
+        None, description="Auth provider system name"
+    )
+    file_extensions: Optional[list[str]] = Field(
+        None, description="Allowed file extensions"
+    )
+    client_secret: Optional[str] = Field(
+        None, description="Client secret (not persisted); used to mark credentials"
+    )
+
+
+class KnowledgeGraphSourceCreateResponse(BaseModel):
+    """Response model for creating a knowledge graph source."""
+
+    id: str
+    name: str
+    type: str
+
+
+class KnowledgeGraphDocumentExternalSchema(BaseModel):
+    """Item model for knowledge graph document list endpoint."""
+
+    id: str
+    name: str
+    type: Optional[str] = None
+    content_profile: Optional[str] = None
+    status: Optional[str] = None
+    status_message: Optional[str] = None
+    title: Optional[str] = None
+    total_pages: Optional[int] = None
+    processing_time: Optional[float] = None
+    chunks_count: int = 0
+    source_name: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class KnowledgeGraphDocumentDetailSchema(BaseModel):
+    """Detail model for a single knowledge graph document."""
+
+    id: str
+    name: str
+    type: Optional[str] = None
+    content_profile: Optional[str] = None
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    toc: Optional[list[dict[str, Any]]] = None
+    status: Optional[str] = None
+    status_message: Optional[str] = None
+    total_pages: Optional[int] = None
+    processing_time: Optional[float] = None
+    source_id: Optional[str] = None
+    chunks_count: int = 0
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class KnowledgeGraphChunkExternalSchema(BaseModel):
+    """Item model for chunks in list endpoints."""
+
+    id: str
+    document_id: str
+    document_name: str
+    name: Optional[str] = None
+    title: Optional[str] = None
+    toc_reference: Optional[str] = None
+    page: Optional[int] = None
+    chunk_type: Optional[str] = None
+    text: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class KnowledgeGraphChunkListResponse(BaseModel):
+    """Response model for graph chunks listing (paginated)."""
+
+    chunks: list[KnowledgeGraphChunkExternalSchema]
+    total: int
+    limit: int
+    offset: int

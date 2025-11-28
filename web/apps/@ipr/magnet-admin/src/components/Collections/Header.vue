@@ -118,7 +118,7 @@ export default {
   methods: {
     openJobDetails() {
       this.showSyncConfirm = false
-      this.navigate(`/jobs/?job_id=${this.job_id}`)
+      window.open(this.$router.resolve({ path: `/jobs/?job_id=${this.job_id}` }).href, '_blank')
     },
     deleteKnowledge() {
       this.loadingDelelete = true

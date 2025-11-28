@@ -1,55 +1,57 @@
 # Frontend Architecture
 
-The Magnet AI frontend is built using React, TypeScript, and Nx monorepo tools, providing a modern and maintainable user interface.
+The Magnet AI frontend is built using **Vue 3**, **TypeScript**, and **Nx** monorepo tools, providing a modern, modular, and maintainable user interface.
 
 ## Project Structure
 
 ```
 web/
 ├── apps/
-│   └── knowledge-magnet/      # Main application
-├── packages/                  # Shared packages
-├── documentation/
-│   └── magnet/               # VitePress documentation
+│   ├── magnet-admin/          # Admin Console (Configuration)
+│   ├── magnet-panel/          # User Panel (Chat & Interaction)
+│   └── magnet-docs/           # Documentation (VitePress)
+├── packages/
+│   ├── shared/                # Shared logic (composables, types, utils)
+│   ├── themes/                # Theme configurations & assets
+│   └── ui-comp/               # Shared UI Component Library
 ├── scripts/                   # Build and deployment scripts
-├── nx.json                   # Nx configuration
-├── package.json              # Dependencies
-└── tsconfig.base.json        # TypeScript configuration
+├── nx.json                    # Nx configuration
+├── package.json               # Dependencies
+└── tsconfig.base.json         # TypeScript configuration
 ```
 
 ## Technology Stack
 
 ### Core Technologies
-- **React 18**: Component-based UI framework
-- **TypeScript**: Type-safe development
-- **Nx**: Monorepo management and build optimization
-- **Vite**: Fast build tool and dev server
+- **Vue 3**: Progressive JavaScript Framework (Composition API).
+- **TypeScript**: Type-safe development.
+- **Nx**: Monorepo management, build optimization, and task orchestration.
+- **Vite**: Fast build tool and dev server.
 
 ### UI Components
-- Custom React components
-- Responsive design
-- Accessibility (a11y) considerations
+- **PrimeVue**: Comprehensive UI component library.
+- **Tailwind CSS**: Utility-first CSS framework (if used, or custom CSS).
+- **Custom Components**: Located in `packages/ui-comp`.
 
 ### State Management
-- React Context API
-- React Hooks (useState, useEffect, useReducer)
-- Custom hooks for data fetching
+- **Pinia**: The intuitive store for Vue.js.
+- **Composables**: Encapsulated stateful logic using Vue Composition API.
 
 ## Key Features
 
-### 1. Agent Configuration UI
+### 1. Agent Configuration UI (Admin)
 Components for creating and managing agents:
 - Agent builder interface
 - Topic and action configuration
 - Tool selection and setup
 - Testing and validation
 
-### 2. Prompt Template Management
-Interface for prompt templates:
-- Template editor
-- Variable management
-- Version control (if applicable)
-- Preview functionality
+### 2. Chat Interface (Panel)
+Interactive chat interface for end-users:
+- Real-time streaming responses
+- Markdown rendering
+- History management
+- Feedback mechanisms
 
 ### 3. Knowledge Source Integration
 UI for connecting data sources:
@@ -58,14 +60,7 @@ UI for connecting data sources:
 - Connection testing
 - Status monitoring
 
-### 4. RAG Tools Configuration
-Interface for RAG tool setup:
-- Knowledge source selection
-- Retrieval parameters
-- Model configuration
-- Testing interface
-
-### 5. Usage Dashboards
+### 4. Usage Dashboards
 Analytics and monitoring:
 - Conversation history
 - LLM usage metrics
@@ -74,175 +69,116 @@ Analytics and monitoring:
 
 ## Component Architecture
 
-### Component Hierarchy
-```
-App
-├── Layout
-│   ├── Header
-│   ├── Sidebar
-│   └── Content
-├── Pages
-│   ├── Agents
-│   │   ├── AgentList
-│   │   └── AgentEditor
-│   ├── PromptTemplates
-│   ├── KnowledgeSources
-│   └── Dashboards
-└── Shared Components
-    ├── Forms
-    ├── Tables
-    └── Modals
-```
+### Monorepo Strategy
+We use Nx to share code between the Admin and Panel applications.
+
+- **Apps**: Thin layers that assemble pages and route configurations.
+- **Packages**:
+    - `ui-comp`: Dumb UI components (Buttons, Inputs, Cards).
+    - `shared`: Business logic, API clients, types, and helper functions.
+    - `themes`: Styling and branding assets.
 
 ### Component Patterns
 
-#### 1. Container/Presentational Pattern
-- **Container**: Handle data fetching and state
-- **Presentational**: Render UI based on props
+#### 1. Composition API & Composables
+Logic is extracted into reusable composables:
 
-#### 2. Custom Hooks
 ```typescript
-// Example custom hook
-function useAgent(agentId: string) {
-  const [agent, setAgent] = useState(null);
-  const [loading, setLoading] = useState(true);
+// packages/shared/src/composables/useAgent.ts
+export function useAgent(agentId: Ref<string>) {
+  const agent = ref(null);
+  const loading = ref(true);
   
-  useEffect(() => {
-    fetchAgent(agentId).then(setAgent);
-  }, [agentId]);
+  async function fetchAgent() {
+    loading.value = true;
+    agent.value = await api.get(`/agents/${agentId.value}`);
+    loading.value = false;
+  }
+  
+  watchEffect(() => {
+    if (agentId.value) fetchAgent();
+  });
   
   return { agent, loading };
 }
 ```
 
-#### 3. Composition
-- Composable components
-- Reusable UI elements
-- Prop drilling minimization
+#### 2. Smart vs. Dumb Components
+- **Smart (Container)**: Handle data fetching, state, and pass data down. Usually Pages or complex widgets.
+- **Dumb (Presentational)**: Receive props and emit events. Located in `ui-comp`.
 
 ## Routing
 
-React Router for navigation:
-- `/agents` - Agent management
-- `/prompt-templates` - Template editor
-- `/knowledge-sources` - Data source config
-- `/rag-tools` - RAG configuration
-- `/dashboards` - Analytics views
+**Vue Router** is used for navigation.
+
+- **Admin Routes**:
+    - `/agents` - Agent management
+    - `/knowledge` - Knowledge sources
+    - `/settings` - System configuration
+- **Panel Routes**:
+    - `/chat/:id` - Active conversation
+    - `/history` - Past conversations
 
 ## API Integration
 
 ### API Client
-Centralized API communication:
+Centralized API client (likely using Axios or Fetch wrapper) in `packages/shared`.
+
 ```typescript
-// Example API service
-class ApiService {
-  async getAgents() {
-    return fetch('/api/agents').then(r => r.json());
+// packages/shared/src/api/client.ts
+import axios from 'axios';
+
+export const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+  headers: {
+    'Content-Type': 'application/json'
   }
-  
-  async createAgent(data) {
-    return fetch('/api/agents', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    });
-  }
-}
+});
 ```
-
-### Data Fetching Strategies
-- Fetch on mount
-- Lazy loading
-- Caching strategies
-- Error handling
-
-## Styling
-
-### CSS Architecture
-- Modular CSS
-- CSS Modules (if used)
-- Responsive design
-- Theme support (if applicable)
-
-### Design System
-- Consistent color palette
-- Typography system
-- Spacing scale
-- Component variants
 
 ## Build and Development
 
 ### Nx Workspace
 Benefits:
-- Code sharing across apps
-- Affected command for testing
-- Build caching
-- Dependency graph visualization
+- **Computation Caching**: Never rebuild the same code twice.
+- **Project Graph**: Visualize dependencies (`nx graph`).
+- **Affected Commands**: Run tests only on changed projects.
 
 ### Development Server
 ```bash
-nx serve knowledge-magnet
+# Run Panel
+yarn nx dev magnet-panel
+
+# Run Admin
+yarn nx dev magnet-admin
 ```
 
 ### Production Build
 ```bash
-nx build knowledge-magnet
+yarn nx build magnet-panel
+yarn nx build magnet-admin
 ```
 
 ## Testing Strategy
 
 ### Unit Tests
-- Component testing with Jest
-- React Testing Library
-- Snapshot testing
+- **Vitest**: Fast unit test runner (Jest compatible).
+- **Vue Test Utils**: Testing Vue components.
 
-### Integration Tests
-- User flow testing
-- API integration tests
-
-### E2E Tests (if applicable)
-- Full application testing
-- Critical path validation
-
-## Performance Optimization
-
-### Code Splitting
-- Route-based splitting
-- Lazy loading components
-- Dynamic imports
-
-### Memoization
-- React.memo for expensive components
-- useMemo for computed values
-- useCallback for function props
-
-### Bundle Optimization
-- Tree shaking
-- Minification
-- Asset optimization
-
-## Accessibility
-
-- Semantic HTML
-- ARIA labels
-- Keyboard navigation
-- Screen reader support
+### E2E Tests
+- **Cypress** or **Playwright**: For end-to-end integration testing.
 
 ## Internationalization
 
-Support for multiple languages:
-- English (en)
-- Latvian (lv) - partially implemented
+Support for multiple languages (i18n) is built-in, supporting English (en) and other locales.
 
 ## Documentation
 
-VitePress-based documentation:
-- User guides
-- Admin guides
-- Developer guides
-- API reference
+VitePress-based documentation (this site) is also part of the monorepo in `apps/magnet-docs`.
 
 ## Next Steps
 
 - [System Architecture](/docs/en/developers/architecture/system-architecture) - Overall architecture
 - [Database Schema](/docs/en/developers/architecture/database) - Data models
 - [Getting Started](/docs/en/developers/setup/getting-started) - Development setup
+

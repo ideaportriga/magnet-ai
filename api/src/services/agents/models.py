@@ -98,6 +98,7 @@ class AgentSettings(BaseModel):
     conversation_closure_interval: str | None = None
     sample_questions: SampleQuestions = Field(default_factory=SampleQuestions)
     user_feedback: bool | None = None
+    notes: str | None = None
 
 
 class AgentVariantValue(BaseModel):

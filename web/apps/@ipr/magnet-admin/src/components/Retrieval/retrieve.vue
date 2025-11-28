@@ -74,6 +74,11 @@ km-section(
                 .row.q-mt-xs(v-if='opt.provider_system_name')
                   q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
         .km-field.text-secondary-text Use LLM to rank candidate results. Makes extra calls to LLM
+      q-separator.q-my-md
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max number of chunks to retrieve for re-ranking
+      div(style='max-width: 200px')
+        km-input(type='number', height='30px', placeholder='Number of chunks to select', v-model='reRankingMaxChankRetrieve')
+      .km-description.text-secondary-text.q-pb-4 If re-ranking is turned on, these chunks will be re-ordered to select the most relevant results. 
 q-separator.q-my-lg
 
 <!-- Similarity score section -->
@@ -90,12 +95,6 @@ km-section(title='Similarity score', subTitle='How strictly a user query should 
   )
 q-separator.q-my-lg
 km-section(title='Chunk limits', subTitle='Configure how chunks of content are retrieved and ranked')
-  template(v-if='isReRanking')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max number of chunks to retrieve for re-ranking
-    div(style='max-width: 200px')
-      km-input(type='number', height='30px', placeholder='Number of chunks', v-model='reRankingMaxChankRetrieve')
-    .km-description.text-secondary-text.q-pb-4 If re-ranking is turned on, these chunks will be re-ordered to select the most relevant results.
-    q-separator.q-my-lg
   .km-field.text-secondary-text.q-pb-xs.q-pl-8 Number of chunks to select
   div(style='max-width: 200px')
     km-input(type='number', height='30px', placeholder='Number of chunks', v-model='maxChunksRetrieved')
@@ -139,7 +138,7 @@ export default {
     },
     allowMetadataFilter: {
       get() {
-        return this.$store.getters.retrieval?.retrieve?.allow_metadata_filter || false
+        return this.$store.getters.retrievalVariant?.retrieve?.allow_metadata_filter || false
       },
       set(value) {
         this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.allow_metadata_filter', value })
@@ -147,7 +146,7 @@ export default {
     },
     useKeywordSearch: {
       get() {
-        return this.$store.getters.retrieval?.retrieve?.use_keyword_search || false
+        return this.$store.getters.retrievalVariant?.retrieve?.use_keyword_search || false
       },
       set(value) {
         this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.use_keyword_search', value })

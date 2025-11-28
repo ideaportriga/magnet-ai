@@ -19,6 +19,16 @@ If you're new to developing with Magnet AI, we recommend starting with:
 2. [Getting Started](/docs/en/developers/setup/getting-started) - Set up your development environment
 3. [REST API](/docs/en/developers/api/rest-api) - Learn how to interact with the API
 
+## Technical Guides
+
+Detailed guides for specific aspects of development:
+
+- [Git Workflow](/docs/en/developers/guides/git-workflow) - Branching strategy and release process
+- [Logging Guide](/docs/en/developers/guides/logging) - Using Grafana Loki for logging
+- [Security Policy](/docs/en/developers/guides/security) - Security practices and vulnerability reporting
+- [API Structure](/docs/en/developers/guides/api-structure) - Pydantic schemas and entity structure
+- [External Plugins](/docs/en/developers/guides/plugins) - Developing and managing external plugins
+
 ## Contributing
 
 Magnet AI is designed to be extensible and customizable. Whether you're building internal integrations or creating plugins, this guide will help you understand the platform and build effectively.

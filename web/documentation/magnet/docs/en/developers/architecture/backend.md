@@ -1,46 +1,45 @@
 # Backend Architecture
 
-The Magnet AI backend is built with Python and Flask, providing a robust API layer and AI orchestration capabilities.
+The Magnet AI backend is built with Python and **Litestar**, providing a high-performance, asynchronous API layer and AI orchestration capabilities.
 
 ## Project Structure
 
 ```
 api/
 ├── src/
-│   ├── app.py                 # Application entry point
-│   ├── models.py              # SQLAlchemy models
-│   ├── api/                   # API endpoints
-│   ├── config/                # Configuration management
-│   ├── core/                  # Core business logic
+│   ├── app.py                 # Application entry point & Factory
+│   ├── api/                   # API Controllers (Endpoints)
+│   ├── config/                # Configuration (Pydantic settings)
+│   ├── core/                  # Core infrastructure
+│   │   ├── db/                # Database session & config
+│   │   ├── server/            # Server plugins & middleware
+│   │   └── domain/            # Domain models & logic
 │   ├── data_sources/          # Data source integrations
 │   ├── guards/                # Authorization guards
 │   ├── middlewares/           # Request/response middlewares
-│   ├── open_ai/              # OpenAI integration
+│   ├── open_ai/               # OpenAI integration
 │   ├── plugins/               # Plugin system
-│   ├── routes/                # Route definitions
-│   ├── scheduler/             # Background tasks
+│   ├── routes/                # Route registration
 │   ├── services/              # Business services
 │   ├── stores/                # Data access layer
 │   ├── tools/                 # AI tools (RAG, retrieval)
 │   └── utils/                 # Utility functions
 ├── scripts/                   # Database and setup scripts
-├── static/                    # Static files
 ├── tests/                     # Test suite
-├── pyproject.toml            # Dependencies (Poetry)
-└── run.py                    # Development server
+├── pyproject.toml             # Dependencies (Poetry)
+└── run.py                     # Development server wrapper
 ```
 
 ## Core Components
 
 ### Application Layer (`app.py`)
-- Flask application factory
-- Middleware registration
-- Route registration
-- Database initialization
-- CORS configuration
+- Litestar application factory
+- Plugin registration (CORS, SQLAlchemy, OpenAPI, etc.)
+- Middleware configuration
+- Exception handlers
 
-### Models (`models.py`)
-SQLAlchemy ORM models representing:
+### Models (`models.py` / `core/domain`)
+SQLAlchemy Async ORM models representing:
 - Agents
 - Prompt Templates
 - Knowledge Sources
@@ -50,13 +49,11 @@ SQLAlchemy ORM models representing:
 - Usage metrics
 
 ### API Layer (`/api`)
-RESTful endpoints organized by resource:
-- `/agents` - Agent management
-- `/prompt-templates` - Prompt template CRUD
-- `/knowledge-sources` - Knowledge source management
-- `/rag-tools` - RAG tool configuration
-- `/conversations` - Conversation history
-- `/evaluations` - Evaluation management
+Litestar Controllers organized by resource:
+- `TagsController` - Tag management
+- `AgentsController` - Agent management
+- `PromptTemplatesController` - Prompt template CRUD
+- `KnowledgeSourcesController` - Knowledge source management
 
 ### Services (`/services`)
 Business logic layer containing:
@@ -76,64 +73,40 @@ Extensible plugin architecture:
 ### Data Sources (`/data_sources`)
 Connectors for various data sources:
 - File uploads
-- External APIs
+- External APIs (Salesforce, HubSpot, etc.)
 - Database connections
 - Vector stores
 
-### Tools (`/tools`)
-AI tools implementation:
-- RAG tools for document Q&A
-- Retrieval tools for semantic search
-- API tools for external integrations
-
 ## Key Architectural Patterns
 
-### 1. Service Layer Pattern
-Business logic is encapsulated in service classes:
+### 1. Controller-Service-Repository Pattern
+- **Controllers**: Handle HTTP requests, validation (Pydantic), and response formatting.
+- **Services**: Contain business logic.
+- **Repositories/Stores**: Handle database interactions.
+
+### 2. Dependency Injection (DI)
+Litestar's powerful DI system is used to inject dependencies into handlers:
 ```python
-# Example service structure
-class AgentService:
-    def create_agent(self, data):
-        # Validation
-        # Business logic
-        # Database operations
-        pass
+@get("/")
+async def get_agent(
+    agent_id: UUID, 
+    service: AgentService
+) -> Agent:
+    return await service.get(agent_id)
 ```
 
-### 2. Repository Pattern
-Data access is abstracted through stores:
-```python
-# Example store/repository
-class AgentStore:
-    def find_by_id(self, agent_id):
-        return Agent.query.get(agent_id)
-```
+### 3. Asynchronous Design
+The entire backend is async-first, utilizing Python's `asyncio` and `asyncpg` for non-blocking I/O, which is crucial for AI applications that often wait for external LLM APIs.
 
-### 3. Plugin Pattern
-Extensions are loaded dynamically:
-```python
-# Plugin discovery and registration
-plugin_manager.discover_plugins()
-plugin_manager.register(plugin_instance)
-```
-
-### 4. Dependency Injection
-Configuration and dependencies are injected:
-- Environment-based configuration
-- Service initialization
-- Database session management
+### 4. Plugin Pattern
+Extensions are loaded dynamically via a registry, allowing for modular additions of knowledge sources and tools.
 
 ## Database Integration
 
-### SQLAlchemy ORM
-- Models defined in `models.py`
-- Migrations managed with Alembic (or custom scripts)
-- Support for SQLite (dev) and PostgreSQL (prod)
-
-### Vector Database
-- Embedding storage for semantic search
-- Integration with retrieval tools
-- Configurable vector dimensions
+### SQLAlchemy Async ORM
+- Models defined using declarative base.
+- Migrations managed with Alembic.
+- **PostgreSQL + pgvector**: The standard production database, supporting vector similarity search natively.
 
 ## AI Integration
 
@@ -143,56 +116,40 @@ Configuration and dependencies are injected:
 - Token usage tracking
 - Error handling and retries
 
-### LangChain Integration
-- Agent framework
-- Tool calling
-- Memory management
-- Prompt templating
-
-## Background Tasks
-
-### Scheduler (`/scheduler`)
-APScheduler for background jobs:
-- Data synchronization
-- Periodic cleanups
-- Metric aggregation
+### LlamaIndex / LangChain
+- Used for RAG (Retrieval Augmented Generation) pipelines.
+- Document indexing and retrieval.
+- Agentic workflows.
 
 ## Configuration Management
 
-### Environment Variables
+### Pydantic Settings
+Configuration is managed via Pydantic models in `src/config/`, loading values from environment variables (`.env`).
+
 - `OPENAI_API_KEY`
 - `DATABASE_URL`
-- `VECTOR_DB_CONFIG`
-- Plugin-specific settings
-
-### Configuration Files
-- `config/` directory for environment-specific settings
-- Support for development, staging, production
+- `VECTOR_DB_TYPE`
 
 ## Error Handling
 
-- Custom exception classes
-- Consistent error responses
-- Logging and monitoring
-- Graceful degradation
+- Global exception handlers convert exceptions to standardized JSON responses (Problem Details).
+- Structured logging via `structlog`.
 
 ## Testing
 
 Located in `/tests`:
-- Unit tests for services
-- Integration tests for API endpoints
-- Mock data and fixtures
-- Test database configuration
+- **Pytest**: The testing framework.
+- **Async Tests**: Fully async test suite.
+- **Fixtures**: Extensive use of pytest fixtures for DB sessions and mock services.
 
 ## API Documentation
 
-- OpenAPI/Swagger specification (if available)
-- Endpoint documentation
-- Request/response examples
-- Authentication requirements
+- **OpenAPI / Swagger UI**: Automatically generated by Litestar.
+- Accessible at `/schema/swagger` or `/schema/redoc`.
 
 ## Next Steps
 
 - [Frontend Architecture](/docs/en/developers/architecture/frontend) - Frontend details
 - [Database Schema](/docs/en/developers/architecture/database) - Data models
 - [REST API](/docs/en/developers/api/rest-api) - API reference
+

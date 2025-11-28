@@ -91,6 +91,7 @@
     v-if='showNewDialog',
     :system_name='promptSystemName',
     type='prompt_template'
+    disable-prompt-selection
   )
   //- TODO: Add a new component for this (same as in Configuration/Drawer.vue)
   km-popup-confirm(

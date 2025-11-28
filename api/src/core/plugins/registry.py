@@ -264,9 +264,7 @@ class PluginRegistry:
             try:
                 # Calculate relative import path
                 relative_path = path.relative_to(Path(__file__).parent.parent.parent)
-                module_path = (
-                    str(relative_path).replace("/", ".") + f".{module_info.name}"
-                )
+                module_path = ".".join(relative_path.parts + (module_info.name,))
 
                 importlib.import_module(module_path)
                 logger.info(

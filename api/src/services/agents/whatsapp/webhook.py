@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 import httpx
 
-from services.agents.conversations import set_message_feedback
+from services.agents.conversations import get_conversation, set_message_feedback
 from services.agents.utils.conversation_helpers import (
     AssistantPayload,
     WELCOME_LEARN_MORE_URL,
@@ -15,6 +15,10 @@ from services.agents.utils.conversation_helpers import (
     handle_action_confirmation,
     get_conversation_info,
 )
+from services.agents.models import (
+    AgentConversationMessageRole,
+    AgentConversationWithMessagesPublic,
+)
 from services.agents.utils.markdown import to_whatsapp_markdown
 from services.common.models import (
     LlmResponseFeedback,
@@ -22,6 +26,7 @@ from services.common.models import (
     LlmResponseFeedbackType,
 )
 from services.observability.utils import observability_overrides
+from stores import RecordNotFoundError
 
 from .runtime import WhatsappRuntime
 
@@ -400,6 +405,80 @@ async def _send_whatsapp_buttons_message(
                 runtime.interactive_context.pop(oldest_key, None)
 
 
+def _normalize_id(value: Any) -> str | None:
+    if value is None:
+        return None
+    try:
+        return str(value)
+    except Exception:
+        return None
+
+
+async def _load_conversation(
+    conversation_id: str,
+) -> AgentConversationWithMessagesPublic | None:
+    if not conversation_id:
+        return None
+    try:
+        return await get_conversation(conversation_id)
+    except RecordNotFoundError:
+        logger.warning(
+            "Conversation %s not found while checking WhatsApp interaction state",
+            conversation_id,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to load conversation %s while checking WhatsApp interaction state",
+            conversation_id,
+        )
+    return None
+
+
+def _extract_feedback_type(feedback: Any) -> str | None:
+    if feedback is None:
+        return None
+    value = getattr(feedback, "type", None)
+    if value is None and isinstance(feedback, dict):
+        value = feedback.get("type")
+    return str(value) if value is not None else None
+
+
+def _get_message_feedback(
+    conversation: AgentConversationWithMessagesPublic | None,
+    message_id: str,
+) -> str | None:
+    if not conversation:
+        return None
+    target_id = _normalize_id(message_id)
+    if not target_id:
+        return None
+    for message in conversation.messages or []:
+        if _normalize_id(getattr(message, "id", None)) == target_id:
+            return _extract_feedback_type(getattr(message, "feedback", None))
+    return None
+
+
+def _get_existing_confirmations(
+    conversation: AgentConversationWithMessagesPublic | None,
+    request_ids: list[str],
+) -> dict[str, bool]:
+    if not conversation or not request_ids:
+        return {}
+    wanted_ids = {_normalize_id(request_id) for request_id in request_ids if request_id}
+    if not wanted_ids:
+        return {}
+    results: dict[str, bool] = {}
+    for message in conversation.messages or []:
+        if getattr(message, "role", None) != AgentConversationMessageRole.USER:
+            continue
+        confirmations = getattr(message, "action_call_confirmations", None) or []
+        for confirmation in confirmations:
+            request_id = _normalize_id(getattr(confirmation, "request_id", None))
+            if request_id and request_id in wanted_ids and request_id not in results:
+                results[request_id] = bool(getattr(confirmation, "confirmed", False))
+    return results
+
+
 async def _handle_whatsapp_interactive_reply(
     client: httpx.AsyncClient,
     runtime: WhatsappRuntime,
@@ -472,6 +551,25 @@ async def _handle_whatsapp_interactive_reply(
                 return
 
             confirmed = button_id.startswith("confirm_")
+            conversation = await _load_conversation(conversation_id)
+            existing_confirmations = _get_existing_confirmations(
+                conversation, request_ids
+            )
+
+            if existing_confirmations:
+                if all(value == confirmed for value in existing_confirmations.values()):
+                    acknowledgement = (
+                        "You've already confirmed this action earlier."
+                        if confirmed
+                        else "You've already rejected this action earlier."
+                    )
+                else:
+                    acknowledgement = "This action was already handled earlier, so I can't change that decision."
+                await _send_whatsapp_text_message(
+                    client, runtime, from_number, acknowledgement
+                )
+                return
+
             acknowledgement = (
                 "Thanks! I'll proceed with the requested action."
                 if confirmed
@@ -528,6 +626,19 @@ async def _handle_whatsapp_interactive_reply(
             )
             if context_conversation_id and context_message_id:
                 try:
+                    conversation = await _load_conversation(context_conversation_id)
+                    existing_feedback_type = _get_message_feedback(
+                        conversation, context_message_id
+                    )
+                    if existing_feedback_type:
+                        if existing_feedback_type == LlmResponseFeedbackType.LIKE:
+                            acknowledgement = "You've already liked this message. Thanks for the feedback!"
+                        elif existing_feedback_type == LlmResponseFeedbackType.DISLIKE:
+                            acknowledgement = "This message was already disliked, so you can't like it now."
+                        await _send_whatsapp_text_message(
+                            client, runtime, from_number, acknowledgement
+                        )
+                        return
                     feedback = LlmResponseFeedback(type=LlmResponseFeedbackType.LIKE)
                     await set_message_feedback(
                         conversation_id=context_conversation_id,
@@ -551,6 +662,19 @@ async def _handle_whatsapp_interactive_reply(
             )
             if context_conversation_id and context_message_id:
                 try:
+                    conversation = await _load_conversation(context_conversation_id)
+                    existing_feedback_type = _get_message_feedback(
+                        conversation, context_message_id
+                    )
+                    if existing_feedback_type:
+                        if existing_feedback_type == LlmResponseFeedbackType.DISLIKE:
+                            acknowledgement = "You've already disliked this message. Thanks for the feedback!"
+                        elif existing_feedback_type == LlmResponseFeedbackType.LIKE:
+                            acknowledgement = "This message was already liked, so you can't dislike it now."
+                        await _send_whatsapp_text_message(
+                            client, runtime, from_number, acknowledgement
+                        )
+                        return
                     feedback = LlmResponseFeedback(
                         type=LlmResponseFeedbackType.DISLIKE,
                         reason=LlmResponseFeedbackReason.OTHER,

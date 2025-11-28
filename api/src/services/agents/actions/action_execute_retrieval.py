@@ -28,7 +28,8 @@ async def action_execute_retrieval(
 ) -> AgentActionCallResponse:
     query = arguments.get("query")
     metadata_filter = arguments.get("metadata_filter")
-    if metadata_filter:
+
+    if metadata_filter is not None:
         try:
             metadata_filter = FilterObject(json.loads(metadata_filter))
         except Exception as e:
@@ -38,7 +39,11 @@ async def action_execute_retrieval(
     assert query, "Cannot call Retrieval Tool - user's query is missing"
 
     observability_context.update_current_span(
-        input={"Retrieval tool system name": tool_system_name, "Query": query},
+        input={
+            "Retrieval tool system name": tool_system_name,
+            "Query": query,
+            "Metadata Filter": metadata_filter,
+        },
     )
 
     tool_execute_result: RetrievalToolTestResult = await flow_retrieval_execute(

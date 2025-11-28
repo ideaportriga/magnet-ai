@@ -8,18 +8,18 @@ services:
     env_file:
       - .env
     environment:
-      - POSTGRES_DB=${POSTGRES_DB:-magnet_dev}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - POSTGRES_DB=${DB_NAME:-magnet_dev}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
       - POSTGRES_HOST_AUTH_METHOD=${POSTGRES_HOST_AUTH_METHOD:-trust}
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Initialize pgvector extension
       - ./api/scripts/sql/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-magnet_dev}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-magnet_dev}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,15 +45,15 @@ services:
       - DB_TYPE=postgresql
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=${POSTGRES_DB:-magnet_dev}
-      - DB_USER=${POSTGRES_USER:-postgres}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - DB_NAME=${DB_NAME:-magnet_dev}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
       # PGVector configuration (same as main DB)
       - PGVECTOR_HOST=postgres
       - PGVECTOR_PORT=5432
-      - PGVECTOR_DATABASE=${POSTGRES_DB:-magnet_dev}
-      - PGVECTOR_USER=${POSTGRES_USER:-postgres}
-      - PGVECTOR_PASSWORD=${POSTGRES_PASSWORD:-password}
+      - PGVECTOR_DATABASE=${DB_NAME:-magnet_dev}
+      - PGVECTOR_USER=${DB_USER:-postgres}
+      - PGVECTOR_PASSWORD=${DB_PASSWORD:-password}
       # Disable CONNECTION_STRING from .env (we use separate params)
       - PGVECTOR_CONNECTION_STRING=
       - DATABASE_URL=
@@ -61,16 +61,16 @@ services:
       - RUN_MIGRATIONS=${RUN_MIGRATIONS:-true}
       - RUN_FIXTURES=${RUN_FIXTURES:-false}
       - RESET_DB=${RESET_DB:-false}
-      - PORT=${API_PORT:-5000}
+      - PORT=5000
       # Web configuration
       - WEB_INCLUDED=true
-      - CORS_OVERRIDE_ALLOWED_ORIGINS=http://localhost:5000
+      - CORS_OVERRIDE_ALLOWED_ORIGINS=${CORS_OVERRIDE_ALLOWED_ORIGINS:-http://localhost:5000}
       - AUTH_ENABLED=${AUTH_ENABLED:-true}
       - WEB_AUTH_PROVIDER_TITLE=${WEB_AUTH_PROVIDER_TITLE:-Microsoft}
       - WEB_AUTH_POPUP_WIDTH=${WEB_AUTH_POPUP_WIDTH:-600}
       - WEB_AUTH_POPUP_HEIGHT=${WEB_AUTH_POPUP_HEIGHT:-400}
     ports:
-      - "${API_PORT:-5000}:5000"
+      - "${PORT:-5000}:5000"
     volumes:
       - ./api/files:/app/files
       # Mount migrations directory for persistence

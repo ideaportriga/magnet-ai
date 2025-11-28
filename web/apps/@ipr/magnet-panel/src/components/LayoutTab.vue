@@ -86,7 +86,7 @@ export default {
     },
     appTheme() {
       if (!this.ai_app) return
-      return this.ai_app.settings.theme ?? 'siebel'
+      return this.ai_app?.settings?.theme ?? 'siebel'
     },
   },
   watch: {

@@ -5,3 +5,9 @@ web/.yarn
 web/node_modules
 web/knowledge_magnet
 web/*.md
+.git
+.env
+__pycache__
+*.pyc
+.venv
+venv

@@ -40,6 +40,7 @@ import ModelProvidersPage from '@/components/ModelProviders/Page.vue'
 import ModelProvidersDetails from '@/components/ModelProviders/Details.vue'
 import KnowledgeProvidersPage from '@/components/KnowledgeProviders/Page.vue'
 import KnowledgeProvidersDetails from '@/components/KnowledgeProviders/Details.vue'
+import KnowledgeGraphPage from '@/components/KnowledgeGraph/Page.vue'
 import store from '@/store/index'
 
 const routes = [
@@ -469,6 +470,35 @@ const routes = [
       pageLabel: 'Knowledge Source Providers',
       chroma: true,
       entity: 'provider',
+    },
+  },
+  {
+    path: '/knowledge-graph',
+    name: 'KnowledgeGraph',
+    component: KnowledgeGraphPage,
+    meta: {
+      pageLabel: 'Knowledge Graph',
+    },
+  },
+  {
+    path: '/knowledge-graph/:id',
+    name: 'KnowledgeGraphDetail',
+    component: () => import('@/components/KnowledgeGraph/Details.vue'),
+    meta: {
+      pageLabel: 'Knowledge Graph',
+      chroma: true,
+      entity: 'knowledge_graph',
+    },
+  },
+  {
+    path: '/knowledge-graph/:id/documents/:documentId',
+    name: 'KnowledgeGraphDocumentDetail',
+    component: () => import('@/components/KnowledgeGraph/DataExplorer/DocumentDetails.vue'),
+    meta: {
+      pageLabel: 'Knowledge Graph',
+      chroma: true,
+      entity: 'knowledge_graph',
+      detail: true,
     },
   },
   

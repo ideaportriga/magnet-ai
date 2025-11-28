@@ -147,6 +147,11 @@ const connectors = [
     path: 'knowledge-providers',
     alternativePaths: ['knowledge-sources'],
   },
+  {
+    label: 'Knowledge graph',
+    icon: 'fas fa-book',
+    path: 'knowledge-graph',
+  },
   // {
   //   label: 'Models',
   //   icon: 'fas fa-circle-nodes',

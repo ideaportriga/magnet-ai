@@ -18,14 +18,14 @@ Keep your workspace organized:
 
 ```
 magnet-ai/
-├── api/                    # Backend
+├── api/                    # Backend (Litestar)
 │   ├── .venv/             # Python virtual environment
 │   ├── src/               # Source code
 │   └── tests/             # Tests
-├── web/                   # Frontend
-│   ├── node_modules/      # Dependencies
-│   ├── apps/              # Applications
-│   └── packages/          # Shared packages
+├── web/                   # Frontend (Nx Monorepo)
+│   ├── apps/              # Applications (admin, panel)
+│   ├── packages/          # Shared libraries
+│   └── documentation/     # This documentation
 └── docker/                # Docker configuration
 ```
 
@@ -37,10 +37,7 @@ Always use a virtual environment:
 
 ```bash
 cd api
-python -m venv .venv
-source .venv/bin/activate  # macOS/Linux
-# or
-.venv\Scripts\activate  # Windows
+poetry shell
 ```
 
 ### Installing Dependencies
@@ -51,79 +48,62 @@ source .venv/bin/activate  # macOS/Linux
 poetry install
 ```
 
-#### Using pip
-
-```bash
-pip install -r requirements.txt
-pip install -r requirements-dev.txt  # Development dependencies
-```
-
 ### Running the Backend
 
 #### Development Server
 
 ```bash
-python run.py
+uvicorn app:app --reload --env-file="../.env"
 ```
 
 The server runs with:
 - Auto-reload enabled
-- Debug mode on
+- Debug mode (if configured in .env)
 - CORS enabled for local frontend
 
 #### Custom Port
 
 ```bash
-FLASK_RUN_PORT=5001 python run.py
+uvicorn app:app --reload --env-file="../.env" --port 8001
 ```
 
 ### Environment Variables
 
-Create `api/.env`:
+Create `.env` in the root directory (or `api/.env` if running standalone):
 
 ```bash
 # Required
 OPENAI_API_KEY=sk-...
 
-# Optional
-DATABASE_URL=sqlite:///db.sqlite3
-FLASK_ENV=development
-DEBUG=True
+# Database
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/magnet_ai
+
+# Application
+DEBUG_MODE=true
 LOG_LEVEL=DEBUG
 
 # External Services
-VECTOR_DB_URL=...
-REDIS_URL=...
-
-# CORS
-CORS_ORIGINS=http://localhost:4200,http://localhost:3000
+VECTOR_DB_TYPE=POSTGRES
 ```
 
 ### Database Workflow
 
-#### Initialize Database
+#### Run Migrations
 
 ```bash
-python scripts/ensure_database.py
+npm run db:migrate
+```
+
+#### Apply Migrations
+
+```bash
+npm run db:upgrade
 ```
 
 #### Reset Database
 
 ```bash
-rm db.sqlite3
-python scripts/ensure_database.py
-```
-
-#### Load Fixtures
-
-```bash
-python manage_fixtures.py load
-```
-
-#### Save Fixtures
-
-```bash
-python manage_fixtures.py save
+npm run db:reset
 ```
 
 ### Code Style
@@ -131,15 +111,13 @@ python manage_fixtures.py save
 #### Format Code
 
 ```bash
-black src/
-isort src/
+ruff format src/
 ```
 
 #### Lint Code
 
 ```bash
-pylint src/
-flake8 src/
+ruff check src/
 ```
 
 #### Type Checking
@@ -167,16 +145,18 @@ Create `.vscode/launch.json`:
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Flask",
+      "name": "Python: Litestar",
       "type": "python",
       "request": "launch",
-      "module": "flask",
-      "env": {
-        "FLASK_APP": "src/app.py",
-        "FLASK_ENV": "development"
-      },
-      "args": ["run", "--no-debugger", "--no-reload"],
-      "jinja": true
+      "module": "uvicorn",
+      "args": [
+        "app:app",
+        "--reload",
+        "--port",
+        "8000"
+      ],
+      "jinja": true,
+      "justMyCode": true
     }
   ]
 }
@@ -188,120 +168,62 @@ Create `.vscode/launch.json`:
 
 ```bash
 cd web
-npm install
+yarn install
 ```
 
 ### Running the Frontend
 
 #### Development Server
 
+**User Panel:**
 ```bash
-npm run serve:knowledge-magnet
+yarn nx dev magnet-panel
 ```
 
-Or with Nx:
-
+**Admin Console:**
 ```bash
-nx serve knowledge-magnet
+yarn nx dev magnet-admin
 ```
 
-Access at `http://localhost:4200`
-
-#### Custom Port
-
-```bash
-nx serve knowledge-magnet --port=3000
-```
+Access at:
+- Panel: `http://localhost:4200` (or similar)
+- Admin: `http://localhost:4201` (or similar)
 
 ### Hot Reload
 
-Changes to TypeScript/React files automatically reload the browser.
-
-### Environment Configuration
-
-Create `web/apps/knowledge-magnet/.env.local`:
-
-```bash
-VITE_API_URL=http://localhost:5000
-VITE_APP_NAME=Magnet AI Dev
-VITE_ENABLE_DEBUG=true
-```
+Changes to TypeScript/Vue files automatically reload the browser.
 
 ### Code Style
 
-#### Format Code
+#### Format & Lint
 
 ```bash
-npm run format
-```
-
-#### Lint Code
-
-```bash
-npm run lint
+yarn lint
 ```
 
 #### Type Checking
 
 ```bash
-npm run type-check
+yarn type-check
 ```
 
 ### Browser DevTools
 
-Use React DevTools extension for debugging React components.
+Use Vue.js devtools extension for debugging Vue components.
 
 ## Full Stack Development
 
-### Running Both Services
+### Running Both Services (Recommended)
 
-#### Option 1: tmux/screen
-
-Create a tmux session:
+Use the root script to run everything:
 
 ```bash
-tmux new -s magnet
-
-# Window 1: Backend
-cd api && python run.py
-
-# Window 2 (Ctrl+B, C): Frontend
-cd web && npm run serve:knowledge-magnet
-
-# Window 3 (Ctrl+B, C): Logs/testing
+npm run dev
 ```
 
-#### Option 2: Docker Compose
-
-```bash
-docker-compose -f docker-compose.yml up
-```
-
-Services:
-- API: `http://localhost:5000`
-- Web: `http://localhost:4200`
-- PostgreSQL: `localhost:5432`
-
-#### Option 3: Shell Script
-
-Create `dev.sh`:
-
-```bash
-#!/bin/bash
-trap 'kill 0' EXIT
-
-cd api && python run.py &
-cd web && npm run serve:knowledge-magnet &
-
-wait
-```
-
-Run:
-
-```bash
-chmod +x dev.sh
-./dev.sh
-```
+This starts:
+- API: `http://localhost:8000`
+- Web Apps: `http://localhost:3000` & `http://localhost:3001`
 
 ### API Testing
 
@@ -309,51 +231,16 @@ chmod +x dev.sh
 
 ```bash
 # List agents
-curl http://localhost:5000/api/agents
-
-# Create agent
-curl -X POST http://localhost:5000/api/agents \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test Agent","model_id":"gpt-4"}'
-```
-
-#### Using httpie
-
-```bash
-# Install httpie
-brew install httpie
-
-# List agents
-http localhost:5000/api/agents
-
-# Create agent
-http POST localhost:5000/api/agents \
-  name="Test Agent" \
-  model_id="gpt-4"
+curl http://localhost:8000/api/agents
 ```
 
 #### Using Postman
 
 1. Import API collection
-2. Set base URL: `http://localhost:5000`
+2. Set base URL: `http://localhost:8000`
 3. Create requests for endpoints
 
 ### Database Management
-
-#### Using SQLite Browser
-
-For SQLite databases:
-
-```bash
-brew install --cask db-browser-for-sqlite
-open db.sqlite3
-```
-
-#### Using pgAdmin (PostgreSQL)
-
-1. Install pgAdmin
-2. Add server: `localhost:5432`
-3. Connect with credentials
 
 #### Using DBeaver
 
@@ -363,46 +250,21 @@ Universal database tool:
 brew install --cask dbeaver-community
 ```
 
+Connect to `localhost:5432` (User: `postgres`, Pass: `postgres` or as defined in `.env`).
+
 ## Plugin Development
 
 ### Creating a Plugin
 
-1. Create plugin directory:
+Plugins in Magnet AI are typically Python modules integrated via the `PluginRegistry`.
 
-```bash
-cd api/src/plugins/builtin/knowledge_source
-mkdir my_plugin
-touch my_plugin/__init__.py
-touch my_plugin/plugin.py
-```
-
-2. Implement plugin (see [Creating Plugins](/docs/en/developers/plugins/creating-plugins))
-
-3. Test plugin:
-
-```bash
-python -c "
-from core.plugins.registry import PluginRegistry
-plugin = PluginRegistry.get_plugin('my_plugin')
-print(plugin.name, plugin.version)
-"
-```
+1. Create plugin directory in `api/src/plugins/`.
+2. Implement your plugin logic.
+3. Register it in `api/src/core/server/plugin_registry.py` or via the dynamic loader.
 
 ### Plugin Testing
 
-Create `tests/test_my_plugin.py`:
-
-```python
-import unittest
-from plugins.builtin.knowledge_source.my_plugin import MyPlugin
-
-class TestMyPlugin(unittest.TestCase):
-    def test_plugin_loads(self):
-        plugin = MyPlugin()
-        self.assertEqual(plugin.name, 'my_plugin')
-```
-
-Run:
+Create `tests/test_my_plugin.py` and run:
 
 ```bash
 pytest tests/test_my_plugin.py
@@ -412,83 +274,33 @@ pytest tests/test_my_plugin.py
 
 ### Backend Performance
 
-#### Flask-DebugToolbar
-
-Add to development:
-
-```bash
-pip install flask-debugtoolbar
-```
-
-#### Profiling
-
-```python
-from werkzeug.middleware.profiler import ProfilerMiddleware
-
-app.wsgi_app = ProfilerMiddleware(app.wsgi_app)
-```
+Litestar provides built-in instrumentation hooks. You can also use standard Python profiling tools.
 
 ### Frontend Performance
 
-#### React DevTools Profiler
+#### Vue DevTools
 
-1. Install React DevTools extension
-2. Use Profiler tab
+1. Install Vue.js devtools extension
+2. Use Performance tab
 3. Record interactions
 4. Analyze render performance
-
-## Hot Reload Configuration
-
-### Backend Hot Reload
-
-Flask automatically reloads on code changes in development mode.
-
-Disable if needed:
-
-```bash
-FLASK_RUN_NO_RELOAD=1 python run.py
-```
-
-### Frontend Hot Reload
-
-Vite provides instant hot module replacement (HMR).
-
-Configure in `vite.config.ts`:
-
-```typescript
-export default defineConfig({
-  server: {
-    hmr: {
-      overlay: true
-    }
-  }
-});
-```
 
 ## Logging
 
 ### Backend Logging
 
-Configure in `api/src/config/logging.py`:
-
-```python
-import logging
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-```
+Configure in `api/src/core/config/logging.py`.
+Magnet AI uses `structlog` for structured logging.
 
 Use in code:
 
 ```python
-import logging
+import structlog
 
-logger = logging.getLogger(__name__)
-logger.debug("Debug message")
-logger.info("Info message")
-logger.error("Error message")
+logger = structlog.get_logger()
+
+logger.info("event_name", key="value")
+logger.error("error_event", error=str(e))
 ```
 
 ### Frontend Logging
@@ -506,9 +318,9 @@ console.error('Error');
 ### Adding a New Feature
 
 1. Create feature branch
-2. Implement backend API
+2. Implement backend API (Litestar Controller)
 3. Write backend tests
-4. Implement frontend UI
+4. Implement frontend UI (Vue Components)
 5. Write frontend tests
 6. Test integration
 7. Create pull request
@@ -524,7 +336,7 @@ console.error('Error');
 ### Code Review Checklist
 
 - [ ] Tests pass
-- [ ] Code formatted
+- [ ] Code formatted (Ruff/Prettier)
 - [ ] No lint errors
 - [ ] Documentation updated
 - [ ] Changes reviewed
@@ -534,3 +346,4 @@ console.error('Error');
 - [Testing](/docs/en/developers/setup/testing) - Testing guide
 - [Deployment](/docs/en/developers/setup/deployment) - Deployment strategies
 - [Plugin Development](/docs/en/developers/plugins/creating-plugins) - Create plugins
+

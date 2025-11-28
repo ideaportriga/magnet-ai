@@ -102,10 +102,10 @@ export default {
       return this.$store.getters.retrieval.system_name
     },
     allowMetadataFilter() {
-      return this.$store.getters.retrieval?.retrieve?.allow_metadata_filter || false
+      return this.$store.getters.retrievalVariant?.retrieve?.allow_metadata_filter || false
     },
     collectionSystemNames() {
-      return this.$store.getters.retrieval?.retrieve?.collection_system_names || []
+      return this.$store.getters.retrievalVariant?.retrieve?.collection_system_names || []
     },
   },
   watch: {

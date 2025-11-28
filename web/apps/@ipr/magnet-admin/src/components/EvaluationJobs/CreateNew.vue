@@ -41,6 +41,7 @@ km-popup-confirm(
         map-options,
         ref='evaluated_toolsRef',
         :rules='config.evaluated_tools.rules'
+        :disabled='disablePromptSelection'
       )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "prompt_template"') Prompt Template variants
     .full-width
@@ -77,7 +78,8 @@ km-popup-confirm(
         emit-value,
         map-options,
         ref='evaluated_toolsRef',
-        :rules='config.evaluated_tools.rules'
+        :rules='config.evaluated_tools.rules',
+        :disabled='disableRagSelection'
       )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "rag_tool"') Evaluated RAG Variants
     .full-width
@@ -131,6 +133,14 @@ export default {
     type: {
       type: String,
       default: '',
+    },
+    disablePromptSelection: {
+      type: Boolean,
+      default: false,
+    },
+    disableRagSelection: {
+      type: Boolean,
+      default: false,
     },
   },
   emits: ['cancel', 'create'],

@@ -1,6 +1,6 @@
 # Database Schema
 
-Magnet AI uses a relational database (SQLite for development, PostgreSQL for production) to store application metadata and configurations.
+Magnet AI uses **PostgreSQL** as its primary database, leveraging the **pgvector** extension to store both relational data and vector embeddings in a single system.
 
 ## Core Models
 
@@ -8,7 +8,7 @@ Magnet AI uses a relational database (SQLite for development, PostgreSQL for pro
 Stores AI agent configurations.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `name` - Agent name
 - `description` - Agent description
 - `system_prompt` - Base system prompt
@@ -24,7 +24,7 @@ Stores AI agent configurations.
 Reusable prompt templates.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `name` - Template name
 - `description` - Template description
 - `template` - Prompt template text
@@ -38,10 +38,10 @@ Reusable prompt templates.
 Data source configurations.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `name` - Source name
 - `type` - Source type (file, api, database, etc.)
-- `connection_string` - Connection details
+- `connection_string` - Connection details (Encrypted)
 - `configuration` - JSON configuration
 - `status` - Connection status
 - `last_sync` - Last synchronization time
@@ -52,7 +52,7 @@ Data source configurations.
 RAG (Retrieval Augmented Generation) tool configurations.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `name` - Tool name
 - `description` - Tool description
 - `knowledge_source_id` - FK to knowledge source
@@ -68,7 +68,7 @@ RAG (Retrieval Augmented Generation) tool configurations.
 Semantic search and retrieval configurations.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `name` - Tool name
 - `description` - Tool description
 - `knowledge_source_id` - FK to knowledge source
@@ -81,7 +81,7 @@ Semantic search and retrieval configurations.
 LLM model configurations.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `name` - Model name
 - `provider` - Provider (OpenAI, Azure, etc.)
 - `model_id` - Provider's model identifier
@@ -97,7 +97,7 @@ LLM model configurations.
 Agent conversation history.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `agent_id` - FK to agent
 - `user_id` - User identifier
 - `messages` - JSON array of messages
@@ -109,7 +109,7 @@ Agent conversation history.
 Evaluation runs and results.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `name` - Evaluation name
 - `type` - Evaluation type
 - `target_id` - FK to evaluated entity
@@ -124,7 +124,7 @@ Evaluation runs and results.
 Track LLM usage and costs.
 
 **Fields:**
-- `id` - Primary key
+- `id` - Primary key (UUID)
 - `entity_type` - Entity type (agent, rag_tool, etc.)
 - `entity_id` - Entity ID
 - `model_id` - FK to model
@@ -158,48 +158,43 @@ Prompt Templates
   └── M:N → Agents (used by agents)
 ```
 
-## Vector Database
+## Vector Database (pgvector)
 
-In addition to the relational database, Magnet AI uses a vector database for storing embeddings:
+Magnet AI uses the `pgvector` extension within PostgreSQL to store and query embeddings. This allows for unified transaction management and simplified infrastructure.
 
-### Document Embeddings
+### Document Embeddings Table
 **Fields:**
-- `id` - Document ID
+- `id` - Document ID (UUID)
 - `source_id` - FK to knowledge source
 - `content` - Original text
-- `embedding` - Vector embedding
+- `embedding` - `vector(1536)` (or other dimension)
 - `metadata` - JSON metadata
 - `created_at` - Creation timestamp
 
 ### Vector Similarity Search
-Used for:
-- Semantic search in RAG tools
-- Document retrieval
-- Context gathering for agents
+Queries use the `<=>` (cosine distance) or `<->` (Euclidean distance) operators for efficient similarity search.
 
 ## Migration Management
 
-### Development
+Migrations are managed using **Alembic**.
+
+### Creating Migrations
 ```bash
-cd api
-python manage_migrations.py
+npm run db:migrate -- -m "Add new field"
 ```
 
-### Production
-Migrations are managed through:
-- Alembic (if configured)
-- Custom migration scripts in `/api/scripts/sql/`
+### Applying Migrations
+```bash
+npm run db:upgrade
+```
 
 ## Database Configuration
 
-### SQLite (Development)
-```python
-DATABASE_URL = "sqlite:///db.sqlite3"
-```
+### Connection String
+We use the `asyncpg` driver for high-performance async access.
 
-### PostgreSQL (Production)
 ```python
-DATABASE_URL = "postgresql://user:password@host:port/database"
+DATABASE_URL = "postgresql+asyncpg://user:password@host:port/database"
 ```
 
 ## Fixtures and Seed Data
@@ -216,6 +211,7 @@ Key indexes for performance:
 - `conversations.agent_id` - Conversation queries
 - `usage_metrics.timestamp` - Time-based queries
 - `knowledge_sources.type` - Source filtering
+- **IVFFlat / HNSW Indexes**: On vector columns for fast approximate nearest neighbor search.
 
 ## Constraints
 
@@ -237,3 +233,4 @@ Key indexes for performance:
 - [Backend Architecture](/docs/en/developers/architecture/backend) - Backend implementation
 - [REST API](/docs/en/developers/api/rest-api) - API endpoints
 - [Getting Started](/docs/en/developers/setup/getting-started) - Development setup
+

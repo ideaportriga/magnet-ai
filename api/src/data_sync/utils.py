@@ -2,7 +2,7 @@ import re
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
-from markdownify import markdownify as md
+from html2text import HTML2Text
 
 
 def clean_text(text: str) -> str:
@@ -29,9 +29,12 @@ def parse_page(page_content: str, base_url: str):
                 anchor["href"] = absolute_url
 
     # replace the Unicode character \u200b (a zero-width space) with an empty string
+    # page_text = soup.get_text().replace("\u200b", "")
     clean_html = str(soup).replace("\u200b", "")
 
-    # Convert HTML to Markdown preserving structure (headings, lists, links, etc.)
-    page_text = md(clean_html, heading_style="ATX", bullets="-")
+    # convert to markdown
+    h = HTML2Text()
+    h.body_width = 0
+    page_text = h.handle(clean_html)
 
     return page_text

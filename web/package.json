@@ -4,7 +4,10 @@
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "nx run-many --target=dev --projects=magnet-panel,magnet-admin"
+    "dev": "nx run-many --target=dev --projects=magnet-panel,magnet-admin",
+    "docs:dev": "nx dev magnet-docs",
+    "docs:build": "nx build magnet-docs",
+    "docs:preview": "nx preview magnet-docs"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",

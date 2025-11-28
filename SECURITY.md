@@ -19,7 +19,7 @@ The Magnet AI team takes security bugs seriously. We appreciate your efforts to 
 
 Instead, please report security vulnerabilities by emailing:
 
-📧 **security@your-organization.com** (replace with actual email)
+📧 **security@ideaportriga.com**
 
 Alternatively, you can use GitHub's private vulnerability reporting feature:
 
@@ -81,24 +81,16 @@ This project uses automated security scanning:
 
 ### GitHub Actions
 
-- **CodeQL Analysis**: Scans for security vulnerabilities in code
 - **Dependency Scanning**: Checks for known vulnerabilities in dependencies
 - **Secret Scanning**: Detects accidentally committed secrets
-- **Trivy**: Scans Docker images for vulnerabilities
 
 ### Python Security
 
-- **Bandit**: Security linter for Python code
-- **Safety**: Checks Python dependencies for known security vulnerabilities
+- **pip-audit**: Checks Python dependencies for known security vulnerabilities
 
 ### JavaScript Security
 
 - **npm audit**: Checks npm dependencies for known vulnerabilities
-
-### Pre-commit Hooks
-
-- **detect-secrets**: Prevents accidental commit of secrets
-- **Security linters**: Run on every commit
 
 ## Security Best Practices
 
@@ -141,7 +133,7 @@ We would like to thank the following security researchers for responsibly disclo
 
 ### Licenses
 
-All dependencies must be compatible with Apache License 2.0. See our [license check workflow](.github/workflows/license-check.yml) for automated verification.
+All dependencies must be compatible with Apache License 2.0.
 
 ### Data Protection
 
@@ -153,7 +145,7 @@ All dependencies must be compatible with Apache License 2.0. See our [license ch
 
 For any security-related questions or concerns:
 
-- **Email**: security@your-organization.com (replace with actual email)
+- **Email**: security@ideaportriga.com
 - **GPG Key**: [Link to public key if available]
 
 ## Additional Resources

@@ -153,8 +153,12 @@ const path = computed(() => {
   } else if (tab_type.value === 'Agent') {
     link = `agents/`
   }
-  if (link && value.value?.id) {
-    link += value.value.id 
+  if (link && value.value) {
+    const systemName = typeof value.value === 'string' ? value.value : value.value.system_name
+    const option = options.value.find((option) => option.system_name === systemName)
+    if (option) {
+      link += option.id
+    }
   }
   return link
 })
@@ -190,7 +194,7 @@ const navigate = (path = '') => {
 }
 
 const openNewTab = () => {
-  window.open(`/#/${path.value}`, '_blank')
+  window.open(router.resolve({ path: `/${path.value}` }).href, '_blank')
 }
 
 watch(selectedRow, (newVal, oldVal) => {

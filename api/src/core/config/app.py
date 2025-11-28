@@ -179,6 +179,12 @@ log = StructlogConfig(
                     "level": logging.WARNING,
                     "handlers": _console_only_handlers,
                 },
+                # Knowledge Graph
+                "services.knowledge_graph": {
+                    "propagate": False,
+                    "level": settings.log.KNOWLEDGE_GRAPH_LEVEL,
+                    "handlers": ["queue_listener"],
+                },
             },
         ),
     ),

@@ -2,7 +2,7 @@ import asyncio
 import time
 import traceback
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from logging import getLogger
 from typing import Any, Sequence
 
@@ -51,49 +51,49 @@ def _to_datetime(dt: Any) -> datetime | None:
     if dt is None:
         return None
     if isinstance(dt, datetime):
-        return dt
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    if isinstance(dt, str):
+        try:
+            # Handle ISO format with Z
+            dt_obj = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+            return dt_obj if dt_obj.tzinfo else dt_obj.replace(tzinfo=timezone.utc)
+        except ValueError as e:
+            logger.warning(f"Failed to parse datetime string: {dt}. Error: {e}")
+            return None
     # Handle advanced_alchemy DateTimeUTC type
     if hasattr(dt, "replace") and hasattr(dt, "year"):
-        return dt.replace(tzinfo=None) if hasattr(dt, "tzinfo") and dt.tzinfo else dt
-    return dt
+        return dt if getattr(dt, "tzinfo", None) else dt.replace(tzinfo=timezone.utc)
+
+    logger.warning(f"Unknown datetime type: {type(dt)} for value {dt}")
+    return None
 
 
 def _safe_min_datetime(dt1: Any, dt2: datetime | None) -> datetime | None:
     """Safely compare two datetime objects."""
-    if dt1 is None:
-        return dt2
-    if dt2 is None:
-        return _to_datetime(dt1)
     dt1_converted = _to_datetime(dt1)
+    dt2_converted = _to_datetime(dt2)
+
     if dt1_converted is None:
-        return dt2
-    return min(dt1_converted, dt2)
+        return dt2_converted
+    if dt2_converted is None:
+        return dt1_converted
+    return min(dt1_converted, dt2_converted)
 
 
 def _safe_max_datetime(dt1: Any, dt2: datetime | None) -> datetime | None:
     """Safely compare two datetime objects."""
-    if dt1 is None:
-        return dt2
-    if dt2 is None:
-        return _to_datetime(dt1)
     dt1_converted = _to_datetime(dt1)
+    dt2_converted = _to_datetime(dt2)
+
     if dt1_converted is None:
-        return dt2
-    return max(dt1_converted, dt2)
+        return dt2_converted
+    if dt2_converted is None:
+        return dt1_converted
+    return max(dt1_converted, dt2_converted)
 
 
 def _safe_max_span_time(span_time: Any) -> datetime | None:
     """Safely extract datetime from span data."""
-    if span_time is None:
-        return None
-    if isinstance(span_time, datetime):
-        return span_time
-    # Convert from ISO string or other formats
-    if isinstance(span_time, str):
-        try:
-            return datetime.fromisoformat(span_time.replace("Z", "+00:00"))
-        except Exception:
-            return None
     return _to_datetime(span_time)
 
 
@@ -379,6 +379,19 @@ class SqlAlchemySpanExporter(SpanExporter):
             for key, value in (global_fields.x_attributes.value or {}).items():
                 full_extra_data[f"x_attributes.{key}"] = value
 
+            # Calculate min start_time and max end_time
+            current_start = analytics.get("start_time")
+            current_end = analytics.get("end_time")
+
+            new_start = span_start_time
+            new_end = span_end_time
+
+            if current_start:
+                new_start = _safe_min_datetime(current_start, span_start_time)
+
+            if current_end:
+                new_end = _safe_max_datetime(current_end, span_end_time)
+
             analytics.update(
                 {
                     "feature_type": feature_instance.feature.type.value.value,
@@ -393,9 +406,9 @@ class SqlAlchemySpanExporter(SpanExporter):
                     "consumer_name": global_fields.consumer_name.value,
                     "consumer_type": global_fields.consumer_type.value,
                     "status": span_status,
-                    "start_time": span_start_time,
-                    "end_time": span_end_time,
-                    "latency": get_duration(span_start_time, span_end_time),
+                    "start_time": new_start,
+                    "end_time": new_end,
+                    "latency": get_duration(new_start, new_end),
                     "conversation_id": conversation.id.value,
                     "conversation_data": conversation_data,
                     "extra_data": full_extra_data,
@@ -592,6 +605,20 @@ class SqlAlchemySpanExporter(SpanExporter):
         if existing_metric:
             # Update existing metric
             update_values = {}
+
+            # Handle start_time and end_time specifically
+            if "start_time" in patch:
+                start_time = patch.pop("start_time")
+                update_values["start_time"] = _safe_min_datetime(
+                    existing_metric.start_time, start_time
+                )
+
+            if "end_time" in patch:
+                end_time = patch.pop("end_time")
+                update_values["end_time"] = _safe_max_datetime(
+                    existing_metric.end_time, end_time
+                )
+
             for key, value in patch.items():
                 if hasattr(Metric, key):
                     update_values[key] = value
@@ -599,6 +626,15 @@ class SqlAlchemySpanExporter(SpanExporter):
             # Update cost
             if cost != 0.0:
                 update_values["cost"] = (existing_metric.cost or 0.0) + cost
+
+            # Recalculate latency if start and end times are available
+            start = _to_datetime(
+                update_values.get("start_time", existing_metric.start_time)
+            )
+            end = _to_datetime(update_values.get("end_time", existing_metric.end_time))
+
+            if start and end:
+                update_values["latency"] = get_duration(start, end)
 
             if update_values:
                 await session.execute(

@@ -2,9 +2,21 @@
 .venv
 .vscode
 generated_docs/
+specs/
 openshift/
 node_modules/
 package-lock.json
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+*.log
+
 
 # Offline static files for Swagger UI and ReDoc
 # api/static/*.js

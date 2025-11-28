@@ -181,7 +181,7 @@ def attach_default_handlers(
                 message_ts,
             )
 
-    async def _resolve_agent_display_name(
+    async def _resolve_slack_agent_display_name(
         context: dict[str, Any] | None,
         client: AsyncWebClient,
         logger: logging.Logger,
@@ -196,12 +196,13 @@ def attach_default_handlers(
         try:
             user_info = await client.users_info(user=agent_user_id)
         except SlackApiError:
+            # could fail if not user:read scope
             logger.warning(
                 "users.info failed while resolving agent display name (user=%s).",
                 agent_user_id,
                 exc_info=True,
             )
-            return None
+            return DEFAULT_AGENT_DISPLAY_NAME
 
         user_data = user_info.get("user") or {}
         profile = user_data.get("profile") or {}
@@ -228,10 +229,13 @@ def attach_default_handlers(
     ) -> None:
         await ack()
 
+        payload_command = (body or {}).get("command")
+        command_label = payload_command or command_name
+
         user_id = body.get("user_id")
         if not user_id:
             logger.warning(
-                "Missing user_id in %s command payload: %s", command_name, body
+                "Missing user_id in %s command payload: %s", command_label, body
             )
             await _respond_ephemeral(
                 respond, "I couldn't determine which conversation to close."
@@ -244,7 +248,7 @@ def attach_default_handlers(
             )
         except Exception:
             logger.exception(
-                "Failed to close conversation via %s command.", command_name
+                "Failed to close conversation via %s command.", command_label
             )
             result = "Failed to close the conversation."
 
@@ -258,11 +262,12 @@ def attach_default_handlers(
     ) -> None:
         await ack()
 
+        payload_command = (body or {}).get("command")
+        command_label = payload_command or "/get_conversation_info"
+
         user_id = body.get("user_id")
         if not user_id:
-            logger.warning(
-                "Missing user_id in /get_conversation_info payload: %s", body
-            )
+            logger.warning("Missing user_id in %s payload: %s", command_label, body)
             await _respond_ephemeral(
                 respond, "I couldn't determine which conversation to inspect."
             )
@@ -274,7 +279,7 @@ def attach_default_handlers(
             )
         except Exception:
             logger.exception(
-                "Failed to gather conversation info via /get_conversation_info."
+                "Failed to gather conversation info via %s command.", command_label
             )
             result = "Failed to load the last conversation."
 
@@ -435,7 +440,7 @@ def attach_default_handlers(
                 channel_id,
             )
 
-    @app.command("/welcome")
+    @app.command(re.compile(r"^/welcome[\w-]*$"))
     async def handle_welcome_command(
         ack: Any,
         body: dict[str, Any],
@@ -446,9 +451,11 @@ def attach_default_handlers(
     ) -> None:
         await ack()
 
-        agent_display_name = await _resolve_agent_display_name(context, client, logger)
+        slack_agent_display_name = await _resolve_slack_agent_display_name(
+            context, client, logger
+        )
         blocks, message_text = build_welcome_message_blocks(
-            agent_display_name, agent_display_name
+            slack_agent_display_name, agent_display_name
         )
 
         try:
@@ -460,7 +467,7 @@ def attach_default_handlers(
         except Exception:
             logger.exception("Failed to deliver welcome card response.")
 
-    @app.command("/restart")
+    @app.command(re.compile(r"^/restart[\w-]*$"))
     async def handle_restart_command(
         ack: Any,
         body: dict[str, Any],
@@ -471,7 +478,7 @@ def attach_default_handlers(
             "/restart", ack, body, respond, logger
         )
 
-    @app.command("/get_conversation_info")
+    @app.command(re.compile(r"^/get_conversation_info[\w-]*$"))
     async def handle_get_conversation_info_command(
         ack: Any,
         body: dict[str, Any],

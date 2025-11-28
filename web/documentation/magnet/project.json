@@ -22,6 +22,9 @@
       "options": {
         "command": "yarn vitepress preview documentation/magnet"
       }
+    },
+    "lint": {
+      "executor": "nx:noop"
     }
   }
 }

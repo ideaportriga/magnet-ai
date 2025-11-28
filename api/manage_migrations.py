@@ -11,7 +11,7 @@ project_root = Path(__file__).parent
 src_path = project_root / "src"
 sys.path.insert(0, str(src_path))
 
-MIGRATIONS_DIR = src_path / "db" / "migrations"
+MIGRATIONS_DIR = src_path / "core" / "db" / "migrations"
 ALEMBIC_INI = MIGRATIONS_DIR / "alembic.ini"
 
 

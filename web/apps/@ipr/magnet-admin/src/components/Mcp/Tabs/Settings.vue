@@ -49,9 +49,7 @@ import { useQuasar } from 'quasar'
 const store = useStore()
 const $q = useQuasar()
 
-
-
-
+const server = computed(() => store.getters.mcp_server)
 
 const headers = computed({
   get() {

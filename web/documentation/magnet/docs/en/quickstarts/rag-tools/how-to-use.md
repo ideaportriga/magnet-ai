@@ -4,7 +4,7 @@
 
 RAG Tools can be used by Agents when an Agent understands it needs to provide an answer from a knowledge base. To so do, configure a RAG Tool and add it as an Agent Action.
 
-[Read more](../../../en/admin/configure/agents/configuration.md) about configuring Agents.
+[Read more](../../../en/admin/configure/agents/configuration-topics.md) about configuring Agents.
 
 ## Using standalone RAG Tools
 

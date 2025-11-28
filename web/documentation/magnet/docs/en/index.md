@@ -31,6 +31,18 @@ features:
     title: Developer Guide
     details: Extend and customize Magnet AI with plugins and integrations
     link: /docs/en/developers/overview
+  - icon: 🟦
+    title: Deploy to Microsoft Teams
+    details: Install Magnet AI agents in Microsoft Teams with step-by-step guidance
+    link: /docs/en/admin/configure/agents/agent-ms-teams
+  - icon: 💬
+    title: Deploy to Slack
+    details: Connect Magnet AI agents to Slack workspaces using OAuth and event subscriptions
+    link: /docs/en/admin/configure/agents/agent-slack
+  - icon: 📱
+    title: Deploy to WhatsApp
+    details: Configure webhook access and responses for WhatsApp Business agents
+    link: /docs/en/admin/configure/agents/agent-whatsapp
 footer:
   links:
     - icon: GitHub

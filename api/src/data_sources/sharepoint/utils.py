@@ -3,25 +3,26 @@ from logging import getLogger
 from office365.runtime.auth.authentication_context import AuthenticationContext
 from office365.sharepoint.client_context import ClientContext
 
-from core.config._utils import get_env
+from core.config.base import get_knowledge_source_settings
 from data_sources.sharepoint.types import SharepointConfig, SharepointConfigWithCert
 
 logger = getLogger(__name__)
 
 
 def get_sharepoint_config() -> SharepointConfig | SharepointConfigWithCert:
+    settings = get_knowledge_source_settings()
     try:
-        client_id = get_env("SHAREPOINT_CLIENT_ID", "")()
-        client_secret = get_env("SHAREPOINT_CLIENT_SECRET", "")()
+        client_id = settings.SHAREPOINT_CLIENT_ID
+        client_secret = settings.SHAREPOINT_CLIENT_SECRET
 
         if client_secret:
             return SharepointConfig(client_id=client_id, client_secret=client_secret)
 
         sharepoint_config = SharepointConfigWithCert(
-            tenant=get_env("SHAREPOINT_TENANT_ID", "")(),
+            tenant=settings.SHAREPOINT_TENANT_ID,
             client_id=client_id,
-            thumbprint=get_env("SHAREPOINT_CLIENT_CERT_THUMBPRINT", "")(),
-            private_key=get_env("SHAREPOINT_CLIENT_CERT_PRIVATE_KEY", "")().replace(
+            thumbprint=settings.SHAREPOINT_CLIENT_CERT_THUMBPRINT,
+            private_key=settings.SHAREPOINT_CLIENT_CERT_PRIVATE_KEY.replace(
                 "\\n", "\n"
             ),
         )

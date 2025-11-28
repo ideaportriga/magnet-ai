@@ -1,3 +1,5 @@
+import os
+
 from typing import Any
 
 from litestar import Router, get
@@ -18,11 +20,13 @@ from core.domain.providers import ProvidersController
 from core.domain.rag_tools import RagToolsController
 from core.domain.retrieval_tools import RetrievalToolsController
 from core.domain.traces import TracesController
+from core.domain.knowledge_graph import KnowledgeGraphController
 from guards.role import UserRole, create_role_guard
 from routes.admin.api_keys import ApiKeysController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
+
 
 from .admin.knowledge_sources import (
     knowledge_sources_router,
@@ -74,10 +78,22 @@ def get_route_handlers(
         TracesController,  # Admin / Traces
         TransferController,  # Admin / Transfer
         UtilsController,  # Admin / Utils
+        KnowledgeGraphController,  # Admin / Knowledge Graph
         # Deprecated routes first (with [Deprecated] prefix)
         knowledge_sources_router,  # [Deprecated] Knowledge Sources
         RagController,  # [Deprecated] RAG
     ]
+
+    if (os.getenv("STT_ENABLED", "").lower()) == "true":
+        from .admin.recordings import RecordingsController
+        from .admin.upload_sessions import UploadSessionsController
+
+        route_handlers_admin.extend(
+            [
+                RecordingsController,  # Admin / Recordings
+                UploadSessionsController,  # Admin / Upload Sessions
+            ]
+        )
 
     route_handlers_user: list[ControllerRouterHandler] = [
         AskMagnetController,  # User / Ask Magnet (form submissions)
@@ -129,10 +145,6 @@ def get_route_handlers(
     ]
 
     if web_included:
-        import os
-
-        print("Working directory:", os.getcwd())
-
         # Serve static assets for each app
         static_router_admin_assets = create_static_files_router(
             path="/admin/assets",

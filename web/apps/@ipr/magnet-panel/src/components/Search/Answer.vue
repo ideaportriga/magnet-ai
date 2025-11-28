@@ -204,7 +204,7 @@ export default {
       window.open(val, '_blank')
     },
     like() {
-      this.showFeedbackConfirm = true
+      // this.showFeedbackConfirm = true
       this.react({ type: 'like' })
     },
     dislike() {

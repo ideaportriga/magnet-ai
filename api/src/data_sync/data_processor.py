@@ -1,8 +1,8 @@
 from abc import abstractmethod
 
+import html2text
 from bs4 import BeautifulSoup
 from langchain.schema import Document
-from markdownify import markdownify as md
 from langchain_text_splitters import (
     CharacterTextSplitter,
     RecursiveCharacterTextSplitter,
@@ -104,10 +104,11 @@ class DataProcessor:
     def _html_to_text(self, html: str):
         soup = BeautifulSoup(html, "html.parser")
 
-        # Convert HTML to Markdown preserving document structure
-        # heading_style="ATX" creates # style headings
-        # bullets="-" uses - for unordered lists
-        page_text = md(str(soup), heading_style="ATX", bullets="-")
+        page_text = soup.get_text("\n")
+        # convert to markdown
+        h = html2text.HTML2Text()
+        h.body_width = 0
+        page_text = h.handle(page_text)
 
         return page_text
 

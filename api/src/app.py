@@ -1,6 +1,7 @@
 """Simplified application factory using plugins."""
 
 import asyncio
+import os
 from logging import getLogger
 
 from litestar import Litestar
@@ -26,6 +27,10 @@ from core.config.base import (
     get_log_settings,
 )
 
+env = os.environ
+
+WEB_INCLUDED = env.get("WEB_INCLUDED") == "true"
+
 logger = getLogger(__name__)
 
 auth_settings = get_auth_settings()
@@ -34,7 +39,6 @@ general_settings = get_general_settings()
 log_settings = get_log_settings()
 
 AUTH_ENABLED = auth_settings.AUTH_ENABLED
-WEB_INCLUDED = general_settings.WEB_INCLUDED
 VECTOR_DB_TYPE = db_connection_settings.VECTOR_DB_TYPE
 DEBUG_MODE = log_settings.DEBUG_MODE
 

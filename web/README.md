@@ -44,7 +44,7 @@ You need to create main.json file in `magnet-admin/public/config/main.json` with
 ```
 
 auth - configuration for authentication
-api - configuration for Magnet AI Beckend
+api - configuration for Magnet AI Backend
 panel - configuration for Magnet AI Panel host
 admin - configuration for Magnet AI Admin host
 

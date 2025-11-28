@@ -47,6 +47,7 @@
     v-if='showNewDialog',
     :system_name='ragSystemName',
     type='rag_tool'
+    :disable-rag-selection='true'
   )
   //- TODO: Add a new component for this
   km-popup-confirm(

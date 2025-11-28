@@ -21,13 +21,13 @@ div.q-mr-8
         .col-auto
           km-btn(icon='fas fa-external-link-alt', iconSize='16px', size='sm', flat, @click='openInNewTab', tooltip='Open in new tab')
   q-separator.q-my-lg
-  km-section(title='Ms Teams', subTitle='Make the Agent available as a mobile app')
+  km-section(title='Microsoft Teams', subTitle='Provide identifiers and secrets to be used by the Microsoft Teams Agent')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_ms_teams', color='primary', size='sm', :disable='false')
     template(v-if='enable_ms_teams')
       q-separator.q-mb-lg
       km-notification-text(
-        notification='MS Teams credentials are stored on Agent level, not on the variant.' 
+        notification='Microsoft Teams credentials are stored on Agent level, not on the variant.' 
       )
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
       km-input(v-model='ms_teams_client_id', placeholder='Enter MS Teams Client ID')
@@ -47,7 +47,7 @@ div.q-mr-8
           a.text-primary.cursor-pointer(@click='openHelp') Admin Manual
           | &nbsp;for further steps on MS Teams Agent installation
   q-separator.q-my-lg
-  km-section(title='Slack', subTitle='Make the Agent available as a Slack app')
+  km-section(title='Slack', subTitle='Provide identifiers and secrets to be used by the Slack Agent')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_slack', color='primary', size='sm', :disable='false')
     template(v-if='enable_slack')

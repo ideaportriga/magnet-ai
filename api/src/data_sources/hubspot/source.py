@@ -25,9 +25,10 @@ class HubspotDataSource(DataSource[dict]):
         if api_token:
             self.token = api_token
         else:
-            from core.config._utils import get_env
+            from core.config.base import get_knowledge_source_settings
 
-            self.token = get_env("KNOWLEDGE_SOURCE_HUBSPOT", "")()
+            knowledge_settings = get_knowledge_source_settings()
+            self.token = knowledge_settings.HUBSPOT or ""
 
         self.base_url = "https://api.hubapi.com"
 

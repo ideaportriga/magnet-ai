@@ -4,14 +4,15 @@
     km-filter-bar(v-model:config='currentFilter', v-model:filterObject='activeFilters', ref='filterRef')
     .column.q-gap-16.full-width
       km-table.q-mt-md(
-        @selectRow='$emit("selectRow", $event)',
+        @selectRow='selectRow',
         selection='single',
         row-key='start_time',
-        :rows='visibleRows',
+        :rows='detailedList',
         :selected='selectedRow ? [selectedRow] : []',
         :columns='agentDetailsColumns',
-        :pagination='{ rowsPerPage: 10 }',
+        v-model:pagination='pagination',
         @cellAction='cellAction'
+        @request='getDetailedList'
       )
 </template>
 <script>
@@ -20,7 +21,6 @@ import agentDetailsControls from '@/config/dashboard/agent-details-table'
 
 export default {
   props: ['selectedRow'],
-  emits: ['selectRow'],
   data() {
     const store = this?.$store
     return {
@@ -49,6 +49,12 @@ export default {
           default: 'P1D',
           overviewFilter: true,
         },
+      },
+      pagination: {
+        rowsPerPage: 10,
+        sortBy: 'start_time',
+        descending: true,
+        page: 1,
       },
     }
   },
@@ -97,24 +103,44 @@ export default {
     },
   },
   methods: {
-    async getDetailedList() {
+    async getDetailedList(input) {
+      console.log('input', input?.pagination?.sortBy, input?.pagination?.descending)
+      const props = input?.pagination ?? this.pagination
+      const body = {
+        limit: props.rowsPerPage,
+        sort: props.sortBy,
+        order: props.descending ? -1 : 1,
+        filters: { ...this.activeFilters, feature_system_name: { eq: this.$store.getters.agent_detail?.system_name } },
+        fields: [],
+        exclude_fields: [],
+        offset: (props.page - 1) * props.rowsPerPage,
+      }
       const response = await fetchData({
         endpoint: this.endpoint,
         method: 'POST',
         credentials: 'include',
         service: 'observability/monitoring/agent/list',
-        body: JSON.stringify({
-          filters: { ...this.activeFilters, feature_system_name: { eq: this.$store.getters.agent_detail?.system_name } },
-          limit: 100,
-        }),
+        body: JSON.stringify(body),
         headers: {
           'Content-Type': 'application/json',
         },
       })
       const data = await response.json()
-      this.detailedList = data.items
+      if (data.items) {
+        this.detailedList = data.items
+      } else {
+        this.detailedList = []
+      }
+      this.pagination.rowsNumber = data.total
+      this.pagination.page = props.page ?? 1
+      this.pagination.sortBy = props.sortBy ?? 'start_time'
+      this.pagination.descending = props.descending ?? true
     },
-    cellAction(e) {},
+    selectRow(row) {
+      if (row?.conversation_id) {
+        window.open(this.$router.resolve({ path: `/conversation/${row.conversation_id}` }).href, '_blank')
+      }
+    },
   },
 }
 </script>

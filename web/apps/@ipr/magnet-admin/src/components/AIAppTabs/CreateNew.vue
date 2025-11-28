@@ -38,7 +38,7 @@ km-popup-confirm(
       ) 
   template(v-if='newRow.tab_type === "Custom"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Custom code
-      km-codemirror(v-model='newRow.config.jsonString')
+      km-codemirror(v-model='newRow.config.jsonString' :rules='customCodeRules' ref='customCodeRef')
       .km-description.text-secondary-text.q-pb-4 Enter your custom code in JSON format
   template(v-if='newRow.tab_type === "Agent"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Agent
@@ -181,6 +181,13 @@ export default {
         }
       ]
     },
+    customCodeRules() {
+      return [
+        (value) => {
+          return !!value || 'Custom code is required'
+        }
+      ]
+    },
   },
   watch: {},
   mounted() {
@@ -217,6 +224,9 @@ export default {
       } else if (this.newRow.tab_type === 'Agent') {
         const agentsValid = this.$refs.agentsRef?.validate()
         if (agentsValid === false) return false
+      } else if (this.newRow.tab_type === 'Custom') {
+        const customCodeValid = this.$refs.customCodeRef?.validate()
+        if (customCodeValid === false) return false
       }
       
       return !validStates.includes(false)
