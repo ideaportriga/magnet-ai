@@ -33,6 +33,9 @@ jobs:
         with:
           node-version: '20'
       
+      - name: Enable Corepack
+        run: corepack enable
+      
       - name: Install semantic-release
         run: |
           npm install -g \
