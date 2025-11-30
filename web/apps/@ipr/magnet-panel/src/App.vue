@@ -5,7 +5,7 @@
       .flex.flex-center.full-height
         q-spinner(size='30px', color='primary')
     template(v-else)
-      login()
+      login
   template(v-else)
     template(v-if='appType === "agent"')
       agent-container
@@ -36,7 +36,6 @@ export default {
     const { authRequired } = storeToRefs(auth)
     const { appContext } = getCurrentInstance()
 
-
     return {
       appContext,
       authRequired,
@@ -61,7 +60,7 @@ export default {
     appType() {
       if (this.$route.query.agent) return 'agent'
       return 'ai_app'
-    }
+    },
   },
   watch: {
     loading: {

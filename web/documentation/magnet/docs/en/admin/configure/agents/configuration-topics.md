@@ -1,12 +1,12 @@
 # Agent Configuration
 
-To add a new Agent, click on the “New” button under “Agents” section. Name your Agent and save it. 
+To add a new Agent, click on the “New” button under “Agents” section. Name your Agent and save it.
 
 ![](../../../../images/2025-11-05-13-56-39-image.png)
 
 Now you will need to configure the Agent and equip it with the right tools (Actions).
 
-Before you start the configuration, make sure you have read and understood [what Topics and Actions are](./topics-actions.md). 
+Before you start the configuration, make sure you have read and understood [what Topics and Actions are](./topics-actions.md).
 
 Let's have a look at each of the tabs of the Agent configuration screen.
 
@@ -16,11 +16,11 @@ Let's have a look at each of the tabs of the Agent configuration screen.
 
 Topic selection Prompt Template instructs the Agent how to detect Topics from user input. It can also contain instructions on how to handle cases when a Topic was not found or user intent does not classify as a Topic (some examples might be greetings or farewells).
 
-This Prompt Template model used for this case must support JSON mode, since the LLM must respond with a certain JSON schema. 
+This Prompt Template model used for this case must support JSON mode, since the LLM must respond with a certain JSON schema.
 
 ![](../../../images/2025-06-02-15-34-10-image.png)
 
-By clicking the "Open Prompt Template"  button, you will be navigated to the currently selected Prompt Template to view the instructions it provides.
+By clicking the "Open Prompt Template" button, you will be navigated to the currently selected Prompt Template to view the instructions it provides.
 
 Magnet AI is typically installed with a set of sample/default Prompt Templates. Check the `DEFAULT_AGENT_CLASSIFICATION` Prompt Template for default instructions and output schema.
 
@@ -28,7 +28,7 @@ If your Agent has only one Topic, we recommend using another Prompt Template for
 
 ##### Agent topics
 
-This section is an overview of all Topics that are available for the Agent. 
+This section is an overview of all Topics that are available for the Agent.
 
 You can add new Topics and delete existing ones here. Click on a Topic name to view
 its details in the Preview panel.
@@ -43,7 +43,7 @@ By clicking on the arrow icon on a Topic record or the `More details & actions` 
 
 <img src="../../../images/2025-06-02-15-37-29-image.png" title="" alt="" width="316">
 
-## 
+##
 
 ## Topic Details & Actions screen
 
@@ -84,23 +84,23 @@ Let’s look deeply into the Action details.
   ![](../../../../images/2025-11-06-09-04-00-image.png)
 
 - **Description for the LLM** must provide accurate and sufficient information on what the Action does.
-  
+
   ![](../../../../images/2025-11-06-09-04-38-image.png)
 
-- **Tool of origin** is essentially the name and type of tool from which the action was originally created. This was you can check and/or edit the original tool properties (e.g. API Tool, RAG Tool, etc). You can drill down to the *Tool of origin* by clicking on the link icon near tool name. 
-  
+- **Tool of origin** is essentially the name and type of tool from which the action was originally created. This was you can check and/or edit the original tool properties (e.g. API Tool, RAG Tool, etc). You can drill down to the _Tool of origin_ by clicking on the link icon near tool name.
+
   ![](../../../../images/2025-11-06-09-09-10-image.png)
 
 ##### Advanced Settings
 
 - **User Confirmation** setting enables human confirmation before the action is called. This is recommended for cases when data is updated or deleted by the Agent.
-  
+
   This is an example of how confirmation form could look for the end user:
-  
+
   ![](../../../../images/2025-11-06-10-12-41-image.png)
-  
+
   **Custom action description** field (enabled if User Confirmation is on) provides the option to override default instructions on how Action description is presented to the end user. Namely, when user is prompted to confirm an action, they see a summary of what is going to happen. This summary is generated using default global instructions. If you need to re-shape it, use the Custom action description field.
-  
+
   ![](../../../../images/2025-11-06-10-13-46-image.png)
 
 ##### Parameters

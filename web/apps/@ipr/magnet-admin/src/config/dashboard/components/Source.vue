@@ -10,7 +10,7 @@ export default {
   computed: {
     sourceName() {
       return this.row?.consumer_name
-    }
-  }
+    },
+  },
 }
 </script>

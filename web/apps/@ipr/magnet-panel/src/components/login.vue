@@ -45,7 +45,7 @@ onUnmounted(() => {
 })
 
 function login() {
-  const authBaseUrl = auth.baseUrl ?? ""
+  const authBaseUrl = auth.baseUrl ?? ''
 
   if (loginInProgress.value) {
     return

@@ -84,19 +84,19 @@ class TestAgent(unittest.TestCase):
             'model_id': 'gpt-4',
             'temperature': 0.7
         }
-    
+
     def test_create_agent(self):
         """Test agent creation."""
         agent = Agent(**self.agent_data)
-        
+
         self.assertEqual(agent.name, 'Test Agent')
         self.assertEqual(agent.model_id, 'gpt-4')
         self.assertEqual(agent.temperature, 0.7)
-    
+
     def test_agent_validation(self):
         """Test agent validation."""
         invalid_data = {'name': ''}
-        
+
         with self.assertRaises(ValueError):
             Agent(**invalid_data)
 ```
@@ -111,7 +111,7 @@ from src.services.agent_service import AgentService
 class TestAgentService(unittest.TestCase):
     def setUp(self):
         self.service = AgentService()
-    
+
     @patch('src.services.agent_service.AgentStore')
     def test_get_agent(self, mock_store):
         """Test getting an agent."""
@@ -120,10 +120,10 @@ class TestAgentService(unittest.TestCase):
         mock_agent.id = '123'
         mock_agent.name = 'Test Agent'
         mock_store.find_by_id.return_value = mock_agent
-        
+
         # Act
         agent = self.service.get_agent('123')
-        
+
         # Assert
         self.assertEqual(agent.id, '123')
         self.assertEqual(agent.name, 'Test Agent')
@@ -146,20 +146,20 @@ class TestAgentAPI(unittest.TestCase):
         self.client = self.app.test_client()
         self.ctx = self.app.app_context()
         self.ctx.push()
-    
+
     def tearDown(self):
         """Clean up."""
         self.ctx.pop()
-    
+
     def test_list_agents(self):
         """Test listing agents."""
         response = self.client.get('/api/agents')
-        
+
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertTrue(data['success'])
         self.assertIsInstance(data['data'], list)
-    
+
     def test_create_agent(self):
         """Test creating an agent."""
         agent_data = {
@@ -167,18 +167,18 @@ class TestAgentAPI(unittest.TestCase):
             'model_id': 'gpt-4',
             'temperature': 0.7
         }
-        
+
         response = self.client.post(
             '/api/agents',
             data=json.dumps(agent_data),
             content_type='application/json'
         )
-        
+
         self.assertEqual(response.status_code, 201)
         data = json.loads(response.data)
         self.assertTrue(data['success'])
         self.assertEqual(data['data']['name'], 'Test Agent')
-    
+
     def test_create_agent_invalid_data(self):
         """Test creating agent with invalid data."""
         response = self.client.post(
@@ -186,7 +186,7 @@ class TestAgentAPI(unittest.TestCase):
             data=json.dumps({'name': ''}),
             content_type='application/json'
         )
-        
+
         self.assertEqual(response.status_code, 400)
 ```
 
@@ -203,21 +203,21 @@ class TestFilePlugin(unittest.TestCase):
             'directory': '/tmp/test_docs',
             'extensions': ['.txt', '.md']
         }
-    
+
     def test_plugin_metadata(self):
         """Test plugin metadata."""
         self.assertEqual(self.plugin.name, 'file')
         self.assertEqual(self.plugin.plugin_type.value, 'knowledge_source')
-    
+
     def test_validate_config(self):
         """Test config validation."""
         # Valid config
         self.assertTrue(self.plugin.validate_config(self.config))
-        
+
         # Missing directory
         with self.assertRaises(ValueError):
             self.plugin.validate_config({})
-    
+
     @patch('os.path.exists')
     @patch('os.walk')
     def test_fetch_documents(self, mock_walk, mock_exists):
@@ -226,10 +226,10 @@ class TestFilePlugin(unittest.TestCase):
         mock_walk.return_value = [
             ('/tmp/test_docs', [], ['test.txt', 'readme.md'])
         ]
-        
+
         with patch('builtins.open', unittest.mock.mock_open(read_data='test content')):
             docs = self.plugin.fetch_documents(self.config)
-        
+
         self.assertEqual(len(docs), 2)
 ```
 
@@ -246,7 +246,7 @@ from src.models import db, Agent
 def app():
     """Create test app."""
     app = create_app('testing')
-    
+
     with app.app_context():
         db.create_all()
         yield app
@@ -337,21 +337,21 @@ describe('AgentCard', () => {
       name: 'Test Agent',
       model_id: 'gpt-4'
     };
-    
+
     render(<AgentCard agent={agent} />);
-    
+
     expect(screen.getByText('Test Agent')).toBeInTheDocument();
   });
-  
+
   it('displays model information', () => {
     const agent = {
       id: '1',
       name: 'Test Agent',
       model_id: 'gpt-4'
     };
-    
+
     render(<AgentCard agent={agent} />);
-    
+
     expect(screen.getByText(/gpt-4/i)).toBeInTheDocument();
   });
 });
@@ -366,21 +366,21 @@ import { CreateAgentForm } from './CreateAgentForm';
 describe('CreateAgentForm', () => {
   it('calls onSubmit when form is submitted', () => {
     const handleSubmit = jest.fn();
-    
+
     render(<CreateAgentForm onSubmit={handleSubmit} />);
-    
+
     // Fill in form
     fireEvent.change(screen.getByLabelText(/name/i), {
       target: { value: 'New Agent' }
     });
-    
+
     fireEvent.change(screen.getByLabelText(/model/i), {
       target: { value: 'gpt-4' }
     });
-    
+
     // Submit
     fireEvent.click(screen.getByText(/create/i));
-    
+
     expect(handleSubmit).toHaveBeenCalledWith({
       name: 'New Agent',
       model_id: 'gpt-4'
@@ -409,9 +409,9 @@ describe('AgentList', () => {
         })
       })
     ) as jest.Mock;
-    
+
     render(<AgentList />);
-    
+
     // Wait for loading to complete
     await waitFor(() => {
       expect(screen.getByText('Agent 1')).toBeInTheDocument();
@@ -424,28 +424,29 @@ describe('AgentList', () => {
 ### Testing Hooks
 
 ```typescript
-import { renderHook, waitFor } from '@testing-library/react';
-import { useAgents } from './useAgents';
+import { renderHook, waitFor } from '@testing-library/react'
+import { useAgents } from './useAgents'
 
 describe('useAgents', () => {
   it('fetches agents', async () => {
     global.fetch = jest.fn(() =>
       Promise.resolve({
-        json: () => Promise.resolve({
-          success: true,
-          data: [{ id: '1', name: 'Agent 1' }]
-        })
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: [{ id: '1', name: 'Agent 1' }],
+          }),
       })
-    ) as jest.Mock;
-    
-    const { result } = renderHook(() => useAgents());
-    
+    ) as jest.Mock
+
+    const { result } = renderHook(() => useAgents())
+
     await waitFor(() => {
-      expect(result.current.agents).toHaveLength(1);
-      expect(result.current.loading).toBe(false);
-    });
-  });
-});
+      expect(result.current.agents).toHaveLength(1)
+      expect(result.current.loading).toBe(false)
+    })
+  })
+})
 ```
 
 ## E2E Testing
@@ -463,27 +464,27 @@ npx playwright install
 #### Example Test
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test'
 
 test.describe('Agent Management', () => {
   test('create new agent', async ({ page }) => {
     // Navigate to agents page
-    await page.goto('http://localhost:4200/agents');
-    
+    await page.goto('http://localhost:4200/agents')
+
     // Click create button
-    await page.click('text=Create Agent');
-    
+    await page.click('text=Create Agent')
+
     // Fill in form
-    await page.fill('[name="name"]', 'E2E Test Agent');
-    await page.selectOption('[name="model_id"]', 'gpt-4');
-    
+    await page.fill('[name="name"]', 'E2E Test Agent')
+    await page.selectOption('[name="model_id"]', 'gpt-4')
+
     // Submit
-    await page.click('text=Create');
-    
+    await page.click('text=Create')
+
     // Verify agent created
-    await expect(page.locator('text=E2E Test Agent')).toBeVisible();
-  });
-});
+    await expect(page.locator('text=E2E Test Agent')).toBeVisible()
+  })
+})
 ```
 
 #### Run E2E Tests
@@ -500,10 +501,10 @@ npx playwright test
 def test_example():
     # Arrange
     data = {'name': 'Test'}
-    
+
     # Act
     result = function(data)
-    
+
     # Assert
     assert result == expected
 ```
@@ -575,7 +576,7 @@ jobs:
           python-version: '3.12'
       - run: pip install -r api/requirements.txt
       - run: cd api && pytest --cov
-  
+
   frontend:
     runs-on: ubuntu-latest
     steps:

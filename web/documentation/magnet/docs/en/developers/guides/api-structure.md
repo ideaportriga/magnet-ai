@@ -5,14 +5,18 @@ This module provides basic Pydantic schemas for all entities that inherit from `
 ## Structure of basic schemas
 
 ### BaseEntitySchema
+
 The base schema for serializing entities. Includes all fields from:
-- `UUIDAuditBase`: `id`, `created_at`, `updated_at`  
+
+- `UUIDAuditBase`: `id`, `created_at`, `updated_at`
 - `UUIDAuditEntityBase`: `name`, `description`, `system_name`, `active_variant`, `category`, `variants`
 
 ### BaseEntityCreateSchema
+
 The base schema for creating new entities. Excludes auto-generated fields (`id`, `created_at`, `updated_at`).
 
 ### BaseEntityUpdateSchema
+
 The base schema for updating entities. All fields are optional to support partial updates.
 
 ## Usage
@@ -51,7 +55,7 @@ from core.domain.base.schemas import (
 # For an entity with additional fields
 class ApiTool(BaseEntitySchema):
     """API Tool schema with additional fields."""
-    
+
     # Additional fields specific to API Tools
     api_provider: Optional[str] = Field(None, description="API provider name")
     path: Optional[str] = Field(None, description="API endpoint path")
@@ -59,7 +63,7 @@ class ApiTool(BaseEntitySchema):
 
 class ApiToolCreate(BaseEntityCreateSchema):
     """Schema for creating API tool."""
-    
+
     # The same additional fields for creation
     api_provider: Optional[str] = Field(None, description="API provider name")
     path: Optional[str] = Field(None, description="API endpoint path")
@@ -67,7 +71,7 @@ class ApiToolCreate(BaseEntityCreateSchema):
 
 class ApiToolUpdate(BaseEntityUpdateSchema):
     """Schema for updating API tool."""
-    
+
     # The same additional fields for update (all optional)
     api_provider: Optional[str] = Field(None, description="API provider name")
     path: Optional[str] = Field(None, description="API endpoint path")
@@ -93,17 +97,23 @@ class YourEntityService(service.SQLAlchemyAsyncRepositoryService[YourModel]):
 ## Examples in the project
 
 ### Updated Prompts model
+
 File: `src/core/domain/prompts/model.py`
+
 - Uses basic schemas without additional fields
 - Reduced from ~40 lines to ~25 lines
 
 ### RAG Tools model
+
 File: `src/core/domain/rag_tools/model.py`
+
 - Simple example of using basic schemas
 - Includes service and repository
 
 ### API Tools model (example)
-File: `src/core/domain/api_tools/model.py` 
+
+File: `src/core/domain/api_tools/model.py`
+
 - Shows how to extend basic schemas with additional fields
 - Demonstrates a pattern for entities with specific fields
 

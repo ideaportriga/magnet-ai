@@ -9,11 +9,12 @@
     @update:show-dialog="onModelUpdate"
     @cancel="onCancel"
   >
-    <div class="column q-mt-xl q-mb-md items-center justify-center" style="text-align: center;">
+    <div class="column q-mt-xl q-mb-md items-center justify-center" style="text-align: center">
       <q-icon name="warning" color="orange-8" size="56px" class="q-mb-md" />
       <div class="km-heading-6 text-bold text-orange-9 q-mb-xs">Coming Soon</div>
-      <div class="km-description text-secondary-text q-mt-xs" style="font-size: 17px;">
-        Fluid Topics integration is not yet implemented.<br>
+      <div class="km-description text-secondary-text q-mt-xs" style="font-size: 17px">
+        Fluid Topics integration is not yet implemented.
+        <br />
         <span class="text-weight-medium">Please check back later.</span>
       </div>
     </div>

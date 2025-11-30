@@ -12,7 +12,11 @@
             .row.items-center
               km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
             .row.items-center
-              km-input-flat.km-description.full-width.text-black(placeholder='Description', :modelValue='description', @change='description = $event')
+              km-input-flat.km-description.full-width.text-black(
+                placeholder='Description',
+                :modelValue='description',
+                @change='description = $event'
+              )
             .row.items-center.q-pl-6
               q-icon.col-auto(name='o_info', color='text-secondary')
                 q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
@@ -66,7 +70,6 @@
                         agents-test-sets
                       template(v-if='tab == "channels"')
                         agents-channels
-                      
 
   .col-auto
     agents-drawer
@@ -90,7 +93,7 @@ export default {
         // { name: 'prompts', label: 'Prompt Templates' },
         // { name: 'actions', label: 'Actions' },
         { name: 'settings', label: 'Settings' },
-        { name: 'channels', label: 'Channels'},
+        { name: 'channels', label: 'Channels' },
         { name: 'conversations', label: 'Conversations' },
         { name: 'notes', label: 'Notes' },
         { name: 'testSets', label: 'Test sets' },

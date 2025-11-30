@@ -1,7 +1,7 @@
 <template lang="pug">
 search-feedback(v-model:modal='showFeedback', @onSubmit='react')
 search-feedback-confirm(v-model:modal='showFeedbackConfirm')
-.column.no-wrap.height-fit.search-answer-container.border-radius-12.q-pa-12.bg-white(data-test="preview-answer")
+.column.no-wrap.height-fit.search-answer-container.border-radius-12.q-pa-12.bg-white(data-test='preview-answer')
   //- QUESTION
   .col-auto
     .row.q-gap-16.no-wrap
@@ -80,8 +80,15 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                   )
               template(v-if='source?.metadata?.type === "video"')
                 .row.width-100.q-px-24
-                  div.relative-position.q-mt-sm.border-radius-12.overflow-hidden.q-mb-16(style='width: 100%; padding-bottom: 60%')
-                    iframe.absolute-full(width='100%', height='100%', frameborder='0', scrolling='no', allowfullscreen, :src='source?.metadata?.source')
+                  .relative-position.q-mt-sm.border-radius-12.overflow-hidden.q-mb-16(style='width: 100%; padding-bottom: 60%')
+                    iframe.absolute-full(
+                      width='100%',
+                      height='100%',
+                      frameborder='0',
+                      scrolling='no',
+                      allowfullscreen,
+                      :src='source?.metadata?.source'
+                    )
   km-popup-confirm(
     :visible='showResultingPrompt',
     title='Resulting prompt details',

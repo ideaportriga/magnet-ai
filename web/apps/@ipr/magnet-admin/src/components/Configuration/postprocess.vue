@@ -120,7 +120,7 @@ export default {
         this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.enabled', value })
         if (value && !this.categorisePromptCode) {
           this.categorisePromptCode = {
-            system_name: 'DEFAULT_RAG_POST_PROCESSING'
+            system_name: 'DEFAULT_RAG_POST_PROCESSING',
           }
         }
       },

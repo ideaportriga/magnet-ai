@@ -54,7 +54,7 @@ export default defineComponent({
       const mainPathActive = this.parentRoute === `/${this.path}`
       const aiAppsActive = this.parentRoute === `/` && this.label === 'AI Apps'
       const alternativePathsActive = this.alternativePaths?.some((altPath: string) => this.parentRoute === `/${altPath}`)
-      
+
       return mainPathActive || aiAppsActive || alternativePathsActive
     },
   },
@@ -66,28 +66,6 @@ export default defineComponent({
 })
 </script>
 
-
-   km-btn.width-100(
-      bg='primary-bg',
-      color='primary',
-      iconColor='primary',
-      labelClass='km-heading-2',
-      :icon='item.icon',
-      :label='item.label',
-      @click='navigate(item.path)',
-      flat,
-      iconSize='14px',
-      hoverBg='primary-bg'
-    )
-  template(v-else)
-    km-btn.width-100(
-      iconColor='icon',
-      hoverColor='primary',
-      labelClass='km-heading-2',
-      :icon='item.icon',
-      :label='item.label',
-      @click='navigate(item.path)',
-      flat,
-      iconSize='14px',
-      hoverBg='primary-bg'
-    )
+km-btn.width-100( bg='primary-bg', color='primary', iconColor='primary', labelClass='km-heading-2', :icon='item.icon', :label='item.label',
+@click='navigate(item.path)', flat, iconSize='14px', hoverBg='primary-bg' ) template(v-else) km-btn.width-100( iconColor='icon', hoverColor='primary',
+labelClass='km-heading-2', :icon='item.icon', :label='item.label', @click='navigate(item.path)', flat, iconSize='14px', hoverBg='primary-bg' )

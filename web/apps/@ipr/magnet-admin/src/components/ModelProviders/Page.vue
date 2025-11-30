@@ -24,7 +24,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-  
+
 const route = useRoute()
 const tab = ref('ModelProviders')
 const tabs = ref([
@@ -40,12 +40,12 @@ onMounted(() => {
 })
 
 // Watch for route query changes
-watch(() => route.query.tab, (newTab) => {
-  if (newTab) {
-    tab.value = newTab
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab) {
+      tab.value = newTab
+    }
   }
-})
-
-
-
+)
 </script>

@@ -1,13 +1,7 @@
 <template lang="pug">
 .row
   .col-auto.center-flex-y
-    km-input(
-      placeholder='Search',
-      iconBefore='search',
-      v-model='searchString',
-      @input='searchString = $event',
-      clearable
-    )
+    km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
   q-space
   .col-auto.center-flex-y
     km-btn.q-mr-12(label='New', @click='showNewDialog = true')
@@ -22,7 +16,12 @@
     :pagination='pagination',
     binary-state-sort
   )
-collections-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', :providerSystemName='providerSystemName')
+collections-create-new(
+  v-if='showNewDialog',
+  :showNewDialog='showNewDialog',
+  @cancel='showNewDialog = false',
+  :providerSystemName='providerSystemName'
+)
 </template>
 
 <script>
@@ -32,13 +31,7 @@ import { useRouter } from 'vue-router'
 
 export default {
   setup() {
-    const {
-      searchString,
-      pagination,
-      columns,
-      visibleColumns,
-      visibleRows,
-    } = useChroma('collections')
+    const { searchString, pagination, columns, visibleColumns, visibleRows } = useChroma('collections')
 
     const router = useRouter()
 

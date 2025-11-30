@@ -501,7 +501,6 @@ const routes = [
       detail: true,
     },
   },
-  
 ]
 
 const router = createRouter({

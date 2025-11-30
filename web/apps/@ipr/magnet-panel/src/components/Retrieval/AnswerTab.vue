@@ -160,7 +160,7 @@ export default {
 
     openURL(val) {
       window.open(val, '_blank')
-    }
+    },
   },
 }
 </script>

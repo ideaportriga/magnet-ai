@@ -1,13 +1,7 @@
 <template lang="pug">
 .row.q-mb-12
   .col-auto.center-flex-y
-    km-input(
-      placeholder='Search',
-      iconBefore='search',
-      v-model='searchString',
-      @input='debouncedUpdateSearch',
-      clearable
-    )
+    km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='debouncedUpdateSearch', clearable)
   q-space
   .col-auto.center-flex-y
     km-btn.q-mr-12(label='New', @click='showNewDialog = true')
@@ -26,7 +20,6 @@
     binary-state-sort
   )
 model-providers-new-provider(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
-
 </template>
 <script setup>
 import { ref, computed } from 'vue'
@@ -61,7 +54,7 @@ const debouncedUpdateSearch = debounce((value) => {
 
 const visibleRows = computed(() => {
   // Filter providers by category 'llm' for Model Providers
-  return (providers.value || []).filter(provider => provider.category === 'llm' || !provider.category) // Include undefined for backward compatibility
+  return (providers.value || []).filter((provider) => provider.category === 'llm' || !provider.category) // Include undefined for backward compatibility
 })
 
 const openDetails = async (row) => {

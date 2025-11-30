@@ -5,7 +5,7 @@
     q-separator.q-mb-md
     .col
       .column.full-height.q-pb-md.relative-position
-        retrieval-metadata-filter(v-model='metadataFilter' :sources='[knowledgeSystemName]')
+        retrieval-metadata-filter(v-model='metadataFilter', :sources='[knowledgeSystemName]')
         q-separator.q-mt-md.q-mb-md
         .column.search-prompt-container.border-radius-12.q-mb-16.full-width.q-gap-8
           .row

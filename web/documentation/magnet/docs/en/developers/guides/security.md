@@ -125,6 +125,7 @@ We believe in coordinated disclosure of security vulnerabilities. We request tha
 We would like to thank the following security researchers for responsibly disclosing vulnerabilities:
 
 <!-- Add researchers who report vulnerabilities -->
+
 - [Your Name] - [Vulnerability Type] - [Date]
 
 ## Compliance

@@ -16,7 +16,7 @@ const state = () => ({
       ms_teams: {},
       slack: {},
       whatsapp: {},
-    }
+    },
   },
   selectedAgentDetailVariant: null,
   initialAgentDetail: null,
@@ -292,7 +292,6 @@ const actions = {
     const endpoint = config?.endpoint
     const service = `${config?.service}` || ''
     const credentials = config?.credentials
-    
 
     commit('set', { answersLoading: true })
 

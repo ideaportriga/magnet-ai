@@ -43,7 +43,7 @@ export default {
   beforeRouteEnter,
   setup() {
     const { selectedRow, ...useCollection } = useChroma('provider')
-    
+
     return {
       tab: ref('knowledge-sources'),
       tabs: ref([

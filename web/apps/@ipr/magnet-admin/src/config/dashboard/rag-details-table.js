@@ -72,7 +72,6 @@ const controls = {
     sortable: true,
     format: (val) => `${val?.toFixed(6)} $`,
     align: 'left',
-
   },
 
   trace_id: {

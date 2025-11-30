@@ -34,4 +34,4 @@ Izmantojiet šo cilni, lai glabātu testa ievades un priekšskatītu, kā darboj
 
 Šī cilne ļauj piesaistīt Testu kopu promptu veidnei, lai ātri piekļūtu testu ierakstiem. Izvēlieties atbilstošāko Testu kopu no nolaižamās izvēlnes, un ieraksti parādīsies sarakstā. Klikšķinot uz testa ieraksta, tas tiks nokopēts priekšskatījuma laukā.
 
-![image.png](image%204.png "image.png")
+![image.png](image%204.png 'image.png')

@@ -33,10 +33,9 @@ Cypress.Commands.add('km_type', { prevSubject: 'element' }, (subject) => {
   return cy.wrap(subject).type(`e2e-test-${randomString}`)
 })
 
-
 // Select from dropdown by text array
 // 1. Find select element
-// 2. Find all options 
+// 2. Find all options
 // 3. Iterate over options and click on the one that matches the text or list of texts
 // 4. Click on the option
 
@@ -49,15 +48,13 @@ Cypress.Commands.add('km_select', (selector, value) => {
         if (value.includes($el.text().trim())) {
           cy.wrap($el).click()
         }
-      }
-      else {
+      } else {
         if (value === $el.text().trim()) {
           cy.wrap($el).click()
         }
       }
-    }
-    )
+    })
   })
 })
-      
+
 export {}

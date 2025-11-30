@@ -8,7 +8,7 @@ You will be prompted to fill in API provider name (make sure it is informative a
 
 ![](../../../images/2025-11-11-10-02-16-image.png)
 
-## 
+##
 
 ## API Provider settings
 
@@ -75,7 +75,7 @@ For testing purposes, you can also enable mock response by clicking the `Mock re
 
 Just as other tools in Magnet AI, API Tools can be tested before using them in Agents.
 
-To do so, click the `Test API Tool` tab in the sidebar panel. Provide required inputs (you can check what parameters are required in the API information tab), click the `Send` button, and wait for API response. 
+To do so, click the `Test API Tool` tab in the sidebar panel. Provide required inputs (you can check what parameters are required in the API information tab), click the `Send` button, and wait for API response.
 
 <img src="../../../images/2025-11-19-15-15-56-image.png" title="" alt="" width="438">
 

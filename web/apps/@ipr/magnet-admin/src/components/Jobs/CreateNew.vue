@@ -22,22 +22,16 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
 
       // is_system checkbox for recurring jobs only
       .row.items-center.q-mt-md(v-if='form.executionType === "recurring"')
-        km-checkbox(
-          v-model='form.is_system',
-          label='System job (applies to all records)',
-          :disable='form.executionType !== "recurring"'
-        )
+        km-checkbox(v-model='form.is_system', label='System job (applies to all records)', :disable='form.executionType !== "recurring"')
         //- When is_system is checked, all additional parameters are hidden, as it applies to all records
 
       // Hide additional parameters if is_system is checked
-      template(
-        v-if='!form.is_system'
-      )
+      template(v-if='!form.is_system')
         template(v-if='form.jobType === "sync_collection"')
           .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md System name
           .full-width
             km-input(height='30px', v-model='form.system_name', placeholder='Enter system name', :disabled='isFormDefault')
-        
+
         template(v-if='form.jobType === "post_processing_conversations"')
           .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Agents
           .full-width
@@ -54,7 +48,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
             emit-value,
             map-options,
             option-value='system_name',
-            option-label='name',
+            option-label='name'
           )
 
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md(v-if='form.executionType === "recurring"') Job interval
@@ -146,10 +140,7 @@ export default {
   setup(props) {
     const job = _.cloneDeep(props.job)
 
-    const {
-      items:agents,
-    } = useChroma('agents')
-
+    const { items: agents } = useChroma('agents')
 
     const form = reactive({
       ...{
@@ -195,7 +186,7 @@ export default {
       jobTypes,
       executionTypes,
       times,
-      agents
+      agents,
     }
   },
   computed: {
@@ -214,8 +205,7 @@ export default {
           params = {
             agent_system_names: this.form.agents,
           }
-        } 
-        else if (this.form.jobType === 'sync_collection') {
+        } else if (this.form.jobType === 'sync_collection') {
           params = {
             system_name: this.form.system_name,
           }

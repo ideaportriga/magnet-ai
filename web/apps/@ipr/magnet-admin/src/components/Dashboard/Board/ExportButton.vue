@@ -10,7 +10,7 @@ q-btn-dropdown.km-export-dropdown(flat, color='secondary-text', label='Export', 
 </template>
 <script>
 export default {
-    emits: ['exportToCsv', 'exportToJson']
+  emits: ['exportToCsv', 'exportToJson'],
 }
 </script>
 <style lang="stylus">

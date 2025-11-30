@@ -19,17 +19,15 @@
                 .km-small-chip.text-grey.text-capitalize Topic
                 .km-chip.text-grey-8.text-capitalize {{ name }}
 
-    
         .ba-border.bg-white.border-radius-12.q-pa-16(style='min-width: 300px')
           .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md(style='max-height: calc(100vh - 210px) !important')
             .row.q-gap-16.full-height.full-width
               .col.full-height.full-width
                 .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-                    .col-auto.full-width
-
-                        agents-topic-details-prompts
-                        q-separator.q-my-lg
-                        agents-topic-details-actions
+                  .col-auto.full-width
+                    agents-topic-details-prompts
+                    q-separator.q-my-lg
+                    agents-topic-details-actions
 </template>
 
 <script>

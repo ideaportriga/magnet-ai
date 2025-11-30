@@ -9,40 +9,18 @@
       .col
         .row.items-center.q-gap-8.no-wrap.relative-position
           km-input.full-width(
-            :model-value='endpointValue', 
+            :model-value='endpointValue',
             @update:model-value='tempEndpoint = $event',
-            :readonly='!isEditingEndpoint', 
+            :readonly='!isEditingEndpoint',
             placeholder='https://api.example.com'
           )
           .controls.full-height.row.items-center
-            km-btn(
-              v-if='!isEditingEndpoint',
-              icon='fa fa-pen',
-              flat,
-              iconSize='12px',
-              @click='startEditingEndpoint', 
-              size='xs'
-            )
-            km-btn(
-              v-if='isEditingEndpoint',
-              icon='fa fa-xmark',
-              flat,
-              iconSize='12px',
-              @click='cancelEditingEndpoint', 
-              size='xs'
-            )
-            km-btn(
-              v-if='isEditingEndpoint',
-              icon='fa fa-check',
-              flat,
-              iconSize='12px',
-              @click='saveEndpoint', 
-              size='xs',
-              color='primary'
-            )
+            km-btn(v-if='!isEditingEndpoint', icon='fa fa-pen', flat, iconSize='12px', @click='startEditingEndpoint', size='xs')
+            km-btn(v-if='isEditingEndpoint', icon='fa fa-xmark', flat, iconSize='12px', @click='cancelEditingEndpoint', size='xs')
+            km-btn(v-if='isEditingEndpoint', icon='fa fa-check', flat, iconSize='12px', @click='saveEndpoint', size='xs', color='primary')
     .km-description.text-secondary-text.q-pb-4.q-pl-8(v-if='!isEditingEndpoint') Click edit to change endpoint. Warning: this will clear all secrets.
     .km-description.text-negative.q-pb-4.q-pl-8(v-if='isEditingEndpoint') Changing endpoint will permanently delete all secrets!
-  
+
   km-popup-confirm(
     :visible='showEndpointWarning',
     title='Change Endpoint',
@@ -72,7 +50,7 @@
       km-btn(label='Add Record', @click='addConnection', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
-    km-secrets(v-model:secrets='secrets' :original-secrets='originalProviderSecrets' :remount-value='remountValue')
+    km-secrets(v-model:secrets='secrets', :original-secrets='originalProviderSecrets', :remount-value='remountValue')
 </template>
 
 <script setup>
@@ -133,20 +111,20 @@ const saveEndpoint = () => {
 
 const confirmEndpointChange = async () => {
   // Update endpoint
-  store.commit('updateProviderProperty', { 
-    key: 'endpoint', 
-    value: tempEndpoint.value 
+  store.commit('updateProviderProperty', {
+    key: 'endpoint',
+    value: tempEndpoint.value,
   })
   // Clear secrets as backend will do
-  store.commit('updateProviderProperty', { 
-    key: 'secrets_encrypted', 
-    value: {} 
+  store.commit('updateProviderProperty', {
+    key: 'secrets_encrypted',
+    value: {},
   })
-  
+
   try {
     // Save provider
     await store.dispatch('saveProvider')
-    
+
     $q.notify({
       position: 'top',
       message: 'Endpoint updated successfully.',
@@ -164,11 +142,11 @@ const confirmEndpointChange = async () => {
       timeout: 2000,
     })
   }
-  
+
   showEndpointWarning.value = false
   isEditingEndpoint.value = false
   tempEndpoint.value = ''
-  
+
   // Continue navigation if it was blocked
   if (pendingNavigation.value) {
     pendingNavigation.value()
@@ -179,7 +157,7 @@ const confirmEndpointChange = async () => {
 const cancelEndpointChange = () => {
   showEndpointWarning.value = false
   tempEndpoint.value = provider.value?.endpoint || ''
-  
+
   // Cancel navigation if it was blocked
   if (pendingNavigation.value) {
     pendingNavigation.value(false)
@@ -204,27 +182,27 @@ const secrets = computed({
     return encryptedSecrets
   },
   set(value) {
-    store.commit('updateProviderProperty', { 
-      key: 'secrets_encrypted', 
-      value 
+    store.commit('updateProviderProperty', {
+      key: 'secrets_encrypted',
+      value,
     })
   },
 })
 
 const addConnection = () => {
   const newConfig = { ...provider.value.connection_config, '': '' }
-  store.commit('updateProviderProperty', { 
-    key: 'connection_config', 
-    value: newConfig 
+  store.commit('updateProviderProperty', {
+    key: 'connection_config',
+    value: newConfig,
   })
 }
 
 const removeConnection = (key) => {
   const newConfig = { ...provider.value.connection_config }
   delete newConfig[key]
-  store.commit('updateProviderProperty', { 
-    key: 'connection_config', 
-    value: newConfig 
+  store.commit('updateProviderProperty', {
+    key: 'connection_config',
+    value: newConfig,
   })
 }
 
@@ -233,18 +211,18 @@ const updateConnectionKey = (oldKey, newKey) => {
   const value = config[oldKey]
   delete config[oldKey]
   config[newKey] = value
-  store.commit('updateProviderProperty', { 
-    key: 'connection_config', 
-    value: config 
+  store.commit('updateProviderProperty', {
+    key: 'connection_config',
+    value: config,
   })
 }
 
 const updateConnectionValue = (key, newValue) => {
   const config = { ...provider.value.connection_config }
   config[key] = newValue
-  store.commit('updateProviderProperty', { 
-    key: 'connection_config', 
-    value: config 
+  store.commit('updateProviderProperty', {
+    key: 'connection_config',
+    value: config,
   })
 }
 </script>

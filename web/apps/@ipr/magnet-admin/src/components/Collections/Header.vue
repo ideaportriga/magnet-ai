@@ -177,31 +177,31 @@ export default {
       // Transform Documentation source fields from comma-separated strings to arrays
       if (source?.source_type === 'Documentation') {
         const transformed = { ...source }
-        
+
         // Convert languages from string to array
         if (transformed.languages && typeof transformed.languages === 'string') {
           transformed.languages = transformed.languages
             .split(',')
-            .map(lang => lang.trim())
-            .filter(lang => lang.length > 0)
+            .map((lang) => lang.trim())
+            .filter((lang) => lang.length > 0)
         }
-        
+
         // Convert sections from string to array
         if (transformed.sections && typeof transformed.sections === 'string') {
           transformed.sections = transformed.sections
             .split(',')
-            .map(section => section.trim())
-            .filter(section => section.length > 0)
+            .map((section) => section.trim())
+            .filter((section) => section.length > 0)
         }
-        
+
         // Convert max_depth to integer if provided
         if (transformed.max_depth) {
           transformed.max_depth = parseInt(transformed.max_depth) || 5
         }
-        
+
         return transformed
       }
-      
+
       return source
     },
     async save() {
@@ -210,17 +210,17 @@ export default {
         const obj = { ...this.currentRow }
         delete obj._metadata
         delete obj.id
-        
+
         // Ensure provider_system_name is preserved
         if (this.activeRowDB?.provider_system_name) {
           obj.provider_system_name = this.activeRowDB.provider_system_name
         }
-        
+
         // Transform source fields for Documentation type
         if (obj.source) {
           obj.source = this.transformSourceFields(obj.source)
         }
-        
+
         console.log(obj)
         await this.update({ id: this.currentRow.id, data: obj })
       } else {

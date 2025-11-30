@@ -2,7 +2,7 @@
 
 ### Meklēšanas rīku izmantošana aģentos
 
-*Nāk drīzumā*
+_Nāk drīzumā_
 
 ### Meklēšanas rīku izmantošana atsevišķi
 

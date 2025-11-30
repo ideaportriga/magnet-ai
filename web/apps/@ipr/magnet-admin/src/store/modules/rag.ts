@@ -17,7 +17,6 @@ const state = () => ({
 
 // getters
 const getters = {
-
   rag: (state) => state.rag,
   ragVariant: (state) => {
     return state.rag.variants?.find((el) => el.variant === state.selectedRagVariant)

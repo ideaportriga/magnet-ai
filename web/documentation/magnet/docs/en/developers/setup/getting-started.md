@@ -51,9 +51,11 @@ The default settings in `.env` are configured for local development with Docker.
 ### 4. Start Development Environment
 
 1. **Start the Database**:
+
    ```bash
    npm run docker:up
    ```
+
    Wait for the "PostgreSQL is ready!" message.
 
 2. **Run the Application**:
@@ -72,16 +74,19 @@ If you prefer to run services individually or need more control.
 ### Backend Setup (`api/`)
 
 1. **Navigate to API directory**:
+
    ```bash
    cd api
    ```
 
 2. **Install Dependencies**:
+
    ```bash
    poetry install
    ```
 
 3. **Activate Virtual Environment**:
+
    ```bash
    poetry shell
    ```
@@ -94,25 +99,29 @@ If you prefer to run services individually or need more control.
 ### Frontend Setup (`web/`)
 
 1. **Navigate to Web directory**:
+
    ```bash
    cd web
    ```
 
 2. **Install Dependencies**:
+
    ```bash
    yarn install
    ```
 
 3. **Run Applications**:
-   
+
    Magnet AI consists of multiple applications managed by Nx.
 
    **Run User Panel:**
+
    ```bash
    yarn nx dev magnet-panel
    ```
 
    **Run Admin Console:**
+
    ```bash
    yarn nx dev magnet-admin
    ```
@@ -162,9 +171,11 @@ web/
 ## Troubleshooting
 
 ### Database Connection Failed
+
 Ensure Docker is running and you've executed `npm run docker:up`. Check `.env` matches Docker settings.
 
 ### Port Conflicts
+
 - **8000**: API
 - **5432**: PostgreSQL
 - **7000**: Magnet Panel
@@ -173,5 +184,5 @@ Ensure Docker is running and you've executed `npm run docker:up`. Check `.env` m
 If ports are in use, stop conflicting services or update `.env` and startup commands.
 
 ### Python Version Issues
-Ensure you are using Python 3.12+. You can check with `python --version`. If using `pyenv`, ensure the local version is set correctly.
 
+Ensure you are using Python 3.12+. You can check with `python --version`. If using `pyenv`, ensure the local version is set correctly.

@@ -7,8 +7,6 @@ Agents in Magnet AI typically process user queries in two steps:
 1. Analyze user input to identify intent and select a matching Topic
 2. Process selected Topic and call one or multiple Actions inside it.
 
-
-
 ---
 
 ### Building blocks of the Agent
@@ -23,16 +21,12 @@ Actions are tools inside a Topic that can be called to process user query. Actio
 
 #### ✨ Subject selection Prompt Template
 
-These are instructions for the Agent on how to identify a Topic as well as handle cases when no Topic has been identified. This Prompt Template model must support *JSON mode*.
+These are instructions for the Agent on how to identify a Topic as well as handle cases when no Topic has been identified. This Prompt Template model must support _JSON mode_.
 
 #### 📝 Topic processing Prompt Template
 
-These are general instructions on how to process Topics that apply to all Topics across Agent. This Prompt Template model must support *tool calling*.
-
-
+These are general instructions on how to process Topics that apply to all Topics across Agent. This Prompt Template model must support _tool calling_.
 
 ## Conversations
 
 Threads of user and assistant (Agent) messages linked together with a unique ID are called **Conversations**. These are stored in Magnet AI for a limited period of time and can be used for debugging and reports. By analyzing past Conversations, you can identify gaps, improve your Agent, and reduce its costs and latency.
-
-

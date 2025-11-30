@@ -58,16 +58,16 @@ const $q = useQuasar()
 const props = defineProps({
   variants: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   selectedVariant: {
     type: Object,
-    default: () => {}
+    default: () => {},
   },
   activeVariant: {
     type: String,
-    default: ''
-  }
+    default: '',
+  },
 })
 const emit = defineEmits(['addVariant', 'deleteVariant', 'activateVariant', 'selectVariant', 'updateVariantProperty'])
 
@@ -82,7 +82,7 @@ const variantsOptions = computed(() => {
   return props.variants.map((variant) => ({
     label: getVariantLabel(variant.variant),
     value: variant.variant,
-    active_variant: variant.variant === props.activeVariant
+    active_variant: variant.variant === props.activeVariant,
   }))
 })
 const variantValue = computed(() => {
@@ -96,7 +96,7 @@ const activateVariant = () => {
     message: 'Variant has been activated.',
     color: 'positive',
     textColor: 'black',
-    timeout: 1000
+    timeout: 1000,
   })
 }
 const addVariant = () => {
@@ -106,7 +106,7 @@ const addVariant = () => {
     message: 'New variant has been added.',
     color: 'positive',
     textColor: 'black',
-    timeout: 1000
+    timeout: 1000,
   })
 }
 const deleteVariant = () => {
@@ -121,7 +121,7 @@ const deleteVariant = () => {
         color: 'yellow',
         handler: () => {
           /* ... */
-        }
+        },
       },
       {
         label: 'Delete',
@@ -133,11 +133,11 @@ const deleteVariant = () => {
             message: 'Variant has been deleted.',
             color: 'positive',
             textColor: 'black',
-            timeout: 1000
+            timeout: 1000,
           })
-        }
-      }
-    ]
+        },
+      },
+    ],
   })
 }
 const selectVariant = ({ value }) => {

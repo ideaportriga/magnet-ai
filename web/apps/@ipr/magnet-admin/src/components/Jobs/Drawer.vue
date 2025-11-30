@@ -49,7 +49,7 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
             .km-description.text-secondary-text.q-pb-6 Repeat at
             .row
               .km-label {{ cronDescription }}
-        
+
         .row.q-pt-24
           .col-6
             .km-description.text-secondary-text.q-pb-6 Job ID
@@ -155,13 +155,13 @@ export default {
     cronDescription() {
       const hour = this.cronHour !== 'Not specified' ? this.cronHour : null
       const day = this.cronDay !== 'Not specified' ? this.cronDay : null
-      const dayOfWeek = this.cronDayOfWeek 
+      const dayOfWeek = this.cronDayOfWeek
 
-      if (hour == "*") {
+      if (hour == '*') {
         return `Every hour`
-      } else if (hour && !day && !(dayOfWeek || dayOfWeek == 0)) { 
+      } else if (hour && !day && !(dayOfWeek || dayOfWeek == 0)) {
         return `Every day at ${hour}:00`
-      } else if (hour && ( dayOfWeek || dayOfWeek == 0) && !day) {
+      } else if (hour && (dayOfWeek || dayOfWeek == 0) && !day) {
         return `Every ${this.getDayOfWeekName(dayOfWeek)} at ${hour}:00`
       } else {
         return 'Schedule not specified'

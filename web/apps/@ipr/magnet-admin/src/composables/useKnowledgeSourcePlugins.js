@@ -3,7 +3,7 @@ import { useStore } from 'vuex'
 
 /**
  * Composable for loading and managing knowledge source plugins from backend
- * 
+ *
  * This composable fetches available plugins from the API and transforms them
  * into the format expected by the frontend forms.
  */
@@ -22,9 +22,12 @@ export function useKnowledgeSourcePlugins() {
     try {
       error.value = null
       await store.dispatch('chroma/get', { entity })
-      
+
       console.log('Fetched plugins from API:', plugins.value.length, 'plugins')
-      console.log('Plugin source types:', plugins.value.map(p => p.source_type))
+      console.log(
+        'Plugin source types:',
+        plugins.value.map((p) => p.source_type)
+      )
     } catch (err) {
       error.value = err.message
       console.error('Error fetching knowledge source plugins:', err)
@@ -35,14 +38,14 @@ export function useKnowledgeSourcePlugins() {
    * Get list of source type options for dropdown
    */
   const sourceTypeOptions = computed(() => {
-    return plugins.value.map(plugin => plugin.source_type)
+    return plugins.value.map((plugin) => plugin.source_type)
   })
 
   /**
    * Transform plugin field schema to frontend component config
    * Backend now returns fields in the correct format, so we just need to convert
    * readonly_after_sync to a function for collections
-   * 
+   *
    * @param {Object} field - Field from plugin schema (already formatted by backend)
    * @returns {Object} Frontend component config
    */
@@ -65,7 +68,7 @@ export function useKnowledgeSourcePlugins() {
   /**
    * Get source type children configuration for all plugins
    * Format: { 'PluginName': [field configs], ... }
-   * 
+   *
    * Backend now separates provider_fields from source_fields,
    * so we only use source_fields here (no filtering needed)
    */
@@ -74,10 +77,10 @@ export function useKnowledgeSourcePlugins() {
       '': [], // Empty source type
     }
 
-    plugins.value.forEach(plugin => {
+    plugins.value.forEach((plugin) => {
       // Backend already separates source_fields from provider_fields
       const fields = plugin.source_fields || []
-      
+
       children[plugin.source_type] = fields.map(transformFieldToComponent)
     })
 
@@ -87,15 +90,15 @@ export function useKnowledgeSourcePlugins() {
   /**
    * Get provider fields configuration for a specific plugin type
    * These are the fields that should be configured at the provider level
-   * 
+   *
    * @param {string} pluginType - Plugin source_type
    * @returns {Array} Provider field configurations
    */
   function getProviderFields(pluginType) {
-    const plugin = plugins.value.find(p => p.source_type === pluginType)
+    const plugin = plugins.value.find((p) => p.source_type === pluginType)
     if (!plugin) return []
 
-    return (plugin.provider_fields || []).map(field => ({
+    return (plugin.provider_fields || []).map((field) => ({
       ...transformFieldToComponent(field),
       // Provider fields should not be readonly based on last_synced
       readonly: false,
@@ -104,12 +107,12 @@ export function useKnowledgeSourcePlugins() {
 
   /**
    * Get plugin metadata by source type
-   * 
+   *
    * @param {string} sourceType - Plugin source_type
    * @returns {Object|null} Plugin metadata
    */
   function getPluginMetadata(sourceType) {
-    return plugins.value.find(p => p.source_type === sourceType) || null
+    return plugins.value.find((p) => p.source_type === sourceType) || null
   }
 
   return {

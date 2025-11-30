@@ -1,4 +1,3 @@
- 
 export interface SourceRow {
   id: string
   name: string

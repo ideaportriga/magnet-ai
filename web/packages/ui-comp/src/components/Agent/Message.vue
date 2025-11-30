@@ -104,7 +104,7 @@ template(v-else)
           )
           q-icon.cursor-pointer.hover-bg-secondary-bg.border-radius-6.q-pa-4(
             name='fas fa-pencil',
-            @click='(editMode = !editMode), (messageToEditContent = message.content)',
+            @click='((editMode = !editMode), (messageToEditContent = message.content))',
             size='12px',
             color='primary'
           )

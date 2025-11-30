@@ -47,7 +47,7 @@ const actions = {
       const endpoint = getters.config?.search?.endpoint
       const params = new URLSearchParams()
       if (Array.isArray(ids)) {
-        ids.forEach(id => params.append('ids', id))
+        ids.forEach((id) => params.append('ids', id))
       } else if (ids) {
         params.append('ids', ids)
       }
@@ -106,9 +106,9 @@ const actions = {
     const credentials = getters.config?.search?.credentials
     commit('set', { loading: true })
 
-    const {id, result_id, score, score_comment} = payload
+    const { id, result_id, score, score_comment } = payload
     const service = `evaluations/${id}/result/${result_id}/score`
-  
+
     const response = await fetchData({
       endpoint,
       service,

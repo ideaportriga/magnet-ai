@@ -5,6 +5,7 @@ Magnet AI features a flexible plugin architecture that allows you to extend the 
 ## Overview
 
 The plugin system enables developers to:
+
 - Add custom knowledge source connectors
 - Integrate with external APIs and services
 - Create custom AI tools
@@ -15,6 +16,7 @@ The plugin system enables developers to:
 ### Knowledge Source Plugins
 
 Connect to various data sources:
+
 - **File-based**: PDF, TXT, Markdown documents
 - **Web services**: SharePoint, Confluence, Salesforce
 - **Databases**: SQL, NoSQL databases
@@ -23,6 +25,7 @@ Connect to various data sources:
 ### Tool Plugins
 
 Extend agent capabilities:
+
 - **RAG Tools**: Document retrieval and Q&A
 - **API Tools**: External service integrations
 - **Custom Tools**: Domain-specific functionality
@@ -30,6 +33,7 @@ Extend agent capabilities:
 ### Model Plugins (Planned)
 
 Support for additional LLM providers:
+
 - Custom OpenAI-compatible APIs
 - Proprietary models
 - Self-hosted models
@@ -71,6 +75,7 @@ api/src/
 ### Built-in Plugins
 
 Included with Magnet AI:
+
 - SharePoint Documents & Pages
 - Confluence
 - Salesforce
@@ -82,6 +87,7 @@ Located in: `api/src/plugins/builtin/`
 ### External Plugins
 
 Custom, client-specific, or proprietary plugins:
+
 - Installed as separate packages
 - Not included in public repository
 - Maintained independently
@@ -100,26 +106,26 @@ from core.plugins.plugin_types import PluginType
 
 class MyPlugin(BasePlugin):
     """My custom plugin."""
-    
+
     @property
     def plugin_type(self) -> PluginType:
         """Return the plugin type."""
         return PluginType.KNOWLEDGE_SOURCE
-    
+
     @property
     def name(self) -> str:
         """Return the plugin name."""
         return "my_plugin"
-    
+
     @property
     def version(self) -> str:
         """Return the plugin version."""
         return "1.0.0"
-    
+
     def initialize(self):
         """Initialize the plugin."""
         pass
-    
+
     def cleanup(self):
         """Clean up plugin resources."""
         pass
@@ -134,17 +140,17 @@ from core.plugins.interfaces import KnowledgeSourcePlugin
 
 class MyKnowledgeSource(KnowledgeSourcePlugin):
     """Custom knowledge source."""
-    
+
     def fetch_documents(self, config: dict) -> list:
         """Fetch documents from the source."""
         # Implementation
         pass
-    
+
     def validate_config(self, config: dict) -> bool:
         """Validate configuration."""
         # Implementation
         pass
-    
+
     def test_connection(self, config: dict) -> bool:
         """Test connection to the source."""
         # Implementation
@@ -240,7 +246,7 @@ from plugins.builtin.knowledge_source.my_plugin import MyPlugin
 class TestMyPlugin(unittest.TestCase):
     def setUp(self):
         self.plugin = MyPlugin()
-    
+
     def test_fetch_documents(self):
         config = {"api_key": "test"}
         docs = self.plugin.fetch_documents(config)

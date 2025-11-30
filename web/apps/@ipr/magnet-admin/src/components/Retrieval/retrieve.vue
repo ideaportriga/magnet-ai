@@ -1,5 +1,4 @@
 <template lang="pug">
-
 <!-- Knowledge sources section -->
 km-section(title='Knowledge sources', subTitle='Select one or multiple Knowledge sources to search')
   .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge sources
@@ -19,7 +18,10 @@ km-section(title='Knowledge sources', subTitle='Select one or multiple Knowledge
 q-separator.q-my-lg
 
 <!-- Search capabilities section -->
-km-section(title='Search capabilities', subTitle='Configure how search will be performed. To activate hybrid search, enable both semantic and keyword search.')
+km-section(
+  title='Search capabilities',
+  subTitle='Configure how search will be performed. To activate hybrid search, enable both semantic and keyword search.'
+)
   .column.q-gap-16
     .column
       .row.items-baseline
@@ -78,7 +80,7 @@ km-section(
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max number of chunks to retrieve for re-ranking
       div(style='max-width: 200px')
         km-input(type='number', height='30px', placeholder='Number of chunks to select', v-model='reRankingMaxChankRetrieve')
-      .km-description.text-secondary-text.q-pb-4 If re-ranking is turned on, these chunks will be re-ordered to select the most relevant results. 
+      .km-description.text-secondary-text.q-pb-4 If re-ranking is turned on, these chunks will be re-ordered to select the most relevant results.
 q-separator.q-my-lg
 
 <!-- Similarity score section -->
@@ -203,7 +205,9 @@ export default {
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) => (this.$store.getters.retrievalVariant?.retrieve?.collection_system_names || []).includes(el?.system_name))
+        return this.collections.filter((el) =>
+          (this.$store.getters.retrievalVariant?.retrieve?.collection_system_names || []).includes(el?.system_name)
+        )
       },
       set(value) {
         value = (value || []).map((el) => {

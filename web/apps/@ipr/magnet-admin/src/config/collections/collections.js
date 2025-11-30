@@ -164,7 +164,7 @@ const staticSourceTypeChildren = {
 }
 
 // Static source type options as fallback (extracted from staticSourceTypeChildren keys)
-const staticSourceTypeOptions = Object.keys(staticSourceTypeChildren).filter(key => key !== '')
+const staticSourceTypeOptions = Object.keys(staticSourceTypeChildren).filter((key) => key !== '')
 
 // Export reactive references that will be updated when plugins are loaded
 export const sourceTypeChildren = ref(staticSourceTypeChildren)
@@ -176,9 +176,9 @@ export const sourceTypeOptions = ref(staticSourceTypeOptions)
  */
 export function initializePlugins() {
   const plugins = store.state?.chroma?.plugins?.items || []
-  
+
   console.log('Initializing plugins from store:', plugins.length, 'plugins')
-  
+
   if (plugins.length === 0) {
     console.warn('No plugins found in store. Using static configuration.')
     return
@@ -189,18 +189,18 @@ export function initializePlugins() {
     '': [], // Empty source type
   }
 
-  plugins.forEach(plugin => {
+  plugins.forEach((plugin) => {
     const fields = plugin.source_fields || []
     children[plugin.source_type] = fields.map(transformFieldToComponent)
   })
 
   // Build sourceTypeOptions
-  const options = plugins.map(plugin => plugin.source_type)
+  const options = plugins.map((plugin) => plugin.source_type)
 
   // Update reactive references with data from store
   sourceTypeChildren.value = children
   sourceTypeOptions.value = options
-  
+
   console.log('Updated sourceTypeOptions to:', sourceTypeOptions.value)
   console.log('Updated sourceTypeChildren keys to:', Object.keys(sourceTypeChildren.value))
 }
@@ -210,11 +210,11 @@ export function initializePlugins() {
  */
 export function getProviderFields(pluginType) {
   const plugins = store.state?.chroma?.plugins?.items || []
-  const plugin = plugins.find(p => p.source_type === pluginType)
-  
+  const plugin = plugins.find((p) => p.source_type === pluginType)
+
   if (!plugin) return []
 
-  return (plugin.provider_fields || []).map(field => ({
+  return (plugin.provider_fields || []).map((field) => ({
     ...transformFieldToComponent(field),
     // Provider fields should not be readonly based on last_synced
     readonly: false,

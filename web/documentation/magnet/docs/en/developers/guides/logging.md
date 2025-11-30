@@ -5,6 +5,7 @@ This guide explains how to set up centralized logging using Grafana Loki for loc
 ## Overview
 
 Grafana Loki is a log aggregation system that allows you to:
+
 - Collect structured logs from your application
 - Search and filter logs by any field (level, filename, function, etc.)
 - View logs in a beautiful web interface
@@ -20,6 +21,7 @@ docker-compose -f docker-compose-logging.yml up -d
 ```
 
 This will start:
+
 - **Loki** on port 3100 (log storage)
 - **Grafana** on port 3000 (web UI)
 
@@ -62,29 +64,29 @@ You can control the logging behavior using the following environment variables i
 
 ### General Logging
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | `10` (DEBUG) | Global logging level. `10`=DEBUG, `20`=INFO, `30`=WARNING, `40`=ERROR, `50`=CRITICAL. |
-| `DEBUG_MODE` | `False` | Enable debug mode and event loop debugging. |
-| `LOKI_URL` | `""` | URL for sending logs to Grafana Loki (e.g., `http://localhost:3100/loki/api/v1/push`). |
+| Variable     | Default      | Description                                                                            |
+| ------------ | ------------ | -------------------------------------------------------------------------------------- |
+| `LOG_LEVEL`  | `10` (DEBUG) | Global logging level. `10`=DEBUG, `20`=INFO, `30`=WARNING, `40`=ERROR, `50`=CRITICAL.  |
+| `DEBUG_MODE` | `False`      | Enable debug mode and event loop debugging.                                            |
+| `LOKI_URL`   | `""`         | URL for sending logs to Grafana Loki (e.g., `http://localhost:3100/loki/api/v1/push`). |
 
 ### Component-Specific Levels
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SQLALCHEMY_LOG_LEVEL` | `10` (DEBUG) | Logging level for SQLAlchemy (database queries). |
-| `ASGI_ACCESS_LOG_LEVEL` | `10` (DEBUG) | Logging level for Uvicorn access logs (HTTP requests). |
-| `ASGI_ERROR_LOG_LEVEL` | `10` (DEBUG) | Logging level for Uvicorn error logs. |
-| `KNOWLEDGE_GRAPH_LOG_LEVEL` | `10` (DEBUG) | Logging level for Knowledge Graph operations. |
-| `SAQ_LOG_LEVEL` | `50` (CRITICAL) | Logging level for SAQ (background worker) logs. |
+| Variable                    | Default         | Description                                            |
+| --------------------------- | --------------- | ------------------------------------------------------ |
+| `SQLALCHEMY_LOG_LEVEL`      | `10` (DEBUG)    | Logging level for SQLAlchemy (database queries).       |
+| `ASGI_ACCESS_LOG_LEVEL`     | `10` (DEBUG)    | Logging level for Uvicorn access logs (HTTP requests). |
+| `ASGI_ERROR_LOG_LEVEL`      | `10` (DEBUG)    | Logging level for Uvicorn error logs.                  |
+| `KNOWLEDGE_GRAPH_LOG_LEVEL` | `10` (DEBUG)    | Logging level for Knowledge Graph operations.          |
+| `SAQ_LOG_LEVEL`             | `50` (CRITICAL) | Logging level for SAQ (background worker) logs.        |
 
 ### Database Debugging
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_ECHO` | `True` | Enable SQLAlchemy engine logs (SQL queries). |
-| `DATABASE_ECHO_POOL` | `True` | Enable SQLAlchemy connection pool logs. |
-| `DATABASE_ECHO_ERRORS` | `True` | Enable detailed SQLAlchemy error logs. |
+| Variable               | Default | Description                                  |
+| ---------------------- | ------- | -------------------------------------------- |
+| `DATABASE_ECHO`        | `True`  | Enable SQLAlchemy engine logs (SQL queries). |
+| `DATABASE_ECHO_POOL`   | `True`  | Enable SQLAlchemy connection pool logs.      |
+| `DATABASE_ECHO_ERRORS` | `True`  | Enable detailed SQLAlchemy error logs.       |
 
 ## Grafana Query Examples
 
@@ -114,9 +116,9 @@ You can control the logging behavior using the following environment variables i
 
 ```logql
 # Errors in the last 5 minutes
-{application="magnet-ai"} 
-  | json 
-  | level="error" 
+{application="magnet-ai"}
+  | json
+  | level="error"
   [5m]
 
 # Count errors by file
@@ -129,19 +131,23 @@ sum by (filename) (count_over_time({application="magnet-ai"} | json | level="err
 ## Useful Grafana Features
 
 ### 1. **Live Tail**
+
 - Real-time log streaming
 - Click "Live" button in top right
 
 ### 2. **Log Context**
+
 - Click on any log line
 - See surrounding logs
 - View full JSON data
 
 ### 3. **Time Range**
+
 - Select time range in top right
 - Last 5m, 15m, 1h, etc.
 
 ### 4. **Labels**
+
 - Automatically extracted from structlog:
   - `level` - log level (debug, info, warning, error)
   - `filename` - source file
@@ -165,14 +171,17 @@ docker-compose -f docker-compose-logging.yml down -v
 ### Logs not appearing?
 
 1. Check Loki is running:
+
    ```bash
    docker ps | grep loki
    ```
 
 2. Check app can reach Loki:
+
    ```bash
    curl http://localhost:3100/ready
    ```
+
    Should return: `ready`
 
 3. Check application logs for errors:
@@ -184,12 +193,14 @@ docker-compose -f docker-compose-logging.yml down -v
 ### Connection refused?
 
 If running app in Docker:
+
 - Use `LOKI_URL=http://host.docker.internal:3100/loki/api/v1/push` (Mac/Windows)
 - Or use `LOKI_URL=http://172.17.0.1:3100/loki/api/v1/push` (Linux)
 
 ### Want to disable Loki?
 
 Just remove or comment out `LOKI_URL` from `.env`:
+
 ```bash
 # LOKI_URL=http://localhost:3100/loki/api/v1/push
 ```
@@ -217,4 +228,4 @@ See [Loki Documentation](https://grafana.com/docs/loki/latest/) for details.
 ✅ **Beautiful UI** - Grafana interface  
 ✅ **Live tail** - real-time log streaming  
 ✅ **Separate from app** - doesn't affect app performance  
-✅ **Optional** - can disable anytime  
+✅ **Optional** - can disable anytime

@@ -5,7 +5,7 @@
   .row.justify-center.km-heading-7.q-mb-md {{ label }}
   .row.justify-center.km-label.q-mb-md.text-center {{ description }}
   .row.justify-center
-    km-btn(:label='actionLabel', @click='$emit("click")' :data-test='actionLabel')
+    km-btn(:label='actionLabel', @click='$emit("click")', :data-test='actionLabel')
 </template>
 
 <script>

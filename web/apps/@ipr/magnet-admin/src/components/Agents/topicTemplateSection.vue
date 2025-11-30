@@ -58,10 +58,7 @@ export default {
         return this.$store.getters.agentDetailVariant?.value.prompt_templates?.classification
       },
       set(value) {
-        this.$store.dispatch(
-          'updateNestedAgentDetailProperty',
-          { path: 'prompt_templates.classification', value }
-        )
+        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'prompt_templates.classification', value })
       },
     },
   },

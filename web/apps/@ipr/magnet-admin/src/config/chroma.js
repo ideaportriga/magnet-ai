@@ -23,32 +23,32 @@ import apiServersControls from '@/config/api_servers/api_servers'
 // Universal function to build query parameters from pagination and filter objects
 const buildQueryParams = (pagination = {}, filter = {}) => {
   const params = new URLSearchParams()
-  
+
   // Handle pagination parameters
   if (pagination.page) {
     params.append('currentPage', pagination.page.toString())
   }
-  
+
   if (pagination.rowsPerPage) {
     params.append('pageSize', pagination.rowsPerPage.toString())
   }
-  
+
   if (pagination.sortBy) {
     params.append('orderBy', pagination.sortBy)
     params.append('sortOrder', pagination.descending ? 'desc' : 'asc')
   }
-  
+
   // Handle filter parameters
-  Object.keys(filter).forEach(key => {
+  Object.keys(filter).forEach((key) => {
     const value = filter[key]
-    
+
     // Skip null, undefined, or empty values
     if (value === null || value === undefined) return
-    
+
     // Handle arrays
     if (Array.isArray(value)) {
       if (value.length > 0) {
-        value.forEach(item => {
+        value.forEach((item) => {
           params.append(key, item.toString())
         })
       }
@@ -58,7 +58,7 @@ const buildQueryParams = (pagination = {}, filter = {}) => {
       params.append(key, value.toString())
     }
   })
-  
+
   return params.toString()
 }
 
@@ -135,7 +135,6 @@ const agentsPagination = {
   sortBy: 'last_updated',
   descending: true,
 }
-
 
 const observabilityTracesPagination = {
   rowsPerPage: 15,
@@ -1685,7 +1684,7 @@ const apiAssistantTools = {
 const apiObservabilityTraces = {
   getPaginated: async (_, endpoint, payload) => {
     const { pagination = {}, filter = {} } = payload
-    
+
     // Build query parameters using universal function
     const queryString = buildQueryParams(pagination, filter)
     const url = queryString ? `traces?${queryString}` : 'traces'
@@ -1717,7 +1716,7 @@ const apiObservabilityTraces = {
   },
   get: async (_, endpoint, payload = {}) => {
     const { filter = {} } = payload
-    
+
     // Build query parameters using universal function
     const queryString = buildQueryParams({ currentPage: '1', pageSize: '10' }, filter)
     const url = queryString ? `traces?${queryString}` : 'traces'
@@ -1743,7 +1742,6 @@ const apiObservabilityTraces = {
       })
   },
   getDetail: async (_, endpoint, payload) => {
-
     console.log('payload !', payload)
     const params = new URLSearchParams({
       ids: payload?.id,
@@ -2040,7 +2038,7 @@ const apiAgents = {
 const apiJobs = {
   getPaginated: async (_, endpoint, payload) => {
     const { pagination = {}, filter = {} } = payload
-    
+
     console.log('apiJobs getPaginated', pagination, filter)
     // Build query parameters using universal function
     const queryString = buildQueryParams(pagination, filter)
@@ -2072,7 +2070,7 @@ const apiJobs = {
   },
   get: async (_, endpoint, payload = {}) => {
     const { filter = {} } = payload
-    
+
     // Build query parameters using universal function (no pagination for simple get)
     const queryString = buildQueryParams({}, filter)
     const url = queryString ? `jobs?${queryString}` : 'jobs'

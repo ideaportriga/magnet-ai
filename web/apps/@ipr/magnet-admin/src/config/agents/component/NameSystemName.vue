@@ -11,9 +11,8 @@ export default defineComponent({
   props: {
     row: {
       type: Object,
-      required: true
-    }
+      required: true,
+    },
   },
-
 })
 </script>

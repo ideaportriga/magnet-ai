@@ -24,6 +24,6 @@ Model pricing information is important because it is used to calculate LLM call 
 
 Pricing information is stored in Model details under the Pricing tab.
 
-Refer to Model Provider’s pricing documentation for correct values and units of measure (e.g. tokens or queries). 
+Refer to Model Provider’s pricing documentation for correct values and units of measure (e.g. tokens or queries).
 
 ![](../../../images/2025-11-10-14-57-06-image.png)

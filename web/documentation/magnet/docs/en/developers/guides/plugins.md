@@ -5,6 +5,7 @@ This directory is for **client-specific** and **proprietary** plugins that shoul
 ## 🎯 Purpose
 
 External plugins are:
+
 - ✅ Client-specific implementations (File, FluidTopics, etc.)
 - ✅ Proprietary integrations with custom systems
 - ✅ Customer-specific features or data sources
@@ -37,6 +38,7 @@ def load_external_plugins(cls):
 ### Two Loading Methods
 
 #### 1️⃣ Local Directory (Development & Private Deployments)
+
 ```bash
 # Just place plugin directory here - it loads automatically!
 api/src/plugins/external/knowledge_source/custom_plugin/
@@ -44,9 +46,10 @@ api/src/plugins/external/knowledge_source/custom_plugin/
 
 ✅ No environment variables needed  
 ✅ Perfect for development  
-✅ Works with .gitignore to keep private  
+✅ Works with .gitignore to keep private
 
 #### 2️⃣ Installed Packages (Production with Separate Repos)
+
 ```bash
 # Install from private GitHub repo
 pip install git+https://github.com/your-org/magnet-plugins-file.git@v1.0.0
@@ -57,7 +60,7 @@ export MAGNET_PLUGINS=magnet_plugins.file
 
 ✅ Complete isolation from main repo  
 ✅ Version management via git tags  
-✅ CI/CD friendly  
+✅ CI/CD friendly
 
 ## 🚀 For Production Deployment
 
@@ -83,11 +86,11 @@ class CustomSourcePlugin(KnowledgeSourcePlugin):
                 description="Client-specific custom data source"
             )
         )
-    
+
     @property
     def source_type(self) -> str:
         return "CustomSource"
-    
+
     async def create_processor(self, source, collection_config, store):
         # Your implementation
         pass

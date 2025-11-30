@@ -1,6 +1,6 @@
 # Agent Configuration - Other settings
 
-In this section, we will 
+In this section, we will
 
 ## Post-processing
 
@@ -18,7 +18,7 @@ Post-processing is done on the conversation level. Message post-processing is no
 
 ![](../../../images/2025-06-02-17-09-52-image.png)
 
-## 
+##
 
 ## UI Settings
 
@@ -40,7 +40,7 @@ Provide up to 3 sample questions to help users start their first conversation wi
 
 ![](../../../images/2025-06-02-17-14-07-image.png)
 
-## 
+##
 
 ## Channels
 
@@ -56,6 +56,6 @@ Use this tab to store your notes and test inputs for the Agent.
 
 ## Test sets
 
-Specific Test sets for evaluating Agents are not yet available, but you can choose a RAG or Prompt Template Test set here and use it for quick testing of specific Agent actions. 
+Specific Test sets for evaluating Agents are not yet available, but you can choose a RAG or Prompt Template Test set here and use it for quick testing of specific Agent actions.
 
 To use this feature, select a Test Set from the dropdown and just click on a Test Set record to copy it into the user message field in Agent.

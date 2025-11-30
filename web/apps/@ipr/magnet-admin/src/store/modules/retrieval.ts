@@ -12,7 +12,6 @@ const state = () => ({
   selectedRetrievalVariant: null,
   initialRetrieval: null,
   retrievalTestSetItem: {},
-
 })
 
 // getters

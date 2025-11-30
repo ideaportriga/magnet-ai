@@ -6,7 +6,7 @@ This is a detailed configuration guide for admins with access to model deploymen
 
 ### 1. OpenAI Provider
 
-**Type:** `openai` 
+**Type:** `openai`
 
 #### Parameters
 
@@ -20,7 +20,7 @@ This is a detailed configuration guide for admins with access to model deploymen
 
 ### 2. Azure OpenAI Provider
 
-**Type:** `azure_open_ai` 
+**Type:** `azure_open_ai`
 
 #### Parameters
 
@@ -42,7 +42,7 @@ This is a detailed configuration guide for admins with access to model deploymen
 
 ### 3. Azure AI Provider
 
-**Type:** `azure_ai` 
+**Type:** `azure_ai`
 
 #### Parameters
 
@@ -61,7 +61,7 @@ This is a detailed configuration guide for admins with access to model deploymen
 
 ### 4. Groq Provider
 
-**Type:** `groq` 
+**Type:** `groq`
 
 #### Parameters
 
@@ -80,7 +80,7 @@ This is a detailed configuration guide for admins with access to model deploymen
 
 ### 5. OCI Provider (Oracle Cloud - Cohere)
 
-**Type:** `oci` 
+**Type:** `oci`
 
 #### Parameters
 
@@ -106,7 +106,7 @@ This is a detailed configuration guide for admins with access to model deploymen
 
 ### 6. OCI Llama Provider (Oracle Cloud - Llama)
 
-**Type:** `oci_llama`  
+**Type:** `oci_llama`
 
 #### Parameters
 

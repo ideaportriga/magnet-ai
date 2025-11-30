@@ -27,7 +27,6 @@ const controls = {
     action: 'drilldown',
     align: 'left',
   },
-
 }
 
 export default controls

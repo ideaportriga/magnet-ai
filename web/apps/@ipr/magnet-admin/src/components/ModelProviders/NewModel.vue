@@ -10,24 +10,12 @@ km-popup-confirm(
 )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
     .full-width
-      km-input(
-        height='30px',
-        placeholder='E.g. gpt-4o-mini',
-        v-model='model',
-        ref='modelRef',
-        :rules='config?.model?.rules || []'
-      )
+      km-input(height='30px', placeholder='E.g. gpt-4o-mini', v-model='model', ref='modelRef', :rules='config?.model?.rules || []')
       .km-description.text-secondary-text Name used by the provider to identify the model
-  
+
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
     .full-width
-      km-input(
-        height='30px',
-        placeholder='E.g. GPT-4O-MINI',
-        v-model='system_name',
-        ref='system_nameRef',
-        :rules='config?.system_name?.rules || []'
-      )
+      km-input(height='30px', placeholder='E.g. GPT-4O-MINI', v-model='system_name', ref='system_nameRef', :rules='config?.system_name?.rules || []')
       .km-description.text-secondary-text System name serves as a unique ID
 
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Display name
@@ -182,7 +170,7 @@ export default {
         .replace(/_/g, ' ')
         .toLowerCase()
         .split(' ')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ')
     },
     confirm() {

@@ -10,7 +10,11 @@ km-popup-confirm(
   @cancel='$emit("cancel")'
 )
   .q-pb-xs.q-pl-8.q-mb-md(v-if='selectedEvaluationSet?.type === "rag_tool"')
-    retrieval-metadata-filter(v-model='newRow.metadata_filter', label='Evaluation metadata filter', labelClass='km-field text-secondary-text q-mr-xs')
+    retrieval-metadata-filter(
+      v-model='newRow.metadata_filter',
+      label='Evaluation metadata filter',
+      labelClass='km-field text-secondary-text q-mr-xs'
+    )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Evaluation input
     .full-width
       km-input(

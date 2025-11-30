@@ -90,7 +90,7 @@ const controls = {
     classes: 'km-button-xs-text',
     sortable: true,
   },
-    variants: {
+  variants: {
     name: 'variants',
     label: 'Variants',
     display: true,

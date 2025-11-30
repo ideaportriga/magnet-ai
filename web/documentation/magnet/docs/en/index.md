@@ -1,9 +1,9 @@
 ---
 layout: home
 hero:
-  name: "Magnet AI"
-  text: "Documentation"
-  tagline: "Configuring, observing and evaluating AI Tools"
+  name: 'Magnet AI'
+  text: 'Documentation'
+  tagline: 'Configuring, observing and evaluating AI Tools'
   actions:
     - theme: brand
       text: Quickstarts

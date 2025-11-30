@@ -57,6 +57,7 @@ uvicorn app:app --reload --env-file="../.env"
 ```
 
 The server runs with:
+
 - Auto-reload enabled
 - Debug mode (if configured in .env)
 - CORS enabled for local frontend
@@ -149,12 +150,7 @@ Create `.vscode/launch.json`:
       "type": "python",
       "request": "launch",
       "module": "uvicorn",
-      "args": [
-        "app:app",
-        "--reload",
-        "--port",
-        "8000"
-      ],
+      "args": ["app:app", "--reload", "--port", "8000"],
       "jinja": true,
       "justMyCode": true
     }
@@ -176,16 +172,19 @@ yarn install
 #### Development Server
 
 **User Panel:**
+
 ```bash
 yarn nx dev magnet-panel
 ```
 
 **Admin Console:**
+
 ```bash
 yarn nx dev magnet-admin
 ```
 
 Access at:
+
 - Panel: `http://localhost:4200` (or similar)
 - Admin: `http://localhost:4201` (or similar)
 
@@ -222,6 +221,7 @@ npm run dev
 ```
 
 This starts:
+
 - API: `http://localhost:8000`
 - Web Apps: `http://localhost:3000` & `http://localhost:3001`
 
@@ -308,9 +308,9 @@ logger.error("error_event", error=str(e))
 Use console methods:
 
 ```typescript
-console.log('Debug info');
-console.warn('Warning');
-console.error('Error');
+console.log('Debug info')
+console.warn('Warning')
+console.error('Error')
 ```
 
 ## Common Workflows
@@ -346,4 +346,3 @@ console.error('Error');
 - [Testing](/docs/en/developers/setup/testing) - Testing guide
 - [Deployment](/docs/en/developers/setup/deployment) - Deployment strategies
 - [Plugin Development](/docs/en/developers/plugins/creating-plugins) - Create plugins
-

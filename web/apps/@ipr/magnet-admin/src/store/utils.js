@@ -124,12 +124,17 @@ export const createEntityStore = (namespace) => {
       // Convert numeric price fields to strings for model entities
       if (namespace === 'modelConfig') {
         const priceFields = [
-          'price_input', 'price_cached', 'price_output', 'price_reasoning',
-          'price_standard_input_unit_count', 'price_cached_input_unit_count',
-          'price_standard_output_unit_count', 'price_reasoning_output_unit_count'
+          'price_input',
+          'price_cached',
+          'price_output',
+          'price_reasoning',
+          'price_standard_input_unit_count',
+          'price_cached_input_unit_count',
+          'price_standard_output_unit_count',
+          'price_reasoning_output_unit_count',
         ]
-        
-        priceFields.forEach(field => {
+
+        priceFields.forEach((field) => {
           if (obj[field] !== undefined && obj[field] !== null && obj[field] !== '') {
             obj[field] = String(obj[field])
           }
@@ -143,12 +148,12 @@ export const createEntityStore = (namespace) => {
         delete obj.updated_at
         delete obj.created_by
         delete obj.updated_by
-        
+
         // Remove configs if empty
         if (obj.configs && typeof obj.configs === 'object' && Object.keys(obj.configs).length === 0) {
           delete obj.configs
         }
-        
+
         await dispatch('chroma/update', { payload: { id: getters.entity.id, data: JSON.stringify(obj) }, entity }, { root: true })
       } else {
         delete obj.id
@@ -157,12 +162,12 @@ export const createEntityStore = (namespace) => {
         delete obj.updated_at
         delete obj.created_by
         delete obj.updated_by
-        
+
         // Remove configs if empty
         if (obj.configs && typeof obj.configs === 'object' && Object.keys(obj.configs).length === 0) {
           delete obj.configs
         }
-        
+
         await dispatch('chroma/create', { payload: JSON.stringify(obj), entity }, { root: true })
       }
       commit('setInitEntity')

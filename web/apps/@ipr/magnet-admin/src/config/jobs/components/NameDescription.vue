@@ -17,11 +17,11 @@ export default defineComponent({
   setup(props) {
     const typeLabel = computed(() => {
       const typeValue = props.row?.definition?.run_configuration?.type
-      return jobTypeOptions.find(el => el.value === typeValue)?.label || typeValue
+      return jobTypeOptions.find((el) => el.value === typeValue)?.label || typeValue
     })
 
     return { typeLabel }
-  }
+  },
 })
 </script>
 

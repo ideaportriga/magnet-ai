@@ -194,7 +194,7 @@ export default {
       }
 
       const result = {}
-      
+
       if (conditions.length === 1) {
         Object.assign(result, conditions[0])
       } else if (conditions.length > 1) {
@@ -224,13 +224,13 @@ export default {
           const dateThreshold = DateTime.now().minus(duration).toISO()
 
           const fieldName = config.field || key
-          
+
           // Convert field name to camelCase
           const camelCaseFieldName = this.toCamelCase(fieldName)
-          
+
           // Add After field for filtering records after the threshold date
           result[`${camelCaseFieldName}After`] = dateThreshold
-          
+
           // Optionally add Before field if needed for range filtering
           // result[`${camelCaseFieldName}Before`] = DateTime.now().toISO()
         } else if (config.type === 'search') {
@@ -241,7 +241,7 @@ export default {
             const values = Array.isArray(activeFilter)
               ? activeFilter.map((item) => (item.value !== undefined ? item.value : item))
               : [activeFilter.value !== undefined ? activeFilter.value : activeFilter]
-            
+
             // Convert to camelCase with 'In' suffix
             const fieldName = this.toCamelCaseWithIn(config.key)
             result[fieldName] = values

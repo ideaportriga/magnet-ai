@@ -76,11 +76,13 @@ Error responses include appropriate HTTP status codes:
 ### Agents
 
 #### List Agents
+
 ```http
 GET /api/agents
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -97,11 +99,13 @@ GET /api/agents
 ```
 
 #### Get Agent
+
 ```http
 GET /api/agents/{id}
 ```
 
 #### Create Agent
+
 ```http
 POST /api/agents
 Content-Type: application/json
@@ -117,6 +121,7 @@ Content-Type: application/json
 ```
 
 #### Update Agent
+
 ```http
 PUT /api/agents/{id}
 Content-Type: application/json
@@ -128,6 +133,7 @@ Content-Type: application/json
 ```
 
 #### Delete Agent
+
 ```http
 DELETE /api/agents/{id}
 ```
@@ -135,16 +141,19 @@ DELETE /api/agents/{id}
 ### Prompt Templates
 
 #### List Prompt Templates
+
 ```http
 GET /api/prompt-templates
 ```
 
 #### Get Prompt Template
+
 ```http
 GET /api/prompt-templates/{id}
 ```
 
 #### Create Prompt Template
+
 ```http
 POST /api/prompt-templates
 Content-Type: application/json
@@ -160,11 +169,13 @@ Content-Type: application/json
 ### Knowledge Sources
 
 #### List Knowledge Sources
+
 ```http
 GET /api/knowledge-sources
 ```
 
 #### Create Knowledge Source
+
 ```http
 POST /api/knowledge-sources
 Content-Type: application/json
@@ -179,6 +190,7 @@ Content-Type: application/json
 ```
 
 #### Sync Knowledge Source
+
 ```http
 POST /api/knowledge-sources/{id}/sync
 ```
@@ -186,11 +198,13 @@ POST /api/knowledge-sources/{id}/sync
 ### RAG Tools
 
 #### List RAG Tools
+
 ```http
 GET /api/rag-tools
 ```
 
 #### Create RAG Tool
+
 ```http
 POST /api/rag-tools
 Content-Type: application/json
@@ -206,6 +220,7 @@ Content-Type: application/json
 ```
 
 #### Query RAG Tool
+
 ```http
 POST /api/rag-tools/{id}/query
 Content-Type: application/json
@@ -219,16 +234,19 @@ Content-Type: application/json
 ### Conversations
 
 #### List Conversations
+
 ```http
 GET /api/conversations
 ```
 
 #### Get Conversation
+
 ```http
 GET /api/conversations/{id}
 ```
 
 #### Create Conversation
+
 ```http
 POST /api/conversations
 Content-Type: application/json
@@ -240,6 +258,7 @@ Content-Type: application/json
 ```
 
 #### Send Message
+
 ```http
 POST /api/conversations/{id}/messages
 Content-Type: application/json
@@ -253,11 +272,13 @@ Content-Type: application/json
 ### Models
 
 #### List Models
+
 ```http
 GET /api/models
 ```
 
 #### Add Model
+
 ```http
 POST /api/models
 Content-Type: application/json
@@ -277,11 +298,13 @@ Content-Type: application/json
 ### Evaluations
 
 #### List Evaluations
+
 ```http
 GET /api/evaluations
 ```
 
 #### Create Evaluation
+
 ```http
 POST /api/evaluations
 Content-Type: application/json
@@ -300,6 +323,7 @@ Content-Type: application/json
 ```
 
 #### Run Evaluation
+
 ```http
 POST /api/evaluations/{id}/run
 ```
@@ -307,11 +331,13 @@ POST /api/evaluations/{id}/run
 ### Usage Metrics
 
 #### Get Usage Statistics
+
 ```http
 GET /api/usage/stats?start_date=2025-01-01&end_date=2025-01-31
 ```
 
 #### Get Cost Analysis
+
 ```http
 GET /api/usage/costs?entity_type=agent&entity_id=agent_123
 ```
@@ -325,6 +351,7 @@ GET /api/agents?page=1&limit=20
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -341,11 +368,13 @@ GET /api/agents?page=1&limit=20
 ## Filtering and Sorting
 
 ### Filtering
+
 ```http
 GET /api/agents?type=customer_support&status=active
 ```
 
 ### Sorting
+
 ```http
 GET /api/agents?sort=created_at&order=desc
 ```
@@ -353,12 +382,14 @@ GET /api/agents?sort=created_at&order=desc
 ## Rate Limiting
 
 API requests are rate-limited to prevent abuse:
+
 - Rate limit: 100 requests per minute
 - Headers include rate limit information
 
 ## Webhooks
 
 Configure webhooks for event notifications:
+
 - Conversation completed
 - Evaluation finished
 - Usage threshold exceeded
@@ -366,6 +397,7 @@ Configure webhooks for event notifications:
 ## API Versioning
 
 The API version is included in the URL:
+
 ```
 /api/v1/agents
 ```

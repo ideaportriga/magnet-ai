@@ -74,7 +74,7 @@ const actions = {
   async saveProvider({ commit, dispatch, getters }) {
     const entity = 'provider'
     const obj = { ...getters.provider }
-    
+
     // Remove read-only fields
     delete obj.id
     delete obj.created_at
@@ -94,7 +94,7 @@ const actions = {
   async deleteProvider({ dispatch, getters }) {
     const entity = 'provider'
     const provider = getters.provider
-    
+
     if (!provider || !provider.id || provider.id === '') {
       throw new Error('Provider ID is required for deletion')
     }

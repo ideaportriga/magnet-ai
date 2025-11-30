@@ -10,7 +10,6 @@ import 'quasar/src/css/index.sass'
 import { quasarConf } from '@shared'
 import { Quasar } from 'quasar'
 
-
 // Import utility functions and helpers
 import { setTheme, registerComponents, registerGlobalProperties, errorHandler, registerDirectives, mountLog } from '@shared/utils/mountUtils'
 
@@ -72,7 +71,6 @@ const app = {
       appInstance.mount(`#${appId}`)
     }
   },
-
 }
 
 // Make app instance and core modules available globally for debugging

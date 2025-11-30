@@ -5,8 +5,11 @@ Guide for deploying Magnet AI to production environments.
 ## Deployment Options
 
 ### 1. Docker Deployment (Recommended)
+
 ### 2. Manual Deployment
+
 ### 3. OpenShift/Kubernetes
+
 ### 4. Cloud Platforms (AWS, Azure, GCP)
 
 ## Docker Deployment
@@ -36,6 +39,7 @@ docker-compose up -d
 ```
 
 Services:
+
 - **API**: `http://localhost:5000`
 - **Web**: `http://localhost:80`
 - **PostgreSQL**: `localhost:5432`
@@ -78,8 +82,8 @@ services:
       args:
         VITE_API_URL: https://api.yourdomain.com
     ports:
-      - "80:80"
-      - "443:443"
+      - '80:80'
+      - '443:443'
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
@@ -546,16 +550,19 @@ Use Nginx or cloud load balancer to distribute traffic.
 ### Common Issues
 
 **Issue**: Database connection refused
+
 - Check DATABASE_URL
 - Verify database is running
 - Check network connectivity
 
 **Issue**: CORS errors
+
 - Verify CORS_ORIGINS setting
 - Check request headers
 - Ensure frontend URL is whitelisted
 
 **Issue**: High memory usage
+
 - Increase worker processes
 - Check for memory leaks
 - Optimize queries

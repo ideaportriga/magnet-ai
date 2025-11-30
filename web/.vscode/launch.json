@@ -6,7 +6,7 @@
       "request": "launch",
       "name": "Nx Vite + Vue",
       "url": "https://localhost:7000",
-      "webRoot": "${workspaceFolder}/apps/@ipr/magnet-admin/src",
+      "webRoot": "${workspaceFolder}/apps/@ipr/magnet-admin/src"
     }
   ]
 }

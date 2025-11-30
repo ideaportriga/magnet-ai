@@ -39,7 +39,7 @@
       km-btn(label='Add Header Record', @click='addHeader', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
-    km-secrets(v-model:secrets='secrets' :original-secrets='originalMcpSecrets' :remount-value='remountValue')
+    km-secrets(v-model:secrets='secrets', :original-secrets='originalMcpSecrets', :remount-value='remountValue')
 </template>
 <script setup>
 import { ref, computed } from 'vue'
@@ -64,7 +64,6 @@ const headers = computed({
   },
 })
 
-
 const originalMcpSecrets = computed(() => store.getters.originalMcpSecrets)
 const remountValue = computed(() => store.getters.mcp_server.updated_at)
 const secrets = computed({
@@ -79,12 +78,10 @@ const secrets = computed({
   },
 })
 
-
 const toggleEditMode = (value) => {
   // Do nothing additional, just toggle mode
   // Always work with secrets_encrypted
 }
-
 
 const addHeader = () => {
   const newHeaders = new Map(headers.value)

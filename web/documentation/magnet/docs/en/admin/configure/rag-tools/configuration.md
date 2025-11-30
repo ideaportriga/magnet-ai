@@ -30,11 +30,11 @@ Number of added chunks specifies how many neighboring chunks should be appended 
 
 ##### Re-ranking
 
-Re-ranking improves the accuracy of RAG Tool response by retrieving a broader range of chunks and re-assessing their relevance score. The top few chunks from the re-ranked list are then used to generate a better, more accurate answer. To do this, a re-ranking model is used. 
+Re-ranking improves the accuracy of RAG Tool response by retrieving a broader range of chunks and re-assessing their relevance score. The top few chunks from the re-ranked list are then used to generate a better, more accurate answer. To do this, a re-ranking model is used.
 
 <img src="../../../images/2025-06-09-12-57-59-image.png" title="" alt="" width="482">
 
-If Re-ranking is enabled, it is recommended to set a *lower similarity score threshold*, because at the first step we need to grab a wider range of chunks for further re-ranking. Also, if this technique is enabled, you have an additional parameter under the Chunk limits: `Max number of chunks to retrieve for re-ranking` . This controls how many chunks will actually get re-ranked. Default value is `5`. Other Chunk limits also remain applicable if Re-ranking is enabled.
+If Re-ranking is enabled, it is recommended to set a _lower similarity score threshold_, because at the first step we need to grab a wider range of chunks for further re-ranking. Also, if this technique is enabled, you have an additional parameter under the Chunk limits: `Max number of chunks to retrieve for re-ranking` . This controls how many chunks will actually get re-ranked. Default value is `5`. Other Chunk limits also remain applicable if Re-ranking is enabled.
 
 <img src="../../../images/2025-06-09-12-58-17-image.png" title="" alt="" width="339">
 
@@ -52,7 +52,7 @@ If you need to edit this Prompt Template, we recommend that you first clone the 
 
 ##### Multi-lingual RAG
 
-This setting should be turned on for cases when users ask questions in languages other than that of the Knowledge Source. 
+This setting should be turned on for cases when users ask questions in languages other than that of the Knowledge Source.
 
 The Multi-lingual RAG flow works by detecting user question language, translating the query into the language of Knowledge Source and, after response has been generated, translating it back into user’s language. This approach makes additional calls to LLM, but it significantly improves the quality of multi-lingual RAG.
 

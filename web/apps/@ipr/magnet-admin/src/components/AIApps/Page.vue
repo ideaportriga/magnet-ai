@@ -10,7 +10,7 @@
                 km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
               q-space
               .col-auto.center-flex-y
-                km-btn.q-mr-12(data-test="new-btn" label='New', @click='openNewDetails')
+                km-btn.q-mr-12(data-test='new-btn', label='New', @click='openNewDetails')
             .row
               q-table(
                 grid,

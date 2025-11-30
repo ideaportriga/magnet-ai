@@ -120,7 +120,7 @@ export default {
       window.addEventListener(
         'message',
         (event) => {
-          debugger;
+          debugger
           console.log('event', event)
           if (event.origin !== this.baseUrl?.admin) return
           this.parentApp = JSON.parse(event.data.app) // JSON.parse(event.data.app)

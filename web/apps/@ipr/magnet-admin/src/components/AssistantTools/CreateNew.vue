@@ -58,7 +58,7 @@ export default {
       createNew: ref(false),
       collections: publicItems,
       requiredFields,
-      newRow: reactive({ }),
+      newRow: reactive({}),
       autoChangeCode: ref(true),
       loading: ref(false),
     }

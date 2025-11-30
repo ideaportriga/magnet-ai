@@ -10,10 +10,17 @@ km-popup-confirm(
 )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
     .full-width
-      km-input(data-test='name-input' height='30px', placeholder='E.g. Service AI App', v-model='name', ref='nameRef', :rules='config.name.rules')
+      km-input(data-test='name-input', height='30px', placeholder='E.g. Service AI App', v-model='name', ref='nameRef', :rules='config.name.rules')
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
     .full-width
-      km-input(data-test='system_name-input' height='30px', placeholder='E.g. SERVICE_AI_APP', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+      km-input(
+        data-test='system_name-input',
+        height='30px',
+        placeholder='E.g. SERVICE_AI_APP',
+        v-model='system_name',
+        ref='system_nameRef',
+        :rules='config.system_name.rules'
+      )
     .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
 </template>
 <script>

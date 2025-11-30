@@ -115,13 +115,13 @@ const addCondition = (type?: string) => {
   }
   pendingChanges.value.conditions.push({ type, operator: 'equal' })
   conditionMenu.value?.hide()
-  
+
   // Focus on the new input field after adding a new value condition
   if (type === 'value') {
     setTimeout(() => {
       const inputs = document.querySelectorAll('.condition-input input')
       if (inputs.length) {
-        (inputs[inputs.length - 1] as HTMLInputElement).focus()
+        ;(inputs[inputs.length - 1] as HTMLInputElement).focus()
       }
     }, 0)
   }

@@ -25,7 +25,16 @@
       .km-field.text-secondary-text Plain text or JSON
 
       .q-mt-md
-        q-file(outlined, clearable, label='File upload', v-model='files', multiple, accept='.pdf', @update:model-value='handleFilesUpload', :loading="fileUploadInProgress")
+        q-file(
+          outlined,
+          clearable,
+          label='File upload',
+          v-model='files',
+          multiple,
+          accept='.pdf',
+          @update:model-value='handleFilesUpload',
+          :loading='fileUploadInProgress'
+        )
           template(v-slot:append)
             q-icon(name='attach_file')
 
@@ -90,7 +99,7 @@
     @cancel='showNewDialog = false',
     v-if='showNewDialog',
     :system_name='promptSystemName',
-    type='prompt_template'
+    type='prompt_template',
     disable-prompt-selection
   )
   //- TODO: Add a new component for this (same as in Configuration/Drawer.vue)

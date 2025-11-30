@@ -1,5 +1,13 @@
 <template lang="pug">
-q-tooltip.km-tooltip(:delay='100', :offset='[0, 6]', anchor='top middle', self='bottom middle', transition-show='jump-up', dense, :class='[classes.bg]')
+q-tooltip.km-tooltip(
+  :delay='100',
+  :offset='[0, 6]',
+  anchor='top middle',
+  self='bottom middle',
+  transition-show='jump-up',
+  dense,
+  :class='[classes.bg]'
+)
   .km-chip(:class='[classes.text]') {{ label }}
 </template>
 <script>

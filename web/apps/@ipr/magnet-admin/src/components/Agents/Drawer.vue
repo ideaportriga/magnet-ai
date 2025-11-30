@@ -9,9 +9,7 @@ div(v-if='showAction')
 </template>
 <script>
 export default {
-  setup() {
-  
-  },
+  setup() {},
   computed: {
     activeTopic() {
       return this.$store.getters.activeTopic
@@ -22,10 +20,7 @@ export default {
     showPreview() {
       // if route name AgentDetail and activeTopic?.topic is empty
       // if route name AgentTopicDetail and activeTopic?.action is empty
-      return (
-        (this.routeName === 'AgentDetail' && !this.activeTopic?.topic) ||
-        (this.routeName === 'AgentTopicDetail' && !this.activeTopic?.action)
-      )
+      return (this.routeName === 'AgentDetail' && !this.activeTopic?.topic) || (this.routeName === 'AgentTopicDetail' && !this.activeTopic?.action)
     },
     showTopic() {
       return this.routeName === 'AgentDetail' && this.activeTopic?.topic

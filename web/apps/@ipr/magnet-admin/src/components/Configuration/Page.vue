@@ -7,10 +7,17 @@
           .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width
             .row.q-mb-12
               .col-auto.center-flex-y
-                km-input(data-test="search-input" placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
+                km-input(
+                  data-test='search-input',
+                  placeholder='Search',
+                  iconBefore='search',
+                  v-model='searchString',
+                  @input='searchString = $event',
+                  clearable
+                ) 
               q-space
               .col-auto.center-flex-y
-                km-btn.q-mr-12(data-test='new-btn' label='New', @click='openNewDetails')
+                km-btn.q-mr-12(data-test='new-btn', label='New', @click='openNewDetails')
             .row
               km-table(
                 @selectRow='openDetails',

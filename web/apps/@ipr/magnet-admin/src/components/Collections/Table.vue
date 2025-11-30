@@ -98,10 +98,10 @@ export default defineComponent({
     },
     requestServerInteraction(...args) {
       if (this.$refs.table && typeof this.$refs.table.requestServerInteraction === 'function') {
-        return this.$refs.table.requestServerInteraction(...args);
+        return this.$refs.table.requestServerInteraction(...args)
       }
-      console.warn("Inner <q-table> doesn't have requestServerInteraction or is not yet mounted");
-      return Promise.resolve(); // Return a resolved promise instead of undefined
+      console.warn("Inner <q-table> doesn't have requestServerInteraction or is not yet mounted")
+      return Promise.resolve() // Return a resolved promise instead of undefined
     },
   },
 })

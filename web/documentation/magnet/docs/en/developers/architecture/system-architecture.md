@@ -9,7 +9,7 @@ graph TD
     Client[Frontend (Web)<br>Vue 3 + TypeScript + Nx] -->|REST API| API[Backend (API)<br>Python + Litestar + SQLAlchemy]
     API --> DB[(PostgreSQL<br>Metadata)]
     API --> VectorDB[(pgvector<br>Vector Database)]
-    
+
     style Client fill:#f9f,stroke:#333,stroke-width:2px
     style API fill:#bbf,stroke:#333,stroke-width:2px
     style DB fill:#dfd,stroke:#333,stroke-width:2px
@@ -19,6 +19,7 @@ graph TD
 ## Core Components
 
 ### Frontend Layer
+
 - **Technology**: Vue 3, TypeScript, Nx monorepo
 - **Location**: `/web` directory
 - **Applications**:
@@ -31,6 +32,7 @@ graph TD
   - Usage dashboards and analytics
 
 ### Backend Layer
+
 - **Technology**: Python 3.12+, Litestar, SQLAlchemy (Async)
 - **Location**: `/api` directory
 - **Purpose**: Business logic, API endpoints, and AI orchestration
@@ -42,29 +44,36 @@ graph TD
   - Agent execution engine
 
 ### Data Layer
+
 - **PostgreSQL**: Primary database for application metadata and configurations.
 - **pgvector**: Vector extension for PostgreSQL to store embeddings for semantic search.
 
 ## Architecture Principles
 
 ### 1. Plugin-Based Architecture
+
 Magnet AI uses a plugin system that allows developers to extend functionality without modifying core code:
+
 - Data source plugins
 - Tool plugins
 - Custom AI model integrations
 
 ### 2. API-First Design
+
 All functionality is exposed through REST APIs, enabling:
+
 - Third-party integrations
 - Custom UI implementations
 - Automation and scripting
 
 ### 3. Separation of Concerns
+
 - Frontend handles presentation and user interaction
 - Backend manages business logic and data processing
 - Plugins provide modular functionality
 
 ### 4. Scalability
+
 - Stateless API design
 - Async I/O for high concurrency
 - Horizontal scaling support
@@ -72,11 +81,13 @@ All functionality is exposed through REST APIs, enabling:
 ## Technology Stack
 
 ### Backend
+
 - **Framework**: Litestar (High-performance ASGI framework)
 - **ORM**: SQLAlchemy (Async)
 - **Database**: PostgreSQL + pgvector
 
 ### Frontend
+
 - **Framework**: Vue 3
 - **Language**: TypeScript
 - **Build Tool**: Nx, Vite
@@ -84,6 +95,7 @@ All functionality is exposed through REST APIs, enabling:
 - **State Management**: Pinia / Vuex
 
 ### DevOps
+
 - **Containerization**: Docker, Docker Compose
 - **CI/CD**: GitHub Actions
 - **Monitoring**: Grafana / Prometheus / OpenTelemetry
@@ -110,4 +122,3 @@ All functionality is exposed through REST APIs, enabling:
 - [Backend Architecture](/docs/en/developers/architecture/backend) - Deep dive into backend design
 - [Frontend Architecture](/docs/en/developers/architecture/frontend) - Frontend structure details
 - [Database Schema](/docs/en/developers/architecture/database) - Data models and relationships
-

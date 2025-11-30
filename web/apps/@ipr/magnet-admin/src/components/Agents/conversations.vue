@@ -11,7 +11,7 @@
         :selected='selectedRow ? [selectedRow] : []',
         :columns='agentDetailsColumns',
         v-model:pagination='pagination',
-        @cellAction='cellAction'
+        @cellAction='cellAction',
         @request='getDetailedList'
       )
 </template>

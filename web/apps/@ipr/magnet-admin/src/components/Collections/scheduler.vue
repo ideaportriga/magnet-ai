@@ -125,7 +125,7 @@ export default {
     },
     filterObject: {
       get() {
-        return { 'system_name_in': this.currentRow?.system_name }
+        return { system_name_in: this.currentRow?.system_name }
       },
       set() {},
     },

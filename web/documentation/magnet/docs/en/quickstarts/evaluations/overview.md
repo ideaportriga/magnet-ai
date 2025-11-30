@@ -1,6 +1,6 @@
 # Evaluations
 
-Once an AI feature is configured, we need to understand whether it is accurate, safe, and predictable enough. Evaluations help understand this by testing with a large number of example tasks and comparing LLM-generated output to expected output. 
+Once an AI feature is configured, we need to understand whether it is accurate, safe, and predictable enough. Evaluations help understand this by testing with a large number of example tasks and comparing LLM-generated output to expected output.
 
 Evaluation can be done by:
 

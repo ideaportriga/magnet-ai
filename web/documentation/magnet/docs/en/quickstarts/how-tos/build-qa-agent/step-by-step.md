@@ -8,7 +8,7 @@ Create a Knowledge Source. [Learn more](../../../admin/connect/knowledge-sources
 
 ## 2. Create a RAG Tool
 
-Set up a new RAG Tool. Select your Knowledge Source and enable Post-processing and user feedback to track RAG performance. 
+Set up a new RAG Tool. Select your Knowledge Source and enable Post-processing and user feedback to track RAG performance.
 
 For the first run, you can stick with the default settings for Retrieve and Generate parameters. [Learn more](../../../admin/configure/rag-tools/configuration.md) about configuring RAG Tools.
 
@@ -24,9 +24,9 @@ Preview your RAG Tool in the Preview panel. Try creating multiple variants to co
 
 ## 4. Run Evaluation
 
-Optionally - you can do an Evaluation of your RAG Tool to make sure its quality and consistency of responses is acceptable. 
+Optionally - you can do an Evaluation of your RAG Tool to make sure its quality and consistency of responses is acceptable.
 
-First, make sure you’ve created a `Test Set` with sample inputs. Then, from the RAG Tool details screen, click the **Evaluate** button and fill in the necessary fields. 
+First, make sure you’ve created a `Test Set` with sample inputs. Then, from the RAG Tool details screen, click the **Evaluate** button and fill in the necessary fields.
 
 <img src="../../../images/2025-06-02-11-51-29-image.png" title="" alt="" width="409">
 
@@ -35,15 +35,12 @@ Save and run the Evaluation and go to the Evaluations screen to track its progre
 You can also evaluate multiple variants of the same tool to find the one that performs best.
 
 ![](../../../images/2025-06-02-11-52-01-image.png)
- 
 
 ## 5. Create the Agent
 
 It’s time to build the Agent! Create a new one and add a new Topic to it - make sure to give the Topic a clear name and description to help the LLM understand that it should be used for answering user questions about using the Magnet AI app from an admin’s perspective.
 
 ![](../../../images/2025-06-02-11-53-45-image.png)
-
- 
 
 ## 6. Add your RAG Tool to the Agent
 
@@ -75,9 +72,9 @@ In the Settings tab, you can enter a Welcome message for the user to see when th
 
 ## 9. Preview and save your Agent
 
-Use the Preview panel to test how your Agent works and looks on the fly. 
+Use the Preview panel to test how your Agent works and looks on the fly.
 
-To view Agent execution steps, click the bolt icon below the Agent's response. This feature is useful for debugging your Agent. Try creating multiple Variants to test and compare different options. 
+To view Agent execution steps, click the bolt icon below the Agent's response. This feature is useful for debugging your Agent. Try creating multiple Variants to test and compare different options.
 
 Once you are happy with the results, click **Save**.
 
@@ -99,7 +96,7 @@ AI Apps can be embedded into external systems via URL or called via API using sy
 
 ## 11. Monitor your Agent
 
-You're all set with the configuration, but the continuous monitoring and optimization process is just beginning! Once your agent is live, be sure to track its costs, performance, and user satisfaction through the [Usage](../../usage-dashboards/overview.md) reports. 
+You're all set with the configuration, but the continuous monitoring and optimization process is just beginning! Once your agent is live, be sure to track its costs, performance, and user satisfaction through the [Usage](../../usage-dashboards/overview.md) reports.
 
 ![](../../../images/2025-06-02-12-50-21-image.png)
 

@@ -122,7 +122,9 @@ export default {
     },
     languageDetectPromptCode: {
       get() {
-        return this.prompts.find((el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.detect_question_language?.prompt_template)
+        return this.prompts.find(
+          (el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.detect_question_language?.prompt_template
+        )
       },
       set(value) {
         this.$store.dispatch('updateNestedRetrievalProperty', {
@@ -132,8 +134,9 @@ export default {
       },
     },
     languageDetectPromptId() {
-      return this.prompts.find((el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.detect_question_language?.prompt_template)
-        ?.value
+      return this.prompts.find(
+        (el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.detect_question_language?.prompt_template
+      )?.value
     },
     checkIsHallucinate: {
       get() {
@@ -144,7 +147,8 @@ export default {
       },
     },
     hallucinatePromptId() {
-      return this.prompts.find((el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.check_is_hallucinate?.prompt_template)?.value
+      return this.prompts.find((el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.check_is_hallucinate?.prompt_template)
+        ?.value
     },
     hallucinatePromptCode: {
       get() {

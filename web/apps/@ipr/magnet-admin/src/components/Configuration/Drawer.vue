@@ -14,7 +14,7 @@
             .km-heading-5 {{ uiSettings?.header_configuration?.header }}
           .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
             .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
-        retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter' :sources='collectionSystemNames')
+        retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter', :sources='collectionSystemNames')
         q-separator.q-mt-md(v-if='allowMetadataFilter')
         search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, rag, :searchString='searchString')
         template(v-if='isShowHints')
@@ -46,7 +46,7 @@
     @create='createEvaluation',
     v-if='showNewDialog',
     :system_name='ragSystemName',
-    type='rag_tool'
+    type='rag_tool',
     :disable-rag-selection='true'
   )
   //- TODO: Add a new component for this

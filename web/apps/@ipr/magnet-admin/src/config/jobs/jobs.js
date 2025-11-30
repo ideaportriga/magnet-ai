@@ -16,7 +16,7 @@ export const jobTypeOptions = [
   {
     value: 'post_processing_conversations',
     label: 'Post processing conversations',
-  }
+  },
 ]
 
 export const jobIntervalOptions = [
@@ -80,7 +80,7 @@ const jobsControls = {
     name: 'type',
     label: 'Type',
     // field: (row) => row?.definition?.run_configuration?.type,
-    field: (row) => jobTypeOptions?.find(el => el.value === row?.definition?.run_configuration?.type)?.label,
+    field: (row) => jobTypeOptions?.find((el) => el.value === row?.definition?.run_configuration?.type)?.label,
     align: 'left',
   },
   next_run: {
@@ -102,17 +102,15 @@ const jobsControls = {
     name: 'job_interval',
     label: 'Job interval',
     // field: (row) => row?.definition?.interval,
-    field: (row) => jobIntervalOptions?.find(el => el.value === row?.definition?.interval)?.label,
+    field: (row) => jobIntervalOptions?.find((el) => el.value === row?.definition?.interval)?.label,
     align: 'left',
   },
   job_type: {
     name: 'job_type',
     label: 'Job type',
-    field: (row) => jobRunTypeOptions?.find(el => el.value === row?.definition?.job_type)?.label,
+    field: (row) => jobRunTypeOptions?.find((el) => el.value === row?.definition?.job_type)?.label,
     align: 'left',
   },
 }
 
 export default jobsControls
-
-

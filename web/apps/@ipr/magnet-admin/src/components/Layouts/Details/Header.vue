@@ -27,18 +27,18 @@ import { ref } from 'vue'
 
 const props = defineProps({
   name: {
-    type: String
+    type: String,
   },
   description: {
-    type: String
+    type: String,
   },
   systemName: {
-    type: String
+    type: String,
   },
   infoText: {
     type: String,
-    default: 'It is highly recommended to fill in system name only once and not change it later.'
-  }
+    default: 'It is highly recommended to fill in system name only once and not change it later.',
+  },
 })
 const showInfo = ref(false)
 const emit = defineEmits(['update:name', 'update:description', 'update:systemName'])

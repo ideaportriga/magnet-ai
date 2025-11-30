@@ -1,6 +1,6 @@
 # Models
 
-Magnet AI provides the UI to easily connect models for chat completion, vector embedding, and re-ranking. 
+Magnet AI provides the UI to easily connect models for chat completion, vector embedding, and re-ranking.
 
 To connect models, you need admin access to the environment where your models are deployed. First, you will need to add your Model providers in Magnet AI (e.g. Azure Open AI, Open AI, etc) and second, connect models that you have deployed with your provider and want to make available in Magnet AI.
 

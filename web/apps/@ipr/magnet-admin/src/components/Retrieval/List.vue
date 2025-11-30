@@ -15,7 +15,10 @@
   //- LIST
   .col.overflow-auto.q-pr-sm
     template(v-for='item in displayPrompts')
-      div.rounded-borders.cursor-pointer.q-py-sm.prompt-card.bb-border(@click.stop='$emit("update:selected", item.id)', :class='{ "bg-table-active text-black": selected === item.id }')
+      .rounded-borders.cursor-pointer.q-py-sm.prompt-card.bb-border(
+        @click.stop='$emit("update:selected", item.id)',
+        :class='{ "bg-table-active text-black": selected === item.id }'
+      )
         .row.items-center.q-gap-12.q-px-sm.no-wrap
           .col
             .km-title.ellipsis(style='text-overflow: hidden') {{ item.name }}
@@ -23,9 +26,21 @@
               .km-description.ellipsis-2-lines(:class='selected === item.id ? "text-grey" : "text-grey"') {{ item.description }}
           .col-auto
             template(v-if='item.pinned === 1')
-              q-btn.pin-selected.q-px-xs.q-pt-sm(icon='fas fa-thumbtack', flat, size='8px', color='secondary', @click.stop='$emit("setPin", { id: item.id, val: 0 })')
+              q-btn.pin-selected.q-px-xs.q-pt-sm(
+                icon='fas fa-thumbtack',
+                flat,
+                size='8px',
+                color='secondary',
+                @click.stop='$emit("setPin", { id: item.id, val: 0 })'
+              )
             template(v-else)
-              q-btn.pin-not-selected.q-px-xs.q-pt-sm(icon='fas fa-thumbtack', flat, size='8px', color='transparent', @click.stop='$emit("setPin", { id: item.id, val: 1 })')
+              q-btn.pin-not-selected.q-px-xs.q-pt-sm(
+                icon='fas fa-thumbtack',
+                flat,
+                size='8px',
+                color='transparent',
+                @click.stop='$emit("setPin", { id: item.id, val: 1 })'
+              )
 </template>
 
 <script>

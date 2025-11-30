@@ -27,7 +27,7 @@ All Magnet endpoints in this document are relative to your AI Bridge instance. R
 1. In [developers.facebook.com](https://developers.facebook.com/), open your WhatsApp app and note the **Phone Number ID** shown under **WhatsApp > API Setup**.
 2. Generate a permanent access token (System Users → Assign Assets → WhatsApp Business API → Generate Token) with the required scopes and store it securely.
 3. Copy the **App Secret** from **App Settings > Basic**.
-4. Under **WhatsApp > Configuration**, set the callback URL to `https://{AI_BRIDGE_BASE}/api/user/agents/whatsapp/messages` and provide any verify token of your choice (could be any). 
+4. Under **WhatsApp > Configuration**, set the callback URL to `https://{AI_BRIDGE_BASE}/api/user/agents/whatsapp/messages` and provide any verify token of your choice (could be any).
 5. Click **Verify and Save** so Meta can confirm ownership, then subscribe to the `messages` webhook field (and any additional fields you need if you need).
 
 ## Step 2 – Configure the agent in Magnet AI

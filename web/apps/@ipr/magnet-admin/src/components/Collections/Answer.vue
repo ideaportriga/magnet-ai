@@ -39,8 +39,15 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                   )
               template(v-if='source?.metadata?.type === "video"')
                 .row.width-100.q-px-24
-                  div.relative-position.q-mt-sm.border-radius-12.overflow-hidden.q-mb-16(style='width: 100%; padding-bottom: 60%')
-                    iframe.absolute-full(width='100%', height='100%', frameborder='0', scrolling='no', allowfullscreen, :src='source?.metadata?.source')
+                  .relative-position.q-mt-sm.border-radius-12.overflow-hidden.q-mb-16(style='width: 100%; padding-bottom: 60%')
+                    iframe.absolute-full(
+                      width='100%',
+                      height='100%',
+                      frameborder='0',
+                      scrolling='no',
+                      allowfullscreen,
+                      :src='source?.metadata?.source'
+                    )
 </template>
 
 <script lang="ts">

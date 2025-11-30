@@ -10,10 +10,17 @@ km-popup-confirm(
 )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
     .full-width
-      km-input(data-test="name-input" height='30px', placeholder='E.g. Help Center', v-model='name', ref='nameRef', :rules='config.name.rules')
+      km-input(data-test='name-input', height='30px', placeholder='E.g. Help Center', v-model='name', ref='nameRef', :rules='config.name.rules')
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
     .full-width
-      km-input(data-test="name-system_name" height='30px', placeholder='E.g. HELP_CENTER', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+      km-input(
+        data-test='name-system_name',
+        height='30px',
+        placeholder='E.g. HELP_CENTER',
+        v-model='system_name',
+        ref='system_nameRef',
+        :rules='config.system_name.rules'
+      )
     .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Tab type
     |
@@ -23,7 +30,16 @@ km-popup-confirm(
 
   template(v-if='newRow.tab_type === "RAG"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 RAG Tool
-      km-select(height='30px', placeholder='RAG Tool', :options='ragToolsOptions', v-model='ragToolCode', hasDropdownSearch, option-value='value', ref='ragToolRef', :rules='ragToolRules')
+      km-select(
+        height='30px',
+        placeholder='RAG Tool',
+        :options='ragToolsOptions',
+        v-model='ragToolCode',
+        hasDropdownSearch,
+        option-value='value',
+        ref='ragToolRef',
+        :rules='ragToolRules'
+      )
   template(v-if='newRow.tab_type === "Retrieval"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Retrieval Tool
       km-select(
@@ -38,11 +54,20 @@ km-popup-confirm(
       ) 
   template(v-if='newRow.tab_type === "Custom"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Custom code
-      km-codemirror(v-model='newRow.config.jsonString' :rules='customCodeRules' ref='customCodeRef')
+      km-codemirror(v-model='newRow.config.jsonString', :rules='customCodeRules', ref='customCodeRef')
       .km-description.text-secondary-text.q-pb-4 Enter your custom code in JSON format
   template(v-if='newRow.tab_type === "Agent"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Agent
-      km-select(height='30px', placeholder='Agent', :options='agentsOptions', v-model='agentsCode', hasDropdownSearch, option-value='value', ref='agentsRef', :rules='agentsRules')
+      km-select(
+        height='30px',
+        placeholder='Agent',
+        :options='agentsOptions',
+        v-model='agentsCode',
+        hasDropdownSearch,
+        option-value='value',
+        ref='agentsRef',
+        :rules='agentsRules'
+      )
 </template>
 <script>
 import { ref, reactive } from 'vue'
@@ -160,7 +185,7 @@ export default {
         (value) => {
           const configValue = this.newRow.config.rag_tool
           return !!configValue || 'RAG Tool is required'
-        }
+        },
       ]
     },
     retrievalToolRules() {
@@ -169,7 +194,7 @@ export default {
         (value) => {
           const configValue = this.newRow.config.retrieval_tool
           return !!configValue || 'Retrieval Tool is required'
-        }
+        },
       ]
     },
     agentsRules() {
@@ -178,14 +203,14 @@ export default {
         (value) => {
           const configValue = this.newRow.config.agent
           return !!configValue || 'Agent is required'
-        }
+        },
       ]
     },
     customCodeRules() {
       return [
         (value) => {
           return !!value || 'Custom code is required'
-        }
+        },
       ]
     },
   },
@@ -213,7 +238,7 @@ export default {
     },
     validateFields() {
       const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
-      
+
       // Validate tool/agent fields based on tab type
       if (this.newRow.tab_type === 'RAG') {
         const ragToolValid = this.$refs.ragToolRef?.validate()
@@ -228,7 +253,7 @@ export default {
         const customCodeValid = this.$refs.customCodeRef?.validate()
         if (customCodeValid === false) return false
       }
-      
+
       return !validStates.includes(false)
     },
 

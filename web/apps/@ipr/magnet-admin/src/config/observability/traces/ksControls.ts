@@ -35,7 +35,7 @@ const controls = {
   type: {
     name: 'type',
     label: 'Type',
-    field: (row) => jobRunTypeOptions?.find(el => el.value === row?.extra_data?.job_definition?.job_type)?.label,
+    field: (row) => jobRunTypeOptions?.find((el) => el.value === row?.extra_data?.job_definition?.job_type)?.label,
     display: true,
     align: 'left',
     sortable: true,

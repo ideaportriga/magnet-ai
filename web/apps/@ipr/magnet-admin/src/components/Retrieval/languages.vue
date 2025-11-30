@@ -76,7 +76,8 @@ export default {
       return (this.$store.getters.prompts ?? []).map((item) => ({ label: item.name, value: item.system_name, id: item.id }))
     },
     detectLanguagePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.$store.getters.retrievalVariant?.language?.detect_question_language?.prompt_template)?.id
+      return this.promptsWithId.find((el) => el.value == this.$store.getters.retrievalVariant?.language?.detect_question_language?.prompt_template)
+        ?.id
     },
     prompts() {
       return (this.$store.getters.prompts ?? [])
@@ -115,7 +116,8 @@ export default {
       },
     },
     TranslatePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.$store.getters.retrievalVariant?.language?.multilanguage?.prompt_template_translation)?.id
+      return this.promptsWithId.find((el) => el.value == this.$store.getters.retrievalVariant?.language?.multilanguage?.prompt_template_translation)
+        ?.id
     },
     RetrievalToolSourceLangualge: {
       get() {

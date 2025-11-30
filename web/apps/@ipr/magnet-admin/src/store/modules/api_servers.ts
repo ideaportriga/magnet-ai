@@ -113,14 +113,11 @@ const actions = {
     delete apiServer.id
     delete apiServer.secrets_names
     if (apiServer.security_values) {
-      apiServer.security_values = apiServer.security_values instanceof Map 
-        ? Object.fromEntries(apiServer.security_values)
-        : apiServer.security_values
+      apiServer.security_values = apiServer.security_values instanceof Map ? Object.fromEntries(apiServer.security_values) : apiServer.security_values
     }
     if (apiServer.secrets_encrypted) {
-      apiServer.secrets_encrypted = apiServer.secrets_encrypted instanceof Map 
-        ? Object.fromEntries(apiServer.secrets_encrypted)
-        : apiServer.secrets_encrypted
+      apiServer.secrets_encrypted =
+        apiServer.secrets_encrypted instanceof Map ? Object.fromEntries(apiServer.secrets_encrypted) : apiServer.secrets_encrypted
     }
     await context.dispatch('chroma/update', { payload: { id, data: apiServer }, entity }, { root: true })
     context.commit('setInitApiServer')

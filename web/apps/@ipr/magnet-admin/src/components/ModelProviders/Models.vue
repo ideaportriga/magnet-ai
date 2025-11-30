@@ -1,14 +1,8 @@
 <template lang="pug">
-.column(style="width: 100%; overflow: hidden;")
+.column(style='width: 100%; overflow: hidden')
   .row
     .col-auto.center-flex-y
-      km-input(
-        placeholder='Search',
-        iconBefore='search',
-        v-model='searchString',
-        @input='searchString = $event',
-        clearable
-      )
+      km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
     q-space
     .col-auto.center-flex-y
       km-btn.q-mr-12(label='New', @click='showNewDialog = true')
@@ -29,7 +23,7 @@
         iconSize='16px',
         hoverBg='primary-bg'
       )
-  .row.q-mt-md(style="overflow-x: auto; width: 100%;")
+  .row.q-mt-md(style='overflow-x: auto; width: 100%')
     km-table-new(
       @selectRow='openDetails',
       selection='multiple',
@@ -62,15 +56,7 @@ import { categoryOptions, featureOptions } from '../../config/model/model.js'
 
 export default {
   setup() {
-    const {
-      searchString,
-      pagination,
-      columns,
-      visibleColumns,
-      visibleRows,
-      selectedRow,
-      delete: deleteItem,
-    } = useChroma('model')
+    const { searchString, pagination, columns, visibleColumns, visibleRows, selectedRow, delete: deleteItem } = useChroma('model')
 
     const filterObject = ref({})
 
@@ -86,7 +72,7 @@ export default {
         label: 'Features',
         multiple: true,
         options: featureOptions,
-        customLogic: (selected) => ({ $or: selected.map(feature => ({ [feature]: true })) }),
+        customLogic: (selected) => ({ $or: selected.map((feature) => ({ [feature]: true })) }),
       },
     }
 

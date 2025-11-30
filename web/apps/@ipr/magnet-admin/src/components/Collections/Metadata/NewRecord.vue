@@ -45,9 +45,9 @@
 </template>
 
 <script setup lang="ts">
-import { useQuasar } from 'quasar';
+import { useQuasar } from 'quasar'
 import { onUnmounted, ref } from 'vue'
-import { useStore } from 'vuex';
+import { useStore } from 'vuex'
 
 // States & Stores
 const store = useStore()

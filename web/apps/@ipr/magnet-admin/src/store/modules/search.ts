@@ -204,7 +204,7 @@ const actions = {
       })
     } else {
       const answer = await response.json()
-      
+
       commit('setAnswers', {
         prompt,
         collection: [...collection],

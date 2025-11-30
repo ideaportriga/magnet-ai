@@ -35,7 +35,7 @@
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
         km-input(:model-value='description', @update:model-value='description = $event')
-      div.q-mt-8
+      .q-mt-8
         .row.items-center.q-gap-8
           km-checkbox(label='Default Model', :model-value='is_default', dense, disable)
           q-icon(name='o_info', size='16px', color='secondary-text')
@@ -43,7 +43,7 @@
           .q-ml
             km-btn(flat, label='Edit defaults', color='primary', @click='goToDefaultModels')
       q-separator.q-my-16
-      
+
       // Features section for prompts models
       template(v-if='type === "prompts"')
         .km-title Features
@@ -51,58 +51,110 @@
         km-checkbox(label='Structured Outputs', :model-value='json_schema', @update:model-value='json_schema = $event')
         km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
         km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
-      
+
       // Vector configuration for embeddings models
       template(v-if='type === "embeddings"')
         .km-title Vector Configuration
         div
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Vector Size
-          km-input(
-            height='32px',
-            type='number',
-            placeholder='E.g. 1536',
-            :model-value='vectorSize',
-            @update:model-value='vectorSize = $event'
-          )
+          km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
           .km-description.text-secondary-text.q-pl-8.q-pt-xs Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
-    
+
     .column.fit.q-gap-16.overflow-auto.q-pa-16(v-if='tab == "pricing"')
       .km-title Inputs
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Input units
-        km-select(height='32px', :options='priceUnitOptions', :model-value='price_input_unit_name', @update:model-value='price_input_unit_name = $event', emit-value, map-options)
+        km-select(
+          height='32px',
+          :options='priceUnitOptions',
+          :model-value='price_input_unit_name',
+          @update:model-value='price_input_unit_name = $event',
+          emit-value,
+          map-options
+        )
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for standard input
         .row.items-center.q-gap-8.no-wrap
-          km-input(prefix='$', height='32px', :model-value='price_standard_input', @update:model-value='price_standard_input = $event', style='max-width: 120px')
+          km-input(
+            prefix='$',
+            height='32px',
+            :model-value='price_standard_input',
+            @update:model-value='price_standard_input = $event',
+            style='max-width: 120px'
+          )
           .text-secondary-text per
-          km-input(height='32px', :model-value='price_standard_input_unit_count', @update:model-value='price_standard_input_unit_count = $event', style='max-width: 120px')
+          km-input(
+            height='32px',
+            :model-value='price_standard_input_unit_count',
+            @update:model-value='price_standard_input_unit_count = $event',
+            style='max-width: 120px'
+          )
           .text-secondary-text {{ price_input_unit_name }}
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for cached input
         .row.items-center.q-gap-8.no-wrap
-          km-input(prefix='$', height='32px', :model-value='price_cached_input', @update:model-value='price_cached_input = $event', style='max-width: 120px')
+          km-input(
+            prefix='$',
+            height='32px',
+            :model-value='price_cached_input',
+            @update:model-value='price_cached_input = $event',
+            style='max-width: 120px'
+          )
           .text-secondary-text per
-          km-input(height='32px', :model-value='price_cached_input_unit_count', @update:model-value='price_cached_input_unit_count = $event', style='max-width: 120px')
+          km-input(
+            height='32px',
+            :model-value='price_cached_input_unit_count',
+            @update:model-value='price_cached_input_unit_count = $event',
+            style='max-width: 120px'
+          )
           .text-secondary-text {{ price_input_unit_name }}
       q-separator.q-my-16
       .km-title Outputs
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Output units
-        km-select(height='32px', :options='priceUnitOptions', :model-value='price_output_unit_name', @update:model-value='price_output_unit_name = $event', emit-value, map-options)
+        km-select(
+          height='32px',
+          :options='priceUnitOptions',
+          :model-value='price_output_unit_name',
+          @update:model-value='price_output_unit_name = $event',
+          emit-value,
+          map-options
+        )
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for standard output
         .row.items-center.q-gap-8.no-wrap
-          km-input(prefix='$', height='32px', :model-value='price_standard_output', @update:model-value='price_standard_output = $event', style='max-width: 120px')
+          km-input(
+            prefix='$',
+            height='32px',
+            :model-value='price_standard_output',
+            @update:model-value='price_standard_output = $event',
+            style='max-width: 120px'
+          )
           .text-secondary-text per
-          km-input(height='32px', :model-value='price_standard_output_unit_count', @update:model-value='price_standard_output_unit_count = $event', style='max-width: 120px')
+          km-input(
+            height='32px',
+            :model-value='price_standard_output_unit_count',
+            @update:model-value='price_standard_output_unit_count = $event',
+            style='max-width: 120px'
+          )
           .text-secondary-text {{ price_output_unit_name }}
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for cached output
         .row.items-center.q-gap-8.no-wrap
-          km-input(prefix='$', height='32px', :model-value='price_reasoning_output', @update:model-value='price_reasoning_output = $event', style='max-width: 120px')
+          km-input(
+            prefix='$',
+            height='32px',
+            :model-value='price_reasoning_output',
+            @update:model-value='price_reasoning_output = $event',
+            style='max-width: 120px'
+          )
           .text-secondary-text per
-          km-input(height='32px', :model-value='price_reasoning_output_unit_count', @update:model-value='price_reasoning_output_unit_count = $event', style='max-width: 120px')
+          km-input(
+            height='32px',
+            :model-value='price_reasoning_output_unit_count',
+            @update:model-value='price_reasoning_output_unit_count = $event',
+            style='max-width: 120px'
+          )
           .text-secondary-text {{ price_output_unit_name }}
   .col-auto.q-pa-16(v-if='isEntityChanged')
     .row.justify-end.q-gap-8
@@ -110,7 +162,6 @@
       km-btn(label='Save', @click='save', data-test='Save')
 
 q-inner-loading(:showing='loading')
-
 </template>
 <script>
 import { ref } from 'vue'

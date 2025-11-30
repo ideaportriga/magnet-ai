@@ -62,9 +62,9 @@ export default {
     const { selected, visibleRows, selectedRow, ...useCollection } = useChroma('collections')
     const { ...useDocuments } = useChroma('documents')
     const tabs = ref([
-    { name: 'chunks', label: 'Chunks' },  
-    { name: 'metadata', label: 'Metadata' },
-    { name: 'settings', label: 'Settings' },
+      { name: 'chunks', label: 'Chunks' },
+      { name: 'metadata', label: 'Metadata' },
+      { name: 'settings', label: 'Settings' },
       { name: 'scheduler', label: 'Schedule & Runs' },
     ])
     const tab = ref('chunks')

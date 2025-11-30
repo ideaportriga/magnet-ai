@@ -16,7 +16,7 @@ export default {
   emits: ['auth-completed'],
   setup(props, { emit }) {
     const store = useStore()
-    const apiBaseUrl = store.getters.config.api.aiBridge?.baseUrl ?? ""
+    const apiBaseUrl = store.getters.config.api.aiBridge?.baseUrl ?? ''
     const oAuthProvider = store.getters.config.auth?.provider ?? 'Microsoft'
     const oAuthPopupWidth = store.getters.config.auth?.popup?.width ?? '600'
     const oAuthPopupHeight = store.getters.config.auth?.popup?.width ?? '400'

@@ -1,20 +1,18 @@
 <template lang="pug">
 km-secrets-item(
-  :item-key='key', 
-  :value='value' 
-  @update='updateSecret' 
-  @delete='deleteSecret' 
-  v-for='[key, value] in Object.entries(secrets)', 
-  :is-new='!originalSecrets.includes(key)'
+  :item-key='key',
+  :value='value',
+  @update='updateSecret',
+  @delete='deleteSecret',
+  v-for='[key, value] in Object.entries(secrets)',
+  :is-new='!originalSecrets.includes(key)',
   :key='`${key}-${remountValue}`'
 )
 .row.q-pt-16
   km-btn(label='Add Secret', @click='addSecret', size='sm', icon='o_add', flat)
-
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'
-
 
 const props = defineProps({
   secrets: {
@@ -28,16 +26,10 @@ const props = defineProps({
   },
   remountValue: {
     default: 0,
-  }
+  },
 })
 
 const emit = defineEmits(['update:secrets'])
-
-
-
-
-
-
 
 const deleteSecret = (key) => {
   const secrets = props.secrets
@@ -64,5 +56,4 @@ const addSecret = () => {
   object[''] = ''
   emit('update:secrets', object)
 }
-
 </script>

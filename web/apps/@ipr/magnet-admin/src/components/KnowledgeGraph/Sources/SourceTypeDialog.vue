@@ -43,8 +43,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import SourceTypeAvatar from './SourceTypeAvatar.vue';
+import { computed } from 'vue'
+import SourceTypeAvatar from './SourceTypeAvatar.vue'
 
 const props = defineProps<{
   showDialog: boolean

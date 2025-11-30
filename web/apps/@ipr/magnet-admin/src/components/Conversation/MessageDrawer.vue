@@ -62,15 +62,15 @@
             .row
               .km-label {{ message?.copied ? 'Yes' : 'No' }}
         template(v-if='tab == "insights"')
-            .km-button-text.bb-border.q-pb-4 Substandard Result analysis
-            .col-6
-              .km-description.text-secondary-text Substandard Result Reason
-              .row
-                km-select.full-width(v-model='resultReason', :options='substandartResultReasons')
-            .col-6
-              .km-description.text-secondary-text Comment
-              .row
-                km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='comment')
+          .km-button-text.bb-border.q-pb-4 Substandard Result analysis
+          .col-6
+            .km-description.text-secondary-text Substandard Result Reason
+            .row
+              km-select.full-width(v-model='resultReason', :options='substandartResultReasons')
+          .col-6
+            .km-description.text-secondary-text Comment
+            .row
+              km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='comment')
         .column.q-gap-16(v-if='tab === "costs-latency"')
 
         .column.q-gap-16(v-if='tab === "steps"')
@@ -84,13 +84,7 @@
     .col-auto
     .row.items-center.q-gap-8
       km-btn.self-end(label='Cancel', @click='cancelUpdate', v-if='isUpdated', flat)
-      km-btn.self-end(
-        label='Update',
-        @click='updateMessage',
-        v-if='isUpdated',
-        :loading='loading',
-        :disable='loading'
-      )
+      km-btn.self-end(label='Update', @click='updateMessage', v-if='isUpdated', :loading='loading', :disable='loading')
 </template>
 
 <script>
@@ -129,23 +123,17 @@ export default {
         { label: 'Action execution issue', value: 'action_execution_issue' },
         { label: 'Other', value: 'other' },
       ],
-      custom_feedback: this.message?.custom_feedback
-        ? { ...this.message.custom_feedback }
-        : { reason: '', comment: '' },
+      custom_feedback: this.message?.custom_feedback ? { ...this.message.custom_feedback } : { reason: '', comment: '' },
       loading: false,
     }
   },
   computed: {
     isUpdated() {
-
       return !_.isEqual(this.custom_feedback, this.message?.custom_feedback || { reason: '', comment: '' })
     },
     resultReason: {
       get() {
-        return this.custom_feedback?.reason
-          ? this.substandartResultReasons.find((reason) => reason.value === this.custom_feedback.reason) || ''
-          : ''
-        
+        return this.custom_feedback?.reason ? this.substandartResultReasons.find((reason) => reason.value === this.custom_feedback.reason) || '' : ''
       },
       set(value) {
         this.custom_feedback = { ...this.custom_feedback, reason: value.value }
@@ -206,7 +194,7 @@ export default {
     },
     feedbackReason() {
       if (!this.message?.feedback?.reason) return '-'
-      return this.message.feedback.reason.replace(/_/g, ' ').replace(/^\w/, l => l.toUpperCase())
+      return this.message.feedback.reason.replace(/_/g, ' ').replace(/^\w/, (l) => l.toUpperCase())
     },
     endpoint() {
       return this.$store.getters.config.api.aiBridge?.urlAdmin
@@ -219,9 +207,7 @@ export default {
           // this.tab = 'details'
         }
         // Update local custom_feedback when message changes
-        this.custom_feedback = newVal?.custom_feedback
-          ? { ...newVal.custom_feedback }
-          : { reason: '', comment: '' }
+        this.custom_feedback = newVal?.custom_feedback ? { ...newVal.custom_feedback } : { reason: '', comment: '' }
       },
       deep: true,
       immediate: true,
@@ -229,17 +215,14 @@ export default {
   },
   methods: {
     cancelUpdate() {
-      this.custom_feedback = this.message?.custom_feedback
-        ? { ...this.message.custom_feedback }
-        : { reason: '', comment: '' }
+      this.custom_feedback = this.message?.custom_feedback ? { ...this.message.custom_feedback } : { reason: '', comment: '' }
     },
     async updateMessage() {
       if (this.loading) return
       this.loading = true
       try {
-        const body = {...this.custom_feedback}
-        
-        
+        const body = { ...this.custom_feedback }
+
         // conversation_id and message_id are assumed to be available in the component context
         const conversation_id = this.conversation?.id
         const message_id = this.message?.id
@@ -262,7 +245,6 @@ export default {
           // Update custom_feedback via emit instead of direct mutation
           this.$emit('update:message', { ...this.message, custom_feedback: { ...this.custom_feedback } })
         }
-
       } finally {
         this.loading = false
       }

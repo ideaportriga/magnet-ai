@@ -20,9 +20,7 @@ const filter = {
       options.push(...(store.getters.chroma.promptTemplates.items?.map((item) => item.name) ?? []))
       options.push(...(store.getters.chroma.rag_tools.items?.map((item) => item.name) ?? []))
       options.push(...(store.getters.chroma.retrieval.items?.map((item) => item.name) ?? []))
-      return [...new Set(options)]
-        .map(name => ({ label: name, value: name }))
-        .sort((a, b) => a.label.localeCompare(b.label))
+      return [...new Set(options)].map((name) => ({ label: name, value: name })).sort((a, b) => a.label.localeCompare(b.label))
     },
     multiple: true,
     overviewFilter: true,

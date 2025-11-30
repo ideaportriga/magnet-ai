@@ -158,12 +158,12 @@ export default {
     dynamicSourceTypeOptions() {
       return this.sourceTypeOptions || []
     },
-    
+
     // Dynamic source type children from loaded plugins
     dynamicSourceTypeChildren() {
       return this.sourceTypeChildren || {}
     },
-    
+
     isDisable() {
       if (!this.selectedRow?.last_synced) return false
       const d = new Date(this.selectedRow.last_synced)
@@ -172,24 +172,24 @@ export default {
     source_fields: {
       get() {
         const source = this.$store.getters.knowledge?.source || {}
-        
+
         // Transform Documentation arrays to comma-separated strings for display
         if (source.source_type === 'Documentation') {
           const transformed = { ...source }
-          
+
           // Convert languages array to string
           if (Array.isArray(transformed.languages)) {
             transformed.languages = transformed.languages.join(', ')
           }
-          
+
           // Convert sections array to string
           if (Array.isArray(transformed.sections)) {
             transformed.sections = transformed.sections.join(', ')
           }
-          
+
           return transformed
         }
-        
+
         return source
       },
       set(value) {

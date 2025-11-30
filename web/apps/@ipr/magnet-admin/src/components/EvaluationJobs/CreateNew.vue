@@ -40,7 +40,7 @@ km-popup-confirm(
         emit-value,
         map-options,
         ref='evaluated_toolsRef',
-        :rules='config.evaluated_tools.rules'
+        :rules='config.evaluated_tools.rules',
         :disabled='disablePromptSelection'
       )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "prompt_template"') Prompt Template variants

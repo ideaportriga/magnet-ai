@@ -1,6 +1,4 @@
 describe('All routes', () => {
-
-
   it('go through all routes', () => {
     cy.visit('/')
     // cy.g('nav-btn-AI Apps').click();

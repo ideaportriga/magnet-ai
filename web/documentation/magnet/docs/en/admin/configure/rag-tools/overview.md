@@ -2,7 +2,7 @@
 
 Most frequent use case for RAG Tool implementation is the Q&A functionality.
 
-RAG tools answer user questions by embedding them into vector store, semantically searching for vectorized data ([hybrid search](/docs/en/admin/connect/knowledge-sources/settings.html#indexing-settings) can take place as well), retrieving relevant content and generating a response grounded in the retrieved data. 
+RAG tools answer user questions by embedding them into vector store, semantically searching for vectorized data ([hybrid search](/docs/en/admin/connect/knowledge-sources/settings.html#indexing-settings) can take place as well), retrieving relevant content and generating a response grounded in the retrieved data.
 
 ### The RAG Pipeline
 

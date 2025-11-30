@@ -21,7 +21,7 @@
                 iconColor='primary',
                 iconSize='12px',
                 flat,
-                @click='messageToEdit = index, messageToEditContent = message.content',
+                @click='((messageToEdit = index), (messageToEditContent = message.content))',
                 tooltip='Edit'
               )
               km-btn(

@@ -127,8 +127,6 @@ const filter = {
       return store.getters.agentDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
     },
   },
-
-
 }
 
 export default filter

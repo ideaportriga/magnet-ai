@@ -40,7 +40,7 @@ const filter = {
     },
     search: true,
     multiple: true,
-  //  overviewFilter: true,
+    //  overviewFilter: true,
   },
   ['extra_data.topic']: {
     label: 'Topic',

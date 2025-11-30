@@ -22,7 +22,6 @@ All URLs in this document are relative to your AI Bridge instance. Replace `{AI_
 - A packaged Microsoft Teams App already uploaded to Teams Admin Center.
 - An externally reachable AI Bridge deployment (`https://{AI_BRIDGE_BASE}`).
 
-
 ## Step 1 – Update the Azure Bot Service
 
 1. Under **Configuration**, set the **Messaging endpoint** to:
@@ -50,5 +49,3 @@ All URLs in this document are relative to your AI Bridge instance. Replace `{AI_
 
 1. Send `/welcome` to verify the welcome adaptive card renders.
 2. Ask a question the agent can answer; confirm that a response card is displayed and that feedback buttons work.
-
-

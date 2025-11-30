@@ -72,8 +72,7 @@ export default defineComponent({
     },
     sortMethod: {
       type: Function,
-      default: undefined
-      ,
+      default: undefined,
     },
   },
   emits: ['selectRow', 'cellAction'],

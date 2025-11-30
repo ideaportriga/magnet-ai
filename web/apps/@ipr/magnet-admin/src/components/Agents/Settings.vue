@@ -4,23 +4,11 @@ div
     .km-field.text-secondary-text.q-pb-sm.q-pl-8 Welcome message
       km-input(ref='input', rows='8', border-radius='8px', height='36px', type='textarea', v-model='settingsWelcomeMessage')
   q-separator.q-my-lg
-  km-section(
-    title='User feedback',
-    subTitle='Allow users to send their feedback in form of like or dislike.'
-  )
-    q-toggle(
-      v-model='settingsUserFeedback',
-      color='primary',
-    )
+  km-section(title='User feedback', subTitle='Allow users to send their feedback in form of like or dislike.')
+    q-toggle(v-model='settingsUserFeedback', color='primary')
   q-separator.q-my-lg
-  km-section(
-    title='Sample questions',
-    subTitle='Display up to 3 question suggestions to help users formulate their questions.'
-  )
-    q-toggle(
-      v-model='settingsSampleQuestions',
-      color='primary',
-    )
+  km-section(title='Sample questions', subTitle='Display up to 3 question suggestions to help users formulate their questions.')
+    q-toggle(v-model='settingsSampleQuestions', color='primary')
     template(v-if='settingsSampleQuestions')
       .q-mb-lg
         .km-input-label Question 1
@@ -32,11 +20,9 @@ div
         .km-input-label Question 3
         km-input(v-model='question3', placeholder='What is the maximum discount that can be applied on top of other discounts?')
   q-separator.q-my-lg
-  
 </template>
 
 <script>
-
 const intervals = [
   { label: '1 day', value: '1D' },
   { label: '3 day', value: '3D' },
@@ -44,15 +30,13 @@ const intervals = [
 ]
 
 export default {
-
   setup() {
     return {
       intervals,
     }
   },
   data() {
-    return {
-    }
+    return {}
   },
 
   computed: {
@@ -77,7 +61,6 @@ export default {
         return this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.enabled || false
       },
       set(value) {
-
         this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.sample_questions.enabled', value })
       },
     },
@@ -106,7 +89,6 @@ export default {
       },
     },
   },
-  watch: {
-  },
+  watch: {},
 }
 </script>

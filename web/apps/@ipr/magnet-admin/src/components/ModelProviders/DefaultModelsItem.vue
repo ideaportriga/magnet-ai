@@ -6,21 +6,14 @@
       .km-heading {{ defaultModel?.display_name || '-' }}
       .row.items-center.q-gap-8
         .km-description Model Providers
-        km-chip(size="19px" v-if='defaultModel?.provider_name').bg-in-progress
+        km-chip.bg-in-progress(size='19px', v-if='defaultModel?.provider_name')
           .text-placeholder.km-small-chip.q-px-4 {{ defaultModel?.provider_name }}
     .col-auto
-      km-btn(icon='fa fa-pen' flat iconSize='14px' @click='editMode = !editMode' v-if='hover')
+      km-btn(icon='fa fa-pen', flat, iconSize='14px', @click='editMode = !editMode', v-if='hover')
   .row.ba-primary.border-radius-12.q-pa-16(v-if='editMode')
     .col
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Default Model
-      km-select(
-        v-model='selectedModel',
-        :options='modelOptions',
-        option-value='system_name',
-        option-label='display_name',
-        emit-value,
-        map-options
-      )
+      km-select(v-model='selectedModel', :options='modelOptions', option-value='system_name', option-label='display_name', emit-value, map-options)
         template(v-slot:option='{ itemProps, opt, selected, toggleOption }')
           q-item.ba-border(v-bind='itemProps', dense, @click='toggleOption(opt)')
             q-item-section
@@ -28,8 +21,8 @@
               .row.q-mt-xs(v-if='opt.provider_system_name')
                 q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
       .row.q-pt-16.justify-between
-        km-btn(label='Cancel' flat @click='cancelEdit')
-        km-btn(label='Save' @click='saveDefault')
+        km-btn(label='Cancel', flat, @click='cancelEdit')
+        km-btn(label='Save', @click='saveDefault')
 
 km-popup-confirm(
   :visible='showDialog',
@@ -76,11 +69,15 @@ const defaultModel = computed(() => {
 })
 
 // Initialize selectedModel when defaultModel changes
-watch(defaultModel, (newDefaultModel) => {
-  if (newDefaultModel && !editMode.value) {
-    selectedModel.value = newDefaultModel.system_name
-  }
-}, { immediate: true })
+watch(
+  defaultModel,
+  (newDefaultModel) => {
+    if (newDefaultModel && !editMode.value) {
+      selectedModel.value = newDefaultModel.system_name
+    }
+  },
+  { immediate: true }
+)
 
 const cancelEdit = () => {
   selectedModel.value = defaultModel.value?.system_name
@@ -100,11 +97,11 @@ const saveDefault = () => {
 
 const confirmChange = async () => {
   const modelToSet = modelOptions.value.find((m) => m.system_name === selectedModel.value)
-  
+
   if (modelToSet) {
     await store.dispatch('modelConfig/setDefault', modelToSet)
   }
-  
+
   showDialog.value = false
   editMode.value = false
   hover.value = false

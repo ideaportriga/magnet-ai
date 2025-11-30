@@ -24,9 +24,9 @@ Once you have at least one Model Provider in your Magnet AI instance, you can co
 
 ![](../../../images/2025-11-10-10-22-50-image.png)
 
-A pop-up window will open. Copy and paste your model delpoyment name (identifier) into the `Provider model name` field, e.g. `gpt-4o-mini`. This is an important step to ensure that connected models can be called from Magnet AI. 
+A pop-up window will open. Copy and paste your model delpoyment name (identifier) into the `Provider model name` field, e.g. `gpt-4o-mini`. This is an important step to ensure that connected models can be called from Magnet AI.
 
-Display name field will be automatically populated from Model Provider name + Model name, but you can manually edit it if necessary. 
+Display name field will be automatically populated from Model Provider name + Model name, but you can manually edit it if necessary.
 
 Finally, select the model type/purpose: Chat completions, Vector embeddings, or Re-ranking.
 

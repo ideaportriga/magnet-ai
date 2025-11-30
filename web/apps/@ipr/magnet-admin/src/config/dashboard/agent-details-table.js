@@ -158,15 +158,15 @@ const controls = {
     sortable: true,
   },
   ['x_attributes.org-id']: {
-      name: 'x_attributes.org-id',
-      label: 'Organization',
-      field: 'x_attributes.org-id',
-      display: true,
-      align: 'left',
-      type: 'component',
-      component: markRaw(ChipCell),
-      sortable: true,
-    },
+    name: 'x_attributes.org-id',
+    label: 'Organization',
+    field: 'x_attributes.org-id',
+    display: true,
+    align: 'left',
+    type: 'component',
+    component: markRaw(ChipCell),
+    sortable: true,
+  },
 }
 
 export default controls

@@ -23,11 +23,11 @@ q-dialog(v-model='popupVisible', @hide='hide')
           :label='confirmButtonLabel2',
           @click='confirm2',
           :flat='confirmButtonType2 === "secondary" ? true : false',
-          :color='confirmButtonType2 === "secondary" ? "primary" : undefined'
+          :color='confirmButtonType2 === "secondary" ? "primary" : undefined',
           :data-test='confirmButtonLabel2'
         )
       .col-auto
-        km-btn(:label='confirmButtonLabel', @click='confirm' :data-test='confirmButtonLabel')
+        km-btn(:label='confirmButtonLabel', @click='confirm', :data-test='confirmButtonLabel')
 
     q-inner-loading(:showing='loading')
 </template>

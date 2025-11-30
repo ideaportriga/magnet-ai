@@ -1,5 +1,5 @@
 <template lang="pug">
-pre(class="wrapped-text km-button-xs-text") {{ displayText }}
+pre.wrapped-text.km-button-xs-text {{ displayText }}
 </template>
 
 <script>

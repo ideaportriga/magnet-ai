@@ -13,6 +13,7 @@ All plugins must inherit from `BasePlugin`.
 #### Properties
 
 ##### plugin_type
+
 ```python
 @property
 def plugin_type(self) -> PluginType:
@@ -22,6 +23,7 @@ def plugin_type(self) -> PluginType:
 Returns the type of plugin (KNOWLEDGE_SOURCE, TOOL, MODEL, etc.)
 
 ##### name
+
 ```python
 @property
 def name(self) -> str:
@@ -31,6 +33,7 @@ def name(self) -> str:
 Returns the unique identifier for the plugin.
 
 ##### version
+
 ```python
 @property
 def version(self) -> str:
@@ -40,6 +43,7 @@ def version(self) -> str:
 Returns the semantic version string (e.g., "1.0.0").
 
 ##### description
+
 ```python
 @property
 def description(self) -> str:
@@ -51,23 +55,27 @@ Returns a human-readable description of the plugin.
 #### Methods
 
 ##### initialize
+
 ```python
 def initialize(self) -> None:
     """Initialize the plugin."""
 ```
 
 Called when the plugin is loaded. Use for:
+
 - Setting up connections
 - Loading configuration
 - Initializing resources
 
 ##### cleanup
+
 ```python
 def cleanup(self) -> None:
     """Clean up plugin resources."""
 ```
 
 Called when the plugin is unloaded. Use for:
+
 - Closing connections
 - Releasing resources
 - Cleanup operations
@@ -83,28 +91,31 @@ Inherits from `BasePlugin` with additional methods for data source integration.
 #### Methods
 
 ##### validate_config
+
 ```python
 def validate_config(self, config: dict) -> bool:
     """
     Validate the plugin configuration.
-    
+
     Args:
         config: Plugin configuration dictionary
-        
+
     Returns:
         True if valid
-        
+
     Raises:
         ValueError: If configuration is invalid
     """
 ```
 
 Validate configuration before use. Should check:
+
 - Required fields present
 - Field types correct
 - Values within valid ranges
 
 **Example:**
+
 ```python
 def validate_config(self, config: dict) -> bool:
     required = ['api_key', 'endpoint']
@@ -115,17 +126,18 @@ def validate_config(self, config: dict) -> bool:
 ```
 
 ##### test_connection
+
 ```python
 def test_connection(self, config: dict) -> bool:
     """
     Test connection to the data source.
-    
+
     Args:
         config: Plugin configuration dictionary
-        
+
     Returns:
         True if connection successful
-        
+
     Raises:
         ConnectionError: If connection fails
     """
@@ -134,6 +146,7 @@ def test_connection(self, config: dict) -> bool:
 Test connectivity to the data source.
 
 **Example:**
+
 ```python
 def test_connection(self, config: dict) -> bool:
     try:
@@ -144,34 +157,37 @@ def test_connection(self, config: dict) -> bool:
 ```
 
 ##### fetch_documents
+
 ```python
 def fetch_documents(self, config: dict) -> list[dict]:
     """
     Fetch documents from the data source.
-    
+
     Args:
         config: Plugin configuration dictionary
-        
+
     Returns:
         List of document dictionaries
-        
+
     Raises:
         Exception: If fetch operation fails
     """
 ```
 
 Fetch documents from the data source. Each document should include:
+
 - `id`: Unique identifier
 - `title`: Document title
 - `content`: Document content
 - `metadata`: Additional metadata (dict)
 
 **Example:**
+
 ```python
 def fetch_documents(self, config: dict) -> list[dict]:
     documents = []
     response = self._api_call(config)
-    
+
     for item in response.json():
         documents.append({
             'id': item['id'],
@@ -183,20 +199,21 @@ def fetch_documents(self, config: dict) -> list[dict]:
                 'created_at': item['created_at']
             }
         })
-    
+
     return documents
 ```
 
 ##### sync_incremental (Optional)
+
 ```python
 def sync_incremental(self, config: dict, last_sync: datetime) -> list[dict]:
     """
     Fetch only documents modified since last sync.
-    
+
     Args:
         config: Plugin configuration
         last_sync: Timestamp of last synchronization
-        
+
     Returns:
         List of modified/new documents
     """
@@ -205,15 +222,16 @@ def sync_incremental(self, config: dict, last_sync: datetime) -> list[dict]:
 Optional method for incremental synchronization.
 
 ##### search_documents (Optional)
+
 ```python
 def search_documents(self, config: dict, query: str) -> list[dict]:
     """
     Search for documents matching a query.
-    
+
     Args:
         config: Plugin configuration
         query: Search query string
-        
+
     Returns:
         List of matching documents
     """
@@ -249,6 +267,7 @@ Central registry for managing plugins.
 #### Methods
 
 ##### register_plugin
+
 ```python
 @classmethod
 def register_plugin(cls, plugin: BasePlugin) -> None:
@@ -258,15 +277,16 @@ def register_plugin(cls, plugin: BasePlugin) -> None:
 Register a plugin instance.
 
 ##### get_plugin
+
 ```python
 @classmethod
 def get_plugin(cls, name: str) -> BasePlugin:
     """
     Get a plugin by name.
-    
+
     Args:
         name: Plugin name
-        
+
     Returns:
         Plugin instance or None
     """
@@ -275,15 +295,16 @@ def get_plugin(cls, name: str) -> BasePlugin:
 Retrieve a registered plugin.
 
 ##### get_plugins_by_type
+
 ```python
 @classmethod
 def get_plugins_by_type(cls, plugin_type: PluginType) -> list[BasePlugin]:
     """
     Get all plugins of a specific type.
-    
+
     Args:
         plugin_type: The plugin type to filter by
-        
+
     Returns:
         List of matching plugins
     """
@@ -292,12 +313,13 @@ def get_plugins_by_type(cls, plugin_type: PluginType) -> list[BasePlugin]:
 Get all plugins of a specific type.
 
 ##### list_plugins
+
 ```python
 @classmethod
 def list_plugins(cls) -> list[dict]:
     """
     List all registered plugins with metadata.
-    
+
     Returns:
         List of plugin metadata dictionaries
     """
@@ -429,7 +451,7 @@ def make_request(url, headers=None):
     adapter = HTTPAdapter(max_retries=retry)
     session.mount('http://', adapter)
     session.mount('https://', adapter)
-    
+
     return session.get(url, headers=headers)
 
 # Pagination helper
@@ -438,10 +460,10 @@ def paginate_api(endpoint, page_size=100):
     while True:
         response = make_request(f"{endpoint}?page={page}&size={page_size}")
         data = response.json()
-        
+
         if not data:
             break
-            
+
         yield from data
         page += 1
 ```
@@ -456,7 +478,7 @@ from core.plugins.interfaces import KnowledgeSourcePlugin
 class MockKnowledgeSource(KnowledgeSourcePlugin):
     def __init__(self, documents=None):
         self._documents = documents or []
-    
+
     def fetch_documents(self, config):
         return self._documents
 

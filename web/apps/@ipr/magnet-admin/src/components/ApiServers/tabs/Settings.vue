@@ -39,7 +39,7 @@
       km-btn(label='Add Security Value', @click='addSecurityValue', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or passwords.')
-    km-secrets(v-model:secrets='secrets' :original-secrets='originalApiSecrets' :remount-value='remountValue')
+    km-secrets(v-model:secrets='secrets', :original-secrets='originalApiSecrets', :remount-value='remountValue')
 </template>
 
 <script setup>

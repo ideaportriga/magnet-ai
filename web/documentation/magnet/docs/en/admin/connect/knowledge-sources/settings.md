@@ -20,7 +20,7 @@ If you choose Chunking strategy `None`, content will be embedded into Knowledge 
 
 ![](../../../images/2025-05-30-16-41-21-image.png)
 
-**Chunk LLM transformation** is an advanced technique that can significantly improve search quality. However, it also requires many additional LLM calls and therefore increases cost and latency. 
+**Chunk LLM transformation** is an advanced technique that can significantly improve search quality. However, it also requires many additional LLM calls and therefore increases cost and latency.
 
 The first chunk transformation technique is called `Contextual Retrieval`. It improves Knowledge Source quality by adding explanatory context to each chunk, so that the LLM can know more precisely how one chunk relates to others. As the next setting, you can choose to either prepend, append this context to each chunk, or replace the chunk with generated transformation. Finally, choose how you want to use original and transformed chunks for indexing and retrieval.
 
@@ -30,13 +30,13 @@ The other transformation technique is based on `chunk summarization`. So, while 
 
 ## Indexing settings
 
-Indexing settings control how content is searched in the data store. 
+Indexing settings control how content is searched in the data store.
 
-`Semantic search` is a core natural language processing capability that works well in many cases and enables document search based on the meaning rather than exact keyword match. ` If this type of search is enabled, an embedding model must be selected. 
+`Semantic search` is a core natural language processing capability that works well in many cases and enables document search based on the meaning rather than exact keyword match. ` If this type of search is enabled, an embedding model must be selected.
 
-`Full-text search` searches for exact word or phrase matches without understanding the context. 
+`Full-text search` searches for exact word or phrase matches without understanding the context.
 
-These two types of search can be used independently or together. Enabling both semantic and full-text search allows to search semantically related content restricted by certain terms like metadata field values (**hybrid search**). For example, searching for installation instructions (semantic search) for a sertain equipment model (full-text search) could be a use case for hybrid search. 
+These two types of search can be used independently or together. Enabling both semantic and full-text search allows to search semantically related content restricted by certain terms like metadata field values (**hybrid search**). For example, searching for installation instructions (semantic search) for a sertain equipment model (full-text search) could be a use case for hybrid search.
 
 #### Things to know about hybrid search
 
@@ -44,16 +44,16 @@ These two types of search can be used independently or together. Enabling both s
 
 - If both types of search are used, content chunk scores are merged and resulting scores are typically lower than those with just semantic search enabled.
 
-- Semantic and full-text search are traced separately and score merging process is not displayed in tracing. 
+- Semantic and full-text search are traced separately and score merging process is not displayed in tracing.
 
 ## Scheduling settings
 
-- **Scheduled sync** regularly checks your content source for new, updated and deleted content and syncronizes changes with the vector store. Scheduled sync can be configured when creating a Knowledge Source, but you can also enable it for an existing Knowledge Source. 
+- **Scheduled sync** regularly checks your content source for new, updated and deleted content and syncronizes changes with the vector store. Scheduled sync can be configured when creating a Knowledge Source, but you can also enable it for an existing Knowledge Source.
 
-- Scheduled sync can be done hourly, daily and weekly. 
+- Scheduled sync can be done hourly, daily and weekly.
 
 - Error notifications for failed syncing jobs are currently an upcoming feature.
 
-- You can view past sync runs in the `Schedule & Runs` tab of your Knowledge Source. If scheduled sync is enabled, there will be also a link to **Job** that runs the automated sync. 
-  
+- You can view past sync runs in the `Schedule & Runs` tab of your Knowledge Source. If scheduled sync is enabled, there will be also a link to **Job** that runs the automated sync.
+
   ![](../../../images/2025-06-02-10-44-40-image.png)

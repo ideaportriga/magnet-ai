@@ -1,8 +1,8 @@
 ### Default Prompt Templates
 
-Magnet AI comes with some default Prompt Templates that are critically important for other tools like RAG Tools and Agents, as well as execute post-processing tasks. Some of them include placeholders for specific variables that are enclosed in curly braces. 
+Magnet AI comes with some default Prompt Templates that are critically important for other tools like RAG Tools and Agents, as well as execute post-processing tasks. Some of them include placeholders for specific variables that are enclosed in curly braces.
 
-**Important:** Make sure you do not change or remove any of such placeholders. 
+**Important:** Make sure you do not change or remove any of such placeholders.
 
 - QA_SYSTEM_PROMPT_TEMPLATE
   Used by: RAG Tool

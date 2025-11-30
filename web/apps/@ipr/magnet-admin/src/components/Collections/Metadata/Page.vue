@@ -60,7 +60,9 @@ import { useStore } from 'vuex'
 const store = useStore()
 
 const selected = ref([])
-const columns = Object.values(columnsSettings).filter((item) => item.display).sort((a, b) => a.columnNumber - b.columnNumber)
+const columns = Object.values(columnsSettings)
+  .filter((item) => item.display)
+  .sort((a, b) => a.columnNumber - b.columnNumber)
 const showNewDialog = ref(false)
 const showDeleteDialog = ref(false)
 const searchString = ref('')

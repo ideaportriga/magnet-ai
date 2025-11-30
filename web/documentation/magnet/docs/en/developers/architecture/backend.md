@@ -33,13 +33,16 @@ api/
 ## Core Components
 
 ### Application Layer (`app.py`)
+
 - Litestar application factory
 - Plugin registration (CORS, SQLAlchemy, OpenAPI, etc.)
 - Middleware configuration
 - Exception handlers
 
 ### Models (`models.py` / `core/domain`)
+
 SQLAlchemy Async ORM models representing:
+
 - Agents
 - Prompt Templates
 - Knowledge Sources
@@ -49,14 +52,18 @@ SQLAlchemy Async ORM models representing:
 - Usage metrics
 
 ### API Layer (`/api`)
+
 Litestar Controllers organized by resource:
+
 - `TagsController` - Tag management
 - `AgentsController` - Agent management
 - `PromptTemplatesController` - Prompt template CRUD
 - `KnowledgeSourcesController` - Knowledge source management
 
 ### Services (`/services`)
+
 Business logic layer containing:
+
 - Agent execution service
 - RAG orchestration service
 - Embedding generation service
@@ -64,14 +71,18 @@ Business logic layer containing:
 - Evaluation service
 
 ### Plugin System (`/plugins`)
+
 Extensible plugin architecture:
+
 - Base plugin interface
 - Plugin discovery and loading
 - Plugin lifecycle management
 - External plugin support
 
 ### Data Sources (`/data_sources`)
+
 Connectors for various data sources:
+
 - File uploads
 - External APIs (Salesforce, HubSpot, etc.)
 - Database connections
@@ -80,30 +91,36 @@ Connectors for various data sources:
 ## Key Architectural Patterns
 
 ### 1. Controller-Service-Repository Pattern
+
 - **Controllers**: Handle HTTP requests, validation (Pydantic), and response formatting.
 - **Services**: Contain business logic.
 - **Repositories/Stores**: Handle database interactions.
 
 ### 2. Dependency Injection (DI)
+
 Litestar's powerful DI system is used to inject dependencies into handlers:
+
 ```python
 @get("/")
 async def get_agent(
-    agent_id: UUID, 
+    agent_id: UUID,
     service: AgentService
 ) -> Agent:
     return await service.get(agent_id)
 ```
 
 ### 3. Asynchronous Design
+
 The entire backend is async-first, utilizing Python's `asyncio` and `asyncpg` for non-blocking I/O, which is crucial for AI applications that often wait for external LLM APIs.
 
 ### 4. Plugin Pattern
+
 Extensions are loaded dynamically via a registry, allowing for modular additions of knowledge sources and tools.
 
 ## Database Integration
 
 ### SQLAlchemy Async ORM
+
 - Models defined using declarative base.
 - Migrations managed with Alembic.
 - **PostgreSQL + pgvector**: The standard production database, supporting vector similarity search natively.
@@ -111,12 +128,14 @@ Extensions are loaded dynamically via a registry, allowing for modular additions
 ## AI Integration
 
 ### OpenAI Service
+
 - GPT model integration
 - Streaming support
 - Token usage tracking
 - Error handling and retries
 
 ### LlamaIndex / LangChain
+
 - Used for RAG (Retrieval Augmented Generation) pipelines.
 - Document indexing and retrieval.
 - Agentic workflows.
@@ -124,6 +143,7 @@ Extensions are loaded dynamically via a registry, allowing for modular additions
 ## Configuration Management
 
 ### Pydantic Settings
+
 Configuration is managed via Pydantic models in `src/config/`, loading values from environment variables (`.env`).
 
 - `OPENAI_API_KEY`
@@ -138,6 +158,7 @@ Configuration is managed via Pydantic models in `src/config/`, loading values fr
 ## Testing
 
 Located in `/tests`:
+
 - **Pytest**: The testing framework.
 - **Async Tests**: Fully async test suite.
 - **Fixtures**: Extensive use of pytest fixtures for DB sessions and mock services.
@@ -152,4 +173,3 @@ Located in `/tests`:
 - [Frontend Architecture](/docs/en/developers/architecture/frontend) - Frontend details
 - [Database Schema](/docs/en/developers/architecture/database) - Data models
 - [REST API](/docs/en/developers/api/rest-api) - API reference
-

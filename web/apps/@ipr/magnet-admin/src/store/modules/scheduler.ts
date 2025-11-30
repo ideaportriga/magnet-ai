@@ -2,17 +2,13 @@ import { fetchData } from '@shared'
 import _ from 'lodash'
 
 // state
-const state = () => ({
-})
+const state = () => ({})
 
 // getters
-const getters = {
-  
-}
+const getters = {}
 
 // mutations
-const mutations = {
-}
+const mutations = {}
 
 // actions
 const actions = {
@@ -50,7 +46,7 @@ const actions = {
       return answer
     }
   },
-  
+
   async cancelJobScheduler({ getters, commit }, jobId) {
     const endpoint = getters.config?.scheduler?.endpoint
     const service = getters.config?.scheduler?.service
@@ -84,7 +80,7 @@ const actions = {
       const answer = await response.json()
       return answer
     }
-  }
+  },
 }
 
 export default {

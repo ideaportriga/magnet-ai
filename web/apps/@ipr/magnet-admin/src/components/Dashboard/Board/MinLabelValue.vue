@@ -6,7 +6,6 @@
     q-icon.col-auto(name='o_info', color='secondary', v-if='tooltip')
       q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]')
         .text-secondary-text {{ tooltip }}
-  
 </template>
 <script>
 export default {

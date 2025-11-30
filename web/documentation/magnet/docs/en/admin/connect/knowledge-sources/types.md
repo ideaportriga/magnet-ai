@@ -12,7 +12,7 @@ Choose this source type if you need to sync **PDF documents** stored in a Sharep
 
 ## Sharepoint Pages
 
-Choose this type to embed **web pages** stored in a Sharepoint site. Fill in the path to your Sharepoint site. 
+Choose this type to embed **web pages** stored in a Sharepoint site. Fill in the path to your Sharepoint site.
 
 There is also an option to embed just one web page. To do this, you need to paste your page name into the `Page name` field - both names with and without the `.aspx` suffix will work.
 
@@ -34,4 +34,4 @@ Embeds Confluence pages. Provide Confluence URL like `https://example.atlassian.
 
 ## Hubspot
 
-UI to configure path to Hubspot content is an upcoming feature. Currently this path is configured on the backend. *
+UI to configure path to Hubspot content is an upcoming feature. Currently this path is configured on the backend. \*

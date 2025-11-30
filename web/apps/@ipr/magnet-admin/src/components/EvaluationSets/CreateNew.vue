@@ -147,7 +147,7 @@ export default {
 
       this.createNew = false
       this.loading = true
-      const { id:inserted_id } = await this.create(this.newRow)
+      const { id: inserted_id } = await this.create(this.newRow)
       await this.useCollection.selectRecord(inserted_id)
       this.$store.commit('setEvaluationSet', this.newRow)
       this.loading = false

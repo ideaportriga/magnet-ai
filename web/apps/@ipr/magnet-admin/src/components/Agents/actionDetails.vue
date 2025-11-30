@@ -27,7 +27,11 @@
             .row.items-center
               km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
             .row.items-center
-              km-input-flat.km-description.full-width.text-black(placeholder='Description', :modelValue='description', @change='description = $event')
+              km-input-flat.km-description.full-width.text-black(
+                placeholder='Description',
+                :modelValue='description',
+                @change='description = $event'
+              )
 
         .ba-border.bg-white.border-radius-12.q-pa-16(style='min-width: 300px')
           q-tabs.bb-border.full-width(

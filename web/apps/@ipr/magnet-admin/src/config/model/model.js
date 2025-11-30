@@ -19,7 +19,6 @@ const featureOptions = [
   { label: 'Reasoning', value: 'reasoning' },
 ]
 
-
 const controls = {
   id: {
     name: 'id',

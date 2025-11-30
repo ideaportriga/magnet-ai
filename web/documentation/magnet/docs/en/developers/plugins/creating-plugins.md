@@ -7,6 +7,7 @@ This guide walks you through creating a custom plugin for Magnet AI.
 ### 1. Choose Plugin Type
 
 Decide what type of plugin you're creating:
+
 - **Knowledge Source**: Connect to a data source
 - **Tool**: Add custom functionality
 - **Model**: Integrate an LLM provider (planned)
@@ -48,28 +49,28 @@ from core.plugins.plugin_types import PluginType
 
 class MyKnowledgeSourcePlugin(KnowledgeSourcePlugin):
     """Custom knowledge source plugin."""
-    
+
     @property
     def plugin_type(self) -> PluginType:
         return PluginType.KNOWLEDGE_SOURCE
-    
+
     @property
     def name(self) -> str:
         return "my_knowledge_source"
-    
+
     @property
     def version(self) -> str:
         return "1.0.0"
-    
+
     @property
     def description(self) -> str:
         return "Connects to my custom data source"
-    
+
     def initialize(self):
         """Initialize the plugin."""
         # Set up connections, load config, etc.
         pass
-    
+
     def cleanup(self):
         """Clean up resources."""
         # Close connections, release resources
@@ -82,11 +83,11 @@ class MyKnowledgeSourcePlugin(KnowledgeSourcePlugin):
 def validate_config(self, config: dict) -> bool:
     """Validate the configuration."""
     required_fields = ['api_key', 'endpoint']
-    
+
     for field in required_fields:
         if field not in config:
             raise ValueError(f"Missing required field: {field}")
-    
+
     return True
 
 def test_connection(self, config: dict) -> bool:
@@ -101,16 +102,16 @@ def test_connection(self, config: dict) -> bool:
 def fetch_documents(self, config: dict) -> list:
     """Fetch documents from the data source."""
     self.validate_config(config)
-    
+
     documents = []
-    
+
     try:
         # Fetch documents from your source
         response = self._make_request(
             f"{config['endpoint']}/documents",
             config['api_key']
         )
-        
+
         for item in response.json():
             documents.append({
                 'id': item['id'],
@@ -122,10 +123,10 @@ def fetch_documents(self, config: dict) -> list:
                     'created_at': item.get('created_at')
                 }
             })
-    
+
     except Exception as e:
         raise Exception(f"Failed to fetch documents: {e}")
-    
+
     return documents
 ```
 
@@ -140,10 +141,10 @@ def _make_request(self, url: str, api_key: str):
         'Authorization': f'Bearer {api_key}',
         'Content-Type': 'application/json'
     }
-    
+
     response = requests.get(url, headers=headers)
     response.raise_for_status()
-    
+
     return response
 
 def _parse_document(self, raw_doc: dict) -> dict:
@@ -159,7 +160,7 @@ def _parse_document(self, raw_doc: dict) -> dict:
     }
 ```
 
-### Step 4: Create __init__.py
+### Step 4: Create **init**.py
 
 ```python
 """My Knowledge Source Plugin."""
@@ -173,7 +174,7 @@ __all__ = ['MyKnowledgeSourcePlugin']
 
 Create `README.md`:
 
-```markdown
+````markdown
 # My Knowledge Source Plugin
 
 Connects Magnet AI to My Custom Data Source.
@@ -181,10 +182,12 @@ Connects Magnet AI to My Custom Data Source.
 ## Configuration
 
 Required fields:
+
 - `api_key`: API key for authentication
 - `endpoint`: API endpoint URL
 
 Optional fields:
+
 - `page_size`: Number of items per page (default: 100)
 - `filters`: Additional filters to apply
 
@@ -192,12 +195,12 @@ Optional fields:
 
 \```json
 {
-  "plugin_name": "my_knowledge_source",
-  "settings": {
-    "api_key": "your-api-key",
-    "endpoint": "https://api.example.com/v1",
-    "page_size": 50
-  }
+"plugin_name": "my_knowledge_source",
+"settings": {
+"api_key": "your-api-key",
+"endpoint": "https://api.example.com/v1",
+"page_size": 50
+}
 }
 \```
 
@@ -211,7 +214,7 @@ Optional fields:
 
 - Python 3.12+
 - `requests` library
-```
+````
 
 ## Creating an External Plugin Package
 
@@ -292,16 +295,16 @@ class TestMyPlugin(unittest.TestCase):
             'api_key': 'test-key',
             'endpoint': 'https://api.test.com'
         }
-    
+
     def test_validate_config_valid(self):
         result = self.plugin.validate_config(self.config)
         self.assertTrue(result)
-    
+
     def test_validate_config_missing_field(self):
         invalid_config = {'api_key': 'test'}
         with self.assertRaises(ValueError):
             self.plugin.validate_config(invalid_config)
-    
+
     def test_fetch_documents(self):
         # Mock the API response
         docs = self.plugin.fetch_documents(self.config)
@@ -335,16 +338,19 @@ Built-in plugins are deployed with Magnet AI automatically.
 ### For External Plugins
 
 1. **Package the plugin**:
+
    ```bash
    python -m build
    ```
 
 2. **Publish to PyPI** (optional):
+
    ```bash
    twine upload dist/*
    ```
 
 3. **Install in Magnet AI**:
+
    ```bash
    pip install magnet-plugins-myplugin
    ```

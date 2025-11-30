@@ -43,7 +43,7 @@ export default {
   emits: ['onSubmit', 'update:modal'],
   setup() {
     const comment = ref('')
-     
+
     const reason = ref()
     const reasonsList = ref([
       { label: 'It isn’t relevant', value: 'not_relevant' },

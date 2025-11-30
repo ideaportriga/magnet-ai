@@ -64,9 +64,9 @@ q-select.km-control.km-select.ba-border(
 
   template(v-slot:option='{ itemProps, opt, selected, toggleOption }')
     template(v-if='$slots.option')
-      slot(name='option', :itemProps='itemProps', :opt='opt', :selected='selected', :toggleOption='toggleOption' :data-test='"options"')
+      slot(name='option', :itemProps='itemProps', :opt='opt', :selected='selected', :toggleOption='toggleOption', :data-test='"options"')
     template(v-else-if='$theme === "default"')
-      q-item.ba-border(data-test='options',  v-bind='itemProps', dense)
+      q-item.ba-border(data-test='options', v-bind='itemProps', dense)
         q-item-section(side='', v-if='multiple')
           km-checkbox(:model-value='selected', @update:model-value='toggleOption(opt)', color='primary')
         q-item-section

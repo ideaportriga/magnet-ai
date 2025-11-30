@@ -29,7 +29,7 @@ div
     .km-label.text-label Use response as assistant message
     km-toggle(v-model='use_response_as_assistant_message', label-class='text-label')
   .km-description.text-label Uses the action response as assistant message without additional topic processing step. Only applicable if the action is not called in parallel with other actions.
-        
+
   //- .km-button-text.q-pt-md End user display options
   //- q-separator.q-mb-lg
   //- .row.items-center.q-pl-8.q-gap-4.q-pb-xs

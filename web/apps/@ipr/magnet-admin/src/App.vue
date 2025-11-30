@@ -42,7 +42,7 @@ export default {
 
     const auth = useAuth()
     const { appContext } = getCurrentInstance()
-    
+
     return {
       loading,
       collections,
@@ -104,10 +104,10 @@ export default {
     async loadData() {
       // Load plugins first (needed for dynamic forms)
       await this.plugins.get()
-      
+
       // Initialize plugins configuration for collections (uses data from store)
       initializePlugins()
-      
+
       await Promise.all([
         this.collections.get(),
         this.rag_tools.get(),

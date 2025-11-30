@@ -9,7 +9,6 @@ km-popup-confirm(
   @cancel='$emit("cancel")'
 )
   .column.q-gap-16
-      
     .col
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
       .full-width
@@ -73,14 +72,14 @@ export default {
       { label: 'RightNow', value: 'rightnow' },
       { label: 'Fluid Topics', value: 'fluid_topics' },
     ]
-    
+
     // Get plugins from store
     const plugins = computed(() => store.state.chroma?.plugins?.items || [])
-    
+
     // Build type options from plugins in store
     const typeOptions = computed(() => {
       if (plugins.value.length > 0) {
-        return plugins.value.map(plugin => ({
+        return plugins.value.map((plugin) => ({
           label: plugin.name,
           value: plugin.source_type,
         }))
@@ -138,11 +137,7 @@ export default {
   },
   methods: {
     validateFields() {
-      const validStates = [
-        this.$refs.nameRef?.validate(),
-        this.$refs.system_nameRef?.validate(),
-        this.$refs.typeRef?.validate()
-      ]
+      const validStates = [this.$refs.nameRef?.validate(), this.$refs.system_nameRef?.validate(), this.$refs.typeRef?.validate()]
       return !validStates.includes(false)
     },
     async createKnowledgeProvider() {

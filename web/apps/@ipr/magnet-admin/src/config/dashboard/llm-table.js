@@ -1,6 +1,5 @@
 import { formatDuration } from '@shared/utils'
 const controls = {
-
   name: {
     name: 'name',
     label: 'Name',
@@ -17,7 +16,6 @@ const controls = {
     readonly: true,
     align: 'left',
     sortable: true,
-
   },
   count: {
     name: 'count',
@@ -61,8 +59,7 @@ const controls = {
     readonly: true,
     align: 'left',
     format: (val) => `${val.toFixed(2)}%`,
-  }
-  
+  },
 }
 
 export default controls

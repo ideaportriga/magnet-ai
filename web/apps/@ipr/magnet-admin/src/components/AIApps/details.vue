@@ -8,7 +8,11 @@
             .row.items-center
               km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
             .row.items-center
-              km-input-flat.km-description.full-width.text-black(placeholder='Description', :modelValue='description', @change='description = $event')
+              km-input-flat.km-description.full-width.text-black(
+                placeholder='Description',
+                :modelValue='description',
+                @change='description = $event'
+              )
             .row.items-center.q-pl-6
               q-icon.col-auto(name='o_info', color='text-secondary')
                 q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id

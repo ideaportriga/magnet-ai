@@ -10,7 +10,14 @@ km-popup-confirm(
 )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
     .full-width
-      km-input(data-test="name-input" height='30px', placeholder='E.g. Demo Prompt Template', v-model='name', ref='nameRef', :rules='config.name.rules')
+      km-input(
+        data-test='name-input',
+        height='30px',
+        placeholder='E.g. Demo Prompt Template',
+        v-model='name',
+        ref='nameRef',
+        :rules='config.name.rules'
+      )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
     .full-width
       km-input(
@@ -24,7 +31,7 @@ km-popup-confirm(
   .km-field.text-secondary-text.q-pb-xs.q-pl-8 Categories
     |
     km-select(
-      data-test="select-category",
+      data-test='select-category',
       height='auto',
       minHeight='36px',
       placeholder='Categories',

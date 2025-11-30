@@ -70,18 +70,12 @@ km-popup-confirm(
       .row.items-center
         q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='newRow.reasoning', ref='json_modeRef', :rules='config.json_mode.rules')
         .km-field.text-secondary-text Reasoning
-    
+
     div(v-if='type === "embeddings"')
       .km-title.q-mb-md Vector Configuration
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Vector Size
         .full-width
-          km-input(
-            height='30px',
-            placeholder='E.g. 1536',
-            v-model.number='vectorSize',
-            ref='vectorSizeRef',
-            type='number'
-          )
+          km-input(height='30px', placeholder='E.g. 1536', v-model.number='vectorSize', ref='vectorSizeRef', type='number')
           .km-description.text-secondary-text Dimension of the embedding vector (default: 1536). Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
 </template>
 <script>

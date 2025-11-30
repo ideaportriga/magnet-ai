@@ -19,12 +19,14 @@ GET /api/agents
 ```
 
 **Query Parameters:**
+
 - `page` (integer) - Page number (default: 1)
 - `limit` (integer) - Items per page (default: 20)
 - `sort` (string) - Sort field (default: created_at)
 - `order` (string) - Sort order: asc|desc (default: desc)
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -54,6 +56,7 @@ GET /api/agents/{id}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -81,6 +84,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "New Agent",
@@ -94,6 +98,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -113,6 +118,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "Updated Name",
@@ -128,6 +134,7 @@ DELETE /api/agents/{id}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -157,6 +164,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "Customer Support Template",
@@ -188,6 +196,7 @@ GET /api/knowledge-sources
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -218,6 +227,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "Product Documentation",
@@ -271,6 +281,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "Product Q&A",
@@ -303,6 +314,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "query": "How do I reset my password?",
@@ -312,6 +324,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -367,6 +380,7 @@ GET /api/conversations/{id}
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -399,6 +413,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "agent_id": "agent_123",
@@ -414,6 +429,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "message": "I need help with my order",
@@ -446,6 +462,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "GPT-4 Turbo",
@@ -494,6 +511,7 @@ Content-Type: application/json
 ```
 
 **Request Body:**
+
 ```json
 {
   "name": "Agent Accuracy Test",
@@ -530,12 +548,14 @@ GET /api/usage/stats
 ```
 
 **Query Parameters:**
+
 - `start_date` (ISO date) - Start date
 - `end_date` (ISO date) - End date
 - `entity_type` (string) - Filter by entity type
 - `entity_id` (string) - Filter by entity ID
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -594,6 +614,7 @@ GET /api/health
 ```
 
 **Response:**
+
 ```json
 {
   "status": "healthy",

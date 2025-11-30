@@ -1,8 +1,5 @@
 <template lang="pug">
-q-chip.text-uppercase.q-ma-none(
-  v-if='row?.[name]',
-  size='sm',
-) {{ displayValue }}
+q-chip.text-uppercase.q-ma-none(v-if='row?.[name]', size='sm') {{ displayValue }}
 </template>
 <script>
 import { defineComponent, computed } from 'vue'
@@ -22,7 +19,7 @@ export default defineComponent({
   setup(props) {
     const displayValue = computed(() => {
       const value = props.row[props.name]
-      const option = categoryOptions.find(opt => opt.value === value)
+      const option = categoryOptions.find((opt) => opt.value === value)
       return option ? option.label : value
     })
 

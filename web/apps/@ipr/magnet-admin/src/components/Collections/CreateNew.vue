@@ -218,7 +218,7 @@ export default defineComponent({
     const { requiredFields, config, ...useCollection } = useChroma('collections')
     const { items: promptTemplateItems } = useChroma('promptTemplates')
     const { items: providerItems } = useChroma('provider')
-    
+
     const intervals = [
       { label: 'Hourly', value: 'hourly' },
       { label: 'Daily', value: 'daily' },
@@ -226,7 +226,7 @@ export default defineComponent({
     ]
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     const times = Array.from({ length: 24 }, (_, i) => ({ label: `${i.toString().padStart(2, '0')}:00`, value: i.toString().padStart(2, '0') }))
-    
+
     return {
       customFields: ref({}),
       metadata: ref('{}'),
@@ -288,11 +288,11 @@ export default defineComponent({
   computed: {
     providerOptions() {
       // Filter only knowledge providers
-      return (this.providerItems || []).filter(provider => provider.category === 'knowledge')
+      return (this.providerItems || []).filter((provider) => provider.category === 'knowledge')
     },
     selectedProvider() {
       if (!this.provider_system_name) return null
-      return this.providerItems?.find(p => p.system_name === this.provider_system_name)
+      return this.providerItems?.find((p) => p.system_name === this.provider_system_name)
     },
     source_type: {
       get() {
@@ -302,16 +302,16 @@ export default defineComponent({
         this.source = { ...this.source, source_type: val }
       },
     },
-    
+
     // Dynamic source type options from loaded plugins
     dynamicSourceTypeOptions() {
       if (this.selectedProvider) {
         // If provider is selected, only show the source type matching the provider's type
-        return this.sourceTypeOptions.filter(option => option.value === this.selectedProvider.type) || []
+        return this.sourceTypeOptions.filter((option) => option.value === this.selectedProvider.type) || []
       }
       return this.sourceTypeOptions || []
     },
-    
+
     // Dynamic source type children from loaded plugins
     dynamicSourceTypeChildren() {
       return this.sourceTypeChildren || {}
@@ -382,18 +382,18 @@ export default defineComponent({
   },
   mounted() {
     this.isMounted = true
-    
+
     // Set provider_system_name from providerSystemName prop if provided
     if (this.providerSystemName) {
       this.provider_system_name = this.providerSystemName
-      const provider = this.providerItems?.find(p => p.system_name === this.providerSystemName)
+      const provider = this.providerItems?.find((p) => p.system_name === this.providerSystemName)
       if (provider) {
         this.source_type = provider.type // Set source_type to match provider's type
         // Apply provider connection params
         this.applyProviderConnectionParams(provider)
       }
     }
-    
+
     if (this.copy) {
       this.customFields = reactive(cloneDeep(this.currentRaw))
       this.name = this.customFields?.name + '_COPY'
@@ -421,8 +421,8 @@ export default defineComponent({
         this.source_type = ''
         return
       }
-      
-      const provider = this.providerItems?.find(p => p.system_name === providerSystemName)
+
+      const provider = this.providerItems?.find((p) => p.system_name === providerSystemName)
       if (provider) {
         this.source_type = provider.type // Set source_type to match provider's type
         this.applyProviderConnectionParams(provider)
@@ -433,15 +433,25 @@ export default defineComponent({
       // that must only come from provider configuration on the backend.
       // The backend will automatically merge provider config (including endpoint and credentials)
       // when processing the knowledge source.
-      
+
       // Apply ONLY non-security connection_config parameters to source fields
       // (e.g., service-specific URLs like search_api_url, pdf_api_url, base_slug)
       if (provider.connection_config) {
         const securityFields = new Set([
-          'endpoint', 'client_id', 'client_secret', 'tenant', 'thumbprint', 'private_key',
-          'username', 'password', 'token', 'security_token', 'api_token', 'api_key'
+          'endpoint',
+          'client_id',
+          'client_secret',
+          'tenant',
+          'thumbprint',
+          'private_key',
+          'username',
+          'password',
+          'token',
+          'security_token',
+          'api_token',
+          'api_key',
         ])
-        
+
         Object.entries(provider.connection_config).forEach(([key, value]) => {
           // Only copy non-security fields
           if (!securityFields.has(key)) {
@@ -449,7 +459,7 @@ export default defineComponent({
           }
         })
       }
-      
+
       // Note: secrets_encrypted and endpoint are handled on backend side only
     },
     next(step) {
@@ -517,7 +527,7 @@ export default defineComponent({
           fulltext_search_supported: supportKeywordSearch,
         },
       }
-      const { id:inserted_id } = await this.useCollection.create(JSON.stringify(merged_metadata))
+      const { id: inserted_id } = await this.useCollection.create(JSON.stringify(merged_metadata))
 
       this.$q.notify({
         position: 'top',
@@ -612,31 +622,31 @@ export default defineComponent({
       // Transform Documentation source fields from comma-separated strings to arrays
       if (source?.source_type === 'Documentation') {
         const transformed = { ...source }
-        
+
         // Convert languages from string to array
         if (transformed.languages && typeof transformed.languages === 'string') {
           transformed.languages = transformed.languages
             .split(',')
-            .map(lang => lang.trim())
-            .filter(lang => lang.length > 0)
+            .map((lang) => lang.trim())
+            .filter((lang) => lang.length > 0)
         }
-        
+
         // Convert sections from string to array
         if (transformed.sections && typeof transformed.sections === 'string') {
           transformed.sections = transformed.sections
             .split(',')
-            .map(section => section.trim())
-            .filter(section => section.length > 0)
+            .map((section) => section.trim())
+            .filter((section) => section.length > 0)
         }
-        
+
         // Convert max_depth to integer if provided
         if (transformed.max_depth) {
           transformed.max_depth = parseInt(transformed.max_depth) || 5
         }
-        
+
         return transformed
       }
-      
+
       return source
     },
     parseJson(str) {

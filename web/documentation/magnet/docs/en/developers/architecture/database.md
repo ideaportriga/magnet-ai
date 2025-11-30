@@ -5,9 +5,11 @@ Magnet AI uses **PostgreSQL** as its primary database, leveraging the **pgvector
 ## Core Models
 
 ### Agents
+
 Stores AI agent configurations.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `name` - Agent name
 - `description` - Agent description
@@ -21,9 +23,11 @@ Stores AI agent configurations.
 - `updated_at` - Last update timestamp
 
 ### Prompt Templates
+
 Reusable prompt templates.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `name` - Template name
 - `description` - Template description
@@ -35,9 +39,11 @@ Reusable prompt templates.
 - `updated_at` - Last update timestamp
 
 ### Knowledge Sources
+
 Data source configurations.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `name` - Source name
 - `type` - Source type (file, api, database, etc.)
@@ -49,9 +55,11 @@ Data source configurations.
 - `updated_at` - Last update timestamp
 
 ### RAG Tools
+
 RAG (Retrieval Augmented Generation) tool configurations.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `name` - Tool name
 - `description` - Tool description
@@ -65,9 +73,11 @@ RAG (Retrieval Augmented Generation) tool configurations.
 - `updated_at` - Last update timestamp
 
 ### Retrieval Tools
+
 Semantic search and retrieval configurations.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `name` - Tool name
 - `description` - Tool description
@@ -78,9 +88,11 @@ Semantic search and retrieval configurations.
 - `updated_at` - Last update timestamp
 
 ### Models
+
 LLM model configurations.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `name` - Model name
 - `provider` - Provider (OpenAI, Azure, etc.)
@@ -94,9 +106,11 @@ LLM model configurations.
 - `updated_at` - Last update timestamp
 
 ### Conversations
+
 Agent conversation history.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `agent_id` - FK to agent
 - `user_id` - User identifier
@@ -106,9 +120,11 @@ Agent conversation history.
 - `updated_at` - Last update timestamp
 
 ### Evaluations
+
 Evaluation runs and results.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `name` - Evaluation name
 - `type` - Evaluation type
@@ -121,9 +137,11 @@ Evaluation runs and results.
 - `completed_at` - Completion timestamp
 
 ### Usage Metrics
+
 Track LLM usage and costs.
 
 **Fields:**
+
 - `id` - Primary key (UUID)
 - `entity_type` - Entity type (agent, rag_tool, etc.)
 - `entity_id` - Entity ID
@@ -163,7 +181,9 @@ Prompt Templates
 Magnet AI uses the `pgvector` extension within PostgreSQL to store and query embeddings. This allows for unified transaction management and simplified infrastructure.
 
 ### Document Embeddings Table
+
 **Fields:**
+
 - `id` - Document ID (UUID)
 - `source_id` - FK to knowledge source
 - `content` - Original text
@@ -172,6 +192,7 @@ Magnet AI uses the `pgvector` extension within PostgreSQL to store and query emb
 - `created_at` - Creation timestamp
 
 ### Vector Similarity Search
+
 Queries use the `<=>` (cosine distance) or `<->` (Euclidean distance) operators for efficient similarity search.
 
 ## Migration Management
@@ -179,11 +200,13 @@ Queries use the `<=>` (cosine distance) or `<->` (Euclidean distance) operators 
 Migrations are managed using **Alembic**.
 
 ### Creating Migrations
+
 ```bash
 npm run db:migrate -- -m "Add new field"
 ```
 
 ### Applying Migrations
+
 ```bash
 npm run db:upgrade
 ```
@@ -191,6 +214,7 @@ npm run db:upgrade
 ## Database Configuration
 
 ### Connection String
+
 We use the `asyncpg` driver for high-performance async access.
 
 ```python
@@ -200,6 +224,7 @@ DATABASE_URL = "postgresql+asyncpg://user:password@host:port/database"
 ## Fixtures and Seed Data
 
 Located in `/api`:
+
 - `manage_fixtures.py` - Load/save fixtures
 - Sample data for development
 - Test data for evaluations
@@ -207,6 +232,7 @@ Located in `/api`:
 ## Indexes
 
 Key indexes for performance:
+
 - `agents.name` - Agent lookup
 - `conversations.agent_id` - Conversation queries
 - `usage_metrics.timestamp` - Time-based queries
@@ -233,4 +259,3 @@ Key indexes for performance:
 - [Backend Architecture](/docs/en/developers/architecture/backend) - Backend implementation
 - [REST API](/docs/en/developers/api/rest-api) - API endpoints
 - [Getting Started](/docs/en/developers/setup/getting-started) - Development setup
-

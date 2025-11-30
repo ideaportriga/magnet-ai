@@ -13,11 +13,11 @@ Agents are considered the next step of Gen AI evolution. They generally share 4 
 
 The key enabler of agentic flow is **Tool calling** (Function calling).
 
-An Agent is equipped with tools, or **Actions**, as they are called in Magnet AI, which can be generated from [RAG Tools](../rag-tools/overview.md), API Tools, [Retrieval Tools](../retrieval-tools/overview.md), and [Prompt Templates](../prompt-templates/overview.md). 
+An Agent is equipped with tools, or **Actions**, as they are called in Magnet AI, which can be generated from [RAG Tools](../rag-tools/overview.md), API Tools, [Retrieval Tools](../retrieval-tools/overview.md), and [Prompt Templates](../prompt-templates/overview.md).
 
 ## How the Agentic flow works with tool calling:
 
-1. Agent receives and analyzes user input, which could be something like *“I want to cancel my order”* or *“What is the return policy for product X”.*
+1. Agent receives and analyzes user input, which could be something like _“I want to cancel my order”_ or _“What is the return policy for product X”._
 2. Agent detects user intent, and if it matches a specific Topic, Agent proceeds to Topic execution using provided instructions.
 3. During Topic processing step the Agent decides whether it can use one or multiple Actions to answer user’s query.
 4. If it finds a matching Action, it checks whether all inputs are provided to execute the Action, and asks for missing values if necessary. Some examples of such inputs could be a record ID or a field value.

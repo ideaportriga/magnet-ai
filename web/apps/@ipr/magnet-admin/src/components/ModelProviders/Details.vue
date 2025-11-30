@@ -47,7 +47,7 @@ export default {
   setup() {
     const { selectedRow, ...useCollection } = useChroma('provider')
     const { visibleRows: allModels } = useChroma('model')
-    
+
     return {
       tab: ref('models'),
       tabs: ref([
@@ -78,7 +78,7 @@ export default {
       if (!this.selectedModel || !this.availableModels.length) {
         return null
       }
-      return this.availableModels.find(model => model.id === this.selectedModel.id) || null
+      return this.availableModels.find((model) => model.id === this.selectedModel.id) || null
     },
     name: {
       get() {
@@ -111,7 +111,7 @@ export default {
       handler(newVal, oldVal) {
         // Reset selectedModel if it's not in availableModels for current provider
         if (this.selectedModel && newVal.length > 0) {
-          const modelExists = newVal.find(model => model.id === this.selectedModel.id)
+          const modelExists = newVal.find((model) => model.id === this.selectedModel.id)
           if (!modelExists) {
             this.$store.commit('modelConfig/setEntity', null)
             // Auto-select first model if no valid selection
@@ -139,7 +139,7 @@ export default {
         if (!a.is_default && b.is_default) return 1
         return 0
       })
-      
+
       if (sortedModels.length > 0) {
         this.$store.commit('modelConfig/setEntity', sortedModels[0])
       }
