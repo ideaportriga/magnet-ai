@@ -9,3 +9,10 @@ export const formatDateTime = (val) => {
   const localeTimeString = localDate.toLocaleString(DateTime.TIME_SIMPLE)
   return `${localeDateString} ${localeTimeString}`
 }
+
+export const formatRelative = (val) => {
+  if (!val) return '—'
+  const dateObject = DateTime.fromISO(val, { zone: 'utc' })
+  if (!dateObject.isValid) return '—'
+  return dateObject.toRelative()
+}

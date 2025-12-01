@@ -52,7 +52,7 @@ All logs will now be sent to Loki automatically!
 
 ### 5. View Logs in Grafana
 
-1. Open http://localhost:3000
+1. Open `http://localhost:3000`
 2. Login with: `admin` / `admin`
 3. Go to **Explore** (compass icon in left sidebar)
 4. Select **Loki** data source
