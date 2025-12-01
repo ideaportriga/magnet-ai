@@ -32,6 +32,8 @@
     "lint": "npm run lint:api && npm run lint:web"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "husky": "^9.1.7",
