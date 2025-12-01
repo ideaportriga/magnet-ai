@@ -1,7 +1,10 @@
 name: Release - Semantic Versioning
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI - Linting and Tests"]
+    types:
+      - completed
     branches:
       - main
   workflow_dispatch:
@@ -20,6 +23,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     
     steps:
       - name: Checkout code
@@ -27,6 +31,11 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+      
+      - name: Fix detached HEAD
+        if: github.event_name == 'workflow_run'
+        run: git checkout -B ${{ github.event.workflow_run.head_branch }}
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
