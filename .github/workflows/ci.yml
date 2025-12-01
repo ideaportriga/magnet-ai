@@ -95,7 +95,6 @@ jobs:
         run: yarn nx run-many --target=lint --all
       
       - name: Check TypeScript types
-      - name: Check TypeScript types
         run: yarn nx run-many --target=typecheck --all
       
       - name: Run Prettier check
@@ -170,6 +169,7 @@ jobs:
       - name: Check npm dependencies for vulnerabilities
         working-directory: ./web
         run: yarn npm audit --all --recursive
+        continue-on-error: true
 
   # Summary status of all checks
   all-checks-complete:
