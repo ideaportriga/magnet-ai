@@ -54,7 +54,7 @@ jobs:
         env:
           # Set base URL for GitHub Pages
           # Replace 'magnet-ai' with your repository name if different
-          HELP_BASE_URL: /magnet-ai/
+          WEB_BASE_PATH: /magnet-ai/
         run: |
           cd web
           yarn nx run magnet-docs:build
