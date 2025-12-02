@@ -1,6 +1,7 @@
 # Magnet AI
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-online-brightgreen)](https://ideaportriga.github.io/magnet-ai/)
 [![CI - Linting and Tests](https://github.com/ideaportriga/magnet-ai/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ideaportriga/magnet-ai/actions/workflows/ci.yml)
 [![Code Quality](https://github.com/ideaportriga/magnet-ai/actions/workflows/code-quality.yml/badge.svg)](https://github.com/ideaportriga/magnet-ai/actions/workflows/code-quality.yml)
 [![Deploy VitePress Docs](https://github.com/ideaportriga/magnet-ai/actions/workflows/deploy-docs.yml/badge.svg)](https://github.com/ideaportriga/magnet-ai/actions/workflows/deploy-docs.yml)
@@ -264,6 +265,7 @@ All dependencies are verified to be Apache 2.0 compatible.
 
 ## 📚 Additional Documentation
 
+- [**Online Documentation**](https://ideaportriga.github.io/magnet-ai/)
 - [Plugin System](generated_docs/PLUGIN_SYSTEM.md)
 - [External Plugins Strategy](generated_docs/EXTERNAL_PLUGINS_STRATEGY.md)
 - [Database Fixtures Guide](generated_docs/FIXTURES_GUIDE.md)
