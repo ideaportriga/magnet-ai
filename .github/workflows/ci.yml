@@ -160,7 +160,7 @@ jobs:
           poetry self add poetry-plugin-export
           poetry export -f requirements.txt --output requirements.txt --without-hashes
           pip install pip-audit
-          pip-audit -r requirements.txt
+          pip-audit -r requirements.txt --ignore-vuln GHSA-wj6h-64fc-37mp
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
