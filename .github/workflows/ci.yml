@@ -167,6 +167,9 @@ jobs:
         with:
           node-version: '20'
       
+      - name: Enable Corepack
+        run: corepack enable
+      
       - name: Check npm dependencies for vulnerabilities
         working-directory: ./web
         run: yarn npm audit --all --recursive
