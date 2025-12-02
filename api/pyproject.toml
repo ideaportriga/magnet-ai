@@ -68,7 +68,7 @@ ecdsa = "^0.19.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.9.10"
-pytest = "7.4.2"
+pytest = "9.0.1"
 pytest-mock = "3.11.1"
 pytest-cov = "4.1.0"
 # mypy = "1.10.0"
