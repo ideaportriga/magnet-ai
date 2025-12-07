@@ -2,16 +2,14 @@
 
 layout: home
 hero:
-  name: "Magnet AI"
-  text: "Dokumentācija"
-  tagline: "AI rīku administrēšana, novērojamība un novērtēšana"
-  actions:
-    - theme: brand
-      text: Ātrā sākšana
-      link: /docs/lv/quickstarts/introduction/what-is-magnet-ai
-    - theme: alt
-      text: Administrēšana
-      link: /docs/lv/admin/connect/models/overview
+name: "Magnet AI"
+text: "Dokumentācija"
+tagline: "AI rīku administrēšana, novērojamība un novērtēšana"
+actions: - theme: brand
+text: Ātrā sākšana
+link: /docs/lv/quickstarts/introduction/what-is-magnet-ai - theme: alt
+text: Administrēšana
+link: /docs/lv/admin/connect/models/overview
 features:
 
 - icon: 🛠️
@@ -26,8 +24,7 @@ features:
   title: Spēļu laukums
   details: Testējiet un eksperimentējiet ar AI modeļiem interaktīvi.
   link: /docs/lv/quickstarts/introduction/playground
-footer:
-  links:
-    - icon: GitHub
-      name: GitHub
-      link: https://github.com/ideaportriga/magnet-ai
+  footer:
+  links: - icon: GitHub
+  name: GitHub
+  link: https://github.com/ideaportriga/magnet-ai

@@ -6,7 +6,7 @@ q-dialog(:model-value='modal', @hide='$emit("update:modal", false)')
       //- icon-before="search"
       km-input.full-width(
         icon-before='search',
-        @input='page = 1; search = $event',
+        @input='page = 1 search = $event',
         :model-value='search',
         autofocus,
         placeholder='search icons',
