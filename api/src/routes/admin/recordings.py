@@ -13,7 +13,7 @@ DEFAULT_PIPELINE = "elevenlabs"
 
 class RecordingsController(Controller):
     path = "/recordings"
-    tags = ["admin", "recordings"]
+    tags = ["Admin / Recordings"]
 
     # ────────────────────────────────
     # POST /api/admin/recordings

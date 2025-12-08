@@ -1,3 +1,4 @@
+import asyncio
 from logging import getLogger
 from typing import Annotated, Any
 
@@ -6,15 +7,17 @@ from litestar.exceptions import NotFoundException
 from litestar.params import Parameter
 from litestar.status_codes import HTTP_200_OK
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from api.tags import TagNames
 from services.agents.conversations import (
     add_user_message,
     copy_message,
     create_conversation,
     get_conversation,
+    get_missing_messages,
     get_last_conversation_by_client_id,
     set_message_feedback,
+    add_assistant_message,
+    update_message_processing_status,
 )
 from services.agents.conversations.services import get_conversation_by_id
 from services.agents.models import (
@@ -23,6 +26,7 @@ from services.agents.models import (
     AgentConversationCreateRequest,
     AgentConversationMessageFeedbackRequest,
     AgentConversationWithMessagesPublic,
+    AgentConversationMessageProcessingStatus,
 )
 from services.agents.services import get_agent_by_system_name
 from services.observability import (
@@ -30,6 +34,7 @@ from services.observability import (
     observability_overrides,
     observe,
 )
+from stores import RecordNotFoundError
 
 AgentConversationCreateResponse = AgentConversationWithMessagesPublic
 
@@ -233,3 +238,98 @@ class AgentConversationsController(Controller):
             raise NotFoundException()
 
         return conversation
+
+    ## Asynchronously
+    @post(
+        "/async",
+        summary="Create a new conversation asynchronously",
+    )
+    async def create_conversation_asynchronously(
+        self,
+        data: AgentConversationCreateRequest,
+        db_session: AsyncSession,
+    ) -> AgentConversationWithMessagesPublic:
+        conversation = await create_conversation(
+            data.agent,
+            data.user_message_content,
+            data.client_id,
+            data.variables,
+            db_session,
+            is_async=True,
+        )  ### is_async=True means that agent message wont be processed immediately
+        asyncio.create_task(add_assistant_message(str(conversation.id)))
+        return conversation
+
+    @post(
+        "/{conversation_id:str}/messages/async",
+        status_code=HTTP_200_OK,
+        summary="Add a message to a conversation asynchronically",
+    )
+    async def add_message_route_asynchronically(
+        self,
+        conversation_id: Annotated[
+            str,
+            Parameter(
+                description="The unique identifier of the conversation to which the message will be added.",
+            ),
+        ],
+        data: AgentConversationAddUserMessageRequest,
+        user_id: Annotated[
+            str | None,
+            Parameter(
+                description="The unique identifier of the user adding the message.",
+            ),
+        ],
+    ) -> AgentConversationMessageProcessingStatus:
+        try:
+            conversation = await get_conversation_by_id(conversation_id)
+        except RecordNotFoundError:
+            raise NotFoundException()
+
+        trace_id: str | None = conversation.get("trace_id")
+        if not trace_id:
+            logger.warning(
+                f"Cannot restore trace for conversation {conversation_id}, new trace will be created"
+            )
+        message_processing_status = await update_message_processing_status(
+            str(conversation["id"]), AgentConversationMessageProcessingStatus.PROCESSING
+        )
+
+        asyncio.create_task(
+            self._add_message_route(
+                conversation,
+                data,
+                user_id,
+                **observability_overrides(trace_id=trace_id),
+            )
+        )
+        return message_processing_status
+
+    @get(
+        "/{conversation_id:str}/missing_messages",
+        summary="Get missing messages",
+        description="Retrieves only the messages that are missing based on the provided message count. Returns messages after the specified count.",
+    )
+    async def get_missing_messages_route(
+        self,
+        conversation_id: Annotated[
+            str,
+            Parameter(
+                description="The unique identifier of the conversation.",
+            ),
+        ],
+        message_count: Annotated[
+            int,
+            Parameter(
+                description="The number of messages the client already has. Returns messages after this count.",
+                ge=0,
+            ),
+        ],
+    ) -> dict[str, Any]:
+        try:
+            missing_messages = await get_missing_messages(
+                conversation_id, message_count
+            )
+            return missing_messages
+        except RecordNotFoundError:
+            raise NotFoundException()

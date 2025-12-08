@@ -6,7 +6,7 @@ from utils.upload_handler import make_multipart_session
 
 class UploadSessionsController(Controller):
     path = "/upload-sessions"
-    tags = ["recordings"]
+    tags = ["Admin / Recordings"]
 
     @post("/", status_code=200)
     async def create_session(self, data: dict) -> Dict[str, Any]:

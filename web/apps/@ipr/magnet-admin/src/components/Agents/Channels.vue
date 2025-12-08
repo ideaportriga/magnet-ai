@@ -79,13 +79,7 @@
       )
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
       km-input(v-model='slack_scopes', placeholder='Enter Slack Agent Scopes (comma separated)')
-      km-btn.q-mt-md(
-        label='Connect to Slack',
-        color='white',
-        @click='openSlackInstall',
-        :disable='isSlackInstallDisabled',
-        :contentStyle='"width: auto;"'
-      )
+      km-btn.q-mt-md(label='Connect to Slack', color='white', @click='openSlackInstall', :disable='isSlackInstallDisabled', :contentStyle='"width: auto;"')
   q-separator.q-my-lg
   km-section(title='WhatsApp', subTitle='Make the Agent available as a WhatsApp integration')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16

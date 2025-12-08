@@ -55,3 +55,10 @@ class AgentConversation(UUIDv7AuditBase):
     status: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True, comment="Conversation status"
     )
+
+    # Message processing status
+    message_processing_status: Mapped[Optional[str]] = mapped_column(
+        String(50),
+        nullable=True,
+        comment="Message processing status: 'processing', 'completed', or 'failed'",
+    )

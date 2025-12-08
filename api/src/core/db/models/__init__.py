@@ -22,6 +22,7 @@ from .knowledge_graph import (
 from .metric import Metric
 from .provider import Provider
 from .trace import Trace
+from .teams import TeamsMeeting
 
 __all__ = [
     "UUIDAuditEntityBase",
@@ -34,6 +35,7 @@ __all__ = [
     "Metric",
     "Provider",
     "Trace",
+    "TeamsMeeting",
     "KnowledgeGraph",
     "KnowledgeGraphSource",
     "KnowledgeGraphDocument",

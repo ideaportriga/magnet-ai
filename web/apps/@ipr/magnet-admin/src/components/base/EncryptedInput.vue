@@ -2,12 +2,7 @@
 .col(v-bind='$attrs')
   .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ label }}
   .row.items-center.q-gap-8.no-wrap.relative-position
-    km-input.full-width(
-      :model-value='localValue',
-      @update:model-value='emit("update:value", $event)',
-      :readonly='!editMode',
-      :placeholder='localPlaceholder'
-    )
+    km-input.full-width(:model-value='localValue', @update:model-value='emit("update:value", $event)', :readonly='!editMode', :placeholder='localPlaceholder')
     .controls.full-height.row.items-center
       km-btn(icon='fa fa-pen', flat, iconSize='12px', @click='enterEditMode', size='xs', v-if='!editMode')
       km-btn(icon='fa fa-xmark', flat, iconSize='12px', @click='cancelEditMode', size='xs', v-if='editMode && !isNew')
