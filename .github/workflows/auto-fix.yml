@@ -85,10 +85,10 @@ jobs:
         run: yarn nx run-many --target=lint --all --fix
         continue-on-error: true
       
-      - name: Run Prettier format on Web
-        working-directory: ./web
-        run: yarn prettier --write "**/*.{ts,tsx,js,jsx,vue,json,css,scss,md}" --ignore-path .gitignore
-        continue-on-error: true
+      # - name: Run Prettier format on Web
+      #   working-directory: ./web
+      #   run: yarn prettier --write "**/*.{ts,tsx,js,jsx,vue,json,css,scss,md}" --ignore-path .gitignore
+      #   continue-on-error: true
       
       - name: Check for changes
         id: git-check

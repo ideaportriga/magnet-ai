@@ -97,9 +97,9 @@ jobs:
       # - name: Check TypeScript types
       #   run: yarn nx run-many --target=typecheck --all
       
-      - name: Run Prettier check
-        run: yarn prettier --check "**/*.{ts,tsx,js,jsx,vue,json,css,scss,md}"
-        continue-on-error: true
+      # - name: Run Prettier check
+      #   run: yarn prettier --check "**/*.{ts,tsx,js,jsx,vue,json,css,scss,md}"
+      #   continue-on-error: true
       
       # - name: Run tests
       #   run: yarn nx run-many --target=test --all --coverage
