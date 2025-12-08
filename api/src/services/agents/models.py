@@ -290,6 +290,12 @@ class AgentConversationMessageRole(StrEnum):
     ASSISTANT = "assistant"
 
 
+class AgentConversationMessageProcessingStatus(StrEnum):
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class AgentConversationMessageBase(BaseModel):
     id: UUID
     created_at: datetime = Field(default_factory=utc_now)
@@ -354,6 +360,7 @@ class AgentConversationData(BaseModel):
     trace_id: str | None = None
     analytics_id: str | None = None
     variables: dict[str, str] | None = None
+    message_processing_status: AgentConversationMessageProcessingStatus | None = None
 
 
 class AgentConversationDataWithMessages(AgentConversationData):
@@ -457,6 +464,11 @@ class AgentConversationWithMessages(BaseModel):
         default=None,
         description="The analytics ID of the conversation.",
     )
+    message_processing_status: str | None = Field(
+        default=None,
+        description="Message processing status: 'processing', 'completed', or 'failed'.",
+        examples=["processing", "completed", "failed"],
+    )
 
 
 class AgentConversationWithMessagesPublic(BaseModel):
@@ -532,6 +544,11 @@ class AgentConversationWithMessagesPublic(BaseModel):
     analytics_id: str | None = Field(
         default=None,
         description="The analytics ID of the conversation.",
+    )
+    message_processing_status: AgentConversationMessageProcessingStatus | None = Field(
+        default=None,
+        description="Message processing status: 'processing', 'completed', or 'failed'.",
+        examples=["processing", "completed", "failed"],
     )
 
     class Config:

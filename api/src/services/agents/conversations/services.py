@@ -20,10 +20,12 @@ from services.agents.models import (
     AgentConversationMessageAssistantPublic,
     AgentConversationMessageFeedbackRequest,
     AgentConversationMessagePublic,
+    AgentConversationMessageRole,
     AgentConversationMessageUser,
     AgentConversationMessageUserPublic,
     AgentConversationWithMessages,
     AgentConversationWithMessagesPublic,
+    AgentConversationMessageProcessingStatus,
 )
 from services.agents.post_process.utils import extract_analytics_from_conversation
 from services.agents.services import execute_agent, get_agent_by_system_name
@@ -46,6 +48,7 @@ async def create_conversation(
     client_id: str | None = None,
     variables: dict[str, str] | None = None,
     db_session: AsyncSession | None = None,
+    is_async: bool = False,
 ) -> AgentConversationWithMessagesPublic:
     # Get agent config
     if isinstance(agent_system_name_or_config, str):
@@ -75,15 +78,20 @@ async def create_conversation(
                 created_at=timestamp_now,
             ),
         ]
-
-        assistant_message = await execute_agent(
-            system_name_or_config=agent_system_name_or_config,
-            messages=messages,
-            variables=variables,
-        )
-
-        messages.append(assistant_message)
-
+        if not is_async:
+            assistant_message = await execute_agent(
+                system_name_or_config=agent_system_name_or_config,
+                messages=messages,
+                variables=variables,
+            )
+            messages.append(assistant_message)
+            message_processing_status = (
+                AgentConversationMessageProcessingStatus.COMPLETED
+            )
+        else:
+            message_processing_status = (
+                AgentConversationMessageProcessingStatus.PROCESSING
+            )
         conversation_data = AgentConversationDataWithMessages(
             client_id=client_id,
             agent=agent_config.system_name,
@@ -93,6 +101,7 @@ async def create_conversation(
             trace_id=observability_context.get_current_trace_id(),
             analytics_id=instance_id,
             variables=variables,
+            message_processing_status=message_processing_status,
         )
 
         # Replace MongoDB insert with SQLAlchemy service
@@ -133,6 +142,7 @@ async def create_conversation(
             last_user_message_at=conversation_data.last_user_message_at,
             trace_id=conversation_data.trace_id,
             analytics_id=conversation_data.analytics_id,
+            message_processing_status=conversation_data.message_processing_status,
         )
 
         extracted_analytics = await extract_analytics_from_conversation(conversation_id)
@@ -140,11 +150,11 @@ async def create_conversation(
         observability_context.update_current_baggage(
             conversation_id=conversation_id, conversation_data=extracted_analytics
         )
-
-    observability_context.update_current_span(
-        input={"User message": content},
-        output={"Agent response": assistant_message.content},
-    )
+    if not is_async:
+        observability_context.update_current_span(
+            input={"User message": content},
+            output={"Agent response": assistant_message.content},
+        )
 
     return conversation_public
 
@@ -266,7 +276,9 @@ async def add_user_message(
             conversation.last_user_message_at = utc_now()
             conversation.messages.append(user_message)
             conversation.messages.append(assistant_message)
-
+            conversation.message_processing_status = (
+                AgentConversationMessageProcessingStatus.COMPLETED
+            )
             # Update the conversation in the database
             await service.update(
                 item_id=conversation_id,
@@ -463,3 +475,122 @@ async def update_conversation_status(
             raise RecordNotFoundError()
 
     return updated
+
+
+async def add_assistant_message(
+    conversation_or_id: dict[str, Any] | str,
+):
+    if isinstance(conversation_or_id, str):
+        conversation_id = conversation_or_id
+        conversation_record = await get_conversation_by_id(conversation_or_id)
+    else:
+        conversation_id = str(conversation_or_id.get("id"))
+        conversation_record = conversation_or_id
+
+    conversation = AgentConversationDataWithMessages(**conversation_record)
+    assistant_message = await execute_agent(
+        system_name_or_config=conversation.agent,
+        messages=conversation.messages,
+        variables=conversation.variables,
+    )
+    conversation.messages.append(assistant_message)
+    conversation.message_processing_status = (
+        AgentConversationMessageProcessingStatus.COMPLETED
+    )
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
+        await service.update(
+            item_id=conversation_id,
+            data=conversation.model_dump(),
+            auto_commit=True,
+        )
+    return assistant_message
+
+
+async def get_missing_messages(
+    conversation_id: str, message_count: int
+) -> dict[str, Any]:
+    """Get messages that are missing based on the provided message count."""
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
+        record = await service.get_one_or_none(id=conversation_id)
+        if not record:
+            raise RecordNotFoundError()
+
+        # Get all messages from JSONB
+        all_messages = (
+            record.messages
+            if record.messages and isinstance(record.messages, list)
+            else []
+        )
+        total_count = len(all_messages)
+
+        # Get only missing messages (after the provided count)
+        missing_messages = (
+            all_messages[message_count:] if message_count < total_count else []
+        )
+
+        # Convert to public format
+        messages_public: list[AgentConversationMessagePublic] = []
+        for message in missing_messages:
+            # Handle UUID conversion - it might be a string or UUID object
+            message_id = message.get("id")
+            if isinstance(message_id, str):
+                message_id = UUID(message_id)
+            elif not isinstance(message_id, UUID):
+                continue  # Skip invalid messages
+
+            role = message.get("role")
+            if role == "user" or role == AgentConversationMessageRole.USER:
+                messages_public.append(
+                    AgentConversationMessageUserPublic(
+                        id=message_id,
+                        content=message.get("content"),
+                        created_at=message.get("created_at"),
+                        action_call_confirmations=message.get(
+                            "action_call_confirmations"
+                        ),
+                    )
+                )
+            else:  # assistant
+                messages_public.append(
+                    AgentConversationMessageAssistantPublic(
+                        id=message_id,
+                        content=message.get("content"),
+                        created_at=message.get("created_at"),
+                        action_call_requests=message.get("action_call_requests"),
+                    )
+                )
+        return {
+            "messages": [msg.model_dump() for msg in messages_public],
+            "message_processing_status": record.message_processing_status,
+            "total_count": total_count,
+            "returned_count": len(messages_public),
+        }
+
+
+async def get_message_processing_status(
+    conversation_id: str,
+) -> AgentConversationMessageProcessingStatus:
+    conversation_record = await get_conversation_by_id(conversation_id)
+    conversation = AgentConversationDataWithMessages(**conversation_record)
+    return conversation.message_processing_status
+
+
+async def update_message_processing_status(
+    conversation_id: str,
+    message_processing_status: AgentConversationMessageProcessingStatus,
+):
+    conversation_record = await get_conversation_by_id(conversation_id)
+    conversation = AgentConversationDataWithMessages(**conversation_record)
+    conversation.message_processing_status = message_processing_status
+    async with alchemy.get_session() as session:
+        service = AgentConversationService(session=session)
+        updated = await service.update(
+            item_id=conversation_id,
+            data=conversation.model_dump(),
+            auto_commit=True,
+        )
+    if not updated:
+        raise RecordNotFoundError()
+    return message_processing_status

@@ -1,7 +1,6 @@
 from __future__ import annotations
 import os
 import tempfile
-import asyncio
 from pathlib import Path
 from subprocess import CalledProcessError, run
 import subprocess
@@ -194,38 +193,30 @@ async def get_audio_duration(src: bytes | BytesIO, file_id: str | None = None) -
     fd, tmp_path = tempfile.mkstemp(suffix=".audio")
     os.close(fd)
     try:
-        loop = asyncio.get_running_loop()
-
-        def write_temp():
-            with open(tmp_path, "wb") as f:
-                f.write(data)
-
-        await loop.run_in_executor(None, write_temp)
+        with open(tmp_path, "wb") as f:  # noqa: ASYNC230
+            f.write(data)
 
         # Try ffprobe first
         if shutil.which("ffprobe"):
             try:
                 # Ask only for the 'format=duration' field as JSON
-                def run_ffprobe():
-                    return subprocess.run(
-                        [
-                            "ffprobe",
-                            "-v",
-                            "error",
-                            "-select_streams",
-                            "a:0",
-                            "-show_entries",
-                            "format=duration",
-                            "-of",
-                            "json",
-                            tmp_path,
-                        ],
-                        capture_output=True,
-                        text=True,
-                        check=True,
-                    )
-
-                proc = await loop.run_in_executor(None, run_ffprobe)
+                proc = subprocess.run(  # noqa: ASYNC221
+                    [
+                        "ffprobe",
+                        "-v",
+                        "error",
+                        "-select_streams",
+                        "a:0",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "json",
+                        tmp_path,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
                 info = json.loads(proc.stdout or "{}")
                 dur = None
                 # ffprobe returns duration under format.duration

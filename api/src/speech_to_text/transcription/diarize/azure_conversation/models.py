@@ -91,13 +91,8 @@ class AzureFastDiarizer(BaseDiarization):
             extract_audio_to_wav, src_path=None, src_bytes=src_bytes, sr=16_000
         )
         try:
-            loop = asyncio.get_running_loop()
-
-            def read_wav():
-                with open(tmp_wav, "rb") as f:
-                    return f.read()
-
-            wav_bytes = await loop.run_in_executor(None, read_wav)
+            with open(tmp_wav, "rb") as f:  # noqa: ASYNC230
+                wav_bytes = f.read()
         finally:
             try:
                 os.remove(tmp_wav)
