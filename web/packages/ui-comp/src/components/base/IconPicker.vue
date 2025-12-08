@@ -4,14 +4,7 @@ q-dialog(:model-value='modal', @hide='$emit("update:modal", false)')
     .col-auto
       //- Search
       //- icon-before="search"
-      km-input.full-width(
-        icon-before='search',
-        @input='page = 1 search = $event',
-        :model-value='search',
-        autofocus,
-        placeholder='search icons',
-        clearable
-      )
+      km-input.full-width(icon-before='search', @input='handleSearchInput', :model-value='search', autofocus, placeholder='search icons', clearable)
 
     //- Body
 
@@ -104,6 +97,10 @@ export default {
     },
   },
   methods: {
+    handleSearchInput(value) {
+      this.page = 1
+      this.search = value
+    },
     setIcon(icon) {
       this.$emit('update:modelValue', icon.name)
       this.$emit('update:modal', false)
