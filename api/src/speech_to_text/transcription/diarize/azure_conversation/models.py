@@ -91,7 +91,7 @@ class AzureFastDiarizer(BaseDiarization):
             extract_audio_to_wav, src_path=None, src_bytes=src_bytes, sr=16_000
         )
         try:
-            with open(tmp_wav, "rb") as f:
+            with open(tmp_wav, "rb") as f:  # noqa: ASYNC230
                 wav_bytes = f.read()
         finally:
             try:

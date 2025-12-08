@@ -193,14 +193,14 @@ async def get_audio_duration(src: bytes | BytesIO, file_id: str | None = None) -
     fd, tmp_path = tempfile.mkstemp(suffix=".audio")
     os.close(fd)
     try:
-        with open(tmp_path, "wb") as f:
+        with open(tmp_path, "wb") as f:  # noqa: ASYNC230
             f.write(data)
 
         # Try ffprobe first
         if shutil.which("ffprobe"):
             try:
                 # Ask only for the 'format=duration' field as JSON
-                proc = subprocess.run(
+                proc = subprocess.run(  # noqa: ASYNC221
                     [
                         "ffprobe",
                         "-v",
