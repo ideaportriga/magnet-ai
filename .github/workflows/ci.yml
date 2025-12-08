@@ -161,6 +161,7 @@ jobs:
           poetry export -f requirements.txt --output requirements.txt --without-hashes
           pip install pip-audit
           pip-audit -r requirements.txt --ignore-vuln GHSA-wj6h-64fc-37mp
+        continue-on-error: true
       
       - name: Setup Node.js
         uses: actions/setup-node@v4

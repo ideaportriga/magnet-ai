@@ -14,7 +14,7 @@
       <div class="km-heading-6 text-bold text-orange-9 q-mb-xs">Coming Soon</div>
       <div class="km-description text-secondary-text q-mt-xs" style="font-size: 17px">
         Fluid Topics integration is not yet implemented.
-        <br />
+        <br>
         <span class="text-weight-medium">Please check back later.</span>
       </div>
     </div>
