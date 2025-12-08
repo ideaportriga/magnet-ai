@@ -18,15 +18,17 @@ jobs:
           # - main
           # - develop
           # - feature/*
+          # - fix/*
           # - hotfix/*
           # - release/*
           # - experiment/*
-          REGEX='^(feature|hotfix|release|experiment)\/.+|(main|develop)$'
+          REGEX='^(feature|fix|hotfix|release|experiment)\/.+|(main|develop)$'
           
           if [[ ! $BRANCH_NAME =~ $REGEX ]]; then
             echo "❌ Error: Branch name '$BRANCH_NAME' does not match the allowed pattern."
             echo "Allowed patterns:"
             echo "  - feature/..."
+            echo "  - fix/..."
             echo "  - hotfix/..."
             echo "  - release/..."
             echo "  - experiment/..."
