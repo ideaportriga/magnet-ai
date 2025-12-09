@@ -1,5 +1,6 @@
 import fnmatch
 import logging
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -60,20 +61,41 @@ def get_default_content_configs() -> list[ContentConfig]:
     ]
 
 
-async def _get_all_configs(
+async def get_graph_settings(
     db_session: AsyncSession, graph_id: UUID
-) -> list[ContentConfig]:
-    # Fetch graph settings
+) -> dict[str, Any]:
+    """Get graph settings."""
     result = await db_session.execute(
         select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
     )
     graph = result.scalar_one_or_none()
 
-    if not graph or not graph.settings or "chunking" not in graph.settings:
+    if not graph or not graph.settings:
+        return {}
+
+    return graph.settings
+
+
+async def get_graph_embedding_model(
+    db_session: AsyncSession, graph_id: UUID
+) -> str | None:
+    """Get embedding model configured for the graph."""
+    settings = await get_graph_settings(db_session, graph_id)
+    indexing_cfg = settings.get("indexing") or {}
+    model = indexing_cfg.get("embedding_model")
+    return model.strip() if isinstance(model, str) and model.strip() else None
+
+
+async def _get_all_configs(
+    db_session: AsyncSession, graph_id: UUID
+) -> list[ContentConfig]:
+    settings = await get_graph_settings(db_session, graph_id)
+
+    if not settings or "chunking" not in settings:
         # Return defaults if no settings exist
         return get_default_content_configs()
 
-    chunking_settings = graph.settings.get("chunking", {})
+    chunking_settings = settings.get("chunking", {})
     content_settings = chunking_settings.get("content_settings", [])
 
     if not content_settings:

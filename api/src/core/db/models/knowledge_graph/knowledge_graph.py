@@ -9,7 +9,6 @@ from ..base import UUIDAuditSimpleBase
 
 if TYPE_CHECKING:
     from .knowledge_graph_source import KnowledgeGraphSource
-    from .knowledge_graph_document import KnowledgeGraphDocument
 
 
 class KnowledgeGraph(UUIDAuditSimpleBase):
@@ -22,13 +21,6 @@ class KnowledgeGraph(UUIDAuditSimpleBase):
         JsonB,
         nullable=True,
         comment="Knowledge graph settings (processing config, etc.)",
-    )
-
-    # Relationship to documents in this graph
-    documents: Mapped[list["KnowledgeGraphDocument"]] = relationship(
-        "KnowledgeGraphDocument",
-        back_populates="graph",
-        cascade="all, delete-orphan",
     )
 
     # Relationship to sources in this graph

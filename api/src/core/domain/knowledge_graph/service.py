@@ -1,24 +1,17 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from advanced_alchemy.extensions.litestar import repository, service
 from litestar.exceptions import ClientException, NotFoundException
 from litestar.status_codes import HTTP_415_UNSUPPORTED_MEDIA_TYPE
-from sqlalchemy import delete, func, select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models.knowledge_graph.knowledge_graph import KnowledgeGraph
-from core.db.models.knowledge_graph.knowledge_graph_chunk import (
-    KnowledgeGraphChunk,
-)
-from core.db.models.knowledge_graph.knowledge_graph_document import (
-    KnowledgeGraphDocument,
-)
-from core.db.models.knowledge_graph.knowledge_graph_source import (
-    KnowledgeGraphSource,
-)
+from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
+from core.domain.ai_models.service import AIModelsService
+from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
     KnowledgeGraphChunkListResponse,
@@ -27,6 +20,7 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
     KnowledgeGraphExternalSchema,
+    KnowledgeGraphRetrievalPreviewResponse,
     KnowledgeGraphSourceCreateRequest,
     KnowledgeGraphSourceCreateResponse,
     KnowledgeGraphSourceExternalSchema,
@@ -34,16 +28,29 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphUpdateRequest,
     KnowledgeGraphUpdateResponse,
 )
+from services.agents.models import (
+    AgentConversationDataWithMessages,
+    AgentConversationMessageAssistant,
+    AgentConversationMessageUser,
+)
 from services.knowledge_graph import (
     get_content_config,
     get_default_content_configs,
+    get_default_retrieval_settings,
     load_content_from_bytes,
 )
+from services.knowledge_graph.retrievers import run_agentic_retrieval
 from services.knowledge_graph.sources import (
     ManualUploadDataSource,
     SharePointDataSource,
 )
-from utils.datetime_utils import utc_now_isoformat
+from services.knowledge_graph.store_services import (
+    chunks_table_name,
+    docs_table_name,
+    drop_graph_tables,
+)
+from services.observability import observe, observability_context
+from utils.datetime_utils import utc_now_isoformat, utc_now
 
 
 class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGraph]):
@@ -53,29 +60,28 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         self, db_session: AsyncSession
     ) -> list[KnowledgeGraphExternalSchema]:
         result = await db_session.execute(
-            select(
-                KnowledgeGraph,
-                func.count(func.distinct(KnowledgeGraphDocument.id)).label(
-                    "documents_count"
-                ),
-                func.count(KnowledgeGraphChunk.id).label("chunks_count"),
-            )
-            .outerjoin(
-                KnowledgeGraphDocument,
-                KnowledgeGraphDocument.graph_id == KnowledgeGraph.id,
-            )
-            .outerjoin(
-                KnowledgeGraphChunk,
-                KnowledgeGraphChunk.document_id == KnowledgeGraphDocument.id,
-            )
-            .group_by(KnowledgeGraph.id)
-            .order_by(KnowledgeGraph.created_at.desc())
+            select(KnowledgeGraph).order_by(KnowledgeGraph.created_at.desc())
         )
-
-        rows = result.all()
+        graphs = result.scalars().all()
         results: list[KnowledgeGraphExternalSchema] = []
-        for row in rows:
-            graph, documents_count, chunks_count = row
+        for graph in graphs:
+            # Dynamic per-graph counts
+            docs_table = docs_table_name(graph.id)
+            ch_table = chunks_table_name(graph.id)
+            try:
+                docs_count_res = await db_session.execute(
+                    text(f"SELECT COUNT(*) FROM {docs_table}")
+                )
+                documents_count = int(docs_count_res.scalar_one() or 0)
+            except Exception:
+                documents_count = 0
+            try:
+                chunks_count_res = await db_session.execute(
+                    text(f"SELECT COUNT(*) FROM {ch_table}")
+                )
+                chunks_count = int(chunks_count_res.scalar_one() or 0)
+            except Exception:
+                chunks_count = 0
             results.append(
                 KnowledgeGraphExternalSchema(
                     id=str(graph.id),
@@ -97,31 +103,30 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
     async def get_graph(
         self, db_session: AsyncSession, graph_id: UUID
     ) -> KnowledgeGraphExternalSchema:
-        result = await db_session.execute(
-            select(
-                KnowledgeGraph,
-                func.count(func.distinct(KnowledgeGraphDocument.id)).label(
-                    "documents_count"
-                ),
-                func.count(KnowledgeGraphChunk.id).label("chunks_count"),
-            )
-            .outerjoin(
-                KnowledgeGraphDocument,
-                KnowledgeGraphDocument.graph_id == KnowledgeGraph.id,
-            )
-            .outerjoin(
-                KnowledgeGraphChunk,
-                KnowledgeGraphChunk.document_id == KnowledgeGraphDocument.id,
-            )
-            .where(KnowledgeGraph.id == graph_id)
-            .group_by(KnowledgeGraph.id)
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
         )
-
-        row = result.one_or_none()
-        if not row:
+        graph = graph_res.scalar_one_or_none()
+        if not graph:
             raise NotFoundException("Graph not found")
 
-        graph, documents_count, chunks_count = row
+        # Dynamic per-graph counts
+        docs_table = docs_table_name(graph.id)
+        ch_table = chunks_table_name(graph.id)
+        try:
+            docs_count_res = await db_session.execute(
+                text(f"SELECT COUNT(*) FROM {docs_table}")
+            )
+            documents_count = int(docs_count_res.scalar_one() or 0)
+        except Exception:
+            documents_count = 0
+        try:
+            chunks_count_res = await db_session.execute(
+                text(f"SELECT COUNT(*) FROM {ch_table}")
+            )
+            chunks_count = int(chunks_count_res.scalar_one() or 0)
+        except Exception:
+            chunks_count = 0
         return KnowledgeGraphExternalSchema(
             id=str(graph.id),
             name=graph.name,
@@ -137,7 +142,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         )
 
     async def create_graph(
-        self, data: KnowledgeGraphCreateRequest
+        self, db_session: AsyncSession, data: KnowledgeGraphCreateRequest
     ) -> KnowledgeGraphCreateResponse:
         system_name = (
             (data.system_name or data.name)
@@ -148,11 +153,27 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         )
 
         default_configs = get_default_content_configs()
+        retrieval_settings = get_default_retrieval_settings()
         settings: dict[str, Any] | None = {
             "chunking": {
                 "content_settings": [cfg.model_dump() for cfg in default_configs],
-            }
+            },
+            **retrieval_settings,
         }
+
+        # Set default embedding model if it exists
+        try:
+            models_service = AIModelsService(session=db_session)
+            default_embedding = await models_service.get_one_or_none(
+                type="embeddings", is_default=True
+            )
+            if default_embedding:
+                indexing_cfg = dict((settings.get("indexing") or {}))
+                indexing_cfg["embedding_model"] = default_embedding.system_name
+                settings["indexing"] = indexing_cfg
+        except Exception:
+            # Non-fatal: proceed without default embedding if lookup fails
+            pass
 
         created = await self.create(
             {
@@ -210,6 +231,18 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             description=getattr(updated, "description", None),
         )
 
+    async def delete_graph(self, db_session: AsyncSession, graph_id: UUID) -> None:
+        """Delete a graph and drop its per-graph tables."""
+        # Ensure the graph exists
+        _ = await self.repository.get(graph_id)
+
+        # Drop dynamic tables
+        await drop_graph_tables(db_session, graph_id)
+        await db_session.commit()
+
+        # Remove graph record
+        await self.delete(item_id=graph_id, auto_commit=True)
+
     async def upload_file(
         self, db_session: AsyncSession, graph_id: UUID, filename: str, file_bytes: bytes
     ) -> dict[str, str]:
@@ -241,6 +274,137 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             raise
         except Exception as e:  # noqa: BLE001
             raise ClientException(f"File upload failed: {e}")
+
+    @observe(name="Start conversation", channel="production", source="production")
+    async def start_conversation(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        query: str,
+    ) -> KnowledgeGraphRetrievalPreviewResponse:
+        graph = await self.repository.get(graph_id)
+        observability_context.update_current_trace(name=graph.name)
+
+        conversation_service = AgentConversationService(session=db_session)
+        now = utc_now()
+
+        # Start a new conversation with the initial user message
+        user_msg = AgentConversationMessageUser(
+            id=uuid4(),
+            content=query,
+            created_at=now,
+        )
+
+        # Get current trace id to link conversation to trace
+        trace_id = observability_context.get_current_trace_id()
+
+        conversation_data = AgentConversationDataWithMessages(
+            agent="KNOWLEDGE_GRAPH_AGENT",
+            created_at=now,
+            last_user_message_at=now,
+            messages=[user_msg],
+            client_id=None,
+            trace_id=trace_id,
+            analytics_id=None,
+            variables=None,
+        )
+        conversation_record = await conversation_service.create(
+            conversation_data.model_dump(), auto_commit=True
+        )
+        conversation = conversation_service.to_schema(
+            conversation_record, schema_type=AgentConversationDataWithMessages
+        )
+
+        conversation_id_str = str(conversation.id)
+
+        # Build chat history to run the retrieval agent
+        chat_history: list[dict[str, Any]] = []
+        for m in conversation.messages:
+            if not getattr(m, "content", None):
+                continue
+            role_value = getattr(m.role, "value", m.role)
+            chat_history.append({"role": role_value, "content": m.content})
+
+        # Run agent over full conversation history
+        preview = await run_agentic_retrieval(db_session, graph_id, chat_history)
+
+        # Append assistant response to conversation
+        assistant_msg = AgentConversationMessageAssistant(
+            id=uuid4(),
+            content=preview.content,
+            created_at=utc_now(),
+        )
+        conversation.messages.append(assistant_msg)
+        await conversation_service.update(
+            item_id=str(conversation.id),
+            data=conversation.model_dump(),
+            auto_commit=True,
+        )
+
+        return preview.model_copy(update={"conversation_id": conversation_id_str})
+
+    @observe(name="New user message", channel="production", source="production")
+    async def continue_conversation(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        query: str,
+        conversation_id: UUID,
+    ) -> KnowledgeGraphRetrievalPreviewResponse:
+        conversation_service = AgentConversationService(session=db_session)
+        now = utc_now()
+
+        conversation_record = await conversation_service.get_one_or_none(
+            id=str(conversation_id)
+        )
+
+        if not conversation_record:
+            raise NotFoundException("Conversation not found")
+
+        # Continue existing conversation: append user message
+        conversation = conversation_service.to_schema(
+            conversation_record, schema_type=AgentConversationDataWithMessages
+        )
+        user_msg = AgentConversationMessageUser(
+            id=uuid4(),
+            content=query,
+            created_at=now,
+        )
+        conversation.messages.append(user_msg)
+        conversation.last_user_message_at = now
+        await conversation_service.update(
+            item_id=str(conversation.id),
+            data=conversation.model_dump(),
+            auto_commit=True,
+        )
+
+        conversation_id_str = str(conversation.id)
+
+        # Build chat history to run the retrieval agent
+        chat_history: list[dict[str, Any]] = []
+        for m in conversation.messages:
+            if not getattr(m, "content", None):
+                continue
+            role_value = getattr(m.role, "value", m.role)
+            chat_history.append({"role": role_value, "content": m.content})
+
+        # Run agent over full conversation history
+        preview = await run_agentic_retrieval(db_session, graph_id, chat_history)
+
+        # Append assistant response to conversation
+        assistant_msg = AgentConversationMessageAssistant(
+            id=uuid4(),
+            content=preview.content,
+            created_at=utc_now(),
+        )
+        conversation.messages.append(assistant_msg)
+        await conversation_service.update(
+            item_id=str(conversation.id),
+            data=conversation.model_dump(),
+            auto_commit=True,
+        )
+
+        return preview.model_copy(update={"conversation_id": conversation_id_str})
 
     class Repo(repository.SQLAlchemyAsyncRepository[KnowledgeGraph]):
         model_type = KnowledgeGraph
@@ -373,11 +537,23 @@ class KnowledgeGraphSourceService(
 
         # If cascade requested, delete all documents (and chunks via DB FK cascade) linked to this source
         if cascade:
+            docs_table = docs_table_name(graph_id)
+            ch_table = chunks_table_name(graph_id)
+
+            # Explicitly delete chunks first (safer than relying solely on DB cascade)
             await db_session.execute(
-                delete(KnowledgeGraphDocument).where(
-                    (KnowledgeGraphDocument.graph_id == graph_id)
-                    & (KnowledgeGraphDocument.source_id == source_id)
-                )
+                text(f"""
+                    DELETE FROM {ch_table}
+                    WHERE document_id IN (
+                        SELECT id FROM {docs_table} WHERE source_id = :source_id
+                    )
+                """),
+                {"source_id": str(source_id)},
+            )
+
+            await db_session.execute(
+                text(f"DELETE FROM {docs_table} WHERE source_id = :source_id"),
+                {"source_id": str(source_id)},
             )
 
         await db_session.delete(source)
@@ -424,48 +600,52 @@ class KnowledgeGraphSourceService(
     repository_type = Repo
 
 
-class KnowledgeGraphDocumentService(
-    service.SQLAlchemyAsyncRepositoryService[KnowledgeGraphDocument]
-):
+class KnowledgeGraphDocumentService:
     async def list_documents(
         self, db_session: AsyncSession, graph_id: UUID
     ) -> list[KnowledgeGraphDocumentExternalSchema]:
-        result = await db_session.execute(
-            select(
-                KnowledgeGraphDocument,
-                KnowledgeGraphSource,
-                func.count(KnowledgeGraphChunk.id).label("chunks_count"),
+        docs_table = docs_table_name(graph_id)
+        ch_table = chunks_table_name(graph_id)
+        rows = await db_session.execute(
+            text(
+                f"""
+                SELECT
+                    d.id::text AS id,
+                    d.name AS name,
+                    d.type AS type,
+                    d.content_profile AS content_profile,
+                    d.status AS status,
+                    d.status_message AS status_message,
+                    d.title AS title,
+                    d.total_pages AS total_pages,
+                    d.processing_time AS processing_time,
+                    d.created_at AS created_at,
+                    d.updated_at AS updated_at,
+                    s.name AS source_name,
+                    (SELECT COUNT(*) FROM {ch_table} c WHERE c.document_id = d.id) AS chunks_count
+                FROM {docs_table} d
+                LEFT JOIN knowledge_graph_sources s ON s.id = d.source_id
+                ORDER BY d.created_at DESC
+                """
             )
-            .outerjoin(
-                KnowledgeGraphChunk,
-                KnowledgeGraphChunk.document_id == KnowledgeGraphDocument.id,
-            )
-            .outerjoin(
-                KnowledgeGraphSource,
-                KnowledgeGraphSource.id == KnowledgeGraphDocument.source_id,
-            )
-            .where(KnowledgeGraphDocument.graph_id == graph_id)
-            .group_by(KnowledgeGraphDocument.id, KnowledgeGraphSource.id)
-            .order_by(KnowledgeGraphDocument.created_at.desc())
         )
-
         documents: list[KnowledgeGraphDocumentExternalSchema] = []
-        for doc, source, chunks_count in result.all():
+        for row in rows.fetchall():
             documents.append(
                 KnowledgeGraphDocumentExternalSchema(
-                    id=str(doc.id),
-                    name=doc.name,
-                    type=doc.type,
-                    content_profile=doc.content_profile,
-                    status=doc.status,
-                    status_message=getattr(doc, "status_message", None),
-                    title=doc.title,
-                    total_pages=doc.total_pages,
-                    processing_time=getattr(doc, "processing_time", None),
-                    chunks_count=int(chunks_count or 0),
-                    source_name=source.name if source else None,
-                    created_at=doc.created_at.isoformat() if doc.created_at else None,
-                    updated_at=doc.updated_at.isoformat() if doc.updated_at else None,
+                    id=str(row.id),
+                    name=row.name,
+                    type=row.type,
+                    content_profile=row.content_profile,
+                    status=row.status,
+                    status_message=row.status_message,
+                    title=row.title,
+                    total_pages=row.total_pages,
+                    processing_time=row.processing_time,
+                    chunks_count=int(row.chunks_count or 0),
+                    source_name=row.source_name if row.source_name else None,
+                    created_at=row.created_at.isoformat() if row.created_at else None,
+                    updated_at=row.updated_at.isoformat() if row.updated_at else None,
                 )
             )
 
@@ -474,70 +654,77 @@ class KnowledgeGraphDocumentService(
     async def get_document(
         self, db_session: AsyncSession, graph_id: UUID, document_id: UUID
     ) -> KnowledgeGraphDocumentDetailSchema:
-        result = await db_session.execute(
-            select(
-                KnowledgeGraphDocument,
-                func.count(KnowledgeGraphChunk.id).label("chunks_count"),
-            )
-            .outerjoin(
-                KnowledgeGraphChunk,
-                KnowledgeGraphDocument.id == KnowledgeGraphChunk.document_id,
-            )
-            .where(
-                (KnowledgeGraphDocument.id == document_id)
-                & (KnowledgeGraphDocument.graph_id == graph_id)
-            )
-            .group_by(KnowledgeGraphDocument.id)
+        docs_table = docs_table_name(graph_id)
+        ch_table = chunks_table_name(graph_id)
+        res = await db_session.execute(
+            text(
+                f"""
+                SELECT
+                    d.id::text AS id,
+                    d.name AS name,
+                    d.type AS type,
+                    d.content_profile AS content_profile,
+                    d.title AS title,
+                    d.summary AS summary,
+                    d.toc AS toc,
+                    d.status AS status,
+                    d.status_message AS status_message,
+                    d.total_pages AS total_pages,
+                    d.processing_time AS processing_time,
+                    d.created_at AS created_at,
+                    d.updated_at AS updated_at,
+                    (SELECT COUNT(*) FROM {ch_table} c WHERE c.document_id = d.id) AS chunks_count
+                FROM {docs_table} d
+                WHERE d.id = :id
+                """
+            ),
+            {"id": str(document_id)},
         )
-
-        row = result.one_or_none()
+        row = res.one_or_none()
         if not row:
             raise NotFoundException("Document not found")
 
-        doc, chunks_count = row
         return KnowledgeGraphDocumentDetailSchema(
-            id=str(doc.id),
-            name=doc.name,
-            type=doc.type,
-            content_profile=doc.content_profile,
-            title=doc.title,
-            summary=doc.summary,
-            toc=doc.toc,
-            status=doc.status,
-            status_message=getattr(doc, "status_message", None),
-            total_pages=doc.total_pages,
-            processing_time=getattr(doc, "processing_time", None),
-            source_id=str(doc.source_id) if getattr(doc, "source_id", None) else None,
-            chunks_count=int(chunks_count or 0),
-            created_at=doc.created_at.isoformat() if doc.created_at else None,
-            updated_at=doc.updated_at.isoformat() if doc.updated_at else None,
+            id=str(row.id),
+            name=row.name,
+            type=row.type,
+            content_profile=row.content_profile,
+            title=row.title,
+            summary=row.summary,
+            toc=row.toc,
+            status=row.status,
+            status_message=row.status_message,
+            total_pages=row.total_pages,
+            processing_time=row.processing_time,
+            source_id=None,
+            chunks_count=int(row.chunks_count or 0),
+            created_at=row.created_at.isoformat() if row.created_at else None,
+            updated_at=row.updated_at.isoformat() if row.updated_at else None,
         )
 
     async def delete_document(
         self, db_session: AsyncSession, graph_id: UUID, document_id: UUID
     ) -> None:
-        result = await db_session.execute(
-            select(KnowledgeGraphDocument).where(
-                (KnowledgeGraphDocument.id == document_id)
-                & (KnowledgeGraphDocument.graph_id == graph_id)
-            )
+        docs_table = docs_table_name(graph_id)
+        ch_table = chunks_table_name(graph_id)
+
+        # Explicitly delete chunks first
+        await db_session.execute(
+            text(f"DELETE FROM {ch_table} WHERE document_id = :doc_id"),
+            {"doc_id": str(document_id)},
         )
-        document = result.scalar_one_or_none()
-        if not document:
+
+        res = await db_session.execute(
+            text(f"DELETE FROM {docs_table} WHERE id = :id RETURNING 1"),
+            {"id": str(document_id)},
+        )
+        deleted = res.scalar_one_or_none()
+        await db_session.commit()
+        if not deleted:
             raise NotFoundException("Document not found")
 
-        await db_session.delete(document)
-        await db_session.commit()
 
-    class Repo(repository.SQLAlchemyAsyncRepository[KnowledgeGraphDocument]):
-        model_type = KnowledgeGraphDocument
-
-    repository_type = Repo
-
-
-class KnowledgeGraphChunkService(
-    service.SQLAlchemyAsyncRepositoryService[KnowledgeGraphChunk]
-):
+class KnowledgeGraphChunkService:
     async def list_chunks(
         self,
         db_session: AsyncSession,
@@ -547,67 +734,75 @@ class KnowledgeGraphChunkService(
         q: str | None = None,
         document_id: UUID | None = None,
     ) -> KnowledgeGraphChunkListResponse:
-        query = (
-            select(KnowledgeGraphChunk, KnowledgeGraphDocument)
-            .join(
-                KnowledgeGraphDocument,
-                KnowledgeGraphChunk.document_id == KnowledgeGraphDocument.id,
-            )
-            .where(KnowledgeGraphDocument.graph_id == graph_id)
-        )
+        docs_table = docs_table_name(graph_id)
+        ch_table = chunks_table_name(graph_id)
 
+        where_clauses = []
+        params: dict[str, Any] = {}
         if document_id is not None:
-            query = query.where(KnowledgeGraphDocument.id == document_id)
-
+            where_clauses.append("c.document_id = :doc_id")
+            params["doc_id"] = str(document_id)
         if q:
-            search_pattern = f"%{q}%"
-            query = query.where(
-                (KnowledgeGraphChunk.title.ilike(search_pattern))
-                | (KnowledgeGraphChunk.name.ilike(search_pattern))
-                | (KnowledgeGraphChunk.text.ilike(search_pattern))
+            where_clauses.append(
+                "(c.title ILIKE :q OR c.name ILIKE :q OR c.text ILIKE :q)"
             )
+            params["q"] = f"%{q}%"
+        where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
-        count_query = select(func.count()).select_from(query.subquery())
-        count_result = await db_session.execute(count_query)
-        total_count = int(count_result.scalar() or 0)
-
-        query = (
-            query.order_by(
-                KnowledgeGraphDocument.created_at.desc(),
-                KnowledgeGraphChunk.page,
-                KnowledgeGraphChunk.created_at,
-            )
-            .limit(limit)
-            .offset(offset)
+        count_res = await db_session.execute(
+            text(
+                f"""
+                SELECT COUNT(*) FROM {ch_table} c
+                JOIN {docs_table} d ON d.id = c.document_id
+                {where_sql}
+                """
+            ),
+            params,
         )
+        total_count = int(count_res.scalar() or 0)
 
-        result = await db_session.execute(query)
-        rows = result.all()
+        rows = await db_session.execute(
+            text(
+                f"""
+                SELECT 
+                    c.id::text AS id,
+                    c.name AS name,
+                    c.title AS title,
+                    c.toc_reference AS toc_reference,
+                    c.page AS page,
+                    c.chunk_type AS chunk_type,
+                    c.text AS text,
+                    c.created_at AS created_at,
+                    d.id::text AS document_id,
+                    d.name AS document_name
+                FROM {ch_table} c
+                JOIN {docs_table} d ON d.id = c.document_id
+                {where_sql}
+                ORDER BY d.created_at DESC, c.page NULLS FIRST, c.created_at
+                LIMIT :limit OFFSET :offset
+                """
+            ),
+            {**params, "limit": int(limit), "offset": int(offset)},
+        )
+        rows_all = rows.fetchall()
 
         chunks: list[KnowledgeGraphChunkExternalSchema] = []
-        for chunk, document in rows:
+        for row in rows_all:
             chunks.append(
                 KnowledgeGraphChunkExternalSchema(
-                    id=str(chunk.id),
-                    document_id=str(document.id),
-                    document_name=document.name,
-                    name=chunk.name,
-                    title=chunk.title,
-                    toc_reference=getattr(chunk, "toc_reference", None),
-                    page=getattr(chunk, "page", None),
-                    chunk_type=getattr(chunk, "chunk_type", None),
-                    text=getattr(chunk, "text", None),
-                    created_at=chunk.created_at.isoformat()
-                    if getattr(chunk, "created_at", None)
-                    else None,
+                    id=str(row.id),
+                    document_id=str(row.document_id),
+                    document_name=row.document_name,
+                    name=row.name,
+                    title=row.title,
+                    toc_reference=row.toc_reference,
+                    page=row.page,
+                    chunk_type=row.chunk_type,
+                    text=row.text,
+                    created_at=row.created_at.isoformat() if row.created_at else None,
                 )
             )
 
         return KnowledgeGraphChunkListResponse(
             chunks=chunks, total=total_count, limit=limit, offset=offset
         )
-
-    class Repo(repository.SQLAlchemyAsyncRepository[KnowledgeGraphChunk]):
-        model_type = KnowledgeGraphChunk
-
-    repository_type = Repo

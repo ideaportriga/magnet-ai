@@ -61,6 +61,7 @@ class AzureProvider(AIProviderInterface):
         max_tokens: int | None = None,
         response_format: dict | None = None,
         tools: list[ChatCompletionToolParam] | None = None,
+        tool_choice: str | None = None,
         model_config: dict | None = None,
     ) -> ChatCompletion:
         model = model or self.model_default
@@ -86,6 +87,7 @@ class AzureProvider(AIProviderInterface):
                 max_completion_tokens=max_completion_tokens,
                 response_format=transform_schema(response_format),
                 tools=tools or openai.NOT_GIVEN,
+                tool_choice=tool_choice or openai.NOT_GIVEN,
                 reasoning_effort=reasoning_effort,
             )
 

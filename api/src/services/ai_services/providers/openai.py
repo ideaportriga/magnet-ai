@@ -32,6 +32,7 @@ class OpenAIProvider(AIProviderInterface):
         max_tokens: int | None = None,
         response_format: dict | None = None,
         tools: list[dict] | None = None,
+        tool_choice: str | None = None,
         model_config: dict | None = None,
     ) -> ChatCompletion:
         model = model or self.model_default
@@ -57,6 +58,7 @@ class OpenAIProvider(AIProviderInterface):
 
         # if model_config and model_config.get("tool_calling"):
         params["tools"] = tools or openai.NOT_GIVEN
+        params["tool_choice"] = tool_choice or openai.NOT_GIVEN
 
         return await self.client.chat.completions.create(**params)
 

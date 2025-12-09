@@ -1,6 +1,7 @@
 """Alembic environment configuration."""
 
 import asyncio
+import re
 from typing import Optional
 
 # import sys
@@ -96,6 +97,13 @@ def run_migrations_offline() -> None:
             # Ignore APScheduler tables
             if name == "apscheduler_jobs":
                 return False
+            # Ignore knowledge graph tables
+            if re.match(r"knowledge_graph_.*_(chunks|documents)$", name):
+                return False
+        elif type_ == "index":
+            # Ignore knowledge graph indexes
+            if re.match(r"idx_knowledge_graph_.*_(chunks|docume)$", name):
+                return False
         return True
 
     url = config.get_main_option("sqlalchemy.url")
@@ -135,6 +143,13 @@ def do_run_migrations(connection: Connection) -> None:
                 return False
             # Ignore APScheduler tables
             if name == "apscheduler_jobs":
+                return False
+            # Ignore knowledge graph tables
+            if re.match(r"knowledge_graph_.*_(chunks|documents)$", name):
+                return False
+        elif type_ == "index":
+            # Ignore knowledge graph indexes
+            if re.match(r"idx_knowledge_graph_.*_(chunks|docume)$", name):
                 return False
         return True
 

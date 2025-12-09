@@ -3,7 +3,7 @@
     <div class="row items-center q-mb-md">
       <div class="col">
         <div class="km-heading-7">Graph Settings</div>
-        <div class="km-description text-secondary-text">Configure knowledge graph settings</div>
+        <div class="km-description text-secondary-text">Configure content processing profiles and embedding model for ingestion and graph building</div>
       </div>
       <div v-if="hasChanges" class="col-auto">
         <div class="row q-gutter-sm">
@@ -29,7 +29,7 @@
                 row-key="name"
                 flat
                 bordered
-                hide-bottom
+                hide-pagination
                 table-header-class="bg-primary-light"
                 :loading="loadingContentConfigs"
                 @row-click="onCellClick"
@@ -46,32 +46,24 @@
 
         <q-separator class="q-my-lg" />
 
-        <km-section title="Indexing" sub-title="Configure indexing methods to optimize document retrieval and search accuracy">
+        <km-section title="Indexing" sub-title="Select the embedding model used to create vector representations of content">
           <div class="column q-gap-16">
             <div class="col">
-              <div class="row items-baseline">
-                <div class="col-auto q-mr-sm">
-                  <q-toggle v-model="supportSemanticSearch" dense disable />
-                </div>
-                <div class="col">Support semantic search</div>
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <span class="km-input-label">Embedding model</span>
+                <q-icon v-if="!embeddingModel" name="o_warning" color="red" size="xs" />
               </div>
-              <div class="km-description text-secondary-text q-mt-sm">
-                Create vector embeddings to support semantic search. Currently always enabled.
-              </div>
-            </div>
-            <div class="col">
-              <div class="row items-baseline">
-                <div class="col-auto q-mr-sm">
-                  <q-toggle v-model="supportKeywordSearch" dense />
-                </div>
-                <div class="col">Support keyword search</div>
-              </div>
-              <div class="km-description text-secondary-text q-mt-sm">Enable direct keyword matching to complement semantic search.</div>
-            </div>
-            <div class="col">
-              <div class="km-input-label q-pb-xs">Embedding model (optional)</div>
-              <km-input v-model="embeddingModel" placeholder="e.g. text-embedding-3-large" />
-              <div class="km-description text-secondary-text q-mt-xs q-ml-xs">Override default embedding model used for indexing.</div>
+              <StyledSelect
+                v-model="embeddingModel"
+                :options="embeddingModelOptions"
+                placeholder="Select embedding model"
+                no-options-label="No embedding models available"
+                option-value="system_name"
+                option-label="display_name"
+                :option-meta="formatVectorSize"
+                :show-error="true"
+                :clearable="true"
+              />
             </div>
           </div>
         </km-section>
@@ -96,6 +88,7 @@ import { fetchData } from '@shared'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
+import StyledSelect from '../StyledSelect.vue'
 import ContentConfigDialog from './ContentConfigDialog.vue'
 import { ContentConfigRow, chunkingStrategyOptions, readerOptions } from './models'
 
@@ -112,14 +105,22 @@ const emit = defineEmits<{
 const store = useStore()
 const $q = useQuasar()
 
-const supportSemanticSearch = ref<boolean>(true)
-const supportKeywordSearch = ref<boolean>(false)
 const embeddingModel = ref<string>('')
 const saving = ref(false)
 const contentConfigs = ref<any[]>([])
 const loadingContentConfigs = ref(false)
 const showContentConfigDialog = ref(false)
 const editingContentConfig = ref<any>(null)
+
+const embeddingModelOptions = computed(() => {
+  return (store.getters['chroma/model']?.items || []).filter((el: any) => el.type === 'embeddings')
+})
+
+const formatVectorSize = (opt: any): string | undefined => {
+  console.log(opt)
+  const size = opt?.configs?.vector_size ?? 1536
+  return size ? `${size} size vector` : undefined
+}
 
 const originalValues = ref<Record<string, any>>({})
 const originalContentConfigs = ref<any[]>([])
@@ -154,13 +155,9 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
 ]
 
 const initializeForm = () => {
-  supportSemanticSearch.value = props.graphDetails.settings?.indexing?.semantic_search_supported ?? true
-  supportKeywordSearch.value = props.graphDetails.settings?.indexing?.fulltext_search_supported ?? false
   embeddingModel.value = props.graphDetails.settings?.indexing?.embedding_model ?? ''
 
   originalValues.value = {
-    supportSemanticSearch: supportSemanticSearch.value,
-    supportKeywordSearch: supportKeywordSearch.value,
     embeddingModel: embeddingModel.value,
   }
 
@@ -214,10 +211,7 @@ const onCellClick = (_evt: any, row: any, col: any) => {
 }
 
 const hasChanges = computed(() => {
-  const settingsChanged =
-    supportSemanticSearch.value !== originalValues.value.supportSemanticSearch ||
-    supportKeywordSearch.value !== originalValues.value.supportKeywordSearch ||
-    embeddingModel.value !== originalValues.value.embeddingModel
+  const settingsChanged = embeddingModel.value !== originalValues.value.embeddingModel
 
   const normalize = (arr: any[]) =>
     (arr || [])
@@ -252,8 +246,6 @@ const saveSettings = async () => {
     const payload = {
       settings: {
         indexing: {
-          semantic_search_supported: supportSemanticSearch.value,
-          fulltext_search_supported: supportKeywordSearch.value,
           embedding_model: embeddingModel.value || null,
         },
         chunking: {

@@ -60,6 +60,9 @@
           .column.q-gap-6(v-if='span?.prompt_template?.variant')
             .km-input-label.text-text-grey Variant
             .km-heading-2 {{ span?.prompt_template?.variant }}
+      template(v-else-if='tab == "tools"')
+        .column.q-gap-32(v-if='span?.extra_data?.tools && span?.extra_data?.tools.length > 0')
+          observability-traces-tools-list(:tools='span?.extra_data?.tools')
       template(v-else-if='tab == "model"')
         .column.q-gap-24
           .column.q-gap-6
@@ -99,6 +102,7 @@ export default defineComponent({
         { name: 'error', label: 'Error', availableFor: [] },
         { name: 'input_output', label: 'Inputs & Outputs', availableFor: ['span', 'search', 'embed', 'rerank', 'chat', 'tool'] },
         { name: 'prompt_template', label: 'Prompt Template', availableFor: ['chat'] },
+        { name: 'tools', label: 'Tools', availableFor: ['chat'] },
         { name: 'model', label: 'Model', availableFor: ['embed', 'rerank', 'chat'] },
       ]),
     }

@@ -24,6 +24,7 @@ async def create_chat_completion(
     max_tokens: int | None = None,
     response_format: dict | None = None,
     tools: list[dict] | None = None,
+    tool_choice: str | None = None,
     related_prompt_template_config: dict | None = None,
 ) -> ChatCompletion:
     provider_system_name = None
@@ -100,6 +101,9 @@ async def create_chat_completion(
             description=f'Generating text using chat completion API powered by "{llm}" LLM, provided by {provider_display_name}.',
             model=call_model,
             input=call_input,
+            extra_data={
+                "tools": tools,
+            },
         )
 
         # Call LLM, get response and calculate duration
@@ -113,6 +117,7 @@ async def create_chat_completion(
             max_tokens=max_tokens,
             response_format=response_format,
             tools=tools,
+            tool_choice=tool_choice,
             model_config=model_config,
         )
         call_end_time = time.time()
@@ -165,6 +170,7 @@ async def create_chat_completion_from_prompt_template(
     prompt_template_values: dict | None = None,
     additional_messages: list[ChatCompletionMessageParam] | None = None,
     tools: list[dict] | None = None,
+    tool_choice: str | None = None,
 ) -> tuple[ChatCompletion, list[ChatCompletionMessageParam]]:
     system_message: str = prompt_template_config.get("text", "")
 
@@ -193,6 +199,7 @@ async def create_chat_completion_from_prompt_template(
         response_format=prompt_template_config.get("response_format"),
         model_system_name=prompt_template_config.get("system_name_for_model"),
         tools=tools,
+        tool_choice=tool_choice,
         related_prompt_template_config=prompt_template_config,
     )
 
