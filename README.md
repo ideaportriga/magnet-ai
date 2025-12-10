@@ -45,29 +45,38 @@ npm run setup
 
 ### 3. Running the Application
 
-#### Option A: Local Development (Recommended)
+#### Option A: Local Development with Docker (Recommended)
 
-This runs the API and Web frontend locally, but uses Docker for the database (Postgres + pgvector).
+This runs the API and Web frontend locally, and automatically starts the database in Docker (Postgres + pgvector).
 
-1. **Start the Database**:
-   ```bash
-   npm run docker:up
-   ```
-   *Wait for "PostgreSQL is ready!" message.*
+```bash
+npm run dev:docker
+```
+*This starts the database, API (port 8000), and Web (port 3000).*
 
-2. **Run the App**:
+#### Option B: Local Development with External Database
+
+If you prefer to run the database yourself (e.g. on a remote server or local installation) instead of using Docker:
+
+1. **Prerequisites**:
+   - PostgreSQL 16+
+   - `pgvector` extension installed and enabled (`CREATE EXTENSION vector;`)
+
+2. **Configuration**:
+   - Update your `.env` file with your database connection details (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`).
+
+3. **Run the App**:
    ```bash
    npm run dev
    ```
-   *This starts both the API (port 8000) and Web (port 3000).*
 
-#### Option B: API Only
+#### Option C: API Only
 
 ```bash
 npm run dev:api
 ```
 
-#### Option C: Web Only
+#### Option D: Web Only
 
 ```bash
 npm run dev:web

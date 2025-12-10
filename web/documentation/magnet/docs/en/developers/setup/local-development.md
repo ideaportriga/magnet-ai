@@ -212,15 +212,25 @@ Use Vue.js devtools extension for debugging Vue components.
 
 ## Full Stack Development
 
-### Running Both Services (Recommended)
+### Running Both Services
 
-Use the root script to run everything:
+#### With Docker Database (Recommended)
+
+Use this command to start the database in Docker along with the API and Web services:
+
+```bash
+npm run dev:docker
+```
+
+#### With External Database
+
+If you have an external database configured in `.env`, use:
 
 ```bash
 npm run dev
 ```
 
-This starts:
+These commands start:
 
 - API: `http://localhost:8000`
 - Web Apps: `http://localhost:3000` & `http://localhost:3001`
