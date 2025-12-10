@@ -50,22 +50,30 @@ The default settings in `.env` are configured for local development with Docker.
 
 ### 4. Start Development Environment
 
-1. **Start the Database**:
+#### Option A: Local Development with Docker (Recommended)
 
-   ```bash
-   npm run docker:up
-   ```
+This runs the API and Web frontend locally, and automatically starts the database in Docker.
 
-   Wait for the "PostgreSQL is ready!" message.
+```bash
+npm run dev:docker
+```
 
-2. **Run the Application**:
+This starts:
+- **Database** (Postgres + pgvector)
+- **API** at `http://localhost:8000`
+- **Web Panel** at `http://localhost:7000`
+- **Web Admin** at `http://localhost:7002`
+
+#### Option B: Local Development with External Database
+
+If you have your own PostgreSQL database running (locally or remote).
+
+1. **Configure `.env`**: Update `DB_HOST`, `DB_PORT`, etc.
+2. **Run the App**:
+
    ```bash
    npm run dev
    ```
-   This starts:
-   - **API** at `http://localhost:8000`
-   - **Web Panel** at `http://localhost:7000`
-   - **Web Admin** at `http://localhost:7002`
 
 ## Manual Setup
 
