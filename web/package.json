@@ -73,7 +73,7 @@
     "vitepress": "^1.6.3",
     "vitepress-plugin-mermaid": "^2.0.17",
     "vitest": "^3.0.6",
-    "vue-tsc": "^2.2.2",
+    "vue-tsc": "^3.1.5",
     "vuepress": "^1.9.10"
   },
   "packageManager": "yarn@4.6.0",
