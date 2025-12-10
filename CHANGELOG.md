@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0](https://github.com/ideaportriga/magnet-ai/compare/v0.2.1...v0.3.0) (2025-12-10)
+
+### ✨ Features
+
+* implemented retrieval agent for knowledge graphs ([b39c07c](https://github.com/ideaportriga/magnet-ai/commit/b39c07c28333d6d775600f4253150235863c562b))
+* implemented retrieval agent for knowledge graphs ([c618d28](https://github.com/ideaportriga/magnet-ai/commit/c618d2816adf24de3e70b67e8b60b49ee4dce435))
+
 ## [0.2.1](https://github.com/ideaportriga/magnet-ai/compare/v0.2.0...v0.2.1) (2025-12-10)
 
 ### 🐛 Bug Fixes
