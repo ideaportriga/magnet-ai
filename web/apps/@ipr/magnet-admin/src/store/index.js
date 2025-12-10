@@ -31,6 +31,7 @@ import conversation from './modules/conversation'
 import mcp_server from './modules/mcp_server'
 import api_servers from './modules/api_servers'
 import providers from './modules/providers'
+import knowledgeGraph from './modules/knowledgeGraph'
 
 const merged = mergeModules([
   main,
@@ -59,6 +60,7 @@ const merged = mergeModules([
   mcp_server,
   api_servers,
   providers,
+  knowledgeGraph,
 ])
 
 export default createStore({

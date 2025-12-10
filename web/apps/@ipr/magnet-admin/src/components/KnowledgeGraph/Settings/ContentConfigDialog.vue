@@ -411,7 +411,7 @@ const loadTemplates = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: 'sql_prompts',
+      service: 'prompt_templates',
       method: 'GET',
       credentials: 'include',
     })

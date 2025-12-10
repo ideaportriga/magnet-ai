@@ -39,6 +39,7 @@ class PromptVariantSchema(BaseModel):
     retrieve: Optional[RetrieveSchema] = Field(
         None, description="Retrieve configuration"
     )
+    display_name: Optional[str] = Field(None, description="Display name of the variant")
     description: Optional[str] = Field(None, description="Description of the variant")
     text: Optional[str] = Field(None, description="Prompt text")
     sample_text: Optional[str] = Field(None, description="Sample text for testing")

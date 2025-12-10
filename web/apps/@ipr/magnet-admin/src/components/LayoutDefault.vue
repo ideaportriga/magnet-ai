@@ -187,6 +187,10 @@ export default {
           this.$store.commit('revertProviderChanges')
         }
 
+        if (this.routeChromaEntity === 'knowledge_graph') {
+          this.$store.commit('revertKnowledgeGraphChanges')
+        }
+
         this.$router.push(this.nextRoute)
       }
     },
@@ -229,6 +233,10 @@ export default {
 
       if (this.routeChromaEntity === 'provider') {
         this.$store.dispatch('saveProvider')
+      }
+
+      if (this.routeChromaEntity === 'knowledge_graph') {
+        await this.$store.dispatch('saveKnowledgeGraph')
       }
 
       if (this.nextRoute) {

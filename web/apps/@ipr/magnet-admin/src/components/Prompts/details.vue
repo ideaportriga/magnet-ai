@@ -71,9 +71,10 @@
 </template>
 
 <script>
-import { ref } from 'vue'
-import { useChroma } from '@shared'
 import { categoryOptions } from '@/config/prompts/prompts'
+import { useChroma } from '@shared'
+import { ref } from 'vue'
+
 export default {
   emits: ['update:closeDrawer'],
   setup() {
@@ -148,7 +149,6 @@ export default {
 
   watch: {
     selectedRow(newVal, oldVal) {
-      console.log('selectedRow', newVal, oldVal)
       if (newVal?.id !== oldVal?.id) {
         this.$store.commit('setPromptTemplate', newVal)
         this.tab = 'promptTemplate'
@@ -156,8 +156,16 @@ export default {
     },
   },
   mounted() {
-    console.log('this.queryParam?.variant', this.queryParam?.variant)
-    if (this.activePromptTemplateId != this.$store.getters.promptTemplate?.id) {
+    const current = this.$store.getters.promptTemplate
+    const selected = this.selectedRow
+
+    // Update if:
+    // 1. IDs don't match (navigated to different prompt)
+    // 2. IDs match but content updated (e.g. edited in another tab/component)
+    const shouldUpdate =
+      this.activePromptTemplateId != current?.id || (selected?.updated_at && current?.updated_at && selected.updated_at !== current.updated_at)
+
+    if (shouldUpdate) {
       this.$store.commit('setPromptTemplate', this.selectedRow)
       this.tab = 'promptTemplate'
     }
