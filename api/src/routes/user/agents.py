@@ -19,6 +19,7 @@ from litestar.status_codes import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
     HTTP_500_INTERNAL_SERVER_ERROR,
+    HTTP_503_SERVICE_UNAVAILABLE,
 )
 from microsoft_agents.hosting.aiohttp import (
     jwt_authorization_middleware,
@@ -34,6 +35,7 @@ from slack_bolt.response import BoltResponse
 
 from api.tags import TagNames
 
+from services.agents.teams.note_taker import NoteTakerRuntime
 from services.agents.teams.runtime_cache import TeamsRuntimeCache
 from services.agents.slack.runtime_cache import SlackRuntimeCache
 from services.agents.slack.runtime import SlackRuntime
@@ -484,6 +486,90 @@ class UserAgentsController(Controller):
             logger.exception(
                 "Error while processing activity for audience %s", audience
             )
+            return _error(
+                HTTP_500_INTERNAL_SERVER_ERROR,
+                "Internal error while processing activity",
+            )
+
+        if aiohttp_response is None:
+            return Response(status_code=HTTP_200_OK)
+
+        status = getattr(aiohttp_response, "status", HTTP_200_OK)
+        headers = {
+            str(key): str(value)
+            for key, value in getattr(aiohttp_response, "headers", {}).items()
+        }
+
+        response_body = getattr(aiohttp_response, "body", b"")
+        if isinstance(response_body, (bytes, bytearray)):
+            content: Any = bytes(response_body)
+        elif response_body is None:
+            content = ""
+        else:
+            content = response_body
+
+        return Response(status_code=status, content=content, headers=headers)
+
+    @post(
+        "/teams/note-taker/messages",
+        status_code=HTTP_200_OK,
+        exclude_from_auth=True,
+        summary="Messaging endpoint for the Teams note-taker bot",
+        description="Azure Bot Service messaging endpoint for the Teams note-taker bot configured via environment variables.",
+    )
+    async def handle_note_taker_message(
+        self, request: Request, data: Dict[str, Any] | None = Body()
+    ) -> Response:
+        runtime: NoteTakerRuntime | None = getattr(
+            request.app.state, "teams_note_taker_runtime", None
+        )
+        if runtime is None:
+            return _error(
+                HTTP_503_SERVICE_UNAVAILABLE, "Teams note-taker bot is not configured"
+            )
+
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header.lower().startswith("bearer "):
+            return _error(HTTP_401_UNAUTHORIZED, "Missing Bearer token")
+
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            jwt_payload = read_jwt_payload_noverify(token)
+        except ValidationException:
+            return _error(HTTP_400_BAD_REQUEST, "Invalid JWT")
+
+        audience = pick_audience(jwt_payload)
+        if not audience:
+            return _error(HTTP_400_BAD_REQUEST, "Invalid audience/appid")
+        expected_app_id = getattr(runtime.validation_config, "CLIENT_ID", None)
+        if audience != expected_app_id:
+            return _error(HTTP_403_FORBIDDEN, "Invalid audience/appid")
+
+        if data is None:
+            data = {}
+
+        fake_request = AiohttpLikeRequest(
+            method="POST",
+            url=str(request.url),
+            headers=dict(request.headers),
+            json_body=data,
+            app_state={"agent_configuration": runtime.validation_config},
+            auth_header=auth_header,
+        )
+
+        aiohttp_response = None
+        try:
+
+            async def _next(req: AiohttpLikeRequest):
+                return await start_agent_process(
+                    req, runtime.agent_app, runtime.adapter
+                )
+
+            aiohttp_response = await jwt_authorization_middleware(fake_request, _next)
+        except (ExpiredSignatureError, InvalidTokenError):
+            return _error(HTTP_401_UNAUTHORIZED, "Unauthorized")
+        except Exception:
+            logger.exception("Error while processing activity for Teams note-taker bot")
             return _error(
                 HTTP_500_INTERNAL_SERVER_ERROR,
                 "Internal error while processing activity",
