@@ -35,13 +35,19 @@ npm run setup
 
 ### 2. Configuration
 
-1. Copy the example environment file:
+1. **Environment Variables**:
+   Copy the example environment file:
    ```bash
    cp .env.example .env
    ```
+   Edit `.env` and configure the necessary variables. For local development with Docker, the defaults usually work.
 
-2. Edit `.env` and configure the necessary variables.
-   - For local development with Docker, the defaults usually work.
+2. **Web Configuration**:
+   The `npm run setup` command automatically creates `main.json` configuration files for the web applications.
+   - `web/apps/@ipr/magnet-admin/public/config/main.json`
+   - `web/apps/@ipr/magnet-panel/public/config/main.json`
+
+   These files are required to link the Web Frontend to the API. If you need to change the API URL or authentication settings for the frontend, edit these files.
 
 ### 3. Running the Application
 

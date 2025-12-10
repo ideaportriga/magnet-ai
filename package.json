@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "prepare": "husky || true",
-    "setup": "node scripts/check-env.js && npm run setup:api && npm run setup:web",
+    "setup": "node scripts/check-env.js && node scripts/setup-web-config.js && npm run setup:api && npm run setup:web",
     "setup:api": "cd api && poetry install",
     "setup:web": "cd web && yarn install",
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
