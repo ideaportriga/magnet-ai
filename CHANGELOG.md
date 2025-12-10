@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1](https://github.com/ideaportriga/magnet-ai/compare/v0.2.0...v0.2.1) (2025-12-10)
+
+### 🐛 Bug Fixes
+
+* updated the documentation and some CI-related scripts. ([574d258](https://github.com/ideaportriga/magnet-ai/commit/574d258a9d7c13adb3c063e82364822602228bb5))
+
 ## [0.2.0](https://github.com/ideaportriga/magnet-ai/compare/v0.1.1...v0.2.0) (2025-12-08)
 
 ### ✨ Features
