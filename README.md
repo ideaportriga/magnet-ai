@@ -104,25 +104,19 @@ npm run dev:web
 
 ### Code Quality
 
-This project uses automated checks for code quality, security, and license compliance:
+This project uses **Husky** to automatically run checks before you commit.
+
+To run checks manually:
 
 ```bash
-# Install pre-commit hooks
-pip install pre-commit
-pre-commit install
+# Run all checks (API + Web)
+npm run lint
 
-# Run all checks locally
-pre-commit run --all-files
+# Run API checks only
+npm run lint:api
 
-# Python linting
-cd api
-poetry run ruff check src/
-poetry run ruff format src/
-
-# Frontend linting
-cd web
-yarn lint
-yarn type-check
+# Run Web checks only
+npm run lint:web
 ```
 
 ### Commit Messages
