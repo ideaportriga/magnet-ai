@@ -24,6 +24,63 @@ from .tools import execute_tool, get_available_tools
 logger = logging.getLogger(__name__)
 
 
+def _build_example_list_str(retrieval_examples: list[dict[str, Any]]) -> str:
+    """Build the example list string for the prompt."""
+    example_list_parts = []
+    if retrieval_examples:
+        example_list_parts.append("# Answer Examples")
+
+    for i, ex in enumerate(retrieval_examples, 1):
+        title = ex.get("title", "").strip()
+        input_text = ex.get("input", "").strip()
+        output_text = ex.get("output", "").strip()
+
+        header = f"## Example {i}"
+        if title:
+            header += f": {title}"
+
+        if input_text and output_text:
+            example_list_parts.append(
+                f"{header}\n\n**User:** {input_text}\n\n**Agent:**\n\n```\n{output_text}\n```"
+            )
+    return "\n\n".join(example_list_parts)
+
+
+def _build_exit_strategy_instr(strategy: str) -> str:
+    """Build the exit strategy instructions for the prompt."""
+    if strategy == "confidence":
+        return (
+            "- **Strategy: Confidence-based**\n"
+            "  - Balance thoroughness with efficiency.\n"
+            "  - Exit as soon as you have gathered enough information to answer the user's query with high confidence.\n"
+            "  - Do not perform redundant searches if the answer is already clear."
+        )
+    elif strategy == "exhaustive":
+        return (
+            "- **Strategy: Exhaustive**\n"
+            "  - Prioritize comprehensive coverage over speed.\n"
+            "  - Continue searching until you are certain you have explored all relevant aspects of the query.\n"
+            "  - Look for supplementary or contradictory information even if a direct answer is found."
+        )
+    elif strategy == "efficient":
+        return (
+            "- **Strategy: Efficient**\n"
+            "  - Prioritize speed and minimal tool usage.\n"
+            "  - Exit immediately once a satisfactory answer is found.\n"
+            "  - Avoid optional or tangential searches."
+        )
+    return ""
+
+
+def _build_output_instr(output_format: str) -> str:
+    """Build the output instructions for the prompt."""
+    if output_format == "markdown":
+        return "# Output Instructions:\n- Return answer formatted as Markdown"
+    elif output_format == "plain":
+        return "# Output Instructions:\n- Return answer formatted as Plain Text"
+    return ""
+
+
 @observe(
     name="Run agentic loop",
     description="Run agentic loop to retrieve data from the knowledge graph.",
@@ -42,24 +99,7 @@ async def run_agentic_retrieval(
     retrieval_examples: list[dict[str, Any]] = settings.get("retrieval_examples") or []
 
     # Format examples for the prompt
-    example_list_parts = []
-    if retrieval_examples:
-        example_list_parts.append("# Answer Examples")
-
-    for i, ex in enumerate(retrieval_examples, 1):
-        title = ex.get("title", "").strip()
-        input_text = ex.get("input", "").strip()
-        output_text = ex.get("output", "").strip()
-
-        header = f"## Example {i}"
-        if title:
-            header += f": {title}"
-
-        if input_text and output_text:
-            example_list_parts.append(
-                f"{header}\n\n**User:** {input_text}\n\n**Agent:**\n\n```\n{output_text}\n```"
-            )
-    example_list_str = "\n\n".join(example_list_parts)
+    example_list_str = _build_example_list_str(retrieval_examples)
 
     docs_tool_cfg = (
         retrieval_tools_cfg.get("findDocumentsBySummarySimilarity", {}) or {}
@@ -91,28 +131,7 @@ async def run_agentic_retrieval(
     )
 
     # Define Exit Strategy Prompt
-    exitStrategy = ""
-    if strategy == "confidence":
-        exitStrategy = (
-            "- **Strategy: Confidence-based**\n"
-            "  - Balance thoroughness with efficiency.\n"
-            "  - Exit as soon as you have gathered enough information to answer the user's query with high confidence.\n"
-            "  - Do not perform redundant searches if the answer is already clear."
-        )
-    elif strategy == "exhaustive":
-        exitStrategy = (
-            "- **Strategy: Exhaustive**\n"
-            "  - Prioritize comprehensive coverage over speed.\n"
-            "  - Continue searching until you are certain you have explored all relevant aspects of the query.\n"
-            "  - Look for supplementary or contradictory information even if a direct answer is found."
-        )
-    elif strategy == "efficient":
-        exitStrategy = (
-            "- **Strategy: Efficient**\n"
-            "  - Prioritize speed and minimal tool usage.\n"
-            "  - Exit immediately once a satisfactory answer is found.\n"
-            "  - Avoid optional or tangential searches."
-        )
+    exitStrategy = _build_exit_strategy_instr(strategy)
 
     # TODO: for preview, we should use the prompt template from the graph settings, because it might be unsaved yet
     tools = get_available_tools(retrieval_tools_cfg)
@@ -170,15 +189,7 @@ async def run_agentic_retrieval(
                 t for t in tools if t.get("function", {}).get("name") == "exit"
             ]
 
-        output_instr = ""
-        if output_format == "markdown":
-            output_instr = (
-                "# Output Instructions:\n- Return answer formatted as Markdown"
-            )
-        elif output_format == "plain":
-            output_instr = (
-                "# Output Instructions:\n- Return answer formatted as Plain Text"
-            )
+        output_instr = _build_output_instr(output_format)
 
         chat_completion, _ = await create_chat_completion_from_prompt_template(
             prompt_template_config=prompt_cfg,
