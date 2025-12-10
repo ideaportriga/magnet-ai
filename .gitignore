@@ -23,3 +23,4 @@ build/
 # api/static/*.css
 # api/static/*.png
 # api/static/*.map
+recording_test.py
