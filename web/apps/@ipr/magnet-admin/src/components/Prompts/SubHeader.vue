@@ -94,7 +94,7 @@ export default {
     },
     variants() {
       return this.$store.getters.promptTemplate?.variants?.map((el) => ({
-        label: this.getVariantLabel(el.variant),
+        label: el.display_name || this.getVariantLabel(el.variant),
         value: el.variant,
         active_variant: el.variant == this.$store.getters.promptTemplate?.active_variant,
       }))
@@ -145,7 +145,11 @@ export default {
 
   methods: {
     getVariantLabel(variant) {
+      const v = this.$store.getters.promptTemplate?.variants?.find((el) => el.variant === variant)
+      if (v?.display_name) return v.display_name
+
       const match = variant?.match(/variant_(\d+)/)
+      if (!match) return variant
       return `Variant ${match?.[1]}`
     },
     activateVariant() {

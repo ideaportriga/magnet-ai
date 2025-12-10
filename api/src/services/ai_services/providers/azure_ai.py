@@ -65,6 +65,7 @@ class AzureAIProvider(AIProviderInterface):
         max_tokens: int | None = None,
         response_format: dict | None = None,
         tools: list[dict] | None = None,
+        tool_choice: str | None = None,
         model_config: dict | None = None,
     ) -> ChatCompletion:
         model = model or self.model_default
@@ -85,6 +86,9 @@ class AzureAIProvider(AIProviderInterface):
 
         if tools:
             data["tools"] = tools
+
+        if tool_choice:
+            data["tool_choice"] = tool_choice
 
         # Construct endpoint for specific model/deployment with API version
         model_endpoint = f"{self.endpoint}/openai/deployments/{model}/chat/completions?api-version={self.api_version}"

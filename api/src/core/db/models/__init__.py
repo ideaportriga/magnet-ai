@@ -16,13 +16,10 @@ from .job import Job
 from .knowledge_graph import (
     KnowledgeGraph,
     KnowledgeGraphSource,
-    KnowledgeGraphChunk,
-    KnowledgeGraphDocument,
 )
 from .metric import Metric
 from .provider import Provider
 from .trace import Trace
-from .teams import TeamsMeeting
 
 __all__ = [
     "UUIDAuditEntityBase",
@@ -35,11 +32,8 @@ __all__ = [
     "Metric",
     "Provider",
     "Trace",
-    "TeamsMeeting",
     "KnowledgeGraph",
     "KnowledgeGraphSource",
-    "KnowledgeGraphDocument",
-    "KnowledgeGraphChunk",
     # "AgentConversation",
     # "Agent",
     # "APITool",

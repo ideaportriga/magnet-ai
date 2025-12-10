@@ -6,20 +6,23 @@ from datetime import datetime, timezone
 from typing import Any, override
 
 from office365.sharepoint.files.file import File
-from sqlalchemy import func, select
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models.knowledge_graph import (
-    KnowledgeGraphDocument,
-    KnowledgeGraphSource,
-)
+from core.db.models.knowledge_graph import KnowledgeGraphSource
 from data_sources.sharepoint.source_documents import SharePointDocumentsDataSource
 from data_sources.sharepoint.types import SharePointRootFolder
 from data_sources.sharepoint.utils import create_sharepoint_client
-from services.knowledge_graph import get_content_config, load_content_from_bytes
+from services.knowledge_graph import (
+    get_content_config,
+    get_graph_embedding_model,
+    load_content_from_bytes,
+)
 
 from ..models import SourceType
 from .abstract_source import AbstractDataSource
+from ..store_services import docs_table_name
+from litestar.exceptions import ClientException
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +71,13 @@ class SharePointDataSource(AbstractDataSource):
             f for f in files if (getattr(f, "name", "") or "").lower().endswith(".pdf")
         ]
 
+        # Pre-fetch embedding model for the graph to avoid repeated queries
+        embedding_model = await get_graph_embedding_model(db_session, source.graph_id)
+        if not embedding_model:
+            raise ClientException(
+                "Embedding model is not configured in knowledge graph settings."
+            )
+
         synced = 0
         failed = 0
         skipped = 0
@@ -98,7 +108,11 @@ class SharePointDataSource(AbstractDataSource):
                     content_profile=config.name if config else None,
                 )
                 await self.process_document(
-                    db_session, document, extracted_text=content["text"], config=config
+                    db_session,
+                    document,
+                    extracted_text=content["text"],
+                    config=config,
+                    embedding_model=embedding_model,
                 )
                 synced += 1
             except Exception as e:  # noqa: BLE001
@@ -150,16 +164,32 @@ class SharePointDataSource(AbstractDataSource):
         error: Exception,
     ) -> None:
         try:
+            docs_table = docs_table_name(source.graph_id)
             result = await db_session.execute(
-                select(KnowledgeGraphDocument)
-                .where(KnowledgeGraphDocument.source_id == source.id)
-                .where(KnowledgeGraphDocument.name == filename)
-                .order_by(KnowledgeGraphDocument.created_at.desc())
+                text(
+                    f"""
+                    SELECT id::text FROM {docs_table}
+                    WHERE source_id = :sid AND name = :name
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"sid": str(source.id), "name": filename},
             )
-            doc = result.scalars().first()
-            if doc:
-                doc.status = "error"
-                doc.status_message = str(error)
+            doc_id = result.scalar_one_or_none()
+            if doc_id:
+                await db_session.execute(
+                    text(
+                        f"""
+                        UPDATE {docs_table}
+                        SET status = 'error',
+                            status_message = :msg,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE id = :id
+                        """
+                    ),
+                    {"id": doc_id, "msg": str(error)},
+                )
                 await db_session.commit()
         except Exception:
             logger.warning("Failed to update document error status for '%s'", filename)
@@ -185,10 +215,10 @@ class SharePointDataSource(AbstractDataSource):
 
         source.last_sync_at = datetime.now(timezone.utc).isoformat()
         try:
+            docs_table = docs_table_name(source.graph_id)
             count_result = await db_session.execute(
-                select(func.count(KnowledgeGraphDocument.id)).where(
-                    KnowledgeGraphDocument.source_id == source.id
-                )
+                text(f"SELECT COUNT(*) FROM {docs_table} WHERE source_id = :sid"),
+                {"sid": str(source.id)},
             )
             source.documents_count = int(count_result.scalar_one() or 0)
         except Exception:

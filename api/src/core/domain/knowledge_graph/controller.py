@@ -5,6 +5,7 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import providers
 from litestar import Controller, delete, get, patch, post
 from litestar.datastructures import UploadFile
+from litestar.di import Provide
 from litestar.enums import RequestEncodingType
 from litestar.params import Body, Parameter
 from litestar.status_codes import (
@@ -13,12 +14,15 @@ from litestar.status_codes import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
     KnowledgeGraphCreateRequest,
     KnowledgeGraphCreateResponse,
     KnowledgeGraphDocumentExternalSchema,
     KnowledgeGraphExternalSchema,
+    KnowledgeGraphRetrievalPreviewRequest,
+    KnowledgeGraphRetrievalPreviewResponse,
     KnowledgeGraphSourceCreateRequest,
     KnowledgeGraphSourceCreateResponse,
     KnowledgeGraphSourceExternalSchema,
@@ -32,7 +36,7 @@ from core.domain.knowledge_graph.service import (
     KnowledgeGraphService,
     KnowledgeGraphSourceService,
 )
-from services.observability import observe
+from services.observability import observe, observability_overrides
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +59,10 @@ class KnowledgeGraphController(Controller):
             KnowledgeGraphSourceService,
             "source_service",
         ),
-        **providers.create_service_dependencies(
-            KnowledgeGraphDocumentService,
-            "document_service",
+        "document_service": Provide(
+            KnowledgeGraphDocumentService, sync_to_thread=False
         ),
-        **providers.create_service_dependencies(
-            KnowledgeGraphChunkService,
-            "chunk_service",
-        ),
+        "chunk_service": Provide(KnowledgeGraphChunkService, sync_to_thread=False),
     }
 
     ###########################################################################
@@ -86,9 +86,12 @@ class KnowledgeGraphController(Controller):
 
     @post("/", status_code=HTTP_200_OK)
     async def create_graph(
-        self, graph_service: KnowledgeGraphService, data: KnowledgeGraphCreateRequest
+        self,
+        graph_service: KnowledgeGraphService,
+        db_session: AsyncSession,
+        data: KnowledgeGraphCreateRequest,
     ) -> KnowledgeGraphCreateResponse:
-        return await graph_service.create_graph(data)
+        return await graph_service.create_graph(db_session, data)
 
     @patch("/{graph_id:uuid}", status_code=HTTP_200_OK)
     async def update_graph(
@@ -101,9 +104,12 @@ class KnowledgeGraphController(Controller):
 
     @delete("/{graph_id:uuid}", status_code=HTTP_204_NO_CONTENT)
     async def delete_graph(
-        self, graph_service: KnowledgeGraphService, graph_id: UUID
+        self,
+        graph_service: KnowledgeGraphService,
+        db_session: AsyncSession,
+        graph_id: UUID,
     ) -> None:
-        await graph_service.delete(item_id=graph_id, auto_commit=True)
+        await graph_service.delete_graph(db_session, graph_id)
 
     @observe(
         name="Uploading file to knowledge graph",
@@ -122,6 +128,35 @@ class KnowledgeGraphController(Controller):
         return await graph_service.upload_file(
             db_session, graph_id, data.filename, file_bytes
         )
+
+    @post("/{graph_id:uuid}/retrieval/preview", status_code=HTTP_200_OK)
+    async def preview_retrieval(
+        self,
+        graph_service: KnowledgeGraphService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        data: KnowledgeGraphRetrievalPreviewRequest,
+    ) -> KnowledgeGraphRetrievalPreviewResponse:
+        conversation_service = AgentConversationService(session=db_session)
+        conversation_record = None
+
+        if data.conversation_id:
+            conversation_record = await conversation_service.get_one_or_none(
+                id=str(data.conversation_id)
+            )
+
+        if conversation_record:
+            return await graph_service.continue_conversation(
+                db_session,
+                graph_id,
+                data.query,
+                conversation_record.id,
+                **observability_overrides(trace_id=conversation_record.trace_id),
+            )
+        else:
+            return await graph_service.start_conversation(
+                db_session, graph_id, data.query
+            )
 
     ###########################################################################
     # KNOWLEDGE GRAPH SOURCE ENDPOINTS #
