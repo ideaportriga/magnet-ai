@@ -25,7 +25,9 @@ class GraphClient:
 
         headers = {"Authorization": f"Bearer {token}"}
         self._owns_client = client is None
-        self._client = client or httpx.AsyncClient(base_url=base_url, headers=headers, timeout=timeout)
+        self._client = client or httpx.AsyncClient(
+            base_url=base_url, headers=headers, timeout=timeout
+        )
 
     async def __aenter__(self) -> "GraphClient":
         return self
@@ -37,7 +39,9 @@ class GraphClient:
         if self._owns_client:
             await self._client.aclose()
 
-    async def get_json(self, url: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def get_json(
+        self, url: str, *, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         response = await self._client.get(url, params=params)
         response.raise_for_status()
         return response.json()
@@ -58,7 +62,9 @@ async def fetch_chat_meeting_info(client: GraphClient, chat_id: str) -> dict[str
     return info
 
 
-async def resolve_meeting_id_from_join_url(client: GraphClient, join_url: str | None) -> str | None:
+async def resolve_meeting_id_from_join_url(
+    client: GraphClient, join_url: str | None
+) -> str | None:
     """Resolve an online meeting ID from its join URL."""
     if not join_url:
         return None
@@ -67,12 +73,18 @@ async def resolve_meeting_id_from_join_url(client: GraphClient, join_url: str | 
     base_path = "/me/onlineMeetings"
 
     try:
-        response = await client.get_json(base_path, params={"$filter": f"JoinWebUrl eq '{escaped_url}'"})
+        response = await client.get_json(
+            base_path, params={"$filter": f"JoinWebUrl eq '{escaped_url}'"}
+        )
         values = response.get("value") or []
         match = values[0] if values else None
         meeting_id = match.get("id") if isinstance(match, dict) else None
         if meeting_id:
-            logger.info("Resolved meeting id from joinUrl joinUrl=%s meetingId=%s", join_url, meeting_id)
+            logger.info(
+                "Resolved meeting id from joinUrl joinUrl=%s meetingId=%s",
+                join_url,
+                meeting_id,
+            )
             return meeting_id
         return None
     except httpx.HTTPStatusError as err:
@@ -85,7 +97,9 @@ async def resolve_meeting_id_from_join_url(client: GraphClient, join_url: str | 
             "resolve_meeting_id_from_join_url failed status=%s code=%s message=%s raw=%s",
             getattr(err.response, "status_code", None),
             body.get("error", {}).get("code") if isinstance(body, dict) else None,
-            body.get("error", {}).get("message") if isinstance(body, dict) else str(err),
+            body.get("error", {}).get("message")
+            if isinstance(body, dict)
+            else str(err),
             body if isinstance(body, dict) else None,
         )
         return None
@@ -94,7 +108,9 @@ async def resolve_meeting_id_from_join_url(client: GraphClient, join_url: str | 
         return None
 
 
-async def resolve_meeting_id(client: GraphClient, chat_id: str | None, join_url: str | None) -> str | None:
+async def resolve_meeting_id(
+    client: GraphClient, chat_id: str | None, join_url: str | None
+) -> str | None:
     """Resolve a meeting ID using chat metadata and/or join URL."""
     resolved_join_url = join_url
     if not resolved_join_url and chat_id:
@@ -107,7 +123,10 @@ async def resolve_meeting_id(client: GraphClient, chat_id: str | None, join_url:
         try:
             return await resolve_meeting_id_from_join_url(client, resolved_join_url)
         except Exception as exc:  # defensive: log and keep going
-            logger.warning("Failed to resolve meeting id from joinUrl: %s", getattr(exc, "message", str(exc)))
+            logger.warning(
+                "Failed to resolve meeting id from joinUrl: %s",
+                getattr(exc, "message", str(exc)),
+            )
 
     return None
 
@@ -159,7 +178,9 @@ async def fetch_recordings(
             if not value:
                 return 0.0
             try:
-                return dt.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+                return dt.datetime.fromisoformat(
+                    value.replace("Z", "+00:00")
+                ).timestamp()
             except Exception:
                 return 0.0
 
@@ -198,18 +219,26 @@ async def fetch_meeting_recordings(
             logger.info("fetch_meeting_recordings meetingId=%s", meeting_identifier)
             encoded_meeting_id = quote(meeting_identifier, safe="")
             base_path = f"/me/onlineMeetings/{encoded_meeting_id}"
-            recordings = await fetch_recordings(client, meeting_identifier, base_path=base_path)
+            recordings = await fetch_recordings(
+                client, meeting_identifier, base_path=base_path
+            )
             logger.info(
                 "Graph recordings fetched meetingId=%s recordingsCount=%d",
                 meeting_identifier,
                 len(recordings),
             )
-            return MeetingRecordings(recordings=recordings, meeting_id=meeting_identifier, user_id=user_id)
+            return MeetingRecordings(
+                recordings=recordings, meeting_id=meeting_identifier, user_id=user_id
+            )
         except httpx.HTTPStatusError as err:
             error_code = None
             try:
                 body = err.response.json() if err.response is not None else {}
-                error_code = body.get("error", {}).get("code") if isinstance(body, dict) else None
+                error_code = (
+                    body.get("error", {}).get("code")
+                    if isinstance(body, dict)
+                    else None
+                )
             except Exception:
                 body = None
             logger.warning(
@@ -221,7 +250,9 @@ async def fetch_meeting_recordings(
             )
             raise
 
-    return MeetingRecordings(recordings=[], meeting_id=meeting_identifier, user_id=user_id)
+    return MeetingRecordings(
+        recordings=[], meeting_id=meeting_identifier, user_id=user_id
+    )
 
 
 __all__ = [

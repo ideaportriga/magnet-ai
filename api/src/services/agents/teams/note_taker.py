@@ -10,11 +10,19 @@ import httpx
 from microsoft_agents.activity import Activity
 from microsoft_agents.authentication.msal import MsalAuth
 from microsoft_agents.hosting.aiohttp import CloudAdapter
-from microsoft_agents.hosting.core import AgentApplication, AgentAuthConfiguration, AuthTypes, TurnContext, TurnState
+from microsoft_agents.hosting.core import (
+    AgentApplication,
+    AgentAuthConfiguration,
+    AuthTypes,
+    TurnContext,
+    TurnState,
+)
 from microsoft_agents.hosting.core.app.app_options import ApplicationOptions
 from microsoft_agents.hosting.core.app import AuthHandler
 from microsoft_agents.hosting.core.app.oauth import Authorization
-from microsoft_agents.hosting.core.rest_channel_service_client_factory import RestChannelServiceClientFactory
+from microsoft_agents.hosting.core.rest_channel_service_client_factory import (
+    RestChannelServiceClientFactory,
+)
 from microsoft_agents.hosting.core.storage import MemoryStorage
 
 from .config import ISSUER, SCOPE
@@ -29,8 +37,12 @@ logger = getLogger(__name__)
 ENV_PREFIX = "TEAMS_NOTE_TAKER_"
 _DEFAULT_TRANSCRIPTION_LANGUAGE = os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_LANGUAGE", "en")
 _DEFAULT_PIPELINE_ID = os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_PIPELINE", "elevenlabs")
-_TRANSCRIPTION_TIMEOUT_SECONDS = float(os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_TIMEOUT_SECONDS", "900"))
-_TRANSCRIPTION_POLL_SECONDS = float(os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5"))
+_TRANSCRIPTION_TIMEOUT_SECONDS = float(
+    os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_TIMEOUT_SECONDS", "900")
+)
+_TRANSCRIPTION_POLL_SECONDS = float(
+    os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5")
+)
 
 
 async def _ensure_vector_pool_ready() -> None:
@@ -59,7 +71,9 @@ class NoteTakerSettings:
         auth_handler_id = os.getenv(f"{ENV_PREFIX}AUTH_HANDLER_ID", "").strip()
 
         if not all([client_id, client_secret, tenant_id, auth_handler_id]):
-            logger.info("Teams note-taker bot env vars missing; skipping bot initialization.")
+            logger.info(
+                "Teams note-taker bot env vars missing; skipping bot initialization."
+            )
             return None
 
         return cls(
@@ -99,17 +113,20 @@ class _SignInInvokeMiddleware:
                 )
             )
 
+
 def _is_personal_teams_conversation(context: TurnContext) -> bool:
     activity = getattr(context, "activity", None)
     conversation = getattr(activity, "conversation", None)
     conversation_type = getattr(conversation, "conversation_type", None)
     return conversation_type == "personal"
 
+
 def _is_meeting_conversation(context: TurnContext) -> bool:
     activity = getattr(context, "activity", None)
     conversation = getattr(activity, "conversation", None)
     conversation_type = getattr(conversation, "conversation_type", None)
     return conversation_type == "meeting"
+
 
 def _resolve_meeting_details(context: TurnContext) -> Dict[str, Any]:
     activity = getattr(context, "activity", None)
@@ -123,9 +140,12 @@ def _resolve_meeting_details(context: TurnContext) -> Dict[str, Any]:
         "title": meeting_data.get("title") or meeting_data.get("subject"),
     }
 
+
 def _resolve_user_info(context: TurnContext) -> Dict[str, Any]:
     activity = getattr(context, "activity", None)
-    from_user = getattr(activity, "from_property", None) or getattr(activity, "from", None)
+    from_user = getattr(activity, "from_property", None) or getattr(
+        activity, "from", None
+    )
     conversation = getattr(activity, "conversation", None)
     channel_data = getattr(activity, "channel_data", None) or {}
 
@@ -134,17 +154,22 @@ def _resolve_user_info(context: TurnContext) -> Dict[str, Any]:
 
     return {
         "id": getattr(from_user, "id", None),
-        "name": getattr(from_user, "name", None) or getattr(from_user, "display_name", None),
+        "name": getattr(from_user, "name", None)
+        or getattr(from_user, "display_name", None),
         "aad_object_id": getattr(from_user, "aad_object_id", None),
         "conversation_type": getattr(conversation, "conversation_type", None),
     }
 
-def _build_recording_filename(meeting: Dict[str, Any], recording: Dict[str, Any], content_url: str) -> str:
+
+def _build_recording_filename(
+    meeting: Dict[str, Any], recording: Dict[str, Any], content_url: str
+) -> str:
     meeting_part = meeting.get("title") or meeting.get("id") or "meeting"
     rec_part = recording.get("id") or "recording"
     ext = Path(urlparse(content_url).path).suffix or ".mp4"
     base = f"{meeting_part}-{rec_part}"
     return f"{base}{ext}"
+
 
 async def _download_recording_bytes(
     recording: Dict[str, Any],
@@ -168,8 +193,13 @@ async def _download_recording_bytes(
             async for chunk in response.aiter_bytes():
                 if chunk:
                     buf.extend(chunk)
-            content_type = (response.headers.get("Content-Type") or "application/octet-stream").split(";")[0].strip()
+            content_type = (
+                (response.headers.get("Content-Type") or "application/octet-stream")
+                .split(";")[0]
+                .strip()
+            )
     return bytes(buf), content_type, name, ext
+
 
 async def _start_transcription_from_bytes(
     *,
@@ -208,6 +238,7 @@ async def _start_transcription_from_bytes(
         transcription = await transcription_service.get_transcription(job_id)
 
     return status or "unknown", {"id": job_id, "transcription": transcription}
+
 
 async def _send_transcription_summary(
     context: TurnContext,
@@ -258,10 +289,14 @@ async def _send_transcription_summary(
         )
         return
 
-    await context.send_activity(f"Transcription incomplete (status={status}, job={job_id or 'n/a'}).")
+    await context.send_activity(
+        f"Transcription incomplete (status={status}, job={job_id or 'n/a'})."
+    )
 
 
-def _register_note_taker_handlers(app: AgentApplication[TurnState], auth_handler_id: str) -> None:
+def _register_note_taker_handlers(
+    app: AgentApplication[TurnState], auth_handler_id: str
+) -> None:
     async def _is_signed_in(context: TurnContext, handler_id: str) -> bool:
         try:
             token_response = await app.auth.get_token(context, handler_id)
@@ -279,20 +314,27 @@ def _register_note_taker_handlers(app: AgentApplication[TurnState], auth_handler
     ) -> str | None:
         try:
             token_response = await app.auth.get_token(context, handler_id)
-            token_value = getattr(token_response, "token", None) if token_response else None
+            token_value = (
+                getattr(token_response, "token", None) if token_response else None
+            )
 
             if token_value:
                 return token_value
 
         except Exception as err:
-            logger.error("Auth failed handler_id=%s message=%s",
-                        handler_id, getattr(err, "message", str(err)))
+            logger.error(
+                "Auth failed handler_id=%s message=%s",
+                handler_id,
+                getattr(err, "message", str(err)),
+            )
 
         # If we get here, either no token or an error.
         await context.send_activity(failure_message)
         return None
 
-    async def _handle_recordings_find(context: TurnContext, state: Optional[TurnState]) -> None:
+    async def _handle_recordings_find(
+        context: TurnContext, state: Optional[TurnState]
+    ) -> None:
         meeting = _resolve_meeting_details(context)
         if not (meeting.get("id") or meeting.get("conversationId")):
             logger.warning("No meeting id found for recordings-find command.")
@@ -320,18 +362,29 @@ def _register_note_taker_handlers(app: AgentApplication[TurnState], auth_handler
             )
             return
 
-        recordings = artifacts.recordings if artifacts and getattr(artifacts, "recordings", None) else []
+        recordings = (
+            artifacts.recordings
+            if artifacts and getattr(artifacts, "recordings", None)
+            else []
+        )
 
         await context.send_activity(
-            f"I found {len(recordings)} recording(s) for this meeting." if recordings else "No recordings found."
+            f"I found {len(recordings)} recording(s) for this meeting."
+            if recordings
+            else "No recordings found."
         )
 
         if recordings:
             await context.send_activity("Streaming the latest recording now...")
             try:
-                recording_bytes = await _download_recording_bytes(recordings[0], delegated_token, meeting)
+                recording_bytes = await _download_recording_bytes(
+                    recordings[0], delegated_token, meeting
+                )
             except Exception as err:
-                logger.exception("Failed to download first recording for meetingId=%s", artifacts.meeting_id)
+                logger.exception(
+                    "Failed to download first recording for meetingId=%s",
+                    artifacts.meeting_id,
+                )
                 await context.send_activity(
                     f"I couldn't download the first recording: {getattr(err, 'message', str(err))}"
                 )
@@ -339,7 +392,9 @@ def _register_note_taker_handlers(app: AgentApplication[TurnState], auth_handler
 
             if recording_bytes:
                 file_bytes, content_type, name, ext = recording_bytes
-                await context.send_activity("Recording downloaded; starting transcription...")
+                await context.send_activity(
+                    "Recording downloaded; starting transcription..."
+                )
 
                 language = _DEFAULT_TRANSCRIPTION_LANGUAGE
                 pipeline_id = _DEFAULT_PIPELINE_ID
@@ -353,29 +408,51 @@ def _register_note_taker_handlers(app: AgentApplication[TurnState], auth_handler
                         pipeline_id=pipeline_id,
                     )
                 except Exception as err:
-                    logger.exception("Failed to start transcription for streamed recording")
+                    logger.exception(
+                        "Failed to start transcription for streamed recording"
+                    )
                     await context.send_activity(
                         f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
                     )
                     return
 
                 job_id = (result or {}).get("id") if isinstance(result, dict) else None
-                transcription = (result or {}).get("transcription") if isinstance(result, dict) else None
+                transcription = (
+                    (result or {}).get("transcription")
+                    if isinstance(result, dict)
+                    else None
+                )
 
-                await _send_transcription_summary(context, status, job_id, transcription)
+                await _send_transcription_summary(
+                    context, status, job_id, transcription
+                )
             else:
-                await context.send_activity("The first recording had no downloadable URL.")
+                await context.send_activity(
+                    "The first recording had no downloadable URL."
+                )
 
     @app.on_sign_in_success
-    async def _on_sign_in_success(context: TurnContext, _state: TurnState, handler_id: str | None) -> None:
-        logger.info("Teams note-taker sign-in succeeded (handler=%s)", handler_id or auth_handler_id)
+    async def _on_sign_in_success(
+        context: TurnContext, _state: TurnState, handler_id: str | None
+    ) -> None:
+        logger.info(
+            "Teams note-taker sign-in succeeded (handler=%s)",
+            handler_id or auth_handler_id,
+        )
         # await context.send_activity("Signed in successfully.")
 
     @app.on_sign_in_failure
     async def _on_sign_in_failure(
-        context: TurnContext, _state: TurnState, handler_id: str | None, error_message: str | None
+        context: TurnContext,
+        _state: TurnState,
+        handler_id: str | None,
+        error_message: str | None,
     ) -> None:
-        logger.warning("Teams note-taker sign-in failed (handler=%s): %s", handler_id or auth_handler_id, error_message)
+        logger.warning(
+            "Teams note-taker sign-in failed (handler=%s): %s",
+            handler_id or auth_handler_id,
+            error_message,
+        )
         await context.send_activity("Sign-in failed.")
 
     @app.activity("installationUpdate")
@@ -384,7 +461,9 @@ def _register_note_taker_handlers(app: AgentApplication[TurnState], auth_handler
         action = getattr(activity, "action", None)
         if action == "add":
             if _is_personal_teams_conversation(context):
-                await context.send_activity("Thanks for installing the Magnet note taker bot.")
+                await context.send_activity(
+                    "Thanks for installing the Magnet note taker bot."
+                )
             elif _is_meeting_conversation(context):
                 await context.send_activity("Magnet note taker added to the meeting.")
 
@@ -454,12 +533,17 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
 
     token_provider = MsalAuth(auth_config)
     connections = StaticConnections(token_provider)
-    adapter = CloudAdapter(channel_service_client_factory=RestChannelServiceClientFactory(connections))
-    adapter.use(_SignInInvokeMiddleware()) # TODO: fix oauth flow?
+    adapter = CloudAdapter(
+        channel_service_client_factory=RestChannelServiceClientFactory(connections)
+    )
+    adapter.use(_SignInInvokeMiddleware())  # TODO: fix oauth flow?
+
     async def _on_turn_error(context: TurnContext, error: Exception) -> None:
         message = getattr(error, "message", None) or str(error)
         if "BotNotInConversationRoster" in message:
-            logger.warning("[teams note-taker] bot not in roster yet; suppressing error send.")
+            logger.warning(
+                "[teams note-taker] bot not in roster yet; suppressing error send."
+            )
             return
         logger.error("[teams note-taker] unhandled error: %s", message)
         try:
@@ -517,7 +601,9 @@ def load_note_taker_runtime_from_env() -> NoteTakerRuntime | None:
     try:
         runtime = build_note_taker_runtime(settings)
     except Exception:
-        logger.exception("Failed to initialize Teams note-taker runtime from environment variables.")
+        logger.exception(
+            "Failed to initialize Teams note-taker runtime from environment variables."
+        )
         return None
 
     logger.info(

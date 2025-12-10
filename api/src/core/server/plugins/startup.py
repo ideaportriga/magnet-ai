@@ -48,7 +48,7 @@ class StartupPlugin(InitPluginProtocol):
         await self._initialize_slack_runtime_cache(app)
 
         # Preload Teams note-taker bot if configured via environment
-        await self._initialize_teams_note_taker_runtime(app)        
+        await self._initialize_teams_note_taker_runtime(app)
 
     async def _initialize_scheduler(self, app: Litestar) -> None:
         """Initialize the scheduler."""
@@ -108,11 +108,15 @@ class StartupPlugin(InitPluginProtocol):
     async def _initialize_teams_note_taker_runtime(self, app: Litestar) -> None:
         """Initialize the Teams note-taker bot from environment variables, if available."""
         try:
-            from services.agents.teams.note_taker import load_note_taker_runtime_from_env
+            from services.agents.teams.note_taker import (
+                load_note_taker_runtime_from_env,
+            )
 
             runtime = load_note_taker_runtime_from_env()
             if runtime is None:
-                logger.info("Teams note-taker env vars not set; skipping bot initialization.")
+                logger.info(
+                    "Teams note-taker env vars not set; skipping bot initialization."
+                )
                 return
 
             app.state.teams_note_taker_runtime = runtime

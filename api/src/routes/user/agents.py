@@ -19,7 +19,7 @@ from litestar.status_codes import (
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
     HTTP_500_INTERNAL_SERVER_ERROR,
-    HTTP_503_SERVICE_UNAVAILABLE,    
+    HTTP_503_SERVICE_UNAVAILABLE,
 )
 from microsoft_agents.hosting.aiohttp import (
     jwt_authorization_middleware,
@@ -510,7 +510,6 @@ class UserAgentsController(Controller):
 
         return Response(status_code=status, content=content, headers=headers)
 
-
     @post(
         "/teams/note-taker/messages",
         status_code=HTTP_200_OK,
@@ -518,10 +517,16 @@ class UserAgentsController(Controller):
         summary="Messaging endpoint for the Teams note-taker bot",
         description="Azure Bot Service messaging endpoint for the Teams note-taker bot configured via environment variables.",
     )
-    async def handle_note_taker_message(self, request: Request, data: Dict[str, Any] | None = Body()) -> Response:
-        runtime: NoteTakerRuntime | None = getattr(request.app.state, "teams_note_taker_runtime", None)
+    async def handle_note_taker_message(
+        self, request: Request, data: Dict[str, Any] | None = Body()
+    ) -> Response:
+        runtime: NoteTakerRuntime | None = getattr(
+            request.app.state, "teams_note_taker_runtime", None
+        )
         if runtime is None:
-            return _error(HTTP_503_SERVICE_UNAVAILABLE, "Teams note-taker bot is not configured")
+            return _error(
+                HTTP_503_SERVICE_UNAVAILABLE, "Teams note-taker bot is not configured"
+            )
 
         auth_header = request.headers.get("authorization", "")
         if not auth_header.lower().startswith("bearer "):
@@ -554,21 +559,30 @@ class UserAgentsController(Controller):
 
         aiohttp_response = None
         try:
+
             async def _next(req: AiohttpLikeRequest):
-                return await start_agent_process(req, runtime.agent_app, runtime.adapter)
+                return await start_agent_process(
+                    req, runtime.agent_app, runtime.adapter
+                )
 
             aiohttp_response = await jwt_authorization_middleware(fake_request, _next)
         except (ExpiredSignatureError, InvalidTokenError):
             return _error(HTTP_401_UNAUTHORIZED, "Unauthorized")
         except Exception:
             logger.exception("Error while processing activity for Teams note-taker bot")
-            return _error(HTTP_500_INTERNAL_SERVER_ERROR, "Internal error while processing activity")
+            return _error(
+                HTTP_500_INTERNAL_SERVER_ERROR,
+                "Internal error while processing activity",
+            )
 
         if aiohttp_response is None:
             return Response(status_code=HTTP_200_OK)
 
         status = getattr(aiohttp_response, "status", HTTP_200_OK)
-        headers = {str(key): str(value) for key, value in getattr(aiohttp_response, "headers", {}).items()}
+        headers = {
+            str(key): str(value)
+            for key, value in getattr(aiohttp_response, "headers", {}).items()
+        }
 
         response_body = getattr(aiohttp_response, "body", b"")
         if isinstance(response_body, (bytes, bytearray)):
@@ -579,7 +593,6 @@ class UserAgentsController(Controller):
             content = response_body
 
         return Response(status_code=status, content=content, headers=headers)
-
 
     @post(
         "/slack/events",
