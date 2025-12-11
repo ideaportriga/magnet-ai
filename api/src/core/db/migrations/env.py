@@ -35,6 +35,7 @@ from core.db.models.rag_tool.rag_tool import RagTool  # noqa: F401
 from core.db.models.retrieval_tool import RetrievalTool  # noqa: F401
 from core.db.models.slack import SlackInstallation, SlackOAuthState  # noqa: F401
 from core.db.models.trace import Trace  # noqa: F401
+from core.db.models.deep_research import DeepResearchConfig, DeepResearchRun  # noqa: F401
 from core.db.models.transcription.transcription import Transcription  # noqa: F401
 from core.db.models.teams import TeamsMeeting  # noqa: F401
 

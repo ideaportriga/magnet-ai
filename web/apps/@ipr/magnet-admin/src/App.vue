@@ -124,6 +124,7 @@ export default {
         this.api_keys.get(),
         this.api_servers.get(),
         // this.jobs.get(),
+        this.$store.dispatch('fetchConfigs'),
       ])
     },
     async onAuthCompleted() {

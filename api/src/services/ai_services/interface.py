@@ -17,8 +17,9 @@ class AIProviderInterface(ABC):
         max_tokens: int | None = None,
         response_format: dict | None = None,
         tools: list[dict] | None = None,
-        tool_choice: str | None = None,
+        tool_choice: str | dict | None = None,
         model_config: dict | None = None,
+        parallel_tool_calls: bool | None = None,
     ) -> ChatCompletion:
         pass
 

@@ -129,6 +129,11 @@ const menu = [
     icon: 'fas fa-file-circle-question',
     path: 'retrieval',
   },
+  {
+    label: 'Deep Research',
+    icon: 'fas fa-magnifying-glass-chart',
+    path: 'deep-research/configs',
+  },
 ]
 
 const connectors = [
@@ -187,6 +192,12 @@ const observability = [
     label: 'Jobs',
     icon: 'fas fa-clock-rotate-left',
     path: 'jobs',
+  },
+
+  {
+    label: 'Deep Research',
+    icon: 'fas fa-play',
+    path: 'deep-research/runs',
   },
 ]
 

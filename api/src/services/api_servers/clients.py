@@ -79,6 +79,14 @@ async def create_api_client_session(
 
                 return client
 
+            if scheme == "bearer":
+                token = security_values.get("token", "")
+                session = aiohttp.ClientSession(
+                    headers={"Authorization": f"Bearer {token}"},
+                    connector=aiohttp.TCPConnector(verify_ssl=api_server.verify_ssl),
+                )
+                return session
+
             raise NotImplementedError
 
         case "apiKey":

@@ -77,7 +77,7 @@ export default {
     },
     schemaName: {
       get() {
-        return 'NAME_ ' + this.$store.getters.promptTemplate?.system_name || 'NAME'
+        return 'NAME_' + this.$store.getters.promptTemplate?.system_name || 'NAME'
       },
       set(value) {
         this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.json_schema.name', value })

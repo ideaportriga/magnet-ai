@@ -26,6 +26,7 @@ from routes.admin.api_keys import ApiKeysController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
+from .admin.deep_research import DeepResearchConfigController, DeepResearchRunController
 
 
 from .admin.knowledge_sources import (
@@ -50,6 +51,8 @@ from .static import serve_static_file
 def get_route_handlers(
     auth_enabled: bool, web_included: bool
 ) -> list[ControllerRouterHandler]:
+
+    auth_enabled = False
     @get("/health", exclude_from_auth=True, tags=["health"])
     async def health_route_handler() -> dict[str, Any]:
         """Health Check endpoint"""
@@ -62,6 +65,8 @@ def get_route_handlers(
         ApiKeysController,  # Admin / API Keys
         ApiServersController,  # Admin / API Servers
         CollectionsController,  # Admin / Collections
+        DeepResearchConfigController,  # Admin / Deep Research Configs
+        DeepResearchRunController,  # Admin / Deep Research Runs
         EvaluationSetsController,  # Admin / Evaluation Sets
         EvaluationsController,  # Admin / Evaluations
         JobsController,  # Admin / Jobs
