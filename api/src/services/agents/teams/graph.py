@@ -1,7 +1,7 @@
 import datetime as dt
-from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
+import asyncio
 
 import httpx
 from logging import getLogger
@@ -131,6 +131,35 @@ async def resolve_meeting_id(
     return None
 
 
+async def get_recording_file_size(content_url: str, token: str) -> int | None:
+    if not content_url:
+        return None
+
+    headers = {"Authorization": f"Bearer {token}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            range_headers = {**headers, "Range": "bytes=0-0"}
+            get_resp = await client.get(content_url, headers=range_headers)
+            get_resp.raise_for_status()
+
+            content_range = get_resp.headers.get("Content-Range")
+            if content_range and "/" in content_range:
+                total_size = content_range.split("/")[-1]
+                if total_size.isdigit():
+                    return int(total_size)
+
+            content_length = get_resp.headers.get("Content-Length")
+            if content_length and content_length.isdigit():
+                return int(content_length)
+
+            return None
+
+    except Exception as err:
+        logger.warning("Failed to get file size for recording: %s", err)
+        return None
+
+
 async def fetch_recordings(
     client: GraphClient,
     meeting_id: str,
@@ -158,6 +187,23 @@ async def fetch_recordings(
                 for item in items:
                     if not isinstance(item, dict):
                         continue
+                    duration_seconds = None
+                    started = item.get("createdDateTime")
+                    ended = item.get("endDateTime")
+                    if started and ended:
+                        try:
+                            started_dt = dt.datetime.fromisoformat(
+                                started.replace("Z", "+00:00")
+                            )
+                            ended_dt = dt.datetime.fromisoformat(
+                                ended.replace("Z", "+00:00")
+                            )
+                            delta_seconds = int((ended_dt - started_dt).total_seconds())
+                            if delta_seconds >= 0:
+                                duration_seconds = delta_seconds
+                        except Exception:
+                            pass
+
                     all_items.append(
                         {
                             "id": item.get("id"),
@@ -165,6 +211,7 @@ async def fetch_recordings(
                             "contentUrl": item.get("contentUrl")
                             or item.get("recordingContentUrl")
                             or item.get("downloadUrl"),
+                            "duration": duration_seconds,
                         }
                     )
 
@@ -193,26 +240,17 @@ async def fetch_recordings(
         raise
 
 
-@dataclass(slots=True)
-class MeetingRecordings:
-    recordings: list[dict[str, Any]]
-    meeting_id: str | None
-    user_id: str
-
-
 async def fetch_meeting_recordings(
     *,
     client: GraphClient,
     join_url: str | None = None,
     chat_id: str | None = None,
-    meeting_id: str | None = None,
-    user_id: str = "me",
-) -> MeetingRecordings:
+    add_size: bool = False,
+    content_token: str | None = None,
+) -> list[dict[str, Any]]:
     """Fetch recordings for a meeting, resolving meeting ID when necessary."""
-    meeting_identifier = meeting_id
 
-    if not meeting_identifier and (chat_id or join_url):
-        meeting_identifier = await resolve_meeting_id(client, chat_id, join_url)
+    meeting_identifier = await resolve_meeting_id(client, chat_id, join_url)
 
     if meeting_identifier:
         try:
@@ -222,14 +260,23 @@ async def fetch_meeting_recordings(
             recordings = await fetch_recordings(
                 client, meeting_identifier, base_path=base_path
             )
+
+            if add_size and content_token:
+
+                async def _attach_size(rec: dict) -> None:
+                    url = rec.get("contentUrl")
+                    if url:
+                        rec["size"] = await get_recording_file_size(url, content_token)
+
+                await asyncio.gather(*(_attach_size(r) for r in recordings))
+
             logger.info(
                 "Graph recordings fetched meetingId=%s recordingsCount=%d",
                 meeting_identifier,
                 len(recordings),
             )
-            return MeetingRecordings(
-                recordings=recordings, meeting_id=meeting_identifier, user_id=user_id
-            )
+            return recordings
+
         except httpx.HTTPStatusError as err:
             error_code = None
             try:
@@ -250,9 +297,7 @@ async def fetch_meeting_recordings(
             )
             raise
 
-    return MeetingRecordings(
-        recordings=[], meeting_id=meeting_identifier, user_id=user_id
-    )
+    return []
 
 
 __all__ = [

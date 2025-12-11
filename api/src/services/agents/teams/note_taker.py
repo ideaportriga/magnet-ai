@@ -1,5 +1,6 @@
 import os
 import asyncio
+import datetime as dt
 from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
@@ -26,7 +27,10 @@ from microsoft_agents.hosting.core.rest_channel_service_client_factory import (
 from microsoft_agents.hosting.core.storage import MemoryStorage
 
 from .config import ISSUER, SCOPE
-from .graph import create_graph_client_with_token, fetch_meeting_recordings
+from .graph import (
+    create_graph_client_with_token,
+    fetch_meeting_recordings,
+)
 from .static_connections import StaticConnections
 from speech_to_text.transcription import service as transcription_service
 from stores import get_db_client
@@ -43,6 +47,46 @@ _TRANSCRIPTION_TIMEOUT_SECONDS = float(
 _TRANSCRIPTION_POLL_SECONDS = float(
     os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5")
 )
+
+
+def _format_duration(seconds: int | None) -> str:
+    """Format duration in seconds to human-readable string."""
+    if seconds is None:
+        return "Unknown"
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m {secs}s"
+    elif minutes > 0:
+        return f"{minutes}m {secs}s"
+    else:
+        return f"{secs}s"
+
+
+def _format_file_size(size_bytes: int | None) -> str:
+    """Format file size in bytes to human-readable string."""
+    if size_bytes is None:
+        return "Unknown"
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+
+def _format_recording_datetime(iso_datetime: str | None) -> tuple[str, str]:
+    if not iso_datetime:
+        return ("Unknown date", "Unknown time")
+    try:
+        dt_obj = dt.datetime.fromisoformat(iso_datetime.replace("Z", "+00:00"))
+        date_str = dt_obj.strftime("%b %d, %Y")
+        time_str = dt_obj.strftime("%I:%M %p UTC")
+        return (date_str, time_str)
+    except Exception:
+        return (iso_datetime, "")
 
 
 async def _ensure_vector_pool_ready() -> None:
@@ -332,6 +376,33 @@ def _register_note_taker_handlers(
         await context.send_activity(failure_message)
         return None
 
+    async def _send_recordings_summary(
+        context: TurnContext, recordings: list, token: str
+    ) -> None:
+        if not recordings:
+            await context.send_activity("No recordings found.")
+            return
+
+        await context.send_activity(f"📹 Found {len(recordings)} recording(s):")
+
+        lines = []
+        for idx, rec in enumerate(recordings, start=1):
+            file_size = rec.get("size")
+            duration = rec.get("duration")
+            date_str, time_str = _format_recording_datetime(rec.get("createdDateTime"))
+            size_str = _format_file_size(file_size)
+
+            duration_str = _format_duration(duration) if duration is not None else None
+
+            parts = [f"{idx}. 📅 {date_str} ⏰ {time_str}"]
+            if duration_str:
+                parts.append(f"⏱️ {duration_str}")
+            parts.append(f"💾 {size_str}")
+
+            lines.append("   ".join(parts))
+
+        await context.send_activity("\n\n".join(lines))
+
     async def _handle_recordings_find(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -350,29 +421,21 @@ def _register_note_taker_handlers(
 
         try:
             async with create_graph_client_with_token(delegated_token) as graph_client:
-                artifacts = await fetch_meeting_recordings(
+                recordings = await fetch_meeting_recordings(
                     client=graph_client,
                     join_url=meeting.get("joinUrl"),
                     chat_id=meeting.get("conversationId"),
+                    add_size=True,
+                    content_token=delegated_token,
                 )
         except Exception as err:
-            logger.exception("Failed to fetch meeting artifacts")
+            logger.exception("Failed to fetch meeting recordings")
             await context.send_activity(
-                f"Could not retrieve meeting artifacts for {meeting.get('title') or 'meeting'}: {getattr(err, 'message', str(err))}"
+                f"Could not retrieve meeting recordings for {meeting.get('title') or 'meeting'}: {getattr(err, 'message', str(err))}"
             )
             return
 
-        recordings = (
-            artifacts.recordings
-            if artifacts and getattr(artifacts, "recordings", None)
-            else []
-        )
-
-        await context.send_activity(
-            f"I found {len(recordings)} recording(s) for this meeting."
-            if recordings
-            else "No recordings found."
-        )
+        await _send_recordings_summary(context, recordings, delegated_token)
 
         if recordings:
             await context.send_activity("Streaming the latest recording now...")
@@ -381,10 +444,7 @@ def _register_note_taker_handlers(
                     recordings[0], delegated_token, meeting
                 )
             except Exception as err:
-                logger.exception(
-                    "Failed to download first recording for meetingId=%s",
-                    artifacts.meeting_id,
-                )
+                logger.exception("Failed to download first recording")
                 await context.send_activity(
                     f"I couldn't download the first recording: {getattr(err, 'message', str(err))}"
                 )
