@@ -1,11 +1,13 @@
-import os
 import asyncio
+import mimetypes
 import datetime as dt
+import os
+import base64
 from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Dict, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 from microsoft_agents.activity import Activity
@@ -98,6 +100,113 @@ async def _ensure_vector_pool_ready() -> None:
             await init()
     except Exception as exc:
         logger.warning("Failed to pre-initialize vector DB pool: %s", exc)
+
+
+def _parse_content_disposition_filename(header_value: str | None) -> str | None:
+    if not header_value:
+        return None
+    parts = header_value.split(";")
+    for part in parts:
+        part = part.strip()
+        if part.lower().startswith("filename*="):
+            value = part.split("=", 1)[1]
+            if "''" in value:
+                value = value.split("''", 1)[1]
+            return value.strip("\"'")
+        if part.lower().startswith("filename="):
+            value = part.split("=", 1)[1]
+            return value.strip("\"'")
+    return None
+
+
+def _guess_filename_from_link(link: str) -> str:
+    parsed = urlparse(link)
+    filename = Path(parsed.path).name
+    if filename:
+        return filename
+
+    query = parse_qs(parsed.query)
+    file_urls = (
+        query.get("fileUrl")
+        or query.get("fileurl")
+        or query.get("file_url")
+        or query.get("file")
+    )
+    if file_urls:
+        nested_url = file_urls[0]
+        nested_parsed = urlparse(nested_url)
+        nested_name = Path(nested_parsed.path).name
+        if nested_name:
+            return nested_name
+
+    return "file"
+
+
+async def _download_file_from_link(
+    link: str, token: str | None
+) -> tuple[bytes, str, str, str]:
+    # Unwrap Teams deep links first (as you already do)
+    parsed = urlparse(link)
+    query = parse_qs(parsed.query)
+    file_urls = (
+        query.get("fileUrl")
+        or query.get("fileurl")
+        or query.get("file_url")
+        or query.get("file")
+    )
+    if file_urls:
+        link = file_urls[0]
+        parsed = urlparse(link)
+
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    # If it's a SharePoint/OneDrive URL, go via Graph /shares
+    if parsed.netloc.endswith("sharepoint.com") or "d.docs.live.net" in parsed.netloc:
+        # Build Graph /shares URL
+        raw_url = link
+        # base64url encode WITHOUT padding
+        share_id = "u!" + base64.urlsafe_b64encode(raw_url.encode("utf-8")).decode(
+            "ascii"
+        ).rstrip("=")
+        graph_download_url = (
+            f"https://graph.microsoft.com/v1.0/shares/{share_id}/driveItem/content"
+        )
+
+        download_url = graph_download_url
+    else:
+        # Otherwise download directly
+        download_url = link
+
+    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
+        async with client.stream("GET", download_url, headers=headers) as response:
+            response.raise_for_status()
+            buf = bytearray()
+            async for chunk in response.aiter_bytes():
+                if chunk:
+                    buf.extend(chunk)
+
+            content_type = (
+                (response.headers.get("Content-Type") or "application/octet-stream")
+                .split(";")[0]
+                .strip()
+            )
+
+            filename = _parse_content_disposition_filename(
+                response.headers.get("Content-Disposition")
+            )
+            if not filename:
+                filename = _guess_filename_from_link(str(response.url) or link)
+
+            path = Path(filename)
+            name = path.stem or "file"
+            ext = path.suffix
+            if not ext:
+                guessed_ext = mimetypes.guess_extension(content_type) or ".bin"
+                ext = guessed_ext
+
+    return bytes(buf), content_type, name, ext
 
 
 @dataclass(frozen=True, slots=True)
@@ -403,6 +512,44 @@ def _register_note_taker_handlers(
 
         await context.send_activity("\n\n".join(lines))
 
+    async def _transcribe_bytes_and_notify(
+        context: TurnContext,
+        *,
+        name: str,
+        ext: str,
+        file_bytes: bytes,
+        content_type: str,
+    ) -> None:
+        if not content_type.startswith(("audio/", "video/")):
+            await context.send_activity(
+                f"I downloaded a file of type `{content_type}` (extension `{ext or 'n/a'}`), "
+                "but I can only transcribe audio or video files like .mp3, .wav, .m4a, .mp4."
+            )
+            return
+
+        try:
+            status, result = await _start_transcription_from_bytes(
+                name=name,
+                ext=ext,
+                data=file_bytes,
+                content_type=content_type,
+                language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
+                pipeline_id=_DEFAULT_PIPELINE_ID,
+            )
+        except Exception as err:
+            logger.exception("Failed to start transcription for streamed file")
+            await context.send_activity(
+                f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        job_id = (result or {}).get("id") if isinstance(result, dict) else None
+        transcription = (
+            (result or {}).get("transcription") if isinstance(result, dict) else None
+        )
+
+        await _send_transcription_summary(context, status, job_id, transcription)
+
     async def _handle_recordings_find(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -456,40 +603,51 @@ def _register_note_taker_handlers(
                     "Recording downloaded; starting transcription..."
                 )
 
-                language = _DEFAULT_TRANSCRIPTION_LANGUAGE
-                pipeline_id = _DEFAULT_PIPELINE_ID
-                try:
-                    status, result = await _start_transcription_from_bytes(
-                        name=name,
-                        ext=ext,
-                        data=file_bytes,
-                        content_type=content_type,
-                        language=language,
-                        pipeline_id=pipeline_id,
-                    )
-                except Exception as err:
-                    logger.exception(
-                        "Failed to start transcription for streamed recording"
-                    )
-                    await context.send_activity(
-                        f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
-                    )
-                    return
-
-                job_id = (result or {}).get("id") if isinstance(result, dict) else None
-                transcription = (
-                    (result or {}).get("transcription")
-                    if isinstance(result, dict)
-                    else None
-                )
-
-                await _send_transcription_summary(
-                    context, status, job_id, transcription
+                await _transcribe_bytes_and_notify(
+                    context,
+                    name=name,
+                    ext=ext,
+                    file_bytes=file_bytes,
+                    content_type=content_type,
                 )
             else:
                 await context.send_activity(
                     "The first recording had no downloadable URL."
                 )
+
+    async def _handle_process_file(
+        context: TurnContext, state: Optional[TurnState], link: str
+    ) -> None:
+        delegated_token = await _get_delegated_token(
+            context,
+            auth_handler_id,
+            "Please sign in (File processing) so I can fetch the link with delegated Graph permissions.",
+        )
+        if not delegated_token:
+            return
+
+        await context.send_activity("Fetching the file from your link...")
+
+        try:
+            file_bytes, content_type, name, ext = await _download_file_from_link(
+                link, delegated_token
+            )
+        except Exception as err:
+            logger.exception("Failed to download file from link")
+            await context.send_activity(
+                f"I couldn't download that link: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        await context.send_activity("File downloaded; starting transcription...")
+
+        await _transcribe_bytes_and_notify(
+            context,
+            name=name,
+            ext=ext,
+            file_bytes=file_bytes,
+            content_type=content_type,
+        )
 
     @app.on_sign_in_success
     async def _on_sign_in_success(
@@ -559,6 +717,16 @@ def _register_note_taker_handlers(
                     f"Signed in: {'yes' if signed_in else 'no'}."
                 )
             )
+            return
+
+        if normalized_text.startswith("/process-file"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity("Usage: /process-file <link>")
+                return
+
+            link = parts[1].strip().strip("<>")
+            await _handle_process_file(context, _state, link)
             return
 
         if normalized_text.startswith("/recordings-find"):
