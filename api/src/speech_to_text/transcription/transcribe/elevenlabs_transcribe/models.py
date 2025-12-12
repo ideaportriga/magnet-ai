@@ -57,20 +57,31 @@ class ElevenLabsTranscriber(BaseTranscriber):
             extract_audio_to_wav, src_path=src_url, sr=16_000
         )
 
-        try:
+            try:
+                try:
+                    from mutagen import File as MutagenFile
+                    mf = MutagenFile(tmp_wav)
+                    if mf and mf.info:
+                        duration = float(mf.info.length)
+                        await self._storage._update_fields(
+                            file_id, duration_seconds=duration
+                        )
+                except Exception as e:
+                    pass
 
-            def _call():
-                with open(tmp_wav, "rb") as f:
-                    kwargs = dict(
-                        file=f,
-                        model_id=self._model_id,
-                        diarize=self._diarize,
-                        tag_audio_events=self._tag_events,
-                    )
-                    if self._language_code:
-                        kwargs["language_code"] = self._language_code
 
-                    return self._client.speech_to_text.convert(**kwargs)
+                def _call():
+                    with open(tmp_wav, "rb") as f:
+                        kwargs = dict(
+                            file=f,
+                            model_id=self._model_id,
+                            diarize=self._diarize,
+                            tag_audio_events=self._tag_events,
+                        )
+                        if self._language_code:
+                            kwargs["language_code"] = self._language_code
+                        
+                        return self._client.speech_to_text.convert(**kwargs)
 
             # 4. Run the API call in a thread
             payload = await asyncio.to_thread(_call)

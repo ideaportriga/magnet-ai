@@ -13,16 +13,14 @@ from utils.upload_handler import get_read_url
 from stores import get_db_store
 
 logger = logging.getLogger(__name__)
-store = get_db_store()
-_BYTES_CACHE: dict[str, Tuple[float, bytes]] = {}
-_CACHE_TTL_SECONDS = 15 * 60  # 15 minutes; adjust as needed
+store = get_db_store() 
+# _BYTES_CACHE: dict[str, Tuple[float, bytes]] = {}
+# _CACHE_TTL_SECONDS = 15 * 60  # 15 minutes; adjust as needed
 
-
-def _cache_put(file_id: str, b: bytes) -> None:
-    if not b:
-        return
-    _BYTES_CACHE[file_id] = (time.time() + _CACHE_TTL_SECONDS, b)
-
+# def _cache_put(file_id: str, b: bytes) -> None:
+#     if not b:
+#         return
+#     _BYTES_CACHE[file_id] = (time.time() + _CACHE_TTL_SECONDS, b)
 
 def _cache_get(file_id: str) -> Optional[bytes]:
     item = _BYTES_CACHE.get(file_id)
@@ -134,9 +132,7 @@ class PgDataStorage:
         except Exception:
             logger.exception("STT: save_audio failed for %s", data.file_id)
             try:
-                await self._update_fields(
-                    data.file_id, status="failed", error="save_audio failed"
-                )
+                await self._update_fields(data.file_id, status="failed", error="save_audio failed")
             except Exception:
                 pass
             raise
@@ -227,7 +223,6 @@ class PgDataStorage:
             raise
 
     async def delete_audio(self, file_id: str) -> None:
-        _BYTES_CACHE.pop(file_id, None)
         logger.info("STT: delete_audio noop (not storing raw bytes) for %s", file_id)
 
     async def insert_meta(self, data: FileData) -> None:
@@ -246,7 +241,7 @@ class PgDataStorage:
             # implement this for your stack; examples:
             #   - OCI: await oci_client.get_object_bytes(object_key)
             #   - S3:  await s3.get_object(Bucket=..., Key=...).read()
-            b = await store.objects.get_bytes(object_key)  # ← your abstraction
+            b = await store.objects.get_bytes(object_key)   # ← your abstraction
             if b:
                 _cache_put(file_id, b)
                 return b
@@ -254,7 +249,7 @@ class PgDataStorage:
         raise RuntimeError(
             "Audio bytes unavailable: not in cache and no retrievable object_key."
         )
-
+    
     async def get_audio_url(self, file_id: str) -> str:
         row = await store.client.fetchrow(
             "SELECT object_key FROM transcriptions WHERE file_id = $1", file_id
