@@ -320,7 +320,11 @@ class _SignInInvokeMiddleware:
                 try:
                     await context.delete_activity(reply_to_id)
                 except Exception as err:
-                    logger.debug("Failed to delete sign-in card activity %s: %s", reply_to_id, err)
+                    logger.debug(
+                        "Failed to delete sign-in card activity %s: %s",
+                        reply_to_id,
+                        err,
+                    )
 
 
 def _is_personal_teams_conversation(context: TurnContext) -> bool:
@@ -506,15 +510,14 @@ async def _send_transcription_summary(
 def _register_note_taker_handlers(
     app: AgentApplication[TurnState], auth_handler_id: str
 ) -> None:
-    async def _is_signed_in(context: TurnContext, handler_id: str) -> bool:
+    async def _send_typing(context: TurnContext) -> None:
         try:
-            token_response = await app.auth.get_token(context, handler_id)
+            await context.send_activity(Activity(type="typing"))
         except Exception as err:
-            logger.warning("Failed to get token: %s", getattr(err, "message", str(err)))
-            return False
-
-        token = getattr(token_response, "token", None) if token_response else None
-        return bool(token)
+            logger.debug(
+                "Failed to send typing indicator: %s",
+                getattr(err, "message", str(err)),
+            )
 
     async def _get_delegated_token(
         context: TurnContext,
@@ -522,14 +525,11 @@ def _register_note_taker_handlers(
         failure_message: str,
     ) -> str | None:
         try:
-            token_response = await app.auth.get_token(context, handler_id)
-            token_value = (
-                getattr(token_response, "token", None) if token_response else None
-            )
-
-            if token_value:
-                return token_value
-
+            # app.auth.get_token(context, handler_id) returns cached token?
+            handler = app.auth._resolve_handler(handler_id)
+            flow, _ = await handler._load_flow(context)
+            token_response = await flow.get_user_token()
+            return getattr(token_response, "token", None)
         except Exception as err:
             logger.error(
                 "Auth failed handler_id=%s message=%s",
@@ -576,6 +576,7 @@ def _register_note_taker_handlers(
         file_bytes: bytes,
         content_type: str,
     ) -> None:
+        await _send_typing(context)
         if not content_type.startswith(("audio/", "video/")):
             await context.send_activity(
                 f"I downloaded a file of type `{content_type}` (extension `{ext or 'n/a'}`), "
@@ -606,6 +607,44 @@ def _register_note_taker_handlers(
 
         await _send_transcription_summary(context, status, job_id, transcription)
 
+    async def _has_existing_token(context: TurnContext, handler_id: str) -> bool:
+        """Try to detect an existing ABS token without sending a new OAuth card."""
+        try:
+            handler = app.auth._resolve_handler(handler_id)
+            flow, _ = await handler._load_flow(context)
+            token_response = await flow.get_user_token()
+            return bool(getattr(token_response, "token", None))
+        except Exception as err:
+            logger.debug(
+                "Token precheck failed during install flow (handler=%s): %s",
+                handler_id,
+                getattr(err, "message", str(err)),
+            )
+            return False
+
+    async def _handle_install_flow(context: TurnContext, _state: TurnState) -> None:
+        if not _is_personal_teams_conversation(context):
+            return
+
+        try:
+            already_signed_in = await _has_existing_token(context, auth_handler_id)
+        except Exception:
+            already_signed_in = False
+
+        if already_signed_in:
+            return
+
+        await context.send_activity(
+            "Thanks for installing the Magnet note taker bot. Please sign in so I can access your meeting recordings."
+        )
+        try:
+            await app.auth._start_or_continue_sign_in(context, _state, auth_handler_id)
+        except Exception as err:
+            logger.warning(
+                "Failed to start sign-in on installation: %s",
+                getattr(err, "message", str(err)),
+            )
+
     async def _handle_recordings_find(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -621,6 +660,8 @@ def _register_note_taker_handlers(
         )
         if not delegated_token:
             return
+
+        await _send_typing(context)
 
         try:
             async with create_graph_client_with_token(delegated_token) as graph_client:
@@ -642,6 +683,7 @@ def _register_note_taker_handlers(
 
         if recordings:
             await context.send_activity("Streaming the latest recording now...")
+            await _send_typing(context)
             try:
                 recording_bytes = await _download_recording_bytes(
                     recordings[0], delegated_token, meeting
@@ -658,6 +700,7 @@ def _register_note_taker_handlers(
                 await context.send_activity(
                     "Recording downloaded; starting transcription..."
                 )
+                await _send_typing(context)
 
                 await _transcribe_bytes_and_notify(
                     context,
@@ -681,6 +724,8 @@ def _register_note_taker_handlers(
         )
         if not delegated_token:
             return
+
+        await _send_typing(context)
 
         await context.send_activity("Fetching the file from your link...")
 
@@ -732,14 +777,17 @@ def _register_note_taker_handlers(
     @app.activity("installationUpdate")
     async def _on_installation_update(context: TurnContext, _state: TurnState) -> None:
         activity = getattr(context, "activity", None)
+        logger.info("[teams note-taker] installation update received: %s", activity)
         action = getattr(activity, "action", None)
         if action == "add":
-            if _is_personal_teams_conversation(context):
-                await context.send_activity(
-                    "Thanks for installing the Magnet note taker bot."
-                )
-            elif _is_meeting_conversation(context):
+            await _handle_install_flow(context, _state)
+            if _is_meeting_conversation(context):
                 await context.send_activity("Magnet note taker added to the meeting.")
+
+    @app.conversation_update("membersAdded")
+    async def _on_members_added(context: TurnContext, _state: TurnState) -> None:
+        activity = getattr(context, "activity", None)
+        logger.info("[teams note-taker] members added received: %s", activity)
 
     @app.activity("message", auth_handlers=[auth_handler_id])
     async def _on_message(context: TurnContext, _state: TurnState) -> None:
@@ -764,13 +812,13 @@ def _register_note_taker_handlers(
 
         if normalized_text.startswith("/whoami"):
             info = _resolve_user_info(context)
-            signed_in = await _is_signed_in(context, auth_handler_id)
+            has_existing_token = await _has_existing_token(context, auth_handler_id)
             await context.send_activity(
                 (
                     f"You are {info.get('name') or 'Unknown user'} "
                     f"(id: {info.get('id') or 'n/a'}, aadObjectId: {info.get('aad_object_id') or 'n/a'}). "
                     f"Conversation type: {info.get('conversation_type') or 'unknown'}. "
-                    f"Signed in: {'yes' if signed_in else 'no'}."
+                    f"Signed in: {'yes' if has_existing_token else 'no'}."
                 )
             )
             return
@@ -782,10 +830,12 @@ def _register_note_taker_handlers(
                 return
 
             link = parts[1].strip().strip("<>")
+            await _send_typing(context)
             await _handle_process_file(context, _state, link)
             return
 
         if normalized_text.startswith("/recordings-find"):
+            await _send_typing(context)
             await _handle_recordings_find(context, _state)
             return
 
@@ -857,7 +907,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
     app_options = ApplicationOptions(
         storage=storage,
         adapter=adapter,
-        start_typing_timer=True,
+        start_typing_timer=False,
         authorization_handlers=auth_handlers,
         bot_app_id=settings.client_id,
     )
