@@ -46,7 +46,30 @@ git push -u origin feature/your-task-name
 3. Wait for ≥1 approval + CI green.
 4. Merge (Squash and merge recommended).
 
-## 4. Release Process & Docker Build
+## 4. Commit Messages
+
+We follow the **Conventional Commits** specification. This allows us to automatically generate changelogs and determine semantic versioning.
+
+**Format**: `<type>(<scope>): <description>`
+
+**Types**:
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc)
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `perf`: A code change that improves performance
+- `test`: Adding missing tests or correcting existing tests
+- `chore`: Changes to the build process or auxiliary tools and libraries such as documentation generation
+
+**Examples**:
+- `feat(api): add new endpoint for user profile`
+- `fix(web): resolve issue with login button`
+- `docs: update readme with setup instructions`
+
+We use `commitlint` to enforce these rules. If your commit message does not follow the convention, the commit will be rejected.
+
+## 5. Release Process & Docker Build
 
 **Goal:** Publish a production-ready Docker container to the registry (GHCR/DockerHub).
 
@@ -82,11 +105,11 @@ git push -u origin feature/your-task-name
 4. **Cleanup:**
    Merge `release/2.1.0` (or `main`) back into `develop` to sync versions.
 
-## 5. Hotfixes
+## 6. Hotfixes
 
 Same as release but from `main` → create `hotfix/...` → merge to `main` + tag patch version → merge back to `develop`.
 
-## 6. Automation
+## 7. Automation
 
 GitHub Actions:
 
@@ -94,7 +117,7 @@ GitHub Actions:
 - Build & push Docker image on push to `main`, `develop`, or `v*` tag (`docker-publish.yml`)
 - Create Release on push to `main` (`release.yml`)
 
-## 7. Artifact storage
+## 8. Artifact storage
 
 - Docker images → GitHub Container Registry
 - Packages → GitHub Packages
