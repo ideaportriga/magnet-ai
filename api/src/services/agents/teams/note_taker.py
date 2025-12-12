@@ -314,6 +314,14 @@ class _SignInInvokeMiddleware:
                 )
             )
 
+            # Delete the original sign-in card once the user completes sign-in to avoid double-clicking.
+            reply_to_id = getattr(activity, "reply_to_id", None)
+            if reply_to_id:
+                try:
+                    await context.delete_activity(reply_to_id)
+                except Exception as err:
+                    logger.debug("Failed to delete sign-in card activity %s: %s", reply_to_id, err)
+
 
 def _is_personal_teams_conversation(context: TurnContext) -> bool:
     activity = getattr(context, "activity", None)
