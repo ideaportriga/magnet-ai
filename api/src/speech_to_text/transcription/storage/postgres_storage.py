@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import BinaryIO, Optional, Literal
 from datetime import timezone
 import time
-from typing import Tuple
 from ..models import FileData
 from utils.upload_handler import get_read_url
 
@@ -32,6 +31,7 @@ store = get_db_store()
 #         return None
 #     return b
 
+
 class PgDataStorage:
     """Store transcription job state in plain SQL table `transcriptions` (no embeddings)."""
 
@@ -48,11 +48,12 @@ class PgDataStorage:
             ON CONFLICT (file_id) DO NOTHING
             """,
             data.file_id,
-            data.file_name,                                  # or data.filename_with_ext
-            data.file_ext,                                   # be consistent (e.g., ".mp3")
+            data.file_name,  # or data.filename_with_ext
+            data.file_ext,  # be consistent (e.g., ".mp3")
             data.content_type or "application/octet-stream",
             data.object_key,
-            now, now,
+            now,
+            now,
         )
 
     async def _update_fields(self, file_id: str, **fields) -> None:
@@ -75,6 +76,7 @@ class PgDataStorage:
     def _duration_seconds_from_bytes(self, b: bytes) -> float | None:
         import os
         import tempfile
+
         try:
             from mutagen import File as MutagenFile
         except ImportError:
@@ -107,33 +109,35 @@ class PgDataStorage:
             file_id,
         )
         return dict(row) if row else None
-    
+
     # ──────────────────────────────────────────────────────────────────────────────
     # Public API (same signatures you already use)
     # ──────────────────────────────────────────────────────────────────────────────
     async def save_audio(self, data: FileData, stream: BinaryIO = None) -> str:
-            try:
-                # Just create the database entry
-                await self._insert_shell_if_missing(data)
-                
-                # We CANNOT calculate duration here anymore because we are not
-                # loading the file. We will do it after FFmpeg conversion.
-                
-                await self._update_fields(
-                    data.file_id,
-                    status="in_progress",
-                    # duration_seconds=duration, # <--- Removed, will update later
-                )
-                return data.file_id
-            except Exception:
-                logger.exception("STT: save_audio failed for %s", data.file_id)
-                # ... error handling ...
-                raise
+        try:
+            await self._insert_shell_if_missing(data)
+            
+            await self._update_fields(
+                data.file_id,
+                status="in_progress",
+            )
+            return data.file_id
+        except Exception:
+            logger.exception("STT: save_audio failed for %s", data.file_id)
+            raise
 
     async def update_status(
         self,
         file_id: str,
-        status: Literal["started","in_progress","running","transcribed","diarized","completed","failed"],
+        status: Literal[
+            "started",
+            "in_progress",
+            "running",
+            "transcribed",
+            "diarized",
+            "completed",
+            "failed",
+        ],
         job_id: Optional[str] = None,
         transcription: Optional[dict] = None,
         error: Optional[str] = None,
@@ -157,7 +161,11 @@ class PgDataStorage:
             raise
 
     async def update_transcription(self, file_id: str, transcription: dict) -> None:
-        logger.info("STT: update_transcription for %s (len=%s)", file_id, len(str(transcription)))
+        logger.info(
+            "STT: update_transcription for %s (len=%s)",
+            file_id,
+            len(str(transcription)),
+        )
         await self.update_status(file_id, "completed", transcription=transcription)
 
     async def update_error(self, file_id: str, message: str) -> None:
@@ -166,7 +174,9 @@ class PgDataStorage:
 
     # If you still want to fetch the raw audio bytes, wire it to your object store instead.
     async def get_file(self, file_id: str) -> BinaryIO:
-        raise NotImplementedError("Raw audio is not stored in DB. Fetch from object storage instead.")
+        raise NotImplementedError(
+            "Raw audio is not stored in DB. Fetch from object storage instead."
+        )
 
     async def get_transcription(self, file_id: str) -> Optional[dict]:
         try:
@@ -190,8 +200,12 @@ class PgDataStorage:
                 "error": row.get("error"),
                 "participants": row.get("participants"),
                 "transcription": row.get("transcription"),
-                "created_at": row.get("created_at").isoformat() if row.get("created_at") else None,
-                "updated_at": row.get("updated_at").isoformat() if row.get("updated_at") else None,
+                "created_at": row.get("created_at").isoformat()
+                if row.get("created_at")
+                else None,
+                "updated_at": row.get("updated_at").isoformat()
+                if row.get("updated_at")
+                else None,
             }
         except Exception:
             logger.exception("STT: get_meta failed for %s", file_id)
@@ -204,27 +218,22 @@ class PgDataStorage:
         await self._insert_shell_if_missing(data)
 
     async def load_audio(self, file_id: str) -> bytes:
-            # Prevent usage of this method if possible, or force streaming download
-            # If you truly need bytes, fetch from OCI, but try to avoid calling this.
-            row = await self._row_by_file_id(file_id)
-            object_key = row.get("object_key") if row else None
-            
-            if object_key:
-                # Ideally, return a stream, not bytes. 
-                # If you must return bytes, this WILL consume RAM.
-                return await store.objects.get_bytes(object_key) 
+        row = await self._row_by_file_id(file_id)
+        object_key = row.get("object_key") if row else None
+        
+        if object_key:
+            return await store.objects.get_bytes(object_key) 
 
-            raise RuntimeError("Audio bytes unavailable.")
+        raise RuntimeError("Audio bytes unavailable.")
     
     async def get_audio_url(self, file_id: str) -> str:
         row = await store.client.fetchrow(
-            "SELECT object_key FROM transcriptions WHERE file_id = $1", 
-            file_id
+            "SELECT object_key FROM transcriptions WHERE file_id = $1", file_id
         )
         if not row or not row["object_key"]:
             raise RuntimeError(f"Database has no object_key for file {file_id}")
-            
+
         object_key = row["object_key"]
         url = await asyncio.to_thread(get_read_url, object_key)
-        
+
         return url
