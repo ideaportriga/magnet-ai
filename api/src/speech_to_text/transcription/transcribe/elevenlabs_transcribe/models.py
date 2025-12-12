@@ -4,7 +4,6 @@ import asyncio
 from typing import Any, Dict
 from elevenlabs.client import ElevenLabs
 
-
 from ..base import BaseTranscriber
 from ...storage.postgres_storage import PgDataStorage
 from ...models import TranscriptionCfg
@@ -56,47 +55,43 @@ class ElevenLabsTranscriber(BaseTranscriber):
         tmp_wav = await asyncio.to_thread(
             extract_audio_to_wav, src_path=src_url, sr=16_000
         )
+        
+        raw_payload = None
 
+        try:
             try:
-                try:
-                    from mutagen import File as MutagenFile
-                    mf = MutagenFile(tmp_wav)
-                    if mf and mf.info:
-                        duration = float(mf.info.length)
-                        await self._storage._update_fields(
-                            file_id, duration_seconds=duration
-                        )
-                except Exception as e:
-                    pass
+                from mutagen import File as MutagenFile
+                mf = MutagenFile(tmp_wav)
+                if mf and mf.info:
+                    duration = float(mf.info.length)
+                    await self._storage._update_fields(
+                        file_id, duration_seconds=duration
+                    )
+            except Exception:
+                pass
 
+            def _call():
+                with open(tmp_wav, "rb") as f:
+                    kwargs = dict(
+                        file=f,
+                        model_id=self._model_id,
+                        diarize=self._diarize,
+                        tag_audio_events=self._tag_events,
+                    )
+                    if self._language_code:
+                        kwargs["language_code"] = self._language_code
+                    
+                    return self._client.speech_to_text.convert(**kwargs)
 
-                def _call():
-                    with open(tmp_wav, "rb") as f:
-                        kwargs = dict(
-                            file=f,
-                            model_id=self._model_id,
-                            diarize=self._diarize,
-                            tag_audio_events=self._tag_events,
-                        )
-                        if self._language_code:
-                            kwargs["language_code"] = self._language_code
-                        
-                        return self._client.speech_to_text.convert(**kwargs)
-
-            # 4. Run the API call in a thread
-            payload = await asyncio.to_thread(_call)
+            raw_payload = await asyncio.to_thread(_call)
 
         finally:
-            # 5. Clean up the temp WAV file
             try:
                 os.remove(tmp_wav)
             except OSError:
                 pass
 
-        # ------------------------------------------------------------------
-        # Parsing logic remains the same
-        # ------------------------------------------------------------------
-        payload = _to_dict(payload) or {}
+        payload = _to_dict(raw_payload) or {}
         words_raw = payload.get("words", []) or []
         words = [_to_dict(w) for w in words_raw]
 
