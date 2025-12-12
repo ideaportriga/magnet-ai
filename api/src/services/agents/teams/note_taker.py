@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlparse
 
 import httpx
-from microsoft_agents.activity import Activity
+from microsoft_agents.activity import Activity, ActionTypes, CardAction, OAuthCard
 from microsoft_agents.authentication.msal import MsalAuth
 from microsoft_agents.hosting.aiohttp import CloudAdapter
 from microsoft_agents.hosting.core import (
@@ -23,12 +23,21 @@ from microsoft_agents.hosting.core import (
 from microsoft_agents.hosting.core.app.app_options import ApplicationOptions
 from microsoft_agents.hosting.core.app import AuthHandler
 from microsoft_agents.hosting.core.app.oauth import Authorization
+from microsoft_agents.hosting.core.app.oauth.authorization import (
+    AUTHORIZATION_TYPE_MAP,
+)
+from microsoft_agents.hosting.core.app.oauth._handlers._user_authorization import (
+    _UserAuthorization,
+)
+from microsoft_agents.hosting.core._oauth import _FlowStateTag
 from microsoft_agents.hosting.core.rest_channel_service_client_factory import (
     RestChannelServiceClientFactory,
 )
 from microsoft_agents.hosting.core.storage import MemoryStorage
+from microsoft_agents.hosting.core.card_factory import CardFactory
+from microsoft_agents.hosting.core.message_factory import MessageFactory
 
-from .config import ISSUER, SCOPE
+from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
     create_graph_client_with_token,
     fetch_meeting_recordings,
@@ -243,6 +252,45 @@ class NoteTakerRuntime:
     adapter: CloudAdapter
     agent_app: AgentApplication[TurnState]
     auth_handler_id: str
+
+
+class _CustomUserAuthorization(_UserAuthorization):
+    """Override OAuth card content without modifying the SDK package."""
+
+    async def _handle_flow_response(self, context: TurnContext, flow_response):
+        flow_state = flow_response.flow_state
+
+        if flow_state.tag == _FlowStateTag.BEGIN:
+            sign_in_resource = flow_response.sign_in_resource
+            assert sign_in_resource
+
+            button_title = self._handler.title or "Sign in."
+            card_text = self._handler.text or "Sign in.."
+
+            o_card = CardFactory.oauth_card(
+                OAuthCard(
+                    text=card_text,
+                    connection_name=flow_state.connection,
+                    buttons=[
+                        CardAction(
+                            title=button_title,
+                            type=ActionTypes.signin,
+                            value=sign_in_resource.sign_in_link,
+                            channel_data=None,
+                        )
+                    ],
+                    token_exchange_resource=sign_in_resource.token_exchange_resource,
+                    token_post_resource=sign_in_resource.token_post_resource,
+                )
+            )
+            await context.send_activity(MessageFactory.attachment(o_card))
+            return
+
+        await super()._handle_flow_response(context, flow_response)
+
+
+# Override the default handler mapping so our custom OAuth card text/title is used.
+AUTHORIZATION_TYPE_MAP["userauthorization"] = _CustomUserAuthorization
 
 
 class _SignInInvokeMiddleware:
@@ -785,9 +833,9 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
     auth_handler = AuthHandler(
         name=settings.auth_handler_id,
         abs_oauth_connection_name=settings.auth_handler_id,
-        title="Sign in",
+        title="Sign in...",
         text="Sign in so I can read your meeting recordings.",
-        scopes=SCOPE,
+        scopes=NOTE_TAKER_GRAPH_SCOPES,
     )
     auth_handlers = {settings.auth_handler_id: auth_handler}
 
