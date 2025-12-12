@@ -13,14 +13,16 @@ from utils.upload_handler import get_read_url
 from stores import get_db_store
 
 logger = logging.getLogger(__name__)
-store = get_db_store() 
+store = get_db_store()
 _BYTES_CACHE: dict[str, Tuple[float, bytes]] = {}
 _CACHE_TTL_SECONDS = 15 * 60  # 15 minutes; adjust as needed
+
 
 def _cache_put(file_id: str, b: bytes) -> None:
     if not b:
         return
     _BYTES_CACHE[file_id] = (time.time() + _CACHE_TTL_SECONDS, b)
+
 
 def _cache_get(file_id: str) -> Optional[bytes]:
     item = _BYTES_CACHE.get(file_id)
@@ -31,6 +33,7 @@ def _cache_get(file_id: str) -> Optional[bytes]:
         _BYTES_CACHE.pop(file_id, None)
         return None
     return b
+
 
 class PgDataStorage:
     """Store transcription job state in plain SQL table `transcriptions` (no embeddings)."""
@@ -48,11 +51,12 @@ class PgDataStorage:
             ON CONFLICT (file_id) DO NOTHING
             """,
             data.file_id,
-            data.file_name,                                  # or data.filename_with_ext
-            data.file_ext,                                   # be consistent (e.g., ".mp3")
+            data.file_name,  # or data.filename_with_ext
+            data.file_ext,  # be consistent (e.g., ".mp3")
             data.content_type or "application/octet-stream",
             data.object_key,
-            now, now,
+            now,
+            now,
         )
 
     async def _update_fields(self, file_id: str, **fields) -> None:
@@ -75,6 +79,7 @@ class PgDataStorage:
     def _duration_seconds_from_bytes(self, b: bytes) -> float | None:
         import os
         import tempfile
+
         try:
             from mutagen import File as MutagenFile
         except ImportError:
@@ -107,7 +112,7 @@ class PgDataStorage:
             file_id,
         )
         return dict(row) if row else None
-    
+
     # ──────────────────────────────────────────────────────────────────────────────
     # Public API (same signatures you already use)
     # ──────────────────────────────────────────────────────────────────────────────
@@ -129,7 +134,9 @@ class PgDataStorage:
         except Exception:
             logger.exception("STT: save_audio failed for %s", data.file_id)
             try:
-                await self._update_fields(data.file_id, status="failed", error="save_audio failed")
+                await self._update_fields(
+                    data.file_id, status="failed", error="save_audio failed"
+                )
             except Exception:
                 pass
             raise
@@ -137,7 +144,15 @@ class PgDataStorage:
     async def update_status(
         self,
         file_id: str,
-        status: Literal["started","in_progress","running","transcribed","diarized","completed","failed"],
+        status: Literal[
+            "started",
+            "in_progress",
+            "running",
+            "transcribed",
+            "diarized",
+            "completed",
+            "failed",
+        ],
         job_id: Optional[str] = None,
         transcription: Optional[dict] = None,
         error: Optional[str] = None,
@@ -161,7 +176,11 @@ class PgDataStorage:
             raise
 
     async def update_transcription(self, file_id: str, transcription: dict) -> None:
-        logger.info("STT: update_transcription for %s (len=%s)", file_id, len(str(transcription)))
+        logger.info(
+            "STT: update_transcription for %s (len=%s)",
+            file_id,
+            len(str(transcription)),
+        )
         await self.update_status(file_id, "completed", transcription=transcription)
 
     async def update_error(self, file_id: str, message: str) -> None:
@@ -170,7 +189,9 @@ class PgDataStorage:
 
     # If you still want to fetch the raw audio bytes, wire it to your object store instead.
     async def get_file(self, file_id: str) -> BinaryIO:
-        raise NotImplementedError("Raw audio is not stored in DB. Fetch from object storage instead.")
+        raise NotImplementedError(
+            "Raw audio is not stored in DB. Fetch from object storage instead."
+        )
 
     async def get_transcription(self, file_id: str) -> Optional[dict]:
         try:
@@ -194,8 +215,12 @@ class PgDataStorage:
                 "error": row.get("error"),
                 "participants": row.get("participants"),
                 "transcription": row.get("transcription"),
-                "created_at": row.get("created_at").isoformat() if row.get("created_at") else None,
-                "updated_at": row.get("updated_at").isoformat() if row.get("updated_at") else None,
+                "created_at": row.get("created_at").isoformat()
+                if row.get("created_at")
+                else None,
+                "updated_at": row.get("updated_at").isoformat()
+                if row.get("updated_at")
+                else None,
             }
         except Exception:
             logger.exception("STT: get_meta failed for %s", file_id)
@@ -221,7 +246,7 @@ class PgDataStorage:
             # implement this for your stack; examples:
             #   - OCI: await oci_client.get_object_bytes(object_key)
             #   - S3:  await s3.get_object(Bucket=..., Key=...).read()
-            b = await store.objects.get_bytes(object_key)   # ← your abstraction
+            b = await store.objects.get_bytes(object_key)  # ← your abstraction
             if b:
                 _cache_put(file_id, b)
                 return b
@@ -229,16 +254,15 @@ class PgDataStorage:
         raise RuntimeError(
             "Audio bytes unavailable: not in cache and no retrievable object_key."
         )
-    
+
     async def get_audio_url(self, file_id: str) -> str:
         row = await store.client.fetchrow(
-            "SELECT object_key FROM transcriptions WHERE file_id = $1", 
-            file_id
+            "SELECT object_key FROM transcriptions WHERE file_id = $1", file_id
         )
         if not row or not row["object_key"]:
             raise RuntimeError(f"Database has no object_key for file {file_id}")
-            
+
         object_key = row["object_key"]
         url = await asyncio.to_thread(get_read_url, object_key)
-        
+
         return url
