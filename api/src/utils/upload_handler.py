@@ -27,7 +27,7 @@ if ENV == "dev":
         return _create_session(filename, size, content_type)
 
     async def open_object_stream(key: str):
-        return open(LOCAL_DIR / key, "rb")
+            return await asyncio.to_thread(open, LOCAL_DIR / key, "rb")
     osc = None            # placeholder, not used in dev
     NAMESPACE = ""
     BUCKET = ""

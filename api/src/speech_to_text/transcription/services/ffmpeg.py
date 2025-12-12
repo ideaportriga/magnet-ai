@@ -4,9 +4,7 @@ import tempfile
 from pathlib import Path
 from subprocess import CalledProcessError, run
 import subprocess
-import json
 from io import BytesIO
-import shutil
 
 
 def extract_audio_to_wav(
