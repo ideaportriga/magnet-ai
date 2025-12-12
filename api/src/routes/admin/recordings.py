@@ -73,7 +73,7 @@ class RecordingsController(Controller):
                 status_code=400, detail="filename must include extension"
             )
 
-        file_bytes = await upload.read() if upload else None
+        file_bytes = None
 
         # Submit to transcription pipeline
         job_id = await service.submit(

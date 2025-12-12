@@ -55,6 +55,18 @@ class ElevenLabsTranscriber(BaseTranscriber):
             )
 
             try:
+                try:
+                    from mutagen import File as MutagenFile
+                    mf = MutagenFile(tmp_wav)
+                    if mf and mf.info:
+                        duration = float(mf.info.length)
+                        await self._storage._update_fields(
+                            file_id, duration_seconds=duration
+                        )
+                except Exception as e:
+                    pass
+
+
                 def _call():
                     with open(tmp_wav, "rb") as f:
                         kwargs = dict(

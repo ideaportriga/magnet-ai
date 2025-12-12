@@ -14,23 +14,23 @@ from stores import get_db_store
 
 logger = logging.getLogger(__name__)
 store = get_db_store() 
-_BYTES_CACHE: dict[str, Tuple[float, bytes]] = {}
-_CACHE_TTL_SECONDS = 15 * 60  # 15 minutes; adjust as needed
+# _BYTES_CACHE: dict[str, Tuple[float, bytes]] = {}
+# _CACHE_TTL_SECONDS = 15 * 60  # 15 minutes; adjust as needed
 
-def _cache_put(file_id: str, b: bytes) -> None:
-    if not b:
-        return
-    _BYTES_CACHE[file_id] = (time.time() + _CACHE_TTL_SECONDS, b)
+# def _cache_put(file_id: str, b: bytes) -> None:
+#     if not b:
+#         return
+#     _BYTES_CACHE[file_id] = (time.time() + _CACHE_TTL_SECONDS, b)
 
-def _cache_get(file_id: str) -> Optional[bytes]:
-    item = _BYTES_CACHE.get(file_id)
-    if not item:
-        return None
-    exp, b = item
-    if time.time() > exp:
-        _BYTES_CACHE.pop(file_id, None)
-        return None
-    return b
+# def _cache_get(file_id: str) -> Optional[bytes]:
+#     item = _BYTES_CACHE.get(file_id)
+#     if not item:
+#         return None
+#     exp, b = item
+#     if time.time() > exp:
+#         _BYTES_CACHE.pop(file_id, None)
+#         return None
+#     return b
 
 class PgDataStorage:
     """Store transcription job state in plain SQL table `transcriptions` (no embeddings)."""
@@ -111,28 +111,24 @@ class PgDataStorage:
     # ──────────────────────────────────────────────────────────────────────────────
     # Public API (same signatures you already use)
     # ──────────────────────────────────────────────────────────────────────────────
-    async def save_audio(self, data: FileData, stream: BinaryIO) -> str:
-        try:
-            await self._insert_shell_if_missing(data)
-            file_bytes = stream.read() or b""
-
-            # NEW: cache the bytes temporarily for the transcriber
-            _cache_put(data.file_id, file_bytes)
-
-            duration = self._duration_seconds_from_bytes(file_bytes)
-            await self._update_fields(
-                data.file_id,
-                status="in_progress",
-                duration_seconds=duration,
-            )
-            return data.file_id
-        except Exception:
-            logger.exception("STT: save_audio failed for %s", data.file_id)
+    async def save_audio(self, data: FileData, stream: BinaryIO = None) -> str:
             try:
-                await self._update_fields(data.file_id, status="failed", error="save_audio failed")
+                # Just create the database entry
+                await self._insert_shell_if_missing(data)
+                
+                # We CANNOT calculate duration here anymore because we are not
+                # loading the file. We will do it after FFmpeg conversion.
+                
+                await self._update_fields(
+                    data.file_id,
+                    status="in_progress",
+                    # duration_seconds=duration, # <--- Removed, will update later
+                )
+                return data.file_id
             except Exception:
-                pass
-            raise
+                logger.exception("STT: save_audio failed for %s", data.file_id)
+                # ... error handling ...
+                raise
 
     async def update_status(
         self,
@@ -202,33 +198,23 @@ class PgDataStorage:
             raise
 
     async def delete_audio(self, file_id: str) -> None:
-        _BYTES_CACHE.pop(file_id, None)
         logger.info("STT: delete_audio noop (not storing raw bytes) for %s", file_id)
 
     async def insert_meta(self, data: FileData) -> None:
         await self._insert_shell_if_missing(data)
 
     async def load_audio(self, file_id: str) -> bytes:
-        # 1) Try hot cache (typical path)
-        b = _cache_get(file_id)
-        if b is not None:
-            return b
+            # Prevent usage of this method if possible, or force streaming download
+            # If you truly need bytes, fetch from OCI, but try to avoid calling this.
+            row = await self._row_by_file_id(file_id)
+            object_key = row.get("object_key") if row else None
+            
+            if object_key:
+                # Ideally, return a stream, not bytes. 
+                # If you must return bytes, this WILL consume RAM.
+                return await store.objects.get_bytes(object_key) 
 
-        # 2) Fallback: fetch from object storage if we have object_key
-        row = await self._row_by_file_id(file_id)
-        object_key = row.get("object_key") if row else None
-        if object_key:
-            # implement this for your stack; examples:
-            #   - OCI: await oci_client.get_object_bytes(object_key)
-            #   - S3:  await s3.get_object(Bucket=..., Key=...).read()
-            b = await store.objects.get_bytes(object_key)   # ← your abstraction
-            if b:
-                _cache_put(file_id, b)
-                return b
-
-        raise RuntimeError(
-            "Audio bytes unavailable: not in cache and no retrievable object_key."
-        )
+            raise RuntimeError("Audio bytes unavailable.")
     
     async def get_audio_url(self, file_id: str) -> str:
         row = await store.client.fetchrow(
