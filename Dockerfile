@@ -41,7 +41,7 @@ RUN poetry install --no-interaction --no-root --only main
 FROM python:3.12-slim as final
 
 # Install netcat for database connectivity checks
-RUN apt-get update && apt-get install -y netcat-traditional && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y netcat-traditional ffmpeg && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

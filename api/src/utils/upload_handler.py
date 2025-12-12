@@ -16,20 +16,19 @@ if ENV == "dev":
 
     def _create_session(filename: str, *_):
         return {
-            "object_key": filename,
-            "upload_url": None,
+            "object_key":     filename,
+            "upload_url":     None,
             "presigned_urls": [],
-            "part_size": None,
-            "complete_url": None,
+            "part_size":      None,
+            "complete_url":   None,
         }
 
     async def make_multipart_session(filename, size, content_type):
         return _create_session(filename, size, content_type)
 
     async def open_object_stream(key: str):
-        return open(LOCAL_DIR / key, "rb")  # noqa: ASYNC230
-
-    osc = None  # placeholder, not used in dev
+            return await asyncio.to_thread(open, LOCAL_DIR / key, "rb")
+    osc = None            # placeholder, not used in dev
     NAMESPACE = ""
     BUCKET = ""
 
@@ -39,18 +38,33 @@ else:
     from oci.object_storage.models import CreatePreauthenticatedRequestDetails
 
     cfg = {
-        "user": os.getenv("OCI_USER_OCID_FRANKFURT_1"),
-        "tenancy": os.getenv("OCI_TENANCY_OCID_FRANKFURT_1"),
-        "region": os.getenv("OCI_REGION_FRANKFURT_1"),
+        "user":        os.getenv("OCI_USER_OCID_FRANKFURT_1"),
+        "tenancy":     os.getenv("OCI_TENANCY_OCID_FRANKFURT_1"),
+        "region":      os.getenv("OCI_REGION_FRANKFURT_1"),
         "fingerprint": os.getenv("OCI_FINGERPRINT_FRANKFURT_1"),
-        "key_content": os.getenv(
-            "OCI_PRIVATE_KEY_FRANKFURT_1"
-        ),  # Changed from key_file
+        "key_content": os.getenv("OCI_PRIVATE_KEY_FRANKFURT_1"), # Changed from key_file
         "pass_phrase": os.getenv("OCI_PASSPHRASE_FRANKFURT_1") or None,
     }
-    BUCKET = os.getenv("OCI_BUCKET_NAME_FRANKFURT_1", "")
-    osc = oci.object_storage.ObjectStorageClient(cfg)
-    NAMESPACE = osc.get_namespace().data
+    BUCKET     = os.getenv("OCI_BUCKET_NAME_FRANKFURT_1", "")
+    osc        = oci.object_storage.ObjectStorageClient(cfg)
+    NAMESPACE  = osc.get_namespace().data
+
+    def get_read_url(object_name: str, minutes: int = 60) -> str:
+        """
+        Generates a temporary Pre-Authenticated Request (PAR) for reading.
+        FFmpeg will use this to stream the file.
+        """
+        par = osc.create_preauthenticated_request(
+            namespace_name=NAMESPACE,
+            bucket_name=BUCKET,
+            create_preauthenticated_request_details=CreatePreauthenticatedRequestDetails(
+                name=f"read-{object_name}",
+                object_name=object_name,
+                access_type="ObjectRead",  # <--- Important: Read access
+                time_expires=datetime.utcnow() + timedelta(minutes=minutes),
+            ),
+        ).data.access_uri
+        return f"https://{osc.base_client.endpoint.lstrip('https://')}{par}"
 
     def _put_par_url(object_name: str, minutes: int = 15) -> str:
         par = osc.create_preauthenticated_request(
@@ -69,11 +83,11 @@ else:
         now = datetime.utcnow()
         object_key = f"uploads/{now:%Y/%m/%d}/{uuid.uuid4()}-{filename}"
         return {
-            "object_key": object_key,
-            "upload_url": _put_par_url(object_key),
+            "object_key":     object_key,
+            "upload_url":     _put_par_url(object_key),
             "presigned_urls": [],
-            "part_size": None,
-            "complete_url": None,
+            "part_size":      None,
+            "complete_url":   None,
         }
 
     async def make_multipart_session(filename, size, content_type):

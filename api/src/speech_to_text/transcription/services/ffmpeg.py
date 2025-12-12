@@ -4,9 +4,7 @@ import tempfile
 from pathlib import Path
 from subprocess import CalledProcessError, run
 import subprocess
-import json
 from io import BytesIO
-import shutil
 
 
 def extract_audio_to_wav(
@@ -172,78 +170,78 @@ def split_to_opus_chunks(
             pass
 
 
-async def get_audio_duration(src: bytes | BytesIO, file_id: str | None = None) -> float:
-    """
-    Return duration (seconds) of an audio/video blob.
-    Works with raw bytes or a BytesIO stream. Ignores file_id (kept for compatibility).
-    Uses ffprobe if available; falls back to mutagen if needed.
-    """
-    # Normalize to bytes
-    if isinstance(src, BytesIO):
-        src.seek(0)
-        data = src.read()
-    elif isinstance(src, (bytes, bytearray)):
-        data = bytes(src)
-    else:
-        raise TypeError(
-            f"get_audio_duration(): expected bytes or BytesIO, got {type(src)!r}"
-        )
+# async def get_audio_duration(src: bytes | BytesIO, file_id: str | None = None) -> float:
+#     """
+#     Return duration (seconds) of an audio/video blob.
+#     Works with raw bytes or a BytesIO stream. Ignores file_id (kept for compatibility).
+#     Uses ffprobe if available; falls back to mutagen if needed.
+#     """
+#     # Normalize to bytes
+#     if isinstance(src, BytesIO):
+#         src.seek(0)
+#         data = src.read()
+#     elif isinstance(src, (bytes, bytearray)):
+#         data = bytes(src)
+#     else:
+#         raise TypeError(
+#             f"get_audio_duration(): expected bytes or BytesIO, got {type(src)!r}"
+#         )
 
-    # Write to a temp file
-    fd, tmp_path = tempfile.mkstemp(suffix=".audio")
-    os.close(fd)
-    try:
-        with open(tmp_path, "wb") as f:  # noqa: ASYNC230
-            f.write(data)
+#     # Write to a temp file
+#     fd, tmp_path = tempfile.mkstemp(suffix=".audio")
+#     os.close(fd)
+#     try:
+#         with open(tmp_path, "wb") as f:  # noqa: ASYNC230
+#             f.write(data)
 
-        # Try ffprobe first
-        if shutil.which("ffprobe"):
-            try:
-                # Ask only for the 'format=duration' field as JSON
-                proc = subprocess.run(  # noqa: ASYNC221
-                    [
-                        "ffprobe",
-                        "-v",
-                        "error",
-                        "-select_streams",
-                        "a:0",
-                        "-show_entries",
-                        "format=duration",
-                        "-of",
-                        "json",
-                        tmp_path,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                info = json.loads(proc.stdout or "{}")
-                dur = None
-                # ffprobe returns duration under format.duration
-                if isinstance(info, dict):
-                    fmt = info.get("format") or {}
-                    dur = fmt.get("duration")
-                if dur is not None:
-                    return float(dur)
-            except Exception:
-                # Fall through to mutagen
-                pass
+#         # Try ffprobe first
+#         if shutil.which("ffprobe"):
+#             try:
+#                 # Ask only for the 'format=duration' field as JSON
+#                 proc = subprocess.run(  # noqa: ASYNC221
+#                     [
+#                         "ffprobe",
+#                         "-v",
+#                         "error",
+#                         "-select_streams",
+#                         "a:0",
+#                         "-show_entries",
+#                         "format=duration",
+#                         "-of",
+#                         "json",
+#                         tmp_path,
+#                     ],
+#                     capture_output=True,
+#                     text=True,
+#                     check=True,
+#                 )
+#                 info = json.loads(proc.stdout or "{}")
+#                 dur = None
+#                 # ffprobe returns duration under format.duration
+#                 if isinstance(info, dict):
+#                     fmt = info.get("format") or {}
+#                     dur = fmt.get("duration")
+#                 if dur is not None:
+#                     return float(dur)
+#             except Exception:
+#                 # Fall through to mutagen
+#                 pass
 
-        # Fallback: mutagen (pure Python)
-        try:
-            from mutagen import File as MutagenFile
+#         # Fallback: mutagen (pure Python)
+#         try:
+#             from mutagen import File as MutagenFile
 
-            mf = MutagenFile(tmp_path)
-            if mf and getattr(mf, "info", None) and getattr(mf.info, "length", None):
-                return float(mf.info.length)
-        except Exception:
-            pass
+#             mf = MutagenFile(tmp_path)
+#             if mf and getattr(mf, "info", None) and getattr(mf.info, "length", None):
+#                 return float(mf.info.length)
+#         except Exception:
+#             pass
 
-        # As a last resort, return 0.0 instead of crashing the pipeline
-        return 0.0
+#         # As a last resort, return 0.0 instead of crashing the pipeline
+#         return 0.0
 
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
+#     finally:
+#         try:
+#             os.unlink(tmp_path)
+#         except OSError:
+#             pass
