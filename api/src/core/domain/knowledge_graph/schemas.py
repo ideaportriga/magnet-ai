@@ -182,3 +182,39 @@ class KnowledgeGraphChunkListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class KnowledgeGraphRetrievalPreviewRequest(BaseModel):
+    """Request model for running agentic retrieval preview."""
+
+    query: str = Field(..., description="User question or query for retrieval")
+    conversation_id: Optional[str] = Field(
+        default=None, description="Existing conversation id to continue"
+    )
+
+
+class KnowledgeGraphRetrievalSource(BaseModel):
+    """Lightweight source item for UI (document title and excerpt)."""
+
+    title: Optional[str] = None
+    content: Optional[str] = None
+
+
+class KnowledgeGraphRetrievalWorkflowStep(BaseModel):
+    """Workflow step describing a single tool call execution."""
+
+    iteration: int
+    tool: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    call_summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class KnowledgeGraphRetrievalPreviewResponse(BaseModel):
+    """Response model for retrieval preview run."""
+
+    content: str
+    sources: list[KnowledgeGraphRetrievalSource] = Field(default_factory=list)
+    workflow: list[KnowledgeGraphRetrievalWorkflowStep] = Field(default_factory=list)
+    conversation_id: Optional[str] = Field(
+        default=None, description="Conversation id associated with this preview run"
+    )

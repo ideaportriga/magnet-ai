@@ -1,13 +1,16 @@
+from datetime import datetime, timezone
 from typing import Any, override
 from uuid import UUID
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
-from datetime import datetime, timezone
 
-from core.db.models.knowledge_graph import KnowledgeGraphSource, KnowledgeGraphDocument
+from core.db.models.knowledge_graph import KnowledgeGraphSource
+from services.knowledge_graph import get_graph_embedding_model
+from litestar.exceptions import ClientException
 
 from ..models import ContentConfig, SourceType
+from ..store_services import docs_table_name
 from .abstract_source import AbstractDataSource
 
 
@@ -34,6 +37,13 @@ class ManualUploadDataSource(AbstractDataSource):
         config: ContentConfig | None = None,
     ) -> None:
         """Upload a document and process it."""
+        # Validate embedding model before creating any source or documents
+        embedding_model = await get_graph_embedding_model(db_session, graph_id)
+        if not embedding_model:
+            raise ClientException(
+                "Embedding model is not configured in knowledge graph settings."
+            )
+
         source = await self.get_or_create_source(db_session, graph_id, status="syncing")
 
         source.status = "syncing"
@@ -49,22 +59,27 @@ class ManualUploadDataSource(AbstractDataSource):
         )
         try:
             await self.process_document(
-                db_session, document, extracted_text=extracted_text, config=config
+                db_session,
+                document,
+                extracted_text=extracted_text,
+                config=config,
+                embedding_model=embedding_model,
             )
         finally:
             # Finalize source status based on document outcomes across the source
             try:
+                docs_table = docs_table_name(graph_id)
                 completed_count_result = await db_session.execute(
-                    select(func.count(KnowledgeGraphDocument.id)).where(
-                        KnowledgeGraphDocument.source_id == source.id,
-                        KnowledgeGraphDocument.status == "completed",
-                    )
+                    text(
+                        f"SELECT COUNT(*) FROM {docs_table} WHERE source_id = :sid AND status = 'completed'"
+                    ),
+                    {"sid": str(source.id)},
                 )
                 failed_count_result = await db_session.execute(
-                    select(func.count(KnowledgeGraphDocument.id)).where(
-                        KnowledgeGraphDocument.source_id == source.id,
-                        KnowledgeGraphDocument.status.in_(["failed", "error"]),
-                    )
+                    text(
+                        f"SELECT COUNT(*) FROM {docs_table} WHERE source_id = :sid AND status IN ('failed','error')"
+                    ),
+                    {"sid": str(source.id)},
                 )
                 completed_count = int(completed_count_result.scalar_one() or 0)
                 failed_count = int(failed_count_result.scalar_one() or 0)

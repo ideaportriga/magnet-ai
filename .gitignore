@@ -1,5 +1,13 @@
-.env
+# Environments
+.env*
+!.env.example
 .venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
 .vscode
 generated_docs/
 specs/

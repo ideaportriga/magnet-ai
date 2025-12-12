@@ -156,7 +156,7 @@ const connectors = [
   },
   {
     label: 'Knowledge graph',
-    icon: 'fas fa-book',
+    icon: 'o_hub',
     path: 'knowledge-graph',
   },
   // {

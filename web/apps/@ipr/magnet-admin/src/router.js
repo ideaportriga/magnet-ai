@@ -501,6 +501,7 @@ const routes = [
       detail: true,
     },
   },
+  
 ]
 
 const router = createRouter({
@@ -534,7 +535,8 @@ router.beforeEach((to, from, next) => {
     (from.name === 'ApiServersDetail' && store.getters.isApiServerChanged) ||
     (from.name === 'ApiToolsDetails' && store.getters.isApiServerChanged) ||
     (from.name === 'ModelProvidersDetails' && store.getters.isProviderChanged) ||
-    (from.name === 'KnowledgeProvidersDetails' && store.getters.isProviderChanged)
+    (from.name === 'KnowledgeProvidersDetails' && store.getters.isProviderChanged) ||
+    (from.name === 'KnowledgeGraphDetail' && store.getters.isKnowledgeGraphRetrievalChanged)
   ) {
     store.commit('setNextRoute', to.fullPath)
     store.commit('showPopup')
