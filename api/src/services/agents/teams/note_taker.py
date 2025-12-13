@@ -41,7 +41,7 @@ from microsoft_agents.hosting.teams import TeamsInfo
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
     create_graph_client_with_token,
-    fetch_meeting_recordings,
+    get_meeting_recordings,
 )
 from .static_connections import StaticConnections
 from speech_to_text.transcription import service as transcription_service
@@ -514,6 +514,12 @@ async def _send_transcription_summary(
     )
 
 
+async def _get_online_meeting_id(context: TurnContext) -> Optional[str]:
+    meeting_info = await TeamsInfo.get_meeting_info(context)
+    details = getattr(meeting_info, "details", None) or {}
+    return getattr(details, "ms_graph_resource_id", None)
+
+
 def _register_note_taker_handlers(
     app: AgentApplication[TurnState], auth_handler_id: str
 ) -> None:
@@ -670,11 +676,17 @@ def _register_note_taker_handlers(
         await _send_typing(context)
 
         try:
+            online_meeting_id = await _get_online_meeting_id(context)
+            if not online_meeting_id:
+                await context.send_activity(
+                    "No online meeting id found for this meeting."
+                )
+                return
+
             async with create_graph_client_with_token(delegated_token) as graph_client:
-                recordings = await fetch_meeting_recordings(
+                recordings = await get_meeting_recordings(
                     client=graph_client,
-                    join_url=meeting.get("joinUrl"),
-                    chat_id=meeting.get("conversationId"),
+                    online_meeting_id=online_meeting_id,
                     add_size=True,
                     content_token=delegated_token,
                 )
@@ -889,10 +901,10 @@ def _register_note_taker_handlers(
         if normalized_text.startswith("/process-file"):
             parts = text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity("Usage: /process-file <link>")
+                await context.send_activity("Usage: /process-file link_to_file")
                 return
 
-            link = parts[1].strip().strip("<>")
+            link = parts[1].strip()
             await _send_typing(context)
             await _handle_process_file(context, _state, link)
             return
