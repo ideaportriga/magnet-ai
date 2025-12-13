@@ -2534,13 +2534,13 @@ files = [
 
 [[package]]
 name = "microsoft-agents-activity"
-version = "0.4.0"
+version = "0.6.1"
 description = "A protocol library for Microsoft Agents"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 files = [
-    {file = "microsoft_agents_activity-0.4.0-py3-none-any.whl", hash = "sha256:084a2bd5e5cd7b4a382869bcfd7b2689dab7fae904827e110fb7e5bcc22e2712"},
-    {file = "microsoft_agents_activity-0.4.0.tar.gz", hash = "sha256:9c142781652bfe08beb348d21a73cd799f6443e4df7ceb41fc5ac36c5e75cdda"},
+    {file = "microsoft_agents_activity-0.6.1-py3-none-any.whl", hash = "sha256:ca5b86bf6e1e9ebe31836031b0aad5726c8112734cfe20ce8144603fa6edfbfa"},
+    {file = "microsoft_agents_activity-0.6.1.tar.gz", hash = "sha256:744f16ae73ddc22315880b8ae94d8909da8aee25128cc85106591c593e6bdab9"},
 ]
 
 [package.dependencies]
@@ -2548,53 +2548,68 @@ pydantic = ">=2.10.4"
 
 [[package]]
 name = "microsoft-agents-authentication-msal"
-version = "0.4.0"
+version = "0.6.1"
 description = "A msal-based authentication library for Microsoft Agents"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 files = [
-    {file = "microsoft_agents_authentication_msal-0.4.0-py3-none-any.whl", hash = "sha256:13ea6e485c370be9d30d90d45368a786568e6d6485ba177e965bddca38102879"},
-    {file = "microsoft_agents_authentication_msal-0.4.0.tar.gz", hash = "sha256:d16f36558e1151962d31f5a04a16058fa9034f15562d84dc36d294118458ac98"},
+    {file = "microsoft_agents_authentication_msal-0.6.1-py3-none-any.whl", hash = "sha256:daa3d95ebecad374fd76d896697aa8c407f652b5567f178f6c6550ebc835c3a1"},
+    {file = "microsoft_agents_authentication_msal-0.6.1.tar.gz", hash = "sha256:b84dd7ff5364e268b3271787e682fa41f19495ecd2d4b33d3c96be05d00b0434"},
 ]
 
 [package.dependencies]
 cryptography = ">=44.0.0"
-microsoft-agents-hosting-core = "0.4.0"
+microsoft-agents-hosting-core = "0.6.1"
 msal = ">=1.31.1"
 requests = ">=2.32.3"
 
 [[package]]
 name = "microsoft-agents-hosting-aiohttp"
-version = "0.4.0"
+version = "0.6.1"
 description = "Integration library for Microsoft Agents with aiohttp"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 files = [
-    {file = "microsoft_agents_hosting_aiohttp-0.4.0-py3-none-any.whl", hash = "sha256:f27ec96004ca1bb097e09bd31cf9a054183bbcbb0fc9016824ecdc64bc55e578"},
-    {file = "microsoft_agents_hosting_aiohttp-0.4.0.tar.gz", hash = "sha256:abe4cd086fbcca5f181bd0390bd5bbbbce1f784e6e0f5d99db53efcf6b2a48fd"},
+    {file = "microsoft_agents_hosting_aiohttp-0.6.1-py3-none-any.whl", hash = "sha256:d8d71e9da97e48e3029e63c0fa9ca0da804596af60ee9b7d4dcd4a7128775a23"},
+    {file = "microsoft_agents_hosting_aiohttp-0.6.1.tar.gz", hash = "sha256:51493de7b9e01bdc5c73e57d4b32af957be39f64252f5bb446c2bb4deb7a9728"},
 ]
 
 [package.dependencies]
 aiohttp = ">=3.11.11"
-microsoft-agents-hosting-core = "0.4.0"
+microsoft-agents-hosting-core = "0.6.1"
 
 [[package]]
 name = "microsoft-agents-hosting-core"
-version = "0.4.0"
+version = "0.6.1"
 description = "Core library for Microsoft Agents"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 files = [
-    {file = "microsoft_agents_hosting_core-0.4.0-py3-none-any.whl", hash = "sha256:20ee0adcc663a603ca4696717a0d9e0ae66428e1c2c047719c46c4d428de8fde"},
-    {file = "microsoft_agents_hosting_core-0.4.0.tar.gz", hash = "sha256:d6beffd19e85393941505d2abc5a48ea693c78d377b0bdce8cee054df7bd97ea"},
+    {file = "microsoft_agents_hosting_core-0.6.1-py3-none-any.whl", hash = "sha256:87bdcde62b2a19c9b245022abbdd5db7b82f0da9d3ecf27a3de49c688a8dc020"},
+    {file = "microsoft_agents_hosting_core-0.6.1.tar.gz", hash = "sha256:c8db2c974956ca1e15b4d5f83ee5873868b853c71c35165eb3e82bda5615749d"},
 ]
 
 [package.dependencies]
 azure-core = ">=1.30.0"
 isodate = ">=0.6.1"
-microsoft-agents-activity = "0.4.0"
+microsoft-agents-activity = "0.6.1"
 pyjwt = ">=2.10.1"
 python-dotenv = ">=1.1.1"
+
+[[package]]
+name = "microsoft-agents-hosting-teams"
+version = "0.6.1"
+description = "Integration library for Microsoft Agents with Teams"
+optional = false
+python-versions = ">=3.10"
+files = [
+    {file = "microsoft_agents_hosting_teams-0.6.1-py3-none-any.whl", hash = "sha256:a49526a8c2b47483d28afac0155b5d1b9f714301983a86eb757ee2c73255ba4e"},
+    {file = "microsoft_agents_hosting_teams-0.6.1.tar.gz", hash = "sha256:628742da46d598ff19122b6cac9011943e857826f1edc10473ff0613089b7734"},
+]
+
+[package.dependencies]
+aiohttp = ">=3.11.11"
+microsoft-agents-hosting-core = "0.6.1"
 
 [[package]]
 name = "more-itertools"
@@ -6022,4 +6037,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "e67aebd398265cfcfe4f3004221e6572b63342688be15cf5cd6fdbc0c49c6eda"
+content-hash = "53e7dddc720c09a9085a7067fa505cf1d3eeda3f7324c0a5794d1c05832df2a1"
