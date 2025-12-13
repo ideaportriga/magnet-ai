@@ -64,6 +64,7 @@ click = "^8.1.0"
 slack-sdk = "^3.37.0"
 slack-bolt = "^1.26.0"
 microsoft-agents-hosting-core = "0.6.1"
+microsoft-agents-hosting-teams = "^0.6.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.9.10"

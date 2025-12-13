@@ -36,6 +36,7 @@ from microsoft_agents.hosting.core.rest_channel_service_client_factory import (
 from microsoft_agents.hosting.core.storage import MemoryStorage
 from microsoft_agents.hosting.core.card_factory import CardFactory
 from microsoft_agents.hosting.core.message_factory import MessageFactory
+from microsoft_agents.hosting.teams import TeamsInfo
 
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
@@ -151,10 +152,20 @@ def _guess_filename_from_link(link: str) -> str:
     return "file"
 
 
+def _format_iso_datetime(value: str | None) -> str:
+    if not value:
+        return "Unknown"
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.strftime("%Y-%m-%d %H:%M UTC")
+    except Exception:
+        return value
+
+
 async def _download_file_from_link(
     link: str, token: str | None
 ) -> tuple[bytes, str, str, str]:
-    # Unwrap Teams deep links first (as you already do)
+    # Unwrap Teams deep links first
     parsed = urlparse(link)
     query = parse_qs(parsed.query)
     file_urls = (
@@ -360,10 +371,6 @@ def _resolve_user_info(context: TurnContext) -> Dict[str, Any]:
         activity, "from", None
     )
     conversation = getattr(activity, "conversation", None)
-    channel_data = getattr(activity, "channel_data", None) or {}
-
-    if not isinstance(channel_data, dict):
-        channel_data = vars(channel_data) if hasattr(channel_data, "__dict__") else {}
 
     return {
         "id": getattr(from_user, "id", None),
@@ -548,9 +555,8 @@ def _register_note_taker_handlers(
             await context.send_activity("No recordings found.")
             return
 
-        await context.send_activity(f"📹 Found {len(recordings)} recording(s):")
+        lines = [f"📹 Found {len(recordings)} recording(s):"]
 
-        lines = []
         for idx, rec in enumerate(recordings, start=1):
             file_size = rec.get("size")
             duration = rec.get("duration")
@@ -750,6 +756,62 @@ def _register_note_taker_handlers(
             content_type=content_type,
         )
 
+    async def _handle_meeting_info(
+        context: TurnContext, state: Optional[TurnState]
+    ) -> None:
+        meeting_context = _resolve_meeting_details(context)
+        meeting_id = meeting_context.get("id")
+        if not meeting_id:
+            await context.send_activity(
+                "I couldn't find a meeting id in the channel data for this conversation."
+            )
+            return
+
+        await _send_typing(context)
+
+        meeting_info = None
+        try:
+            meeting_info = await TeamsInfo.get_meeting_info(context)
+            logger.info("[teams note-taker] meeting info: %s", meeting_info)
+        except Exception as err:
+            logger.exception("Failed to fetch meeting details via connector")
+            await context.send_activity(
+                f"Could not retrieve meeting details: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        details = getattr(meeting_info, "details", None) or {}
+        organizer_obj = getattr(meeting_info, "organizer", None) or {}
+        online_meeting_id = getattr(details, "ms_graph_resource_id", None)
+        start_time = getattr(details, "scheduled_start_time", None)
+        end_time = getattr(details, "scheduled_end_time", None)
+        meeting_type = getattr(details, "type", None)
+        organizer_id = getattr(organizer_obj, "id", None)
+        organizer_aad = getattr(organizer_obj, "aadObjectId", None)
+
+        try:
+            member = await TeamsInfo.get_member(context, organizer_id)
+            organizer_name = getattr(member, "name", None)
+            organizer_email = getattr(member, "email", None) or getattr(
+                member, "user_principal_name", None
+            )
+        except Exception:
+            pass
+
+        organizer = f"Organizer: {organizer_name} ({organizer_email}) [id: {organizer_id}, aadObjectId: {organizer_aad}]"
+
+        lines = [
+            "Meeting info:",
+            f"- Type: {meeting_type}",
+            f"- Meeting id: {meeting_id or 'Unknown'}",
+            f"- Online meeting id: {online_meeting_id or 'Unknown'}",
+            f"- {organizer}",
+            f"- Start: {_format_iso_datetime(start_time)}",
+            f"- End: {_format_iso_datetime(end_time)}",
+        ]
+
+        await context.send_activity("\n".join(lines))
+
     @app.on_sign_in_success
     async def _on_sign_in_success(
         context: TurnContext, _state: TurnState, handler_id: str | None
@@ -813,14 +875,15 @@ def _register_note_taker_handlers(
         if normalized_text.startswith("/whoami"):
             info = _resolve_user_info(context)
             has_existing_token = await _has_existing_token(context, auth_handler_id)
-            await context.send_activity(
-                (
-                    f"You are {info.get('name') or 'Unknown user'} "
-                    f"(id: {info.get('id') or 'n/a'}, aadObjectId: {info.get('aad_object_id') or 'n/a'}). "
-                    f"Conversation type: {info.get('conversation_type') or 'unknown'}. "
-                    f"Signed in: {'yes' if has_existing_token else 'no'}."
-                )
-            )
+            lines = [
+                "User info:",
+                f"- Name: {info.get('name') or 'Unknown'}",
+                f"- Id: {info.get('id') or 'n/a'}",
+                f"- AAD object id: {info.get('aad_object_id') or 'n/a'}",
+                f"- Conversation type: {info.get('conversation_type') or 'unknown'}",
+                f"- Signed in: {'yes' if has_existing_token else 'no'}",
+            ]
+            await context.send_activity("\n".join(lines))
             return
 
         if normalized_text.startswith("/process-file"):
@@ -832,6 +895,11 @@ def _register_note_taker_handlers(
             link = parts[1].strip().strip("<>")
             await _send_typing(context)
             await _handle_process_file(context, _state, link)
+            return
+
+        if normalized_text.startswith("/meeting-info"):
+            await _send_typing(context)
+            await _handle_meeting_info(context, _state)
             return
 
         if normalized_text.startswith("/recordings-find"):
@@ -870,7 +938,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
     adapter = CloudAdapter(
         channel_service_client_factory=RestChannelServiceClientFactory(connections)
     )
-    adapter.use(_SignInInvokeMiddleware())  # TODO: fix oauth flow?
+    adapter.use(_SignInInvokeMiddleware())
 
     async def _on_turn_error(context: TurnContext, error: Exception) -> None:
         message = getattr(error, "message", None) or str(error)

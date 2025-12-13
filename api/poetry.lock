@@ -2597,6 +2597,21 @@ pyjwt = ">=2.10.1"
 python-dotenv = ">=1.1.1"
 
 [[package]]
+name = "microsoft-agents-hosting-teams"
+version = "0.6.1"
+description = "Integration library for Microsoft Agents with Teams"
+optional = false
+python-versions = ">=3.10"
+files = [
+    {file = "microsoft_agents_hosting_teams-0.6.1-py3-none-any.whl", hash = "sha256:a49526a8c2b47483d28afac0155b5d1b9f714301983a86eb757ee2c73255ba4e"},
+    {file = "microsoft_agents_hosting_teams-0.6.1.tar.gz", hash = "sha256:628742da46d598ff19122b6cac9011943e857826f1edc10473ff0613089b7734"},
+]
+
+[package.dependencies]
+aiohttp = ">=3.11.11"
+microsoft-agents-hosting-core = "0.6.1"
+
+[[package]]
 name = "more-itertools"
 version = "10.8.0"
 description = "More routines for operating on iterables, beyond itertools"
@@ -6022,4 +6037,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "9c6768ed378b611863970eb91dd60134cd08ae993cad6a19e3fbcaf01be6cd21"
+content-hash = "53e7dddc720c09a9085a7067fa505cf1d3eeda3f7324c0a5794d1c05832df2a1"

@@ -248,8 +248,6 @@ async def fetch_meeting_recordings(
     add_size: bool = False,
     content_token: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Fetch recordings for a meeting, resolving meeting ID when necessary."""
-
     meeting_identifier = await resolve_meeting_id(client, chat_id, join_url)
 
     if meeting_identifier:
