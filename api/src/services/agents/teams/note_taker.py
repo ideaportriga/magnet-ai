@@ -444,6 +444,7 @@ async def _start_transcription_from_bytes(
 
     object_key = (session or {}).get("object_key")
     upload_url = (session or {}).get("upload_url") or (session or {}).get("url")
+    upload_headers: dict[str, str] = (session or {}).get("upload_headers") or {}
     if not upload_url:
         presigned_urls = (session or {}).get("presigned_urls") or []
         upload_url = presigned_urls[0] if presigned_urls else None
@@ -457,20 +458,18 @@ async def _start_transcription_from_bytes(
     if not upload_url:
         raise RuntimeError("Upload session missing upload URL.")
 
+    upload_headers = {
+        "Content-Type": content_type,
+        **upload_headers,
+    }
+
     async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
         response = await client.put(
             upload_url,
             content=data,
-            headers={"Content-Type": content_type},
+            headers=upload_headers,
         )
         response.raise_for_status()
-
-    logger.info("[teams note-taker] uploaded bytes to object: %s", object_key)
-    logger.info("[teams note-taker] starting transcription from object: %s", object_key)
-    logger.info("[teams note-taker] pipeline_id: %s", pipeline_id)
-    logger.info("[teams note-taker] language: %s", language)
-    logger.info("[teams note-taker] ext: %s", ext_no_dot) 
-    logger.info("[teams note-taker] content_type: %s", content_type) 
 
     job_id = await transcription_service.submit(
         name=name,
