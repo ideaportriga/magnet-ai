@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import os
 import asyncio
 from io import BytesIO
 from typing import BinaryIO, Literal
+
+from azure.storage.blob import BlobClient
 
 from .models import FileData
 from .storage.postgres_storage import PgDataStorage
 from .pipeline_factory import build_pipeline
 from .pipeline import TranscriptionPipeline
 from .transcribe.base import _assert_supported
-from utils.upload_handler import open_object_stream, osc, NAMESPACE, BUCKET
-import oci
+from utils.upload_handler import open_object_stream  # Azure downloader
 
 storage = PgDataStorage()
 _RUNNING: dict[str, asyncio.Task[None]] = {}
@@ -24,8 +26,21 @@ PipelineKind = Literal[
     "whisper-http-pyannote",
     "elevenlabs",
     "azure-whisper-azure-diar",
-    "oci-whisper-oci-diar",
+    # removed: "oci-whisper-oci-diar" (Azure-only)
 ]
+
+AZ_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT", "")
+AZ_KEY = os.getenv("AZURE_STORAGE_KEY", "")
+AZ_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "")
+AZ_ENDPOINT = os.getenv("AZURE_BLOB_ENDPOINT", "") or (f"https://{AZ_ACCOUNT}.blob.core.windows.net" if AZ_ACCOUNT else "")
+
+
+def _ensure_azure_config() -> None:
+    if not (AZ_ACCOUNT and AZ_KEY and AZ_CONTAINER and AZ_ENDPOINT):
+        raise RuntimeError(
+            "Azure storage not configured. "
+            "Require AZURE_STORAGE_ACCOUNT, AZURE_STORAGE_KEY, AZURE_STORAGE_CONTAINER."
+        )
 
 
 async def _wait_until_exists(
@@ -33,18 +48,31 @@ async def _wait_until_exists(
     wait_timeout: float = 30.0,
     every: float = 0.5,
 ) -> None:
+    """
+    Wait until the blob exists in Azure.
+    """
+    _ensure_azure_config()
     waited = 0.0
+
     while waited < wait_timeout:
+        bc = BlobClient(
+            account_url=AZ_ENDPOINT,
+            container_name=AZ_CONTAINER,
+            blob_name=key,
+            credential=AZ_KEY,
+        )
+
         try:
-            osc.head_object(NAMESPACE, BUCKET, key)
-            return
-        except oci.exceptions.ServiceError as e:
-            if e.status == 404:
-                await asyncio.sleep(every)
-                waited += every
-            else:  # any other OCI error → re-raise
-                raise
-    raise RuntimeError(f"Object {key!r} not visible after {wait_timeout}s")
+            if bc.exists():
+                return
+        except Exception:
+            # transient network issues - keep retrying
+            pass
+
+        await asyncio.sleep(every)
+        waited += every
+
+    raise RuntimeError(f"Object {key!r} not visible after {wait_timeout}s (Azure)")
 
 
 # ─────────────────────────────────────────────────────────────
@@ -77,7 +105,7 @@ async def submit(
     if bytes_ is not None:
         stream: BinaryIO = BytesIO(bytes_)
     else:
-        await _wait_until_exists(object_key)  # ← NEW
+        await _wait_until_exists(object_key)  # Azure check
         stream = await open_object_stream(object_key)
 
     # Build pipeline and launch
@@ -113,21 +141,29 @@ async def get_transcription(file_id: str):
 
 
 async def _delete_object_if_needed(file_data: FileData) -> None:
-    # dev mode: osc is None → do nothing
-    if osc is None:
-        return
-
+    """
+    Delete blob from Azure after pipeline finishes (best-effort).
+    """
     if not file_data.object_key:
         return
 
+    _ensure_azure_config()
+
+    def _delete_sync():
+        bc = BlobClient(
+            account_url=AZ_ENDPOINT,
+            container_name=AZ_CONTAINER,
+            blob_name=file_data.object_key,
+            credential=AZ_KEY,
+        )
+        # ignore if already deleted
+        try:
+            bc.delete_blob()
+        except Exception:
+            pass
+
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None,
-        osc.delete_object,
-        NAMESPACE,
-        BUCKET,
-        file_data.object_key,
-    )
+    await loop.run_in_executor(None, _delete_sync)
 
 
 async def _run_pipeline_and_cleanup(
@@ -145,5 +181,5 @@ async def _run_pipeline_and_cleanup(
         except Exception:
             pass
 
-        # Delete remote object (only if object_key + osc)
+        # Delete remote object (Azure)
         await _delete_object_if_needed(file_data)

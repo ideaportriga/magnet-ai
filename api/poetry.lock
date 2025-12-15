@@ -504,6 +504,26 @@ opentelemetry-sdk = ">=1.35,<2.0"
 psutil = ">=5.9,<8"
 
 [[package]]
+name = "azure-storage-blob"
+version = "12.27.1"
+description = "Microsoft Azure Blob Storage Client Library for Python"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "azure_storage_blob-12.27.1-py3-none-any.whl", hash = "sha256:65d1e25a4628b7b6acd20ff7902d8da5b4fde8e46e19c8f6d213a3abc3ece272"},
+    {file = "azure_storage_blob-12.27.1.tar.gz", hash = "sha256:a1596cc4daf5dac9be115fcb5db67245eae894cf40e4248243754261f7b674a6"},
+]
+
+[package.dependencies]
+azure-core = ">=1.30.0"
+cryptography = ">=2.1.4"
+isodate = ">=0.6.1"
+typing-extensions = ">=4.6.0"
+
+[package.extras]
+aio = ["azure-core[aio] (>=1.30.0)"]
+
+[[package]]
 name = "beautifulsoup4"
 version = "4.14.3"
 description = "Screen-scraping library"
@@ -6022,4 +6042,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "e67aebd398265cfcfe4f3004221e6572b63342688be15cf5cd6fdbc0c49c6eda"
+content-hash = "bea153a9e1409599b380dc6cfdc11a5b8a8b3533fa6a776702ef20e7f51f933e"
