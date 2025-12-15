@@ -7,9 +7,19 @@ from subprocess import CalledProcessError, run
 import subprocess
 from io import BytesIO
 
+
 def get_wav_duration_seconds(path: str) -> float:
     proc = subprocess.run(
-        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "json", path],
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "json",
+            path,
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -17,6 +27,7 @@ def get_wav_duration_seconds(path: str) -> float:
     info = json.loads(proc.stdout or "{}")
     dur = (info.get("format") or {}).get("duration")
     return float(dur) if dur is not None else 0.0
+
 
 def extract_audio_to_wav(
     *,

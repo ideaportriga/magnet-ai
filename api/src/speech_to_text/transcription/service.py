@@ -32,7 +32,9 @@ PipelineKind = Literal[
 AZ_ACCOUNT = os.getenv("AZURE_STORAGE_ACCOUNT", "")
 AZ_KEY = os.getenv("AZURE_STORAGE_KEY", "")
 AZ_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "")
-AZ_ENDPOINT = os.getenv("AZURE_BLOB_ENDPOINT", "") or (f"https://{AZ_ACCOUNT}.blob.core.windows.net" if AZ_ACCOUNT else "")
+AZ_ENDPOINT = os.getenv("AZURE_BLOB_ENDPOINT", "") or (
+    f"https://{AZ_ACCOUNT}.blob.core.windows.net" if AZ_ACCOUNT else ""
+)
 
 
 def _ensure_azure_config() -> None:

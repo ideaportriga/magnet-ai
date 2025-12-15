@@ -61,9 +61,14 @@ class ElevenLabsTranscriber(BaseTranscriber):
         try:
             # Duration AFTER conversion (ffprobe on the WAV)
             try:
-                from ...services.ffmpeg import get_wav_duration_seconds  # adjust name if needed
+                from ...services.ffmpeg import (
+                    get_wav_duration_seconds,
+                )  # adjust name if needed
+
                 duration = await asyncio.to_thread(get_wav_duration_seconds, tmp_wav)
-                await self._storage._update_fields(file_id, duration_seconds=float(duration))
+                await self._storage._update_fields(
+                    file_id, duration_seconds=float(duration)
+                )
             except Exception:
                 pass
 
