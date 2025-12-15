@@ -349,7 +349,7 @@ def _is_meeting_conversation(context: TurnContext) -> bool:
     activity = getattr(context, "activity", None)
     conversation = getattr(activity, "conversation", None)
     conversation_type = getattr(conversation, "conversation_type", None)
-    return conversation_type == "meeting"
+    return conversation_type == "groupChat"
 
 
 def _resolve_meeting_details(context: TurnContext) -> Dict[str, Any]:
@@ -870,7 +870,9 @@ def _register_note_taker_handlers(
 
     @app.on_sign_in_success
     async def _on_sign_in_success(
-        context: TurnContext, _state: TurnState, handler_id: str | None
+        context: TurnContext,
+        _state: TurnState,
+        handler_id: str | None = None,
     ) -> None:
         logger.info(
             "Teams note-taker sign-in succeeded (handler=%s)",
@@ -882,8 +884,8 @@ def _register_note_taker_handlers(
     async def _on_sign_in_failure(
         context: TurnContext,
         _state: TurnState,
-        handler_id: str | None,
-        error_message: str | None,
+        handler_id: str | None = None,
+        error_message: str | None = None,
     ) -> None:
         logger.warning(
             "Teams note-taker sign-in failed (handler=%s): %s",
@@ -907,7 +909,7 @@ def _register_note_taker_handlers(
         activity = getattr(context, "activity", None)
         logger.info("[teams note-taker] members added received: %s", activity)
 
-    @app.activity("message", auth_handlers=[auth_handler_id])
+    @app.activity("message")
     async def _on_message(context: TurnContext, _state: TurnState) -> None:
         text = (getattr(getattr(context, "activity", None), "text", "") or "").strip()
         logger.info("[teams note-taker] message received: %s", text)
@@ -916,6 +918,25 @@ def _register_note_taker_handlers(
             return
 
         normalized_text = text.lower()
+
+        if normalized_text.startswith("/signin"):
+            if _is_personal_teams_conversation(context):
+                try:
+                    await app.auth._start_or_continue_sign_in(
+                        context, _state, auth_handler_id
+                    )
+                    # await context.send_activity("Sign-in card sent.")
+                except Exception as err:
+                    logger.exception("Failed to start sign-in: %s", err)
+                    await context.send_activity(
+                        f"Couldn't start sign-in: {getattr(err, 'message', str(err))}"
+                    )
+            else:
+                await context.send_activity(
+                    "Please open a 1:1 chat with me and run /signin there to authenticate."
+                )
+            return
+
         if _is_meeting_conversation(context):
             allowed = await _ensure_meeting_organizer_and_signed_in(
                 context, auth_handler_id
@@ -1031,7 +1052,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         storage=storage,
         connection_manager=connections,
         auth_handlers=auth_handlers,
-        auto_signin=True,
+        auto_signin=False,  # avoid auto prompts
         use_cache=True,
     )
     app_options = ApplicationOptions(
