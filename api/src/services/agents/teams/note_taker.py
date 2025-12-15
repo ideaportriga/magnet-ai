@@ -46,6 +46,7 @@ from .graph import (
 from .static_connections import StaticConnections
 from speech_to_text.transcription import service as transcription_service
 from stores import get_db_client
+from utils import upload_handler
 
 logger = getLogger(__name__)
 
@@ -432,11 +433,50 @@ async def _start_transcription_from_bytes(
 ) -> tuple[str, dict | None]:
     await _ensure_vector_pool_ready()
 
+    ext_no_dot = ext.lstrip(".")
+    ext_with_dot = f".{ext_no_dot}" if ext_no_dot else ""
+
+    session = await upload_handler.make_multipart_session(
+        filename=f"{name}{ext_with_dot}",
+        size=len(data),
+        content_type=content_type,
+    )
+
+    object_key = (session or {}).get("object_key")
+    upload_url = (session or {}).get("upload_url") or (session or {}).get("url")
+    if not upload_url:
+        presigned_urls = (session or {}).get("presigned_urls") or []
+        upload_url = presigned_urls[0] if presigned_urls else None
+
+    if not object_key:
+        raise RuntimeError("Upload session did not return an object key.")
+
+    logger.info("[teams note-taker] uploading bytes to object: %s", object_key)
+    logger.info("[teams note-taker] upload_url: %s", upload_url)
+
+    if not upload_url:
+        raise RuntimeError("Upload session missing upload URL.")
+
+    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
+        response = await client.put(
+            upload_url,
+            content=data,
+            headers={"Content-Type": content_type},
+        )
+        response.raise_for_status()
+
+    logger.info("[teams note-taker] uploaded bytes to object: %s", object_key)
+    logger.info("[teams note-taker] starting transcription from object: %s", object_key)
+    logger.info("[teams note-taker] pipeline_id: %s", pipeline_id)
+    logger.info("[teams note-taker] language: %s", language)
+    logger.info("[teams note-taker] ext: %s", ext_no_dot) 
+    logger.info("[teams note-taker] content_type: %s", content_type) 
+
     job_id = await transcription_service.submit(
         name=name,
-        ext=ext.lstrip("."),
-        bytes_=data,
-        object_key=None,
+        ext=ext_no_dot,
+        bytes_=None,
+        object_key=object_key,
         content_type=content_type,
         backend=pipeline_id,
         language=language,
