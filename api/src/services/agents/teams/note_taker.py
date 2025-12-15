@@ -46,6 +46,7 @@ from .graph import (
 from .static_connections import StaticConnections
 from speech_to_text.transcription import service as transcription_service
 from stores import get_db_client
+from utils import upload_handler
 
 logger = getLogger(__name__)
 
@@ -349,7 +350,7 @@ def _is_meeting_conversation(context: TurnContext) -> bool:
     activity = getattr(context, "activity", None)
     conversation = getattr(activity, "conversation", None)
     conversation_type = getattr(conversation, "conversation_type", None)
-    return conversation_type == "meeting"
+    return conversation_type == "groupChat"
 
 
 def _resolve_meeting_details(context: TurnContext) -> Dict[str, Any]:
@@ -432,11 +433,49 @@ async def _start_transcription_from_bytes(
 ) -> tuple[str, dict | None]:
     await _ensure_vector_pool_ready()
 
+    ext_no_dot = ext.lstrip(".")
+    ext_with_dot = f".{ext_no_dot}" if ext_no_dot else ""
+
+    session = await upload_handler.make_multipart_session(
+        filename=f"{name}{ext_with_dot}",
+        size=len(data),
+        content_type=content_type,
+    )
+
+    object_key = (session or {}).get("object_key")
+    upload_url = (session or {}).get("upload_url") or (session or {}).get("url")
+    upload_headers: dict[str, str] = (session or {}).get("upload_headers") or {}
+    if not upload_url:
+        presigned_urls = (session or {}).get("presigned_urls") or []
+        upload_url = presigned_urls[0] if presigned_urls else None
+
+    if not object_key:
+        raise RuntimeError("Upload session did not return an object key.")
+
+    logger.info("[teams note-taker] uploading bytes to object: %s", object_key)
+    logger.info("[teams note-taker] upload_url: %s", upload_url)
+
+    if not upload_url:
+        raise RuntimeError("Upload session missing upload URL.")
+
+    upload_headers = {
+        "Content-Type": content_type,
+        **upload_headers,
+    }
+
+    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
+        response = await client.put(
+            upload_url,
+            content=data,
+            headers=upload_headers,
+        )
+        response.raise_for_status()
+
     job_id = await transcription_service.submit(
         name=name,
-        ext=ext.lstrip("."),
-        bytes_=data,
-        object_key=None,
+        ext=ext_no_dot,
+        bytes_=None,
+        object_key=object_key,
         content_type=content_type,
         backend=pipeline_id,
         language=language,
@@ -870,7 +909,9 @@ def _register_note_taker_handlers(
 
     @app.on_sign_in_success
     async def _on_sign_in_success(
-        context: TurnContext, _state: TurnState, handler_id: str | None
+        context: TurnContext,
+        _state: TurnState,
+        handler_id: str | None = None,
     ) -> None:
         logger.info(
             "Teams note-taker sign-in succeeded (handler=%s)",
@@ -882,8 +923,8 @@ def _register_note_taker_handlers(
     async def _on_sign_in_failure(
         context: TurnContext,
         _state: TurnState,
-        handler_id: str | None,
-        error_message: str | None,
+        handler_id: str | None = None,
+        error_message: str | None = None,
     ) -> None:
         logger.warning(
             "Teams note-taker sign-in failed (handler=%s): %s",
@@ -907,7 +948,7 @@ def _register_note_taker_handlers(
         activity = getattr(context, "activity", None)
         logger.info("[teams note-taker] members added received: %s", activity)
 
-    @app.activity("message", auth_handlers=[auth_handler_id])
+    @app.activity("message")
     async def _on_message(context: TurnContext, _state: TurnState) -> None:
         text = (getattr(getattr(context, "activity", None), "text", "") or "").strip()
         logger.info("[teams note-taker] message received: %s", text)
@@ -916,6 +957,25 @@ def _register_note_taker_handlers(
             return
 
         normalized_text = text.lower()
+
+        if normalized_text.startswith("/signin"):
+            if _is_personal_teams_conversation(context):
+                try:
+                    await app.auth._start_or_continue_sign_in(
+                        context, _state, auth_handler_id
+                    )
+                    # await context.send_activity("Sign-in card sent.")
+                except Exception as err:
+                    logger.exception("Failed to start sign-in: %s", err)
+                    await context.send_activity(
+                        f"Couldn't start sign-in: {getattr(err, 'message', str(err))}"
+                    )
+            else:
+                await context.send_activity(
+                    "Please open a 1:1 chat with me and run /signin there to authenticate."
+                )
+            return
+
         if _is_meeting_conversation(context):
             allowed = await _ensure_meeting_organizer_and_signed_in(
                 context, auth_handler_id
@@ -1031,7 +1091,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         storage=storage,
         connection_manager=connections,
         auth_handlers=auth_handlers,
-        auto_signin=True,
+        auto_signin=False,  # avoid auto prompts
         use_cache=True,
     )
     app_options = ApplicationOptions(
