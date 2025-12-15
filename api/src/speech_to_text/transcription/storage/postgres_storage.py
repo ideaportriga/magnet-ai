@@ -5,14 +5,13 @@ import logging
 from datetime import datetime
 from typing import BinaryIO, Optional, Literal
 from datetime import timezone
-import time
 from ..models import FileData
 from utils.upload_handler import get_read_url
 
 from stores import get_db_store
 
 logger = logging.getLogger(__name__)
-store = get_db_store() 
+store = get_db_store()
 # _BYTES_CACHE: dict[str, Tuple[float, bytes]] = {}
 # _CACHE_TTL_SECONDS = 15 * 60  # 15 minutes; adjust as needed
 
@@ -116,7 +115,7 @@ class PgDataStorage:
     async def save_audio(self, data: FileData, stream: BinaryIO = None) -> str:
         try:
             await self._insert_shell_if_missing(data)
-            
+
             await self._update_fields(
                 data.file_id,
                 status="in_progress",
@@ -220,12 +219,12 @@ class PgDataStorage:
     async def load_audio(self, file_id: str) -> bytes:
         row = await self._row_by_file_id(file_id)
         object_key = row.get("object_key") if row else None
-        
+
         if object_key:
-            return await store.objects.get_bytes(object_key) 
+            return await store.objects.get_bytes(object_key)
 
         raise RuntimeError("Audio bytes unavailable.")
-    
+
     async def get_audio_url(self, file_id: str) -> str:
         row = await store.client.fetchrow(
             "SELECT object_key FROM transcriptions WHERE file_id = $1", file_id

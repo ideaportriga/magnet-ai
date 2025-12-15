@@ -55,7 +55,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
         tmp_wav = await asyncio.to_thread(
             extract_audio_to_wav, src_path=src_url, sr=16_000
         )
-        
+
         raw_payload = None
 
         try:
@@ -77,7 +77,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
                     )
                     if self._language_code:
                         kwargs["language_code"] = self._language_code
-                    
+
                     return self._client.speech_to_text.convert(**kwargs)
 
             raw_payload = await asyncio.to_thread(_call)
