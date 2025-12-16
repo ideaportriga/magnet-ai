@@ -695,15 +695,27 @@ def _register_note_taker_handlers(
             )
             return False
 
+    async def _is_meeting_organizer(context: TurnContext) -> bool:
+        user = _resolve_user_info(context)
+        meeting_info = await TeamsInfo.get_meeting_info(context)
+        organizer_obj = getattr(meeting_info, "organizer", None) or {}
+        organizer_id = getattr(organizer_obj, "id", None)
+        organizer_aad = getattr(organizer_obj, "aadObjectId", None)
+
+        user_id = user.get("id")
+        user_aad = user.get("aad_object_id")
+
+        if user_id and organizer_id and user_id == organizer_id:
+            return True
+        if user_aad and organizer_aad and user_aad == organizer_aad:
+            return True
+        return False
+
     async def _ensure_meeting_organizer_and_signed_in(
         context: TurnContext, handler_id: str
     ) -> bool:
-        user = _resolve_user_info(context)
         try:
-            meeting_info = await TeamsInfo.get_meeting_info(context)
-            organizer_obj = getattr(meeting_info, "organizer", None) or {}
-            organizer_id = getattr(organizer_obj, "id", None)
-            organizer_aad = getattr(organizer_obj, "aadObjectId", None)
+            is_organizer = await _is_meeting_organizer(context)
         except Exception as err:
             logger.warning(
                 "Unable to verify meeting organizer: %s",
@@ -713,14 +725,6 @@ def _register_note_taker_handlers(
                 "I couldn't verify that you're the meeting organizer. Please try again or message me directly."
             )
             return False
-
-        user_id = user.get("id")
-        user_aad = user.get("aad_object_id")
-        is_organizer = False
-        if user_id and organizer_id and user_id == organizer_id:
-            is_organizer = True
-        if user_aad and organizer_aad and user_aad == organizer_aad:
-            is_organizer = True
 
         if not is_organizer:
             await context.send_activity(
