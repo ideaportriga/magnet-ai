@@ -38,12 +38,14 @@ from microsoft_agents.hosting.core.card_factory import CardFactory
 from microsoft_agents.hosting.core.message_factory import MessageFactory
 from microsoft_agents.hosting.teams import TeamsInfo
 
+from core.db.session import async_session_maker
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
     create_graph_client_with_token,
     get_meeting_recordings,
 )
 from .static_connections import StaticConnections
+from .teams_user_store import upsert_teams_user
 from speech_to_text.transcription import service as transcription_service
 from stores import get_db_client
 from utils import upload_handler
@@ -382,6 +384,19 @@ def _resolve_user_info(context: TurnContext) -> Dict[str, Any]:
     }
 
 
+async def _upsert_teams_user_record(context: TurnContext) -> None:
+    try:
+        async with async_session_maker() as session:
+            try:
+                await upsert_teams_user(session, context)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+    except Exception as exc:
+        logger.exception("Failed to upsert Teams user record: %s", exc)
+
+
 def _build_recording_filename(
     meeting: Dict[str, Any], recording: Dict[str, Any], content_url: str
 ) -> str:
@@ -560,7 +575,12 @@ async def _get_online_meeting_id(context: TurnContext) -> Optional[str]:
 
 
 def _register_note_taker_handlers(
-    app: AgentApplication[TurnState], auth_handler_id: str
+    app: AgentApplication[TurnState],
+    auth_handler_id: str,
+    *,
+    adapter: CloudAdapter,
+    bot_app_id: str,
+    bot_tenant_id: str,
 ) -> None:
     async def _send_typing(context: TurnContext) -> None:
         try:
@@ -851,6 +871,52 @@ def _register_note_taker_handlers(
             content_type=content_type,
         )
 
+    async def _get_token_proactively(
+        *,
+        adapter: CloudAdapter,
+        app: AgentApplication,
+        bot_app_id: str,
+        conv_ref,
+        handler_id: str,
+        aad_object_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> str | None:
+        continuation = Activity.create_event_activity()
+        continuation.name = "proactiveTokenCheck"
+
+        continuation.apply_conversation_reference(conv_ref, is_incoming=True)
+
+        if aad_object_id and getattr(continuation, "from_property", None):
+            continuation.from_property.aad_object_id = aad_object_id
+
+        if tenant_id:
+            continuation.channel_data = continuation.channel_data or {}
+            continuation.channel_data.setdefault("tenant", {"id": tenant_id})
+
+            conv = getattr(continuation, "conversation", None)
+            if conv is not None and getattr(conv, "tenant_id", None) in (None, ""):
+                try:
+                    conv.tenant_id = tenant_id
+                except Exception:
+                    pass
+
+        token_holder: dict[str, str | None] = {"token": None}
+
+        async def callback(proactive_context: TurnContext):
+            handler = app.auth._resolve_handler(handler_id)
+            flow, _ = await handler._load_flow(proactive_context)
+            token_response = await flow.get_user_token()
+            token_holder["token"] = getattr(token_response, "token", None)
+
+            if not token_holder["token"]:
+                await proactive_context.send_activity(
+                    "I need your delegated token to proceed. "
+                    "Please use **/sign-in** in our 1:1 chat to authenticate."
+                )
+
+        await adapter.continue_conversation(bot_app_id, continuation, callback)
+        return token_holder["token"]
+
     async def _handle_meeting_info(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -939,6 +1005,7 @@ def _register_note_taker_handlers(
         logger.info("[teams note-taker] installation update received: %s", activity)
         action = getattr(activity, "action", None)
         if action == "add":
+            await _upsert_teams_user_record(context)
             await _handle_install_flow(context, _state)
             if _is_meeting_conversation(context):
                 await context.send_activity("Magnet note taker added to the meeting.")
@@ -953,13 +1020,54 @@ def _register_note_taker_handlers(
         text = (getattr(getattr(context, "activity", None), "text", "") or "").strip()
         logger.info("[teams note-taker] message received: %s", text)
 
+        await _upsert_teams_user_record(context)
+
         if not text:
             return
 
         normalized_text = text.lower()
 
-        if normalized_text.startswith("/signin"):
+        if _is_meeting_conversation(context):
+            allowed = await _ensure_meeting_organizer_and_signed_in(
+                context, auth_handler_id
+            )
+            if not allowed:
+                return
+
+        if normalized_text.startswith("/test-proactive-token"):
+            conv_ref = context.activity.get_conversation_reference()
+            logger.info("[teams note-taker] conv_ref: %s", conv_ref)
+            aad_object_id = context.activity.from_property.aad_object_id
+            token = await _get_token_proactively(
+                adapter=adapter,
+                app=app,
+                bot_app_id=bot_app_id,
+                conv_ref=conv_ref,
+                handler_id=auth_handler_id,
+                aad_object_id=aad_object_id,
+                tenant_id=bot_tenant_id,
+            )
+
+            await context.send_activity(
+                "✅ token found" if token else "❌ no cached token"
+            )
+            return
+
+        if normalized_text.startswith("/sign-in"):
             if _is_personal_teams_conversation(context):
+                try:
+                    already_signed_in = await _has_existing_token(
+                        context, auth_handler_id
+                    )
+                except Exception:
+                    already_signed_in = False
+
+                if already_signed_in:
+                    await context.send_activity(
+                        "You're signed in. Use /sign-out to sign out."
+                    )
+                    return
+
                 try:
                     await app.auth._start_or_continue_sign_in(
                         context, _state, auth_handler_id
@@ -972,18 +1080,11 @@ def _register_note_taker_handlers(
                     )
             else:
                 await context.send_activity(
-                    "Please open a 1:1 chat with me and run /signin there to authenticate."
+                    "Please use **/signin** in our 1:1 chat to authenticate."
                 )
             return
 
-        if _is_meeting_conversation(context):
-            allowed = await _ensure_meeting_organizer_and_signed_in(
-                context, auth_handler_id
-            )
-            if not allowed:
-                return
-
-        if normalized_text.startswith("/signout"):
+        if normalized_text.startswith("/sign-out"):
             try:
                 await app.auth.sign_out(context, auth_handler_id)
                 await context.send_activity("You're signed out.")
@@ -1107,7 +1208,13 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         authorization=authorization,
     )
 
-    _register_note_taker_handlers(agent_app, settings.auth_handler_id)
+    _register_note_taker_handlers(
+        agent_app,
+        settings.auth_handler_id,
+        adapter=adapter,
+        bot_app_id=settings.client_id,
+        bot_tenant_id=settings.tenant_id,
+    )
 
     return NoteTakerRuntime(
         validation_config=validation_config,
