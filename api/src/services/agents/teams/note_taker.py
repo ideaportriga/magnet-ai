@@ -39,6 +39,9 @@ from microsoft_agents.hosting.core.message_factory import MessageFactory
 from microsoft_agents.hosting.teams import TeamsInfo
 
 from core.db.session import async_session_maker
+from core.db.models.teams import TeamsMeeting
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
     create_graph_client_with_token,
@@ -395,6 +398,102 @@ async def _upsert_teams_user_record(context: TurnContext) -> None:
                 raise
     except Exception as exc:
         logger.exception("Failed to upsert Teams user record: %s", exc)
+
+
+async def _upsert_teams_meeting_record(
+    context: TurnContext, *, is_bot_installed: bool
+) -> None:
+    """Upsert Teams meeting state when the bot is added or removed."""
+    if not _is_meeting_conversation(context):
+        return
+
+    meeting = _resolve_meeting_details(context)
+    meeting_id = meeting.get("id")
+    chat_id = meeting.get("conversationId")
+    if not chat_id:
+        logger.debug(
+            "Skipping Teams meeting upsert: missing conversation id (meeting=%s)",
+            meeting,
+        )
+        return
+
+    join_url = meeting.get("joinUrl")
+    title = meeting.get("title")
+    bot_id = getattr(
+        getattr(getattr(context, "activity", None), "recipient", None), "id", None
+    )
+
+    online_meeting_id: str | None = None
+    try:
+        online_meeting_id = await _get_online_meeting_id(context)
+    except Exception as exc:
+        logger.debug(
+            "Failed to resolve online meeting id for chat %s: %s", chat_id, exc
+        )
+
+    now = dt.datetime.now(dt.timezone.utc)
+    removed_at = None if is_bot_installed else now
+    added_at = now if is_bot_installed else None
+    added_by = _resolve_user_info(context) if is_bot_installed else {}
+
+    insert_stmt = pg_insert(TeamsMeeting).values(
+        chat_id=chat_id,
+        meeting_id=meeting_id,
+        graph_online_meeting_id=online_meeting_id,
+        join_url=join_url,
+        title=title,
+        bot_id=bot_id,
+        is_bot_installed=is_bot_installed,
+        removed_from_meeting_at=removed_at,
+        added_to_meeting_at=added_at,
+        added_by_user_id=added_by.get("id"),
+        added_by_aad_object_id=added_by.get("aad_object_id"),
+        added_by_display_name=added_by.get("name"),
+        last_seen_at=now,
+    )
+
+    update_values: dict[str, Any] = {
+        "is_bot_installed": is_bot_installed,
+        "removed_from_meeting_at": removed_at,
+        "last_seen_at": now,
+        "updated_at": func.now(),
+    }
+    if meeting_id is not None:
+        update_values["meeting_id"] = meeting_id
+    if join_url is not None:
+        update_values["join_url"] = join_url
+    if title is not None:
+        update_values["title"] = title
+    if bot_id is not None:
+        update_values["bot_id"] = bot_id
+    if online_meeting_id:
+        update_values["graph_online_meeting_id"] = online_meeting_id
+    if is_bot_installed:
+        update_values["added_to_meeting_at"] = added_at
+        if added_by.get("id"):
+            update_values["added_by_user_id"] = added_by["id"]
+        if added_by.get("aad_object_id"):
+            update_values["added_by_aad_object_id"] = added_by["aad_object_id"]
+        if added_by.get("name"):
+            update_values["added_by_display_name"] = added_by["name"]
+
+    stmt = insert_stmt.on_conflict_do_update(
+        index_elements=[TeamsMeeting.chat_id],
+        set_=update_values,
+    )
+
+    try:
+        async with async_session_maker() as session:
+            try:
+                await session.execute(stmt)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+    except Exception as exc:
+        logger.exception(
+            "Failed to upsert Teams meeting record for chat %s: %s", chat_id, exc
+        )
 
 
 def _build_recording_filename(
@@ -1010,14 +1109,32 @@ def _register_note_taker_handlers(
         action = getattr(activity, "action", None)
         if action == "add":
             await _upsert_teams_user_record(context)
+            await _upsert_teams_meeting_record(context, is_bot_installed=True)
             await _handle_install_flow(context, _state)
             if _is_meeting_conversation(context):
                 await context.send_activity("Magnet note taker added to the meeting.")
+        elif action == "remove":
+            await _upsert_teams_meeting_record(context, is_bot_installed=False)
 
     @app.conversation_update("membersAdded")
     async def _on_members_added(context: TurnContext, _state: TurnState) -> None:
         activity = getattr(context, "activity", None)
         logger.info("[teams note-taker] members added received: %s", activity)
+        members = getattr(activity, "members_added", None) or []
+        bot_id = getattr(getattr(activity, "recipient", None), "id", None)
+        bot_added = any(getattr(member, "id", None) == bot_id for member in members)
+        if bot_added:
+            await _upsert_teams_meeting_record(context, is_bot_installed=True)
+
+    @app.conversation_update("membersRemoved")
+    async def _on_members_removed(context: TurnContext, _state: TurnState) -> None:
+        activity = getattr(context, "activity", None)
+        logger.info("[teams note-taker] members removed received: %s", activity)
+        members = getattr(activity, "members_removed", None) or []
+        bot_id = getattr(getattr(activity, "recipient", None), "id", None)
+        bot_removed = any(getattr(member, "id", None) == bot_id for member in members)
+        if bot_removed:
+            await _upsert_teams_meeting_record(context, is_bot_installed=False)
 
     @app.activity("message")
     async def _on_message(context: TurnContext, _state: TurnState) -> None:
