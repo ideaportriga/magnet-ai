@@ -26,6 +26,11 @@ class TeamsMeeting(BigIntAuditBase):
         unique=True,
         comment="Teams meeting chat / conversation ID",
     )
+    meeting_id: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Teams meeting id from channel data",
+    )
     graph_online_meeting_id: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
@@ -40,6 +45,27 @@ class TeamsMeeting(BigIntAuditBase):
     title: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True, comment="Meeting subject/title"
     )
+    bot_id: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Bot app id installed in meeting",
+    )
+
+    added_by_user_id: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Teams user id of the user who added the bot",
+    )
+    added_by_aad_object_id: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="AAD object id of the user who added the bot",
+    )
+    added_by_display_name: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Display name of the user who added the bot",
+    )
 
     # Bot presence
     is_bot_installed: Mapped[bool] = mapped_column(
@@ -48,6 +74,11 @@ class TeamsMeeting(BigIntAuditBase):
         default=True,
         server_default=text("true"),
         comment="Whether the bot is currently installed in the meeting",
+    )
+    added_to_meeting_at: Mapped[Optional[DateTimeUTC]] = mapped_column(
+        DateTimeUTC(timezone=True),
+        nullable=True,
+        comment="Timestamp when the bot was added to the meeting",
     )
     removed_from_meeting_at: Mapped[Optional[DateTimeUTC]] = mapped_column(
         DateTimeUTC(timezone=True),
