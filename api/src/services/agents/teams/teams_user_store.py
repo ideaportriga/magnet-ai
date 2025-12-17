@@ -15,6 +15,12 @@ from core.db.models.teams import TeamsUser
 logger = getLogger(__name__)
 
 
+def normalize_bot_id(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    return raw[3:] if raw.startswith("28:") else raw
+
+
 def _resolve_scope(raw_scope: str | None) -> str:
     if raw_scope in {"personal", "groupChat", "channel"}:
         return raw_scope
@@ -38,7 +44,7 @@ def _conversation_reference_from_activity(activity: Any) -> dict[str, Any]:
     """Build a serialized conversation reference snapshot from the activity."""
     try:
         reference = activity.get_conversation_reference()
-        return reference.model_dump(exclude_none=True, by_alias=True)
+        return reference.model_dump(exclude_none=True, by_alias=False)
     except Exception as exc:  # pragma: no cover - fallback path
         logger.debug("Failed to build conversation reference via helper: %s", exc)
         from_user = getattr(activity, "from_property", None) or getattr(
@@ -49,12 +55,12 @@ def _conversation_reference_from_activity(activity: Any) -> dict[str, Any]:
         channel_data = getattr(activity, "channel_data", None) or {}
 
         return {
-            "serviceUrl": getattr(activity, "service_url", None),
+            "service_url": getattr(activity, "service_url", None),
             "conversation": {"id": getattr(conversation, "id", None)},
-            "channelId": getattr(activity, "channel_id", None),
+            "channel_id": getattr(activity, "channel_id", None),
             "bot": {"id": getattr(recipient, "id", None)},
             "user": {"id": getattr(from_user, "id", None)},
-            "tenantId": (channel_data.get("tenant") or {}).get("id"),
+            "tenant_id": (channel_data.get("tenant") or {}).get("id"),
         }
 
 
@@ -84,7 +90,7 @@ async def upsert_teams_user(session: AsyncSession, context: TurnContext) -> None
     scope = _resolve_scope(getattr(conversation, "conversation_type", None))
     conversation_id = getattr(conversation, "id", None)
     service_url = getattr(activity, "service_url", None)
-    bot_id = getattr(recipient, "id", None)
+    bot_id = normalize_bot_id(getattr(recipient, "id", None))
     tenant_id = (channel_data.get("tenant") or {}).get("id")
 
     if not all([teams_user_id, scope, conversation_id, service_url, bot_id]):
@@ -101,8 +107,8 @@ async def upsert_teams_user(session: AsyncSession, context: TurnContext) -> None
 
     conversation_reference = _conversation_reference_from_activity(activity)
     # Ensure we persist tenant id for future proactive operations if we fell back
-    if tenant_id and "tenantId" not in conversation_reference:
-        conversation_reference["tenantId"] = tenant_id
+    if tenant_id and "tenant_id" not in conversation_reference:
+        conversation_reference["tenant_id"] = tenant_id
     now = dt.datetime.now(dt.timezone.utc)
 
     email = None
