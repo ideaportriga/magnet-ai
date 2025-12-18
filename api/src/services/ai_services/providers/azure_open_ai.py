@@ -61,8 +61,9 @@ class AzureProvider(AIProviderInterface):
         max_tokens: int | None = None,
         response_format: dict | None = None,
         tools: list[ChatCompletionToolParam] | None = None,
-        tool_choice: str | None = None,
+        tool_choice: str | dict | None = None,
         model_config: dict | None = None,
+        parallel_tool_calls: bool | None = None,
     ) -> ChatCompletion:
         model = model or self.model_default
         temperature = (

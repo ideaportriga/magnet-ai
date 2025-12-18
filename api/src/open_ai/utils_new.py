@@ -1,7 +1,8 @@
 import time
 
-from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
+from openai.types.chat import ChatCompletionMessageParam
 
+from open_ai.models import ChatCompletionWithMetrics
 from openai_model.utils import get_model_by_system_name
 from services.ai_services.factory import get_ai_provider
 from services.observability import observability_context
@@ -24,9 +25,10 @@ async def create_chat_completion(
     max_tokens: int | None = None,
     response_format: dict | None = None,
     tools: list[dict] | None = None,
-    tool_choice: str | None = None,
+    tool_choice: str | dict | None = None,
     related_prompt_template_config: dict | None = None,
-) -> ChatCompletion:
+    parallel_tool_calls: bool | None = None,
+) -> ChatCompletionWithMetrics:
     provider_system_name = None
 
     # Prepare prompt template for traces and metrics
@@ -119,6 +121,7 @@ async def create_chat_completion(
             tools=tools,
             tool_choice=tool_choice,
             model_config=model_config,
+            parallel_tool_calls=parallel_tool_calls,
         )
         call_end_time = time.time()
         call_duration = call_end_time - call_start_time
@@ -162,7 +165,13 @@ async def create_chat_completion(
             cost=call_cost,
         )
 
-        return chat_completion
+        result = ChatCompletionWithMetrics(
+            **chat_completion.model_dump(),
+            usage_details=call_usage,
+            cost_details=call_cost,
+        )
+
+        return result
 
 
 async def create_chat_completion_from_prompt_template(
@@ -170,8 +179,9 @@ async def create_chat_completion_from_prompt_template(
     prompt_template_values: dict | None = None,
     additional_messages: list[ChatCompletionMessageParam] | None = None,
     tools: list[dict] | None = None,
-    tool_choice: str | None = None,
-) -> tuple[ChatCompletion, list[ChatCompletionMessageParam]]:
+    tool_choice: str | dict | None = None,
+    parallel_tool_calls: bool | None = None,
+) -> tuple[ChatCompletionWithMetrics, list[ChatCompletionMessageParam]]:
     system_message: str = prompt_template_config.get("text", "")
 
     if prompt_template_values:
@@ -201,6 +211,7 @@ async def create_chat_completion_from_prompt_template(
         tools=tools,
         tool_choice=tool_choice,
         related_prompt_template_config=prompt_template_config,
+        parallel_tool_calls=parallel_tool_calls,
     )
 
     return chat_completion, messages

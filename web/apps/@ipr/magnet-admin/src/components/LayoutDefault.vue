@@ -125,6 +125,12 @@ export default {
         const providerSystemName = this.$store.getters.knowledge?.provider_system_name
         return providerSystemName ? `/knowledge-providers/${providerSystemName}` : `/${segments[1]}`
       }
+      if (segments[1] === 'deep-research' && segments[2] === 'runs') {
+        return `/deep-research/runs`
+      }
+      if (segments[1] === 'deep-research' && segments[2] === 'configs') {
+        return `/deep-research/configs`
+      }
       return `/${segments[1]}`
     },
     route() {
