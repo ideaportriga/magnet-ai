@@ -126,7 +126,6 @@ export default {
         this.$store.commit('updateNestedPromptTemplateProperty', { path: 'system_name_for_model', value: value.system_name })
         // TODO: remove this when the backend is updated to use system_name_for_model. This is for supporting the old model field
         this.$store.commit('updateNestedPromptTemplateProperty', { path: 'model', value: value.model })
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.type', value: 'text' })
       },
     },
     model_name() {

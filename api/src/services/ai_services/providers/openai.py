@@ -60,9 +60,13 @@ class OpenAIProvider(AIProviderInterface):
         # if model_config and model_config.get("tool_calling"):
         params["tools"] = tools or openai.NOT_GIVEN
         params["tool_choice"] = tool_choice or openai.NOT_GIVEN
-        
+
         if tools:
-            params["parallel_tool_calls"] = parallel_tool_calls if parallel_tool_calls is not None else openai.NOT_GIVEN
+            params["parallel_tool_calls"] = (
+                parallel_tool_calls
+                if parallel_tool_calls is not None
+                else openai.NOT_GIVEN
+            )
 
         return await self.client.chat.completions.create(**params)
 

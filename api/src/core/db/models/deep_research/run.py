@@ -26,7 +26,7 @@ class DeepResearchRun(UUIDv7AuditBase):
         String(255),
         nullable=True,
         comment="Optional client-side identifier",
-        index=True
+        index=True,
     )
 
     # Run status
@@ -35,21 +35,19 @@ class DeepResearchRun(UUIDv7AuditBase):
         nullable=False,
         default="pending",
         comment="Run status: pending, running, completed, failed",
-        index=True
+        index=True,
     )
 
     # Input data for the research (flexible JSONB)
     input: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JsonB,
         nullable=True,
-        comment="Input data for the research (e.g., {'query': 'research question'})"
+        comment="Input data for the research (e.g., {'query': 'research question'})",
     )
 
     # Config snapshot used for this run
     config: Mapped[Optional[dict[str, Any]]] = mapped_column(
-        JsonB,
-        nullable=True,
-        comment="Configuration snapshot used for this run"
+        JsonB, nullable=True, comment="Configuration snapshot used for this run"
     )
 
     # Config system name snapshot for consistent display/traceability
@@ -65,5 +63,5 @@ class DeepResearchRun(UUIDv7AuditBase):
     details: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JsonB,
         nullable=True,
-        comment="Run execution details in JSON format (progress, memory, iterations, result, error)"
+        comment="Run execution details in JSON format (progress, memory, iterations, result, error)",
     )

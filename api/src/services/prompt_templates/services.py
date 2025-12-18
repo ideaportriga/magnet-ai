@@ -67,8 +67,8 @@ async def execute_prompt_template(
                 "type": tc.type,
                 "function": {
                     "name": tc.function.name,
-                    "arguments": tc.function.arguments
-                }
+                    "arguments": tc.function.arguments,
+                },
             }
             for tc in message.tool_calls
         ]
@@ -88,5 +88,7 @@ async def execute_prompt_template(
             else 0,
         },
         latency=(datetime.now() - start_time).total_seconds() * 1000,
-        cost=chat_completion.cost_details.total if hasattr(chat_completion, 'cost_details') and chat_completion.cost_details else None,
+        cost=chat_completion.cost_details.total
+        if hasattr(chat_completion, "cost_details") and chat_completion.cost_details
+        else None,
     )

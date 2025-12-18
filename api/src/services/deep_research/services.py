@@ -30,7 +30,6 @@ from .models import (
 from core.db.models.deep_research.run import DeepResearchRun as DeepResearchRunDB
 
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -41,32 +40,33 @@ def _track_usage(run: DeepResearchRun, result_data: Any) -> None:
     """
     if not result_data:
         return
-    
+
     # Track latency
-    if hasattr(result_data, 'latency') and result_data.latency:
+    if hasattr(result_data, "latency") and result_data.latency:
         if run.total_latency is None:
             run.total_latency = 0.0
         run.total_latency += result_data.latency
-    
+
     # Track cost
-    if hasattr(result_data, 'cost') and result_data.cost:
+    if hasattr(result_data, "cost") and result_data.cost:
         if run.total_cost is None:
             run.total_cost = 0.0
         run.total_cost += result_data.cost
-    
+
     # Track usage
-    if hasattr(result_data, 'usage') and result_data.usage:
+    if hasattr(result_data, "usage") and result_data.usage:
         if run.total_usage is None:
             run.total_usage = {
                 "prompt_tokens": 0,
                 "completion_tokens": 0,
                 "total_tokens": 0,
             }
-        
+
         usage = result_data.usage
         run.total_usage["prompt_tokens"] += usage.get("prompt_tokens", 0)
         run.total_usage["completion_tokens"] += usage.get("completion_tokens", 0)
         run.total_usage["total_tokens"] += usage.get("total_tokens", 0)
+
 
 async def execute_deep_research(
     run: DeepResearchRun,
@@ -78,7 +78,10 @@ async def execute_deep_research(
         try:
             await persist_callback(run)
         except Exception:
-            logger.exception("Failed to persist deep research run state", extra={"run_id": run.run_id})
+            logger.exception(
+                "Failed to persist deep research run state",
+                extra={"run_id": run.run_id},
+            )
 
     try:
         run.status = DeepResearchStatus.RUNNING
@@ -125,7 +128,9 @@ async def execute_deep_research(
 
             # Check if agent returned content without tool calls (final report or forced conclusion)
             # We need to get this from the conversation history since steps don't store raw output anymore
-            last_message = memory.conversation_history[-1] if memory.conversation_history else {}
+            last_message = (
+                memory.conversation_history[-1] if memory.conversation_history else {}
+            )
             tool_calls = last_message.get("tool_calls", [])
 
             if not tool_calls:
@@ -162,7 +167,9 @@ async def execute_deep_research(
                 function_name = function_info.get("name", "")
 
                 if function_name == "web_search":
-                    logger.info("Executing web_search tool call in iteration %s", iteration_num)
+                    logger.info(
+                        "Executing web_search tool call in iteration %s", iteration_num
+                    )
 
                     try:
                         arguments_str = function_info.get("arguments", "{}")
@@ -232,7 +239,11 @@ async def execute_deep_research(
 
         # Call webhook if configured
         if run.status == DeepResearchStatus.COMPLETED and config.webhook:
-            if config.webhook.enabled and config.webhook.api_server and config.webhook.api_tool:
+            if (
+                config.webhook.enabled
+                and config.webhook.api_server
+                and config.webhook.api_tool
+            ):
                 await _call_webhook(run, config)
                 # Save run state with webhook details
                 await persist_state()
@@ -251,7 +262,7 @@ async def _execute_web_search_workflow(
     config: DeepResearchConfig,
     memory: DeepResearchMemory,
     query: str,
-    tool_call_id: str
+    tool_call_id: str,
 ) -> str:
     """
     Execute complete web search workflow with multiple steps:
@@ -268,9 +279,7 @@ async def _execute_web_search_workflow(
 
     # Step 1: Execute search
     search_step, raw_results = await _execute_search_step(
-        config=config,
-        memory=memory,
-        query=query
+        config=config, memory=memory, query=query
     )
     current_iteration.steps.append(search_step)
 
@@ -301,11 +310,7 @@ async def _execute_web_search_workflow(
 
     if new_results:
         relevance_step, newly_relevant_results = await _analyze_search_results(
-            run=run,
-            config=config,
-            memory=memory,
-            query=query,
-            results=new_results
+            run=run, config=config, memory=memory, query=query, results=new_results
         )
         current_iteration.steps.append(relevance_step)
 
@@ -319,11 +324,7 @@ async def _execute_web_search_workflow(
 
     for result in newly_relevant_results:
         process_step = await _process_search_result(
-            run=run,
-            config=config,
-            memory=memory,
-            query=query,
-            result=result
+            run=run, config=config, memory=memory, query=query, result=result
         )
         current_iteration.steps.append(process_step)
 
@@ -340,11 +341,13 @@ async def _execute_web_search_workflow(
             # Store extracted info if relevant
             if summary and "no relevant" not in summary.lower():
                 memory.extracted_info.append(summary)
-                processed_summaries.append({
-                    "title": result.get("title", "Unknown"),
-                    "url": url,
-                    "summary": summary
-                })
+                processed_summaries.append(
+                    {
+                        "title": result.get("title", "Unknown"),
+                        "url": url,
+                        "summary": summary,
+                    }
+                )
 
     # Step 5: Build formatted summary for conversation
     summary_parts = []
@@ -357,9 +360,13 @@ async def _execute_web_search_workflow(
 
     # If nothing new was found at all
     if not new_results:
-        summary_parts.append(f"\n✓ All {len(raw_results)} results were already analyzed - no new information.")
+        summary_parts.append(
+            f"\n✓ All {len(raw_results)} results were already analyzed - no new information."
+        )
         if already_analyzed_processed:
-            summary_parts.append(f"\nAlready processed relevant pages ({len(already_analyzed_processed)}):")
+            summary_parts.append(
+                f"\nAlready processed relevant pages ({len(already_analyzed_processed)}):"
+            )
             for result in already_analyzed_processed:
                 title = result.get("title", "Unknown")
                 url = result.get("url", "")
@@ -376,7 +383,9 @@ async def _execute_web_search_workflow(
 
     # Report already processed pages (only if there are some)
     if already_analyzed_processed:
-        summary_parts.append(f"\nAlready processed relevant pages ({len(already_analyzed_processed)}):")
+        summary_parts.append(
+            f"\nAlready processed relevant pages ({len(already_analyzed_processed)}):"
+        )
         for result in already_analyzed_processed:
             title = result.get("title", "Unknown")
             url = result.get("url", "")
@@ -384,12 +393,16 @@ async def _execute_web_search_workflow(
 
     # Report newly processed pages
     if processed_summaries:
-        summary_parts.append(f"\nNewly processed relevant pages ({len(processed_summaries)}):")
+        summary_parts.append(
+            f"\nNewly processed relevant pages ({len(processed_summaries)}):"
+        )
         for item in processed_summaries:
             summary_parts.append(f"  - [{item['title']}]({item['url']})")
             summary_parts.append(f"    {item['summary']}")
     elif newly_relevant_results:
-        summary_parts.append(f"\n⚠ {len(newly_relevant_results)} relevant pages found but not processed (reached limit or error).")
+        summary_parts.append(
+            f"\n⚠ {len(newly_relevant_results)} relevant pages found but not processed (reached limit or error)."
+        )
 
     return "\n".join(summary_parts)
 
@@ -399,7 +412,7 @@ async def _execute_reasoning_step(
     iteration: int,
     config: DeepResearchConfig,
     memory: DeepResearchMemory,
-    allow_tools: bool = True
+    allow_tools: bool = True,
 ) -> DeepResearchStep:
     """
     Execute agent reasoning step to decide next action.
@@ -415,7 +428,7 @@ async def _execute_reasoning_step(
             "max_iterations": config.max_iterations,
             "search_history": "\n".join(f"- {q}" for q in memory.search_queries),
             "extracted_info": "\n".join(f"- {info}" for info in memory.extracted_info),
-            "processed_urls_count": len(memory.processed_urls)
+            "processed_urls_count": len(memory.processed_urls),
         }
 
         # Define tool schemas for OpenAI function calling
@@ -434,12 +447,12 @@ async def _execute_reasoning_step(
                             "properties": {
                                 "query": {
                                     "type": "string",
-                                    "description": "The search query to execute"
+                                    "description": "The search query to execute",
                                 }
                             },
-                            "required": ["query"]
-                        }
-                    }
+                            "required": ["query"],
+                        },
+                    },
                 }
             ]
             tool_choice = "auto"
@@ -455,9 +468,9 @@ async def _execute_reasoning_step(
             template_additional_messages=memory.conversation_history,
             tools=tools,
             tool_choice=tool_choice,
-            parallel_tool_calls=config.parallel_tool_calls
+            parallel_tool_calls=config.parallel_tool_calls,
         )
-        
+
         # Track usage and latency
         _track_usage(run, result)
 
@@ -465,23 +478,19 @@ async def _execute_reasoning_step(
         tool_calls = result.tool_calls
 
         # Add to conversation history
-        memory.conversation_history.append({
-            "role": "assistant",
-            "tool_calls": tool_calls,
-            "content": content
-        })
+        memory.conversation_history.append(
+            {"role": "assistant", "tool_calls": tool_calls, "content": content}
+        )
 
         decided_action = "final_report" if not tool_calls else "search"
 
         step = DeepResearchStep(
             type=StepType.REASONING,
             title=f"Iteration {iteration}: Planning next action",
-            details=ReasoningStepDetails(
-                decided_action=decided_action
-            ),
-            cost=result.cost if hasattr(result, 'cost') else None,
-            latency=result.latency if hasattr(result, 'latency') else None,
-            usage=result.usage if hasattr(result, 'usage') else None
+            details=ReasoningStepDetails(decided_action=decided_action),
+            cost=result.cost if hasattr(result, "cost") else None,
+            latency=result.latency if hasattr(result, "latency") else None,
+            usage=result.usage if hasattr(result, "usage") else None,
         )
 
         return step
@@ -492,17 +501,14 @@ async def _execute_reasoning_step(
             type=StepType.REASONING,
             title=f"Iteration {iteration}: Reasoning failed",
             details=ReasoningStepDetails(
-                thought="Error occurred during reasoning",
-                decided_action="error"
+                thought="Error occurred during reasoning", decided_action="error"
             ),
-            error=str(e)
+            error=str(e),
         )
 
 
 async def _execute_search_step(
-    config: DeepResearchConfig,
-    memory: DeepResearchMemory,
-    query: str
+    config: DeepResearchConfig, memory: DeepResearchMemory, query: str
 ) -> tuple[DeepResearchStep, list[dict]]:
     """Execute web search using Tavily API tool. Returns (step, results)."""
     try:
@@ -517,18 +523,24 @@ async def _execute_search_step(
                 requestBody={
                     "query": query,
                     "max_results": config.max_results,
-                    "include_raw_content": True
+                    "include_raw_content": True,
                 }
-            )
+            ),
         )
 
         response = await call_api_server_tool(api_call)
 
         # Parse response content (it's a JSON string)
-        response_data = json.loads(response.content) if isinstance(response.content, str) else response.content
+        response_data = (
+            json.loads(response.content)
+            if isinstance(response.content, str)
+            else response.content
+        )
 
         # Parse Tavily response
-        raw_results = response_data.get("results", []) if isinstance(response_data, dict) else []
+        raw_results = (
+            response_data.get("results", []) if isinstance(response_data, dict) else []
+        )
 
         results = [
             {
@@ -555,17 +567,15 @@ async def _execute_search_step(
                     "is_relevant": None,  # Will be set during analysis
                     "relevance_reasoning": None,
                     "processed": False,
-                    "processing_summary": None
+                    "processing_summary": None,
                 }
 
         step = DeepResearchStep(
             type=StepType.SEARCH,
             title=f"Searching: '{query}'",
             details=SearchStepDetails(
-                query=query,
-                results_count=len(results),
-                new_results_count=new_count
-            )
+                query=query, results_count=len(results), new_results_count=new_count
+            ),
         )
 
         return step, results
@@ -576,11 +586,9 @@ async def _execute_search_step(
             type=StepType.SEARCH,
             title=f"Search failed: '{query}'",
             details=SearchStepDetails(
-                query=query,
-                results_count=0,
-                new_results_count=0
+                query=query, results_count=0, new_results_count=0
             ),
-            error=str(e)
+            error=str(e),
         )
         return step, []
 
@@ -590,7 +598,7 @@ async def _analyze_search_results(
     config: DeepResearchConfig,
     memory: DeepResearchMemory,
     query: str,
-    results: list[dict]
+    results: list[dict],
 ) -> tuple[DeepResearchStep, list[dict]]:
     """
     Analyze search results to determine which are relevant.
@@ -599,10 +607,12 @@ async def _analyze_search_results(
     """
     try:
         # Format results for analysis (snippets only)
-        results_text = "\n\n".join([
-            f"Result {i+1}:\nTitle: {r.get('title', 'N/A')}\nURL: {r.get('url', 'N/A')}\nSnippet: {r.get('snippet', r.get('content', 'N/A'))}"
-            for i, r in enumerate(results)
-        ])
+        results_text = "\n\n".join(
+            [
+                f"Result {i + 1}:\nTitle: {r.get('title', 'N/A')}\nURL: {r.get('url', 'N/A')}\nSnippet: {r.get('snippet', r.get('content', 'N/A'))}"
+                for i, r in enumerate(results)
+            ]
+        )
 
         context = {
             "query": query,
@@ -612,9 +622,9 @@ async def _analyze_search_results(
 
         result = await execute_prompt_template(
             system_name_or_config=config.analyze_search_results_prompt,
-            template_values=context
+            template_values=context,
         )
-        
+
         # Track usage and latency
         _track_usage(run, result)
 
@@ -664,14 +674,12 @@ async def _analyze_search_results(
                 type=StepType.ANALYZE_RESULTS,
                 title=f"Analysis failed for {len(results)} results",
                 details=AnalyzeResultsStepDetails(
-                    analyzed_count=len(results),
-                    relevant_count=0,
-                    relevant_urls=[]
+                    analyzed_count=len(results), relevant_count=0, relevant_urls=[]
                 ),
                 error=error_msg,
-                cost=result.cost if hasattr(result, 'cost') else None,
-                latency=result.latency if hasattr(result, 'latency') else None,
-                usage=result.usage if hasattr(result, 'usage') else None
+                cost=result.cost if hasattr(result, "cost") else None,
+                latency=result.latency if hasattr(result, "latency") else None,
+                usage=result.usage if hasattr(result, "usage") else None,
             )
             return step, []
 
@@ -681,11 +689,11 @@ async def _analyze_search_results(
             details=AnalyzeResultsStepDetails(
                 analyzed_count=len(results),
                 relevant_count=len(relevant_results),
-                relevant_urls=[r.get("url", "") for r in relevant_results]
+                relevant_urls=[r.get("url", "") for r in relevant_results],
             ),
-            cost=result.cost if hasattr(result, 'cost') else None,
-            latency=result.latency if hasattr(result, 'latency') else None,
-            usage=result.usage if hasattr(result, 'usage') else None
+            cost=result.cost if hasattr(result, "cost") else None,
+            latency=result.latency if hasattr(result, "latency") else None,
+            usage=result.usage if hasattr(result, "usage") else None,
         )
 
         return step, relevant_results
@@ -696,11 +704,9 @@ async def _analyze_search_results(
             type=StepType.ANALYZE_RESULTS,
             title=f"Analysis error for {len(results)} results",
             details=AnalyzeResultsStepDetails(
-                analyzed_count=len(results),
-                relevant_count=0,
-                relevant_urls=[]
+                analyzed_count=len(results), relevant_count=0, relevant_urls=[]
             ),
-            error=str(e)
+            error=str(e),
         )
         return step, []
 
@@ -710,7 +716,7 @@ async def _process_search_result(
     config: DeepResearchConfig,
     memory: DeepResearchMemory,
     query: str,
-    result: dict
+    result: dict,
 ) -> DeepResearchStep:
     """
     Process individual search result page content.
@@ -721,17 +727,19 @@ async def _process_search_result(
 
     try:
         # Get page content (raw_content if available, otherwise snippet)
-        page_content = result.get("raw_content") or result.get("content") or result.get("snippet", "")
+        page_content = (
+            result.get("raw_content")
+            or result.get("content")
+            or result.get("snippet", "")
+        )
 
         if not page_content:
             return DeepResearchStep(
                 type=StepType.PROCESS_PAGE,
                 title=f"Skipped: {title}",
                 details=ProcessPageStepDetails(
-                    url=url,
-                    page_title=title,
-                    summary="No content available"
-                )
+                    url=url, page_title=title, summary="No content available"
+                ),
             )
 
         # Limit content length
@@ -747,15 +755,15 @@ async def _process_search_result(
             "page_url": url,
             "page_content": page_content,
             "relevance_reasoning": relevance_reasoning,
-            "extracted_info": "\n".join(f"- {info}" for info in memory.extracted_info)
+            "extracted_info": "\n".join(f"- {info}" for info in memory.extracted_info),
         }
 
         # Execute process search result prompt
         result_data = await execute_prompt_template(
             system_name_or_config=config.process_search_result_prompt,
-            template_values=context
+            template_values=context,
         )
-        
+
         # Track usage and latency
         _track_usage(run, result_data)
 
@@ -772,11 +780,11 @@ async def _process_search_result(
             details=ProcessPageStepDetails(
                 url=url,
                 page_title=title,
-                summary=summary if len(summary) > 500 else summary  # Limit for display
+                summary=summary if len(summary) > 500 else summary,  # Limit for display
             ),
-            cost=result_data.cost if hasattr(result_data, 'cost') else None,
-            latency=result_data.latency if hasattr(result_data, 'latency') else None,
-            usage=result_data.usage if hasattr(result_data, 'usage') else None
+            cost=result_data.cost if hasattr(result_data, "cost") else None,
+            latency=result_data.latency if hasattr(result_data, "latency") else None,
+            usage=result_data.usage if hasattr(result_data, "usage") else None,
         )
 
     except Exception as e:
@@ -785,15 +793,15 @@ async def _process_search_result(
             type=StepType.PROCESS_PAGE,
             title=f"Failed: {title}",
             details=ProcessPageStepDetails(
-                url=url,
-                page_title=title,
-                summary="Processing failed"
+                url=url, page_title=title, summary="Processing failed"
             ),
-            error=str(e)
+            error=str(e),
         )
 
 
-def _resolve_webhook_template(run: DeepResearchRun, template: dict[str, Any]) -> dict[str, Any]:
+def _resolve_webhook_template(
+    run: DeepResearchRun, template: dict[str, Any]
+) -> dict[str, Any]:
     """
     Resolve webhook payload template by navigating paths from the run object.
 
@@ -811,6 +819,7 @@ def _resolve_webhook_template(run: DeepResearchRun, template: dict[str, Any]) ->
     Returns:
         Resolved payload dict with actual values
     """
+
     def resolve_path(path: str | dict | list) -> Any:
         """Recursively resolve a path or nested structure."""
         if isinstance(path, dict):
@@ -846,9 +855,9 @@ async def _call_webhook(run: DeepResearchRun, config: DeepResearchConfig) -> Non
     webhook_details = WebhookCallDetails(
         api_server=config.webhook.api_server,
         api_tool=config.webhook.api_tool,
-        success=False
+        success=False,
     )
-    
+
     try:
         if not config.webhook or not config.webhook.enabled:
             logger.info(f"No webhook configured for run {run.run_id}, skipping")
@@ -857,7 +866,9 @@ async def _call_webhook(run: DeepResearchRun, config: DeepResearchConfig) -> Non
         if not config.webhook.api_server or not config.webhook.api_tool:
             webhook_details.error_message = "Missing api_server or api_tool"
             run.webhook_call = webhook_details
-            logger.warning(f"Webhook enabled but missing api_server or api_tool for run {run.run_id}")
+            logger.warning(
+                f"Webhook enabled but missing api_server or api_tool for run {run.run_id}"
+            )
             return
 
         payload = {}
@@ -866,32 +877,36 @@ async def _call_webhook(run: DeepResearchRun, config: DeepResearchConfig) -> Non
             payload = _resolve_webhook_template(run, config.webhook.payload_template)
 
         webhook_details.request_payload = payload
-        
-        logger.info(f"Calling webhook for run {run.run_id}: {config.webhook.api_server}/{config.webhook.api_tool}")
+
+        logger.info(
+            f"Calling webhook for run {run.run_id}: {config.webhook.api_server}/{config.webhook.api_tool}"
+        )
         logger.debug(f"Webhook payload: {json.dumps(payload, indent=2)}")
-        
+
         api_call = ApiToolCall(
             server=config.webhook.api_server,
             tool=config.webhook.api_tool,
             input_params=ApiToolCallInputParams(
                 requestBody=payload if payload else None
-            )
+            ),
         )
 
         result = await call_api_server_tool(api_call)
-        
+
         # Capture response details
         webhook_details.success = True
         webhook_details.response_status = 200  # Assuming success means 200
-        webhook_details.response_body = result if isinstance(result, dict) else {"data": str(result)}
-        
+        webhook_details.response_body = (
+            result if isinstance(result, dict) else {"data": str(result)}
+        )
+
         logger.info(f"Webhook called successfully for run {run.run_id}")
 
     except Exception as e:
         webhook_details.success = False
         webhook_details.error_message = str(e)
         logger.warning(f"Failed to call webhook for run {run.run_id}: {e}")
-    
+
     finally:
         # Always store webhook call details
         run.webhook_call = webhook_details
@@ -909,10 +924,14 @@ def _serialize_run_details(run: DeepResearchRun) -> dict[str, Any]:
     """Build details payload for persistence."""
     return {
         "memory": _serialize_memory(run.memory),
-        "iterations": [iteration.model_dump(mode="json") for iteration in run.iterations],
+        "iterations": [
+            iteration.model_dump(mode="json") for iteration in run.iterations
+        ],
         "result": run.result,
         "error": run.error,
-        "webhook_call": run.webhook_call.model_dump(mode="json") if run.webhook_call else None,
+        "webhook_call": run.webhook_call.model_dump(mode="json")
+        if run.webhook_call
+        else None,
         "total_usage": run.total_usage,
         "total_latency": run.total_latency,
         "total_cost": run.total_cost,
@@ -948,8 +967,10 @@ def _map_db_run_to_service(db_run: "DeepResearchRunDB") -> DeepResearchRun:
         if memory_data
         else DeepResearchMemory()
     )
-    iterations = [DeepResearchIteration.model_validate(item) for item in iterations_data]
-    
+    iterations = [
+        DeepResearchIteration.model_validate(item) for item in iterations_data
+    ]
+
     webhook_call_model = (
         WebhookCallDetails.model_validate(webhook_call_data)
         if webhook_call_data

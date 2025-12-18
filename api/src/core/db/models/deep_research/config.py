@@ -15,7 +15,5 @@ class DeepResearchConfig(UUIDAuditSimpleBase):
 
     # Configuration stored as flexible JSONB for future adjustments
     config: Mapped[Optional[dict[str, Any]]] = mapped_column(
-        JsonB,
-        nullable=True,
-        comment="Deep research configuration in JSON format"
+        JsonB, nullable=True, comment="Deep research configuration in JSON format"
     )

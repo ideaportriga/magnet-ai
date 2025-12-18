@@ -1,4 +1,4 @@
-﻿"""Deep Research API routes - using database services."""
+"""Deep Research API routes - using database services."""
 
 from __future__ import annotations
 
@@ -22,7 +22,10 @@ from core.domain.deep_research.schemas import (
     DeepResearchRunCreatedResponse,
     DeepResearchRunSchema,
 )
-from core.domain.deep_research.service import DeepResearchConfigService, DeepResearchRunService
+from core.domain.deep_research.service import (
+    DeepResearchConfigService,
+    DeepResearchRunService,
+)
 from services.deep_research.models import DeepResearchConfig
 from services.deep_research.services import run_deep_research_workflow
 
@@ -52,7 +55,7 @@ class DeepResearchConfigController(Controller):
     async def create_config(
         self,
         config_service: DeepResearchConfigService,
-        data: Annotated[DeepResearchConfigCreateSchema, Body()]
+        data: Annotated[DeepResearchConfigCreateSchema, Body()],
     ) -> DeepResearchConfigSchema:
         """Create a new deep research config."""
         obj = await config_service.create(data)
@@ -150,7 +153,9 @@ class DeepResearchRunController(Controller):
         config_payload = data.config
         config_system_name = data.config_system_name
         if data.config_system_name:
-            config_obj = await config_service.get_one(system_name=data.config_system_name)
+            config_obj = await config_service.get_one(
+                system_name=data.config_system_name
+            )
             config_payload = config_obj.config
             config_system_name = config_obj.system_name
 
@@ -211,6 +216,7 @@ class DeepResearchRunController(Controller):
         results = await run_service.list(client_id=client_id)
         if not results:
             from litestar.exceptions import NotFoundException
+
             raise NotFoundException(detail=f"No run found with client_id: {client_id}")
 
         # Return the first result
@@ -243,6 +249,7 @@ class DeepResearchRunController(Controller):
         results = await run_service.list(client_id=client_id)
         if not results:
             from litestar.exceptions import NotFoundException
+
             raise NotFoundException(detail=f"No run found with client_id: {client_id}")
 
         # Delete the first result

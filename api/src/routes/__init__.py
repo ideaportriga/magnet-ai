@@ -51,8 +51,8 @@ from .static import serve_static_file
 def get_route_handlers(
     auth_enabled: bool, web_included: bool
 ) -> list[ControllerRouterHandler]:
-
     auth_enabled = False
+
     @get("/health", exclude_from_auth=True, tags=["health"])
     async def health_route_handler() -> dict[str, Any]:
         """Health Check endpoint"""

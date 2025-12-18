@@ -7,7 +7,9 @@ from advanced_alchemy.extensions.litestar import repository, service
 from core.db.models.deep_research import DeepResearchConfig, DeepResearchRun
 
 
-class DeepResearchConfigService(service.SQLAlchemyAsyncRepositoryService[DeepResearchConfig]):
+class DeepResearchConfigService(
+    service.SQLAlchemyAsyncRepositoryService[DeepResearchConfig]
+):
     """Deep Research Config service."""
 
     class Repo(repository.SQLAlchemyAsyncRepository[DeepResearchConfig]):
