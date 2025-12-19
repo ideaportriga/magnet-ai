@@ -604,6 +604,14 @@ class KnowledgeSourceSettings:
         default_factory=get_env("FLUID_TOPICS_PDF_API_URL", "")
     )
     """Fluid Topics PDF API URL."""
+    FLUID_TOPICS_MAP_CONTENT: str = field(
+        default_factory=get_env("FLUID_TOPICS_MAP_CONTENT", "")
+    )
+    """Fluid Topics topic content API URL template."""
+    FLUID_TOPICS_MAP_TOC: str = field(
+        default_factory=get_env("FLUID_TOPICS_MAP_TOC", "")
+    )
+    """Fluid Topics map TOC API URL template."""
     FLUID_TOPICS_VIEWER_BASE_URL: str = field(
         default_factory=get_env("FLUID_TOPICS_VIEWER_BASE_URL", "")
     )

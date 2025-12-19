@@ -4,9 +4,11 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from openai_model.utils import get_model_by_system_name
 from stores.pgvector_db import pgvector_client
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from .content_config_services import get_graph_embedding_model
 
 logger = logging.getLogger(__name__)
@@ -289,6 +291,22 @@ async def insert_chunks_bulk(
     async with pgvector_client.pool.acquire() as connection:
         async with connection.transaction():
             for idx, chunk_data in enumerate(chunks):
+                # Some sources (e.g. Fluid Topics TOPIC chunks) do not have a page concept
+                # and will pass `page=None`. `dict.get()` returns None even when a default
+                # is provided if the key exists, so we normalize explicitly here.
+                page_val = chunk_data.get("page")
+                page: int | None = (
+                    page_val if isinstance(page_val, int) and page_val > 0 else None
+                )
+
+                embedding_val = chunk_data.get("embedding")
+                embedding = embedding_val if isinstance(embedding_val, list) else []
+
+                chunk_type_val = chunk_data.get("type")
+                chunk_type = (
+                    str(chunk_type_val).strip() if chunk_type_val is not None else ""
+                ) or "TEXT"
+
                 await connection.execute(
                     f"""
                     INSERT INTO {chunks_tbl} (
@@ -301,14 +319,10 @@ async def insert_chunks_bulk(
                     idx,
                     chunk_data.get("title", ""),
                     chunk_data.get("toc_reference", ""),
-                    (
-                        chunk_data.get("page", -1)
-                        if chunk_data.get("page", -1) > 0
-                        else None
-                    ),
+                    page,
                     chunk_data.get("text", ""),
-                    chunk_data.get("embedding", []),
-                    chunk_data.get("type", "TEXT"),
+                    embedding,
+                    chunk_type,
                     document["id"],
                 )
                 inserted += 1

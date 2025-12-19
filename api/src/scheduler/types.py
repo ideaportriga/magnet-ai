@@ -20,6 +20,7 @@ class RunConfigurationType(str, Enum):
     SYNC_COLLECTION = "sync_collection"
     POST_PROCESS_CONVERSATION = "post_processing_conversations"
     EVALUATION = "evaluation"
+    SYNC_KNOWLEDGE_GRAPH_SOURCE = "sync_knowledge_graph_source"
 
 
 class JobType(str, Enum):  # Changed from Enum to str, Enum

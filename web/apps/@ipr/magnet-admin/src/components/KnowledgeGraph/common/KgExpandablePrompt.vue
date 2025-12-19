@@ -1,25 +1,25 @@
 <template>
-  <div class="prompt-section" :style="sectionStyle" @focusin="onFocusIn" @focusout="onFocusOut">
-    <div class="inner-prompt-section" :style="innerSectionStyle">
+  <div class="kg-expandable-prompt" :style="sectionStyle" @focusin="onFocusIn" @focusout="onFocusOut">
+    <div class="kg-expandable-prompt__inner" :style="innerSectionStyle">
       <q-expansion-item v-model="isExpanded" expand-icon-class="text-grey-6" dense>
         <template #header>
-          <div class="header-content">
+          <div class="kg-expandable-prompt__header">
             <q-avatar icon="format_quote" color="primary-light" text-color="primary" size="32px" font-size="18px" />
-            <div class="header-text">
+            <div class="kg-expandable-prompt__header-text">
               <span class="km-heading-8 text-weight-medium">{{ title }}</span>
               <span class="q-mt-2 text-secondary-text" style="font-size: 0.8rem">{{ description }}</span>
             </div>
           </div>
         </template>
 
-        <div class="content-area">
+        <div class="kg-expandable-prompt__content">
           <km-input
             :model-value="modelValue"
             type="textarea"
             autogrow
             rows="4"
             :placeholder="placeholder"
-            class="prompt-textarea"
+            class="kg-expandable-prompt__textarea"
             input-class="font-mono text-body2"
             @update:model-value="$emit('update:modelValue', $event)"
           />
@@ -65,26 +65,26 @@ const innerSectionStyle = computed(() => ({
 </script>
 
 <style scoped>
-.prompt-section {
+.kg-expandable-prompt {
   border-radius: 6px;
 }
 
-.prompt-section :deep(.q-expansion-item) {
+.kg-expandable-prompt :deep(.q-expansion-item) {
   background: transparent;
 }
 
-.prompt-section :deep(.q-item) {
+.kg-expandable-prompt :deep(.q-item) {
   padding: 0;
   min-height: unset;
   background: linear-gradient(135deg, #f5f7ff 0%, #ffffff 100%);
   border-radius: 6px;
 }
 
-.prompt-section :deep(.q-expansion-item__container) {
+.kg-expandable-prompt :deep(.q-expansion-item__container) {
   background: transparent;
 }
 
-.header-content {
+.kg-expandable-prompt__header {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -93,43 +93,41 @@ const innerSectionStyle = computed(() => ({
   border-radius: 6px;
 }
 
-
-
-.prompt-section:hover {
+.kg-expandable-prompt:hover {
   border-color: var(--q-primary) !important;
 }
 
-.header-text {
+.kg-expandable-prompt__header-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.content-area {
+.kg-expandable-prompt__content {
   padding: 12px 16px 16px;
   border-top: 1px solid var(--section-border, #e0e0e0);
 }
 
-.prompt-textarea :deep(.q-field__native) {
+.kg-expandable-prompt__textarea :deep(.q-field__native) {
   font-size: 13px;
   line-height: 1.6;
   color: #37474f;
 }
 
-.prompt-textarea :deep(.q-field__native::placeholder) {
+.kg-expandable-prompt__textarea :deep(.q-field__native::placeholder) {
   color: #b0bec5;
 }
 
 /* Expansion item styling overrides */
-.prompt-section :deep(.q-expansion-item__content) {
+.kg-expandable-prompt :deep(.q-expansion-item__content) {
   background: transparent;
 }
 
-.prompt-section :deep(.q-focus-helper) {
+.kg-expandable-prompt :deep(.q-focus-helper) {
   display: none;
 }
 
-.inner-prompt-section {
+.kg-expandable-prompt__inner {
   border-radius: 6px;
   position: relative;
   margin: -1px -1px;
@@ -161,3 +159,4 @@ const innerSectionStyle = computed(() => ({
   margin: 6px 4px !important;
 }
 </style>
+

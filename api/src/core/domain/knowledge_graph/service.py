@@ -4,14 +4,15 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from advanced_alchemy.extensions.litestar import repository, service
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from litestar.exceptions import ClientException, NotFoundException
-from litestar.status_codes import HTTP_415_UNSUPPORTED_MEDIA_TYPE
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.db.models.job import Job as JobModel
 from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
-from core.domain.ai_models.service import AIModelsService
 from core.domain.agent_conversation.service import AgentConversationService
+from core.domain.ai_models.service import AIModelsService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
     KnowledgeGraphChunkListResponse,
@@ -24,9 +25,18 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphSourceCreateRequest,
     KnowledgeGraphSourceCreateResponse,
     KnowledgeGraphSourceExternalSchema,
+    KnowledgeGraphSourceScheduleExternalSchema,
+    KnowledgeGraphSourceScheduleSyncRequest,
     KnowledgeGraphSourceUpdateRequest,
     KnowledgeGraphUpdateRequest,
     KnowledgeGraphUpdateResponse,
+)
+from scheduler.job_executor import cancel_job, create_job
+from scheduler.types import (
+    JobDefinition,
+    JobType,
+    RunConfiguration,
+    RunConfigurationType,
 )
 from services.agents.models import (
     AgentConversationDataWithMessages,
@@ -34,23 +44,18 @@ from services.agents.models import (
     AgentConversationMessageUser,
 )
 from services.knowledge_graph import (
-    get_content_config,
     get_default_content_configs,
     get_default_retrieval_settings,
-    load_content_from_bytes,
 )
 from services.knowledge_graph.retrievers import run_agentic_retrieval
-from services.knowledge_graph.sources import (
-    ManualUploadDataSource,
-    SharePointDataSource,
-)
+from services.knowledge_graph.sources import FluidTopicsSource, SharePointDataSource
 from services.knowledge_graph.store_services import (
     chunks_table_name,
     docs_table_name,
     drop_graph_tables,
 )
-from services.observability import observe, observability_context
-from utils.datetime_utils import utc_now_isoformat, utc_now
+from services.observability import observability_context, observe
+from utils.datetime_utils import utc_now, utc_now_isoformat
 
 
 class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGraph]):
@@ -243,38 +248,6 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         # Remove graph record
         await self.delete(item_id=graph_id, auto_commit=True)
 
-    async def upload_file(
-        self, db_session: AsyncSession, graph_id: UUID, filename: str, file_bytes: bytes
-    ) -> dict[str, str]:
-        try:
-            config = await get_content_config(
-                db_session, graph_id, filename, source_type="upload"
-            )
-            if not config:
-                raise ClientException(
-                    f"Knowledge Graph does not support file type '{filename}'.",
-                    status_code=HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                )
-
-            content = load_content_from_bytes(file_bytes, config)
-            total_pages = content["metadata"].get("total_pages")
-
-            await ManualUploadDataSource().upload_and_process_document(
-                db_session,
-                graph_id,
-                filename=filename,
-                extracted_text=content["text"],
-                total_pages=total_pages,
-                config=config,
-            )
-
-            return {"status": "ok"}
-        except ClientException:
-            # Re-raise known client exceptions untouched
-            raise
-        except Exception as e:  # noqa: BLE001
-            raise ClientException(f"File upload failed: {e}")
-
     @observe(name="Start conversation", channel="production", source="production")
     async def start_conversation(
         self,
@@ -419,11 +392,25 @@ class KnowledgeGraphSourceService(
         self, db_session: AsyncSession, graph_id: UUID
     ) -> list[KnowledgeGraphSourceExternalSchema]:
         result = await db_session.execute(
-            select(KnowledgeGraphSource)
+            select(KnowledgeGraphSource, JobModel)
+            .outerjoin(JobModel, KnowledgeGraphSource.schedule_job_id == JobModel.id)
             .where(KnowledgeGraphSource.graph_id == graph_id)
             .order_by(KnowledgeGraphSource.created_at.desc())
         )
-        sources = result.scalars().all()
+        rows = result.all()
+
+        def build_schedule(
+            job: JobModel | None,
+        ) -> KnowledgeGraphSourceScheduleExternalSchema | None:
+            if not job or not job.definition:
+                return None
+            definition = job.definition or {}
+            return KnowledgeGraphSourceScheduleExternalSchema(
+                name=definition.get("name"),
+                interval=definition.get("interval"),
+                cron=definition.get("cron"),
+                timezone=definition.get("timezone"),
+            )
 
         return [
             KnowledgeGraphSourceExternalSchema(
@@ -435,8 +422,9 @@ class KnowledgeGraphSourceService(
                 documents_count=int(source.documents_count or 0),
                 last_sync_at=source.last_sync_at,
                 created_at=source.created_at.isoformat() if source.created_at else None,
+                schedule=build_schedule(job),
             )
-            for source in sources
+            for (source, job) in rows
         ]
 
     async def create_source(
@@ -559,6 +547,124 @@ class KnowledgeGraphSourceService(
         await db_session.delete(source)
         await db_session.commit()
 
+    async def schedule_source_sync(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        source_id: UUID,
+        scheduler: AsyncIOScheduler,
+        data: KnowledgeGraphSourceScheduleSyncRequest | None = None,
+    ) -> dict[str, Any]:
+        result = await db_session.execute(
+            select(KnowledgeGraphSource).where(
+                (KnowledgeGraphSource.id == source_id)
+                & (KnowledgeGraphSource.graph_id == graph_id)
+            )
+        )
+        source = result.scalar_one_or_none()
+        if not source:
+            raise NotFoundException("Source not found")
+
+        # "None" is a UI-only scheduling option to disable automatic sync.
+        # When requested, remove any existing schedule and return an idempotent response.
+        interval_raw = getattr(data, "interval", None) if data else None
+        if isinstance(interval_raw, str) and interval_raw.strip().lower() == "none":
+            if source.schedule_job_id:
+                job_id = str(source.schedule_job_id)
+                try:
+                    await cancel_job(scheduler, job_id, db_session)
+                except Exception:  # noqa: BLE001
+                    pass
+
+                # NOTE: cancel_job() uses `async with db_session`, which closes the session and
+                # detaches ORM instances. Merge it back into the session before updating.
+                source_for_update = await db_session.merge(source)
+                source_for_update.schedule_job_id = None
+                await db_session.commit()
+            return {"status": "unscheduled"}
+
+        run_configuration = RunConfiguration(
+            type=RunConfigurationType.SYNC_KNOWLEDGE_GRAPH_SOURCE,
+            params={
+                "graph_id": str(graph_id),
+                "source_id": str(source_id),
+                "system_name": str(graph_id),
+            },
+        )
+
+        # Always use an auto-generated name (UI no longer allows custom schedule names).
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id),
+        )
+        graph = graph_res.scalar_one_or_none()
+        graph_name = graph.name if graph else str(graph_id)
+        schedule_name = f'Sync job for graph "{graph_name}" for source "{source.name}"'
+
+        # Always schedule as a recurring job (hardcoded).
+        # Client may provide interval/cron/name/timezone; job_type and run_configuration are enforced here.
+        job_definition = JobDefinition(
+            name=schedule_name,
+            job_type=JobType.RECURRING,
+            interval=((data.interval if data else None) or "daily"),
+            cron=((data.cron if data else None) or {"minute": "0", "hour": "3"}),
+            timezone=((data.timezone if data else None) or "UTC"),
+            run_configuration=run_configuration,
+        )
+
+        # Reconfigure existing schedule instead of creating duplicates.
+        # If a schedule already exists, we store its job id on the source for a cheap join.
+        if source.schedule_job_id:
+            job_definition = job_definition.model_copy(
+                update={"job_id": str(source.schedule_job_id)}
+            )
+
+        job_result = await create_job(scheduler, job_definition, db_session)
+
+        # Persist schedule_job_id for stable joins in list_sources().
+        job_id = job_result.get("job_id")
+        if job_id:
+            # NOTE: scheduler.create_job() currently uses `async with db_session`, which
+            # closes the session and expunges ORM instances. That detaches `source`,
+            # so assigning on it won't be flushed. Merge it back into the session.
+            source_for_update = await db_session.merge(source)
+            source_for_update.schedule_job_id = UUID(job_id)
+            await db_session.commit()
+
+        return job_result
+
+    async def unschedule_source_sync(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        source_id: UUID,
+        scheduler: AsyncIOScheduler,
+    ) -> None:
+        result = await db_session.execute(
+            select(KnowledgeGraphSource).where(
+                (KnowledgeGraphSource.id == source_id)
+                & (KnowledgeGraphSource.graph_id == graph_id)
+            )
+        )
+        source = result.scalar_one_or_none()
+        if not source:
+            raise NotFoundException("Source not found")
+
+        if not source.schedule_job_id:
+            # Idempotent: already unscheduled
+            return
+
+        job_id = str(source.schedule_job_id)
+
+        # Best-effort cancel: even if the job is missing, still clear the link on the source.
+        try:
+            await cancel_job(scheduler, job_id, db_session)
+        except Exception:  # noqa: BLE001
+            pass
+
+        source_for_update = await db_session.merge(source)
+        source_for_update.schedule_job_id = None
+        await db_session.commit()
+
     async def sync_source(
         self, db_session: AsyncSession, graph_id: UUID, source_id: UUID
     ) -> dict[str, Any]:
@@ -577,7 +683,9 @@ class KnowledgeGraphSourceService(
 
         try:
             if source.type == "sharepoint":
-                summary = await SharePointDataSource().sync_source(db_session, source)
+                summary = await SharePointDataSource(source).sync_source(db_session)
+            elif source.type == "fluid_topics":
+                summary = await FluidTopicsSource(source).sync_source(db_session)
             else:
                 raise NotFoundException(
                     f"Sync for source type '{source.type}' is not implemented"

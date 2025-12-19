@@ -1,124 +1,108 @@
 <template>
-  <q-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)">
-    <q-card class="q-pa-sm" style="min-width: 1000px; max-width: 1000px; height: 820px; display: flex; flex-direction: column">
-      <q-card-section>
-        <div class="row items-center">
-          <div class="col row items-center no-wrap">
-            <div class="km-heading-7">{{ tool?.label }}</div>
+  <kg-dialog-base
+    :model-value="modelValue"
+    :title="tool?.label"
+    confirm-label="Apply"
+    size="xl"
+    scrollable
+    max-height="820px"
+    @update:model-value="$emit('update:modelValue', $event)"
+    @cancel="$emit('update:modelValue', false)"
+    @confirm="save"
+  >
+    <!-- Tool Description -->
+    <kg-prompt-section
+      v-model="localTool.description"
+      title="Tool Description"
+      description="Describe when the agent should call the exit tool to terminate the ReAct loop and deliver the final answer."
+    />
+
+    <!-- Exit Instructions -->
+    <kg-dialog-section
+      title="Exit Instructions"
+      description="Configure the strategy and iteration limits for the retrieval loop."
+      icon="logout"
+      icon-color="deep-orange-7"
+    >
+      <div class="row q-col-gutter-md">
+        <div v-for="strategy in strategyOptions" :key="strategy.value" class="col-12 col-md-4">
+          <q-card
+            flat
+            bordered
+            class="strategy-card cursor-pointer full-height"
+            :class="{ 'strategy-card--selected': localTool.strategy === strategy.value }"
+            @click="localTool.strategy = strategy.value"
+          >
+            <q-card-section class="q-pa-md">
+              <div class="row items-center q-gutter-x-sm q-mb-sm">
+                <q-icon :name="strategy.icon" :color="localTool.strategy === strategy.value ? 'primary' : ''" size="20px" />
+                <div class="text-weight-medium" :class="localTool.strategy === strategy.value ? 'primary' : ''">
+                  {{ strategy.label }}
+                </div>
+              </div>
+              <div class="text-caption text-secondary-text">{{ strategy.description }}</div>
+            </q-card-section>
+          </q-card>
+        </div>
+      </div>
+      <div class="q-mt-32 q-mx-sm">
+        <div class="km-input-label row justify-between q-pb-8">
+          <span>Max Iterations</span>
+          <span class="text-primary text-weight-bold">{{ localTool.maxIterations }}</span>
+        </div>
+        <q-slider v-model="localTool.maxIterations" :min="1" :max="15" :step="1" markers :marker-labels-class="'text-caption'" />
+      </div>
+    </kg-dialog-section>
+
+    <kg-dialog-section
+      title="Output Instructions"
+      description="Define the structure and presentation of the final answer, including format and source attribution."
+      icon="output"
+      icon-color="green-7"
+    >
+      <div class="column q-gap-16">
+        <!-- Output Format, Answer Mode & Source Attribution - Horizontal -->
+        <kg-field-row :cols="3">
+          <div>
+            <div class="km-input-label q-pb-sm">Output Format</div>
+            <km-select v-model="localTool.outputFormat" :options="outputFormatOptions" emit-value map-options />
           </div>
-          <q-btn icon="close" flat round dense color="grey-6" @click="$emit('update:modelValue', false)" />
-        </div>
-      </q-card-section>
-
-      <q-card-section class="q-pa-md scrollable-content">
-        <div class="column q-gap-16">
-          <!-- Tool Description -->
-          <DialogPromptSection
-            v-model="localTool.description"
-            title="Tool Description"
-            description="Describe when the agent should call the exit tool to terminate the ReAct loop and deliver the final answer."
-          />
-
-          <!-- Exit Instructions -->
-          <dialog-section
-            title="Exit Instructions"
-            description="Configure the strategy and iteration limits for the retrieval loop."
-            icon="logout"
-            color="deep-orange-7"
-          >
-            <div class="row q-col-gutter-md">
-              <div v-for="strategy in strategyOptions" :key="strategy.value" class="col-12 col-md-4">
-                <q-card
-                  flat
-                  bordered
-                  class="strategy-card cursor-pointer full-height"
-                  :class="{ 'strategy-card--selected': localTool.strategy === strategy.value }"
-                  @click="localTool.strategy = strategy.value"
-                >
-                  <q-card-section class="q-pa-md">
-                    <div class="row items-center q-gutter-x-sm q-mb-sm">
-                      <q-icon :name="strategy.icon" :color="localTool.strategy === strategy.value ? 'primary' : ''" size="20px" />
-                      <div class="text-weight-medium" :class="localTool.strategy === strategy.value ? 'primary' : ''">
-                        {{ strategy.label }}
-                      </div>
-                    </div>
-                    <div class="text-caption text-secondary-text">{{ strategy.description }}</div>
-                  </q-card-section>
-                </q-card>
-              </div>
+          <div>
+            <div class="km-input-label q-pb-sm">Answer Mode</div>
+            <km-select v-model="localTool.answerMode" :options="answerModeOptions" emit-value map-options />
+          </div>
+          <div>
+            <div class="q-pb-sm row items-center q-gutter-x-sm">
+              <span class="km-input-label text-grey-6">Source Attribution</span>
+              <q-badge color="orange-1" text-color="orange-9" label="Coming Soon" class="text-weight-medium" />
             </div>
-            <div class="q-mt-32 q-mx-sm">
-              <div class="km-input-label row justify-between q-pb-8">
-                <span>Max Iterations</span>
-                <span class="text-primary text-weight-bold">{{ localTool.maxIterations }}</span>
-              </div>
-              <q-slider v-model="localTool.maxIterations" :min="1" :max="15" :step="1" markers :marker-labels-class="'text-caption'" />
-            </div>
-          </dialog-section>
+            <km-select
+              :model-value="isAnswerOnly ? 'none' : localTool.sourceAttribution"
+              :options="sourceAttributionOptions"
+              :disable="isAnswerOnly || true"
+              emit-value
+              map-options
+            />
+          </div>
+        </kg-field-row>
 
-          <dialog-section
-            title="Output Instructions"
-            description="Define the structure and presentation of the final answer, including format and source attribution."
-            icon="output"
-            color="green-7"
-          >
-            <div class="column q-gap-16">
-              <!-- Output Format, Answer Mode & Source Attribution - Horizontal -->
-              <div class="row q-col-gutter-md">
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Output Format</div>
-                  <km-select v-model="localTool.outputFormat" :options="outputFormatOptions" emit-value map-options />
-                </div>
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Answer Mode</div>
-                  <km-select v-model="localTool.answerMode" :options="answerModeOptions" emit-value map-options />
-                </div>
-                <div class="col-4">
-                  <div class="q-pb-sm row items-center q-gutter-x-sm">
-                    <span class="km-input-label text-grey-6">Source Attribution</span>
-                    <q-badge color="orange-1" text-color="orange-9" label="Coming Soon" class="text-weight-medium" />
-                  </div>
-                  <km-select
-                    :model-value="isAnswerOnly ? 'none' : localTool.sourceAttribution"
-                    :options="sourceAttributionOptions"
-                    :disable="isAnswerOnly || true"
-                    emit-value
-                    map-options
-                  />
-                </div>
-              </div>
-
-              <!-- Additional Output Instructions (Collapsible) -->
-              <DialogPromptSection
-                v-model="localTool.additionalOutputInstructions"
-                v-model:expanded="additionalInstructionsExpanded"
-                title="Additional Output Instructions"
-                placeholder="Define additional guidelines or constraints for the response..."
-                variant="field"
-                collapse
-              />
-            </div>
-          </dialog-section>
-        </div>
-      </q-card-section>
-
-      <q-card-actions class="q-pa-md">
-        <km-btn label="Cancel" flat color="primary" @click="$emit('update:modelValue', false)" />
-        <q-space />
-        <km-btn label="Apply" @click="save" />
-      </q-card-actions>
-    </q-card>
-  </q-dialog>
+        <!-- Additional Output Instructions (Collapsible) -->
+        <kg-prompt-section
+          v-model="localTool.additionalOutputInstructions"
+          v-model:expanded="additionalInstructionsExpanded"
+          title="Additional Output Instructions"
+          placeholder="Define additional guidelines or constraints for the response..."
+          variant="field"
+          collapse
+        />
+      </div>
+    </kg-dialog-section>
+  </kg-dialog-base>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
-import DialogSection from '../DialogSection.vue'
-import DialogPromptSection from '../DialogPromptSection.vue'
-
-// We define the interface locally or import it. For now, we can use `any` or match the Tool interface partially.
-// Since this component is now generic-ish, we expect a `tool` prop.
-// We can keep the ExitToolConfig interface for internal typing but the prop should be generic.
+import { computed, ref, watch } from 'vue'
+import { KgDialogBase, KgDialogSection, KgFieldRow, KgPromptSection } from '../../common'
 
 export interface ExitToolConfig {
   description: string
@@ -130,12 +114,11 @@ export interface ExitToolConfig {
   answerMode: 'answer_only' | 'sources_only' | 'answer_with_sources'
   sourceAttribution: 'none' | 'used' | 'all' | 'all_highlighted'
   enabled: boolean
-  // It will also have other Tool properties but we only care about these for editing
 }
 
 const props = defineProps<{
   modelValue: boolean
-  tool: any // Changed from config: ExitToolConfig
+  tool: any
 }>()
 
 const emit = defineEmits<{
@@ -202,9 +185,6 @@ watch(
   () => props.tool,
   (newVal) => {
     if (newVal) {
-      // We copy the properties we care about, or just clone the whole object if it matches
-      // Since newVal is the Tool object, it contains id, name, etc.
-      // We'll just clone it and treat it as our local state.
       const toolData = JSON.parse(JSON.stringify(newVal))
 
       // Handle variable rename: outputGuidelines -> additionalOutputInstructions
@@ -214,7 +194,7 @@ watch(
 
       localTool.value = toolData
 
-      // Ensure defaults for exit specific fields if missing (though they should be in the model)
+      // Ensure defaults for exit specific fields if missing
       if (!localTool.value.outputInstructions) localTool.value.outputInstructions = ''
       if (!localTool.value.additionalOutputInstructions) localTool.value.additionalOutputInstructions = ''
       if (!localTool.value.strategy) localTool.value.strategy = 'confidence'
@@ -236,12 +216,6 @@ const save = () => {
 </script>
 
 <style scoped>
-.scrollable-content {
-  flex: 1 1 auto;
-  overflow: auto;
-  max-height: calc(90vh - 140px);
-}
-
 .strategy-card {
   transition: all 0.2s ease;
   border-color: #e0e0e0;

@@ -160,7 +160,6 @@
       />
     </div>
   </div>
-  <q-inner-loading :showing="loading" />
 
   <!-- Drag-and-Drop Overlay -->
   <div v-if="isDragging" class="kg-dnd-overlay">

@@ -16,11 +16,12 @@ from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.executors.pool import ProcessPoolExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from litestar import Request
+from sqlalchemy import QueuePool
 
+from core.config.base import get_database_settings, get_scheduler_settings
 from scheduler.types import JobStatus
 from scheduler.utils import format_next_run_time, update_job_status
 from stores import get_db_client
-from core.config.base import get_database_settings, get_scheduler_settings
 
 logger = getLogger(__name__)
 client = get_db_client()
@@ -223,13 +224,13 @@ def get_scheduler_pool_info() -> dict:
         # Get the SQLAlchemy jobstore
         jobstore = _scheduler._jobstores.get("default")
         if jobstore is not None and hasattr(jobstore, "engine"):
-            pool = jobstore.engine.pool
+            pool: QueuePool = jobstore.engine.pool
             return {
                 "pool_size": pool.size(),
                 "checked_in": pool.checkedin(),
                 "checked_out": pool.checkedout(),
                 "overflow": pool.overflow(),
-                "invalid": pool.invalid(),
+                # "invalid": pool.invalid(),
                 "total_connections": pool.checkedout() + pool.checkedin(),
             }
         else:
