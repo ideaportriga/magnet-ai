@@ -25,7 +25,7 @@
                 :loading='loading',
                 binary-state-sort
               )
-    deep-research-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @created='onConfigCreated')
+    deep-research-configs-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @created='onConfigCreated')
 </template>
 
 <script setup lang="ts">

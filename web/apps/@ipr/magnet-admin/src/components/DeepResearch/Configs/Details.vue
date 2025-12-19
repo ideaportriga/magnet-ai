@@ -6,7 +6,6 @@
   .col.row.no-wrap.full-height.justify-center.fit
     .col(style='max-width: 1200px; min-width: 600px')
       .full-height.q-pb-md.relative-position.q-px-md
-        //- Header section
         .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
           .col
             .row.items-center
@@ -19,38 +18,10 @@
               km-input-flat.col.km-description.full-width(
                 placeholder='Enter system name',
                 v-model='system_name',
-                :readonly='true'
+                @focus='showInfo = true',
+                @blur='showInfo = false'
               )
-            .km-description.text-secondary.q-pl-6 It is highly recommended to fill in system name only once and not change it later.
-
-          //- Save and actions
-          .col-auto
-            .row.items-center.q-gutter-sm
-              km-btn(
-                label='Create Run',
-                icon='play_arrow',
-                @click='openCreateRunDialog'
-              )
-              km-btn(
-                label='Save',
-                icon='save',
-                @click='saveAll',
-                :loading='saving'
-              )
-              q-btn-dropdown(flat, round, dense, icon='more_vert')
-                q-list
-                  q-item(clickable, v-close-popup, @click='cloneConfig')
-                    q-item-section(avatar)
-                      q-icon(name='content_copy')
-                    q-item-section
-                      q-item-label Clone
-                  q-item(clickable, v-close-popup, @click='confirmDelete')
-                    q-item-section(avatar)
-                      q-icon(name='delete', color='negative')
-                    q-item-section
-                      q-item-label.text-negative Delete
-
-        //- Main content area
+            .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
         .ba-border.bg-white.border-radius-12.q-pa-16(style='min-width: 300px')
           .column.no-wrap.q-gap-24.full-height.full-width.overflow-auto.q-mb-md(style='max-height: calc(100vh - 300px) !important')
             .col-auto.full-width
@@ -228,65 +199,24 @@
                     placeholder='Optional: {"run_id": "run_id", "result": "result.summary"}'
                   )
                   .km-description.text-secondary-text.q-pt-2 Optional JSON template with path references (e.g., "run_id", "input.query", "result.summary")
-
-  //- Create Run Dialog
-  q-dialog(v-model='showCreateRunDialog')
-    q-card(style='min-width: 500px')
-      q-card-section
-        .text-h6 Create New Run
-      q-card-section
-        .text-subtitle2.q-mb-sm Input (JSON)
-        q-input(
-          v-model='runInput',
-          type='textarea',
-          rows='8',
-          outlined,
-          autofocus,
-          placeholder='{"query": "Your research question here"}',
-          :error='runInput.trim() && !isValidJson',
-          error-message='Invalid JSON format'
-        )
-        .text-caption.text-grey-7.q-mt-xs Enter any valid JSON object. Example: {"query": "Research topic or question", "context": "Additional context"}
-      q-card-actions(align='right')
-        q-btn(flat, label='Cancel', color='primary', v-close-popup)
-        q-btn(
-          flat,
-          label='Create',
-          color='primary',
-          @click='createRun',
-          :disable='!runInput.trim() || !isValidJson'
-        )
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
-import { Notify, Dialog } from 'quasar'
+import { useQuasar } from 'quasar'
 
 const store = useStore()
 const router = useRouter()
 const route = useRoute()
+const $q = useQuasar()
 
 const configId = computed(() => route.params.id as string)
 const config = ref<any>(null)
-const saving = ref(false)
-const showCreateRunDialog = ref(false)
-const runInput = ref('{"query": ""}')
+const showInfo = ref(false)
 
 const loading = computed(() => !config.value)
-
-// Validate JSON input
-const isValidJson = computed(() => {
-  const trimmedInput = runInput.value.trim()
-  if (!trimmedInput) return false
-  try {
-    const parsed = JSON.parse(trimmedInput)
-    return typeof parsed === 'object' && parsed !== null
-  } catch {
-    return false
-  }
-})
 
 // Computed properties for form fields
 const name = computed({
@@ -305,7 +235,9 @@ const description = computed({
 
 const system_name = computed({
   get: () => config.value?.system_name || '',
-  set: () => {} // Read-only
+  set: (value) => {
+    if (config.value) config.value.system_name = value
+  }
 })
 
 // Numeric fields that need string/number conversion for km-input
@@ -449,8 +381,14 @@ const loadConfig = () => {
   const found = configs.find((c: any) => c.id === configId.value)
   if (found) {
     config.value = JSON.parse(JSON.stringify(found)) // Deep clone
+    store.commit('setSelectedConfig', found)
   }
 }
+
+// Watch for route changes to reload config when navigating to different config
+watch(() => configId.value, () => {
+  loadConfig()
+})
 
 watch(() => store.getters.configs, () => {
   if (!config.value) {
@@ -458,94 +396,11 @@ watch(() => store.getters.configs, () => {
   }
 })
 
-const saveAll = async () => {
-  if (!config.value) return
-
-  saving.value = true
-  try {
-    await store.dispatch('updateConfig', {
-      configId: configId.value,
-      updates: {
-        name: config.value.name,
-        description: config.value.description,
-        config: config.value.config,
-      },
-    })
-
-    Notify.create({
-      type: 'positive',
-      message: 'Configuration saved successfully',
-      position: 'top',
-      timeout: 1500,
-    })
-  } catch (error: any) {
-    Notify.create({
-      type: 'negative',
-      message: error?.message || 'Failed to save configuration',
-      position: 'top',
-      timeout: 2000,
-    })
-  } finally {
-    saving.value = false
+watch(() => config.value, (newVal) => {
+  if (newVal) {
+    store.commit('setSelectedConfig', newVal)
   }
-}
-
-const cloneConfig = async () => {
-  if (!config.value) return
-
-  try {
-    const result = await store.dispatch('createConfig', {
-      name: `${config.value.name} (Copy)`,
-      system_name: `${config.value.system_name}_COPY_${Date.now()}`,
-      config: config.value.config,
-    })
-
-    Notify.create({
-      type: 'positive',
-      message: 'Configuration cloned successfully',
-      position: 'top',
-      timeout: 1500,
-    })
-
-    router.push(`/deep-research/configs/${result.id}`)
-  } catch (error: any) {
-    Notify.create({
-      type: 'negative',
-      message: error?.message || 'Failed to clone configuration',
-      position: 'top',
-      timeout: 2000,
-    })
-  }
-}
-
-const confirmDelete = () => {
-  Dialog.create({
-    title: 'Confirm Delete',
-    message: 'Are you sure you want to delete this configuration? This action cannot be undone.',
-    cancel: true,
-    persistent: true,
-  }).onOk(async () => {
-    try {
-      await store.dispatch('deleteConfig', configId.value)
-
-      Notify.create({
-        type: 'positive',
-        message: 'Configuration deleted successfully',
-        position: 'top',
-        timeout: 1500,
-      })
-
-      router.push('/deep-research/configs')
-    } catch (error: any) {
-      Notify.create({
-        type: 'negative',
-        message: error?.message || 'Failed to delete configuration',
-        position: 'top',
-        timeout: 2000,
-      })
-    }
-  })
-}
+}, { deep: true })
 
 const navigateToPrompt = (systemName: string) => {
   const prompt = promptTemplates.value.find((p: any) => p.system_name === systemName)
@@ -565,47 +420,6 @@ const navigateToTool = (serverSystemName: string, toolName: string) => {
   const server = apiServers.value.find((s: any) => s.system_name === serverSystemName)
   if (server) {
     window.open(`/api-servers/${server.id}?tool=${toolName}`, '_blank')
-  }
-}
-
-const openCreateRunDialog = () => {
-  showCreateRunDialog.value = true
-}
-
-const createRun = async () => {
-  if (!runInput.value.trim() || !config.value || !isValidJson.value) return
-
-  try {
-    const inputData = JSON.parse(runInput.value)
-
-    const result = await store.dispatch('createRun', {
-      config: config.value.config,
-      input: inputData,
-      client_id: null,
-    })
-
-    Notify.create({
-      type: 'positive',
-      message: 'Run started successfully',
-      position: 'top',
-      timeout: 1500,
-    })
-
-    showCreateRunDialog.value = false
-    runInput.value = '{"query": ""}'
-
-    // Optionally navigate to run details
-    const runId = result?.id ?? result?.run_id
-    if (runId) {
-      router.push(`/deep-research/runs/${runId}`)
-    }
-  } catch (error: any) {
-    Notify.create({
-      type: 'negative',
-      message: error?.message || 'Failed to start run',
-      position: 'top',
-      timeout: 2000,
-    })
   }
 }
 </script>

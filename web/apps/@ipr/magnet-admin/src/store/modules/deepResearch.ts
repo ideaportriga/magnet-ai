@@ -151,8 +151,8 @@ const actions = {
       // Fetch all configs without pagination
       const response = await fetchData({
         method: 'GET',
-        endpoint: rootGetters.config?.baseUrl,
-        service: 'api/admin/deep-research/configs?limit=1000',
+        endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
+        service: 'deep-research/configs?limit=1000',
         credentials: rootGetters.config?.credentials,
       })
 
@@ -179,8 +179,8 @@ const actions = {
     try {
       const response = await fetchData({
         method: 'POST',
-        endpoint: rootGetters.config?.baseUrl,
-        service: 'api/admin/deep-research/configs',
+        endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
+        service: 'deep-research/configs',
         credentials: rootGetters.config?.credentials,
         body: JSON.stringify({ name, system_name, config }),
         headers: {
@@ -212,8 +212,8 @@ const actions = {
     try {
       const response = await fetchData({
         method: 'DELETE',
-        endpoint: rootGetters.config?.baseUrl,
-        service: `api/admin/deep-research/configs/${configId}`,
+        endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
+        service: `deep-research/configs/${configId}`,
         credentials: rootGetters.config?.credentials,
       })
 
@@ -231,13 +231,13 @@ const actions = {
     }
   },
 
-  async updateConfig({ commit, dispatch, rootGetters }: any, { configId, updates }: { configId: string; updates: { name?: string; system_name?: string; config?: DeepResearchConfig } }) {
+  async updateConfig({ commit, dispatch, rootGetters }: any, { configId, updates }: { configId: string; updates: { name?: string; description?: string; system_name?: string; config?: DeepResearchConfig } }) {
     commit('setLoading', true)
     try {
       const response = await fetchData({
         method: 'PATCH',
-        endpoint: rootGetters.config?.baseUrl,
-        service: `api/admin/deep-research/configs/${configId}`,
+        endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
+        service: `deep-research/configs/${configId}`,
         credentials: rootGetters.config?.credentials,
         body: JSON.stringify(updates),
         headers: {
@@ -278,8 +278,8 @@ const actions = {
 
       const response = await fetchData({
         method: 'GET',
-        endpoint: rootGetters.config?.baseUrl,
-        service: `api/admin/deep-research/runs?${queryParams.toString()}`,
+        endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
+        service: `deep-research/runs?${queryParams.toString()}`,
         credentials: rootGetters.config?.credentials,
       })
 
@@ -321,8 +321,8 @@ const actions = {
     try {
       const response = await fetchData({
         method: 'POST',
-        endpoint: rootGetters.config?.baseUrl,
-        service: 'api/admin/deep-research/runs',
+        endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
+        service: 'deep-research/runs',
         credentials: rootGetters.config?.credentials,
         body: JSON.stringify({ config, input, client_id, config_system_name }),
         headers: {
@@ -354,8 +354,8 @@ const actions = {
     try {
       const response = await fetchData({
         method: 'POST',
-        endpoint: rootGetters.config?.baseUrl,
-        service: `api/admin/deep-research/configs/${configId}/run`,
+        endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
+        service: `deep-research/configs/${configId}/run`,
         credentials: rootGetters.config?.credentials,
         body: JSON.stringify({ input, client_id }),
         headers: {
@@ -387,8 +387,8 @@ const actions = {
     try {
       const response = await fetchData({
         method: 'GET',
-        endpoint: rootGetters.config?.baseUrl,
-        service: `api/admin/deep-research/runs/${runId}`,
+        endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
+        service: `deep-research/runs/${runId}`,
         credentials: rootGetters.config?.credentials,
       })
 

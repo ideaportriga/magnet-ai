@@ -92,11 +92,12 @@
 import { ref, computed, onMounted, markRaw } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
-import { date, Notify } from 'quasar'
+import { date, useQuasar } from 'quasar'
 import StatusChip from './StatusChip.vue'
 
 const store = useStore()
 const router = useRouter()
+const $q = useQuasar()
 
 const loading = ref(false)
 const showNewDialog = ref(false)
@@ -289,9 +290,12 @@ const createRun = async () => {
   try {
 
     if (!selectedConfigId.value) {
-      Notify.create({
-        type: 'warning',
+      $q.notify({
+        position: 'top',
         message: 'Please select a config',
+        color: 'positive',
+        textColor: 'black',
+        timeout: 1000,
       })
       return
     }
@@ -301,9 +305,12 @@ const createRun = async () => {
     try {
       inputPayload = JSON.parse(runInput.value)
     } catch (e) {
-      Notify.create({
-        type: 'warning',
+      $q.notify({
+        position: 'top',
         message: 'Invalid JSON input',
+        color: 'positive',
+        textColor: 'black',
+        timeout: 1000,
       })
       return
     }
@@ -327,9 +334,12 @@ const createRun = async () => {
       config_system_name: fullConfig?.system_name,
     })
 
-    Notify.create({
-      type: 'positive',
-      message: 'Run created successfully',
+    $q.notify({
+      position: 'top',
+      message: 'Run has been created',
+      color: 'positive',
+      textColor: 'black',
+      timeout: 1000,
     })
 
     showNewDialog.value = false
@@ -348,9 +358,12 @@ const createRun = async () => {
     }
   } catch (error: any) {
     console.error('Error creating run:', error)
-    Notify.create({
-      type: 'negative',
+    $q.notify({
+      position: 'top',
       message: error?.message || 'Failed to create run',
+      color: 'positive',
+      textColor: 'black',
+      timeout: 1000,
     })
   } finally {
     creating.value = false
