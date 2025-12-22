@@ -56,6 +56,9 @@ class ApiServer(BaseSimpleSchema):
     """API server schema for serialization."""
 
     url: str = Field(..., description="API server URL")
+    custom_headers: Optional[Dict[str, Any]] = Field(
+        default=None, description="Custom headers configuration"
+    )
     security_scheme: Optional[Dict[str, Any]] = Field(
         default=None, description="Security scheme configuration"
     )

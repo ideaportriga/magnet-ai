@@ -1,5 +1,5 @@
-import _ from 'lodash'
 import { fetchData } from '@shared'
+import _ from 'lodash'
 
 const state = () => ({
   api_server: {},
@@ -33,6 +33,7 @@ const mutations = {
   setApiServer(state, payload) {
     const server = _.cloneDeep(payload)
     if (server?.security_values) server.security_values = new Map(Object.entries(server.security_values))
+    if (server?.custom_headers) server.custom_headers = new Map(Object.entries(server.custom_headers))
     if (server?.secrets_encrypted) server.secrets_encrypted = new Map(Object.entries(server.secrets_encrypted))
     state.api_server = _.cloneDeep(server)
     state.initialApiServer = _.cloneDeep(server)
@@ -112,6 +113,9 @@ const actions = {
     delete apiServer._metadata
     delete apiServer.id
     delete apiServer.secrets_names
+    if (apiServer.custom_headers) {
+      apiServer.custom_headers = apiServer.security_values instanceof Map ? Object.fromEntries(apiServer.custom_headers) : apiServer.custom_headers
+    }
     if (apiServer.security_values) {
       apiServer.security_values = apiServer.security_values instanceof Map ? Object.fromEntries(apiServer.security_values) : apiServer.security_values
     }
