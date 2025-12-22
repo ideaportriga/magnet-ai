@@ -31,6 +31,38 @@ logger = getLogger(__name__)
 logger.setLevel("DEBUG")
 
 
+def sanitize_metadata_keys(metadata: dict) -> dict:
+    """Recursively sanitize metadata by converting all non-string keys to strings.
+
+    Args:
+        metadata: The metadata dictionary to sanitize
+
+    Returns:
+        A new dictionary with all keys converted to strings
+    """
+    if not isinstance(metadata, dict):
+        return metadata
+
+    sanitized = {}
+    for key, value in metadata.items():
+        # Convert key to string if it's not already
+        str_key = str(key) if not isinstance(key, str) else key
+
+        # Recursively process nested dictionaries
+        if isinstance(value, dict):
+            sanitized[str_key] = sanitize_metadata_keys(value)
+        # Recursively process lists that may contain dictionaries
+        elif isinstance(value, list):
+            sanitized[str_key] = [
+                sanitize_metadata_keys(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            sanitized[str_key] = value
+
+    return sanitized
+
+
 class OracleDbStore(DocumentStore):
     COLLECTIONS_DV = "collections_dv"
     DOCUMENTS_DV = "documents_dv"
@@ -229,10 +261,11 @@ class OracleDbStore(DocumentStore):
         async with await self.client._pool.acquire() as connection:
             async with connection.cursor() as cursor:
                 id_out = cursor.var(oracledb.STRING)
+                sanitized_metadata = sanitize_metadata_keys(document.metadata)
                 bind_vars = {
                     "collection_id": collection_id,
                     "content": document.content,
-                    "metadata": document.metadata,
+                    "metadata": sanitized_metadata,
                     "embedding": vector_data_64,
                     "id_out": id_out,
                 }
@@ -282,10 +315,13 @@ class OracleDbStore(DocumentStore):
 
                 async with connection.cursor() as cursor:
                     id_out = cursor.var(oracledb.STRING)
+                    # Sanitize metadata: convert all non-string keys to strings recursively
+                    sanitized_metadata = sanitize_metadata_keys(document.metadata)
+
                     bind_vars = {
                         "collection_id": collection_id,
                         "content": document.content,
-                        "metadata": document.metadata,
+                        "metadata": sanitized_metadata,
                         "embedding": semantic_dense_vector,
                         "id_out": id_out,
                     }
@@ -355,7 +391,8 @@ class OracleDbStore(DocumentStore):
             raise ValueError("Embedding model is not set for collection")
 
         if "metadata" in data:
-            bind_vars["metadata"] = data["metadata"]
+            sanitized_metadata = sanitize_metadata_keys(data["metadata"])
+            bind_vars["metadata"] = sanitized_metadata
             set_clauses.append("metadata = :metadata")
             input_sizes["metadata"] = oracledb.DB_TYPE_JSON
         if "content" in data:
@@ -395,10 +432,11 @@ class OracleDbStore(DocumentStore):
 
         embedding = await get_embeddings(data.content, embedding_model)
         vector_data_64 = array.array("d", embedding)
+        sanitized_metadata = sanitize_metadata_keys(data.metadata)
         bind_vars = {
             "id": document_id,
             "content": data.content,
-            "metadata": data.metadata,
+            "metadata": sanitized_metadata,
             "embedding": vector_data_64,
         }
 

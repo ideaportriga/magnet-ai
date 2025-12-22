@@ -48,6 +48,7 @@ class ApiServerConfig(BaseModel):
     name: str
     system_name: SystemName
     url: str
+    custom_headers: dict[str, str] | None = None
     security_scheme: dict[str, Any] | None = None
     security_values: dict[str, str] | None = None
     secrets_names: list[str] | None = None
@@ -72,6 +73,7 @@ class ApiServerConfigWithSecrets(ApiServerConfig):
 class ApiServerUpdate(BaseModel):
     name: str | None = None
     system_name: SystemName | None = None
+    custom_headers: dict[str, str] | None = None
     security_scheme: dict[str, Any] | None = None
     security_values: dict[str, str] | None = None
     secrets: dict[str, str] | None = None
