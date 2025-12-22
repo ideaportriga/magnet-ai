@@ -7,9 +7,10 @@ from litestar.status_codes import HTTP_415_UNSUPPORTED_MEDIA_TYPE
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.db.models.knowledge_graph import docs_table_name
+
 from ...content_config_services import get_content_config
 from ...models import SourceType, SyncPipelineConfig
-from ...store_services import docs_table_name
 from ..abstract_source import AbstractDataSource
 from .file_upload_sync import FileUploadSyncPipeline
 

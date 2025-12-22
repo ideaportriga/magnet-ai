@@ -26,7 +26,8 @@ export interface Chunk {
   page?: number
   parent?: string
   chunk_type?: string
-  text?: string
+  content?: string
+  content_format?: string
   created_at?: string
   toc_reference?: string
 }

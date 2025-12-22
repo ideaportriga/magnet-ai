@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, override
 import httpx
 from litestar.exceptions import ClientException
 
+from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from core.db.session import async_session_maker
 
 from ...content_config_services import get_content_config
@@ -474,7 +475,7 @@ class FluidTopicsSyncPipeline(
 
     async def _fetch_map_toc_and_chunks(
         self, ctx: FluidTopicsPipelineContext, map_id: str
-    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, int]:
+    ) -> tuple[list[dict[str, Any]], list[KnowledgeGraphChunk], int, int]:
         """Fetch TOC + all topic contents (chunks) for a map.
 
         Returns: (toc, chunks, failed_count, skipped_count)
@@ -516,7 +517,7 @@ class FluidTopicsSyncPipeline(
         )
 
         fetched_topics = await asyncio.gather(*fetch_tasks, return_exceptions=True)
-        chunks: list[dict[str, Any]] = []
+        chunks: list[KnowledgeGraphChunk] = []
         failed = 0
         skipped = 0
         for (content_id, title), fetched_content in zip(
@@ -540,14 +541,17 @@ class FluidTopicsSyncPipeline(
                 skipped += 1
                 continue
 
+            content, embedded_content = fetched_content
+
             chunks.append(
-                {
-                    "title": title or content_id,
-                    "toc_reference": title or content_id,
-                    "page": None,
-                    "text": fetched_content,
-                    "type": "TOPIC",
-                }
+                KnowledgeGraphChunk(
+                    chunk_type="TOPIC",
+                    title=title or content_id,
+                    toc_reference=title or content_id,
+                    content=content,
+                    content_format="html",
+                    embedded_content=embedded_content,
+                )
             )
 
         elapsed_ms = (time.monotonic() - t0) * 1000.0

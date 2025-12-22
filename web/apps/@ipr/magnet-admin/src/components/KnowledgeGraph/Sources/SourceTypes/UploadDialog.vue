@@ -13,7 +13,6 @@
     <kg-dialog-section
       title="File Source"
       description="Choose whether to upload files from your local computer or import content from a URL."
-      icon="cloud_upload"
       icon-color="primary"
     >
       <template #header-actions>

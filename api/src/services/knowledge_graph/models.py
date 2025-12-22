@@ -2,7 +2,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Optional, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from core.db.models.knowledge_graph import KnowledgeGraphChunk
 
 
 class SourceType(StrEnum):
@@ -45,7 +47,11 @@ class DocumentMetadata(BaseModel):
 class ChunkerResult(BaseModel):
     """Result returned by chunker implementations."""
 
-    chunks: list[dict[str, Any]] = Field(..., description="List of processed chunks")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    chunks: list[KnowledgeGraphChunk] = Field(
+        ..., description="List of processed chunks"
+    )
     document_metadata: Optional[DocumentMetadata] = Field(
         None, description="Document-level metadata (title, summary, TOC)"
     )

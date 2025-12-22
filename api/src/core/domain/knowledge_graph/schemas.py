@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from scheduler.types import CronConfig
 
 
@@ -212,7 +213,8 @@ class KnowledgeGraphChunkExternalSchema(BaseModel):
     toc_reference: Optional[str] = None
     page: Optional[int] = None
     chunk_type: Optional[str] = None
-    text: Optional[str] = None
+    content: Optional[str] = None
+    content_format: Optional[str] = None
     created_at: Optional[str] = None
 
 
@@ -259,3 +261,17 @@ class KnowledgeGraphRetrievalPreviewResponse(BaseModel):
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation id associated with this preview run"
     )
+
+
+class ChunkSearchResult(BaseModel):
+    """Result model for chunk search."""
+
+    chunk: KnowledgeGraphChunk
+    score: float | None = None
+
+    def to_json(self) -> dict:
+        """Flattens fields from chunk and adds score as a top-level field."""
+
+        data = self.chunk.to_json()
+        data["score"] = self.score
+        return data

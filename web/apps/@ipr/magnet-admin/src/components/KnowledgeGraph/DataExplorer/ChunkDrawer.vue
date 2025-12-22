@@ -28,7 +28,7 @@
           </div>
           <div class="bg-grey-1 q-pa-md border-radius-6">
             <div class="col scroll q-pr-8">
-              <div class="markdown-content text-body2" v-html="renderedMarkdown" />
+              <div class="markdown-content text-body2" v-html="renderedContent" />
             </div>
           </div>
         </div>
@@ -68,8 +68,13 @@ const markdown = new MarkdownIt()
   .use(MarkdownItTasklists)
   .use(MarkdownItTOC)
 
-const renderedMarkdown = computed(() => {
-  return props.chunk.text ? markdown.render(props.chunk.text) : ''
+const renderedContent = computed(() => {
+  if (!props.chunk.content) return ''
+  if (props.chunk.content_format === 'html') {
+    return props.chunk.content
+  }
+  // fallback is markdown, or any other format
+  return markdown.render(props.chunk.content)
 })
 </script>
 

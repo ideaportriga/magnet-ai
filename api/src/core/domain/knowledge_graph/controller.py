@@ -97,28 +97,51 @@ class KnowledgeGraphController(Controller):
     async def create_graph(
         self,
         graph_service: KnowledgeGraphService,
+        document_service: KnowledgeGraphDocumentService,
+        chunk_service: KnowledgeGraphChunkService,
         db_session: AsyncSession,
         data: KnowledgeGraphCreateRequest,
     ) -> KnowledgeGraphCreateResponse:
-        return await graph_service.create_graph(db_session, data)
+        return await graph_service.create_graph(
+            db_session,
+            data,
+            document_service=document_service,
+            chunk_service=chunk_service,
+        )
 
     @patch("/{graph_id:uuid}", status_code=HTTP_200_OK)
     async def update_graph(
         self,
         graph_service: KnowledgeGraphService,
+        document_service: KnowledgeGraphDocumentService,
+        chunk_service: KnowledgeGraphChunkService,
+        db_session: AsyncSession,
         graph_id: UUID,
         data: KnowledgeGraphUpdateRequest,
     ) -> KnowledgeGraphUpdateResponse:
-        return await graph_service.update_graph(graph_id, data)
+        return await graph_service.update_graph(
+            db_session,
+            graph_id,
+            data,
+            document_service=document_service,
+            chunk_service=chunk_service,
+        )
 
     @delete("/{graph_id:uuid}", status_code=HTTP_204_NO_CONTENT)
     async def delete_graph(
         self,
         graph_service: KnowledgeGraphService,
+        document_service: KnowledgeGraphDocumentService,
+        chunk_service: KnowledgeGraphChunkService,
         db_session: AsyncSession,
         graph_id: UUID,
     ) -> None:
-        await graph_service.delete_graph(db_session, graph_id)
+        await graph_service.delete_graph(
+            db_session,
+            graph_id,
+            document_service=document_service,
+            chunk_service=chunk_service,
+        )
 
     @observe(
         name="Uploading file to knowledge graph",

@@ -2,12 +2,16 @@ import copy
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.domain.knowledge_graph.schemas import ChunkSearchResult
+from core.domain.knowledge_graph.service import KnowledgeGraphChunkService
 from open_ai.utils_new import get_embeddings
-from services.knowledge_graph.store_services import search_chunks, search_documents
+from services.knowledge_graph.store_services import search_documents
 from services.observability import (
     observability_context,
-    observe,
     observability_overrides,
+    observe,
 )
 from services.observability.models import SpanType
 
@@ -38,6 +42,7 @@ async def findDocumentsBySummarySimilarity(
 
 @observe(name="Find chunks by similarity", type=SpanType.SEARCH)
 async def findChunksBySimilarity(
+    db_session: AsyncSession,
     graph_id: UUID,
     q: str,
     embedding_model: str,
@@ -46,7 +51,7 @@ async def findChunksBySimilarity(
     min_score: float,
     # TODO: figure out how to pass document query to filter chunks
     doc_filter_ids: list[str],
-) -> list[dict[str, Any]]:
+) -> list[ChunkSearchResult]:
     observability_context.update_current_span(
         input={
             "query": q,
@@ -55,16 +60,17 @@ async def findChunksBySimilarity(
         },
     )
     vec = await get_embeddings(q, embedding_model)
-    chunks = await search_chunks(
-        graph_id,
-        vec,
-        limit,
-        only_doc_ids=[str(x) for x in doc_filter_ids] if doc_filter_ids else None,
+    chunks = await KnowledgeGraphChunkService().search_chunks(
+        db_session,
+        graph_id=graph_id,
+        query_vector=vec,
+        limit=limit,
+        only_doc_ids=doc_filter_ids if doc_filter_ids else None,
     )
     observability_context.update_current_span(
-        output=chunks,
+        output=[c.to_json() for c in chunks],
     )
-    return [c for c in chunks if c.get("score", 0.0) >= min_score]
+    return [c.to_json() for c in chunks if c.score is not None and c.score >= min_score]
 
 
 RETRIEVAL_AGENT_TOOLS = {

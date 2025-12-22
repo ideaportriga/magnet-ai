@@ -205,7 +205,7 @@ async def fetch_topic_content(
     content_id: str,
     *,
     timeout_s: float = 30.0,
-) -> str:
+) -> tuple[str, str]:
     """Fetch a TOPIC content block."""
 
     t0 = time.monotonic()
@@ -262,7 +262,7 @@ async def fetch_topic_content(
             elapsed_ms=(time.monotonic() - t0) * 1000.0,
         ),
     )
-    return text
+    return html, text
 
 
 async def download_file(

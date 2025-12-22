@@ -283,6 +283,7 @@ async def run_agentic_retrieval(
                     chunks = await execute_tool(
                         tool_name,
                         args.get("reasoning"),
+                        db_session=db_session,
                         graph_id=graph_id,
                         q=query,
                         embedding_model=embedding_model,

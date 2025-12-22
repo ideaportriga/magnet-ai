@@ -2,6 +2,8 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from core.db.models.knowledge_graph import KnowledgeGraphChunk
+
 
 @dataclass(frozen=True)
 class FluidTopicsRuntimeConfig:
@@ -39,7 +41,7 @@ class ProcessDocumentTask:
     document: dict[str, Any]
 
     # Map mode (pre-chunked)
-    chunks: list[dict[str, Any]] | None = None
+    chunks: list[KnowledgeGraphChunk] | None = None
     toc: list[dict[str, Any]] | None = None
     document_title: str | None = None
 

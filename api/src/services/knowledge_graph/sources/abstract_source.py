@@ -12,18 +12,18 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
+    KnowledgeGraphChunk,
     KnowledgeGraphSource,
+    chunks_table_name,
+    docs_table_name,
 )
+from core.domain.knowledge_graph.service import KnowledgeGraphChunkService
 from open_ai.utils_new import get_embeddings
 
 from ..content_config_services import get_graph_embedding_model
 from ..content_split_services import split_content
 from ..models import ChunkerStrategy, ContentConfig, SourceType, SyncCounters
 from ..store_services import (
-    chunks_table_name,
-    docs_table_name,
-    ensure_graph_tables_exist,
-    insert_chunks_bulk,
     upsert_document_summary,
 )
 
@@ -65,31 +65,31 @@ class AbstractDataSource(ABC):
     async def _add_embeddings_to_chunks(
         self,
         *,
-        chunks: list[dict[str, Any]],
+        chunks: list[KnowledgeGraphChunk],
         embedding_model: str | None,
     ) -> None:
         """Populate embedding vectors for each chunk using the given embedding model.
 
-        This mutates the provided chunks list in-place by adding an 'embedding' key.
+        This mutates the provided chunks list in-place by setting `content_embedding`.
         """
         if not chunks or not embedding_model:
             return
 
         for chunk in chunks:
             # Skip if embedding already present and non-empty
-            existing_embedding = chunk.get("embedding")
+            existing_embedding = chunk.content_embedding
             if existing_embedding:
                 continue
 
-            text = chunk.get("text") or ""
-            if not isinstance(text, str) or not text.strip():
+            embedded_content = chunk.embedded_content or ""
+            if not isinstance(embedded_content, str) or not embedded_content.strip():
                 continue
 
             try:
                 vector = await get_embeddings(
-                    text=text, model_system_name=embedding_model
+                    text=embedded_content, model_system_name=embedding_model
                 )
-                chunk["embedding"] = vector
+                chunk.content_embedding = vector
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Failed to create embedding for chunk with model %s: %s",
@@ -160,9 +160,6 @@ class AbstractDataSource(ABC):
 
         base_name = PurePath(filename).name
         file_ext = base_name.rsplit(".", 1)[-1].lower() if "." in base_name else ""
-
-        # Lazily ensure per-graph tables exist
-        await ensure_graph_tables_exist(db_session, source.graph_id)
 
         docs_table = docs_table_name(source.graph_id)
         # Check for existing document by source_id + name
@@ -266,10 +263,9 @@ class AbstractDataSource(ABC):
     ) -> None:
         """Remove all chunks for a document prior to re-inserting.
 
-        Important: chunk inserts are performed through `insert_chunks_bulk()` which uses a
-        separate connection pool. This delete is therefore not part of the same transaction
-        as the insert, but is still safe for re-sync because it targets the *previous* rows
-        for the document and commits at the end of processing.
+        Important: chunk inserts are performed through
+        `KnowledgeGraphChunkService.insert_chunks_bulk()` and use the same `db_session`,
+        so this delete + the subsequent insert participate in the same transaction.
         """
         await db_session.execute(
             text(f"DELETE FROM {chunks_table} WHERE document_id = :id"),
@@ -327,7 +323,7 @@ class AbstractDataSource(ABC):
         *,
         extracted_text: str | None = None,
         config: ContentConfig | None = None,
-        chunks: list[dict[str, Any]] | None = None,
+        chunks: list[KnowledgeGraphChunk] | None = None,
         document_title: str | None = None,
         document_summary: str | None = None,
         toc_json: dict | list | None = None,
@@ -371,7 +367,7 @@ class AbstractDataSource(ABC):
             # We keep a string label for logs. For split mode, it's the configured chunker
             # strategy; for pre-chunked mode it's a special marker.
             chunker_strategy: str = "pre_chunked"
-            chunks_to_insert: list[dict[str, Any]] = []
+            chunks_to_insert: list[KnowledgeGraphChunk] = []
             is_pre_chunked = chunks is not None
 
             if is_pre_chunked:
@@ -379,11 +375,13 @@ class AbstractDataSource(ABC):
                 # - embedding calls with empty text
                 # - storing meaningless chunks in the DB
                 for ch in chunks or []:
-                    ch_text = ch.get("text")
-                    if isinstance(ch_text, str) and ch_text.strip():
+                    content = ch.content
+                    embedded_content = ch.embedded_content
+                    if isinstance(embedded_content, str) and embedded_content.strip():
+                        ch.content = content or embedded_content
                         chunks_to_insert.append(ch)
 
-                if not chunks_to_insert:
+                if len(chunks_to_insert) == 0:
                     logger.warning(
                         "No valid chunks for document %s, skipping processing", doc_id
                     )
@@ -479,8 +477,11 @@ class AbstractDataSource(ABC):
                     db_session, chunks_table=chunks_table, doc_id=doc_id
                 )
 
-            chunks_count = await insert_chunks_bulk(
-                document["graph_id"], document, chunks_to_insert
+            chunks_count = await KnowledgeGraphChunkService().insert_chunks_bulk(
+                db_session,
+                graph_id=document["graph_id"],
+                document=document,
+                chunks=chunks_to_insert,
             )
 
             if chunks_count == 0:
