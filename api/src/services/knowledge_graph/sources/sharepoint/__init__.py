@@ -12,5 +12,3 @@ from .sharepoint_source import SharePointDataSource
 __all__ = [
     "SharePointDataSource",
 ]
-
-
