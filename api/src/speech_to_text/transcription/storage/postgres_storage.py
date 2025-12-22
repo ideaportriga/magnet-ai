@@ -1,41 +1,34 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import BinaryIO, Optional, Literal
 from datetime import timezone
-import time
-from typing import Tuple
-
-# NOTE: we keep FileData import the same
 from ..models import FileData
+from utils.upload_handler import get_read_url
 
-# We still import the store only to reuse its DB client (no pgvector docs!)
 from stores import get_db_store
 
 logger = logging.getLogger(__name__)
-store = (
-    get_db_store()
-)  # has a .client with execute_query / fetchrow / fetchval / execute_command
-_BYTES_CACHE: dict[str, Tuple[float, bytes]] = {}
-_CACHE_TTL_SECONDS = 15 * 60  # 15 minutes; adjust as needed
+store = get_db_store()
+# _BYTES_CACHE: dict[str, Tuple[float, bytes]] = {}
+# _CACHE_TTL_SECONDS = 15 * 60  # 15 minutes; adjust as needed
 
+# def _cache_put(file_id: str, b: bytes) -> None:
+#     if not b:
+#         return
+#     _BYTES_CACHE[file_id] = (time.time() + _CACHE_TTL_SECONDS, b)
 
-def _cache_put(file_id: str, b: bytes) -> None:
-    if not b:
-        return
-    _BYTES_CACHE[file_id] = (time.time() + _CACHE_TTL_SECONDS, b)
-
-
-def _cache_get(file_id: str) -> Optional[bytes]:
-    item = _BYTES_CACHE.get(file_id)
-    if not item:
-        return None
-    exp, b = item
-    if time.time() > exp:
-        _BYTES_CACHE.pop(file_id, None)
-        return None
-    return b
+# def _cache_get(file_id: str) -> Optional[bytes]:
+#     item = _BYTES_CACHE.get(file_id)
+#     if not item:
+#         return None
+#     exp, b = item
+#     if time.time() > exp:
+#         _BYTES_CACHE.pop(file_id, None)
+#         return None
+#     return b
 
 
 class PgDataStorage:
@@ -43,24 +36,21 @@ class PgDataStorage:
 
     TABLE = "transcriptions"
 
-    # ──────────────────────────────────────────────────────────────────────────────
-    # Helpers
-    # ──────────────────────────────────────────────────────────────────────────────
     async def _insert_shell_if_missing(self, data: FileData) -> None:
-        # INSERT all required NOT NULL columns (created_at, updated_at)
         now = datetime.now(timezone.utc)
         await store.client.execute_command(
             """
             INSERT INTO transcriptions
-                (file_id, filename, file_ext, content_type, status, created_at, updated_at)
+                (file_id, filename, file_ext, content_type, object_key, status, created_at, updated_at)
             VALUES
-                ($1,     $2,       $3,       $4,           'started', $5,       $6)
+                ($1,      $2,       $3,       $4,           $5,         'started', $6,         $7)
             ON CONFLICT (file_id) DO NOTHING
             """,
             data.file_id,
             data.file_name,  # or data.filename_with_ext
             data.file_ext,  # be consistent (e.g., ".mp3")
             data.content_type or "application/octet-stream",
+            data.object_key,
             now,
             now,
         )
@@ -122,29 +112,17 @@ class PgDataStorage:
     # ──────────────────────────────────────────────────────────────────────────────
     # Public API (same signatures you already use)
     # ──────────────────────────────────────────────────────────────────────────────
-    async def save_audio(self, data: FileData, stream: BinaryIO) -> str:
+    async def save_audio(self, data: FileData, stream: BinaryIO = None) -> str:
         try:
             await self._insert_shell_if_missing(data)
-            file_bytes = stream.read() or b""
 
-            # NEW: cache the bytes temporarily for the transcriber
-            _cache_put(data.file_id, file_bytes)
-
-            duration = self._duration_seconds_from_bytes(file_bytes)
             await self._update_fields(
                 data.file_id,
                 status="in_progress",
-                duration_seconds=duration,
             )
             return data.file_id
         except Exception:
             logger.exception("STT: save_audio failed for %s", data.file_id)
-            try:
-                await self._update_fields(
-                    data.file_id, status="failed", error="save_audio failed"
-                )
-            except Exception:
-                pass
             raise
 
     async def update_status(
@@ -233,30 +211,28 @@ class PgDataStorage:
             raise
 
     async def delete_audio(self, file_id: str) -> None:
-        _BYTES_CACHE.pop(file_id, None)
         logger.info("STT: delete_audio noop (not storing raw bytes) for %s", file_id)
 
     async def insert_meta(self, data: FileData) -> None:
         await self._insert_shell_if_missing(data)
 
     async def load_audio(self, file_id: str) -> bytes:
-        # 1) Try hot cache (typical path)
-        b = _cache_get(file_id)
-        if b is not None:
-            return b
-
-        # 2) Fallback: fetch from object storage if we have object_key
         row = await self._row_by_file_id(file_id)
         object_key = row.get("object_key") if row else None
-        if object_key:
-            # implement this for your stack; examples:
-            #   - OCI: await oci_client.get_object_bytes(object_key)
-            #   - S3:  await s3.get_object(Bucket=..., Key=...).read()
-            b = await store.objects.get_bytes(object_key)  # ← your abstraction
-            if b:
-                _cache_put(file_id, b)
-                return b
 
-        raise RuntimeError(
-            "Audio bytes unavailable: not in cache and no retrievable object_key."
+        if object_key:
+            return await store.objects.get_bytes(object_key)
+
+        raise RuntimeError("Audio bytes unavailable.")
+
+    async def get_audio_url(self, file_id: str) -> str:
+        row = await store.client.fetchrow(
+            "SELECT object_key FROM transcriptions WHERE file_id = $1", file_id
         )
+        if not row or not row["object_key"]:
+            raise RuntimeError(f"Database has no object_key for file {file_id}")
+
+        object_key = row["object_key"]
+        url = await asyncio.to_thread(get_read_url, object_key)
+
+        return url

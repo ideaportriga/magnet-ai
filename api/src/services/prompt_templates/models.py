@@ -28,6 +28,10 @@ class PromptTemplateExecutionResponse:
     content: str
     usage: dict | None = field(default=None)
     latency: float | None = field(default=None)
+    cost: float | None = field(default=None)  # Total cost in USD
+    tool_calls: list[dict] | None = field(
+        default=None
+    )  # Tool calls from chat completion
 
 
 @dataclass

@@ -16,7 +16,12 @@ import EvaluationJobsPage from '@/components/EvaluationJobs/Page.vue'
 import EvaluationDetails from '@/components/EvaluationJobs/details.vue'
 import RetrievalPage from '@/components/Retrieval/Page.vue'
 import RetrievalDetailPage from '@/components/Retrieval/details.vue'
+import DeepResearchPage from '@/components/DeepResearch/Configs/Page.vue'
+import DeepResearchRunsPage from '@/components/DeepResearch/Runs/Page.vue'
+import DeepResearchDetailPage from '@/components/DeepResearch/Configs/Details.vue'
+import DeepResearchRunDetailsPage from '@/components/DeepResearch/Runs/Details.vue'
 import ModelPage from '@/components/ModelConfig/Page.vue'
+import ModelConfigPage from '@/components/ModelConfig/Page.vue'
 import ModelDetailPage from '@/components/ModelConfig/details.vue'
 import AssistantToolsPage from '@/components/AssistantTools/Page.vue'
 import AssistantToolsDetailPage from '@/components/AssistantTools/details.vue'
@@ -175,6 +180,38 @@ const routes = [
       pageLabel: 'Retrieval Tools',
       chroma: true,
       entity: 'retrieval',
+    },
+  },
+  {
+    path: '/deep-research/configs',
+    name: 'DeepResearchConfigs',
+    component: DeepResearchPage,
+    meta: {
+      pageLabel: 'Deep Research Configs',
+    },
+  },
+  {
+    path: '/deep-research/runs',
+    name: 'DeepResearchRuns',
+    component: DeepResearchRunsPage,
+    meta: {
+      pageLabel: 'Deep Research Runs',
+    },
+  },
+  {
+    path: '/deep-research/configs/:id',
+    name: 'DeepResearchDetails',
+    component: DeepResearchDetailPage,
+    meta: {
+      pageLabel: 'Deep Research Config',
+    },
+  },
+  {
+    path: '/deep-research/runs/:id',
+    name: 'DeepResearchRunDetails',
+    component: DeepResearchRunDetailsPage,
+    meta: {
+      pageLabel: 'Deep Research Run',
     },
   },
   {

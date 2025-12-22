@@ -1,13 +1,22 @@
-import os
 import asyncio
+import mimetypes
+import datetime as dt
+import os
+import base64
 from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Dict, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
-from microsoft_agents.activity import Activity
+from microsoft_agents.activity import (
+    Activity,
+    ActionTypes,
+    CardAction,
+    ConversationReference,
+    OAuthCard,
+)
 from microsoft_agents.authentication.msal import MsalAuth
 from microsoft_agents.hosting.aiohttp import CloudAdapter
 from microsoft_agents.hosting.core import (
@@ -20,16 +29,35 @@ from microsoft_agents.hosting.core import (
 from microsoft_agents.hosting.core.app.app_options import ApplicationOptions
 from microsoft_agents.hosting.core.app import AuthHandler
 from microsoft_agents.hosting.core.app.oauth import Authorization
+from microsoft_agents.hosting.core.app.oauth.authorization import (
+    AUTHORIZATION_TYPE_MAP,
+)
+from microsoft_agents.hosting.core.app.oauth._handlers._user_authorization import (
+    _UserAuthorization,
+)
+from microsoft_agents.hosting.core._oauth import _FlowStateTag
 from microsoft_agents.hosting.core.rest_channel_service_client_factory import (
     RestChannelServiceClientFactory,
 )
 from microsoft_agents.hosting.core.storage import MemoryStorage
+from microsoft_agents.hosting.core.card_factory import CardFactory
+from microsoft_agents.hosting.core.message_factory import MessageFactory
+from microsoft_agents.hosting.teams import TeamsInfo
 
-from .config import ISSUER, SCOPE
-from .graph import create_graph_client_with_token, fetch_meeting_recordings
+from core.db.session import async_session_maker
+from core.db.models.teams import TeamsMeeting, TeamsUser
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
+from .graph import (
+    create_graph_client_with_token,
+    get_meeting_recordings,
+)
 from .static_connections import StaticConnections
+from .teams_user_store import upsert_teams_user, normalize_bot_id
 from speech_to_text.transcription import service as transcription_service
 from stores import get_db_client
+from utils import upload_handler
 
 logger = getLogger(__name__)
 
@@ -45,6 +73,46 @@ _TRANSCRIPTION_POLL_SECONDS = float(
 )
 
 
+def _format_duration(seconds: int | None) -> str:
+    """Format duration in seconds to human-readable string."""
+    if seconds is None:
+        return "Unknown"
+    hours, remainder = divmod(seconds, 3600)
+    minutes, secs = divmod(remainder, 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m {secs}s"
+    elif minutes > 0:
+        return f"{minutes}m {secs}s"
+    else:
+        return f"{secs}s"
+
+
+def _format_file_size(size_bytes: int | None) -> str:
+    """Format file size in bytes to human-readable string."""
+    if size_bytes is None:
+        return "Unknown"
+    if size_bytes < 1024:
+        return f"{size_bytes} B"
+    elif size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    elif size_bytes < 1024 * 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    else:
+        return f"{size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+
+def _format_recording_datetime(iso_datetime: str | None) -> tuple[str, str]:
+    if not iso_datetime:
+        return ("Unknown date", "Unknown time")
+    try:
+        dt_obj = dt.datetime.fromisoformat(iso_datetime.replace("Z", "+00:00"))
+        date_str = dt_obj.strftime("%b %d, %Y")
+        time_str = dt_obj.strftime("%I:%M %p UTC")
+        return (date_str, time_str)
+    except Exception:
+        return (iso_datetime, "")
+
+
 async def _ensure_vector_pool_ready() -> None:
     """Block until the pgvector pool is ready (to fix the issue with the first call after the startup)."""
     try:
@@ -54,6 +122,123 @@ async def _ensure_vector_pool_ready() -> None:
             await init()
     except Exception as exc:
         logger.warning("Failed to pre-initialize vector DB pool: %s", exc)
+
+
+def _parse_content_disposition_filename(header_value: str | None) -> str | None:
+    if not header_value:
+        return None
+    parts = header_value.split(";")
+    for part in parts:
+        part = part.strip()
+        if part.lower().startswith("filename*="):
+            value = part.split("=", 1)[1]
+            if "''" in value:
+                value = value.split("''", 1)[1]
+            return value.strip("\"'")
+        if part.lower().startswith("filename="):
+            value = part.split("=", 1)[1]
+            return value.strip("\"'")
+    return None
+
+
+def _guess_filename_from_link(link: str) -> str:
+    parsed = urlparse(link)
+    filename = Path(parsed.path).name
+    if filename:
+        return filename
+
+    query = parse_qs(parsed.query)
+    file_urls = (
+        query.get("fileUrl")
+        or query.get("fileurl")
+        or query.get("file_url")
+        or query.get("file")
+    )
+    if file_urls:
+        nested_url = file_urls[0]
+        nested_parsed = urlparse(nested_url)
+        nested_name = Path(nested_parsed.path).name
+        if nested_name:
+            return nested_name
+
+    return "file"
+
+
+def _format_iso_datetime(value: str | None) -> str:
+    if not value:
+        return "Unknown"
+    try:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return parsed.strftime("%Y-%m-%d %H:%M UTC")
+    except Exception:
+        return value
+
+
+async def _download_file_from_link(
+    link: str, token: str | None
+) -> tuple[bytes, str, str, str]:
+    # Unwrap Teams deep links first
+    parsed = urlparse(link)
+    query = parse_qs(parsed.query)
+    file_urls = (
+        query.get("fileUrl")
+        or query.get("fileurl")
+        or query.get("file_url")
+        or query.get("file")
+    )
+    if file_urls:
+        link = file_urls[0]
+        parsed = urlparse(link)
+
+    headers = {}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    # If it's a SharePoint/OneDrive URL, go via Graph /shares
+    if parsed.netloc.endswith("sharepoint.com") or "d.docs.live.net" in parsed.netloc:
+        # Build Graph /shares URL
+        raw_url = link
+        # base64url encode WITHOUT padding
+        share_id = "u!" + base64.urlsafe_b64encode(raw_url.encode("utf-8")).decode(
+            "ascii"
+        ).rstrip("=")
+        graph_download_url = (
+            f"https://graph.microsoft.com/v1.0/shares/{share_id}/driveItem/content"
+        )
+
+        download_url = graph_download_url
+    else:
+        # Otherwise download directly
+        download_url = link
+
+    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
+        async with client.stream("GET", download_url, headers=headers) as response:
+            response.raise_for_status()
+            buf = bytearray()
+            async for chunk in response.aiter_bytes():
+                if chunk:
+                    buf.extend(chunk)
+
+            content_type = (
+                (response.headers.get("Content-Type") or "application/octet-stream")
+                .split(";")[0]
+                .strip()
+            )
+
+            filename = _parse_content_disposition_filename(
+                response.headers.get("Content-Disposition")
+            )
+            if not filename:
+                filename = _guess_filename_from_link(str(response.url) or link)
+
+            path = Path(filename)
+            name = path.stem or "file"
+            ext = path.suffix
+            if not ext:
+                guessed_ext = mimetypes.guess_extension(content_type) or ".bin"
+                ext = guessed_ext
+
+    return bytes(buf), content_type, name, ext
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +277,45 @@ class NoteTakerRuntime:
     auth_handler_id: str
 
 
+class _CustomUserAuthorization(_UserAuthorization):
+    """Override OAuth card content without modifying the SDK package."""
+
+    async def _handle_flow_response(self, context: TurnContext, flow_response):
+        flow_state = flow_response.flow_state
+
+        if flow_state.tag == _FlowStateTag.BEGIN:
+            sign_in_resource = flow_response.sign_in_resource
+            assert sign_in_resource
+
+            button_title = self._handler.title or "Sign in."
+            card_text = self._handler.text or "Sign in.."
+
+            o_card = CardFactory.oauth_card(
+                OAuthCard(
+                    text=card_text,
+                    connection_name=flow_state.connection,
+                    buttons=[
+                        CardAction(
+                            title=button_title,
+                            type=ActionTypes.signin,
+                            value=sign_in_resource.sign_in_link,
+                            channel_data=None,
+                        )
+                    ],
+                    token_exchange_resource=sign_in_resource.token_exchange_resource,
+                    token_post_resource=sign_in_resource.token_post_resource,
+                )
+            )
+            await context.send_activity(MessageFactory.attachment(o_card))
+            return
+
+        await super()._handle_flow_response(context, flow_response)
+
+
+# Override the default handler mapping so our custom OAuth card text/title is used.
+AUTHORIZATION_TYPE_MAP["userauthorization"] = _CustomUserAuthorization
+
+
 class _SignInInvokeMiddleware:
     """Ensures Teams sign-in invocations return 200 to avoid UX errors. (fixes Delegated Auth issue)"""
 
@@ -113,6 +337,18 @@ class _SignInInvokeMiddleware:
                 )
             )
 
+            # Delete the original sign-in card once the user completes sign-in to avoid double-clicking.
+            reply_to_id = getattr(activity, "reply_to_id", None)
+            if reply_to_id:
+                try:
+                    await context.delete_activity(reply_to_id)
+                except Exception as err:
+                    logger.debug(
+                        "Failed to delete sign-in card activity %s: %s",
+                        reply_to_id,
+                        err,
+                    )
+
 
 def _is_personal_teams_conversation(context: TurnContext) -> bool:
     activity = getattr(context, "activity", None)
@@ -125,7 +361,7 @@ def _is_meeting_conversation(context: TurnContext) -> bool:
     activity = getattr(context, "activity", None)
     conversation = getattr(activity, "conversation", None)
     conversation_type = getattr(conversation, "conversation_type", None)
-    return conversation_type == "meeting"
+    return conversation_type == "groupChat"
 
 
 def _resolve_meeting_details(context: TurnContext) -> Dict[str, Any]:
@@ -147,10 +383,6 @@ def _resolve_user_info(context: TurnContext) -> Dict[str, Any]:
         activity, "from", None
     )
     conversation = getattr(activity, "conversation", None)
-    channel_data = getattr(activity, "channel_data", None) or {}
-
-    if not isinstance(channel_data, dict):
-        channel_data = vars(channel_data) if hasattr(channel_data, "__dict__") else {}
 
     return {
         "id": getattr(from_user, "id", None),
@@ -159,6 +391,157 @@ def _resolve_user_info(context: TurnContext) -> Dict[str, Any]:
         "aad_object_id": getattr(from_user, "aad_object_id", None),
         "conversation_type": getattr(conversation, "conversation_type", None),
     }
+
+
+async def _upsert_teams_user_record(context: TurnContext) -> None:
+    try:
+        async with async_session_maker() as session:
+            try:
+                await upsert_teams_user(session, context)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+    except Exception as exc:
+        logger.exception("Failed to upsert Teams user record: %s", exc)
+
+
+async def _upsert_teams_meeting_record(
+    context: TurnContext, *, is_bot_installed: bool
+) -> None:
+    """Upsert Teams meeting state when the bot is added or removed."""
+    if not _is_meeting_conversation(context):
+        return
+
+    meeting = _resolve_meeting_details(context)
+    meeting_id = meeting.get("id")
+    chat_id = meeting.get("conversationId")
+    if not chat_id:
+        logger.debug(
+            "Skipping Teams meeting upsert: missing conversation id (meeting=%s)",
+            meeting,
+        )
+        return
+
+    join_url = meeting.get("joinUrl")
+    title = meeting.get("title")
+    bot_id = normalize_bot_id(
+        getattr(
+            getattr(getattr(context, "activity", None), "recipient", None), "id", None
+        )
+    )
+
+    online_meeting_id: str | None = None
+    try:
+        online_meeting_id = await _get_online_meeting_id(context)
+    except Exception as exc:
+        logger.debug(
+            "Failed to resolve online meeting id for chat %s: %s", chat_id, exc
+        )
+
+    now = dt.datetime.now(dt.timezone.utc)
+    removed_at = None if is_bot_installed else now
+    added_at = now if is_bot_installed else None
+    added_by = _resolve_user_info(context) if is_bot_installed else {}
+
+    insert_stmt = pg_insert(TeamsMeeting).values(
+        chat_id=chat_id,
+        meeting_id=meeting_id,
+        graph_online_meeting_id=online_meeting_id,
+        join_url=join_url,
+        title=title,
+        bot_id=bot_id,
+        is_bot_installed=is_bot_installed,
+        removed_from_meeting_at=removed_at,
+        added_to_meeting_at=added_at,
+        added_by_user_id=added_by.get("id"),
+        added_by_aad_object_id=added_by.get("aad_object_id"),
+        added_by_display_name=added_by.get("name"),
+        last_seen_at=now,
+    )
+
+    update_values: dict[str, Any] = {
+        "is_bot_installed": is_bot_installed,
+        "removed_from_meeting_at": removed_at,
+        "last_seen_at": now,
+        "updated_at": func.now(),
+    }
+    if meeting_id is not None:
+        update_values["meeting_id"] = meeting_id
+    if join_url is not None:
+        update_values["join_url"] = join_url
+    if title is not None:
+        update_values["title"] = title
+    if bot_id is not None:
+        update_values["bot_id"] = bot_id
+    if online_meeting_id:
+        update_values["graph_online_meeting_id"] = online_meeting_id
+    if is_bot_installed:
+        update_values["added_to_meeting_at"] = added_at
+        if added_by.get("id"):
+            update_values["added_by_user_id"] = added_by["id"]
+        if added_by.get("aad_object_id"):
+            update_values["added_by_aad_object_id"] = added_by["aad_object_id"]
+        if added_by.get("name"):
+            update_values["added_by_display_name"] = added_by["name"]
+
+    stmt = insert_stmt.on_conflict_do_update(
+        index_elements=[TeamsMeeting.chat_id],
+        set_=update_values,
+    )
+
+    try:
+        async with async_session_maker() as session:
+            try:
+                await session.execute(stmt)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+    except Exception as exc:
+        logger.exception(
+            "Failed to upsert Teams meeting record for chat %s: %s", chat_id, exc
+        )
+
+
+async def _fetch_organizer_conversation_reference(
+    *, organizer_aad: str, bot_app_id: str
+) -> dict | None:
+    if not organizer_aad or not bot_app_id:
+        return None
+
+    normalized_bot_id = normalize_bot_id(bot_app_id)
+
+    async with async_session_maker() as session:
+        try:
+            logger.info(
+                "Organizer conversation lookup start (aad=%s, bot=%s)",
+                organizer_aad,
+                bot_app_id,
+            )
+
+            stmt = (
+                select(TeamsUser.conversation_reference)
+                .where(
+                    TeamsUser.bot_id == normalized_bot_id,
+                    TeamsUser.aad_object_id == organizer_aad,
+                )
+                .order_by(
+                    TeamsUser.last_seen_at.desc(),
+                )
+            )
+            result = await session.execute(stmt)
+            conv_ref = result.scalars().first()
+            if conv_ref:
+                logger.info("Organizer conversation found")
+            return conv_ref
+
+        except Exception as err:
+            logger.warning(
+                "Failed to load organizer conversation reference from DB: %s",
+                getattr(err, "message", str(err)),
+            )
+            return None
 
 
 def _build_recording_filename(
@@ -212,11 +595,49 @@ async def _start_transcription_from_bytes(
 ) -> tuple[str, dict | None]:
     await _ensure_vector_pool_ready()
 
+    ext_no_dot = ext.lstrip(".")
+    ext_with_dot = f".{ext_no_dot}" if ext_no_dot else ""
+
+    session = await upload_handler.make_multipart_session(
+        filename=f"{name}{ext_with_dot}",
+        size=len(data),
+        content_type=content_type,
+    )
+
+    object_key = (session or {}).get("object_key")
+    upload_url = (session or {}).get("upload_url") or (session or {}).get("url")
+    upload_headers: dict[str, str] = (session or {}).get("upload_headers") or {}
+    if not upload_url:
+        presigned_urls = (session or {}).get("presigned_urls") or []
+        upload_url = presigned_urls[0] if presigned_urls else None
+
+    if not object_key:
+        raise RuntimeError("Upload session did not return an object key.")
+
+    logger.info("[teams note-taker] uploading bytes to object: %s", object_key)
+    logger.info("[teams note-taker] upload_url: %s", upload_url)
+
+    if not upload_url:
+        raise RuntimeError("Upload session missing upload URL.")
+
+    upload_headers = {
+        "Content-Type": content_type,
+        **upload_headers,
+    }
+
+    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
+        response = await client.put(
+            upload_url,
+            content=data,
+            headers=upload_headers,
+        )
+        response.raise_for_status()
+
     job_id = await transcription_service.submit(
         name=name,
-        ext=ext.lstrip("."),
-        bytes_=data,
-        object_key=None,
+        ext=ext_no_dot,
+        bytes_=None,
+        object_key=object_key,
         content_type=content_type,
         backend=pipeline_id,
         language=language,
@@ -294,18 +715,28 @@ async def _send_transcription_summary(
     )
 
 
-def _register_note_taker_handlers(
-    app: AgentApplication[TurnState], auth_handler_id: str
-) -> None:
-    async def _is_signed_in(context: TurnContext, handler_id: str) -> bool:
-        try:
-            token_response = await app.auth.get_token(context, handler_id)
-        except Exception as err:
-            logger.warning("Failed to get token: %s", getattr(err, "message", str(err)))
-            return False
+async def _get_online_meeting_id(context: TurnContext) -> Optional[str]:
+    meeting_info = await TeamsInfo.get_meeting_info(context)
+    details = getattr(meeting_info, "details", None) or {}
+    return getattr(details, "ms_graph_resource_id", None)
 
-        token = getattr(token_response, "token", None) if token_response else None
-        return bool(token)
+
+def _register_note_taker_handlers(
+    app: AgentApplication[TurnState],
+    auth_handler_id: str,
+    *,
+    adapter: CloudAdapter,
+    bot_app_id: str,
+    bot_tenant_id: str,
+) -> None:
+    async def _send_typing(context: TurnContext) -> None:
+        try:
+            await context.send_activity(Activity(type="typing"))
+        except Exception as err:
+            logger.debug(
+                "Failed to send typing indicator: %s",
+                getattr(err, "message", str(err)),
+            )
 
     async def _get_delegated_token(
         context: TurnContext,
@@ -313,14 +744,13 @@ def _register_note_taker_handlers(
         failure_message: str,
     ) -> str | None:
         try:
-            token_response = await app.auth.get_token(context, handler_id)
-            token_value = (
-                getattr(token_response, "token", None) if token_response else None
-            )
-
-            if token_value:
-                return token_value
-
+            # app.auth.get_token(context, handler_id) returns cached token?
+            handler = app.auth._resolve_handler(handler_id)
+            flow, _ = await handler._load_flow(context)
+            token_response = await flow.get_user_token()
+            token = getattr(token_response, "token", None)
+            # logger.info("[teams note-taker] delegated token: %s", token)
+            return token
         except Exception as err:
             logger.error(
                 "Auth failed handler_id=%s message=%s",
@@ -331,6 +761,227 @@ def _register_note_taker_handlers(
         # If we get here, either no token or an error.
         await context.send_activity(failure_message)
         return None
+
+    async def _send_recordings_summary(
+        context: TurnContext, recordings: list, token: str
+    ) -> None:
+        if not recordings:
+            await context.send_activity("No recordings found.")
+            return
+
+        lines = [f"📹 Found {len(recordings)} recording(s):"]
+
+        for idx, rec in enumerate(recordings, start=1):
+            file_size = rec.get("size")
+            duration = rec.get("duration")
+            date_str, time_str = _format_recording_datetime(rec.get("createdDateTime"))
+            size_str = _format_file_size(file_size)
+
+            duration_str = _format_duration(duration) if duration is not None else None
+
+            parts = [f"{idx}. 📅 {date_str} ⏰ {time_str}"]
+            if duration_str:
+                parts.append(f"⏱️ {duration_str}")
+            parts.append(f"💾 {size_str}")
+
+            lines.append("   ".join(parts))
+
+        await context.send_activity("\n\n".join(lines))
+
+    async def _transcribe_bytes_and_notify(
+        context: TurnContext,
+        *,
+        name: str,
+        ext: str,
+        file_bytes: bytes,
+        content_type: str,
+    ) -> None:
+        await _send_typing(context)
+        if not content_type.startswith(("audio/", "video/")):
+            await context.send_activity(
+                f"I downloaded a file of type `{content_type}` (extension `{ext or 'n/a'}`), "
+                "but I can only transcribe audio or video files like .mp3, .wav, .m4a, .mp4."
+            )
+            return
+
+        try:
+            status, result = await _start_transcription_from_bytes(
+                name=name,
+                ext=ext,
+                data=file_bytes,
+                content_type=content_type,
+                language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
+                pipeline_id=_DEFAULT_PIPELINE_ID,
+            )
+        except Exception as err:
+            logger.exception("Failed to start transcription for streamed file")
+            await context.send_activity(
+                f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        job_id = (result or {}).get("id") if isinstance(result, dict) else None
+        transcription = (
+            (result or {}).get("transcription") if isinstance(result, dict) else None
+        )
+
+        await _send_transcription_summary(context, status, job_id, transcription)
+
+    async def _has_existing_token(context: TurnContext, handler_id: str) -> bool:
+        """Try to detect an existing ABS token without sending a new OAuth card."""
+        try:
+            handler = app.auth._resolve_handler(handler_id)
+            flow, _ = await handler._load_flow(context)
+            token_response = await flow.get_user_token()
+            return bool(getattr(token_response, "token", None))
+        except Exception as err:
+            logger.debug(
+                "Token precheck failed during install flow (handler=%s): %s",
+                handler_id,
+                getattr(err, "message", str(err)),
+            )
+            return False
+
+    async def _get_meeting_organizer_identity(
+        context: TurnContext,
+    ) -> dict[str, str | None]:
+        meeting_info = await TeamsInfo.get_meeting_info(context)
+        organizer_obj = getattr(meeting_info, "organizer", None) or {}
+        return {
+            "id": getattr(organizer_obj, "id", None),
+            "aad_object_id": getattr(organizer_obj, "aadObjectId", None),
+        }
+
+    async def _is_meeting_organizer(context: TurnContext) -> bool:
+        user = _resolve_user_info(context)
+        organizer = await _get_meeting_organizer_identity(context)
+        organizer_id = organizer.get("id")
+        organizer_aad = organizer.get("aad_object_id")
+
+        user_id = user.get("id")
+        user_aad = user.get("aad_object_id")
+
+        if user_id and organizer_id and user_id == organizer_id:
+            return True
+        if user_aad and organizer_aad and user_aad == organizer_aad:
+            return True
+        return False
+
+    async def _ensure_meeting_organizer_and_signed_in(
+        context: TurnContext, handler_id: str
+    ) -> bool:
+        try:
+            is_organizer = await _is_meeting_organizer(context)
+        except Exception as err:
+            logger.warning(
+                "Unable to verify meeting organizer: %s",
+                getattr(err, "message", str(err)),
+            )
+            await context.send_activity(
+                "I couldn't verify that you're the meeting organizer. Please try again or message me directly."
+            )
+            return False
+
+        if not is_organizer:
+            await context.send_activity(
+                "Meeting commands are accepted only from the meeting organizer."
+            )
+            return False
+
+        signed_in = await _has_existing_token(context, handler_id)
+        if not signed_in:
+            await context.send_activity(
+                "Please authenticate with me in our cozy 1:1 chat before using meeting commands."
+            )
+            return False
+
+        return True
+
+    async def _ensure_organizer_delegated_token_cached(
+        context: TurnContext,
+        handler_id: str,
+        *,
+        prompt_on_missing: bool = True,
+    ) -> bool:
+        if not _is_meeting_conversation(context):
+            return False
+
+        try:
+            organizer = await _get_meeting_organizer_identity(context)
+        except Exception as err:
+            logger.warning(
+                "Unable to resolve meeting organizer for delegated token check: %s",
+                getattr(err, "message", str(err)),
+            )
+            return False
+
+        organizer_aad = organizer.get("aad_object_id")
+        organizer_id = organizer.get("id")
+        if not organizer_aad and not organizer_id:
+            logger.info(
+                "Organizer identity missing; skipping delegated token check for meeting."
+            )
+            return False
+
+        conv_ref = await _fetch_organizer_conversation_reference(
+            organizer_aad=organizer_aad, bot_app_id=bot_app_id
+        )
+
+        if not conv_ref:
+            logger.info(
+                "No organizer personal conversation reference available for token check."
+            )
+            if prompt_on_missing:
+                await context.send_activity(
+                    "I need the meeting organizer to sign in with **/sign-in** in our 1:1 chat so I can access meeting resources."
+                )
+            return False
+
+        token = await _get_token_proactively(
+            adapter=adapter,
+            app=app,
+            bot_app_id=bot_app_id,
+            conv_ref=conv_ref,
+            handler_id=handler_id,
+            aad_object_id=organizer_aad,
+            user_id=organizer_id,
+            tenant_id=bot_tenant_id,
+            notify_if_missing=False,
+        )
+
+        if token:
+            logger.info("Organizer delegated token already cached for this meeting.")
+            return True
+
+        if prompt_on_missing:
+            await context.send_activity(
+                "I need the meeting organizer to sign in with **/sign-in** in our 1:1 chat so I can access meeting resources."
+            )
+
+        return False
+
+    async def _handle_install_flow(context: TurnContext, _state: TurnState) -> None:
+        if not _is_personal_teams_conversation(context):
+            return
+
+        try:
+            already_signed_in = await _has_existing_token(context, auth_handler_id)
+        except Exception:
+            already_signed_in = False
+
+        if already_signed_in:
+            return
+
+        await context.send_activity(
+            "Thanks for installing the Magnet note taker bot. Please sign in so I can access your meeting recordings."
+        )
+        try:
+            await app.auth._start_or_continue_sign_in(context, _state, auth_handler_id)
+        except Exception as err:
+            logger.warning(
+                "Failed to start sign-in on installation: %s",
+                getattr(err, "message", str(err)),
+            )
 
     async def _handle_recordings_find(
         context: TurnContext, state: Optional[TurnState]
@@ -348,43 +999,41 @@ def _register_note_taker_handlers(
         if not delegated_token:
             return
 
+        await _send_typing(context)
+
         try:
+            online_meeting_id = await _get_online_meeting_id(context)
+            if not online_meeting_id:
+                await context.send_activity(
+                    "No online meeting id found for this meeting."
+                )
+                return
+
             async with create_graph_client_with_token(delegated_token) as graph_client:
-                artifacts = await fetch_meeting_recordings(
+                recordings = await get_meeting_recordings(
                     client=graph_client,
-                    join_url=meeting.get("joinUrl"),
-                    chat_id=meeting.get("conversationId"),
+                    online_meeting_id=online_meeting_id,
+                    add_size=True,
+                    content_token=delegated_token,
                 )
         except Exception as err:
-            logger.exception("Failed to fetch meeting artifacts")
+            logger.exception("Failed to fetch meeting recordings")
             await context.send_activity(
-                f"Could not retrieve meeting artifacts for {meeting.get('title') or 'meeting'}: {getattr(err, 'message', str(err))}"
+                f"Could not retrieve meeting recordings for {meeting.get('title') or 'meeting'}: {getattr(err, 'message', str(err))}"
             )
             return
 
-        recordings = (
-            artifacts.recordings
-            if artifacts and getattr(artifacts, "recordings", None)
-            else []
-        )
-
-        await context.send_activity(
-            f"I found {len(recordings)} recording(s) for this meeting."
-            if recordings
-            else "No recordings found."
-        )
+        await _send_recordings_summary(context, recordings, delegated_token)
 
         if recordings:
             await context.send_activity("Streaming the latest recording now...")
+            await _send_typing(context)
             try:
                 recording_bytes = await _download_recording_bytes(
                     recordings[0], delegated_token, meeting
                 )
             except Exception as err:
-                logger.exception(
-                    "Failed to download first recording for meetingId=%s",
-                    artifacts.meeting_id,
-                )
+                logger.exception("Failed to download first recording")
                 await context.send_activity(
                     f"I couldn't download the first recording: {getattr(err, 'message', str(err))}"
                 )
@@ -395,45 +1044,186 @@ def _register_note_taker_handlers(
                 await context.send_activity(
                     "Recording downloaded; starting transcription..."
                 )
+                await _send_typing(context)
 
-                language = _DEFAULT_TRANSCRIPTION_LANGUAGE
-                pipeline_id = _DEFAULT_PIPELINE_ID
-                try:
-                    status, result = await _start_transcription_from_bytes(
-                        name=name,
-                        ext=ext,
-                        data=file_bytes,
-                        content_type=content_type,
-                        language=language,
-                        pipeline_id=pipeline_id,
-                    )
-                except Exception as err:
-                    logger.exception(
-                        "Failed to start transcription for streamed recording"
-                    )
-                    await context.send_activity(
-                        f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
-                    )
-                    return
-
-                job_id = (result or {}).get("id") if isinstance(result, dict) else None
-                transcription = (
-                    (result or {}).get("transcription")
-                    if isinstance(result, dict)
-                    else None
-                )
-
-                await _send_transcription_summary(
-                    context, status, job_id, transcription
+                await _transcribe_bytes_and_notify(
+                    context,
+                    name=name,
+                    ext=ext,
+                    file_bytes=file_bytes,
+                    content_type=content_type,
                 )
             else:
                 await context.send_activity(
                     "The first recording had no downloadable URL."
                 )
 
+    async def _handle_process_file(
+        context: TurnContext, state: Optional[TurnState], link: str
+    ) -> None:
+        delegated_token = await _get_delegated_token(
+            context,
+            auth_handler_id,
+            "Please sign in (File processing) so I can fetch the link with delegated Graph permissions.",
+        )
+        if not delegated_token:
+            return
+
+        await _send_typing(context)
+
+        await context.send_activity("Fetching the file from your link...")
+
+        try:
+            file_bytes, content_type, name, ext = await _download_file_from_link(
+                link, delegated_token
+            )
+        except Exception as err:
+            logger.exception("Failed to download file from link")
+            await context.send_activity(
+                f"I couldn't download that link: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        await context.send_activity("File downloaded; starting transcription...")
+
+        await _transcribe_bytes_and_notify(
+            context,
+            name=name,
+            ext=ext,
+            file_bytes=file_bytes,
+            content_type=content_type,
+        )
+
+    async def _get_token_proactively(
+        *,
+        adapter: CloudAdapter,
+        app: AgentApplication,
+        bot_app_id: str,
+        conv_ref,
+        handler_id: str,
+        aad_object_id: str | None = None,
+        user_id: str | None = None,
+        tenant_id: str | None = None,
+        notify_if_missing: bool = True,
+    ) -> str | None:
+        continuation = Activity.create_event_activity()
+        continuation.name = "proactiveTokenCheck"
+
+        normalized_ref = ConversationReference.model_validate(conv_ref)
+
+        continuation.apply_conversation_reference(normalized_ref, is_incoming=True)
+
+        if aad_object_id and getattr(continuation, "from_property", None):
+            continuation.from_property.aad_object_id = aad_object_id
+        if user_id and getattr(continuation, "from_property", None):
+            continuation.from_property.id = user_id
+
+        if tenant_id:
+            continuation.channel_data = continuation.channel_data or {}
+            continuation.channel_data.setdefault("tenant", {"id": tenant_id})
+
+            conv = getattr(continuation, "conversation", None)
+            if conv is not None and getattr(conv, "tenant_id", None) in (None, ""):
+                try:
+                    conv.tenant_id = tenant_id
+                except Exception:
+                    pass
+
+        token_holder: dict[str, str | None] = {"token": None}
+
+        async def callback(proactive_context: TurnContext):
+            try:
+                handler = app.auth._resolve_handler(handler_id)
+                flow, _ = await handler._load_flow(proactive_context)
+                token_response = await flow.get_user_token()
+                token_holder["token"] = getattr(token_response, "token", None)
+            except Exception as err:
+                message = getattr(err, "message", None) or str(err)
+                logger.warning(
+                    "Proactive token check failed (handler=%s): %s",
+                    handler_id,
+                    message,
+                )
+                return
+
+            if not token_holder["token"] and notify_if_missing:
+                await proactive_context.send_activity(
+                    "I need your delegated token to proceed. "
+                    "Please use **/sign-in** in our 1:1 chat to authenticate."
+                )
+
+        try:
+            await adapter.continue_conversation(bot_app_id, continuation, callback)
+        except Exception as err:
+            logger.warning(
+                "Proactive token check conversation failed (handler=%s): %s",
+                handler_id,
+                getattr(err, "message", None) or str(err),
+            )
+
+        return token_holder["token"]
+
+    async def _handle_meeting_info(
+        context: TurnContext, state: Optional[TurnState]
+    ) -> None:
+        meeting_context = _resolve_meeting_details(context)
+        meeting_id = meeting_context.get("id")
+        if not meeting_id:
+            await context.send_activity(
+                "I couldn't find a meeting id in the channel data for this conversation."
+            )
+            return
+
+        await _send_typing(context)
+
+        meeting_info = None
+        try:
+            meeting_info = await TeamsInfo.get_meeting_info(context)
+            logger.info("[teams note-taker] meeting info: %s", meeting_info)
+        except Exception as err:
+            logger.exception("Failed to fetch meeting details via connector")
+            await context.send_activity(
+                f"Could not retrieve meeting details: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        details = getattr(meeting_info, "details", None) or {}
+        organizer_obj = getattr(meeting_info, "organizer", None) or {}
+        online_meeting_id = getattr(details, "ms_graph_resource_id", None)
+        start_time = getattr(details, "scheduled_start_time", None)
+        end_time = getattr(details, "scheduled_end_time", None)
+        meeting_type = getattr(details, "type", None)
+        organizer_id = getattr(organizer_obj, "id", None)
+        organizer_aad = getattr(organizer_obj, "aadObjectId", None)
+
+        try:
+            member = await TeamsInfo.get_member(context, organizer_id)
+            organizer_name = getattr(member, "name", None)
+            organizer_email = getattr(member, "email", None) or getattr(
+                member, "user_principal_name", None
+            )
+        except Exception:
+            pass
+
+        organizer = f"Organizer: {organizer_name} ({organizer_email}) [id: {organizer_id}, aadObjectId: {organizer_aad}]"
+
+        lines = [
+            "Meeting info:",
+            f"- Type: {meeting_type}",
+            f"- Meeting id: {meeting_id or 'Unknown'}",
+            f"- Online meeting id: {online_meeting_id or 'Unknown'}",
+            f"- {organizer}",
+            f"- Start: {_format_iso_datetime(start_time)}",
+            f"- End: {_format_iso_datetime(end_time)}",
+        ]
+
+        await context.send_activity("\n".join(lines))
+
     @app.on_sign_in_success
     async def _on_sign_in_success(
-        context: TurnContext, _state: TurnState, handler_id: str | None
+        context: TurnContext,
+        _state: TurnState,
+        handler_id: str | None = None,
     ) -> None:
         logger.info(
             "Teams note-taker sign-in succeeded (handler=%s)",
@@ -445,8 +1235,8 @@ def _register_note_taker_handlers(
     async def _on_sign_in_failure(
         context: TurnContext,
         _state: TurnState,
-        handler_id: str | None,
-        error_message: str | None,
+        handler_id: str | None = None,
+        error_message: str | None = None,
     ) -> None:
         logger.warning(
             "Teams note-taker sign-in failed (handler=%s): %s",
@@ -458,29 +1248,119 @@ def _register_note_taker_handlers(
     @app.activity("installationUpdate")
     async def _on_installation_update(context: TurnContext, _state: TurnState) -> None:
         activity = getattr(context, "activity", None)
+        logger.info("[teams note-taker] installation update received: %s", activity)
         action = getattr(activity, "action", None)
         if action == "add":
-            if _is_personal_teams_conversation(context):
-                await context.send_activity(
-                    "Thanks for installing the Magnet note taker bot."
-                )
-            elif _is_meeting_conversation(context):
+            await _upsert_teams_user_record(context)
+            await _upsert_teams_meeting_record(context, is_bot_installed=True)
+            await _handle_install_flow(context, _state)
+            if _is_meeting_conversation(context):
                 await context.send_activity("Magnet note taker added to the meeting.")
+                await _ensure_organizer_delegated_token_cached(
+                    context, auth_handler_id, prompt_on_missing=True
+                )
+        elif action == "remove":
+            await _upsert_teams_meeting_record(context, is_bot_installed=False)
 
-    @app.activity("message", auth_handlers=[auth_handler_id])
+    @app.conversation_update("membersAdded")
+    async def _on_members_added(context: TurnContext, _state: TurnState) -> None:
+        activity = getattr(context, "activity", None)
+        logger.info("[teams note-taker] members added received: %s", activity)
+        members = getattr(activity, "members_added", None) or []
+        bot_id = normalize_bot_id(
+            getattr(getattr(activity, "recipient", None), "id", None)
+        )
+        bot_added = any(getattr(member, "id", None) == bot_id for member in members)
+        if bot_added:
+            await _upsert_teams_meeting_record(context, is_bot_installed=True)
+
+    @app.conversation_update("membersRemoved")
+    async def _on_members_removed(context: TurnContext, _state: TurnState) -> None:
+        activity = getattr(context, "activity", None)
+        logger.info("[teams note-taker] members removed received: %s", activity)
+        members = getattr(activity, "members_removed", None) or []
+        bot_id = normalize_bot_id(
+            getattr(getattr(activity, "recipient", None), "id", None)
+        )
+        bot_removed = any(getattr(member, "id", None) == bot_id for member in members)
+        if bot_removed:
+            await _upsert_teams_meeting_record(context, is_bot_installed=False)
+
+    @app.activity("message")
     async def _on_message(context: TurnContext, _state: TurnState) -> None:
         text = (getattr(getattr(context, "activity", None), "text", "") or "").strip()
         logger.info("[teams note-taker] message received: %s", text)
+
+        await _upsert_teams_user_record(context)
 
         if not text:
             return
 
         normalized_text = text.lower()
 
-        if normalized_text.startswith("/signout"):
+        if normalized_text.startswith("/test-proactive-token"):
+            conv_ref = context.activity.get_conversation_reference()
+            logger.info("[teams note-taker] conv_ref: %s", conv_ref)
+            aad_object_id = context.activity.from_property.aad_object_id
+            token = await _get_token_proactively(
+                adapter=adapter,
+                app=app,
+                bot_app_id=bot_app_id,
+                conv_ref=conv_ref,
+                handler_id=auth_handler_id,
+                aad_object_id=aad_object_id,
+                tenant_id=bot_tenant_id,
+            )
+
+            await context.send_activity(
+                "✅ token found" if token else "❌ no cached token"
+            )
+            return
+
+        if normalized_text.startswith("/sign-in"):
+            if _is_personal_teams_conversation(context):
+                try:
+                    already_signed_in = await _has_existing_token(
+                        context, auth_handler_id
+                    )
+                except Exception:
+                    already_signed_in = False
+
+                if already_signed_in:
+                    await context.send_activity(
+                        "You're signed in. Use **/sign-out** to sign out."
+                    )
+                    return
+
+                try:
+                    await app.auth._start_or_continue_sign_in(
+                        context, _state, auth_handler_id
+                    )
+                    # await context.send_activity("Sign-in card sent.")
+                except Exception as err:
+                    logger.exception("Failed to start sign-in: %s", err)
+                    await context.send_activity(
+                        f"Couldn't start sign-in: {getattr(err, 'message', str(err))}"
+                    )
+            else:
+                await context.send_activity(
+                    "Please use **/signin** in our 1:1 chat to authenticate."
+                )
+            return
+
+        if _is_meeting_conversation(context):
+            allowed = await _ensure_meeting_organizer_and_signed_in(
+                context, auth_handler_id
+            )
+            if not allowed:
+                return
+
+        if normalized_text.startswith("/sign-out"):
             try:
                 await app.auth.sign_out(context, auth_handler_id)
-                await context.send_activity("You're signed out.")
+                await context.send_activity(
+                    "You're signed out. Use **/sign-in** to sign in again."
+                )
             except Exception as err:
                 logger.exception("Failed to sign out: %s", err)
                 await context.send_activity(
@@ -490,18 +1370,36 @@ def _register_note_taker_handlers(
 
         if normalized_text.startswith("/whoami"):
             info = _resolve_user_info(context)
-            signed_in = await _is_signed_in(context, auth_handler_id)
-            await context.send_activity(
-                (
-                    f"You are {info.get('name') or 'Unknown user'} "
-                    f"(id: {info.get('id') or 'n/a'}, aadObjectId: {info.get('aad_object_id') or 'n/a'}). "
-                    f"Conversation type: {info.get('conversation_type') or 'unknown'}. "
-                    f"Signed in: {'yes' if signed_in else 'no'}."
-                )
-            )
+            has_existing_token = await _has_existing_token(context, auth_handler_id)
+            lines = [
+                "User info:",
+                f"- Name: {info.get('name') or 'Unknown'}",
+                f"- Id: {info.get('id') or 'n/a'}",
+                f"- AAD object id: {info.get('aad_object_id') or 'n/a'}",
+                f"- Conversation type: {info.get('conversation_type') or 'unknown'}",
+                f"- Signed in: {'yes' if has_existing_token else 'no'}",
+            ]
+            await context.send_activity("\n".join(lines))
+            return
+
+        if normalized_text.startswith("/process-file"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity("Usage: /process-file link_to_file")
+                return
+
+            link = parts[1].strip()
+            await _send_typing(context)
+            await _handle_process_file(context, _state, link)
+            return
+
+        if normalized_text.startswith("/meeting-info"):
+            await _send_typing(context)
+            await _handle_meeting_info(context, _state)
             return
 
         if normalized_text.startswith("/recordings-find"):
+            await _send_typing(context)
             await _handle_recordings_find(context, _state)
             return
 
@@ -536,7 +1434,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
     adapter = CloudAdapter(
         channel_service_client_factory=RestChannelServiceClientFactory(connections)
     )
-    adapter.use(_SignInInvokeMiddleware())  # TODO: fix oauth flow?
+    adapter.use(_SignInInvokeMiddleware())
 
     async def _on_turn_error(context: TurnContext, error: Exception) -> None:
         message = getattr(error, "message", None) or str(error)
@@ -547,7 +1445,9 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
             return
         logger.error("[teams note-taker] unhandled error: %s", message)
         try:
-            await context.send_activity("The bot encountered an error or bug.")
+            await context.send_activity(
+                f"The bot encountered an error or bug: {message}"
+            )
         except Exception as send_err:
             logger.warning("[teams note-taker] on_turn_error send failed: %s", send_err)
 
@@ -557,9 +1457,9 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
     auth_handler = AuthHandler(
         name=settings.auth_handler_id,
         abs_oauth_connection_name=settings.auth_handler_id,
-        title="Sign in",
+        title="Sign in...",
         text="Sign in so I can read your meeting recordings.",
-        scopes=SCOPE,
+        scopes=NOTE_TAKER_GRAPH_SCOPES,
     )
     auth_handlers = {settings.auth_handler_id: auth_handler}
 
@@ -567,13 +1467,13 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         storage=storage,
         connection_manager=connections,
         auth_handlers=auth_handlers,
-        auto_signin=True,
+        auto_signin=False,  # avoid auto prompts
         use_cache=True,
     )
     app_options = ApplicationOptions(
         storage=storage,
         adapter=adapter,
-        start_typing_timer=True,
+        start_typing_timer=False,
         authorization_handlers=auth_handlers,
         bot_app_id=settings.client_id,
     )
@@ -583,7 +1483,13 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         authorization=authorization,
     )
 
-    _register_note_taker_handlers(agent_app, settings.auth_handler_id)
+    _register_note_taker_handlers(
+        agent_app,
+        settings.auth_handler_id,
+        adapter=adapter,
+        bot_app_id=settings.client_id,
+        bot_tenant_id=settings.tenant_id,
+    )
 
     return NoteTakerRuntime(
         validation_config=validation_config,

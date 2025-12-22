@@ -60,6 +60,8 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         knowledge-providers-header
       template(v-if='route.name === "KnowledgeGraphDetail"')
         knowledge-graph-header
+      template(v-if='route.name === "DeepResearchDetails"')
+        deep-research-configs-header
   q-drawer.bg-primary.text-white(v-model='drawerLeft', show-if-above, :width='200', :breakpoint='1350')
     toolbar
 
@@ -124,6 +126,12 @@ export default {
       if (segments[1] === 'knowledge-sources') {
         const providerSystemName = this.$store.getters.knowledge?.provider_system_name
         return providerSystemName ? `/knowledge-providers/${providerSystemName}` : `/${segments[1]}`
+      }
+      if (segments[1] === 'deep-research' && segments[2] === 'runs') {
+        return `/deep-research/runs`
+      }
+      if (segments[1] === 'deep-research' && segments[2] === 'configs') {
+        return `/deep-research/configs`
       }
       return `/${segments[1]}`
     },

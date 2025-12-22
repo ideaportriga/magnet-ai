@@ -1,7 +1,7 @@
 import datetime as dt
-from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote
+import asyncio
 
 import httpx
 from logging import getLogger
@@ -51,84 +51,33 @@ def create_graph_client_with_token(token: str) -> GraphClient:
     return GraphClient(token)
 
 
-async def fetch_chat_meeting_info(client: GraphClient, chat_id: str) -> dict[str, Any]:
-    """Fetch onlineMeetingInfo for a Teams chat."""
-    logger.info("fetch_chat_meeting_info chatId=%s", chat_id)
-    encoded_chat_id = quote(chat_id, safe="")
-    path = f"/chats/{encoded_chat_id}"
-    data = await client.get_json(path, params={"$select": "onlineMeetingInfo"})
-    info = data.get("onlineMeetingInfo") or {}
-    logger.info("fetch_chat_meeting_info info=%s", info)
-    return info
-
-
-async def resolve_meeting_id_from_join_url(
-    client: GraphClient, join_url: str | None
-) -> str | None:
-    """Resolve an online meeting ID from its join URL."""
-    if not join_url:
+async def get_recording_file_size(content_url: str, token: str) -> int | None:
+    if not content_url:
         return None
 
-    escaped_url = join_url.replace("'", "''")
-    base_path = "/me/onlineMeetings"
+    headers = {"Authorization": f"Bearer {token}"}
 
     try:
-        response = await client.get_json(
-            base_path, params={"$filter": f"JoinWebUrl eq '{escaped_url}'"}
-        )
-        values = response.get("value") or []
-        match = values[0] if values else None
-        meeting_id = match.get("id") if isinstance(match, dict) else None
-        if meeting_id:
-            logger.info(
-                "Resolved meeting id from joinUrl joinUrl=%s meetingId=%s",
-                join_url,
-                meeting_id,
-            )
-            return meeting_id
-        return None
-    except httpx.HTTPStatusError as err:
-        body = None
-        try:
-            body = err.response.json()
-        except Exception:
-            body = err.response.text
-        logger.warning(
-            "resolve_meeting_id_from_join_url failed status=%s code=%s message=%s raw=%s",
-            getattr(err.response, "status_code", None),
-            body.get("error", {}).get("code") if isinstance(body, dict) else None,
-            body.get("error", {}).get("message")
-            if isinstance(body, dict)
-            else str(err),
-            body if isinstance(body, dict) else None,
-        )
-        return None
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            range_headers = {**headers, "Range": "bytes=0-0"}
+            get_resp = await client.get(content_url, headers=range_headers)
+            get_resp.raise_for_status()
+
+            content_range = get_resp.headers.get("Content-Range")
+            if content_range and "/" in content_range:
+                total_size = content_range.split("/")[-1]
+                if total_size.isdigit():
+                    return int(total_size)
+
+            content_length = get_resp.headers.get("Content-Length")
+            if content_length and content_length.isdigit():
+                return int(content_length)
+
+            return None
+
     except Exception as err:
-        logger.warning("resolve_meeting_id_from_join_url failed: %s", err)
+        logger.warning("Failed to get file size for recording: %s", err)
         return None
-
-
-async def resolve_meeting_id(
-    client: GraphClient, chat_id: str | None, join_url: str | None
-) -> str | None:
-    """Resolve a meeting ID using chat metadata and/or join URL."""
-    resolved_join_url = join_url
-    if not resolved_join_url and chat_id:
-        info = await fetch_chat_meeting_info(client, chat_id)
-        join_web_url = info.get("joinWebUrl") if isinstance(info, dict) else None
-        if join_web_url:
-            resolved_join_url = join_web_url
-
-    if resolved_join_url:
-        try:
-            return await resolve_meeting_id_from_join_url(client, resolved_join_url)
-        except Exception as exc:  # defensive: log and keep going
-            logger.warning(
-                "Failed to resolve meeting id from joinUrl: %s",
-                getattr(exc, "message", str(exc)),
-            )
-
-    return None
 
 
 async def fetch_recordings(
@@ -158,6 +107,23 @@ async def fetch_recordings(
                 for item in items:
                     if not isinstance(item, dict):
                         continue
+                    duration_seconds = None
+                    started = item.get("createdDateTime")
+                    ended = item.get("endDateTime")
+                    if started and ended:
+                        try:
+                            started_dt = dt.datetime.fromisoformat(
+                                started.replace("Z", "+00:00")
+                            )
+                            ended_dt = dt.datetime.fromisoformat(
+                                ended.replace("Z", "+00:00")
+                            )
+                            delta_seconds = int((ended_dt - started_dt).total_seconds())
+                            if delta_seconds >= 0:
+                                duration_seconds = delta_seconds
+                        except Exception:
+                            pass
+
                     all_items.append(
                         {
                             "id": item.get("id"),
@@ -165,6 +131,7 @@ async def fetch_recordings(
                             "contentUrl": item.get("contentUrl")
                             or item.get("recordingContentUrl")
                             or item.get("downloadUrl"),
+                            "duration": duration_seconds,
                         }
                     )
 
@@ -193,69 +160,59 @@ async def fetch_recordings(
         raise
 
 
-@dataclass(slots=True)
-class MeetingRecordings:
-    recordings: list[dict[str, Any]]
-    meeting_id: str | None
-    user_id: str
-
-
-async def fetch_meeting_recordings(
+async def get_meeting_recordings(
     *,
     client: GraphClient,
-    join_url: str | None = None,
-    chat_id: str | None = None,
-    meeting_id: str | None = None,
-    user_id: str = "me",
-) -> MeetingRecordings:
-    """Fetch recordings for a meeting, resolving meeting ID when necessary."""
-    meeting_identifier = meeting_id
+    online_meeting_id: str,
+    add_size: bool = False,
+    content_token: str | None = None,
+) -> list[dict[str, Any]]:
+    try:
+        logger.info("fetch_meeting_recordings meetingId=%s", online_meeting_id)
+        encoded_meeting_id = quote(online_meeting_id, safe="")
+        base_path = f"/me/onlineMeetings/{encoded_meeting_id}"
+        recordings = await fetch_recordings(
+            client, online_meeting_id, base_path=base_path
+        )
 
-    if not meeting_identifier and (chat_id or join_url):
-        meeting_identifier = await resolve_meeting_id(client, chat_id, join_url)
+        if add_size and content_token:
 
-    if meeting_identifier:
-        try:
-            logger.info("fetch_meeting_recordings meetingId=%s", meeting_identifier)
-            encoded_meeting_id = quote(meeting_identifier, safe="")
-            base_path = f"/me/onlineMeetings/{encoded_meeting_id}"
-            recordings = await fetch_recordings(
-                client, meeting_identifier, base_path=base_path
-            )
+            async def _add_size(rec: dict) -> None:
+                url = rec.get("contentUrl")
+                if url:
+                    rec["size"] = await get_recording_file_size(url, content_token)
+
+            await asyncio.gather(*(_add_size(r) for r in recordings))
+
             logger.info(
                 "Graph recordings fetched meetingId=%s recordingsCount=%d",
-                meeting_identifier,
+                online_meeting_id,
                 len(recordings),
             )
-            return MeetingRecordings(
-                recordings=recordings, meeting_id=meeting_identifier, user_id=user_id
+            return recordings
+
+    except httpx.HTTPStatusError as err:
+        error_code = None
+        try:
+            body = err.response.json() if err.response is not None else {}
+            error_code = (
+                body.get("error", {}).get("code") if isinstance(body, dict) else None
             )
-        except httpx.HTTPStatusError as err:
-            error_code = None
-            try:
-                body = err.response.json() if err.response is not None else {}
-                error_code = (
-                    body.get("error", {}).get("code")
-                    if isinstance(body, dict)
-                    else None
-                )
-            except Exception:
-                body = None
+        except Exception:
+            body = None
             logger.warning(
                 "Graph artifacts attempt failed meetingId=%s statusCode=%s code=%s message=%s",
-                meeting_identifier,
+                online_meeting_id,
                 getattr(err.response, "status_code", None),
                 error_code,
                 str(err),
             )
             raise
 
-    return MeetingRecordings(
-        recordings=[], meeting_id=meeting_identifier, user_id=user_id
-    )
+    return []
 
 
 __all__ = [
     "create_graph_client_with_token",
-    "fetch_meeting_recordings",
+    "get_meeting_recordings",
 ]

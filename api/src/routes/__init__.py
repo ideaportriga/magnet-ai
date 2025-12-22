@@ -26,6 +26,7 @@ from routes.admin.api_keys import ApiKeysController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
+from .admin.deep_research import DeepResearchConfigController, DeepResearchRunController
 
 
 from .admin.knowledge_sources import (
@@ -62,6 +63,8 @@ def get_route_handlers(
         ApiKeysController,  # Admin / API Keys
         ApiServersController,  # Admin / API Servers
         CollectionsController,  # Admin / Collections
+        DeepResearchConfigController,  # Admin / Deep Research Configs
+        DeepResearchRunController,  # Admin / Deep Research Runs
         EvaluationSetsController,  # Admin / Evaluation Sets
         EvaluationsController,  # Admin / Evaluations
         JobsController,  # Admin / Jobs

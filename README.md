@@ -35,39 +35,54 @@ npm run setup
 
 ### 2. Configuration
 
-1. Copy the example environment file:
+1. **Environment Variables**:
+   Copy the example environment file:
    ```bash
    cp .env.example .env
    ```
+   Edit `.env` and configure the necessary variables. For local development with Docker, the defaults usually work.
 
-2. Edit `.env` and configure the necessary variables.
-   - For local development with Docker, the defaults usually work.
+2. **Web Configuration**:
+   The `npm run setup` command automatically creates `main.json` configuration files for the web applications.
+   - `web/apps/@ipr/magnet-admin/public/config/main.json`
+   - `web/apps/@ipr/magnet-panel/public/config/main.json`
+
+   These files are required to link the Web Frontend to the API. If you need to change the API URL or authentication settings for the frontend, edit these files.
 
 ### 3. Running the Application
 
-#### Option A: Local Development (Recommended)
+#### Option A: Local Development with Docker (Recommended)
 
-This runs the API and Web frontend locally, but uses Docker for the database (Postgres + pgvector).
+This runs the API and Web frontend locally, and automatically starts the database in Docker (Postgres + pgvector).
 
-1. **Start the Database**:
-   ```bash
-   npm run docker:up
-   ```
-   *Wait for "PostgreSQL is ready!" message.*
+```bash
+npm run dev:docker
+```
+*This starts the database, API (port 8000), and Web (port 3000).*
 
-2. **Run the App**:
+#### Option B: Local Development with External Database
+
+If you prefer to run the database yourself (e.g. on a remote server or local installation) instead of using Docker:
+
+1. **Prerequisites**:
+   - PostgreSQL 16+
+   - `pgvector` extension installed and enabled (`CREATE EXTENSION vector;`)
+
+2. **Configuration**:
+   - Update your `.env` file with your database connection details (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`).
+
+3. **Run the App**:
    ```bash
    npm run dev
    ```
-   *This starts both the API (port 8000) and Web (port 3000).*
 
-#### Option B: API Only
+#### Option C: API Only
 
 ```bash
 npm run dev:api
 ```
 
-#### Option C: Web Only
+#### Option D: Web Only
 
 ```bash
 npm run dev:web
@@ -89,26 +104,43 @@ npm run dev:web
 
 ### Code Quality
 
-This project uses automated checks for code quality, security, and license compliance:
+This project uses **Husky** to automatically run checks before you commit.
+
+To run checks manually:
 
 ```bash
-# Install pre-commit hooks
-pip install pre-commit
-pre-commit install
+# Run all checks (API + Web)
+npm run lint
 
-# Run all checks locally
-pre-commit run --all-files
+# Run API checks only
+npm run lint:api
 
-# Python linting
-cd api
-poetry run ruff check src/
-poetry run ruff format src/
-
-# Frontend linting
-cd web
-yarn lint
-yarn type-check
+# Run Web checks only
+npm run lint:web
 ```
+
+### Commit Messages
+
+We follow the **Conventional Commits** specification. This allows us to automatically generate changelogs and determine semantic versioning.
+
+**Format**: `<type>(<scope>): <description>`
+
+**Types**:
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc)
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `perf`: A code change that improves performance
+- `test`: Adding missing tests or correcting existing tests
+- `chore`: Changes to the build process or auxiliary tools and libraries such as documentation generation
+
+**Examples**:
+- `feat(api): add new endpoint for user profile`
+- `fix(web): resolve issue with login button`
+- `docs: update readme with setup instructions`
+
+We use `commitlint` to enforce these rules. If your commit message does not follow the convention, the commit will be rejected.
 
 See [CI/CD Documentation](.github/README.md) for details.
 

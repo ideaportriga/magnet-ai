@@ -27,6 +27,11 @@
           :parentRoute='parentRoute',
           @navigate='navigate'
         )
+    .column.q-mt-md.q-gap-6.border-radius-6
+      .row
+        q-chip.km-button-text.q-mb-xs(text-color='primary', color='primary-light', size='sm') Experimental
+      template(v-for='item in experimental')
+        km-nav-btn(:icon='item.icon', :label='item.label', :path='item.path', :parentRoute='parentRoute', @navigate='navigate')
     .column.q-mt-24.q-gap-6
       .km-button-xs-text.text-secondary.text-uppercase Test & Monitor
         km-separator
@@ -154,11 +159,6 @@ const connectors = [
     path: 'knowledge-providers',
     alternativePaths: ['knowledge-sources'],
   },
-  {
-    label: 'Knowledge graph',
-    icon: 'o_hub',
-    path: 'knowledge-graph',
-  },
   // {
   //   label: 'Models',
   //   icon: 'fas fa-circle-nodes',
@@ -190,6 +190,24 @@ const observability = [
   },
 ]
 
+const experimental = [
+  {
+    label: 'Knowledge graph',
+    icon: 'o_hub',
+    path: 'knowledge-graph',
+  },
+  {
+    label: 'Deep Research',
+    icon: 'fas fa-magnifying-glass-chart',
+    path: 'deep-research/configs',
+  },
+  {
+    label: 'Deep Research Runs',
+    icon: 'fas fa-play',
+    path: 'deep-research/runs',
+  },
+]
+
 const dev = [
   {
     label: 'Template groups',
@@ -218,6 +236,7 @@ export default {
       evaluation,
       dashboard,
       observability,
+      experimental,
       store,
     }
   },
