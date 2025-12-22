@@ -31,6 +31,14 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
         comment="Foreign key to knowledge_graphs",
     )
 
+    # Foreign key to a scheduled sync job for this source
+    schedule_job_id: Mapped[Optional[UUID]] = mapped_column(
+        GUID(),
+        ForeignKey("jobs.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Foreign key to jobs (recurring sync schedule for this source)",
+    )
+
     # Relationship to graph
     graph: Mapped["KnowledgeGraph"] = relationship(
         "KnowledgeGraph",

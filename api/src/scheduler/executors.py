@@ -335,10 +335,72 @@ async def execute_evaluation(**kwargs):
         raise e
 
 
+@with_progress_status
+@observe(name="Sync knowledge graph source", channel="Job")
+async def execute_sync_knowledge_graph_source(**kwargs):
+    """Execute a knowledge graph source sync job."""
+    job_id = kwargs.get("job_id")
+
+    try:
+        job_definition = kwargs.get("job_definition")
+        params = kwargs.get("params", {})
+
+        observability_context.update_current_trace(
+            type="sync_knowledge_graph_source",
+            extra_data={
+                "job_id": job_id,
+                "job_definition": job_definition,
+                "params": params,
+            },
+        )
+
+        graph_id = params.get("graph_id")
+        source_id = params.get("source_id")
+
+        if not graph_id or not source_id:
+            logger.error(f"Missing graph_id or source_id for job {job_id}")
+            return False
+
+        from uuid import UUID
+
+        from core.config.app import alchemy
+        from core.domain.knowledge_graph.service import KnowledgeGraphSourceService
+
+        async with alchemy.get_session() as session:
+            service = KnowledgeGraphSourceService(session=session)
+            await service.sync_source(
+                session, UUID(str(graph_id)), UUID(str(source_id))
+            )
+
+        logger.info(
+            f"Successfully started sync for graph {graph_id} source {source_id} in job {job_id}"
+        )
+        return True
+
+    except Exception as e:
+        logger.error(
+            f"Error in execute_sync_knowledge_graph_source for job {job_id}: {str(e)}"
+        )
+        traceback.print_exc()
+
+        observability_context.update_current_trace(
+            extra_data={
+                "job_id": job_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "params": params,
+            },
+        )
+
+        # Error status will be set by with_progress_status decorator
+        raise e
+
+
 # Mapping of run configuration types to execution functions directly
 RUN_CONFIG_HANDLERS = {
     RunConfigurationType.CUSTOM: execute_custom_function,
     RunConfigurationType.SYNC_COLLECTION: execute_sync_collection,
     RunConfigurationType.POST_PROCESS_CONVERSATION: execute_post_process_configuration,
     RunConfigurationType.EVALUATION: execute_evaluation,
+    RunConfigurationType.SYNC_KNOWLEDGE_GRAPH_SOURCE: execute_sync_knowledge_graph_source,
 }

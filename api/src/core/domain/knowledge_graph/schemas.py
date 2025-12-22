@@ -6,7 +6,19 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from core.db.models.knowledge_graph import KnowledgeGraphChunk
+from scheduler.types import CronConfig
+
+
+class KnowledgeGraphSourceScheduleExternalSchema(BaseModel):
+    """Schedule information for a knowledge graph source."""
+
+    name: Optional[str] = None
+    interval: Optional[str] = None
+    cron: Optional[CronConfig] = None
+    timezone: Optional[str] = None
 
 
 class KnowledgeGraphExternalSchema(BaseModel):
@@ -61,6 +73,15 @@ class KnowledgeGraphUpdateResponse(BaseModel):
     description: Optional[str]
 
 
+class KnowledgeGraphUploadUrlRequest(BaseModel):
+    """Request model for uploading a document to a knowledge graph from a URL.
+
+    The URL is treated as transient input for ingestion and is not persisted on the source.
+    """
+
+    url: str = Field(..., description="Direct http(s) URL to a file")
+
+
 class KnowledgeGraphSourceExternalSchema(BaseModel):
     """Item model for knowledge graph source list endpoint."""
 
@@ -72,6 +93,7 @@ class KnowledgeGraphSourceExternalSchema(BaseModel):
     documents_count: int = 0
     last_sync_at: Optional[str] = None
     created_at: Optional[str] = None
+    schedule: Optional[KnowledgeGraphSourceScheduleExternalSchema] = None
 
 
 class KnowledgeGraphSourceCreateRequest(BaseModel):
@@ -92,6 +114,26 @@ class KnowledgeGraphSourceUpdateRequest(BaseModel):
         None, description="Partial config to merge into existing config"
     )
     status: Optional[str] = Field(None, description="Optional status override")
+
+
+class KnowledgeGraphSourceScheduleSyncRequest(BaseModel):
+    """Request model for scheduling recurring sync for a knowledge graph source.
+
+    Note: run_configuration and job_type are enforced server-side.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: Optional[str] = Field(None, description="Optional schedule display name")
+    interval: Optional[str] = Field(
+        None, description="Schedule interval label (e.g., hourly, daily, weekly)"
+    )
+    cron: Optional[CronConfig] = Field(
+        None, description="Cron configuration for recurring sync"
+    )
+    timezone: Optional[str] = Field(
+        None, description="Timezone for cron evaluation (defaults to UTC)"
+    )
 
 
 class SharePointSourceCreateRequest(BaseModel):
@@ -171,7 +213,8 @@ class KnowledgeGraphChunkExternalSchema(BaseModel):
     toc_reference: Optional[str] = None
     page: Optional[int] = None
     chunk_type: Optional[str] = None
-    text: Optional[str] = None
+    content: Optional[str] = None
+    content_format: Optional[str] = None
     created_at: Optional[str] = None
 
 
@@ -218,3 +261,17 @@ class KnowledgeGraphRetrievalPreviewResponse(BaseModel):
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation id associated with this preview run"
     )
+
+
+class ChunkSearchResult(BaseModel):
+    """Result model for chunk search."""
+
+    chunk: KnowledgeGraphChunk
+    score: float | None = None
+
+    def to_json(self) -> dict:
+        """Flattens fields from chunk and adds score as a top-level field."""
+
+        data = self.chunk.to_json()
+        data["score"] = self.score
+        return data

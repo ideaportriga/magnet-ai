@@ -2,6 +2,7 @@ import logging
 import re
 from typing import Any, override
 
+from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from services.prompt_templates import execute_prompt_template
 
 from ..models import ChunkerResult, ContentConfig, DocumentMetadata
@@ -91,7 +92,7 @@ class LLMChunker(AbstractChunker):
 
         input_tokens = 0
         output_tokens = 0
-        chunks: list[dict[str, Any]] = []
+        chunks: list[KnowledgeGraphChunk] = []
         # New document-level metadata extracted/updated across segments
         doc_title: str = ""
         doc_summary: str = ""
@@ -264,7 +265,7 @@ class LLMChunker(AbstractChunker):
                 raw_segment_chunks = unprocessed_data.split("<|SPLIT|>")
 
                 # Process each chunk
-                curr_segment_chunks: list[dict[str, Any]] = []
+                curr_segment_chunks: list[KnowledgeGraphChunk] = []
                 for chunk_str in raw_segment_chunks:
                     chunk_str = chunk_str.strip()
 
@@ -332,35 +333,34 @@ class LLMChunker(AbstractChunker):
                         else (chunk_header[2] if len(chunk_header) > 2 else "")
                     )
 
-                    chunk: dict[str, Any] = {
-                        "id": chunk_header_str,
-                        "type": chunk_header[1] if len(chunk_header) > 1 else "",
-                        "title": computed_title,
-                        "toc_reference": chunk_header[3]
-                        if len(chunk_header) > 3
-                        else "",
-                        "page": page_num,
-                        "text": chunk_str,
-                    }
+                    chunk = KnowledgeGraphChunk(
+                        generated_id=chunk_header_str,
+                        chunk_type=chunk_header[1] if len(chunk_header) > 1 else "TEXT",
+                        title=computed_title,
+                        toc_reference=chunk_header[3] if len(chunk_header) > 3 else "",
+                        page=page_num if page_num and page_num > 0 else None,
+                        content=chunk_str,
+                        embedded_content=chunk_str,
+                    )
 
                     # Check for duplicates
                     is_duplicate = False
                     for i, existing in enumerate(chunks):
-                        if existing["id"] == chunk["id"]:
+                        if existing.generated_id == chunk.generated_id:
                             # Prefer replacement when:
                             # - It is the last chunk from a previous segment, OR
                             # - The new chunk contains more content (likely a repaired/extended version)
-                            new_len = len(chunk.get("text") or "")
-                            old_len = len(existing.get("text") or "")
+                            new_len = len(chunk.content or "")
+                            old_len = len(existing.content or "")
                             if i == len(chunks) - 1 or new_len > old_len:
                                 logger.info(
-                                    f"Replacing duplicate chunk with updated content: {chunk['id']}"
+                                    f"Replacing duplicate chunk with updated content: {chunk.generated_id}"
                                 )
                                 chunks[i] = chunk
                                 curr_segment_chunks.append(chunk)
                             else:
                                 logger.warning(
-                                    f"Skipping duplicate chunk (no improvement): {chunk['id']}"
+                                    f"Skipping duplicate chunk (no improvement): {chunk.generated_id}"
                                 )
                             is_duplicate = True
                             break

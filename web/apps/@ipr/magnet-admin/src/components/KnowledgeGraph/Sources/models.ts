@@ -1,3 +1,24 @@
+export type SourceScheduleCron = {
+  year?: number | string | null
+  month?: number | string | null
+  day?: number | string | null
+  week?: number | string | null
+  day_of_week?: number | string | null
+  hour?: number | string | null
+  minute?: number | string | null
+  second?: number | string | null
+  start_date?: string | null
+  end_date?: string | null
+  jitter?: number | null
+}
+
+export type SourceSchedule = {
+  name?: string | null
+  interval?: string | null
+  cron?: SourceScheduleCron | null
+  timezone?: string | null
+} | null
+
 export interface SourceRow {
   id: string
   name: string
@@ -7,6 +28,7 @@ export interface SourceRow {
   created_at?: string
   last_sync_at?: string
   config?: Record<string, unknown>
+  schedule?: SourceSchedule
 }
 
 export function getSourceTypeName(type: string) {

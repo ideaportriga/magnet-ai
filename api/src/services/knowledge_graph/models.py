@@ -1,7 +1,10 @@
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Optional, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from core.db.models.knowledge_graph import KnowledgeGraphChunk
 
 
 class SourceType(StrEnum):
@@ -44,7 +47,11 @@ class DocumentMetadata(BaseModel):
 class ChunkerResult(BaseModel):
     """Result returned by chunker implementations."""
 
-    chunks: list[dict[str, Any]] = Field(..., description="List of processed chunks")
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    chunks: list[KnowledgeGraphChunk] = Field(
+        ..., description="List of processed chunks"
+    )
     document_metadata: Optional[DocumentMetadata] = Field(
         None, description="Document-level metadata (title, summary, TOC)"
     )
@@ -95,3 +102,68 @@ class LoadedContent(TypedDict):
 
     text: str
     metadata: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class SyncPipelineConfig:
+    """Generic 3-stage pipeline configuration.
+
+    Stages / queues:
+    - **listing**: fetch lists of documents (often paginated)
+    - **content_fetch**: fetch document content (topics/files)
+    - **document_processing**: run long ingestion (typically `process_document`)
+    """
+
+    # Human-readable name for logs
+    name: str = "sync_pipeline"
+
+    # Queue backpressure
+    listing_queue_max: int = 2
+    content_fetch_queue_max: int = 100
+    document_processing_queue_max: int = 50
+
+    # Worker counts
+    listing_workers: int = 1
+    content_fetch_workers: int = 4
+    document_processing_workers: int = 1
+
+    # Named semaphores created for workers to use
+    semaphores: dict[str, int] = field(default_factory=dict)
+
+    def validate(self) -> None:
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ValueError("name must be a non-empty string")
+
+        def _pos_int(name: str, v: int) -> None:
+            if not isinstance(v, int) or v < 0:
+                raise ValueError(f"{name} must be a non-negative int")
+
+        _pos_int("listing_queue_max", self.listing_queue_max)
+        _pos_int("content_fetch_queue_max", self.content_fetch_queue_max)
+        _pos_int("document_processing_queue_max", self.document_processing_queue_max)
+        _pos_int("listing_workers", self.listing_workers)
+        _pos_int("content_fetch_workers", self.content_fetch_workers)
+        _pos_int("document_processing_workers", self.document_processing_workers)
+
+        if (
+            self.listing_workers == 0
+            or self.content_fetch_workers == 0
+            or self.document_processing_workers == 0
+        ):
+            raise ValueError("All stage worker counts must be >= 1")
+
+        for k, v in (self.semaphores or {}).items():
+            if not isinstance(k, str) or not k.strip():
+                raise ValueError("Semaphore names must be non-empty strings")
+            if not isinstance(v, int) or v <= 0:
+                raise ValueError(f"Semaphore '{k}' concurrency must be a positive int")
+
+
+@dataclass
+class SyncCounters:
+    """Common counters for a knowledge-graph sync run."""
+
+    synced: int = 0
+    failed: int = 0
+    skipped: int = 0
+    total_found: int = 0

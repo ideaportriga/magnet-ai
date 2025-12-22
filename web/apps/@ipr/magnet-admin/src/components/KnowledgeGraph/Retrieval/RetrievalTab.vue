@@ -33,14 +33,14 @@
       <!-- Agent Prompt Cards -->
       <km-section title="Prompt Configuration" sub-title="Customize ReAct prompt sections to adjust agent behavior">
         <div class="column q-gutter-y-sm">
-          <prompt-section
+          <kg-expandable-prompt
             v-model="persona"
             title="Agent Identity"
             description="Define the agent's role and capabilities"
             placeholder="You are an advanced ReAct agent..."
             @update:model-value="markAsChanged"
           />
-          <prompt-section
+          <kg-expandable-prompt
             v-model="instructions"
             title="ReAct Instructions"
             description="Operational rules and workflows"
@@ -229,13 +229,13 @@
 
 <script setup lang="ts">
 import { useChroma } from '@shared'
-import { useQuasar, uid } from 'quasar'
+import { uid, useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import StyledSelect from '../StyledSelect.vue'
+import { KgExpandablePrompt } from '../common'
 import GuidedExamplesTable from './GuidedExamplesTable.vue'
-import PromptSection from './PromptSection.vue'
 import TabControls from './RetrievalTabControls.vue'
 import ToolSection from './ToolSection.vue'
 import ToolStat from './ToolStat.vue'
@@ -245,9 +245,9 @@ import FindChunksBySimilarityDialog from './Tools/FindChunksBySimilarityDialog.v
 import FindDocumentsBySummaryDialog from './Tools/FindDocumentsBySummaryDialog.vue'
 import {
   tools as defaultTools,
+  RetrievalExample,
   searchMethodOptions,
   Tool,
-  RetrievalExample,
   type PromptTemplate,
   type PromptTemplateVariant,
   type RetrievalConfig,

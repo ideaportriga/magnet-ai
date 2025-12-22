@@ -17,6 +17,10 @@ export const jobTypeOptions = [
     value: 'post_processing_conversations',
     label: 'Post processing conversations',
   },
+  {
+    value: 'sync_knowledge_graph_source',
+    label: 'Knowledge graph source sync',
+  }
 ]
 
 export const jobIntervalOptions = [

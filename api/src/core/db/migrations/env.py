@@ -4,6 +4,8 @@ import asyncio
 import re
 from typing import Optional
 
+from advanced_alchemy.base import UUIDAuditBase
+
 # import sys
 # from logging.config import fileConfig
 # from pathlib import Path
@@ -11,7 +13,6 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-from advanced_alchemy.base import UUIDAuditBase
 
 from core.config.base import get_settings
 from core.db.models.agent import Agent  # noqa: F401
@@ -34,10 +35,10 @@ from core.db.models.provider import Provider  # noqa: F401
 from core.db.models.rag_tool.rag_tool import RagTool  # noqa: F401
 from core.db.models.retrieval_tool import RetrievalTool  # noqa: F401
 from core.db.models.slack import SlackInstallation, SlackOAuthState  # noqa: F401
+from core.db.models.teams import TeamsMeeting  # noqa: F401
 from core.db.models.trace import Trace  # noqa: F401
 from core.db.models.deep_research import DeepResearchConfig, DeepResearchRun  # noqa: F401
 from core.db.models.transcription.transcription import Transcription  # noqa: F401
-from core.db.models.teams import TeamsMeeting  # noqa: F401
 
 # Add the src directory to the Python path
 # src_path = Path(__file__).parent.parent.parent
@@ -99,11 +100,15 @@ def run_migrations_offline() -> None:
             if name == "apscheduler_jobs":
                 return False
             # Ignore knowledge graph tables
-            if re.match(r"knowledge_graph_.*_(chunks|documents)$", name):
+            if re.match(r"knowledge_graph_.*_(chunks|docs|documents)$", name):
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
-            if re.match(r"idx_knowledge_graph_.*_(chunks|docume)$", name):
+            if re.match(r"idx_kg_.*_(chunks|docs|documents|docume)$", name):
+                return False
+            if re.match(
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume)$", name
+            ):
                 return False
         return True
 
