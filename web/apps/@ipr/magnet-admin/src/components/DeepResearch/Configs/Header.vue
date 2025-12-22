@@ -78,12 +78,16 @@ q-inner-loading(:showing='loading')
 
 <script>
 import { ref } from 'vue'
+import { useQuasar } from 'quasar'
 
 export default {
   props: ['activeRow'],
   emits: ['update:closeDrawer'],
   setup() {
+    const $q = useQuasar()
+    
     return {
+      $q,
       loading: ref(false),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),

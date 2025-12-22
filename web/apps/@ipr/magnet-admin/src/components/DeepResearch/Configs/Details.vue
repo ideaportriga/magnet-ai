@@ -405,21 +405,21 @@ watch(() => config.value, (newVal) => {
 const navigateToPrompt = (systemName: string) => {
   const prompt = promptTemplates.value.find((p: any) => p.system_name === systemName)
   if (prompt) {
-    window.open(`/prompt-templates/${prompt.id}`, '_blank')
+    window.open(router.resolve({ path: `/prompt-templates/${prompt.id}` }).href, '_blank')
   }
 }
 
 const navigateToApiServer = (systemName: string) => {
   const server = apiServers.value.find((s: any) => s.system_name === systemName)
   if (server) {
-    window.open(`/api-servers/${server.id}`, '_blank')
+    window.open(router.resolve({ path: `/api-servers/${server.id}` }).href, '_blank')
   }
 }
 
 const navigateToTool = (serverSystemName: string, toolName: string) => {
   const server = apiServers.value.find((s: any) => s.system_name === serverSystemName)
   if (server) {
-    window.open(`/api-servers/${server.id}?tool=${toolName}`, '_blank')
+    window.open(router.resolve({ path: `/api-servers/${server.id}?tool=${toolName}` }).href, '_blank')
   }
 }
 </script>
