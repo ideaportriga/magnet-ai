@@ -81,6 +81,11 @@ If you prefer to run the database yourself (e.g. on a remote server or local ins
 ```bash
 npm run dev:api
 ```
+or with auto-reload enabled:
+
+```bash
+npm run dev:api:reload
+```
 
 #### Option D: Web Only
 
