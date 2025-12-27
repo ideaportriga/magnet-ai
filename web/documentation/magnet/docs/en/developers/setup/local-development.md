@@ -354,5 +354,5 @@ console.error('Error')
 ## Next Steps
 
 - [Testing](/docs/en/developers/setup/testing) - Testing guide
-- [Deployment](/docs/en/developers/setup/deployment) - Deployment strategies
+- [Run with Docker Compose](/docs/en/developers/setup/run-with-docker-compose) - Start the full stack (app + database) in Docker
 - [Plugin Development](/docs/en/developers/plugins/creating-plugins) - Create plugins
