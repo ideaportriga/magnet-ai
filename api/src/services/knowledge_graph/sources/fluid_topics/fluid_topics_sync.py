@@ -316,7 +316,7 @@ class FluidTopicsSyncPipeline(
                             logger.warning(
                                 "Skipping Fluid Topics document: no content config found",
                                 extra=self._log_extra(
-                                    worker_id=worker_id, filename=filename
+                                    worker_id=worker_id, doc_filename=filename
                                 ),
                             )
                             await ctx.inc("skipped")
@@ -325,7 +325,7 @@ class FluidTopicsSyncPipeline(
                         logger.debug(
                             "Downloading Fluid Topics file",
                             extra=self._log_extra(
-                                worker_id=worker_id, filename=filename
+                                worker_id=worker_id, doc_filename=filename
                             ),
                         )
                         file_bytes = await download_file(self, ctx, filename)
@@ -363,7 +363,7 @@ class FluidTopicsSyncPipeline(
                         extra=self._log_extra(
                             worker_id=worker_id,
                             task_kind=task.kind,
-                            filename=getattr(task, "filename", None),
+                            doc_filename=getattr(task, "filename", None),
                             map_id=getattr(task, "map_id", None),
                             map_title=getattr(task, "map_title", None),
                             error=str(exc),

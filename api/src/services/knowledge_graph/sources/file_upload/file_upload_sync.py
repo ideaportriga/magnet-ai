@@ -132,7 +132,7 @@ class FileUploadSyncPipeline(
                         "File upload content_fetch worker failed",
                         extra=self._log_extra(
                             worker_id=worker_id,
-                            filename=filename or None,
+                            doc_filename=filename or None,
                             error=str(exc),
                             error_type=type(exc).__name__,
                         ),
@@ -148,7 +148,7 @@ class FileUploadSyncPipeline(
                             "Failed to mark file upload document error",
                             extra=self._log_extra(
                                 worker_id=worker_id,
-                                filename=filename or None,
+                                doc_filename=filename or None,
                                 error=str(mark_exc),
                                 error_type=type(mark_exc).__name__,
                             ),
@@ -160,7 +160,7 @@ class FileUploadSyncPipeline(
                             "Failed to rollback session after file upload content_fetch failure",
                             extra=self._log_extra(
                                 worker_id=worker_id,
-                                filename=filename or None,
+                                doc_filename=filename or None,
                                 error=str(rb_exc),
                                 error_type=type(rb_exc).__name__,
                             ),

@@ -320,7 +320,7 @@ async def download_file(
             "Fluid Topics file download completed",
             extra=_log_extra_from_ctx(
                 pipeline,
-                filename=filename,
+                doc_filename=filename,
                 bytes=len(content),
                 download_host=download_host,
                 download_scheme=download_scheme,
@@ -339,7 +339,7 @@ async def download_file(
             "Fluid Topics file download failed",
             extra=_log_extra_from_ctx(
                 pipeline,
-                filename=filename,
+                doc_filename=filename,
                 status_code=exc.response.status_code,
                 request_host=host,
                 error=str(exc),
@@ -359,7 +359,7 @@ async def download_file(
             "Fluid Topics file download failed",
             extra=_log_extra_from_ctx(
                 pipeline,
-                filename=filename,
+                doc_filename=filename,
                 request_host=host,
                 error=str(exc),
                 error_type=type(exc).__name__,
