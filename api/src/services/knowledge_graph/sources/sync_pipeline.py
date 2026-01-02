@@ -4,6 +4,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Awaitable, Callable, Generic, Literal, TypeVar
 
+from services.observability import observability_context, observe
+from services.observability.models import SpanExportMethod
+
 from ..models import SyncCounters, SyncPipelineConfig
 
 logger = logging.getLogger(__name__)
@@ -137,6 +140,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         self.config = config
         self.counters = SyncCounters()
 
+    @observe(name="Run sync pipeline")
     async def _run_pipeline(
         self,
         *,
@@ -158,6 +162,10 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             self.config.content_fetch_queue_max,
             self.config.document_processing_queue_max,
             self.config.semaphores,
+        )
+
+        observability_context.update_current_config(
+            span_export_method=SpanExportMethod.IGNORE_BUT_USE_FOR_TOTALS
         )
 
         listing_queue: asyncio.Queue[Any] = asyncio.Queue(
