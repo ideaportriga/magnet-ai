@@ -41,14 +41,7 @@
             <div class="kg-sync-cell row items-center no-wrap">
               <!-- Status column (fixed width for alignment) -->
               <div class="column items-start justify-center q-gap-6">
-                <q-chip
-                  :class="['text-uppercase q-ma-none', { 'chip-rotating': effectiveStatus(slotScope.row) === 'syncing' }]"
-                  size="sm"
-                  :color="getSourceStatusColor(effectiveStatus(slotScope.row))"
-                  :text-color="getSourceStatusTextColor(effectiveStatus(slotScope.row))"
-                  :label="formatSourceStatusLabel(effectiveStatus(slotScope.row))"
-                  :icon="getSourceStatusIcon(effectiveStatus(slotScope.row))"
-                />
+                <kg-status-badge :status="effectiveStatus(slotScope.row)" />
                 <div class="kg-sync-meta row items-center no-wrap q-gutter-x-xs q-ml-4">
                   <span class="kg-sync-meta-label">Last sync:</span>
                   <span class="kg-sync-meta-value">
@@ -153,7 +146,7 @@ import { formatRelative } from '@shared/utils'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
 import { useStore } from 'vuex'
-import { KgConfirmDialog } from '../common'
+import { KgConfirmDialog, KgStatusBadge } from '../common'
 import { formatAdded, getSourceTypeName, type SourceRow, type SourceSchedule } from './models'
 import SourceTypeDialog from './SourceTypeDialog.vue'
 import { getDialogComponentFor, isSyncable, type SourceTypeKey } from './SourceTypes/registry'
@@ -296,12 +289,6 @@ const fetchSources = async () => {
   }
 }
 
-function formatSourceStatusLabel(status?: string) {
-  const s = (status || '').toLowerCase()
-  if (!s) return 'unknown'
-  return s.split('_').join(' ')
-}
-
 function effectiveStatus(row: SourceRow): string {
   // If manual upload in progress, surface 'syncing' for upload source
   if ((kgUploading?.value && row.type === 'upload') || syncingIds.value.has(row.id)) {
@@ -364,60 +351,6 @@ function formatScheduleSummary(schedule?: SourceSchedule): string {
   }
 
   return `Every day at ${time}`
-}
-
-function getSourceStatusColor(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'status-ready'
-    case 'syncing':
-      return 'info'
-    case 'partial':
-      return 'warning'
-    case 'failed':
-    case 'error':
-      return 'error-bg'
-    case 'not_synced':
-      return 'gray'
-    default:
-      return 'gray'
-  }
-}
-
-function getSourceStatusTextColor(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'status-ready-text'
-    case 'syncing':
-      return 'white'
-    case 'partial':
-      return 'black'
-    case 'failed':
-    case 'error':
-      return 'error-text'
-    case 'not_synced':
-      return 'text-gray'
-    default:
-      return 'text-gray'
-  }
-}
-
-function getSourceStatusIcon(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'check_circle'
-    case 'syncing':
-      return 'sync'
-    case 'partial':
-      return 'warning'
-    case 'failed':
-    case 'error':
-      return 'error'
-    case 'not_synced':
-      return 'schedule'
-    default:
-      return 'help_outline'
-  }
 }
 
 const handleSourceTypeSelect = (sourceType: 'upload' | 'sharepoint' | 'fluid_topics') => {

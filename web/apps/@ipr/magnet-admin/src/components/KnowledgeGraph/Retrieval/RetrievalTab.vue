@@ -137,7 +137,7 @@
                 <q-tooltip class="text-body2">Select an LLM to generate responses</q-tooltip>
               </q-icon>
             </div>
-            <StyledSelect
+            <kg-dropdown-field
               v-model="model"
               :options="availableModels"
               placeholder="Select language model"
@@ -155,7 +155,7 @@
                 <span class="km-input-label text-grey-6">Reasoning Effort</span>
                 <q-badge color="orange-1" text-color="orange-9" label="Coming Soon" class="text-weight-medium" />
               </div>
-              <StyledSelect model-value="" :options="reasoningEffortOptions" placeholder="Select reasoning effort" :disable="true" />
+              <kg-dropdown-field model-value="" :options="reasoningEffortOptions" placeholder="Select reasoning effort" :disable="true" />
             </div>
           </div>
 
@@ -233,8 +233,7 @@ import { uid, useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import StyledSelect from '../StyledSelect.vue'
-import { KgExpandablePrompt } from '../common'
+import { KgDropdownField, KgExpandablePrompt } from '../common'
 import GuidedExamplesTable from './GuidedExamplesTable.vue'
 import TabControls from './RetrievalTabControls.vue'
 import ToolSection from './ToolSection.vue'

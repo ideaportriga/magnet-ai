@@ -15,7 +15,7 @@
       </q-card-section>
 
       <!-- Content -->
-      <q-card-section class="kg-dialog__content" :class="contentClass">
+      <q-card-section class="kg-dialog__content">
         <div class="column q-gap-16">
           <slot />
         </div>
@@ -63,7 +63,7 @@ interface Props {
   innerLoading?: boolean
   error?: string
   size?: DialogSize
-  scrollable?: boolean
+  height?: string
   maxHeight?: string
 }
 
@@ -75,8 +75,8 @@ const props = withDefaults(defineProps<Props>(), {
   innerLoading: false,
   error: '',
   size: 'md',
-  scrollable: false,
-  maxHeight: '',
+  height: '',
+  maxHeight: '80vh',
 })
 
 const emit = defineEmits<{
@@ -98,22 +98,19 @@ const dialogStyle = computed(() => {
   const style: Record<string, string> = {
     minWidth: min,
     maxWidth: max,
+    display: 'flex',
+    flexDirection: 'column',
   }
-  if (props.scrollable && props.maxHeight) {
+  if (props.height) {
+    style.height = props.height
+  }
+  if (props.maxHeight) {
     style.maxHeight = props.maxHeight
-    style.display = 'flex'
-    style.flexDirection = 'column'
   }
   return style
 })
 
-const dialogClass = computed(() => ({
-  'kg-dialog--scrollable': props.scrollable,
-}))
-
-const contentClass = computed(() => ({
-  'kg-dialog__content--scrollable': props.scrollable,
-}))
+const dialogClass = computed(() => ({}))
 
 const onCancel = () => {
   emit('cancel')
@@ -132,7 +129,8 @@ const onClose = () => {
 }
 
 .kg-dialog__header {
-  padding-bottom: 0;
+  padding-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .kg-dialog__subtitle {
@@ -145,16 +143,15 @@ const onClose = () => {
 }
 
 .kg-dialog__content {
-  padding: 16px;
-}
-
-.kg-dialog__content--scrollable {
+  padding: 0 16px;
   flex: 1 1 auto;
-  overflow: auto;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .kg-dialog__actions {
   padding: 16px;
+  flex-shrink: 0;
 }
 
 .kg-dialog__action__button {

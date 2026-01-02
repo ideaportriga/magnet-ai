@@ -11,7 +11,7 @@
               <div class="col">
                 <div class="row items-center no-wrap" style="height: 32px">
                   <div class="km-heading-4 text-black q-mr-md">{{ document?.title || document?.name || 'Document' }}</div>
-                  <file-type-badge v-if="document?.type" :type="document.type" class="q-mx-xs" />
+                  <kg-file-type-badge v-if="document?.type" :type="document.type" class="q-mx-xs" />
                   <q-chip dense outline square color="grey-7" icon="menu_book" class="q-ml-sm q-px-md q-py-12" style="font-size: 12px">
                     {{ document?.total_pages || 0 }} pages
                   </q-chip>
@@ -119,7 +119,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import ChunkDrawer from './ChunkDrawer.vue'
-import FileTypeBadge from './FileTypeBadge.vue'
+import { KgFileTypeBadge } from '../common'
 import { Chunk, Document, TocNode, TreeNode } from './models'
 
 const route = useRoute()
