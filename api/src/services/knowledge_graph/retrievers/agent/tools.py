@@ -4,7 +4,6 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.domain.knowledge_graph.schemas import ChunkSearchResult
 from core.domain.knowledge_graph.service import KnowledgeGraphChunkService
 from open_ai.utils_new import get_embeddings
 from services.knowledge_graph.store_services import search_documents
@@ -51,7 +50,7 @@ async def findChunksBySimilarity(
     min_score: float,
     # TODO: figure out how to pass document query to filter chunks
     doc_filter_ids: list[str],
-) -> list[ChunkSearchResult]:
+) -> list[dict[str, Any]]:
     observability_context.update_current_span(
         input={
             "query": q,

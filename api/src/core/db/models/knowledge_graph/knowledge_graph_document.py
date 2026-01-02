@@ -59,6 +59,28 @@ class KnowledgeGraphDocument:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+    def to_json(self) -> dict:
+        return {
+            "id": str(self.id) if self.id is not None else None,
+            "name": self.name,
+            "type": self.type,
+            "content_profile": self.content_profile,
+            "title": self.title,
+            "summary": self.summary,
+            "toc": self.toc,
+            "summary_embedding": self.summary_embedding,
+            "status": self.status,
+            "status_message": self.status_message,
+            "total_pages": self.total_pages,
+            "processing_time": self.processing_time,
+            "created_at": self.created_at.isoformat()
+            if self.created_at is not None
+            else None,
+            "updated_at": self.updated_at.isoformat()
+            if self.updated_at is not None
+            else None,
+        }
+
     @classmethod
     def from_mapping(cls, row: Mapping[str, Any]) -> KnowledgeGraphDocument:
         """Create an instance from a mapping (e.g. SQLAlchemy RowMapping)."""
