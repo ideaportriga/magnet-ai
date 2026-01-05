@@ -1163,6 +1163,51 @@ def _register_note_taker_handlers(
 
         return token_holder["token"]
 
+    async def _check_meeting_in_progress(
+        context: TurnContext, meeting_id: str
+    ) -> bool | None:
+        continuation_token: str | None = None
+        try:
+            while True:
+                paged = await TeamsInfo.get_paged_members(
+                    context, page_size=20, continuation_token=continuation_token
+                )
+                for member in getattr(paged, "members", None) or []:
+                    participant_id = getattr(member, "id", None)
+                    if not participant_id:
+                        continue
+                    try:
+                        participant = await TeamsInfo.get_meeting_participant(
+                            context, meeting_id=meeting_id, participant_id=participant_id
+                        )
+                        logger.info(
+                            "[teams note-taker] participant: %s (%s)",
+                            participant,
+                            type(participant),
+                        )
+                    except Exception as err:
+                        logger.debug(
+                            "Meeting participant check failed (user=%s): %s",
+                            participant_id,
+                            err,
+                        )
+                        continue
+
+                    meeting_info = participant.get("meeting")
+                    in_meeting_flag = meeting_info.get("in_meeting") or meeting_info.get("inMeeting")
+
+                    if in_meeting_flag:
+                        return True
+
+                continuation_token = getattr(paged, "continuation_token", None)
+                if not continuation_token:
+                    break
+        except Exception as err:
+            logger.debug("Failed to iterate meeting participants: %s", err)
+            return None
+
+        return False
+
     async def _handle_meeting_info(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -1207,6 +1252,18 @@ def _register_note_taker_handlers(
 
         organizer = f"Organizer: {organizer_name} ({organizer_email}) [id: {organizer_id}, aadObjectId: {organizer_aad}]"
 
+        try:
+            in_progress = await _check_meeting_in_progress(context, meeting_id)
+        except Exception as err:
+            logger.debug("Meeting in-progress check failed: %s", err)
+            in_progress = None
+
+        status = (
+            "yes (at least one participant found in meeting)" if in_progress is True
+            else "no active participants found in meeting" if in_progress is False
+            else "unknown (could not verify participants)"
+        )
+
         lines = [
             "Meeting info:",
             f"- Type: {meeting_type}",
@@ -1215,6 +1272,7 @@ def _register_note_taker_handlers(
             f"- {organizer}",
             f"- Start: {_format_iso_datetime(start_time)}",
             f"- End: {_format_iso_datetime(end_time)}",
+            f"- In progress: {status}"
         ]
 
         await context.send_activity("\n".join(lines))
@@ -1298,7 +1356,7 @@ def _register_note_taker_handlers(
 
         normalized_text = text.lower()
 
-        if normalized_text.startswith("/test-proactive-token"):
+        if normalized_text.startswith("/test-proactive-token"): # TODO: remove this
             conv_ref = context.activity.get_conversation_reference()
             logger.info("[teams note-taker] conv_ref: %s", conv_ref)
             aad_object_id = context.activity.from_property.aad_object_id
