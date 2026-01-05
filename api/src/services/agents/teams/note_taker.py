@@ -7,7 +7,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Dict, Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, quote
 
 import httpx
 from microsoft_agents.activity import (
@@ -50,6 +50,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
+    GRAPH_BASE_URL,
     create_graph_client_with_token,
     get_meeting_recordings,
 )
@@ -721,6 +722,22 @@ async def _get_online_meeting_id(context: TurnContext) -> Optional[str]:
     return getattr(details, "ms_graph_resource_id", None)
 
 
+def _resolve_recordings_ready_webhook_url() -> str | None:
+    base_url = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if base_url:
+        return f"{base_url}/api/user/agents/teams/webhooks/recordings-ready"
+
+    return None
+
+
+def _resolve_recordings_lifecycle_webhook_url() -> str | None:
+    base_url = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if base_url:
+        return f"{base_url}/api/user/agents/teams/webhooks/recordings-lifecycle"
+
+    return None
+
+
 def _register_note_taker_handlers(
     app: AgentApplication[TurnState],
     auth_handler_id: str,
@@ -897,7 +914,7 @@ def _register_note_taker_handlers(
 
         return True
 
-    async def _ensure_organizer_delegated_token_cached(
+    async def _ensure_organizer_delegated_token_cached( # TODO: remove this
         context: TurnContext,
         handler_id: str,
         *,
@@ -1163,6 +1180,226 @@ def _register_note_taker_handlers(
 
         return token_holder["token"]
 
+    async def _get_organizer_delegated_token_from_cache(
+        context: TurnContext,
+    ) -> str | None:
+        if not _is_meeting_conversation(context):
+            return None
+
+        try:
+            organizer = await _get_meeting_organizer_identity(context)
+        except Exception as err:
+            logger.warning(
+                "Unable to resolve meeting organizer for subscription: %s",
+                getattr(err, "message", str(err)),
+            )
+            return None
+
+        organizer_aad = organizer.get("aad_object_id")
+        organizer_id = organizer.get("id")
+        if not organizer_aad and not organizer_id:
+            logger.info(
+                "Organizer identity missing; skipping delegated token fetch for subscription."
+            )
+            return None
+
+        conv_ref = await _fetch_organizer_conversation_reference(
+            organizer_aad=organizer_aad, bot_app_id=bot_app_id
+        )
+        if not conv_ref:
+            logger.info(
+                "No organizer personal conversation reference available for subscription token fetch."
+            )
+            return None
+
+        return await _get_token_proactively(
+            adapter=adapter,
+            app=app,
+            bot_app_id=bot_app_id,
+            conv_ref=conv_ref,
+            handler_id=auth_handler_id,
+            aad_object_id=organizer_aad,
+            user_id=organizer_id,
+            tenant_id=bot_tenant_id,
+            notify_if_missing=False,
+        )
+
+    async def _subscribe_to_recording_notifications(
+        context: TurnContext,
+    ) -> None:
+        webhook_url = _resolve_recordings_ready_webhook_url()
+        if not webhook_url:
+            logger.warning(
+                "[teams note-taker] recordings-ready webhook URL not configured; skipping subscription."
+            )
+            return
+
+        meeting = _resolve_meeting_details(context)
+        chat_id = meeting.get("conversationId")
+
+        online_meeting_id = await _get_online_meeting_id(context)
+        if not online_meeting_id:
+            logger.info(
+                "[teams note-taker] cannot create recording subscription; missing online meeting id."
+            )
+            return
+
+        delegated_token = await _get_organizer_delegated_token_from_cache(context)
+        if not delegated_token:
+            logger.info(
+                "[teams note-taker] organizer delegated token unavailable; cannot create recording subscription."
+            )
+            return
+
+        expiration = (
+            dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=4)
+        ).isoformat()
+        if expiration.endswith("+00:00"):
+            expiration = expiration.replace("+00:00", "Z")
+
+        lifecycle_webhook = _resolve_recordings_lifecycle_webhook_url()
+
+        encoded_meeting_id = quote(online_meeting_id, safe="")
+        resource = f"communications/onlineMeetings/{encoded_meeting_id}/recordings"
+        body = {
+            "changeType": "created",
+            "notificationUrl": webhook_url,
+            "resource": resource,
+            "expirationDateTime": expiration,
+            "clientState": "recordings-ready",
+            "latestSupportedTlsVersion": "v1_2",
+        }
+        if lifecycle_webhook:
+            body["lifecycleNotificationUrl"] = lifecycle_webhook
+
+        subscription_id = None
+        expiration_dt: dt.datetime | None = None
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{GRAPH_BASE_URL}/subscriptions",
+                    headers={"Authorization": f"Bearer {delegated_token}"},
+                    json=body,
+                )
+                if response.status_code >= 400:
+                    logger.error(
+                        "[teams note-taker] recording subscription failed status=%s body=%s",
+                        response.status_code,
+                        response.text,
+                    )
+                    response.raise_for_status()
+
+                payload = response.json()
+                subscription_id = payload.get("id")
+                exp_raw = payload.get("expirationDateTime")
+                if exp_raw:
+                    try:
+                        expiration_dt = dt.datetime.fromisoformat(
+                            exp_raw.replace("Z", "+00:00")
+                        )
+                    except Exception:
+                        expiration_dt = None
+
+                logger.info(
+                    "[teams note-taker] recording subscription created id=%s expires=%s chat_id=%s meeting=%s",
+                    subscription_id,
+                    exp_raw,
+                    chat_id,
+                    online_meeting_id,
+                )
+        except Exception as err:
+            logger.exception(
+                "[teams note-taker] failed to create recording subscription for meeting %s",
+                online_meeting_id,
+            )
+            try:
+                async with async_session_maker() as session:
+                    try:
+                        await session.execute(
+                            pg_insert(TeamsMeeting)
+                            .values(
+                                chat_id=chat_id,
+                                graph_online_meeting_id=online_meeting_id,
+                                subscription_last_error=getattr(
+                                    err, "message", str(err)
+                                ),
+                                last_seen_at=dt.datetime.now(dt.timezone.utc),
+                            )
+                            .on_conflict_do_update(
+                                index_elements=[TeamsMeeting.chat_id],
+                                set_={
+                                    "graph_online_meeting_id": online_meeting_id,
+                                    "subscription_last_error": getattr(
+                                        err, "message", str(err)
+                                    ),
+                                    "updated_at": func.now(),
+                                    "last_seen_at": func.now(),
+                                },
+                            )
+                        )
+                        await session.commit()
+                    except Exception:
+                        await session.rollback()
+                        raise
+            except Exception:
+                logger.debug(
+                    "[teams note-taker] failed to persist subscription error for chat %s",
+                    chat_id,
+                )
+            return
+
+        if not chat_id or not subscription_id:
+            return
+
+        try:
+            conv_ref_obj = context.activity.get_conversation_reference()
+            conv_ref = (
+                ConversationReference.model_validate(conv_ref_obj).model_dump()
+                if conv_ref_obj
+                else None
+            )
+        except Exception:
+            conv_ref = None
+
+        now = dt.datetime.now(dt.timezone.utc)
+        try:
+            async with async_session_maker() as session:
+                try:
+                    stmt = pg_insert(TeamsMeeting).values(
+                        chat_id=chat_id,
+                        graph_online_meeting_id=online_meeting_id,
+                        subscription_id=subscription_id,
+                        subscription_expires_at=expiration_dt,
+                        subscription_is_active=True,
+                        subscription_last_error=None,
+                        subscription_conversation_reference=conv_ref,
+                        last_seen_at=now,
+                    )
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=[TeamsMeeting.chat_id],
+                        set_={
+                            "graph_online_meeting_id": online_meeting_id,
+                            "subscription_id": subscription_id,
+                            "subscription_expires_at": expiration_dt,
+                            "subscription_is_active": True,
+                            "subscription_last_error": None,
+                            "subscription_conversation_reference": conv_ref,
+                            "last_seen_at": now,
+                            "updated_at": func.now(),
+                        },
+                    )
+                    await session.execute(stmt)
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    raise
+        except Exception as err:
+            logger.warning(
+                "[teams note-taker] failed to persist recording subscription metadata for chat %s: %s",
+                chat_id,
+                getattr(err, "message", str(err)),
+            )
+
     async def _check_meeting_in_progress(
         context: TurnContext, meeting_id: str
     ) -> bool | None:
@@ -1178,7 +1415,9 @@ def _register_note_taker_handlers(
                         continue
                     try:
                         participant = await TeamsInfo.get_meeting_participant(
-                            context, meeting_id=meeting_id, participant_id=participant_id
+                            context,
+                            meeting_id=meeting_id,
+                            participant_id=participant_id,
                         )
                         logger.info(
                             "[teams note-taker] participant: %s (%s)",
@@ -1194,7 +1433,9 @@ def _register_note_taker_handlers(
                         continue
 
                     meeting_info = participant.get("meeting")
-                    in_meeting_flag = meeting_info.get("in_meeting") or meeting_info.get("inMeeting")
+                    in_meeting_flag = meeting_info.get(
+                        "in_meeting"
+                    ) or meeting_info.get("inMeeting")
 
                     if in_meeting_flag:
                         return True
@@ -1259,8 +1500,10 @@ def _register_note_taker_handlers(
             in_progress = None
 
         status = (
-            "yes (at least one participant found in meeting)" if in_progress is True
-            else "no active participants found in meeting" if in_progress is False
+            "yes (at least one participant found in meeting)"
+            if in_progress is True
+            else "no active participants found in meeting"
+            if in_progress is False
             else "unknown (could not verify participants)"
         )
 
@@ -1272,7 +1515,7 @@ def _register_note_taker_handlers(
             f"- {organizer}",
             f"- Start: {_format_iso_datetime(start_time)}",
             f"- End: {_format_iso_datetime(end_time)}",
-            f"- In progress: {status}"
+            f"- In progress: {status}",
         ]
 
         await context.send_activity("\n".join(lines))
@@ -1314,7 +1557,7 @@ def _register_note_taker_handlers(
             await _handle_install_flow(context, _state)
             if _is_meeting_conversation(context):
                 await context.send_activity("Magnet note taker added to the meeting.")
-                await _ensure_organizer_delegated_token_cached(
+                await _ensure_organizer_delegated_token_cached( # TODO: remove this?
                     context, auth_handler_id, prompt_on_missing=True
                 )
         elif action == "remove":
@@ -1356,7 +1599,7 @@ def _register_note_taker_handlers(
 
         normalized_text = text.lower()
 
-        if normalized_text.startswith("/test-proactive-token"): # TODO: remove this
+        if normalized_text.startswith("/test-proactive-token"):  # TODO: remove this
             conv_ref = context.activity.get_conversation_reference()
             logger.info("[teams note-taker] conv_ref: %s", conv_ref)
             aad_object_id = context.activity.from_property.aad_object_id
@@ -1469,6 +1712,7 @@ def _register_note_taker_handlers(
         normalized = str(name or "").lower()
         if normalized == "application/vnd.microsoft.meetingstart":
             logger.info("[teams note-taker] meeting start event received.")
+            await _subscribe_to_recording_notifications(context)
         elif normalized == "application/vnd.microsoft.meetingend":
             logger.info("[teams note-taker] meeting end event received.")
 
