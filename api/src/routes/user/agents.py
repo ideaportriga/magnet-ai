@@ -14,6 +14,7 @@ from litestar.params import Body
 from litestar.response import Response
 from litestar.status_codes import (
     HTTP_200_OK,
+    HTTP_202_ACCEPTED,
     HTTP_401_UNAUTHORIZED,
     HTTP_400_BAD_REQUEST,
     HTTP_403_FORBIDDEN,
@@ -593,6 +594,66 @@ class UserAgentsController(Controller):
             content = response_body
 
         return Response(status_code=status, content=content, headers=headers)
+
+    @post(
+        "/teams/webhooks/recordings-ready",
+        status_code=HTTP_200_OK,
+        exclude_from_auth=True,
+        summary="Webhook for Teams recording ready notifications",
+        description=(
+            "Receives Microsoft Graph change notifications when a Teams meeting recording becomes available. "
+            "Echoes the `validationToken` query parameter during subscription validation."
+        ),
+    )
+    async def handle_teams_recordings_ready_webhook(
+        self, request: Request, payload: Dict[str, Any] | None = Body()
+    ) -> Response:
+        validation_token = request.query_params.get("validationToken")
+        if validation_token:
+            return Response(
+                status_code=HTTP_200_OK,
+                content=str(validation_token),
+                media_type="text/plain",
+            )
+
+        if not payload:
+            try:
+                raw = await request.body()
+                payload = json.loads(raw.decode("utf-8")) if raw else {}
+            except Exception:
+                payload = {}
+        logger.info("Teams recordings-ready webhook payload: %s", payload or {})
+        return Response(status_code=HTTP_202_ACCEPTED, content=b"")
+
+    @post(
+        "/teams/webhooks/recordings-lifecycle",
+        status_code=HTTP_200_OK,
+        exclude_from_auth=True,
+        summary="Webhook for Teams recording subscription lifecycle",
+        description=(
+            "Accepts Microsoft Graph notifications used to manage longer-running recording subscriptions "
+            "(e.g., renewals or meeting-start events). Returns the `validationToken` for handshake requests."
+        ),
+    )
+    async def handle_teams_recordings_lifecycle_webhook(
+        self, request: Request, payload: Dict[str, Any] | None = Body()
+    ) -> Response:
+        validation_token = request.query_params.get("validationToken")
+        if validation_token:
+            return Response(
+                status_code=HTTP_200_OK,
+                content=str(validation_token),
+                media_type="text/plain",
+            )
+
+        if not payload:
+            try:
+                raw = await request.body()
+                payload = json.loads(raw.decode("utf-8")) if raw else {}
+            except Exception:
+                payload = {}
+        logger.info("Teams recordings-lifecycle webhook payload: %s", payload or {})
+        return Response(status_code=HTTP_202_ACCEPTED, content=b"")
 
     @post(
         "/slack/events",
