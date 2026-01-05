@@ -7,7 +7,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Dict, Optional
-from urllib.parse import parse_qs, urlparse, quote
+from urllib.parse import parse_qs, urlparse, quote, unquote
+from types import SimpleNamespace
 
 import httpx
 from microsoft_agents.activity import (
@@ -46,7 +47,7 @@ from microsoft_agents.hosting.teams import TeamsInfo
 
 from core.db.session import async_session_maker
 from core.db.models.teams import TeamsMeeting, TeamsUser
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
@@ -738,6 +739,66 @@ def _resolve_recordings_lifecycle_webhook_url() -> str | None:
     return None
 
 
+def _extract_meeting_id_from_notification(notification: dict[str, Any]) -> str | None:
+    resource_data = notification.get("resourceData") or {}
+    meeting_id = resource_data.get("meetingId")
+    if meeting_id:
+        return meeting_id
+
+    resource = str(notification.get("resource") or "")
+    if not resource:
+        return None
+    # Look for onlineMeetings('...') in the resource string
+    marker = "onlineMeetings("
+    if marker in resource:
+        start = resource.index(marker) + len(marker)
+        end = resource.find(")", start)
+        if end > start:
+            raw = resource[start:end].strip("'\"")
+            return unquote(raw)
+    return None
+
+
+def _extract_user_from_resource(notification: dict[str, Any]) -> str | None:
+    resource = str(notification.get("resource") or "")
+    if not resource:
+        return None
+    if "users(" not in resource:
+        return None
+    try:
+        start = resource.index("users(") + len("users(")
+        end = resource.index(")", start)
+        return unquote(resource[start:end]).strip("'\"")
+    except ValueError:
+        return None
+
+
+async def _lookup_conversation_reference_by_user_hint(
+    session,
+    *,
+    bot_app_id: str | None,
+    user_hint: str,
+):
+    """Try to find a TeamsUser conversation reference by either AAD or Teams user id."""
+    if not user_hint or not bot_app_id:
+        return None
+
+    normalized_bot = normalize_bot_id(bot_app_id)
+    stmt = (
+        select(TeamsUser.conversation_reference)
+        .where(
+            or_(
+                TeamsUser.aad_object_id == user_hint,
+                TeamsUser.teams_user_id == user_hint,
+            ),
+            TeamsUser.bot_id == normalized_bot,
+        )
+        .order_by(TeamsUser.last_seen_at.desc())
+    )
+    result = await session.execute(stmt)
+    return result.scalars().first()
+
+
 def _register_note_taker_handlers(
     app: AgentApplication[TurnState],
     auth_handler_id: str,
@@ -914,7 +975,7 @@ def _register_note_taker_handlers(
 
         return True
 
-    async def _ensure_organizer_delegated_token_cached( # TODO: remove this
+    async def _ensure_organizer_delegated_token_cached(  # TODO: remove this
         context: TurnContext,
         handler_id: str,
         *,
@@ -1168,6 +1229,8 @@ def _register_note_taker_handlers(
                     "I need your delegated token to proceed. "
                     "Please use **/sign-in** in our 1:1 chat to authenticate."
                 )
+                
+            await proactive_context.send_activity("I completed getting your delegated token.")
 
         try:
             await adapter.continue_conversation(bot_app_id, continuation, callback)
@@ -1557,7 +1620,7 @@ def _register_note_taker_handlers(
             await _handle_install_flow(context, _state)
             if _is_meeting_conversation(context):
                 await context.send_activity("Magnet note taker added to the meeting.")
-                await _ensure_organizer_delegated_token_cached( # TODO: remove this?
+                await _ensure_organizer_delegated_token_cached(  # TODO: remove this?
                     context, auth_handler_id, prompt_on_missing=True
                 )
         elif action == "remove":
@@ -1820,3 +1883,305 @@ def load_note_taker_runtime_from_env() -> NoteTakerRuntime | None:
         settings.auth_handler_id,
     )
     return runtime
+
+
+async def handle_recordings_ready_notifications(
+    runtime: NoteTakerRuntime, payload: dict[str, Any]
+) -> None:
+    """Process Graph recordings-ready notifications and proactively transcribe the latest recording."""
+    notifications = payload.get("value") or []
+    if not isinstance(notifications, list):
+        logger.debug(
+            "[teams note-taker] recordings-ready payload malformed: %s", payload
+        )
+        return
+
+    bot_app_id = (
+        getattr(getattr(runtime, "agent_app", None), "bot_app_id", None)
+        or getattr(getattr(runtime, "agent_app", None), "_bot_app_id", None)
+        or getattr(getattr(runtime, "validation_config", None), "CLIENT_ID", None)
+        or getattr(getattr(runtime, "validation_config", None), "client_id", None)
+    )
+
+    for notification in notifications:
+        if not isinstance(notification, dict):
+            continue
+        subscription_id = notification.get("subscriptionId")
+        if not subscription_id:
+            continue
+
+        meeting_row: TeamsMeeting | None = None
+        resource_data = notification.get("resourceData") or {}
+        chat_id_hint = unquote(str(resource_data.get("chatId") or "")) or None
+        meeting_id_hint = _extract_meeting_id_from_notification(notification)
+        organizer_aad = _extract_user_from_resource(notification)
+        try:
+            async with async_session_maker() as session:
+                conditions = [TeamsMeeting.subscription_id == subscription_id]
+                if chat_id_hint:
+                    conditions.append(TeamsMeeting.chat_id == chat_id_hint)
+                if meeting_id_hint:
+                    conditions.append(
+                        or_(
+                            TeamsMeeting.graph_online_meeting_id == meeting_id_hint,
+                            TeamsMeeting.meeting_id == meeting_id_hint,
+                        )
+                    )
+
+                stmt = select(TeamsMeeting).where(or_(*conditions))
+                result = await session.execute(stmt)
+                meeting_row = result.scalars().first()
+
+                if meeting_row is None:
+                    logger.info(
+                        "[teams note-taker] no meeting match (sub=%s, chat_hint=%s, meeting_hint=%s)",
+                        subscription_id,
+                        chat_id_hint,
+                        meeting_id_hint,
+                    )
+        except Exception as err:
+            logger.warning(
+                "[teams note-taker] failed to load meeting for subscription %s: %s",
+                subscription_id,
+                getattr(err, "message", str(err)),
+            )
+            # we'll try organizer fallback below
+
+        if meeting_row is None and meeting_id_hint:
+            meeting_row = SimpleNamespace(
+                meeting_id=meeting_id_hint,
+                graph_online_meeting_id=meeting_id_hint,
+                title=None,
+                subscription_conversation_reference=None,
+            )
+            logger.info(
+                "[teams note-taker] proceeding without DB meeting row using meeting id hint %s",
+                meeting_id_hint,
+            )
+
+        conv_ref_payload = (
+            getattr(meeting_row, "subscription_conversation_reference", None)
+            if meeting_row
+            else None
+        )
+        if not conv_ref_payload and organizer_aad:
+            try:
+                conv_ref_payload = await _fetch_organizer_conversation_reference(
+                    organizer_aad=organizer_aad, bot_app_id=bot_app_id
+                )
+                if not conv_ref_payload:
+                    async with async_session_maker() as session:
+                        conv_ref_payload = (
+                            await _lookup_conversation_reference_by_user_hint(
+                                session,
+                                bot_app_id=bot_app_id,
+                                user_hint=organizer_aad,
+                            )
+                        )
+                if conv_ref_payload:
+                    logger.info(
+                        "[teams note-taker] using organizer conversation reference fallback for subscription %s, organizer_aad=%s, bot_app_id=%s",
+                        subscription_id,
+                        organizer_aad,
+                        bot_app_id,
+                    )
+            except Exception as err:
+                logger.debug(
+                    "[teams note-taker] organizer conversation lookup failed: %s",
+                    getattr(err, "message", str(err)),
+                )
+
+        if meeting_row is None or not conv_ref_payload:
+            logger.info(
+                "[teams note-taker] no usable conversation reference for subscription %s, organizer_aad=%s, bot_app_id=%s; skipping",
+                subscription_id,
+                organizer_aad,
+                bot_app_id,
+            )
+            continue
+
+        try:
+            conv_payload = conv_ref_payload
+            if isinstance(conv_payload, dict):
+                conv_payload = dict(conv_payload)
+                # Normalize common variants from stored references.
+                if "agent" in conv_payload and "bot" not in conv_payload:
+                    conv_payload["bot"] = conv_payload.get("agent")
+                if "bot" in conv_payload and isinstance(conv_payload["bot"], dict):
+                    conv_payload["bot"].setdefault("id", conv_payload["bot"].get("id"))
+            if not isinstance(conv_payload, ConversationReference):
+                conv_ref_obj = ConversationReference.model_validate(conv_payload)
+            else:
+                conv_ref_obj = conv_payload
+
+            is_agentic_attr = getattr(conv_ref_obj, "is_agentic_request", None)
+            if is_agentic_attr is None or not callable(is_agentic_attr):
+                try:
+                    setattr(conv_ref_obj, "is_agentic_request", lambda: False)
+                except Exception:
+                    pass
+        except Exception as err:
+            logger.warning(
+                "[teams note-taker] invalid conversation reference for subscription %s: %s",
+                subscription_id,
+                getattr(err, "message", str(err)),
+            )
+            continue
+
+        async def _callback(context: TurnContext):
+            await _process_recording_notification_for_meeting(
+                context=context,
+                runtime=runtime,
+                meeting_row=meeting_row,
+                notification=notification,
+            )
+
+        try:
+            continuation = Activity.create_event_activity()
+            continuation.name = "recordingReadyNotification"
+            normalized_ref = (
+                ConversationReference.model_validate(conv_ref_obj)
+                if not isinstance(conv_ref_obj, ConversationReference)
+                else conv_ref_obj
+            )
+            continuation.apply_conversation_reference(normalized_ref, is_incoming=True)
+
+            # ensure tenant id is present on continuation
+            tenant_id = getattr(normalized_ref, "tenant_id", None) or getattr(
+                getattr(normalized_ref, "conversation", None), "tenant_id", None
+            )
+            if tenant_id:
+                continuation.channel_data = continuation.channel_data or {}
+                continuation.channel_data.setdefault("tenant", {"id": tenant_id})
+                conv_obj = getattr(continuation, "conversation", None)
+                if conv_obj is not None and getattr(conv_obj, "tenant_id", None) in (
+                    None,
+                    "",
+                ):
+                    try:
+                        conv_obj.tenant_id = tenant_id
+                    except Exception:
+                        pass
+
+            await runtime.adapter.continue_conversation(
+                bot_app_id,
+                continuation,
+                _callback,
+            )
+        except Exception as err:
+            logger.warning(
+                "[teams note-taker] continue_conversation failed for subscription %s: %s",
+                subscription_id,
+                getattr(err, "message", str(err)),
+            )
+
+
+async def _process_recording_notification_for_meeting(
+    *,
+    context: TurnContext,
+    runtime: NoteTakerRuntime,
+    meeting_row: TeamsMeeting,
+    notification: dict[str, Any],
+) -> None:
+    await context.send_activity("Recording is ready. Fetching the latest recording...")
+
+    handler_id = getattr(runtime, "auth_handler_id", None)
+    if not handler_id:
+        await context.send_activity("Auth handler is not configured for this bot.")
+        return
+
+    delegated_token: str | None = None
+    try:
+        handler = runtime.agent_app.auth._resolve_handler(handler_id)
+        flow, _ = await handler._load_flow(context)
+        token_response = await flow.get_user_token()
+        delegated_token = getattr(token_response, "token", None)
+    except Exception as err:
+        logger.warning(
+            "[teams note-taker] failed to get delegated token in webhook flow: %s",
+            getattr(err, "message", str(err)),
+        )
+
+    if not delegated_token:
+        await context.send_activity(
+            "I need the meeting organizer to sign in (delegated token missing)."
+        )
+        return
+
+    online_meeting_id = (
+        meeting_row.graph_online_meeting_id
+        or meeting_row.meeting_id
+        or notification.get("resourceData", {}).get("meetingId")
+    )
+    if not online_meeting_id:
+        await context.send_activity("Could not resolve the online meeting id.")
+        return
+
+    try:
+        async with create_graph_client_with_token(delegated_token) as graph_client:
+            recordings = await get_meeting_recordings(
+                client=graph_client,
+                online_meeting_id=online_meeting_id,
+                add_size=True,
+                content_token=delegated_token,
+            )
+    except Exception as err:
+        logger.exception(
+            "[teams note-taker] failed to fetch recordings for meeting %s",
+            online_meeting_id,
+        )
+        await context.send_activity(
+            f"Could not retrieve meeting recordings: {getattr(err, 'message', str(err))}"
+        )
+        return
+
+    if not recordings:
+        await context.send_activity("No recordings found for this meeting.")
+        return
+
+    recording = recordings[0]
+    meeting_info = {
+        "id": meeting_row.meeting_id or meeting_row.graph_online_meeting_id,
+        "title": meeting_row.title,
+    }
+
+    try:
+        recording_bytes = await _download_recording_bytes(
+            recording, delegated_token, meeting_info
+        )
+    except Exception as err:
+        logger.exception("Failed to download recording during webhook processing")
+        await context.send_activity(
+            f"I couldn't download the recording: {getattr(err, 'message', str(err))}"
+        )
+        return
+
+    if not recording_bytes:
+        await context.send_activity("Recording did not include a downloadable URL.")
+        return
+
+    file_bytes, content_type, name, ext = recording_bytes
+    await context.send_activity("Recording downloaded; starting transcription...")
+
+    try:
+        status, result = await _start_transcription_from_bytes(
+            name=name,
+            ext=ext,
+            data=file_bytes,
+            content_type=content_type,
+            language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
+            pipeline_id=_DEFAULT_PIPELINE_ID,
+        )
+    except Exception as err:
+        logger.exception("Failed to start transcription for webhook recording")
+        await context.send_activity(
+            f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
+        )
+        return
+
+    job_id = (result or {}).get("id") if isinstance(result, dict) else None
+    transcription = (
+        (result or {}).get("transcription") if isinstance(result, dict) else None
+    )
+
+    await _send_transcription_summary(context, status, job_id, transcription)

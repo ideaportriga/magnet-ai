@@ -36,7 +36,10 @@ from slack_bolt.response import BoltResponse
 
 from api.tags import TagNames
 
-from services.agents.teams.note_taker import NoteTakerRuntime
+from services.agents.teams.note_taker import (
+    NoteTakerRuntime,
+    handle_recordings_ready_notifications,
+)
 from services.agents.teams.runtime_cache import TeamsRuntimeCache
 from services.agents.slack.runtime_cache import SlackRuntimeCache
 from services.agents.slack.runtime import SlackRuntime
@@ -623,6 +626,14 @@ class UserAgentsController(Controller):
             except Exception:
                 payload = {}
         logger.info("Teams recordings-ready webhook payload: %s", payload or {})
+
+        runtime: NoteTakerRuntime | None = getattr(
+            request.app.state, "teams_note_taker_runtime", None
+        )
+        if runtime:
+            asyncio.create_task(
+                handle_recordings_ready_notifications(runtime, payload or {})
+            )
         return Response(status_code=HTTP_202_ACCEPTED, content=b"")
 
     @post(
