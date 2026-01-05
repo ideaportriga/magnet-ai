@@ -80,7 +80,7 @@
 
           <!-- Buttons in empty state -->
           <div class="row items-center justify-center q-gutter-x-md">
-            <q-btn no-caps unelevated color="primary" icon="add" label="Add Field" class="kg-action-btn" @click.stop="openFieldDialog()" />
+            <q-btn no-caps unelevated color="primary" label="Add Field" class="kg-action-btn" @click.stop="openFieldDialog()" />
             <span class="text-grey-6 text-body2">or</span>
             <q-btn-dropdown
               no-caps
@@ -158,12 +158,34 @@
                   <span class="text-caption text-grey-7">{{ slotProps.row.allowed_values.length }} allowed values</span>
                   <q-tooltip>
                     <div class="text-caption">Allowed values:</div>
-                    <div v-for="v in slotProps.row.allowed_values.slice(0, 10)" :key="v">• {{ v }}</div>
+                    <div v-for="av in slotProps.row.allowed_values.slice(0, 10)" :key="av.value">
+                      • {{ av.value }}
+                      <span v-if="av.hint" class="text-grey-5">— {{ av.hint }}</span>
+                    </div>
                     <div v-if="slotProps.row.allowed_values.length > 10">...and {{ slotProps.row.allowed_values.length - 10 }} more</div>
                   </q-tooltip>
                 </template>
                 <span v-if="slotProps.row.is_required" class="text-caption text-orange-9">Required</span>
                 <span v-if="!slotProps.row.allowed_values?.length && !slotProps.row.is_required" class="text-grey-5">—</span>
+              </div>
+            </q-td>
+          </template>
+
+          <template #body-cell-smart_extraction="slotProps">
+            <q-td :props="slotProps">
+              <div class="row items-center no-wrap q-gutter-x-xs">
+                <q-icon
+                  v-if="slotProps.row.llm_extraction_hint"
+                  :name="slotProps.row.is_required ? 'smart_toy' : 'smart_toy'"
+                  :color="slotProps.row.is_required ? 'purple-7' : 'purple-6'"
+                  size="16px"
+                />
+                <span
+                  class="text-caption"
+                  :class="slotProps.row.llm_extraction_hint ? (slotProps.row.is_required ? 'text-purple-7' : 'text-purple-6') : 'text-grey-5'"
+                >
+                  {{ slotProps.row.llm_extraction_hint ? (slotProps.row.is_required ? 'Mandatory' : 'Optional') : 'Disabled' }}
+                </span>
               </div>
             </q-td>
           </template>
@@ -451,6 +473,7 @@ const definedFieldsColumns: QTableColumn[] = [
   { name: 'description', label: 'Description', field: 'description', align: 'left', style: 'max-width: 300px', classes: 'text-grey-7 ellipsis' },
   { name: 'value_type', label: 'Type', field: 'value_type', align: 'left', sortable: true },
   { name: 'constraints', label: 'Constraints', field: 'allowed_values', align: 'left' },
+  { name: 'smart_extraction', label: 'Smart Extraction', field: 'llm_extraction_hint', align: 'left', sortable: true },
   { name: 'actions', label: '', field: 'id', align: 'right' },
 ]
 
@@ -468,7 +491,11 @@ const initializeFromSettings = () => {
   const settings = props.graphDetails?.settings?.metadata || {}
 
   extractionEnabled.value = settings.extraction?.enabled ?? false
-  definedFields.value = settings.field_definitions || []
+  // Strip legacy/unused flags that might still exist in persisted configs
+  definedFields.value = (settings.field_definitions || []).map((f: any) => {
+    const { is_searchable, is_filterable, ...rest } = f || {}
+    return rest as MetadataFieldDefinition
+  })
 
   captureOriginalState()
   syncDefinitionsToValues()
@@ -492,8 +519,6 @@ const fetchMetadataValues = async () => {
       description: 'The creator or contributor of the document.',
       value_type: 'string',
       origins: ['document', 'static'],
-      is_searchable: true,
-      is_filterable: true,
       is_defined: definedFieldNames.value.includes('author'),
       sample_values: ['Alice Smith', 'Bob Lee', 'Carol Chen'],
     },
@@ -504,8 +529,6 @@ const fetchMetadataValues = async () => {
       description: 'The date the document was published.',
       value_type: 'date',
       origins: ['document'],
-      is_searchable: false,
-      is_filterable: true,
       is_defined: definedFieldNames.value.includes('publication_date'),
       sample_values: ['2024-01-10', '2023-11-05', '2023-08-21'],
     },
@@ -516,8 +539,6 @@ const fetchMetadataValues = async () => {
       description: 'The language of the content.',
       value_type: 'string',
       origins: ['llm', 'document'],
-      is_searchable: true,
-      is_filterable: true,
       is_defined: definedFieldNames.value.includes('language'),
       sample_values: ['English', 'Spanish', 'French'],
     },
@@ -528,8 +549,6 @@ const fetchMetadataValues = async () => {
       description: 'The classification of the document content.',
       value_type: 'string',
       origins: ['static'],
-      is_searchable: true,
-      is_filterable: true,
       is_defined: definedFieldNames.value.includes('doc_type'),
       sample_values: ['Manual', 'FAQ', 'Guide'],
     },
@@ -543,6 +562,10 @@ const saveSettings = async () => {
   saving.value = true
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const fieldDefinitions = definedFields.value.map((f: any) => {
+      const { is_searchable, is_filterable, ...rest } = f || {}
+      return rest as MetadataFieldDefinition
+    })
     const payload = {
       settings: {
         ...(props.graphDetails?.settings || {}),
@@ -550,7 +573,7 @@ const saveSettings = async () => {
           extraction: {
             enabled: extractionEnabled.value,
           },
-          field_definitions: definedFields.value,
+          field_definitions: fieldDefinitions,
         },
       },
     }
@@ -609,8 +632,7 @@ const openFieldDialogFromDiscovered = (discovered: MetadataFieldRow | Discovered
       .join(' '),
     description: '',
     value_type: (discovered as MetadataFieldRow).value_type || 'string',
-    is_searchable: true,
-    is_filterable: true,
+    is_multiple: false,
     is_required: false,
   }
   showFieldDialog.value = true
@@ -651,10 +673,11 @@ const addPresetField = (preset: Partial<MetadataFieldDefinition>) => {
     display_name: preset.display_name || preset.name!,
     description: preset.description || '',
     value_type: preset.value_type || 'string',
-    is_searchable: preset.is_searchable ?? true,
-    is_filterable: preset.is_filterable ?? true,
+    is_multiple: preset.is_multiple ?? false,
     is_required: preset.is_required ?? false,
-    allowed_values: preset.allowed_values,
+    allowed_values: preset.allowed_values ? preset.allowed_values.map((v) => ({ ...v })) : undefined,
+    default_value: preset.default_value,
+    default_values: preset.default_values ? [...preset.default_values] : undefined,
   }
   definedFields.value.push(field)
   syncDefinitionsToValues()
@@ -674,8 +697,7 @@ const defineAllDiscovered = () => {
         .join(' '),
       description: '',
       value_type: field.value_type || 'string',
-      is_searchable: true,
-      is_filterable: true,
+      is_multiple: false,
       is_required: false,
     }
     definedFields.value.push(newField)

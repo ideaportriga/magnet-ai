@@ -1,7 +1,7 @@
 <template>
   <q-select
     :model-value="modelValue"
-    :class="['styled-select', { 'styled-select--error': showError && !modelValue }]"
+    :class="selectClasses"
     outlined
     dense
     emit-value
@@ -11,20 +11,14 @@
     :option-label="optionLabel"
     :options="options"
     :disable="disable"
-    popup-content-class="styled-select-popup"
+    :popup-content-class="popupClasses"
     @update:model-value="$emit('update:modelValue', $event)"
   >
     <template #append>
-      <span
-        v-if="modelValue && clearable"
-        class="styled-select__clear"
-        @click.stop="$emit('update:modelValue', '')"
-      >
-        CLEAR
-      </span>
+      <span v-if="modelValue && clearable" class="styled-select__clear" @click.stop="$emit('update:modelValue', '')">CLEAR</span>
     </template>
     <template #option="{ itemProps, opt, selected }">
-      <q-item v-bind="itemProps" class="styled-select__option" :class="{ 'styled-select__option--selected': selected }">
+      <q-item v-bind="itemProps" :class="optionClasses(selected)">
         <q-item-section>
           <div class="styled-select__option-row">
             <span class="styled-select__option-name">{{ opt[optionLabel] || opt.label || opt }}</span>
@@ -32,14 +26,19 @@
           </div>
         </q-item-section>
         <q-item-section side class="styled-select__side">
-          <div class="styled-select__check-wrapper" :class="{ 'styled-select__check-wrapper--visible': selected }">
-            <q-icon name="check" class="styled-select__check" size="14px" />
+          <div
+            :class="[
+              'styled-select__check-wrapper',
+              { 'styled-select__check-wrapper--dense': dense, 'styled-select__check-wrapper--visible': selected },
+            ]"
+          >
+            <q-icon name="check" color="white" :size="dense ? '10px' : '12px'" />
           </div>
         </q-item-section>
       </q-item>
     </template>
     <template #no-option>
-      <q-item class="styled-select__option--empty">
+      <q-item :class="['styled-select__option--empty', { 'styled-select__option--empty--dense': dense }]">
         <q-item-section class="text-center">
           <q-item-label class="text-grey-5">{{ noOptionsLabel }}</q-item-label>
         </q-item-section>
@@ -49,6 +48,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 interface Props {
   modelValue: string | undefined
   options: any[]
@@ -60,6 +61,7 @@ interface Props {
   clearable?: boolean
   disable?: boolean
   optionMeta?: string | ((opt: any) => string | undefined)
+  dense?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -71,6 +73,7 @@ const props = withDefaults(defineProps<Props>(), {
   clearable: false,
   disable: false,
   optionMeta: undefined,
+  dense: false,
 })
 
 defineEmits<{
@@ -84,18 +87,53 @@ const getOptionMeta = (opt: any): string | undefined => {
   }
   return opt[props.optionMeta]
 }
+
+const selectClasses = computed(() => [
+  'styled-select',
+  {
+    'styled-select--error': props.showError && !props.modelValue,
+    'styled-select--dense': props.dense,
+  },
+])
+
+const popupClasses = computed(() => (props.dense ? 'styled-select-popup styled-select-popup--dense' : 'styled-select-popup'))
+
+const optionClasses = (selected: boolean) => [
+  'styled-select__option',
+  {
+    'styled-select__option--selected': selected,
+    'styled-select__option--dense': props.dense,
+  },
+]
 </script>
 
 <style scoped>
+.styled-select-dense {
+  height: 36px !important;
+}
+
 .styled-select :deep(.q-field__control) {
-  border-radius: 6px;
-  background: #faf8fc;
-  transition: all 0.15s ease;
+  border-radius: 4px;
+  background: white;
+}
+
+.styled-select--dense :deep(.q-field__control) {
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+}
+
+.styled-select--dense :deep(.q-field__native) {
+  min-height: 36px !important;
+}
+
+.styled-select--dense :deep(.q-field__marginal) {
+  height: 36px !important;
 }
 
 .styled-select :deep(.q-field__control:before) {
-  border-color: #e2dce9;
-  border-radius: 6px;
+  border-color: var(--q-control-border) !important;
+  border-radius: 4px;
 }
 
 .styled-select :deep(.q-field__control:hover:before) {
@@ -156,7 +194,7 @@ const getOptionMeta = (opt: any): string | undefined => {
 /* Dropdown popup container */
 .styled-select-popup {
   border-radius: 8px;
-  box-shadow: 
+  box-shadow:
     0 4px 16px rgba(104, 64, 194, 0.08),
     0 12px 32px rgba(45, 36, 56, 0.12);
   padding: 5px;
@@ -167,6 +205,14 @@ const getOptionMeta = (opt: any): string | undefined => {
 
 .styled-select-popup .q-virtual-scroll__content {
   padding: 0;
+}
+
+/* Dense popup - tighter, lighter */
+.styled-select-popup--dense {
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 2px 12px rgba(45, 36, 56, 0.1);
+  border: 1px solid #e8e4ed;
 }
 
 /* Option item base */
@@ -180,6 +226,14 @@ const getOptionMeta = (opt: any): string | undefined => {
   cursor: pointer;
 }
 
+/* Dense option - compact */
+.styled-select__option--dense {
+  min-height: 30px;
+  padding: 6px 10px;
+  margin: 1px 0;
+  border-radius: 4px;
+}
+
 /* Hover state */
 .styled-select__option:hover {
   background-color: #f8f5fb;
@@ -191,20 +245,13 @@ const getOptionMeta = (opt: any): string | undefined => {
   transform: scale(0.995);
 }
 
-/* Selected state */
+/* Selected state - no background, icon only */
 .styled-select__option--selected {
-  background: linear-gradient(135deg, #6840c2 0%, #7c4fd6 100%);
-  box-shadow: 
-    0 2px 8px rgba(104, 64, 194, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: transparent;
 }
 
 .styled-select__option--selected:hover {
-  background: linear-gradient(135deg, #5c38b0 0%, #7048c8 100%);
-}
-
-.styled-select__option--selected:active {
-  transform: scale(0.995);
+  background-color: #f8f5fb;
 }
 
 /* Option row layout */
@@ -214,6 +261,10 @@ const getOptionMeta = (opt: any): string | undefined => {
   gap: 10px;
   width: 100%;
   overflow: hidden;
+}
+
+.styled-select__option--dense .styled-select__option-row {
+  gap: 8px;
 }
 
 /* Option name text */
@@ -230,15 +281,18 @@ const getOptionMeta = (opt: any): string | undefined => {
   transition: color 0.12s ease;
 }
 
+.styled-select__option--dense .styled-select__option-name {
+  font-size: 12px;
+  font-weight: 450;
+}
+
 .styled-select__option:hover .styled-select__option-name {
   color: #2d2438;
 }
 
-.styled-select__option--selected .styled-select__option-name,
-.styled-select__option--selected:hover .styled-select__option-name {
-  color: #ffffff;
+.styled-select__option--selected .styled-select__option-name {
+  color: #6840c2;
   font-weight: 550;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
 /* Option meta badge */
@@ -257,18 +311,22 @@ const getOptionMeta = (opt: any): string | undefined => {
   transition: all 0.12s ease;
 }
 
+.styled-select__option--dense .styled-select__option-meta {
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
 .styled-select__option:hover .styled-select__option-meta {
   background-color: #efe9f5;
   border-color: #ddd4e8;
   color: #6840c2;
 }
 
-.styled-select__option--selected .styled-select__option-meta,
-.styled-select__option--selected:hover .styled-select__option-meta {
-  color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.25);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+.styled-select__option--selected .styled-select__option-meta {
+  color: #6840c2;
+  background-color: #f0eaf8;
+  border-color: #d8cce8;
 }
 
 /* Side section with checkmark */
@@ -277,6 +335,12 @@ const getOptionMeta = (opt: any): string | undefined => {
   min-width: 26px;
 }
 
+.styled-select__option--dense .styled-select__side {
+  padding-left: 4px !important;
+  min-width: 18px;
+}
+
+/* Checkmark wrapper */
 .styled-select__check-wrapper {
   width: 20px;
   height: 20px;
@@ -284,11 +348,10 @@ const getOptionMeta = (opt: any): string | undefined => {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  background-color: var(--q-primary);
   opacity: 0;
   transform: scale(0.5);
-  transition: 
+  transition:
     opacity 0.15s ease,
     transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -298,9 +361,9 @@ const getOptionMeta = (opt: any): string | undefined => {
   transform: scale(1);
 }
 
-.styled-select__check {
-  color: #6840c2;
-  font-weight: 800;
+.styled-select__check-wrapper--dense {
+  width: 16px;
+  height: 16px;
 }
 
 /* Empty state */
@@ -308,10 +371,22 @@ const getOptionMeta = (opt: any): string | undefined => {
   padding: 24px 16px;
 }
 
+.styled-select__option--empty--dense {
+  padding: 14px 12px;
+}
+
 .styled-select__option--empty .q-item-label {
   font-size: 12px;
   font-weight: 500;
   color: #a99bba;
   letter-spacing: 0.01em;
+}
+
+.styled-select__option--empty--dense .q-item-label {
+  font-size: 11px;
+}
+
+.styled-select__option--dense {
+  min-height: 38px !important;
 }
 </style>

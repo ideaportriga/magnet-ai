@@ -4,119 +4,168 @@
     :title="isEditMode ? 'Edit Metadata Field' : 'Define Metadata Field'"
     :confirm-label="isEditMode ? 'Save Changes' : 'Create Field'"
     :loading="loading"
-    :disable-confirm="!isFormValid"
     size="md"
     @update:model-value="emit('update:showDialog', $event)"
     @cancel="emit('cancel')"
     @confirm="onConfirm"
   >
-    <div class="column q-gap-24">
+    <div class="column q-gap-16">
       <!-- Basic Info Section -->
-      <kg-dialog-section title="Field Identity" description="Define the field name and display properties" icon="label">
+      <kg-dialog-section title="Field Identity" description="Define the field name and display properties" icon="edit">
         <kg-field-row :cols="2">
-          <div>
-            <div class="km-input-label q-pb-xs">
-              Field Name
-              <q-icon name="o_info" size="12px" color="grey-6" class="q-ml-xs cursor-pointer">
-                <q-tooltip>Internal identifier, used in API and data. Use snake_case.</q-tooltip>
-              </q-icon>
-            </div>
-            <km-input v-model="fieldName" height="36px" placeholder="field_name" :rules="fieldNameRules" :disable="isEditMode" />
-          </div>
-          <div>
-            <div class="km-input-label q-pb-xs">Display Name</div>
+          <kg-field-row label="Field Name" hint="Internal identifier, can be used in API or by AI for smart extraction. Use snake_case.">
+            <km-input
+              ref="fieldNameInputRef"
+              v-model="fieldName"
+              height="36px"
+              placeholder="field_name"
+              :rules="fieldNameRules"
+              :disabled="isEditMode"
+            />
+          </kg-field-row>
+          <kg-field-row label="Display Name">
             <km-input v-model="displayName" height="36px" placeholder="Field Display Name" />
-          </div>
+          </kg-field-row>
         </kg-field-row>
 
-        <div class="q-mt-md">
-          <div class="km-input-label q-pb-xs">Description</div>
+        <kg-field-row label="Description" class="q-mt-md">
           <km-input
             v-model="description"
             autogrow
             rows="1"
             type="textarea"
             placeholder="Describe what this field represents and how it should be used..."
+            height="36px"
           />
-        </div>
+        </kg-field-row>
       </kg-dialog-section>
 
-      <!-- Type & Constraints Section -->
-      <kg-dialog-section title="Value Configuration" description="Specify the data type and value constraints" icon="tune">
-        <kg-field-row :cols="2">
-          <div>
-            <div class="km-input-label q-pb-xs">Value Type</div>
-            <q-select v-model="valueType" :options="valueTypeOptions" dense outlined emit-value map-options class="metadata-type-select">
-              <template #option="{ opt, itemProps }">
-                <q-item v-bind="itemProps">
-                  <q-item-section avatar>
-                    <q-icon :name="opt.icon" size="18px" color="grey-7" />
-                  </q-item-section>
-                  <q-item-section>{{ opt.label }}</q-item-section>
-                </q-item>
-              </template>
-              <template #selected-item="{ opt }">
-                <div class="row items-center q-gap-sm">
-                  <q-icon :name="opt.icon" size="16px" color="grey-7" />
-                  <span>{{ opt.label }}</span>
-                </div>
-              </template>
-            </q-select>
-          </div>
-          <div>
-            <div class="km-input-label q-pb-xs">Default Value</div>
-            <km-input v-model="defaultValue" height="36px" placeholder="Optional default" />
-          </div>
+      <!-- Field Configuration -->
+      <kg-dialog-section title="Data Type" description="Choose the type of values this field will store" icon="tune">
+        <kg-field-row>
+          <kg-dropdown-field v-model="valueTypeModel" :options="valueTypeOptions" placeholder="Select type" dense />
+        </kg-field-row>
+      </kg-dialog-section>
+
+      <!-- Values Configuration -->
+      <kg-dialog-section title="Input Constraints" description="Define cardinality and value restrictions" icon="list_alt">
+        <kg-field-row :cols="2" class="q-mb-md">
+          <kg-toggle-field v-model="isMultiple" title="Accept multiple values" />
+          <kg-toggle-field v-model="restrictToAllowedValues" title="Limit to predefined options" />
         </kg-field-row>
 
-        <div class="q-mt-md">
-          <div class="km-input-label q-pb-xs">
-            Allowed Values
-            <q-icon name="o_info" size="12px" color="grey-6" class="q-ml-xs cursor-pointer">
-              <q-tooltip>Constrain this field to specific values. LLMs will respect these constraints.</q-tooltip>
-            </q-icon>
-          </div>
-          <q-select
-            v-model="allowedValues"
-            use-input
-            use-chips
-            multiple
-            hide-dropdown-icon
-            input-debounce="0"
-            new-value-mode="add-unique"
-            placeholder="Type and press Enter to add allowed values"
-            dense
-            outlined
-            class="metadata-values-select"
-          >
-            <template #selected-item="scope">
-              <q-chip removable dense color="primary" text-color="white" class="q-my-xs" @remove="scope.removeAtIndex(scope.index)">
-                {{ scope.opt }}
-              </q-chip>
-            </template>
-          </q-select>
-        </div>
+        <!-- Free Value (no restriction) -->
+        <kg-field-row v-if="!restrictToAllowedValues" :label="isMultiple ? 'Default Values' : 'Default Value'" suffix="(optional)">
+          <km-input v-if="!isMultiple" v-model="defaultValue" />
+          <km-input v-else v-model="defaultValuesText" placeholder="Comma-separated values" />
+        </kg-field-row>
 
-        <div class="q-mt-md">
-          <kg-toggle-field v-model="isRequired" title="Required field" description="Mark documents as incomplete if this field is missing" />
-        </div>
+        <!-- Restricted Values -->
+        <kg-field-row
+          v-if="restrictToAllowedValues"
+          label="Predefined Options"
+          :suffix="allowedValues.length > 0 ? '(click to set as default)' : ''"
+          :error="predefinedOptionsError ? 'At least one predefined option is required' : undefined"
+        >
+          <div class="value-options-container">
+            <div class="value-options-list">
+              <div
+                v-for="(av, idx) in allowedValues"
+                :key="idx"
+                class="value-option-chip"
+                :class="{ 'value-option-chip--default': isValueDefault(av.value) }"
+                @click="toggleDefault(av.value)"
+              >
+                <q-icon :name="isValueDefault(av.value) ? 'check_circle' : 'radio_button_unchecked'" size="16px" class="value-option-check" />
+                <span class="value-option-text">{{ av.value }}</span>
+                <q-icon name="close" size="14px" class="value-option-remove" @click.stop="removeAllowedValue(idx)" />
+                <q-tooltip v-if="isValueDefault(av.value)" anchor="top middle" self="bottom middle">
+                  Default value{{ isMultiple ? '' : ' (click another to change)' }}
+                </q-tooltip>
+              </div>
+
+              <div class="value-options-input-row">
+                <km-input
+                  v-model="newAllowedValue"
+                  height="32px"
+                  placeholder="Enter option and press Enter"
+                  class="col"
+                  @keyup.enter="addAllowedValue"
+                />
+                <km-btn flat label="Add" @click="addAllowedValue" />
+              </div>
+            </div>
+          </div>
+        </kg-field-row>
       </kg-dialog-section>
 
-      <!-- LLM Extraction Section -->
-      <kg-dialog-section title="LLM Extraction" description="Configure how this field should be extracted by AI" icon="smart_toy">
-        <div>
-          <div class="km-input-label q-pb-xs">
-            Extraction Hint
-            <q-icon name="o_info" size="12px" color="grey-6" class="q-ml-xs cursor-pointer">
-              <q-tooltip>Provide guidance for the LLM on how to identify and extract this field</q-tooltip>
-            </q-icon>
-          </div>
+      <!-- Smart Extraction Section -->
+      <kg-dialog-section
+        title="Smart Extraction"
+        description="Define how AI should extract this field, variables can be used to insert dynamic values into the instructions"
+        icon="smart_toy"
+      >
+        <template #header-actions>
+          <kg-section-control v-model="extractionMode" :options="extractionModeOptions" />
+        </template>
+
+        <div class="extraction-content" :class="{ 'extraction-content--disabled': extractionMode === 'disabled' }">
           <km-input
+            ref="extractionHintInputRef"
             v-model="extractionHint"
-            height="72px"
+            autogrow
+            rows="3"
             type="textarea"
-            placeholder="e.g., Look for the author name in the document header or 'Written by' sections..."
+            placeholder="Guide the AI on how to extract this field..."
+            :disabled="extractionMode === 'disabled'"
           />
+
+          <div class="row justify-between">
+            <div class="extraction-variables-list">
+              <q-chip
+                v-for="v in EXTRACTION_VARIABLES"
+                :key="v.key"
+                clickable
+                dense
+                outline
+                :disable="extractionMode === 'disabled'"
+                class="extraction-var-chip"
+                @mousedown.prevent
+                @click="insertExtractionVariable(v.key)"
+              >
+                <span class="extraction-var-token">{{ formatExtractionVariableToken(v.key) }}</span>
+              </q-chip>
+            </div>
+
+            <div class="extraction-subtoolbar">
+              <div class="extraction-toolbar">
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  icon="restart_alt"
+                  color="grey-6"
+                  :disable="extractionMode === 'disabled'"
+                  @click="resetToDefaultTemplate"
+                >
+                  <q-tooltip>Reset to default template</q-tooltip>
+                </q-btn>
+                <q-btn
+                  flat
+                  dense
+                  size="sm"
+                  :icon="showPreview ? 'visibility_off' : 'visibility'"
+                  color="grey-6"
+                  :disable="extractionMode === 'disabled'"
+                  @click="showPreview = !showPreview"
+                >
+                  <q-tooltip>{{ showPreview ? 'Hide' : 'Show' }} preview</q-tooltip>
+                </q-btn>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="showPreview && extractionMode !== 'disabled'" class="extraction-preview">{{ renderedExtractionHint }}</div>
         </div>
       </kg-dialog-section>
     </div>
@@ -124,9 +173,32 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgFieldRow, KgToggleField } from '../common'
-import { MetadataFieldDefinition, MetadataValueType, ValueTypeOptions } from './models'
+import { computed, nextTick, ref, watch } from 'vue'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgSectionControl, KgToggleField } from '../common'
+import { AllowedValue, MetadataFieldDefinition, MetadataValueType, PRESET_FIELDS, ValueTypeOptions } from './models'
+
+// Extraction mode options
+type ExtractionMode = 'disabled' | 'optional' | 'mandatory'
+const extractionModeOptions = [
+  { label: 'Disabled', value: 'disabled' },
+  { label: 'Optional', value: 'optional' },
+  { label: 'Mandatory', value: 'mandatory' },
+]
+
+// Default extraction template (same for optional and mandatory)
+const DEFAULT_EXTRACTION_TEMPLATE = `Extract {display_name} ({type}, {cardinality}).
+Allowed: {values}. Default: {defaults}.`
+
+type ExtractionVariableKey = 'field_name' | 'display_name' | 'type' | 'values' | 'defaults' | 'cardinality'
+
+const EXTRACTION_VARIABLES: Array<{ key: ExtractionVariableKey; description: string }> = [
+  { key: 'field_name', description: 'Internal field name' },
+  { key: 'display_name', description: 'Display name' },
+  { key: 'type', description: 'Value type' },
+  { key: 'values', description: 'Allowed values' },
+  { key: 'defaults', description: 'Default value(s)' },
+  { key: 'cardinality', description: 'Single-Value or Multi-Value' },
+]
 
 const props = defineProps<{
   showDialog: boolean
@@ -146,13 +218,163 @@ const fieldName = ref('')
 const displayName = ref('')
 const description = ref('')
 const valueType = ref<MetadataValueType>('string')
+const valueTypeModel = computed<string | undefined>({
+  get: () => valueType.value,
+  set: (v) => {
+    valueType.value = (v as MetadataValueType) || 'string'
+  },
+})
+const isMultiple = ref(false)
+const restrictToAllowedValues = ref(false)
+const extractionMode = ref<ExtractionMode>('disabled')
+const isRequired = computed(() => extractionMode.value === 'mandatory')
 const defaultValue = ref('')
-const allowedValues = ref<string[]>([])
+const defaultValues = ref<string[]>([])
+const defaultValuesText = computed<string>({
+  get: () => defaultValues.value.join(', '),
+  set: (v) => {
+    const parsed = (v || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    defaultValues.value = Array.from(new Set(parsed))
+  },
+})
+const allowedValues = ref<AllowedValue[]>([])
+const newAllowedValue = ref('')
 const extractionHint = ref('')
-const isSearchable = ref(true)
-const isFilterable = ref(true)
-const isRequired = ref(false)
+const showPreview = ref(false)
 const loading = ref(false)
+const extractionHintInputRef = ref<any>(null)
+const fieldNameInputRef = ref<any>(null)
+const showPredefinedOptionsError = ref(false)
+
+const getPresetExtractionHint = (name?: string | null): string | undefined => {
+  const fieldName = (name || '').trim()
+  if (!fieldName) return undefined
+  return PRESET_FIELDS.find((p) => p.name === fieldName)?.llm_extraction_hint
+}
+
+// Computed values for variable substitution
+const typeLabel = computed(() => ValueTypeOptions.find((o) => o.value === valueType.value)?.label || valueType.value)
+const allowedValuesLabel = computed(() => {
+  if (!restrictToAllowedValues.value) return 'any'
+  return allowedValues.value.length ? allowedValues.value.map((v) => v.value).join(', ') : 'any'
+})
+const predefinedOptionsError = computed(() => showPredefinedOptionsError.value && restrictToAllowedValues.value && allowedValues.value.length === 0)
+const defaultsLabel = computed(() => {
+  if (isMultiple.value) {
+    return defaultValues.value.length ? defaultValues.value.join(', ') : 'none'
+  }
+  return defaultValue.value.trim() || 'none'
+})
+const cardinalityLabel = computed(() => (isMultiple.value ? 'Multi-Value' : 'Single-Value'))
+const displayNameLabel = computed(() => displayName.value.trim() || fieldName.value.trim() || 'Untitled')
+
+const extractionVars = computed<Record<string, string>>(() => ({
+  field_name: fieldName.value.trim() || 'field_name',
+  display_name: displayNameLabel.value,
+  type: typeLabel.value,
+  values: allowedValuesLabel.value,
+  defaults: defaultsLabel.value,
+  cardinality: cardinalityLabel.value,
+}))
+
+// Render extraction hint with variable substitution
+const renderedExtractionHint = computed(() => {
+  const vars = extractionVars.value
+  return extractionHint.value.replace(/\{(\w+)\}/g, (match, key) => vars[key] ?? match)
+})
+
+const formatExtractionVariableToken = (key: string) => `{${key}}`
+
+const insertExtractionVariable = async (key: ExtractionVariableKey) => {
+  if (extractionMode.value === 'disabled') return
+
+  const token = `{${key}}`
+  const pos = extractionHintInputRef.value?.getCursorIndex?.()
+  const cursor = typeof pos === 'number' ? pos : extractionHint.value.length
+
+  const text = extractionHint.value || ''
+  const before = text.slice(0, cursor)
+  const after = text.slice(cursor)
+
+  const needsSpaceBefore = before.length > 0 && !/\s$/.test(before) && !/[([{]$/.test(before)
+  const needsSpaceAfter = after.length > 0 && !/^\s/.test(after) && !/^[,.;:!?)}\]]/.test(after)
+  const insertion = `${needsSpaceBefore ? ' ' : ''}${token}${needsSpaceAfter ? ' ' : ''}`
+
+  extractionHint.value = before + insertion + after
+
+  await nextTick()
+
+  const nativeEl = extractionHintInputRef.value?.input?.nativeEl as HTMLTextAreaElement | HTMLInputElement | undefined
+  const newPos = cursor + insertion.length
+
+  if (nativeEl && typeof nativeEl.setSelectionRange === 'function') {
+    nativeEl.focus?.()
+    nativeEl.setSelectionRange(newPos, newPos)
+  } else {
+    extractionHintInputRef.value?.focus?.()
+  }
+}
+
+// Reset to default template
+const resetToDefaultTemplate = () => {
+  extractionHint.value = DEFAULT_EXTRACTION_TEMPLATE
+}
+
+// Methods for checking/toggling default values
+const isValueDefault = (value: string): boolean => {
+  if (isMultiple.value) {
+    return defaultValues.value.includes(value)
+  }
+  return defaultValue.value === value
+}
+
+const toggleDefault = (value: string) => {
+  if (isMultiple.value) {
+    // Multiple mode: toggle in array
+    const idx = defaultValues.value.indexOf(value)
+    if (idx >= 0) {
+      defaultValues.value.splice(idx, 1)
+    } else {
+      defaultValues.value.push(value)
+    }
+  } else {
+    // Single-Value mode: toggle or switch
+    if (defaultValue.value === value) {
+      defaultValue.value = ''
+    } else {
+      defaultValue.value = value
+    }
+  }
+}
+
+// Methods for managing allowed values
+const addAllowedValue = () => {
+  const val = newAllowedValue.value.trim()
+  if (val) {
+    if (!allowedValues.value.some((av) => av.value === val)) {
+      allowedValues.value.push({ value: val })
+    }
+    // Clear input even if value already exists
+    newAllowedValue.value = ''
+  }
+}
+
+const removeAllowedValue = (idx: number) => {
+  const removedValue = allowedValues.value[idx].value
+  allowedValues.value.splice(idx, 1)
+  // Also remove from defaults if it was default
+  if (isMultiple.value) {
+    const defIdx = defaultValues.value.indexOf(removedValue)
+    if (defIdx >= 0) {
+      defaultValues.value.splice(defIdx, 1)
+    }
+  } else if (defaultValue.value === removedValue) {
+    defaultValue.value = ''
+  }
+}
 
 const valueTypeOptions = ValueTypeOptions
 
@@ -182,24 +404,38 @@ watch(
         displayName.value = props.field.display_name || ''
         description.value = props.field.description || ''
         valueType.value = props.field.value_type || 'string'
+        isMultiple.value = !!props.field.is_multiple
+        restrictToAllowedValues.value = !!props.field.allowed_values?.length
         defaultValue.value = props.field.default_value || ''
+        defaultValues.value = props.field.default_values || []
         allowedValues.value = props.field.allowed_values || []
-        extractionHint.value = props.field.llm_extraction_hint || ''
-        isSearchable.value = props.field.is_searchable ?? true
-        isFilterable.value = props.field.is_filterable ?? true
-        isRequired.value = props.field.is_required ?? false
+        extractionHint.value = props.field.llm_extraction_hint || getPresetExtractionHint(props.field.name) || DEFAULT_EXTRACTION_TEMPLATE
+        // Determine extraction mode from saved data
+        if (props.field.is_required) {
+          extractionMode.value = 'mandatory'
+        } else if (props.field.llm_extraction_hint) {
+          extractionMode.value = 'optional'
+        } else {
+          extractionMode.value = 'disabled'
+        }
+        showPreview.value = false
+        showPredefinedOptionsError.value = false
       } else {
         // Reset for new field
         fieldName.value = ''
         displayName.value = ''
         description.value = ''
         valueType.value = 'string'
+        isMultiple.value = false
+        restrictToAllowedValues.value = false
         defaultValue.value = ''
+        defaultValues.value = []
         allowedValues.value = []
-        extractionHint.value = ''
-        isSearchable.value = true
-        isFilterable.value = true
-        isRequired.value = false
+        newAllowedValue.value = ''
+        extractionHint.value = DEFAULT_EXTRACTION_TEMPLATE
+        extractionMode.value = 'disabled'
+        showPreview.value = false
+        showPredefinedOptionsError.value = false
       }
     }
   },
@@ -217,44 +453,175 @@ watch(fieldName, (newVal) => {
 })
 
 const onConfirm = () => {
+  // Validate field name before saving
+  if (fieldNameInputRef.value && !fieldNameInputRef.value.validate()) {
+    return
+  }
+
+  // Validate predefined options
+  showPredefinedOptionsError.value = true
+  if (restrictToAllowedValues.value && allowedValues.value.length === 0) {
+    return
+  }
+
+  // When saving, render the extraction hint with actual values (not variables)
+  const finalExtractionHint = extractionMode.value !== 'disabled' ? renderedExtractionHint.value.trim() : undefined
+
   const field: MetadataFieldDefinition = {
     id: props.field?.id || crypto.randomUUID(),
     name: fieldName.value.trim(),
     display_name: displayName.value.trim() || fieldName.value.trim(),
     description: description.value.trim(),
     value_type: valueType.value,
-    is_searchable: isSearchable.value,
-    is_filterable: isFilterable.value,
+    is_multiple: isMultiple.value,
     is_required: isRequired.value,
-    allowed_values: allowedValues.value.length > 0 ? allowedValues.value : undefined,
-    default_value: defaultValue.value.trim() || undefined,
-    llm_extraction_hint: extractionHint.value.trim() || undefined,
+    allowed_values: restrictToAllowedValues.value && allowedValues.value.length > 0 ? allowedValues.value : undefined,
+    default_value: !isMultiple.value && defaultValue.value.trim() ? defaultValue.value.trim() : undefined,
+    default_values: isMultiple.value && defaultValues.value.length > 0 ? defaultValues.value : undefined,
+    llm_extraction_hint: finalExtractionHint || undefined,
   }
   emit('save', field)
 }
 </script>
 
 <style scoped>
-.metadata-type-select :deep(.q-field__control) {
-  min-height: 36px;
-  padding: 0 12px;
+/* Value Options Section */
+.value-options-container {
+  border: 1px solid var(--q-control-border);
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
 }
 
-.metadata-values-select {
-  min-height: 36px;
+.value-options-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  align-items: center;
 }
 
-.metadata-values-select :deep(.q-field__control) {
-  min-height: 36px;
-  padding: 4px 8px;
+.value-option-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px 5px 7px;
+  background: white;
+  border: 1px solid var(--q-control-border);
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
-.metadata-values-select :deep(.q-field__native) {
-  min-height: 24px;
-  padding: 0;
+.value-option-chip:hover {
+  border-color: var(--q-primary);
+  background: rgba(var(--q-primary-rgb), 0.03);
 }
 
-.metadata-values-select :deep(.q-chip) {
-  margin: 2px;
+.value-option-chip--default {
+  border-color: var(--q-primary);
+  background: rgba(var(--q-primary-rgb), 0.08);
+  box-shadow: 0 0 0 1px rgba(var(--q-primary-rgb), 0.2);
+}
+
+.value-option-check {
+  color: var(--q-control-border);
+  transition: color 0.15s ease;
+}
+
+.value-option-chip--default .value-option-check {
+  color: var(--q-primary);
+}
+
+.value-option-text {
+  font-weight: 500;
+  color: #444;
+}
+
+.value-option-chip--default .value-option-text {
+  color: var(--q-primary);
+}
+
+.value-option-remove {
+  color: #999;
+  opacity: 0;
+  transition: all 0.15s ease;
+  margin-left: 2px;
+}
+
+.value-option-chip:hover .value-option-remove {
+  opacity: 1;
+}
+
+.value-option-remove:hover {
+  color: #c00;
+}
+
+.value-options-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex-basis: 100%;
+  margin-top: 4px;
+}
+
+/* Smart Extraction Section */
+.extraction-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.extraction-content--disabled {
+  opacity: 0.5;
+}
+
+.extraction-subtoolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.extraction-variables-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.extraction-var-chip {
+  color: #5c6670;
+}
+
+.extraction-var-chip:hover {
+  color: var(--q-primary);
+  background: rgba(var(--q-primary-rgb), 0.04);
+}
+
+.extraction-var-token {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: normal !important;
+}
+
+.extraction-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.extraction-preview {
+  background: #f8f9fa;
+  border: 1px dashed var(--q-control-border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #555;
+  white-space: pre-wrap;
 }
 </style>
