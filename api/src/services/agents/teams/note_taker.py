@@ -76,18 +76,39 @@ _TRANSCRIPTION_POLL_SECONDS = float(
 )
 
 
-def _format_duration(seconds: int | None) -> str:
+def _format_duration(seconds: float | int | None) -> str:
     """Format duration in seconds to human-readable string."""
     if seconds is None:
         return "Unknown"
-    hours, remainder = divmod(seconds, 3600)
+    try:
+        total_seconds = float(seconds)
+    except (TypeError, ValueError):
+        return "Unknown"
+    if total_seconds < 0:
+        return "Unknown"
+
+    whole_seconds = int(total_seconds)
+    hours, remainder = divmod(whole_seconds, 3600)
     minutes, secs = divmod(remainder, 60)
+    fractional = total_seconds - whole_seconds
     if hours > 0:
         return f"{hours}h {minutes}m {secs}s"
-    elif minutes > 0:
+    if minutes > 0:
         return f"{minutes}m {secs}s"
-    else:
-        return f"{secs}s"
+    if fractional:
+        return f"{total_seconds:.1f}s"
+    return f"{secs}s"
+
+
+def _format_mm_ss(seconds: float | int | None) -> str:
+    """Format seconds to mm:ss with leading zeros."""
+    try:
+        total_seconds = int(float(seconds))
+    except (TypeError, ValueError):
+        return "00:00"
+    total_seconds = max(total_seconds, 0)
+    minutes, secs = divmod(total_seconds, 60)
+    return f"{minutes:02d}:{secs:02d}"
 
 
 def _format_file_size(size_bytes: int | None) -> str:
@@ -670,29 +691,52 @@ async def _send_transcription_summary(
     job_id: str | None,
     transcription: dict | None,
 ) -> None:
+    duration = None
+    transcript_payload = transcription
+    if isinstance(transcription, dict):
+        duration = transcription.get("duration")
+        nested = transcription.get("transcription")
+        if isinstance(nested, dict):
+            transcript_payload = nested
+        job_id = job_id or transcription.get("job_id") or transcription.get("id")
+
+    if duration is None and isinstance(transcript_payload, dict):
+        duration = transcript_payload.get("duration")
+
+    duration_str = _format_duration(duration) if duration is not None else None
+    if duration_str == "Unknown":
+        duration_str = None
+
     if status in {"completed", "transcribed", "diarized"}:
         segs_count = 0
-        preview = None
         full_text = None
-        if isinstance(transcription, dict):
-            segs = transcription.get("segments") or []
+        if isinstance(transcript_payload, dict):
+            segs = transcript_payload.get("segments") or []
             segs_count = len(segs)
-            full_text = transcription.get("text") or ""
-            if not full_text and segs:
-                full_text = " ".join(
-                    (s.get("text") or "").strip() for s in segs if isinstance(s, dict)
-                ).strip()
+            full_text = transcript_payload.get("text") or ""
             if segs:
-                first = segs[:3]
-                preview = " ".join(
-                    (s.get("text") or "").strip() for s in first if isinstance(s, dict)
-                )
-                preview = preview.strip() or None
+                lines = []
+                for s in segs:
+                    if not isinstance(s, dict):
+                        continue
+                    text = (s.get("text") or "").strip()
+                    if not text:
+                        continue
+                    speaker = s.get("speaker") or "speaker_0"
+                    ts = _format_mm_ss(s.get("start"))
+                    lines.append(f"[{ts}] {speaker}: {text}")
+                if lines:
+                    full_text = "\n".join(lines)
+                elif not full_text:
+                    full_text = " ".join(
+                        (s.get("text") or "").strip()
+                        for s in segs
+                        if isinstance(s, dict)
+                    ).strip()
+        duration_part = f", duration={duration_str}" if duration_str else ""
         await context.send_activity(
-            f"Transcription completed (job={job_id or 'n/a'}, segments={segs_count})."
+            f"Transcription completed (job={job_id or 'n/a'}, segments={segs_count}{duration_part})."
         )
-        if preview:
-            await context.send_activity(f"Preview: {preview}")
         if full_text:
             snippet = full_text[:1000]
             suffix = "." if len(full_text) > len(snippet) else ""
@@ -708,13 +752,15 @@ async def _send_transcription_summary(
                 err_msg = await transcription_service.get_error(job_id)
             except Exception:
                 err_msg = None
+        duration_note = f" (duration={duration_str})" if duration_str else ""
         await context.send_activity(
-            f"Transcription failed for job {job_id or 'n/a'}: {err_msg or 'unknown error'}"
+            f"Transcription failed for job {job_id or 'n/a'}{duration_note}: {err_msg or 'unknown error'}"
         )
         return
 
+    duration_note = f", duration={duration_str}" if duration_str else ""
     await context.send_activity(
-        f"Transcription incomplete (status={status}, job={job_id or 'n/a'})."
+        f"Transcription incomplete (status={status}, job={job_id or 'n/a'}{duration_note})."
     )
 
 
@@ -853,6 +899,7 @@ def _register_note_taker_handlers(
         for idx, rec in enumerate(recordings, start=1):
             file_size = rec.get("size")
             duration = rec.get("duration")
+            rec_id = rec.get("id") or "n/a"
             date_str, time_str = _format_recording_datetime(rec.get("createdDateTime"))
             size_str = _format_file_size(file_size)
 
@@ -862,6 +909,7 @@ def _register_note_taker_handlers(
             if duration_str:
                 parts.append(f"⏱️ {duration_str}")
             parts.append(f"💾 {size_str}")
+            parts.append(f"id={rec_id}")
 
             lines.append("   ".join(parts))
 
@@ -1141,6 +1189,83 @@ def _register_note_taker_handlers(
                 await context.send_activity(
                     "The first recording had no downloadable URL."
                 )
+
+    async def _handle_process_recording(
+        context: TurnContext, state: Optional[TurnState], recording_id: str
+    ) -> None:
+        meeting = _resolve_meeting_details(context)
+        if not (meeting.get("id") or meeting.get("conversationId")):
+            logger.warning("No meeting id found for process-recording command.")
+            await context.send_activity(
+                "No meeting information available in this chat."
+            )
+            return
+
+        delegated_token = await _get_delegated_token(
+            context,
+            auth_handler_id,
+            "Please sign in (Recordings connection) so I can fetch recordings with delegated Graph permissions.",
+        )
+        if not delegated_token:
+            return
+
+        await _send_typing(context)
+
+        try:
+            online_meeting_id = await _get_online_meeting_id(context)
+            if not online_meeting_id:
+                await context.send_activity(
+                    "No online meeting id found for this meeting."
+                )
+                return
+
+            async with create_graph_client_with_token(delegated_token) as graph_client:
+                recording = await get_recording_by_id(
+                    client=graph_client,
+                    online_meeting_id=online_meeting_id,
+                    recording_id=recording_id,
+                )
+        except Exception as err:
+            logger.exception("Failed to fetch recording by id")
+            await context.send_activity(
+                f"Could not retrieve recording {recording_id}: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if not recording:
+            await context.send_activity(f"No recording found with id {recording_id}.")
+            return
+
+        if recording and not recording.get("contentUrl"):
+            if recording.get("recordingContentUrl"):
+                recording["contentUrl"] = recording.get("recordingContentUrl")
+
+        try:
+            recording_bytes = await _download_recording_bytes(
+                recording, delegated_token, meeting
+            )
+        except Exception as err:
+            logger.exception("Failed to download recording by id")
+            await context.send_activity(
+                f"I couldn't download recording {recording_id}: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if not recording_bytes:
+            await context.send_activity("Recording did not include a downloadable URL.")
+            return
+
+        file_bytes, content_type, name, ext = recording_bytes
+        await context.send_activity("Recording downloaded; starting transcription...")
+        await _send_typing(context)
+
+        await _transcribe_bytes_and_notify(
+            context,
+            name=name,
+            ext=ext,
+            file_bytes=file_bytes,
+            content_type=content_type,
+        )
 
     async def _handle_process_file(
         context: TurnContext, state: Optional[TurnState], link: str
@@ -1763,6 +1888,17 @@ def _register_note_taker_handlers(
             link = parts[1].strip()
             await _send_typing(context)
             await _handle_process_file(context, _state, link)
+            return
+
+        if normalized_text.startswith("/process-recording"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity("Usage: /process-recording RECORDING_ID")
+                return
+
+            rec_id = parts[1].strip()
+            await _send_typing(context)
+            await _handle_process_recording(context, _state, rec_id)
             return
 
         if normalized_text.startswith("/meeting-info"):
