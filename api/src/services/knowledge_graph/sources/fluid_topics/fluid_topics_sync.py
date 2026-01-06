@@ -203,6 +203,39 @@ class FluidTopicsSyncPipeline(
                             maps_enqueued += 1
                             continue
 
+                        if entry_type == "MAP":
+                            if (
+                                not self._fluid_topics_config.map_content_url_template
+                                or not self._fluid_topics_config.map_toc_url_template
+                            ):
+                                await ctx.inc("skipped")
+                                continue
+
+                            async with self._state.seen_maps_lock:
+                                map_info = entry.get("map") or {}
+                                map_id = str(map_info.get("mapId") or "")
+                                map_title = str(map_info.get("title") or "")
+                                if not map_id:
+                                    await ctx.inc("skipped")
+                                    continue
+
+                                if map_id not in self._state.seen_maps:
+                                    self._state.seen_maps[map_id] = map_title
+                                else:
+                                    # We intentionally ingest a map only once even if it appears in multiple
+                                    # search results (e.g. because multiple topics match the search query).
+                                    await ctx.dec("total_found")
+                                    continue
+
+                            await ctx.content_fetch_queue.put(
+                                FluidTopicsContentFetchTask(
+                                    kind="map", map_id=map_id, map_title=map_title
+                                )
+                            )
+
+                            maps_enqueued += 1
+                            continue
+
                         logger.warning(
                             "Unknown Fluid Topics entry type",
                             extra=self._log_extra(
