@@ -54,6 +54,7 @@ from .graph import (
     GRAPH_BASE_URL,
     create_graph_client_with_token,
     get_meeting_recordings,
+    get_recording_by_id,
 )
 from .static_connections import StaticConnections
 from .teams_user_store import upsert_teams_user, normalize_bot_id
@@ -642,7 +643,7 @@ async def _start_transcription_from_bytes(
         object_key=object_key,
         content_type=content_type,
         backend=pipeline_id,
-        language=language,
+        # language=language,
     )
 
     deadline = asyncio.get_event_loop().time() + _TRANSCRIPTION_TIMEOUT_SECONDS
@@ -897,6 +898,11 @@ def _register_note_taker_handlers(
                 f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
             )
             return
+
+        logger.info(
+            "[teams note-taker] transcription result: %s",
+            result,
+        )
 
         job_id = (result or {}).get("id") if isinstance(result, dict) else None
         transcription = (
@@ -1229,8 +1235,10 @@ def _register_note_taker_handlers(
                     "I need your delegated token to proceed. "
                     "Please use **/sign-in** in our 1:1 chat to authenticate."
                 )
-                
-            await proactive_context.send_activity("I completed getting your delegated token.")
+
+            # await proactive_context.send_activity(
+            #    "I completed getting your delegated token."
+            # )
 
         try:
             await adapter.continue_conversation(bot_app_id, continuation, callback)
@@ -1945,7 +1953,8 @@ async def handle_recordings_ready_notifications(
                 subscription_id,
                 getattr(err, "message", str(err)),
             )
-            # we'll try organizer fallback below
+
+        # TEMP? organizer fallback below (this should not be needed)
 
         if meeting_row is None and meeting_id_hint:
             meeting_row = SimpleNamespace(
@@ -2117,14 +2126,59 @@ async def _process_recording_notification_for_meeting(
         await context.send_activity("Could not resolve the online meeting id.")
         return
 
+    user_id_hint = _extract_user_from_resource(notification)
+
+    recording_id = None
+    try:
+        recording_id = (notification.get("resourceData") or {}).get("id")
+    except Exception:
+        recording_id = None
+
+    logger.info(
+        "[teams note-taker] processing recording notification for meeting %s, user_id_hint=%s, recording_id=%s",
+        online_meeting_id,
+        user_id_hint,
+        recording_id,
+    )
+
     try:
         async with create_graph_client_with_token(delegated_token) as graph_client:
-            recordings = await get_meeting_recordings(
-                client=graph_client,
-                online_meeting_id=online_meeting_id,
-                add_size=True,
-                content_token=delegated_token,
-            )
+            if recording_id:
+                base_path = (
+                    f"/users/{quote(user_id_hint, safe='')}/onlineMeetings/{quote(online_meeting_id, safe='')}"
+                    if user_id_hint
+                    else None
+                )
+                logger.info(
+                    "[teams note-taker] base_path=%s",
+                    base_path,
+                )
+                recording = await get_recording_by_id(
+                    client=graph_client,
+                    online_meeting_id=online_meeting_id,
+                    recording_id=recording_id,
+                    base_path=base_path,
+                )
+                logger.info(
+                    "[teams note-taker] recording=%s",
+                    recording,
+                )
+                # if recording and not recording.get("contentUrl"):
+                #    # Fallback to communications path if user-scoped call lacked contentUrl.
+                #    recording = await get_recording_by_id(
+                #        client=graph_client,
+                #        online_meeting_id=online_meeting_id,
+                #        recording_id=recording_id,
+                #        base_path=f"/communications/onlineMeetings/{quote(online_meeting_id, safe='')}",
+                #    )
+                recordings = [recording] if recording else []
+            else:  # TODO: remove this
+                recordings = await get_meeting_recordings(
+                    client=graph_client,
+                    online_meeting_id=online_meeting_id,
+                    add_size=True,
+                    content_token=delegated_token,
+                )
     except Exception as err:
         logger.exception(
             "[teams note-taker] failed to fetch recordings for meeting %s",
@@ -2140,6 +2194,10 @@ async def _process_recording_notification_for_meeting(
         return
 
     recording = recordings[0]
+    # Normalize content URL field from Graph response
+    if recording and not recording.get("contentUrl"):
+        if recording.get("recordingContentUrl"):
+            recording["contentUrl"] = recording.get("recordingContentUrl")
     meeting_info = {
         "id": meeting_row.meeting_id or meeting_row.graph_online_meeting_id,
         "title": meeting_row.title,
@@ -2178,6 +2236,11 @@ async def _process_recording_notification_for_meeting(
             f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
         )
         return
+
+    logger.info(
+        "[teams note-taker] transcription result...: %s",
+        result,
+    )
 
     job_id = (result or {}).get("id") if isinstance(result, dict) else None
     transcription = (
