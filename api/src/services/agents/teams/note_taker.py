@@ -14,6 +14,7 @@ import httpx
 from microsoft_agents.activity import (
     Activity,
     ActionTypes,
+    Attachment,
     CardAction,
     ChannelAccount,
     ConversationReference,
@@ -924,6 +925,84 @@ def _register_note_taker_handlers(
                 getattr(err, "message", str(err)),
             )
 
+    def _build_note_taker_welcome_card(bot_name: str | None) -> dict:
+        commands = [
+            "**/welcome** - Show this help.",
+            "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
+            "**/sign-out** - Sign out and revoke access.",
+            "**/whoami** - Show your Teams identity and sign-in status.",
+            "**/recordings-find** - List meeting recordings and transcribe the latest.",
+            "**/process-recording RECORDING_ID** - Download and transcribe a specific recording.",
+            "**/process-file LINK** - Download and transcribe an audio/video file.",
+            "**/meeting-info** - Show current meeting details.",
+        ]
+
+        body = [
+            {
+                "type": "TextBlock",
+                "text": "Welcome to Magnet note taker",
+                "weight": "Bolder",
+                "size": "Large",
+            },
+        ]
+        if bot_name:
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"I am your {bot_name}.",
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+            )
+        body.extend(
+            [
+                {
+                    "type": "TextBlock",
+                    "text": (
+                        "I capture meeting recordings and generate transcripts, summaries, chapters, and insights."
+                    ),
+                    "wrap": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": "Commands",
+                    "weight": "Bolder",
+                    "spacing": "Medium",
+                },
+            ]
+        )
+        for command in commands:
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"- {command}",
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+            )
+
+        return {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.5",
+            "body": body,
+            "msteams": {"width": "Full"},
+        }
+
+    async def _send_welcome_card(context: TurnContext) -> None:
+        bot_name = getattr(
+            getattr(getattr(context, "activity", None), "recipient", None),
+            "name",
+            None,
+        )
+        card = _build_note_taker_welcome_card(bot_name)
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        activity = Activity(type="message", attachments=[attachment])
+        await context.send_activity(activity)
+
     async def _get_delegated_token(
         context: TurnContext,
         handler_id: str,
@@ -1290,6 +1369,8 @@ def _register_note_taker_handlers(
         if not _is_personal_teams_conversation(context):
             return
 
+        await _send_welcome_card(context)
+
         try:
             already_signed_in = await _has_existing_token(context, auth_handler_id)
         except Exception:
@@ -1299,7 +1380,7 @@ def _register_note_taker_handlers(
             return
 
         await context.send_activity(
-            "Thanks for installing the Magnet note taker bot. Please sign in so I can access your meeting recordings."
+            "Thanks for installing me. Please sign in so I can access your meeting recordings."
         )
         try:
             await app.auth._start_or_continue_sign_in(context, _state, auth_handler_id)
@@ -2014,6 +2095,10 @@ def _register_note_taker_handlers(
             await context.send_activity(
                 "✅ token found" if token else "❌ no cached token"
             )
+            return
+
+        if normalized_text.startswith("/welcome"):
+            await _send_welcome_card(context)
             return
 
         if normalized_text.startswith("/sign-in"):
