@@ -160,6 +160,36 @@ async def fetch_recordings(
         raise
 
 
+async def get_recording_by_id(
+    *,
+    client: GraphClient,
+    online_meeting_id: str,
+    recording_id: str,
+    # base_path: str | None = None,
+) -> dict[str, Any] | None:
+    if not online_meeting_id or not recording_id:
+        return None
+
+    encoded_meeting_id = quote(online_meeting_id, safe="")
+    encoded_recording_id = quote(recording_id, safe="")
+    # path = base_path or f"/me/onlineMeetings/{encoded_meeting_id}"
+    path = f"/me/onlineMeetings/{encoded_meeting_id}"
+    url = f"{path}/recordings/{encoded_recording_id}"
+
+    try:
+        return await client.get_json(url)
+    except httpx.HTTPStatusError as err:
+        if getattr(err.response, "status_code", None) == 404:
+            return None
+        logger.error(
+            "Graph single recording fetch failed meetingId=%s recordingId=%s: %s",
+            online_meeting_id,
+            recording_id,
+            err,
+        )
+        raise
+
+
 async def get_meeting_recordings(
     *,
     client: GraphClient,
@@ -214,5 +244,6 @@ async def get_meeting_recordings(
 
 __all__ = [
     "create_graph_client_with_token",
+    "get_recording_by_id",
     "get_meeting_recordings",
 ]
