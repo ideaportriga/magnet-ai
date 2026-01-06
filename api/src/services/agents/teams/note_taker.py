@@ -15,8 +15,11 @@ from microsoft_agents.activity import (
     Activity,
     ActionTypes,
     CardAction,
+    ChannelAccount,
     ConversationReference,
+    Mention,
     OAuthCard,
+    TextFormatTypes,
 )
 from microsoft_agents.authentication.msal import MsalAuth
 from microsoft_agents.hosting.aiohttp import CloudAdapter
@@ -78,6 +81,9 @@ _TRANSCRIPTION_POLL_SECONDS = float(
 PROMPT_TEMPLATE_STT_SUMMARY = "STT_SUMMARY"
 PROMPT_TEMPLATE_STT_CHAPTERS = "STT_CHAPTERS"
 PROMPT_TEMPLATE_STT_INSIGHTS = "STT_INSIGHTS"
+_ORGANIZER_SIGN_IN_PROMPT = (
+    "I need you to sign in with /sign-in in our 1:1 chat so I can access meeting resources."
+)
 
 
 def _format_duration(seconds: float | int | None) -> str:
@@ -1047,6 +1053,51 @@ def _register_note_taker_handlers(
             "aad_object_id": getattr(organizer_obj, "aadObjectId", None),
         }
 
+    async def _build_organizer_mention_activity(
+        context: TurnContext, *, organizer_id: str | None, organizer_aad: str | None
+    ) -> Activity | None:
+        if not organizer_id:
+            return None
+        try:
+            member = await TeamsInfo.get_member(context, organizer_id)
+        except Exception:
+            return None
+
+        organizer_name = (
+            getattr(member, "name", None)
+            or getattr(member, "user_principal_name", None)
+            or getattr(member, "email", None)
+        )
+        if not organizer_name:
+            return None
+
+        mention_text = f"<at>{organizer_name}</at>"
+        mention = Mention(
+            mentioned=ChannelAccount(
+                id=organizer_id,
+                name=organizer_name,
+                aad_object_id=organizer_aad,
+            ),
+            text=mention_text,
+        )
+        return Activity(
+            type="message",
+            text=f"{mention_text} {_ORGANIZER_SIGN_IN_PROMPT}",
+            text_format=TextFormatTypes.xml,
+            entities=[mention],
+        )
+
+    async def _send_organizer_sign_in_prompt(
+        context: TurnContext, *, organizer_id: str | None, organizer_aad: str | None
+    ) -> None:
+        activity = await _build_organizer_mention_activity(
+            context, organizer_id=organizer_id, organizer_aad=organizer_aad
+        )
+        if activity:
+            await context.send_activity(activity)
+            return
+        await context.send_activity(_ORGANIZER_SIGN_IN_PROMPT)
+
     async def _is_meeting_organizer(context: TurnContext) -> bool:
         user = _resolve_user_info(context)
         organizer = await _get_meeting_organizer_identity(context)
@@ -1127,8 +1178,8 @@ def _register_note_taker_handlers(
                 "No organizer personal conversation reference available for token check."
             )
             if prompt_on_missing:
-                await context.send_activity(
-                    "I need the meeting organizer to sign in with **/sign-in** in our 1:1 chat so I can access meeting resources."
+                await _send_organizer_sign_in_prompt(
+                    context, organizer_id=organizer_id, organizer_aad=organizer_aad
                 )
             return False
 
@@ -1149,8 +1200,8 @@ def _register_note_taker_handlers(
             return True
 
         if prompt_on_missing:
-            await context.send_activity(
-                "I need the meeting organizer to sign in with **/sign-in** in our 1:1 chat so I can access meeting resources."
+            await _send_organizer_sign_in_prompt(
+                context, organizer_id=organizer_id, organizer_aad=organizer_aad
             )
 
         return False
