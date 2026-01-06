@@ -108,7 +108,7 @@ class RecordingsController(Controller):
             result["error"] = await service.get_error(job_id)
         elif status in {"transcribed", "completed", "diarized"}:
             tx = await service.get_transcription(job_id)
-            result["transcription"] = tx
+            result["transcription_job"] = tx
         return result
 
     # ────────────────────────────────
