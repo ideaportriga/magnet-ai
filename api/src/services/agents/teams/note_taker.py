@@ -81,9 +81,8 @@ _TRANSCRIPTION_POLL_SECONDS = float(
 PROMPT_TEMPLATE_STT_SUMMARY = "STT_SUMMARY"
 PROMPT_TEMPLATE_STT_CHAPTERS = "STT_CHAPTERS"
 PROMPT_TEMPLATE_STT_INSIGHTS = "STT_INSIGHTS"
-_ORGANIZER_SIGN_IN_PROMPT = (
-    "I need you to sign in with /sign-in in our 1:1 chat so I can access meeting resources."
-)
+_ORGANIZER_SIGN_IN_PROMPT = "I need you to sign in with /sign-in in our 1:1 chat so I can access meeting resources."
+_ORGANIZER_PERSONAL_INSTALL_PROMPT = "Please install me."
 
 
 def _format_duration(seconds: float | int | None) -> str:
@@ -1054,7 +1053,11 @@ def _register_note_taker_handlers(
         }
 
     async def _build_organizer_mention_activity(
-        context: TurnContext, *, organizer_id: str | None, organizer_aad: str | None
+        context: TurnContext,
+        *,
+        organizer_id: str | None,
+        organizer_aad: str | None,
+        prompt_text: str,
     ) -> Activity | None:
         if not organizer_id:
             return None
@@ -1082,7 +1085,7 @@ def _register_note_taker_handlers(
         )
         return Activity(
             type="message",
-            text=f"{mention_text} {_ORGANIZER_SIGN_IN_PROMPT}",
+            text=f"{mention_text} {prompt_text}",
             text_format=TextFormatTypes.xml,
             entities=[mention],
         )
@@ -1091,12 +1094,89 @@ def _register_note_taker_handlers(
         context: TurnContext, *, organizer_id: str | None, organizer_aad: str | None
     ) -> None:
         activity = await _build_organizer_mention_activity(
-            context, organizer_id=organizer_id, organizer_aad=organizer_aad
+            context,
+            organizer_id=organizer_id,
+            organizer_aad=organizer_aad,
+            prompt_text=_ORGANIZER_SIGN_IN_PROMPT,
         )
         if activity:
             await context.send_activity(activity)
             return
         await context.send_activity(_ORGANIZER_SIGN_IN_PROMPT)
+
+    async def _send_organizer_personal_install_prompt(
+        context: TurnContext, *, organizer_id: str | None, organizer_aad: str | None
+    ) -> None:
+        activity = await _build_organizer_mention_activity(
+            context,
+            organizer_id=organizer_id,
+            organizer_aad=organizer_aad,
+            prompt_text=_ORGANIZER_PERSONAL_INSTALL_PROMPT,
+        )
+        if activity:
+            await context.send_activity(activity)
+            return
+        await context.send_activity(_ORGANIZER_PERSONAL_INSTALL_PROMPT)
+
+    async def _organizer_has_personal_scope_installation(
+        *, organizer_id: str | None, organizer_aad: str | None, bot_id: str | None
+    ) -> bool:
+        if not bot_id or (not organizer_id and not organizer_aad):
+            return False
+        stmt = (
+            select(TeamsUser)
+            .where(TeamsUser.scope == "personal", TeamsUser.bot_id == bot_id)
+            .where(
+                or_(
+                    TeamsUser.aad_object_id == organizer_aad,
+                    TeamsUser.teams_user_id == organizer_id,
+                )
+            )
+            .limit(1)
+        )
+        try:
+            async with async_session_maker() as session:
+                result = await session.execute(stmt)
+                return result.scalar_one_or_none() is not None
+        except Exception as exc:
+            logger.debug(
+                "Failed to check organizer personal install state: %s",
+                getattr(exc, "message", str(exc)),
+            )
+            return False
+
+    async def _prompt_organizer_personal_install_if_missing(
+        context: TurnContext,
+    ) -> None:
+        if not _is_meeting_conversation(context):
+            return
+        try:
+            organizer = await _get_meeting_organizer_identity(context)
+        except Exception as err:
+            logger.debug(
+                "Unable to resolve meeting organizer for personal install prompt: %s",
+                getattr(err, "message", str(err)),
+            )
+            return
+
+        organizer_id = organizer.get("id")
+        organizer_aad = organizer.get("aad_object_id")
+        bot_id = normalize_bot_id(
+            getattr(
+                getattr(getattr(context, "activity", None), "recipient", None),
+                "id",
+                None,
+            )
+        )
+        if await _organizer_has_personal_scope_installation(
+            organizer_id=organizer_id,
+            organizer_aad=organizer_aad,
+            bot_id=bot_id,
+        ):
+            return
+        await _send_organizer_personal_install_prompt(
+            context, organizer_id=organizer_id, organizer_aad=organizer_aad
+        )
 
     async def _is_meeting_organizer(context: TurnContext) -> bool:
         user = _resolve_user_info(context)
@@ -1873,6 +1953,8 @@ def _register_note_taker_handlers(
             await _handle_install_flow(context, _state)
             if _is_meeting_conversation(context):
                 await context.send_activity("Magnet note taker added to the meeting.")
+                # TODO: refactor it
+                await _prompt_organizer_personal_install_if_missing(context)
                 await _ensure_organizer_delegated_token_cached(  # TODO: remove this?
                     context, auth_handler_id, prompt_on_missing=True
                 )
