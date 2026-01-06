@@ -59,6 +59,7 @@ from .graph import (
 from .static_connections import StaticConnections
 from .teams_user_store import upsert_teams_user, normalize_bot_id
 from speech_to_text.transcription import service as transcription_service
+from services.prompt_templates import execute_prompt_template
 from stores import get_db_client
 from utils import upload_handler
 
@@ -74,6 +75,9 @@ _TRANSCRIPTION_TIMEOUT_SECONDS = float(
 _TRANSCRIPTION_POLL_SECONDS = float(
     os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5")
 )
+PROMPT_TEMPLATE_STT_SUMMARY = "STT_SUMMARY"
+PROMPT_TEMPLATE_STT_CHAPTERS = "STT_CHAPTERS"
+PROMPT_TEMPLATE_STT_INSIGHTS = "STT_INSIGHTS"
 
 
 def _format_duration(seconds: float | int | None) -> str:
@@ -135,6 +139,16 @@ def _format_recording_datetime(iso_datetime: str | None) -> tuple[str, str]:
         return (date_str, time_str)
     except Exception:
         return (iso_datetime, "")
+
+
+def _format_recording_date_iso(iso_datetime: str | None) -> str | None:
+    if not iso_datetime:
+        return None
+    try:
+        dt_obj = dt.datetime.fromisoformat(iso_datetime.replace("Z", "+00:00"))
+    except Exception:
+        return None
+    return dt_obj.date().isoformat()
 
 
 async def _ensure_vector_pool_ready() -> None:
@@ -690,6 +704,7 @@ async def _send_transcription_summary(
     status: str,
     job_id: str | None,
     transcription: dict | None,
+    conversation_date: str | None = None,
 ) -> None:
     duration = None
     transcript_payload = transcription
@@ -710,19 +725,24 @@ async def _send_transcription_summary(
     if status in {"completed", "transcribed", "diarized"}:
         segs_count = 0
         full_text = None
+        participants: list[str] = []
         if isinstance(transcript_payload, dict):
             segs = transcript_payload.get("segments") or []
             segs_count = len(segs)
             full_text = transcript_payload.get("text") or ""
             if segs:
                 lines = []
+                seen_participants: set[str] = set()
                 for s in segs:
                     if not isinstance(s, dict):
                         continue
+                    speaker = s.get("speaker") or "speaker_0"
+                    if speaker not in seen_participants:
+                        seen_participants.add(speaker)
+                        participants.append(speaker)
                     text = (s.get("text") or "").strip()
                     if not text:
                         continue
-                    speaker = s.get("speaker") or "speaker_0"
                     ts = _format_mm_ss(s.get("start"))
                     lines.append(f"[{ts}] {speaker}: {text}")
                 if lines:
@@ -743,6 +763,42 @@ async def _send_transcription_summary(
             await context.send_activity(f"Transcript text: {snippet}{suffix}")
         elif segs_count == 0:
             await context.send_activity("No speech was detected in this recording.")
+
+        if full_text:
+            templates = [
+                (PROMPT_TEMPLATE_STT_SUMMARY, "Summary"),
+                (PROMPT_TEMPLATE_STT_CHAPTERS, "Chapters"),
+                (PROMPT_TEMPLATE_STT_INSIGHTS, "Insights"),
+            ]
+
+            async def _run_template(system_name: str):
+                return await execute_prompt_template(
+                    system_name_or_config=system_name,
+                    template_values={
+                        "transcription": full_text,
+                        "participants": participants,
+                        "language": "the same as the transcription",
+                        "conversation_date": conversation_date or "",
+                    },
+                )
+
+            results = await asyncio.gather(
+                *(_run_template(system_name) for system_name, _ in templates),
+                return_exceptions=True,
+            )
+
+            for (system_name, title), result in zip(templates, results):
+                if isinstance(result, Exception):
+                    logger.warning(
+                        "Prompt template %s failed for transcription job %s: %s",
+                        system_name,
+                        job_id,
+                        getattr(result, "message", str(result)),
+                    )
+                    await context.send_activity(f"{title} generation failed.")
+                    continue
+
+                await context.send_activity(f"{title}:\n{result.content}")
         return
 
     if status == "failed":
@@ -922,6 +978,7 @@ def _register_note_taker_handlers(
         ext: str,
         file_bytes: bytes,
         content_type: str,
+        conversation_date: str | None = None,
     ) -> None:
         await _send_typing(context)
         if not content_type.startswith(("audio/", "video/")):
@@ -957,7 +1014,13 @@ def _register_note_taker_handlers(
             (result or {}).get("transcription") if isinstance(result, dict) else None
         )
 
-        await _send_transcription_summary(context, status, job_id, transcription)
+        await _send_transcription_summary(
+            context,
+            status,
+            job_id,
+            transcription,
+            conversation_date=conversation_date,
+        )
 
     async def _has_existing_token(context: TurnContext, handler_id: str) -> bool:
         """Try to detect an existing ABS token without sending a new OAuth card."""
@@ -1184,6 +1247,9 @@ def _register_note_taker_handlers(
                     ext=ext,
                     file_bytes=file_bytes,
                     content_type=content_type,
+                    conversation_date=_format_recording_date_iso(
+                        recordings[0].get("createdDateTime")
+                    ),
                 )
             else:
                 await context.send_activity(
@@ -1265,6 +1331,9 @@ def _register_note_taker_handlers(
             ext=ext,
             file_bytes=file_bytes,
             content_type=content_type,
+            conversation_date=_format_recording_date_iso(
+                recording.get("createdDateTime")
+            ),
         )
 
     async def _handle_process_file(
@@ -2383,4 +2452,10 @@ async def _process_recording_notification_for_meeting(
         (result or {}).get("transcription") if isinstance(result, dict) else None
     )
 
-    await _send_transcription_summary(context, status, job_id, transcription)
+    await _send_transcription_summary(
+        context,
+        status,
+        job_id,
+        transcription,
+        conversation_date=_format_recording_date_iso(recording.get("createdDateTime")),
+    )
