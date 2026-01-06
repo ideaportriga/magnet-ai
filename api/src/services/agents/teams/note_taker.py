@@ -2482,20 +2482,16 @@ async def _process_recording_notification_for_meeting(
     try:
         async with create_graph_client_with_token(delegated_token) as graph_client:
             if recording_id:
-                base_path = (
-                    f"/users/{quote(user_id_hint, safe='')}/onlineMeetings/{quote(online_meeting_id, safe='')}"
-                    if user_id_hint
-                    else None
-                )
-                logger.info(
-                    "[teams note-taker] base_path=%s",
-                    base_path,
-                )
+                # base_path = (
+                #     f"/users/{quote(user_id_hint, safe='')}/onlineMeetings/{quote(online_meeting_id, safe='')}"
+                #     if user_id_hint
+                #     else None
+                # )
                 recording = await get_recording_by_id(
                     client=graph_client,
                     online_meeting_id=online_meeting_id,
                     recording_id=recording_id,
-                    base_path=base_path,
+                    # base_path=base_path,
                 )
                 logger.info(
                     "[teams note-taker] recording=%s",
@@ -2507,7 +2503,7 @@ async def _process_recording_notification_for_meeting(
                 #        client=graph_client,
                 #        online_meeting_id=online_meeting_id,
                 #        recording_id=recording_id,
-                #        base_path=f"/communications/onlineMeetings/{quote(online_meeting_id, safe='')}",
+                #        # base_path=f"/communications/onlineMeetings/{quote(online_meeting_id, safe='')}",
                 #    )
                 recordings = [recording] if recording else []
             else:  # TODO: remove this
