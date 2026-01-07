@@ -52,7 +52,7 @@ from microsoft_agents.hosting.teams import TeamsInfo
 
 from core.db.session import async_session_maker
 from core.db.models.teams import TeamsMeeting, TeamsUser
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, select, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
@@ -936,6 +936,7 @@ def _register_note_taker_handlers(
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - Show your Teams identity and sign-in status.",
             "**/sf-account-lookup ACCOUNT_NAME** - Lookup a Salesforce account.",
+            "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-find** - List meeting recordings and transcribe the latest.",
             "**/process-recording RECORDING_ID** - Download and transcribe a specific recording.",
             "**/process-file LINK** - Download and transcribe an audio/video file.",
@@ -2009,6 +2010,94 @@ def _register_note_taker_handlers(
 
         await context.send_activity(str(result))
 
+    async def _handle_sf_account_set(
+        context: TurnContext, account_name: str
+    ) -> None:
+        if not account_name:
+            await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
+            return
+
+        if not _is_meeting_conversation(context):
+            await context.send_activity(
+                "This command works only in meeting chats."
+            )
+            return
+
+        await _send_typing(context)
+
+        try:
+            result = await account_lookup(account_name)
+        except Exception as err:
+            logger.exception(
+                "Salesforce account lookup failed for %s",
+                account_name,
+            )
+            await context.send_activity(
+                f"Salesforce account lookup failed: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if not isinstance(result, list) or not result:
+            await context.send_activity("No Salesforce accounts found to set.")
+            return
+
+        first = result[0] if isinstance(result[0], dict) else {}
+        account_id = first.get("accountId") if isinstance(first, dict) else None
+        if not account_id:
+            await context.send_activity(
+                "Salesforce account lookup did not return an accountId."
+            )
+            return
+
+        meeting_context = _resolve_meeting_details(context)
+        meeting_id = meeting_context.get("id")
+        recipient = getattr(getattr(context, "activity", None), "recipient", None)
+        bot_id = normalize_bot_id(getattr(recipient, "id", None))
+        if not meeting_id or not bot_id:
+            await context.send_activity(
+                "Could not resolve meeting or bot id for this conversation."
+            )
+            return
+
+        now = dt.datetime.now(dt.timezone.utc)
+        stmt = (
+            update(TeamsMeeting)
+            .where(
+                TeamsMeeting.meeting_id == meeting_id,
+                TeamsMeeting.bot_id == bot_id,
+            )
+            .values(title=account_id, last_seen_at=now, updated_at=func.now())
+        )
+
+        try:
+            async with async_session_maker() as session:
+                try:
+                    result = await session.execute(stmt)
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    raise
+        except Exception as err:
+            logger.exception(
+                "Failed to update Teams meeting for account set (meeting_id=%s, bot_id=%s)",
+                meeting_id,
+                bot_id,
+            )
+            await context.send_activity(
+                f"Failed to save account for this meeting: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if getattr(result, "rowcount", 0) == 0:
+            await context.send_activity(
+                "I couldn't find a meeting record to update."
+            )
+            return
+
+        await context.send_activity(
+            f"Saved Salesforce account id {account_id} for this meeting."
+        )
+
     async def _handle_meeting_info(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -2263,6 +2352,16 @@ def _register_note_taker_handlers(
 
             account_name = parts[1].strip()
             await _handle_sf_account_lookup(context, account_name)
+            return
+
+        if normalized_text.startswith("/sf-account-set"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
+                return
+
+            account_name = parts[1].strip()
+            await _handle_sf_account_set(context, account_name)
             return
 
         if normalized_text.startswith("/process-file"):
