@@ -63,7 +63,7 @@ from .graph import (
     list_subscriptions,
     pick_recordings_ready_subscription,
 )
-from .sf import account_lookup
+from .sf import account_lookup, post_stt_recording
 from .static_connections import StaticConnections
 from .teams_user_store import upsert_teams_user, normalize_bot_id
 from speech_to_text.transcription import service as transcription_service
@@ -159,6 +159,79 @@ def _format_recording_date_iso(iso_datetime: str | None) -> str | None:
     except Exception:
         return None
     return dt_obj.date().isoformat()
+
+
+async def _get_meeting_account_id(
+    context: TurnContext, meeting_id: str | None
+) -> str | None:
+    if not meeting_id:
+        return None
+
+    recipient = getattr(getattr(context, "activity", None), "recipient", None)
+    bot_id = normalize_bot_id(getattr(recipient, "id", None))
+    if not bot_id:
+        return None
+
+    try:
+        async with async_session_maker() as session:
+            stmt = select(TeamsMeeting.title).where(
+                TeamsMeeting.meeting_id == meeting_id,
+                TeamsMeeting.bot_id == bot_id,
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+    except Exception as err:
+        logger.debug("Failed to load meeting account id: %s", err)
+        return None
+
+
+async def _send_stt_recording_to_salesforce(
+    context: TurnContext,
+    *,
+    job_id: str | None,
+    conversation_date: str | None,
+    source_file_name: str,
+    source_file_type: str,
+    account_id: str | None,
+) -> None:
+    if not job_id:
+        return
+
+    if not account_id:
+        await context.send_activity(
+            "Salesforce sync skipped: account id is not set for this meeting."
+        )
+        return
+
+    if not conversation_date:
+        conversation_date = dt.datetime.now(dt.timezone.utc).date().isoformat()
+
+    payload = {
+        "external_job_id": job_id,
+        "conversation_date": conversation_date,
+        "source_file_name": source_file_name,
+        "source_file_type": source_file_type,
+        "account_id": account_id,
+    }
+
+    payload_json = json.dumps(payload, indent=2, ensure_ascii=True)
+    await context.send_activity(f"```json\n{payload_json}\n```")
+
+    try:
+        result = await post_stt_recording(payload)
+    except Exception as err:
+        logger.exception("Salesforce sttRecording failed for job %s", job_id)
+        await context.send_activity(
+            f"Salesforce sttRecording failed: {getattr(err, 'message', str(err))}"
+        )
+        return
+
+    if isinstance(result, (dict, list)):
+        payload_json = json.dumps(result, indent=2, ensure_ascii=True)
+        await context.send_activity(f"```json\n{payload_json}\n```")
+        return
+
+    await context.send_activity(str(result))
 
 
 async def _ensure_vector_pool_ready() -> None:
@@ -1104,6 +1177,20 @@ def _register_note_taker_handlers(
             (result or {}).get("transcription") if isinstance(result, dict) else None
         )
 
+        if _is_meeting_conversation(context):
+            meeting_context = _resolve_meeting_details(context)
+            account_id = await _get_meeting_account_id(
+                context, meeting_context.get("id")
+            )
+            await _send_stt_recording_to_salesforce(
+                context,
+                job_id=job_id,
+                conversation_date=conversation_date,
+                source_file_name=f"{name}{ext}",
+                source_file_type=content_type,
+                account_id=account_id,
+            )
+
         await _send_transcription_summary(
             context,
             status,
@@ -2010,17 +2097,13 @@ def _register_note_taker_handlers(
 
         await context.send_activity(str(result))
 
-    async def _handle_sf_account_set(
-        context: TurnContext, account_name: str
-    ) -> None:
+    async def _handle_sf_account_set(context: TurnContext, account_name: str) -> None:
         if not account_name:
             await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
             return
 
         if not _is_meeting_conversation(context):
-            await context.send_activity(
-                "This command works only in meeting chats."
-            )
+            await context.send_activity("This command works only in meeting chats.")
             return
 
         await _send_typing(context)
@@ -2089,9 +2172,7 @@ def _register_note_taker_handlers(
             return
 
         if getattr(result, "rowcount", 0) == 0:
-            await context.send_activity(
-                "I couldn't find a meeting record to update."
-            )
+            await context.send_activity("I couldn't find a meeting record to update.")
             return
 
         await context.send_activity(
@@ -2144,20 +2225,7 @@ def _register_note_taker_handlers(
 
         organizer = f"Organizer: {organizer_name} ({organizer_email}) [id: {organizer_id}, aadObjectId: {organizer_aad}]"
 
-        account_id = None
-        try:
-            recipient = getattr(getattr(context, "activity", None), "recipient", None)
-            bot_id = normalize_bot_id(getattr(recipient, "id", None))
-            if meeting_id and bot_id:
-                async with async_session_maker() as session:
-                    stmt = select(TeamsMeeting.title).where(
-                        TeamsMeeting.meeting_id == meeting_id,
-                        TeamsMeeting.bot_id == bot_id,
-                    )
-                    result = await session.execute(stmt)
-                    account_id = result.scalar_one_or_none()
-        except Exception as err:
-            logger.debug("Failed to load meeting account id: %s", err)
+        account_id = await _get_meeting_account_id(context, meeting_id)
 
         try:
             in_progress = await _check_meeting_in_progress(context, meeting_id)
@@ -2879,6 +2947,19 @@ async def _process_recording_notification_for_meeting(
     transcription = (
         (result or {}).get("transcription") if isinstance(result, dict) else None
     )
+
+    if _is_meeting_conversation(context):
+        account_id = getattr(meeting_row, "title", None)
+        await _send_stt_recording_to_salesforce(
+            context,
+            job_id=job_id,
+            conversation_date=_format_recording_date_iso(
+                recording.get("createdDateTime")
+            ),
+            source_file_name=f"{name}{ext}",
+            source_file_type=content_type,
+            account_id=account_id,
+        )
 
     await _send_transcription_summary(
         context,

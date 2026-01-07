@@ -78,4 +78,40 @@ async def account_lookup(account_name: str) -> Any:
             return response.text
 
 
-__all__ = ["account_lookup"]
+async def post_stt_recording(payload: dict[str, Any]) -> Any:
+    api_url = _get_env("API_URL")
+    token_url = _get_env("TOKEN_URL")
+    client_id = _get_env("CLIENT_ID")
+    client_secret = _get_env("CLIENT_SECRET")
+
+    missing = [
+        name
+        for name, value in (
+            ("TEAMS_NOTE_TAKER_SF_API_URL", api_url),
+            ("TEAMS_NOTE_TAKER_SF_TOKEN_URL", token_url),
+            ("TEAMS_NOTE_TAKER_SF_CLIENT_ID", client_id),
+            ("TEAMS_NOTE_TAKER_SF_CLIENT_SECRET", client_secret),
+        )
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(f"Missing Salesforce env vars: {', '.join(missing)}")
+
+    base_url = _normalize_base_url(api_url)
+    token = await _fetch_access_token(
+        token_url=token_url, client_id=client_id, client_secret=client_secret
+    )
+    url = f"{base_url}/sttRecording"
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        try:
+            return response.json()
+        except ValueError:
+            logger.debug("Salesforce sttRecording response was not JSON.")
+            return response.text
+
+
+__all__ = ["account_lookup", "post_stt_recording"]
