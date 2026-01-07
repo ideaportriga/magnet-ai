@@ -2144,6 +2144,21 @@ def _register_note_taker_handlers(
 
         organizer = f"Organizer: {organizer_name} ({organizer_email}) [id: {organizer_id}, aadObjectId: {organizer_aad}]"
 
+        account_id = None
+        try:
+            recipient = getattr(getattr(context, "activity", None), "recipient", None)
+            bot_id = normalize_bot_id(getattr(recipient, "id", None))
+            if meeting_id and bot_id:
+                async with async_session_maker() as session:
+                    stmt = select(TeamsMeeting.title).where(
+                        TeamsMeeting.meeting_id == meeting_id,
+                        TeamsMeeting.bot_id == bot_id,
+                    )
+                    result = await session.execute(stmt)
+                    account_id = result.scalar_one_or_none()
+        except Exception as err:
+            logger.debug("Failed to load meeting account id: %s", err)
+
         try:
             in_progress = await _check_meeting_in_progress(context, meeting_id)
         except Exception as err:
@@ -2166,6 +2181,7 @@ def _register_note_taker_handlers(
             f"- Type: {meeting_type}",
             f"- Meeting id: {meeting_id or 'Unknown'}",
             f"- Online meeting id: {online_meeting_id or 'Unknown'}",
+            f"- Salesforce account id: {account_id or 'Unknown'}",
             f"- {organizer}",
             f"- Start: {_format_iso_datetime(start_time)}",
             f"- End: {_format_iso_datetime(end_time)}",
