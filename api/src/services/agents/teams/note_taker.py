@@ -59,6 +59,8 @@ from .graph import (
     create_graph_client_with_token,
     get_meeting_recordings,
     get_recording_by_id,
+    list_subscriptions,
+    pick_recordings_ready_subscription,
 )
 from .static_connections import StaticConnections
 from .teams_user_store import upsert_teams_user, normalize_bot_id
@@ -1431,7 +1433,6 @@ def _register_note_taker_handlers(
             return
 
         await _send_recordings_summary(context, recordings, delegated_token)
-
         if recordings:
             await context.send_activity("Streaming the latest recording now...")
             await _send_typing(context)
@@ -1877,6 +1878,45 @@ def _register_note_taker_handlers(
                 getattr(err, "message", str(err)),
             )
 
+    async def _get_recordings_ready_subscription_status(
+        context: TurnContext, online_meeting_id: str | None
+    ) -> str:
+        if not online_meeting_id:
+            return "unknown (missing online meeting id)"
+
+        delegated_token = await _get_organizer_delegated_token_from_cache(context)
+        if not delegated_token:
+            return "unknown (organizer delegated token missing)"
+
+        try:
+            async with create_graph_client_with_token(delegated_token) as graph_client:
+                subscriptions = await list_subscriptions(graph_client)
+            subscription = pick_recordings_ready_subscription(
+                subscriptions, online_meeting_id=online_meeting_id
+            )
+        except Exception as err:
+            logger.warning(
+                "[teams note-taker] failed to query recording subscriptions: %s",
+                getattr(err, "message", str(err)),
+            )
+            return "unknown (graph query failed)"
+
+        if not subscription:
+            return "not found"
+
+        exp_raw = subscription.get("expirationDateTime")
+        exp_label = _format_iso_datetime(exp_raw)
+
+        try:
+            exp_dt = dt.datetime.fromisoformat(exp_raw.replace("Z", "+00:00"))
+        except Exception:
+            exp_dt = None
+
+        if exp_dt and exp_dt <= dt.datetime.now(dt.timezone.utc):
+            return f"expired at {exp_label}"
+
+        return f"set (expires {exp_label})"
+
     async def _check_meeting_in_progress(
         context: TurnContext, meeting_id: str
     ) -> bool | None:
@@ -1959,6 +1999,8 @@ def _register_note_taker_handlers(
         organizer_id = getattr(organizer_obj, "id", None)
         organizer_aad = getattr(organizer_obj, "aadObjectId", None)
 
+        organizer_name = None
+        organizer_email = None
         try:
             member = await TeamsInfo.get_member(context, organizer_id)
             organizer_name = getattr(member, "name", None)
@@ -1983,6 +2025,9 @@ def _register_note_taker_handlers(
             if in_progress is False
             else "unknown (could not verify participants)"
         )
+        subscription_status = await _get_recordings_ready_subscription_status(
+            context, online_meeting_id
+        )
 
         lines = [
             "Meeting info:",
@@ -1993,6 +2038,7 @@ def _register_note_taker_handlers(
             f"- Start: {_format_iso_datetime(start_time)}",
             f"- End: {_format_iso_datetime(end_time)}",
             f"- In progress: {status}",
+            f"- Recordings-ready subscription: {subscription_status}",
         ]
 
         await context.send_activity("\n".join(lines))
