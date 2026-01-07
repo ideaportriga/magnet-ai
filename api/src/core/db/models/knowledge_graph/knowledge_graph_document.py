@@ -26,6 +26,49 @@ from .utils import to_uuid
 
 
 @dataclass(slots=True)
+class KnowledgeGraphDocumentMetadata:
+    """Structured document metadata grouped by origin.
+
+    - file: metadata extracted from the file itself (e.g. reader-produced fields)
+    - source: metadata coming from the ingestion source system (e.g. SharePoint fields)
+    """
+
+    file: dict[str, Any] | None = None
+    source: dict[str, Any] | None = None
+
+    @classmethod
+    def from_value(cls, value: Any) -> KnowledgeGraphDocumentMetadata | None:
+        """Parse a DB/JSON value into a structured metadata object (best-effort)."""
+        if value is None:
+            return None
+        if isinstance(value, cls):
+            return value
+        if not isinstance(value, dict):
+            return None
+
+        file_val = value.get("file")
+        source_val = value.get("source")
+
+        file_meta = file_val if isinstance(file_val, dict) and file_val else None
+        source_meta = (
+            source_val if isinstance(source_val, dict) and source_val else None
+        )
+
+        if file_meta is None and source_meta is None:
+            return None
+
+        return cls(file=file_meta, source=source_meta)
+
+    def to_dict(self) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        if self.file:
+            out["file"] = self.file
+        if self.source:
+            out["source"] = self.source
+        return out
+
+
+@dataclass(slots=True)
 class KnowledgeGraphDocument:
     """Python representation of a row in a *per-graph* documents table.
 
@@ -49,10 +92,12 @@ class KnowledgeGraphDocument:
     status_message: str | None = None
     total_pages: int | None = None
     processing_time: float | None = None
+    metadata: KnowledgeGraphDocumentMetadata | None = None
 
     # Content
-    summary: str | None = None
+    content_plaintext: str | None = None
     toc: dict | list | None = None
+    summary: str | None = None
     summary_embedding: list[float] | None = None
 
     # Audit
@@ -79,6 +124,9 @@ class KnowledgeGraphDocument:
             except Exception:  # noqa: BLE001
                 ptime = None
 
+        metadata_val = row.get("metadata")
+        metadata_obj = KnowledgeGraphDocumentMetadata.from_value(metadata_val)
+
         return cls(
             id=to_uuid(row.get("id")),
             source_id=to_uuid(row.get("source_id")),
@@ -86,6 +134,7 @@ class KnowledgeGraphDocument:
             type=row.get("type"),
             content_profile=row.get("content_profile"),
             title=row.get("title"),
+            content_plaintext=row.get("content_plaintext"),
             summary=row.get("summary"),
             toc=row.get("toc"),
             summary_embedding=embedding,
@@ -93,6 +142,7 @@ class KnowledgeGraphDocument:
             status_message=row.get("status_message"),
             total_pages=row.get("total_pages"),
             processing_time=ptime,
+            metadata=metadata_obj,
             created_at=row.get("created_at"),
             updated_at=row.get("updated_at"),
         )
@@ -123,9 +173,11 @@ def knowledge_graph_document_table(
         Column("type", String(100), nullable=True),
         Column("content_profile", String(100), nullable=True),
         Column("title", String(500), nullable=True),
+        Column("content_plaintext", Text, nullable=True),
         Column("summary", Text, nullable=True),
         Column("summary_embedding", vector_type, nullable=True),
         Column("toc", JSONB, nullable=True),
+        Column("metadata", JSONB, nullable=True, server_default=text("'{}'::jsonb")),
         Column("status", String(50), server_default=text("'pending'"), nullable=True),
         Column("status_message", Text, nullable=True),
         Column("total_pages", Integer, nullable=True),

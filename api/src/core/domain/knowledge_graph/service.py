@@ -20,11 +20,13 @@ from sqlalchemy import (
     type_coerce,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from core.db.models.job import Job as JobModel
 from core.db.models.knowledge_graph import (
     KnowledgeGraph,
     KnowledgeGraphChunk,
+    KnowledgeGraphDiscoveredMetadata,
     KnowledgeGraphDocument,
     KnowledgeGraphSource,
     chunks_index_prefix,
@@ -42,13 +44,17 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkListResponse,
     KnowledgeGraphCreateRequest,
     KnowledgeGraphCreateResponse,
+    KnowledgeGraphDiscoveredMetadataExternalSchema,
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
     KnowledgeGraphExternalSchema,
+    KnowledgeGraphMetadataExtractionRunRequest,
+    KnowledgeGraphMetadataExtractionRunResponse,
     KnowledgeGraphRetrievalPreviewResponse,
     KnowledgeGraphSourceCreateRequest,
     KnowledgeGraphSourceCreateResponse,
     KnowledgeGraphSourceExternalSchema,
+    KnowledgeGraphSourceLinkExternalSchema,
     KnowledgeGraphSourceScheduleExternalSchema,
     KnowledgeGraphSourceScheduleSyncRequest,
     KnowledgeGraphSourceUpdateRequest,
@@ -954,6 +960,7 @@ class KnowledgeGraphDocumentService:
                 docs_tbl.c.title.label("title"),
                 docs_tbl.c.summary.label("summary"),
                 docs_tbl.c.toc.label("toc"),
+                docs_tbl.c.metadata.label("metadata"),
                 docs_tbl.c.status.label("status"),
                 docs_tbl.c.status_message.label("status_message"),
                 docs_tbl.c.total_pages.label("total_pages"),
@@ -982,6 +989,7 @@ class KnowledgeGraphDocumentService:
             status_message=doc.status_message,
             total_pages=doc.total_pages,
             processing_time=doc.processing_time,
+            metadata=doc.metadata.to_dict() if doc.metadata else None,
             source_id=None,
             chunks_count=int(row.get("chunks_count") or 0),
             created_at=doc.created_at.isoformat() if doc.created_at else None,
@@ -1310,3 +1318,127 @@ class KnowledgeGraphChunkService:
         return KnowledgeGraphChunkListResponse(
             chunks=chunks, total=total_count, limit=limit, offset=offset
         )
+
+
+class KnowledgeGraphMetadataService:
+    async def list_discovered_metadata(
+        self, db_session: AsyncSession, graph_id: UUID
+    ) -> list[KnowledgeGraphDiscoveredMetadataExternalSchema]:
+        # Ensure the graph exists so we can distinguish "no fields yet" vs "graph not found".
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph.id).where(KnowledgeGraph.id == graph_id)
+        )
+        if graph_res.scalar_one_or_none() is None:
+            raise NotFoundException("Graph not found")
+
+        res = await db_session.execute(
+            select(KnowledgeGraphDiscoveredMetadata)
+            .where(KnowledgeGraphDiscoveredMetadata.graph_id == graph_id)
+            .options(selectinload(KnowledgeGraphDiscoveredMetadata.sources))
+            .order_by(
+                KnowledgeGraphDiscoveredMetadata.value_count.desc(),
+                KnowledgeGraphDiscoveredMetadata.name.asc(),
+            )
+        )
+        rows = res.scalars().all()
+
+        return [
+            KnowledgeGraphDiscoveredMetadataExternalSchema(
+                id=str(row.id),
+                name=row.name,
+                inferred_type=row.inferred_type,
+                origins=row.origins,
+                sample_values=row.sample_values,
+                value_count=int(row.value_count or 0),
+                sources=[
+                    KnowledgeGraphSourceLinkExternalSchema(
+                        id=str(src.id),
+                        name=src.name,
+                        type=src.type,
+                    )
+                    for src in (row.sources or [])
+                ],
+                created_at=row.created_at.isoformat() if row.created_at else None,
+                updated_at=row.updated_at.isoformat() if row.updated_at else None,
+            )
+            for row in rows
+        ]
+
+    async def run_metadata_extraction(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        data: KnowledgeGraphMetadataExtractionRunRequest,
+    ) -> KnowledgeGraphMetadataExtractionRunResponse:
+        """Trigger LLM-based metadata extraction for all documents/chunks in a graph.
+
+        This endpoint is intentionally best-effort and may take time for large graphs.
+        """
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
+        )
+        graph = graph_res.scalar_one_or_none()
+        if not graph:
+            raise NotFoundException("Graph not found")
+
+        settings = getattr(graph, "settings", None) or {}
+        metadata_settings = (
+            settings.get("metadata") if isinstance(settings, dict) else {}
+        )
+        extraction_settings = (
+            metadata_settings.get("extraction")
+            if isinstance(metadata_settings, dict)
+            else {}
+        ) or {}
+
+        # Determine approach (prefer request; fall back to persisted settings; handle legacy enabled flag)
+        approach_raw = (
+            str(data.approach).strip()
+            if getattr(data, "approach", None) is not None
+            else str(extraction_settings.get("approach") or "").strip()
+        )
+        enabled_legacy = bool(extraction_settings.get("enabled"))
+        if approach_raw not in ("disabled", "chunks", "document"):
+            approach_raw = "chunks" if enabled_legacy else "disabled"
+
+        if approach_raw == "disabled":
+            raise ClientException("Metadata extraction is disabled")
+
+        prompt_template_system_name = (
+            str(data.prompt_template_system_name).strip()
+            if getattr(data, "prompt_template_system_name", None) is not None
+            else str(
+                extraction_settings.get("prompt_template_system_name")
+                or extraction_settings.get("prompt_template")
+                or ""
+            ).strip()
+        )
+        if not prompt_template_system_name:
+            raise ClientException("Prompt template is required to run extraction")
+
+        segment_size = (
+            int(data.segment_size)
+            if getattr(data, "segment_size", None) is not None
+            else int(extraction_settings.get("segment_size") or 18000)
+        )
+        segment_overlap = (
+            float(data.segment_overlap)
+            if getattr(data, "segment_overlap", None) is not None
+            else float(extraction_settings.get("segment_overlap") or 0.1)
+        )
+
+        # Import locally to avoid heavy imports / circular deps at module import time
+        from services.knowledge_graph.llm_metadata_extraction import (
+            run_graph_llm_metadata_extraction,
+        )
+
+        result = await run_graph_llm_metadata_extraction(
+            db_session,
+            graph_id=graph_id,
+            approach=approach_raw,  # type: ignore[arg-type]
+            prompt_template_system_name=prompt_template_system_name,
+            segment_size=segment_size,
+            segment_overlap=segment_overlap,
+        )
+
+        return KnowledgeGraphMetadataExtractionRunResponse(status="ok", **result)

@@ -1,10 +1,14 @@
 from .knowledge_graph import KnowledgeGraph
 from .knowledge_graph_chunk import KnowledgeGraphChunk, knowledge_graph_chunk_table
+from .knowledge_graph_discovered_metadata import KnowledgeGraphDiscoveredMetadata
 from .knowledge_graph_document import (
     KnowledgeGraphDocument,
     knowledge_graph_document_table,
 )
 from .knowledge_graph_source import KnowledgeGraphSource
+from .knowledge_graph_source_discovered_metadata import (
+    knowledge_graph_source_discovered_metadata_table,
+)
 from .utils import (
     chunks_index_prefix,
     chunks_table_name,
@@ -16,6 +20,8 @@ from .utils import (
 __all__ = [
     "KnowledgeGraph",
     "KnowledgeGraphSource",
+    "KnowledgeGraphDiscoveredMetadata",
+    "knowledge_graph_source_discovered_metadata_table",
     "docs_table_name",
     "chunks_table_name",
     "KnowledgeGraphChunk",

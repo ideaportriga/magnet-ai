@@ -1,5 +1,6 @@
 <template>
   <q-select
+    ref="selectRef"
     :model-value="modelValue"
     :class="selectClasses"
     outlined
@@ -9,16 +10,49 @@
     :placeholder="placeholder"
     :option-value="optionValue"
     :option-label="optionLabel"
-    :options="options"
+    :options="filteredOptions"
     :disable="disable"
+    :loading="loading"
     :popup-content-class="popupClasses"
     @update:model-value="$emit('update:modelValue', $event)"
+    @popup-show="onPopupShow"
+    @popup-hide="onPopupHide"
   >
     <template #append>
       <span v-if="modelValue && clearable" class="styled-select__clear" @click.stop="$emit('update:modelValue', '')">CLEAR</span>
     </template>
+    <template v-if="searchable" #before-options>
+      <q-item class="styled-select__search-item">
+        <q-item-section>
+          <q-input
+            ref="searchInputRef"
+            v-model="searchQuery"
+            dense
+            borderless
+            placeholder="Search..."
+            class="styled-select__search-input"
+            @keydown.stop
+          >
+            <template #prepend>
+              <q-icon name="search" size="18px" color="grey-6" />
+            </template>
+            <template v-if="searchQuery" #append>
+              <q-icon name="close" size="16px" color="grey-5" class="cursor-pointer" @click.stop="searchQuery = ''" />
+            </template>
+          </q-input>
+        </q-item-section>
+      </q-item>
+      <q-separator />
+    </template>
     <template #option="{ itemProps, opt, selected }">
-      <q-item v-bind="itemProps" :class="optionClasses(selected)">
+      <!-- No results sentinel - render as non-clickable message -->
+      <q-item v-if="opt.__noResults" disable class="styled-select__option--empty styled-select__no-results">
+        <q-item-section class="text-center">
+          <q-item-label class="text-grey-5">No matching options</q-item-label>
+        </q-item-section>
+      </q-item>
+      <!-- Regular option -->
+      <q-item v-else v-bind="itemProps" :class="optionClasses(selected)">
         <q-item-section>
           <div class="styled-select__option-row">
             <span class="styled-select__option-name">{{ opt[optionLabel] || opt.label || opt }}</span>
@@ -48,7 +82,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { QInput, QSelect } from 'quasar'
+import { computed, nextTick, ref } from 'vue'
 
 interface Props {
   modelValue: string | undefined
@@ -60,8 +95,10 @@ interface Props {
   showError?: boolean
   clearable?: boolean
   disable?: boolean
+  loading?: boolean
   optionMeta?: string | ((opt: any) => string | undefined)
   dense?: boolean
+  searchable?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -72,13 +109,50 @@ const props = withDefaults(defineProps<Props>(), {
   showError: false,
   clearable: false,
   disable: false,
+  loading: false,
   optionMeta: undefined,
   dense: false,
+  searchable: false,
 })
 
 defineEmits<{
   'update:modelValue': [value: string | undefined]
 }>()
+
+const selectRef = ref<QSelect | null>(null)
+const searchInputRef = ref<QInput | null>(null)
+const searchQuery = ref('')
+
+// Sentinel object to show "no results" message while keeping #before-options visible
+const NO_RESULTS_SENTINEL = { __noResults: true }
+
+const filteredOptions = computed(() => {
+  if (!props.searchable || !searchQuery.value) {
+    return props.options
+  }
+  const query = searchQuery.value.toLowerCase()
+  const filtered = props.options.filter((opt) => {
+    const label = opt[props.optionLabel] || opt.label || String(opt)
+    return label.toLowerCase().includes(query)
+  })
+  // Return sentinel if no matches, so #before-options stays rendered and search input keeps focus
+  if (filtered.length === 0) {
+    return [NO_RESULTS_SENTINEL]
+  }
+  return filtered
+})
+
+const onPopupShow = () => {
+  if (props.searchable) {
+    nextTick(() => {
+      searchInputRef.value?.focus()
+    })
+  }
+}
+
+const onPopupHide = () => {
+  searchQuery.value = ''
+}
 
 const getOptionMeta = (opt: any): string | undefined => {
   if (!props.optionMeta) return undefined
@@ -388,5 +462,57 @@ const optionClasses = (selected: boolean) => [
 
 .styled-select__option--dense {
   min-height: 38px !important;
+}
+
+/* Search input styling */
+.styled-select__search-item {
+  padding: 8px 8px 4px 8px !important;
+  min-height: auto !important;
+}
+
+.styled-select__search-input {
+  font-size: 13px;
+}
+
+.styled-select__search-input .q-field__control {
+  height: 36px !important;
+  min-height: 36px !important;
+}
+
+.styled-select__search-input .q-field__control:before {
+  border-color: transparent !important;
+}
+
+.styled-select__search-input .q-field__control:hover:before {
+  border-color: #e8e4ed !important;
+}
+
+.styled-select__search-input.q-field--focused .q-field__control {
+  background: #fff;
+}
+
+.styled-select__search-input.q-field--focused .q-field__control:after {
+  border-color: #6840c2;
+  border-width: 2px;
+  border-radius: 6px;
+}
+
+.styled-select__search-input .q-field__native {
+  padding-left: 4px;
+  color: #2d2438;
+}
+
+.styled-select__search-input .q-field__native::placeholder {
+  color: #a99bba;
+}
+
+/* No results state (when search yields no matches) */
+.styled-select__no-results {
+  cursor: default;
+  padding: 16px;
+}
+
+.styled-select__no-results:hover {
+  background: transparent;
 }
 </style>

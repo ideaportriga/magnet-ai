@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Optional, TypedDict
+from typing import Any, Iterable, Iterator, Optional, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -167,3 +167,26 @@ class SyncCounters:
     failed: int = 0
     skipped: int = 0
     total_found: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataMultiValueContainer:
+    """Explicit wrapper for metadata fields that logically contain multiple values.
+
+    Some ingestion sources (e.g., SharePoint multi-choice fields) return values in
+    shapes that are easy to mis-handle downstream (lists, dicts with `results`, or
+    custom collection objects). Wrapping the extracted values into this container
+    makes it easy for downstream services to detect and expand them.
+    """
+
+    values: tuple[Any, ...]
+
+    @classmethod
+    def from_iterable(cls, values: Iterable[Any]) -> "MetadataMultiValueContainer":
+        return cls(tuple(values))
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.values)
+
+    def __len__(self) -> int:
+        return len(self.values)

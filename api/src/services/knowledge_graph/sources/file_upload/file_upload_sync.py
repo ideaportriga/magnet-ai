@@ -113,6 +113,9 @@ class FileUploadSyncPipeline(
                         session,
                         filename=filename,
                         total_pages=total_pages,
+                        file_metadata=content.get("metadata")
+                        if isinstance(content, dict)
+                        else None,
                         default_document_type="txt",
                         content_profile=task.content_config.name
                         if task.content_config

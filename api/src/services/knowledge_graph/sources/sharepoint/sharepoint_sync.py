@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any, override
+from uuid import UUID
 
 from core.db.session import async_session_maker
 
 from ...content_config_services import get_content_config
 from ...content_load_services import load_content_from_bytes
+from ...metadata_services import accumulate_discovered_metadata_fields
 from ...models import SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
 from .sharepoint_models import (
@@ -19,6 +21,7 @@ from .sharepoint_models import (
 from .sharepoint_utils import (
     create_sharepoint_context,
     download_sharepoint_file_bytes,
+    fetch_sharepoint_file_list_item_fields,
     get_root_folder_server_relative_url,
     list_sharepoint_folder_children,
     normalize_server_relative_url,
@@ -48,7 +51,12 @@ class SharePointSyncPipeline(
     ):
         super().__init__(config=pipeline_config)
         self._source = source
-        self._graph_id = str(source.source.graph_id)
+        self._graph_uuid = (
+            source.source.graph_id
+            if isinstance(source.source.graph_id, UUID)
+            else UUID(str(source.source.graph_id))
+        )
+        self._graph_id = str(self._graph_uuid)
         self._source_id = str(source.source.id)
         self._sharepoint_config = sharepoint_config
         self._embedding_model = embedding_model
@@ -171,7 +179,7 @@ class SharePointSyncPipeline(
 
                     content_config = await get_content_config(
                         session,
-                        self._graph_id,
+                        self._graph_uuid,
                         filename,
                         source_type=self._source.source.type,
                     )
@@ -179,11 +187,55 @@ class SharePointSyncPipeline(
                         await ctx.inc("skipped")
                         continue
 
+                    # Best-effort: collect SharePoint list item fields and accumulate as
+                    # "discovered metadata" for this knowledge graph. Failures here should
+                    # not block ingestion.
+                    file_metadata: dict[str, Any] = {}
                     async with ctx.semaphore("sharepoint"):
+                        try:
+                            file_metadata = (
+                                await fetch_sharepoint_file_list_item_fields(
+                                    sp_ctx,
+                                    server_relative_url=file_ref.server_relative_url,
+                                )
+                            )
+                        except Exception as meta_exc:  # noqa: BLE001
+                            logger.error(
+                                "Failed to fetch SharePoint file metadata",
+                                extra=self._log_extra(
+                                    worker_id=worker_id,
+                                    doc_filename=filename or None,
+                                    error=str(meta_exc),
+                                    error_type=type(meta_exc).__name__,
+                                ),
+                            )
+
                         file_bytes = await download_sharepoint_file_bytes(
                             sp_ctx,
                             server_relative_url=file_ref.server_relative_url,
                         )
+
+                    if file_metadata:
+                        try:
+                            await accumulate_discovered_metadata_fields(
+                                session,
+                                graph_id=self._graph_uuid,
+                                source_id=self._source.source.id,
+                                metadata=file_metadata,
+                                origin="source",
+                            )
+                            await session.commit()
+                        except Exception as meta_db_exc:  # noqa: BLE001
+                            await session.rollback()
+                            logger.error(
+                                "Failed to persist SharePoint discovered metadata",
+                                extra=self._log_extra(
+                                    worker_id=worker_id,
+                                    doc_filename=filename or None,
+                                    error=str(meta_db_exc),
+                                    error_type=type(meta_db_exc).__name__,
+                                ),
+                            )
 
                     content = load_content_from_bytes(file_bytes, content_config)
                     total_pages = content["metadata"].get("total_pages")
@@ -192,6 +244,10 @@ class SharePointSyncPipeline(
                         session,
                         filename=filename,
                         total_pages=total_pages,
+                        file_metadata=content.get("metadata")
+                        if isinstance(content, dict)
+                        else None,
+                        source_metadata=file_metadata,
                         default_document_type="pdf",
                         content_profile=content_config.name if content_config else None,
                     )

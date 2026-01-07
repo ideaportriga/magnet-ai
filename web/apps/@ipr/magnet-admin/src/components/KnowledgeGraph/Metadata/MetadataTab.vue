@@ -28,333 +28,107 @@
     <q-separator class="q-my-md" />
 
     <div class="column q-gap-32">
-      <!-- Field Definitions -->
-      <km-section title="Field Definitions" sub-title="Schema definitions for metadata fields with types, constraints, and validation rules">
-        <!-- Actions for non-empty state -->
-        <div v-if="definedFields.length > 0" class="row items-center q-gutter-x-sm q-mb-sm">
-          <q-space />
-          <q-btn no-caps flat color="primary" icon="add" label="Add Field" class="kg-action-btn" @click.stop="openFieldDialog()" />
-          <q-btn-dropdown
-            no-caps
-            flat
-            color="primary"
-            icon="playlist_add"
-            label="Add Preset"
-            class="kg-action-btn"
-            dropdown-icon="expand_more"
-            content-class="kg-preset-dropdown-menu"
-            :disable="availablePresets.length === 0"
-            @click.stop
-          >
-            <q-list dense class="kg-preset-dropdown-list">
-              <q-item
-                v-for="preset in availablePresets"
-                :key="preset.name"
-                v-close-popup
-                clickable
-                class="kg-preset-dropdown-item"
-                @click="addPresetField(preset)"
-              >
-                <q-item-section avatar class="kg-preset-icon-section">
-                  <div class="kg-preset-icon-wrapper">
-                    <q-icon name="playlist_add" size="16px" />
-                  </div>
-                </q-item-section>
-                <q-item-section>
-                  <q-item-label class="kg-preset-label">{{ preset.display_name || preset.name }}</q-item-label>
-                  <q-item-label v-if="preset.description" caption class="kg-preset-caption">{{ preset.description }}</q-item-label>
-                </q-item-section>
-              </q-item>
-              <q-item v-if="availablePresets.length === 0" disable>
-                <q-item-section class="text-grey-6">All presets already added</q-item-section>
-              </q-item>
-            </q-list>
-          </q-btn-dropdown>
-        </div>
-
-        <!-- Empty state with border -->
-        <div v-if="definedFields.length === 0" class="metadata-empty-state bordered">
-          <q-icon name="category" size="48px" color="grey-4" />
-          <div class="text-subtitle1 text-grey-7 q-mt-md">No metadata fields defined</div>
-          <div class="text-body2 text-grey-6 q-mb-lg">Define fields to create a structured metadata schema</div>
-
-          <!-- Buttons in empty state -->
-          <div class="row items-center justify-center q-gutter-x-md">
-            <q-btn no-caps unelevated color="primary" label="Add Field" class="kg-action-btn" @click.stop="openFieldDialog()" />
-            <span class="text-grey-6 text-body2">or</span>
-            <q-btn-dropdown
-              no-caps
-              unelevated
-              color="primary"
-              icon="playlist_add"
-              label="Add Preset"
-              class="kg-action-btn"
-              dropdown-icon="expand_more"
-              content-class="kg-preset-dropdown-menu"
-              :disable="availablePresets.length === 0"
-              @click.stop
-            >
-              <q-list dense class="kg-preset-dropdown-list">
-                <q-item
-                  v-for="preset in availablePresets"
-                  :key="preset.name"
-                  v-close-popup
-                  clickable
-                  class="kg-preset-dropdown-item"
-                  @click="addPresetField(preset)"
-                >
-                  <q-item-section>
-                    <q-item-label class="kg-preset-label">{{ preset.display_name || preset.name }}</q-item-label>
-                    <q-item-label v-if="preset.description" caption class="kg-preset-caption">{{ preset.description }}</q-item-label>
-                  </q-item-section>
-                </q-item>
-                <q-item v-if="availablePresets.length === 0" disable>
-                  <q-item-section class="text-grey-6">All presets already added</q-item-section>
-                </q-item>
-              </q-list>
-            </q-btn-dropdown>
-          </div>
-        </div>
-
-        <q-table
-          v-else
-          :rows="definedFields"
-          :columns="definedFieldsColumns"
-          row-key="id"
-          flat
-          bordered
-          hide-pagination
-          :rows-per-page-options="[0]"
-          table-header-class="bg-primary-light"
-          @row-click="onFieldRowClick"
-        >
-          <template #body-cell-name="slotProps">
-            <q-td :props="slotProps">
-              <div class="row items-center no-wrap q-gap-sm">
-                <div style="max-width: 360px">
-                  <div class="text-body2 text-weight-medium ellipsis">
-                    {{ slotProps.row.display_name || slotProps.row.name }}
-                    <q-tooltip>{{ slotProps.row.display_name || slotProps.row.name }}</q-tooltip>
-                  </div>
-                  <div class="text-caption text-grey-6 ellipsis font-mono">
-                    {{ slotProps.row.name }}
-                    <q-tooltip>{{ slotProps.row.name }}</q-tooltip>
-                  </div>
-                </div>
-              </div>
-            </q-td>
-          </template>
-
-          <template #body-cell-value_type="slotProps">
-            <q-td :props="slotProps">
-              <span class="text-caption text-grey-8">{{ getTypeLabel(slotProps.row.value_type) }}</span>
-            </q-td>
-          </template>
-
-          <template #body-cell-constraints="slotProps">
-            <q-td :props="slotProps">
-              <div class="row items-center q-gutter-x-sm">
-                <template v-if="slotProps.row.allowed_values?.length">
-                  <span class="text-caption text-grey-7">{{ slotProps.row.allowed_values.length }} allowed values</span>
-                  <q-tooltip>
-                    <div class="text-caption">Allowed values:</div>
-                    <div v-for="av in slotProps.row.allowed_values.slice(0, 10)" :key="av.value">
-                      • {{ av.value }}
-                      <span v-if="av.hint" class="text-grey-5">— {{ av.hint }}</span>
-                    </div>
-                    <div v-if="slotProps.row.allowed_values.length > 10">...and {{ slotProps.row.allowed_values.length - 10 }} more</div>
-                  </q-tooltip>
-                </template>
-                <span v-if="slotProps.row.is_required" class="text-caption text-orange-9">Required</span>
-                <span v-if="!slotProps.row.allowed_values?.length && !slotProps.row.is_required" class="text-grey-5">—</span>
-              </div>
-            </q-td>
-          </template>
-
-          <template #body-cell-smart_extraction="slotProps">
-            <q-td :props="slotProps">
-              <div class="row items-center no-wrap q-gutter-x-xs">
-                <q-icon
-                  v-if="slotProps.row.llm_extraction_hint"
-                  :name="slotProps.row.is_required ? 'smart_toy' : 'smart_toy'"
-                  :color="slotProps.row.is_required ? 'purple-7' : 'purple-6'"
-                  size="16px"
-                />
-                <span
-                  class="text-caption"
-                  :class="slotProps.row.llm_extraction_hint ? (slotProps.row.is_required ? 'text-purple-7' : 'text-purple-6') : 'text-grey-5'"
-                >
-                  {{ slotProps.row.llm_extraction_hint ? (slotProps.row.is_required ? 'Mandatory' : 'Optional') : 'Disabled' }}
-                </span>
-              </div>
-            </q-td>
-          </template>
-
-          <template #body-cell-actions="slotProps">
-            <q-td :props="slotProps" class="text-right">
-              <q-btn dense flat color="dark" icon="more_vert" @click.stop>
-                <q-menu class="kg-field-menu" anchor="bottom right" self="top right" auto-close>
-                  <q-list dense>
-                    <q-item v-ripple="false" clickable @click="openFieldDialog(slotProps.row)">
-                      <q-item-section thumbnail>
-                        <q-icon name="o_edit" color="primary" size="20px" class="q-ml-sm" />
-                      </q-item-section>
-                      <q-item-section>Edit</q-item-section>
-                    </q-item>
-                    <q-separator />
-                    <q-item v-ripple="false" clickable @click="confirmDeleteField(slotProps.row)">
-                      <q-item-section thumbnail>
-                        <q-icon name="o_delete" color="negative" size="20px" class="q-ml-sm" />
-                      </q-item-section>
-                      <q-item-section>Delete</q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
-            </q-td>
-          </template>
-        </q-table>
-      </km-section>
+      <metadata-fields-table
+        :defined-fields="definedFields"
+        :discovered-fields="allMetadataValues"
+        :available-presets="availablePresets"
+        :loading="loadingValues"
+        @add-field="openFieldDialog()"
+        @add-preset="addPresetField"
+        @define-all="defineAllDiscovered"
+        @edit-field="openFieldDialog"
+        @delete-field="confirmDeleteField"
+        @define-field="openFieldDialogFromDiscovered"
+      />
 
       <!-- AI Metadata Extraction -->
-      <km-section title="AI Metadata Extraction" sub-title="Enable automatic metadata extraction using LLMs during document ingestion">
-        <kg-toggle-field
-          v-model="extractionEnabled"
-          title="Enable automatic metadata extraction"
-          description="When enabled, Magnet can extract metadata fields during ingestion and enrich documents automatically."
-        />
-      </km-section>
-
-      <!-- Discovered Fields -->
-      <km-section title="Discovered Fields" sub-title="Metadata fields observed across documents from all sources, including AI-extracted values">
-        <div class="row items-center q-gutter-md q-mb-sm">
-          <q-btn-toggle v-model="valuesView" toggle-color="primary" :options="valuesViewOptions" unelevated no-caps size="sm" />
-          <q-space />
-          <km-input v-model="valuesSearch" placeholder="Search fields or values..." icon-before="search" clearable style="width: 250px" />
-          <q-btn
-            v-if="undefinedFields.length > 0"
-            no-caps
-            flat
-            color="primary"
-            icon="playlist_add"
-            label="Define All"
-            class="kg-action-btn"
-            @click="defineAllDiscovered"
-          />
-        </div>
-
-        <q-linear-progress v-if="loadingValues" indeterminate color="primary" />
-
-        <div v-else-if="filteredValueRows.length === 0" class="metadata-empty-state">
-          <q-icon :name="valuesSearch ? 'search_off' : 'inventory_2'" size="48px" color="grey-4" />
-          <div class="text-subtitle1 text-grey-7 q-mt-md">{{ valuesSearch ? 'No matching fields' : 'No discovered fields' }}</div>
-          <div class="text-body2 text-grey-6">
-            {{ valuesSearch ? 'Try a different search term' : 'Sync sources to populate metadata' }}
-          </div>
-        </div>
-
-        <q-table
-          v-else
-          v-model:pagination="valuesPagination"
-          :rows="filteredValueRows"
-          :columns="valuesColumns"
-          row-key="name"
-          flat
-          bordered
-          table-header-class="bg-primary-light"
-          :rows-per-page-options="[10]"
-          @row-click="onValueRowClick"
-        >
-          <template #body-cell-name="slotProps">
-            <q-td :props="slotProps">
-              <div class="row items-center no-wrap q-gap-sm">
-                <div style="max-width: 360px">
-                  <div class="text-body2 text-weight-medium ellipsis">
-                    {{ slotProps.row.display_name || slotProps.row.name }}
-                    <q-tooltip>{{ slotProps.row.display_name || slotProps.row.name }}</q-tooltip>
+      <km-section title="Smart Metadata Extraction" sub-title="Leverage LLM to extract metadata from documents during ingestion">
+        <div class="column q-gap-12">
+          <div>
+            <div class="row q-col-gutter-md">
+              <div v-for="opt in extractionApproachOptions" :key="opt.value" class="col-12 col-md-4">
+                <div
+                  class="kg-extraction-tile"
+                  :class="{ 'kg-extraction-tile--selected': extractionApproach === opt.value }"
+                  tabindex="0"
+                  role="radio"
+                  :aria-checked="extractionApproach === opt.value"
+                  @click="extractionApproach = opt.value"
+                  @keydown.enter.prevent="extractionApproach = opt.value"
+                  @keydown.space.prevent="extractionApproach = opt.value"
+                >
+                  <div class="kg-extraction-tile__header">
+                    <div class="kg-extraction-tile__radio" :class="{ 'kg-extraction-tile__radio--checked': extractionApproach === opt.value }">
+                      <div v-if="extractionApproach === opt.value" class="kg-extraction-tile__radio-dot" />
+                    </div>
+                    <span class="kg-extraction-tile__label">{{ opt.label }}</span>
                   </div>
-                  <div class="text-caption text-grey-6 ellipsis font-mono">
-                    {{ slotProps.row.name }}
-                    <q-tooltip>{{ slotProps.row.name }}</q-tooltip>
-                  </div>
+                  <div class="kg-extraction-tile__description">{{ opt.description }}</div>
                 </div>
               </div>
-            </q-td>
-          </template>
+            </div>
+          </div>
 
-          <template #body-cell-value_type="slotProps">
-            <q-td :props="slotProps">
-              <span class="text-caption text-grey-8">{{ getTypeLabel(slotProps.row.value_type) }}</span>
-            </q-td>
-          </template>
-
-          <template #body-cell-origins="slotProps">
-            <q-td :props="slotProps">
-              <div class="row items-center no-wrap q-gutter-x-sm">
-                <q-icon
-                  v-for="origin in slotProps.row.origins"
-                  :key="origin"
-                  :name="getOriginIcon(origin)"
-                  :color="getOriginIconColor(origin)"
-                  size="18px"
-                >
-                  <q-tooltip>{{ getOriginLabel(origin) }}</q-tooltip>
-                </q-icon>
-                <span v-if="!slotProps.row.origins?.length" class="text-grey-5">—</span>
-              </div>
-            </q-td>
-          </template>
-
-          <template #body-cell-sample_values="slotProps">
-            <q-td :props="slotProps">
-              <div class="row items-center q-gutter-x-xs">
-                <span v-for="sample in (slotProps.row.sample_values || []).slice(0, 3)" :key="sample" class="kg-sample-value">
-                  {{ truncateValue(sample, 20) }}
-                  <q-tooltip v-if="sample.length > 20">{{ sample }}</q-tooltip>
-                </span>
-                <span v-if="(slotProps.row.sample_values || []).length > 3" class="text-caption text-grey-6">
-                  +{{ slotProps.row.sample_values.length - 3 }} more
-                </span>
-                <span v-if="!(slotProps.row.sample_values || []).length" class="text-grey-5">—</span>
-              </div>
-            </q-td>
-          </template>
-
-          <template #body-cell-is_defined="slotProps">
-            <q-td :props="slotProps">
-              <div class="row items-center no-wrap q-gutter-x-xs">
-                <q-icon
-                  :name="slotProps.row.is_defined ? 'check_circle' : 'warning'"
-                  :color="slotProps.row.is_defined ? 'positive' : 'orange-7'"
-                  size="16px"
+          <kg-field-row label="Extraction Prompt">
+            <div class="row items-start q-col-gutter-md">
+              <div class="col">
+                <kg-dropdown-field
+                  v-model="extractionPromptTemplateSystemName"
+                  placeholder="Select a prompt template"
+                  :options="promptTemplateOptions"
+                  :loading="loadingPromptTemplates"
+                  :disable="extractionApproach === 'disabled'"
+                  option-value="system_name"
+                  option-label="name"
+                  searchable
+                  clearable
                 />
-                <span class="text-caption" :class="slotProps.row.is_defined ? 'text-grey-7' : 'text-orange-9'">
-                  {{ slotProps.row.is_defined ? 'Defined' : 'Needs schema' }}
-                </span>
+                <div class="km-description text-secondary-text q-mt-sm">
+                  Pick a template that returns a JSON object with the metadata fields you want to store.
+                </div>
               </div>
-            </q-td>
-          </template>
+              <div class="col-auto">
+                <q-btn
+                  no-caps
+                  unelevated
+                  color="primary"
+                  label="Run Extraction"
+                  class="kg-action-btn"
+                  :loading="runningExtraction"
+                  :disable="!canRunExtraction || runningExtraction"
+                  @click="runExtraction"
+                />
+              </div>
+            </div>
+          </kg-field-row>
 
-          <template #body-cell-actions="slotProps">
-            <q-td :props="slotProps" class="text-right">
-              <q-btn
-                v-if="slotProps.row.is_defined"
-                flat
-                dense
-                round
-                icon="o_edit"
-                size="sm"
-                color="grey-7"
-                @click.stop="openFieldDialogForValue(slotProps.row)"
-              >
-                <q-tooltip>Edit field</q-tooltip>
-              </q-btn>
-              <q-btn v-else flat dense round icon="o_add" size="sm" color="primary" @click.stop="openFieldDialogFromDiscovered(slotProps.row)">
-                <q-tooltip>Define field</q-tooltip>
-              </q-btn>
-            </q-td>
-          </template>
-        </q-table>
+          <div v-if="extractionApproach === 'document'" class="q-pa-md rounded-borders bg-grey-1" style="border: 1px solid rgba(0, 0, 0, 0.06)">
+            <div class="km-heading-8 text-weight-medium q-mb-xs">Document segmentation</div>
+            <div class="km-description text-secondary-text q-mb-md">
+              When a document is larger than the segment size, Magnet will split it into overlapping segments and run extraction per segment.
+            </div>
+
+            <div class="row q-col-gutter-lg">
+              <div class="col-12 col-md-4">
+                <div class="km-input-label q-pb-sm">Segment size (characters)</div>
+                <km-input v-model.number="extractionSegmentSize" type="number" min="100" />
+              </div>
+              <div class="col-12 col-md-8">
+                <div class="km-input-label q-pb-sm">Segment overlap (%)</div>
+                <div class="row items-center" style="height: 36px">
+                  <q-slider
+                    v-model="extractionSegmentOverlap"
+                    :min="0"
+                    :max="0.9"
+                    :step="0.02"
+                    label
+                    :label-value="`${Math.round((extractionSegmentOverlap || 0) * 100)}%`"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </km-section>
     </div>
 
@@ -363,6 +137,7 @@
       :show-dialog="showFieldDialog"
       :field="editingField"
       :existing-field-names="definedFieldNames"
+      :sources="sources"
       @update:show-dialog="showFieldDialog = $event"
       @cancel="showFieldDialog = false"
       @save="onFieldSave"
@@ -372,21 +147,14 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { QTableColumn, useQuasar } from 'quasar'
+import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { KgToggleField } from '../common'
+import { KgDropdownField, KgFieldRow } from '../common'
+import { type SourceRow } from '../Sources/models'
 import MetadataFieldDialog from './MetadataFieldDialog.vue'
-import {
-  DiscoveredMetadataField,
-  MetadataFieldDefinition,
-  MetadataFieldRow,
-  MetadataOrigin,
-  MetadataOriginLabels,
-  MetadataValueType,
-  PRESET_FIELDS,
-  ValueTypeOptions,
-} from './models'
+import MetadataFieldsTable from './MetadataFieldsTable.vue'
+import { DiscoveredMetadataField, MetadataFieldDefinition, MetadataFieldRow, MetadataOrigin, MetadataValueType, PRESET_FIELDS } from './models'
 
 const props = defineProps<{
   graphId: string
@@ -402,28 +170,81 @@ const store = useStore()
 const $q = useQuasar()
 
 // Extraction settings
-const extractionEnabled = ref(false)
+type MetadataExtractionApproach = 'disabled' | 'chunks' | 'document'
+
+const extractionApproach = ref<MetadataExtractionApproach>('disabled')
+const extractionPromptTemplateSystemName = ref<string>('')
+const extractionSegmentSize = ref<number>(18000)
+const extractionSegmentOverlap = ref<number>(0.1)
+
+const extractionApproachOptions: Array<{
+  label: string
+  value: MetadataExtractionApproach
+  description: string
+}> = [
+  {
+    label: 'Disabled',
+    value: 'disabled',
+    description: 'AI extraction is turned off. Metadata will only come from document properties and sources.',
+  },
+  {
+    label: 'Document Based',
+    value: 'document',
+    description: 'Extract metadata from the entire document in parallel to chunking. Recommended for most use cases.',
+  },
+  {
+    label: 'Chunk Based',
+    value: 'chunks',
+    description: 'Extract metadata from each ingested chunk. Works slower, but metadata is linked with the chunk.',
+  },
+]
+
+// Prompt templates (admin API)
+const promptTemplateOptions = ref<any[]>([])
+const loadingPromptTemplates = ref(false)
+
+const loadPromptTemplates = async () => {
+  loadingPromptTemplates.value = true
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: 'prompt_templates',
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (response.ok) {
+      const data = await response.json()
+      promptTemplateOptions.value = Array.isArray(data?.items) ? data.items : []
+    } else {
+      promptTemplateOptions.value = []
+    }
+  } catch (error) {
+    console.error('Error loading prompt templates:', error)
+    promptTemplateOptions.value = []
+  } finally {
+    loadingPromptTemplates.value = false
+  }
+}
 
 // Defined fields
 const definedFields = ref<MetadataFieldDefinition[]>([])
 const showFieldDialog = ref(false)
 const editingField = ref<MetadataFieldDefinition | null>(null)
 
+// Sources (for per-source overrides)
+const sources = ref<SourceRow[]>([])
+
 // All metadata values
 const allMetadataValues = ref<MetadataFieldRow[]>([])
 const loadingValues = ref(false)
-const valuesSearch = ref('')
-const valuesView = ref<'all' | 'llm' | 'undefined'>('all')
-const valuesViewOptions = [
-  { label: 'All discovered', value: 'all' },
-  { label: 'LLM extracted', value: 'llm' },
-  { label: 'Needs schema', value: 'undefined' },
-]
-const valuesPagination = ref({ rowsPerPage: 10, page: 1 })
 
 // State tracking
 const saving = ref(false)
 const originalState = ref<string>('')
+
+// Manual extraction run state
+const runningExtraction = ref(false)
 
 // Field names for select
 const definedFieldNames = computed(() => definedFields.value.map((f) => f.name))
@@ -434,25 +255,6 @@ const availablePresets = computed(() => {
   return PRESET_FIELDS.filter((p) => !existingNames.has(p.name!))
 })
 
-const filteredValueRows = computed(() => {
-  let rows = allMetadataValues.value
-
-  if (valuesView.value === 'undefined') {
-    rows = rows.filter((r) => !r.is_defined)
-  } else if (valuesView.value === 'llm') {
-    rows = rows.filter((r) => (r.origins || []).includes('llm'))
-  }
-
-  if (!valuesSearch.value) return rows
-  const search = valuesSearch.value.toLowerCase()
-  return rows.filter(
-    (f) =>
-      f.name.toLowerCase().includes(search) ||
-      f.display_name?.toLowerCase().includes(search) ||
-      (f.sample_values || []).some((v) => v.toLowerCase().includes(search))
-  )
-})
-
 // Undefined fields (discovered but not in schema)
 const undefinedFields = computed(() => {
   return allMetadataValues.value.filter((f) => !f.is_defined)
@@ -461,36 +263,40 @@ const undefinedFields = computed(() => {
 // Check for unsaved changes
 const hasChanges = computed(() => {
   const currentState = JSON.stringify({
-    extractionEnabled: extractionEnabled.value,
+    extraction: {
+      approach: extractionApproach.value,
+      prompt_template_system_name: extractionPromptTemplateSystemName.value,
+      segment_size: extractionSegmentSize.value,
+      segment_overlap: extractionSegmentOverlap.value,
+    },
     definedFields: definedFields.value,
   })
   return currentState !== originalState.value
 })
 
-// Table columns
-const definedFieldsColumns: QTableColumn[] = [
-  { name: 'name', label: 'Field', field: 'display_name', align: 'left', sortable: true },
-  { name: 'description', label: 'Description', field: 'description', align: 'left', style: 'max-width: 300px', classes: 'text-grey-7 ellipsis' },
-  { name: 'value_type', label: 'Type', field: 'value_type', align: 'left', sortable: true },
-  { name: 'constraints', label: 'Constraints', field: 'allowed_values', align: 'left' },
-  { name: 'smart_extraction', label: 'Smart Extraction', field: 'llm_extraction_hint', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'id', align: 'right' },
-]
-
-const valuesColumns: QTableColumn<MetadataFieldRow>[] = [
-  { name: 'name', label: 'Field', field: 'name', align: 'left', sortable: true },
-  { name: 'value_type', label: 'Type', field: 'value_type', align: 'left', sortable: true },
-  { name: 'sample_values', label: 'Samples', field: 'sample_values', align: 'left' },
-  { name: 'origins', label: 'Source', field: 'origins', align: 'left' },
-  { name: 'is_defined', label: 'Status', field: 'is_defined', align: 'left', sortable: true },
-  { name: 'actions', label: '', field: 'name', align: 'right' },
-]
-
 // Initialize from graph settings
 const initializeFromSettings = () => {
   const settings = props.graphDetails?.settings?.metadata || {}
 
-  extractionEnabled.value = settings.extraction?.enabled ?? false
+  const extraction = settings.extraction || {}
+  const approachRaw = String(extraction?.approach || '').trim()
+  const enabledLegacy = !!extraction?.enabled
+
+  if (approachRaw === 'disabled' || approachRaw === 'chunks' || approachRaw === 'document') {
+    extractionApproach.value = approachRaw as MetadataExtractionApproach
+  } else {
+    // Backward compatibility: old config only had enabled=true/false.
+    extractionApproach.value = enabledLegacy ? 'chunks' : 'disabled'
+  }
+
+  // Prompt template: prefer new key; fall back to legacy prompt_template if present.
+  extractionPromptTemplateSystemName.value = String(extraction?.prompt_template_system_name || extraction?.prompt_template || '').trim()
+
+  const sizeRaw = Number(extraction?.segment_size)
+  extractionSegmentSize.value = Number.isFinite(sizeRaw) && sizeRaw > 0 ? sizeRaw : 18000
+
+  const overlapRaw = Number(extraction?.segment_overlap)
+  extractionSegmentOverlap.value = Number.isFinite(overlapRaw) ? Math.min(Math.max(overlapRaw, 0), 0.9) : 0.1
   // Strip legacy/unused flags that might still exist in persisted configs
   definedFields.value = (settings.field_definitions || []).map((f: any) => {
     const { is_searchable, is_filterable, ...rest } = f || {}
@@ -503,57 +309,153 @@ const initializeFromSettings = () => {
 
 const captureOriginalState = () => {
   originalState.value = JSON.stringify({
-    extractionEnabled: extractionEnabled.value,
+    extraction: {
+      approach: extractionApproach.value,
+      prompt_template_system_name: extractionPromptTemplateSystemName.value,
+      segment_size: extractionSegmentSize.value,
+      segment_overlap: extractionSegmentOverlap.value,
+    },
     definedFields: definedFields.value,
   })
 }
 
+const canRunExtraction = computed(() => {
+  return extractionApproach.value !== 'disabled' && !!String(extractionPromptTemplateSystemName.value || '').trim() && !loadingPromptTemplates.value
+})
+
+const runExtraction = async () => {
+  if (!canRunExtraction.value) return
+  runningExtraction.value = true
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const payload = {
+      approach: extractionApproach.value,
+      prompt_template_system_name: String(extractionPromptTemplateSystemName.value || '').trim(),
+      segment_size: extractionSegmentSize.value,
+      segment_overlap: extractionSegmentOverlap.value,
+    }
+    const res = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/metadata/extract`,
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      $q.notify({ type: 'negative', message: 'Failed to start extraction', position: 'top' })
+      return
+    }
+
+    const data: any = await res.json().catch(() => ({}))
+    const approach = String(data?.approach || extractionApproach.value)
+    const docs = Number(data?.processed_documents || 0)
+    const chunks = Number(data?.processed_chunks || 0)
+    const errors = Number(data?.errors || 0)
+    const message =
+      approach === 'chunks'
+        ? `Extraction completed: ${docs} documents updated, ${chunks} chunks processed${errors ? ` (${errors} errors)` : ''}.`
+        : `Extraction completed: ${docs} documents processed${errors ? ` (${errors} errors)` : ''}.`
+
+    $q.notify({ type: 'positive', message, position: 'top', textColor: 'black', timeout: 2500 })
+    await fetchMetadataValues()
+  } catch (error) {
+    console.error('Error running extraction:', error)
+    $q.notify({ type: 'negative', message: 'Error running extraction', position: 'top' })
+  } finally {
+    runningExtraction.value = false
+  }
+}
+
 // Fetch aggregated metadata values
 const fetchMetadataValues = async () => {
-  // Mock sample metadata values for demonstration purposes
-  allMetadataValues.value = [
-    {
-      id: '1',
-      name: 'author',
-      display_name: 'Author',
-      description: 'The creator or contributor of the document.',
-      value_type: 'string',
-      origins: ['document', 'static'],
-      is_defined: definedFieldNames.value.includes('author'),
-      sample_values: ['Alice Smith', 'Bob Lee', 'Carol Chen'],
-    },
-    {
-      id: '2',
-      name: 'publication_date',
-      display_name: 'Publication Date',
-      description: 'The date the document was published.',
-      value_type: 'date',
-      origins: ['document'],
-      is_defined: definedFieldNames.value.includes('publication_date'),
-      sample_values: ['2024-01-10', '2023-11-05', '2023-08-21'],
-    },
-    {
-      id: '3',
-      name: 'language',
-      display_name: 'Language',
-      description: 'The language of the content.',
-      value_type: 'string',
-      origins: ['llm', 'document'],
-      is_defined: definedFieldNames.value.includes('language'),
-      sample_values: ['English', 'Spanish', 'French'],
-    },
-    {
-      id: '4',
-      name: 'doc_type',
-      display_name: 'Document Type',
-      description: 'The classification of the document content.',
-      value_type: 'string',
-      origins: ['static'],
-      is_defined: definedFieldNames.value.includes('doc_type'),
-      sample_values: ['Manual', 'FAQ', 'Guide'],
-    },
-  ]
-  syncDefinitionsToValues()
+  loadingValues.value = true
+
+  type ApiSourceLink = {
+    id: string
+    name: string
+    type: string
+  }
+
+  type ApiDiscoveredMetadataField = {
+    id?: string
+    name?: string
+    inferred_type?: string | null
+    origins?: string[] | null
+    sample_values?: string[] | null
+    value_count?: number | null
+    sources?: ApiSourceLink[] | null
+  }
+
+  const toDisplayName = (fieldName: string) => {
+    const s = String(fieldName || '').trim()
+    if (!s) return ''
+    return s
+      .split(/[_-]+/g)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  }
+
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response: any = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/metadata/discovered`,
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    if (response?.ok) {
+      const data = (await response.json()) as ApiDiscoveredMetadataField[]
+      const rows = Array.isArray(data) ? data : []
+      allMetadataValues.value = rows
+        .filter((f) => !!f?.name)
+        .map((f) => {
+          const name = String(f.name || '').trim()
+          return {
+            id: String(f.id || name),
+            name,
+            display_name: toDisplayName(name),
+            description: '',
+            value_type: (f.inferred_type || 'string') as MetadataValueType,
+            origins: (Array.isArray(f.origins) ? f.origins : []) as MetadataOrigin[],
+            sources: Array.isArray(f.sources) ? f.sources : [],
+            is_defined: definedFieldNames.value.includes(name),
+            sample_values: Array.isArray(f.sample_values) ? f.sample_values : [],
+          } as MetadataFieldRow
+        })
+    } else {
+      allMetadataValues.value = []
+    }
+  } catch (error) {
+    console.error('Error fetching metadata values:', error)
+    allMetadataValues.value = []
+  } finally {
+    loadingValues.value = false
+    syncDefinitionsToValues()
+  }
+}
+
+const fetchSources = async () => {
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/sources`,
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (response.ok) {
+      sources.value = await response.json()
+    } else {
+      sources.value = []
+    }
+  } catch (error) {
+    console.error('Error fetching sources:', error)
+    sources.value = []
+  }
 }
 
 // Save settings
@@ -571,7 +473,11 @@ const saveSettings = async () => {
         ...(props.graphDetails?.settings || {}),
         metadata: {
           extraction: {
-            enabled: extractionEnabled.value,
+            enabled: extractionApproach.value !== 'disabled',
+            approach: extractionApproach.value,
+            prompt_template_system_name: extractionPromptTemplateSystemName.value || undefined,
+            segment_size: extractionSegmentSize.value,
+            segment_overlap: extractionSegmentOverlap.value,
           },
           field_definitions: fieldDefinitions,
         },
@@ -580,7 +486,7 @@ const saveSettings = async () => {
 
     const res = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${props.graphId}`,
+      service: `knowledge_graphs/${props.graphId}`,
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -613,15 +519,6 @@ const openFieldDialog = (field?: MetadataFieldDefinition) => {
   showFieldDialog.value = true
 }
 
-const openFieldDialogForValue = (row: MetadataFieldRow) => {
-  const existing = definedFields.value.find((f) => f.name === row.name)
-  if (existing) {
-    openFieldDialog(existing)
-    return
-  }
-  openFieldDialogFromDiscovered(row)
-}
-
 const openFieldDialogFromDiscovered = (discovered: MetadataFieldRow | DiscoveredMetadataField) => {
   editingField.value = {
     id: '',
@@ -647,10 +544,6 @@ const onFieldSave = (field: MetadataFieldDefinition) => {
   }
   showFieldDialog.value = false
   syncDefinitionsToValues()
-}
-
-const onFieldRowClick = (evt: Event, row: MetadataFieldDefinition) => {
-  openFieldDialog(row)
 }
 
 const confirmDeleteField = (field: MetadataFieldDefinition) => {
@@ -717,58 +610,13 @@ const syncDefinitionsToValues = () => {
   })
 }
 
-// Helper functions
-const getTypeLabel = (type: MetadataValueType) => {
-  return ValueTypeOptions.find((t) => t.value === type)?.label || type
-}
-
-const getOriginLabel = (origin: MetadataOrigin) => MetadataOriginLabels[origin]
-
-const getOriginIcon = (origin: MetadataOrigin) => {
-  switch (origin) {
-    case 'llm':
-      return 'smart_toy'
-    case 'document':
-      return 'description'
-    case 'static':
-      return 'tune'
-    case 'system':
-      return 'settings'
-    default:
-      return 'help_outline'
-  }
-}
-
-const getOriginIconColor = (origin: MetadataOrigin) => {
-  switch (origin) {
-    case 'llm':
-      return 'purple-7'
-    case 'document':
-      return 'teal-7'
-    case 'static':
-      return 'primary'
-    case 'system':
-      return 'grey-7'
-    default:
-      return 'grey-7'
-  }
-}
-
-const truncateValue = (value: string, maxLength = 30) => {
-  return value.length > maxLength ? value.substring(0, maxLength) + '...' : value
-}
-
-const onValueRowClick = (_evt: Event, row: MetadataFieldRow) => {
-  openFieldDialogForValue(row)
-}
-
 // Watch for changes
 watch(hasChanges, (val) => {
   emit('unsaved-change', val)
 })
 
-watch([valuesSearch, valuesView], () => {
-  valuesPagination.value.page = 1
+watch(showFieldDialog, (open) => {
+  if (open) fetchSources()
 })
 
 watch(
@@ -783,6 +631,8 @@ watch(
 
 onMounted(() => {
   fetchMetadataValues()
+  fetchSources()
+  loadPromptTemplates()
 })
 
 // Expose methods for parent
@@ -793,108 +643,86 @@ defineExpose({
 </script>
 
 <style scoped>
-.metadata-empty-state {
+/* Extraction Approach Tiles - Clean Radio Style */
+.kg-extraction-tile {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  text-align: center;
-}
-
-.metadata-empty-state.bordered {
+  padding: 16px 18px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 4px;
+  cursor: pointer;
+  background: #fff;
+  transition: all 0.15s ease;
+  height: 100%;
+  min-height: 100px;
 }
 
-.font-mono {
-  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+.kg-extraction-tile:hover {
+  border-color: rgba(0, 0, 0, 0.24);
+  background: #fafafa;
 }
 
-.kg-sample-value {
-  display: inline-block;
-  padding: 2px 8px;
-  background: #f5f5f5;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #555;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.kg-extraction-tile:focus-visible {
+  outline: 2px solid var(--q-primary);
+  outline-offset: 2px;
 }
 
-:deep(.q-table thead th) {
-  font-size: 14px;
-  font-weight: 600;
+.kg-extraction-tile--selected {
+  border-color: var(--q-primary);
+  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.04);
 }
 
-/* Row menu styling - match SourcesTab */
-:deep(.kg-field-menu .q-focus-helper) {
-  opacity: 0 !important;
+.kg-extraction-tile--selected:hover {
+  border-color: var(--q-primary);
+  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
 }
 
-:deep(.kg-field-menu .q-item.q-focusable:hover) {
-  background: transparent !important;
+.kg-extraction-tile__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
-/* Preset dropdown menu styling (variant selector inspired) */
-:deep(.kg-preset-dropdown-menu) {
-  border-radius: 8px;
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-  min-width: 320px;
-}
-
-:deep(.kg-preset-dropdown-list) {
-  padding: 4px 0;
-}
-
-:deep(.kg-preset-dropdown-item) {
-  padding: 8px 16px !important;
-  margin: 6px 6px;
-  border-radius: 6px;
-}
-
-:deep(.kg-preset-dropdown-item:hover) {
-  background-color: #f3f4f6;
-}
-
-:deep(.kg-preset-icon-section) {
-  min-width: 32px !important;
-}
-
-:deep(.kg-preset-icon-wrapper) {
+.kg-extraction-tile__radio {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0, 0, 0, 0.38);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background-color: #dbeafe;
-  color: #2563eb;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
-:deep(.kg-preset-dropdown-item:hover .kg-preset-icon-wrapper) {
-  background-color: #bfdbfe;
+.kg-extraction-tile__radio--checked {
+  border-color: var(--q-primary);
 }
 
-:deep(.kg-preset-label) {
-  font-size: 13px;
-  font-weight: 500;
+.kg-extraction-tile__radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--q-primary);
+}
+
+.kg-extraction-tile__label {
+  font-size: 14px;
+  font-weight: 600;
   color: #1f2937;
   line-height: 1.3;
 }
 
-:deep(.kg-preset-caption) {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-top: 2px;
-  line-height: 1.3;
+.kg-extraction-tile--selected .kg-extraction-tile__label {
+  color: var(--q-primary);
+}
+
+.kg-extraction-tile__description {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+  padding-left: 28px;
 }
 
 /* Action buttons */

@@ -283,7 +283,10 @@ class FluidTopicsSyncPipeline(
                             await ctx.inc("skipped", int(skipped))
 
                         document = await self._source.create_document_for_source(
-                            session, filename=doc_name, default_document_type="html"
+                            session,
+                            filename=doc_name,
+                            source_metadata={"map_id": map_id, "map_title": map_title},
+                            default_document_type="html",
                         )
 
                         await self._source._upsert_document_metadata(
@@ -337,6 +340,9 @@ class FluidTopicsSyncPipeline(
                             session,
                             filename=filename,
                             total_pages=total_pages,
+                            file_metadata=content.get("metadata")
+                            if isinstance(content, dict)
+                            else None,
                             default_document_type="pdf",
                             content_profile=content_config.name
                             if content_config

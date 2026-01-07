@@ -6,27 +6,27 @@
 export type MetadataValueType = 'string' | 'number' | 'boolean' | 'date' | 'array' | 'object'
 
 // Origin of metadata - where it came from
-export type MetadataOrigin = 'static' | 'document' | 'llm' | 'system'
+export type MetadataOrigin = 'document' | 'llm' | 'system' | 'source'
 
 export const MetadataOriginLabels: Record<MetadataOrigin, string> = {
-  static: 'Source Config',
   document: 'Document Native',
   llm: 'LLM Extracted',
   system: 'System',
+  source: 'Ingestion Source',
 }
 
 export const MetadataOriginColors: Record<MetadataOrigin, string> = {
-  static: 'blue-2',
   document: 'teal-2',
   llm: 'purple-2',
   system: 'grey-3',
+  source: 'indigo-2',
 }
 
 export const MetadataOriginTextColors: Record<MetadataOrigin, string> = {
-  static: 'blue-9',
   document: 'teal-9',
   llm: 'purple-9',
   system: 'grey-8',
+  source: 'indigo-9',
 }
 
 // Value type options for select
@@ -43,6 +43,13 @@ export interface AllowedValue {
   hint?: string
 }
 
+// Override metadata field values for specific sources (constant values during ingestion)
+export interface MetadataFieldSourceOverride {
+  source_id: string
+  constant_value?: string
+  constant_values?: string[]
+}
+
 // Metadata field definition - user-defined schema
 export interface MetadataFieldDefinition {
   id: string
@@ -56,6 +63,7 @@ export interface MetadataFieldDefinition {
   default_value?: string
   default_values?: string[]
   llm_extraction_hint?: string
+  source_overrides?: MetadataFieldSourceOverride[]
   created_at?: string
   updated_at?: string
 }
@@ -79,12 +87,53 @@ export interface MetadataValueAggregation {
 }
 
 // Metadata extraction settings
+export type MetadataExtractionApproach = 'disabled' | 'chunks' | 'document'
+
 export interface MetadataExtractionSettings {
-  enabled: boolean
-  prompt_template: string
+  /**
+   * Legacy toggle (pre-approach UI). Kept for backward compatibility with persisted configs.
+   * Prefer `approach`.
+   */
+  enabled?: boolean
+
+  /**
+   * Extraction scope / strategy.
+   * - disabled: do not run AI extraction
+   * - chunks: extract from already-produced chunks
+   * - document: extract from whole document (may segment large docs)
+   */
+  approach?: MetadataExtractionApproach
+
+  /**
+   * Prompt template system name (preferred).
+   * This is the identifier used by the prompt templates service.
+   */
+  prompt_template_system_name?: string
+
+  /**
+   * Legacy prompt storage (raw template text or legacy key).
+   * Kept to avoid breaking older persisted configs.
+   */
+  prompt_template?: string
+
+  /**
+   * Document segmentation (used when approach=document).
+   * - segment_size: max chars per segment
+   * - segment_overlap: overlap ratio 0..0.9
+   */
+  segment_size?: number
+  segment_overlap?: number
+
   model_system_name?: string
   fields_to_extract?: string[]
-  auto_discover: boolean
+  auto_discover?: boolean
+}
+
+// Lightweight source link info
+export interface SourceLink {
+  id: string
+  name: string
+  type: string
 }
 
 // Combined view of defined and discovered metadata
@@ -95,6 +144,7 @@ export interface MetadataFieldRow {
   description: string
   value_type: MetadataValueType
   origins: MetadataOrigin[]
+  sources: SourceLink[]
   is_defined: boolean
   sample_values: string[]
   allowed_values?: AllowedValue[]

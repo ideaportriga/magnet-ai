@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import time
@@ -148,6 +149,8 @@ class AbstractDataSource(ABC):
         *,
         filename: str,
         total_pages: int | None = None,
+        file_metadata: dict[str, Any] | None = None,
+        source_metadata: dict[str, Any] | None = None,
         default_document_type: str = "txt",
         content_profile: str | None = None,
     ) -> dict[str, Any]:
@@ -160,6 +163,21 @@ class AbstractDataSource(ABC):
 
         base_name = PurePath(filename).name
         file_ext = base_name.rsplit(".", 1)[-1].lower() if "." in base_name else ""
+
+        doc_metadata_json: str | None = None
+        doc_metadata_payload: dict[str, Any] = {}
+        if isinstance(file_metadata, dict) and file_metadata:
+            doc_metadata_payload["file"] = file_metadata
+        if isinstance(source_metadata, dict) and source_metadata:
+            doc_metadata_payload["source"] = source_metadata
+        if doc_metadata_payload:
+            try:
+                doc_metadata_json = json.dumps(
+                    doc_metadata_payload, ensure_ascii=False, default=str
+                )
+            except Exception:  # noqa: BLE001
+                # Best-effort: do not fail document creation if metadata cannot be serialized.
+                doc_metadata_json = None
 
         docs_table = docs_table_name(source.graph_id)
         # Check for existing document by source_id + name
@@ -186,6 +204,10 @@ class AbstractDataSource(ABC):
                     total_pages = :total_pages,
                     type = :type,
                     content_profile = :content_profile,
+                    metadata = CASE
+                        WHEN CAST(:metadata_json AS jsonb) IS NULL THEN metadata
+                        ELSE COALESCE(metadata, '{{}}'::jsonb) || CAST(:metadata_json AS jsonb)
+                    END,
                     processing_time = NULL,
                     updated_at = CURRENT_TIMESTAMP
                     WHERE id = :id
@@ -196,6 +218,7 @@ class AbstractDataSource(ABC):
                     "total_pages": total_pages,
                     "type": (file_ext or default_document_type),
                     "content_profile": content_profile,
+                    "metadata_json": doc_metadata_json,
                 },
             )
             await db_session.commit()
@@ -204,9 +227,17 @@ class AbstractDataSource(ABC):
                 text(
                     f"""
                     INSERT INTO {docs_table} (
-                    name, type, status, total_pages, source_id, content_profile
+                    name, type, status, total_pages, source_id, content_profile, metadata
                     )
-                    VALUES (:name, :type, 'pending', :total_pages, :source_id, :content_profile)
+                    VALUES (
+                        :name,
+                        :type,
+                        'pending',
+                        :total_pages,
+                        :source_id,
+                        :content_profile,
+                        COALESCE(CAST(:metadata_json AS jsonb), '{{}}'::jsonb)
+                    )
                     RETURNING id::text
                     """
                 ),
@@ -216,6 +247,7 @@ class AbstractDataSource(ABC):
                     "total_pages": total_pages,
                     "source_id": str(source.id),
                     "content_profile": content_profile,
+                    "metadata_json": doc_metadata_json,
                 },
             )
             document_id = res.scalar_one()
@@ -234,6 +266,7 @@ class AbstractDataSource(ABC):
         status: str,
         status_message: str | None | object = _UNSET,
         processing_time: float | object = _UNSET,
+        content_plaintext: str | None | object = _UNSET,
     ) -> None:
         """Update processing status for a single document row.
 
@@ -252,6 +285,10 @@ class AbstractDataSource(ABC):
         if processing_time is not _UNSET:
             set_clauses.append("processing_time = :ptime")
             params["ptime"] = float(processing_time)
+
+        if content_plaintext is not _UNSET:
+            set_clauses.append("content_plaintext = :content_plaintext")
+            params["content_plaintext"] = content_plaintext
 
         await db_session.execute(
             text(f"UPDATE {docs_table} SET {', '.join(set_clauses)} WHERE id = :id"),
@@ -352,6 +389,7 @@ class AbstractDataSource(ABC):
                 docs_table=docs_table,
                 doc_id=doc_id,
                 status="processing",
+                content_plaintext=extracted_text,
             )
             await db_session.commit()
 

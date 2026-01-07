@@ -55,9 +55,9 @@
         </kg-field-row>
 
         <!-- Free Value (no restriction) -->
-        <kg-field-row v-if="!restrictToAllowedValues" :label="isMultiple ? 'Default Values' : 'Default Value'" suffix="(optional)">
-          <km-input v-if="!isMultiple" v-model="defaultValue" />
-          <km-input v-else v-model="defaultValuesText" placeholder="Comma-separated values" />
+        <kg-field-row v-if="!restrictToAllowedValues" :label="isMultiple ? 'Default Values' : 'Default Value'">
+          <km-input v-if="!isMultiple" v-model="defaultValue" height="36px" />
+          <km-input v-else v-model="defaultValuesText" height="36px" placeholder="Comma-separated values" />
         </kg-field-row>
 
         <!-- Restricted Values -->
@@ -168,14 +168,56 @@
           <div v-if="showPreview && extractionMode !== 'disabled'" class="extraction-preview">{{ renderedExtractionHint }}</div>
         </div>
       </kg-dialog-section>
+
+      <!-- Per-Source Overrides -->
+      <kg-dialog-section
+        title="Source Overrides"
+        description="Override this field for specific sources with constant values applied during ingestion"
+        icon="layers"
+      >
+        <div v-if="!hasSourceOptions" class="text-caption text-grey-6 italic">No sources available in this knowledge graph.</div>
+
+        <kg-field-row v-else gap="8px">
+          <div v-for="ov in sourceOverrides" :key="ov._id" class="overrides-row">
+            <kg-field-row :cols="2" gap="12px">
+              <div class="overrides-source-cell">
+                <div class="overrides-source-logo">
+                  <q-img v-if="getSourceVisual(ov.source_type_key).image" :src="getSourceVisual(ov.source_type_key).image" no-spinner no-transition />
+                  <q-icon v-else :name="getSourceVisual(ov.source_type_key).icon" size="18px" color="grey-8" />
+                </div>
+                <span class="overrides-source-name">{{ ov.source_name }}</span>
+              </div>
+
+              <km-input v-if="!isMultiple" v-model="ov.constant_value" height="36px" placeholder="Set a constant value for this source" />
+              <km-input v-else v-model="ov.constant_values_text" height="36px" placeholder="Set constant values for this source (comma-separated)" />
+            </kg-field-row>
+          </div>
+        </kg-field-row>
+      </kg-dialog-section>
     </div>
   </kg-dialog-base>
 </template>
 
 <script setup lang="ts">
+import confluenceImage from '@/assets/brands/atlassian-confluence.png'
+import fluidTopicsImage from '@/assets/brands/fluid-topics.png'
+import sharepointImage from '@/assets/brands/sharepoint.svg'
 import { computed, nextTick, ref, watch } from 'vue'
 import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgSectionControl, KgToggleField } from '../common'
-import { AllowedValue, MetadataFieldDefinition, MetadataValueType, PRESET_FIELDS, ValueTypeOptions } from './models'
+import { type SourceRow } from '../Sources/models'
+import { AllowedValue, MetadataFieldDefinition, MetadataFieldSourceOverride, MetadataValueType, PRESET_FIELDS, ValueTypeOptions } from './models'
+
+// Source type visuals (image or icon)
+const sourceTypeVisuals: Record<string, { image?: string; icon?: string }> = {
+  upload: { icon: 'fas fa-upload' },
+  sharepoint: { image: sharepointImage },
+  fluid_topics: { image: fluidTopicsImage },
+  confluence: { image: confluenceImage },
+}
+
+const getSourceVisual = (type: string) => {
+  return sourceTypeVisuals[type] || { icon: 'description' }
+}
 
 // Extraction mode options
 type ExtractionMode = 'disabled' | 'optional' | 'mandatory'
@@ -191,26 +233,26 @@ Allowed: {values}. Default: {defaults}.`
 
 type ExtractionVariableKey = 'field_name' | 'display_name' | 'type' | 'values' | 'defaults' | 'cardinality'
 
-const EXTRACTION_VARIABLES: Array<{ key: ExtractionVariableKey; description: string }> = [
-  { key: 'field_name', description: 'Internal field name' },
-  { key: 'display_name', description: 'Display name' },
-  { key: 'type', description: 'Value type' },
-  { key: 'values', description: 'Allowed values' },
-  { key: 'defaults', description: 'Default value(s)' },
-  { key: 'cardinality', description: 'Single-Value or Multi-Value' },
+const EXTRACTION_VARIABLES: Array<{ key: ExtractionVariableKey }> = [
+  { key: 'field_name' },
+  { key: 'display_name' },
+  { key: 'type' },
+  { key: 'values' },
+  { key: 'defaults' },
+  { key: 'cardinality' },
 ]
 
 const props = defineProps<{
   showDialog: boolean
   field?: MetadataFieldDefinition | null
   existingFieldNames?: string[]
+  sources?: SourceRow[]
 }>()
 
 const emit = defineEmits<{
   (e: 'update:showDialog', value: boolean): void
   (e: 'cancel'): void
   (e: 'save', field: MetadataFieldDefinition): void
-  (e: 'delete', fieldId: string): void
 }>()
 
 // Form state
@@ -248,6 +290,49 @@ const loading = ref(false)
 const extractionHintInputRef = ref<any>(null)
 const fieldNameInputRef = ref<any>(null)
 const showPredefinedOptionsError = ref(false)
+
+type SourceOverrideDraft = {
+  _id: string
+  source_id: string
+  source_name: string
+  source_type_key: string
+  constant_value: string
+  constant_values_text: string
+}
+
+const sourceOverrides = ref<SourceOverrideDraft[]>([])
+
+const parseCommaSeparated = (text: string): string[] => {
+  const parsed = (text || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return Array.from(new Set(parsed))
+}
+
+const hasSourceOptions = computed(() => (props.sources || []).length > 0)
+
+const initSourceOverrides = (existingOverrides?: MetadataFieldSourceOverride[]) => {
+  const sources = props.sources || []
+  const existingMap = new Map<string, MetadataFieldSourceOverride>()
+  ;(existingOverrides || []).forEach((o) => {
+    existingMap.set(o.source_id, o)
+  })
+
+  sourceOverrides.value = sources.map((s) => {
+    const existing = existingMap.get(s.id)
+    const multi = Array.isArray(existing?.constant_values) ? existing.constant_values.map((v) => String(v)).filter(Boolean) : []
+    const single = String(existing?.constant_value || '').trim() || multi[0] || ''
+    return {
+      _id: crypto.randomUUID(),
+      source_id: s.id,
+      source_name: s.name,
+      source_type_key: s.type,
+      constant_value: single,
+      constant_values_text: multi.join(', '),
+    }
+  })
+}
 
 const getPresetExtractionHint = (name?: string | null): string | undefined => {
   const fieldName = (name || '').trim()
@@ -390,10 +475,6 @@ const fieldNameRules = [
   },
 ]
 
-const isFormValid = computed(() => {
-  return fieldName.value.trim() && /^[a-z][a-z0-9_]*$/.test(fieldName.value)
-})
-
 // Initialize form when dialog opens or field changes
 watch(
   () => [props.showDialog, props.field] as const,
@@ -420,6 +501,8 @@ watch(
         }
         showPreview.value = false
         showPredefinedOptionsError.value = false
+
+        initSourceOverrides(props.field.source_overrides)
       } else {
         // Reset for new field
         fieldName.value = ''
@@ -436,11 +519,30 @@ watch(
         extractionMode.value = 'disabled'
         showPreview.value = false
         showPredefinedOptionsError.value = false
+        initSourceOverrides()
       }
     }
   },
   { immediate: true }
 )
+
+// Keep override inputs sane when switching between single/multi value fields
+watch(isMultiple, (multi) => {
+  if (multi) {
+    sourceOverrides.value.forEach((ov) => {
+      if (!ov.constant_values_text.trim() && ov.constant_value.trim()) {
+        ov.constant_values_text = ov.constant_value.trim()
+      }
+    })
+  } else {
+    sourceOverrides.value.forEach((ov) => {
+      if (!ov.constant_value.trim()) {
+        const parsed = parseCommaSeparated(ov.constant_values_text)
+        if (parsed.length) ov.constant_value = parsed[0]
+      }
+    })
+  }
+})
 
 // Auto-generate display name from field name
 watch(fieldName, (newVal) => {
@@ -467,6 +569,24 @@ const onConfirm = () => {
   // When saving, render the extraction hint with actual values (not variables)
   const finalExtractionHint = extractionMode.value !== 'disabled' ? renderedExtractionHint.value.trim() : undefined
 
+  const overrides: MetadataFieldSourceOverride[] = []
+  for (const ov of sourceOverrides.value) {
+    const sid = ov.source_id.trim()
+    const single = ov.constant_value.trim()
+    const multi = parseCommaSeparated(ov.constant_values_text)
+
+    const isEmpty = !sid && !single && multi.length === 0
+    if (isEmpty) continue
+
+    if (isMultiple.value) {
+      const values = multi.length ? multi : single ? [single] : []
+      if (sid && values.length) overrides.push({ source_id: sid, constant_values: values })
+    } else {
+      const value = single || multi[0] || ''
+      if (sid && value) overrides.push({ source_id: sid, constant_value: value })
+    }
+  }
+
   const field: MetadataFieldDefinition = {
     id: props.field?.id || crypto.randomUUID(),
     name: fieldName.value.trim(),
@@ -479,6 +599,7 @@ const onConfirm = () => {
     default_value: !isMultiple.value && defaultValue.value.trim() ? defaultValue.value.trim() : undefined,
     default_values: isMultiple.value && defaultValues.value.length > 0 ? defaultValues.value : undefined,
     llm_extraction_hint: finalExtractionHint || undefined,
+    source_overrides: overrides.length ? overrides : undefined,
   }
   emit('save', field)
 }
@@ -623,5 +744,33 @@ const onConfirm = () => {
   line-height: 1.4;
   color: #555;
   white-space: pre-wrap;
+}
+
+.overrides-source-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--q-control-border);
+  border-radius: 4px;
+}
+
+.overrides-source-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.overrides-source-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #2d2438;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
