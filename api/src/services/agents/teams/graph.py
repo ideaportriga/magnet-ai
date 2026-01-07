@@ -1,6 +1,6 @@
 import datetime as dt
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 import asyncio
 
 import httpx
@@ -242,8 +242,84 @@ async def get_meeting_recordings(
     return []
 
 
+async def list_subscriptions(client: GraphClient) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    url: str | None = "/subscriptions"
+    first_page = True
+
+    while url:
+        try:
+            response = await client.get_json(url)
+        except httpx.HTTPStatusError as err:
+            if first_page and getattr(err.response, "status_code", None) == 400:
+                response = await client.get_json(url, params=None)
+            else:
+                raise
+
+        page_items = response.get("value") or []
+        if isinstance(page_items, list):
+            for item in page_items:
+                if isinstance(item, dict):
+                    items.append(item)
+
+        url = response.get("@odata.nextLink") or None
+        first_page = False
+
+    return items
+
+
+def pick_recordings_ready_subscription(
+    subscriptions: list[dict[str, Any]],
+    *,
+    online_meeting_id: str,
+) -> dict[str, Any] | None:
+    if not online_meeting_id:
+        return None
+
+    encoded_meeting_id = quote(online_meeting_id, safe="")
+    target_resources = {
+        f"communications/onlineMeetings/{encoded_meeting_id}/recordings",
+        f"communications/onlineMeetings/{online_meeting_id}/recordings",
+    }
+
+    matches: list[dict[str, Any]] = []
+    for item in subscriptions:
+        if not isinstance(item, dict):
+            continue
+        resource = str(item.get("resource") or "")
+        if not resource:
+            continue
+        if "recordings" not in resource or "onlineMeetings" not in resource:
+            continue
+        resource_unquoted = unquote(resource)
+        if online_meeting_id not in resource_unquoted and not any(
+            target in resource or target in resource_unquoted
+            for target in target_resources
+        ):
+            continue
+        client_state = item.get("clientState")
+        if client_state and client_state != "recordings-ready":
+            continue
+        matches.append(item)
+
+    if not matches:
+        return None
+
+    def _expires_at(item: dict[str, Any]) -> dt.datetime:
+        raw = item.get("expirationDateTime") or ""
+        try:
+            return dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except Exception:
+            return dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+
+    matches.sort(key=_expires_at, reverse=True)
+    return matches[0]
+
+
 __all__ = [
     "create_graph_client_with_token",
     "get_recording_by_id",
     "get_meeting_recordings",
+    "list_subscriptions",
+    "pick_recordings_ready_subscription",
 ]
