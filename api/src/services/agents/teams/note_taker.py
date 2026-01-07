@@ -1,6 +1,7 @@
 import asyncio
 import mimetypes
 import datetime as dt
+import json
 import os
 import base64
 from pathlib import Path
@@ -62,6 +63,7 @@ from .graph import (
     list_subscriptions,
     pick_recordings_ready_subscription,
 )
+from .sf import account_lookup
 from .static_connections import StaticConnections
 from .teams_user_store import upsert_teams_user, normalize_bot_id
 from speech_to_text.transcription import service as transcription_service
@@ -933,6 +935,7 @@ def _register_note_taker_handlers(
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - Show your Teams identity and sign-in status.",
+            "**/sf-account-lookup ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/recordings-find** - List meeting recordings and transcribe the latest.",
             "**/process-recording RECORDING_ID** - Download and transcribe a specific recording.",
             "**/process-file LINK** - Download and transcribe an audio/video file.",
@@ -1966,6 +1969,46 @@ def _register_note_taker_handlers(
 
         return False
 
+    async def _handle_sf_account_lookup(
+        context: TurnContext, account_name: str
+    ) -> None:
+        if not account_name:
+            await context.send_activity("Usage: /sf-account-lookup ACCOUNT_NAME")
+            return
+
+        await _send_typing(context)
+
+        try:
+            result = await account_lookup(account_name)
+        except Exception as err:
+            logger.exception(
+                "Salesforce account lookup failed for %s",
+                account_name,
+            )
+            await context.send_activity(
+                f"Salesforce account lookup failed: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if isinstance(result, list):
+            count = len(result)
+            first_account_id = None
+            if result and isinstance(result[0], dict):
+                first_account_id = result[0].get("accountId")
+            lines = [
+                f"Results: {count}",
+                f"First accountId: {first_account_id or 'n/a'}",
+            ]
+            await context.send_activity("\n".join(lines))
+            return
+
+        if isinstance(result, dict):
+            payload = json.dumps(result, indent=2, ensure_ascii=True)
+            await context.send_activity(f"```json\n{payload}\n```")
+            return
+
+        await context.send_activity(str(result))
+
     async def _handle_meeting_info(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -2210,6 +2253,16 @@ def _register_note_taker_handlers(
                 f"- Signed in: {'yes' if has_existing_token else 'no'}",
             ]
             await context.send_activity("\n".join(lines))
+            return
+
+        if normalized_text.startswith("/sf-account-lookup"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity("Usage: /sf-account-lookup ACCOUNT_NAME")
+                return
+
+            account_name = parts[1].strip()
+            await _handle_sf_account_lookup(context, account_name)
             return
 
         if normalized_text.startswith("/process-file"):
