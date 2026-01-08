@@ -51,6 +51,58 @@ def create_graph_client_with_token(token: str) -> GraphClient:
     return GraphClient(token)
 
 
+async def create_recordings_ready_subscription(
+    *,
+    token: str,
+    online_meeting_id: str,
+    notification_url: str,
+    lifecycle_notification_url: str | None = None,
+    expiration: dt.datetime | None = None,
+    client_state: str = "recordings-ready",
+) -> dict[str, Any]:
+    if not token:
+        raise ValueError("A Graph access token is required to create a subscription.")
+    if not online_meeting_id:
+        raise ValueError("A meeting id is required to create a subscription.")
+    if not notification_url:
+        raise ValueError("A notification URL is required to create a subscription.")
+
+    expiration_dt = expiration or (
+        dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=4)
+    )
+    expiration_iso = expiration_dt.isoformat()
+    if expiration_iso.endswith("+00:00"):
+        expiration_iso = expiration_iso.replace("+00:00", "Z")
+
+    encoded_meeting_id = quote(online_meeting_id, safe="")
+    resource = f"communications/onlineMeetings/{encoded_meeting_id}/recordings"
+    body = {
+        "changeType": "created",
+        "notificationUrl": notification_url,
+        "resource": resource,
+        "expirationDateTime": expiration_iso,
+        "clientState": client_state,
+        "latestSupportedTlsVersion": "v1_2",
+    }
+    if lifecycle_notification_url:
+        body["lifecycleNotificationUrl"] = lifecycle_notification_url
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            f"{GRAPH_BASE_URL}/subscriptions",
+            headers={"Authorization": f"Bearer {token}"},
+            json=body,
+        )
+        if response.status_code >= 400:
+            logger.error(
+                "Graph subscription create failed status=%s body=%s",
+                response.status_code,
+                response.text,
+            )
+            response.raise_for_status()
+        return response.json()
+
+
 async def get_recording_file_size(content_url: str, token: str) -> int | None:
     if not content_url:
         return None
@@ -317,6 +369,7 @@ def pick_recordings_ready_subscription(
 
 
 __all__ = [
+    "create_recordings_ready_subscription",
     "create_graph_client_with_token",
     "get_recording_by_id",
     "get_meeting_recordings",

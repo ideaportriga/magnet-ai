@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
 from typing import Any, Dict, Optional
-from urllib.parse import parse_qs, urlparse, quote, unquote
+from urllib.parse import parse_qs, urlparse, unquote
 from types import SimpleNamespace
 
 import httpx
@@ -56,7 +56,7 @@ from sqlalchemy import func, select, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
-    GRAPH_BASE_URL,
+    create_recordings_ready_subscription,
     create_graph_client_with_token,
     get_meeting_recordings,
     get_recording_by_id,
@@ -1820,67 +1820,54 @@ def _register_note_taker_handlers(
             )
             return
 
-        expiration = (
-            dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=4)
-        ).isoformat()
-        if expiration.endswith("+00:00"):
-            expiration = expiration.replace("+00:00", "Z")
-
         lifecycle_webhook = _resolve_recordings_lifecycle_webhook_url()
-
-        encoded_meeting_id = quote(online_meeting_id, safe="")
-        resource = f"communications/onlineMeetings/{encoded_meeting_id}/recordings"
-        body = {
-            "changeType": "created",
-            "notificationUrl": webhook_url,
-            "resource": resource,
-            "expirationDateTime": expiration,
-            "clientState": "recordings-ready",
-            "latestSupportedTlsVersion": "v1_2",
-        }
-        if lifecycle_webhook:
-            body["lifecycleNotificationUrl"] = lifecycle_webhook
 
         subscription_id = None
         expiration_dt: dt.datetime | None = None
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{GRAPH_BASE_URL}/subscriptions",
-                    headers={"Authorization": f"Bearer {delegated_token}"},
-                    json=body,
-                )
-                if response.status_code >= 400:
-                    logger.error(
-                        "[teams note-taker] recording subscription failed status=%s body=%s",
-                        response.status_code,
-                        response.text,
+            payload = await create_recordings_ready_subscription(
+                token=delegated_token,
+                online_meeting_id=online_meeting_id,
+                notification_url=webhook_url,
+                lifecycle_notification_url=lifecycle_webhook,
+                expiration=dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=4),
+            )
+            subscription_id = payload.get("id")
+            exp_raw = payload.get("expirationDateTime")
+            if exp_raw:
+                try:
+                    expiration_dt = dt.datetime.fromisoformat(
+                        exp_raw.replace("Z", "+00:00")
                     )
-                    response.raise_for_status()
+                except Exception:
+                    expiration_dt = None
 
-                payload = response.json()
-                subscription_id = payload.get("id")
-                exp_raw = payload.get("expirationDateTime")
-                if exp_raw:
-                    try:
-                        expiration_dt = dt.datetime.fromisoformat(
-                            exp_raw.replace("Z", "+00:00")
-                        )
-                    except Exception:
-                        expiration_dt = None
-
-                logger.info(
-                    "[teams note-taker] recording subscription created id=%s expires=%s chat_id=%s meeting=%s",
-                    subscription_id,
-                    exp_raw,
-                    chat_id,
-                    online_meeting_id,
-                )
+            logger.info(
+                "[teams note-taker] recording subscription created id=%s expires=%s chat_id=%s meeting=%s",
+                subscription_id,
+                exp_raw,
+                chat_id,
+                online_meeting_id,
+            )
         except Exception as err:
             logger.exception(
                 "[teams note-taker] failed to create recording subscription for meeting %s",
                 online_meeting_id,
             )
+            error_message = getattr(err, "message", str(err))
+            if isinstance(err, httpx.HTTPStatusError):
+                try:
+                    body = err.response.json() if err.response is not None else {}
+                except Exception:
+                    body = {}
+                if isinstance(body, dict):
+                    reason = (
+                        body.get("error", {}).get("message")
+                        if isinstance(body, dict)
+                        else None
+                    )
+                    if reason:
+                        error_message = f"{error_message} (reason: {reason})"
             try:
                 async with async_session_maker() as session:
                     try:
@@ -1915,9 +1902,15 @@ def _register_note_taker_handlers(
                     "[teams note-taker] failed to persist subscription error for chat %s",
                     chat_id,
                 )
+            await context.send_activity(
+                f"Recording subscription failed: {error_message}"
+            )
             return
 
         if not chat_id or not subscription_id:
+            await context.send_activity(
+                "Recording subscription not set (missing chat or subscription id)."
+            )
             return
 
         try:
@@ -1968,6 +1961,18 @@ def _register_note_taker_handlers(
                 chat_id,
                 getattr(err, "message", str(err)),
             )
+            return
+
+        duration_note = "unknown"
+        if expiration_dt:
+            remaining_seconds = max(
+                0.0, (expiration_dt - now).total_seconds() if now else 0.0
+            )
+            duration_note = _format_duration(remaining_seconds)
+
+        await context.send_activity(
+            f"Recording subscription set (id={subscription_id}, duration={duration_note})."
+        )
 
     async def _get_recordings_ready_subscription_status(
         context: TurnContext, online_meeting_id: str | None
@@ -2003,10 +2008,13 @@ def _register_note_taker_handlers(
         except Exception:
             exp_dt = None
 
-        if exp_dt and exp_dt <= dt.datetime.now(dt.timezone.utc):
-            return f"expired at {exp_label}"
+        subscription_id = subscription.get("id")
+        id_note = f"id={subscription_id}, " if subscription_id else ""
 
-        return f"set (expires {exp_label})"
+        if exp_dt and exp_dt <= dt.datetime.now(dt.timezone.utc):
+            return f"expired ({id_note}at {exp_label})"
+
+        return f"set ({id_note}expires {exp_label})"
 
     async def _check_meeting_in_progress(
         context: TurnContext, meeting_id: str
