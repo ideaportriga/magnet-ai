@@ -607,7 +607,7 @@ async def _upsert_teams_meeting_record(
             update_values["added_by_display_name"] = added_by["name"]
 
     stmt = insert_stmt.on_conflict_do_update(
-        index_elements=[TeamsMeeting.chat_id],
+        index_elements=[TeamsMeeting.chat_id, TeamsMeeting.bot_id],
         set_=update_values,
     )
 
@@ -1805,6 +1805,8 @@ def _register_note_taker_handlers(
 
         meeting = _resolve_meeting_details(context)
         chat_id = meeting.get("conversationId")
+        recipient = getattr(getattr(context, "activity", None), "recipient", None)
+        bot_id = normalize_bot_id(getattr(recipient, "id", None))
 
         online_meeting_id = await _get_online_meeting_id(context)
         if not online_meeting_id:
@@ -1875,6 +1877,7 @@ def _register_note_taker_handlers(
                             pg_insert(TeamsMeeting)
                             .values(
                                 chat_id=chat_id,
+                                bot_id=bot_id,
                                 graph_online_meeting_id=online_meeting_id,
                                 subscription_last_error=getattr(
                                     err, "message", str(err)
@@ -1882,7 +1885,7 @@ def _register_note_taker_handlers(
                                 last_seen_at=dt.datetime.now(dt.timezone.utc),
                             )
                             .on_conflict_do_update(
-                                index_elements=[TeamsMeeting.chat_id],
+                                index_elements=[TeamsMeeting.chat_id, TeamsMeeting.bot_id],
                                 set_={
                                     "graph_online_meeting_id": online_meeting_id,
                                     "subscription_last_error": getattr(
@@ -1929,6 +1932,7 @@ def _register_note_taker_handlers(
                 try:
                     stmt = pg_insert(TeamsMeeting).values(
                         chat_id=chat_id,
+                        bot_id=bot_id,
                         graph_online_meeting_id=online_meeting_id,
                         subscription_id=subscription_id,
                         subscription_expires_at=expiration_dt,
@@ -1938,7 +1942,7 @@ def _register_note_taker_handlers(
                         last_seen_at=now,
                     )
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=[TeamsMeeting.chat_id],
+                        index_elements=[TeamsMeeting.chat_id, TeamsMeeting.bot_id],
                         set_={
                             "graph_online_meeting_id": online_meeting_id,
                             "subscription_id": subscription_id,
@@ -2142,11 +2146,12 @@ def _register_note_taker_handlers(
 
         meeting_context = _resolve_meeting_details(context)
         meeting_id = meeting_context.get("id")
+        chat_id = meeting_context.get("conversationId")
         recipient = getattr(getattr(context, "activity", None), "recipient", None)
         bot_id = normalize_bot_id(getattr(recipient, "id", None))
-        if not meeting_id or not bot_id:
+        if not meeting_id or not chat_id or not bot_id:
             await context.send_activity(
-                "Could not resolve meeting or bot id for this conversation."
+                "Could not resolve meeting, chat, or bot id for this conversation."
             )
             return
 
@@ -2154,7 +2159,7 @@ def _register_note_taker_handlers(
         stmt = (
             update(TeamsMeeting)
             .where(
-                TeamsMeeting.meeting_id == meeting_id,
+                TeamsMeeting.chat_id == chat_id,
                 TeamsMeeting.bot_id == bot_id,
             )
             .values(title=account_id, last_seen_at=now, updated_at=func.now())
