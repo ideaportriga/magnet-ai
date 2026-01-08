@@ -7,7 +7,7 @@ import base64
 from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 from urllib.parse import parse_qs, urlparse, unquote
 from types import SimpleNamespace
 
@@ -161,28 +161,38 @@ def _format_recording_date_iso(iso_datetime: str | None) -> str | None:
     return dt_obj.date().isoformat()
 
 
-async def _get_meeting_account_id(
+async def _get_meeting_account_info(
     context: TurnContext, meeting_id: str | None
-) -> str | None:
+) -> tuple[str | None, str | None]:
     if not meeting_id:
-        return None
+        return (None, None)
 
     recipient = getattr(getattr(context, "activity", None), "recipient", None)
     bot_id = normalize_bot_id(getattr(recipient, "id", None))
     if not bot_id:
-        return None
+        return (None, None)
 
     try:
         async with async_session_maker() as session:
-            stmt = select(TeamsMeeting.title).where(
+            stmt = select(TeamsMeeting.account_id, TeamsMeeting.account_name).where(
                 TeamsMeeting.meeting_id == meeting_id,
                 TeamsMeeting.bot_id == bot_id,
             )
             result = await session.execute(stmt)
-            return result.scalar_one_or_none()
+            row = result.one_or_none()
+            if not row:
+                return (None, None)
+            return row[0], row[1]
     except Exception as err:
         logger.debug("Failed to load meeting account id: %s", err)
-        return None
+        return (None, None)
+
+
+async def _get_meeting_account_id(
+    context: TurnContext, meeting_id: str | None
+) -> str | None:
+    account_id, _account_name = await _get_meeting_account_info(context, meeting_id)
+    return account_id
 
 
 async def _send_stt_recording_to_salesforce(
@@ -713,6 +723,7 @@ async def _start_transcription_from_bytes(
     content_type: str,
     language: str,
     pipeline_id: str,
+    on_submit: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, dict | None]:
     await _ensure_vector_pool_ready()
 
@@ -763,6 +774,8 @@ async def _start_transcription_from_bytes(
         backend=pipeline_id,
         # language=language,
     )
+    if on_submit and job_id:
+        await on_submit(job_id)
 
     deadline = asyncio.get_event_loop().time() + _TRANSCRIPTION_TIMEOUT_SECONDS
     status: str | None = None
@@ -1151,6 +1164,25 @@ def _register_note_taker_handlers(
             )
             return
 
+        on_submit = None
+        if _is_meeting_conversation(context):
+            meeting_context = _resolve_meeting_details(context)
+            account_id = await _get_meeting_account_id(
+                context, meeting_context.get("id")
+            )
+
+            async def _notify_salesforce(submit_job_id: str) -> None:
+                await _send_stt_recording_to_salesforce(
+                    context,
+                    job_id=submit_job_id,
+                    conversation_date=conversation_date,
+                    source_file_name=f"{name}{ext}",
+                    source_file_type=content_type,
+                    account_id=account_id,
+                )
+
+            on_submit = _notify_salesforce
+
         try:
             status, result = await _start_transcription_from_bytes(
                 name=name,
@@ -1159,6 +1191,7 @@ def _register_note_taker_handlers(
                 content_type=content_type,
                 language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
                 pipeline_id=_DEFAULT_PIPELINE_ID,
+                on_submit=on_submit,
             )
         except Exception as err:
             logger.exception("Failed to start transcription for streamed file")
@@ -1176,20 +1209,6 @@ def _register_note_taker_handlers(
         transcription = (
             (result or {}).get("transcription") if isinstance(result, dict) else None
         )
-
-        if _is_meeting_conversation(context):
-            meeting_context = _resolve_meeting_details(context)
-            account_id = await _get_meeting_account_id(
-                context, meeting_context.get("id")
-            )
-            await _send_stt_recording_to_salesforce(
-                context,
-                job_id=job_id,
-                conversation_date=conversation_date,
-                source_file_name=f"{name}{ext}",
-                source_file_type=content_type,
-                account_id=account_id,
-            )
 
         await _send_transcription_summary(
             context,
@@ -1735,7 +1754,7 @@ def _register_note_taker_handlers(
                 )
 
             # await proactive_context.send_activity(
-            #    "I completed getting your delegated token."
+            #   "(TEMPORARY) I completed getting your delegated token."
             # )
 
         try:
@@ -1885,7 +1904,10 @@ def _register_note_taker_handlers(
                                 last_seen_at=dt.datetime.now(dt.timezone.utc),
                             )
                             .on_conflict_do_update(
-                                index_elements=[TeamsMeeting.chat_id, TeamsMeeting.bot_id],
+                                index_elements=[
+                                    TeamsMeeting.chat_id,
+                                    TeamsMeeting.bot_id,
+                                ],
                                 set_={
                                     "graph_online_meeting_id": online_meeting_id,
                                     "subscription_last_error": getattr(
@@ -2093,11 +2115,18 @@ def _register_note_taker_handlers(
         if isinstance(result, list):
             count = len(result)
             first_account_id = None
+            first_account_name = None
             if result and isinstance(result[0], dict):
                 first_account_id = result[0].get("accountId")
+                first_account_name = (
+                    result[0].get("accountName")
+                    or result[0].get("name")
+                    or result[0].get("Name")
+                )
             lines = [
                 f"Results: {count}",
                 f"First accountId: {first_account_id or 'n/a'}",
+                f"First accountName: {first_account_name or 'n/a'}",
             ]
             await context.send_activity("\n".join(lines))
             return
@@ -2138,6 +2167,13 @@ def _register_note_taker_handlers(
 
         first = result[0] if isinstance(result[0], dict) else {}
         account_id = first.get("accountId") if isinstance(first, dict) else None
+        account_name_value = None
+        if isinstance(first, dict):
+            account_name_value = (
+                first.get("accountName") or first.get("name") or first.get("Name")
+            )
+        if not account_name_value:
+            account_name_value = account_name
         if not account_id:
             await context.send_activity(
                 "Salesforce account lookup did not return an accountId."
@@ -2162,7 +2198,12 @@ def _register_note_taker_handlers(
                 TeamsMeeting.chat_id == chat_id,
                 TeamsMeeting.bot_id == bot_id,
             )
-            .values(title=account_id, last_seen_at=now, updated_at=func.now())
+            .values(
+                account_id=account_id,
+                account_name=account_name_value,
+                last_seen_at=now,
+                updated_at=func.now(),
+            )
         )
 
         try:
@@ -2188,8 +2229,9 @@ def _register_note_taker_handlers(
             await context.send_activity("I couldn't find a meeting record to update.")
             return
 
+        account_label = account_name_value or "Unknown"
         await context.send_activity(
-            f"Saved Salesforce account id {account_id} for this meeting."
+            f"Saved Salesforce account {account_label} (id {account_id}) for this meeting."
         )
 
     async def _handle_meeting_info(
@@ -2238,7 +2280,7 @@ def _register_note_taker_handlers(
 
         organizer = f"Organizer: {organizer_name} ({organizer_email}) [id: {organizer_id}, aadObjectId: {organizer_aad}]"
 
-        account_id = await _get_meeting_account_id(context, meeting_id)
+        account_id, account_name = await _get_meeting_account_info(context, meeting_id)
 
         try:
             in_progress = await _check_meeting_in_progress(context, meeting_id)
@@ -2263,6 +2305,7 @@ def _register_note_taker_handlers(
             f"- Meeting id: {meeting_id or 'Unknown'}",
             f"- Online meeting id: {online_meeting_id or 'Unknown'}",
             f"- Salesforce account id: {account_id or 'Unknown'}",
+            f"- Salesforce account name: {account_name or 'Unknown'}",
             f"- {organizer}",
             f"- Start: {_format_iso_datetime(start_time)}",
             f"- End: {_format_iso_datetime(end_time)}",
@@ -2935,6 +2978,24 @@ async def _process_recording_notification_for_meeting(
     file_bytes, content_type, name, ext = recording_bytes
     await context.send_activity("Recording downloaded; starting transcription...")
 
+    on_submit = None
+    if _is_meeting_conversation(context):
+        account_id = getattr(meeting_row, "account_id", None)
+
+        async def _notify_salesforce(submit_job_id: str) -> None:
+            await _send_stt_recording_to_salesforce(
+                context,
+                job_id=submit_job_id,
+                conversation_date=_format_recording_date_iso(
+                    recording.get("createdDateTime")
+                ),
+                source_file_name=f"{name}{ext}",
+                source_file_type=content_type,
+                account_id=account_id,
+            )
+
+        on_submit = _notify_salesforce
+
     try:
         status, result = await _start_transcription_from_bytes(
             name=name,
@@ -2943,6 +3004,7 @@ async def _process_recording_notification_for_meeting(
             content_type=content_type,
             language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
             pipeline_id=_DEFAULT_PIPELINE_ID,
+            on_submit=on_submit,
         )
     except Exception as err:
         logger.exception("Failed to start transcription for webhook recording")
@@ -2960,19 +3022,6 @@ async def _process_recording_notification_for_meeting(
     transcription = (
         (result or {}).get("transcription") if isinstance(result, dict) else None
     )
-
-    if _is_meeting_conversation(context):
-        account_id = getattr(meeting_row, "title", None)
-        await _send_stt_recording_to_salesforce(
-            context,
-            job_id=job_id,
-            conversation_date=_format_recording_date_iso(
-                recording.get("createdDateTime")
-            ),
-            source_file_name=f"{name}{ext}",
-            source_file_type=content_type,
-            account_id=account_id,
-        )
 
     await _send_transcription_summary(
         context,
