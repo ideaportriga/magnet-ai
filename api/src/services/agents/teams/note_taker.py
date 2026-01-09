@@ -52,6 +52,7 @@ from microsoft_agents.hosting.teams import TeamsInfo
 
 from core.db.session import async_session_maker
 from core.db.models.teams import TeamsMeeting, TeamsUser
+from core.db.models.settings import Settings
 from sqlalchemy import func, select, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
@@ -83,11 +84,66 @@ _TRANSCRIPTION_TIMEOUT_SECONDS = float(
 _TRANSCRIPTION_POLL_SECONDS = float(
     os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5")
 )
-PROMPT_TEMPLATE_STT_SUMMARY = "STT_SUMMARY"
-PROMPT_TEMPLATE_STT_CHAPTERS = "STT_CHAPTERS"
-PROMPT_TEMPLATE_STT_INSIGHTS = "STT_INSIGHTS"
+NOTE_TAKER_SETTINGS_SYSTEM_NAME = "NOTE_TAKER_SETTINGS"
 _ORGANIZER_SIGN_IN_PROMPT = "I need you to sign in with /sign-in in our 1:1 chat so I can access meeting resources."
 _ORGANIZER_PERSONAL_INSTALL_PROMPT = "Please install me."
+
+_DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
+    "subscription_recordings_ready": False,
+    "send_transcript_to_salesforce": False,
+    "create_knowledge_graph_embedding": False,
+    "knowledge_graph_system_name": "",
+    "chapters": {"enabled": False, "prompt_template": ""},
+    "summary": {"enabled": False, "prompt_template": ""},
+    "insights": {"enabled": False, "prompt_template": ""},
+}
+
+
+def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
+    settings = dict(_DEFAULT_NOTE_TAKER_SETTINGS)
+    if not isinstance(raw, dict):
+        return settings
+
+    for key in (
+        "subscription_recordings_ready",
+        "send_transcript_to_salesforce",
+        "create_knowledge_graph_embedding",
+        "knowledge_graph_system_name",
+    ):
+        if key in raw:
+            settings[key] = raw[key]
+
+    for section in ("chapters", "summary", "insights"):
+        base_section = dict(settings[section])
+        section_raw = raw.get(section)
+        if isinstance(section_raw, dict):
+            for key in base_section.keys():
+                if key in section_raw:
+                    base_section[key] = section_raw[key]
+        settings[section] = base_section
+
+    return settings
+
+
+async def _load_note_taker_settings() -> dict[str, Any]:
+    try:
+        async with async_session_maker() as session:
+            stmt = select(Settings.config).where(
+                Settings.system_name == NOTE_TAKER_SETTINGS_SYSTEM_NAME
+            )
+            result = await session.execute(stmt)
+            config = result.scalar_one_or_none()
+    except Exception as err:
+        logger.debug("Failed to load note taker settings: %s", err)
+        return dict(_DEFAULT_NOTE_TAKER_SETTINGS)
+
+    if isinstance(config, str):
+        try:
+            config = json.loads(config)
+        except json.JSONDecodeError:
+            config = None
+
+    return _merge_note_taker_settings(config if isinstance(config, dict) else None)
 
 
 def _format_duration(seconds: float | int | None) -> str:
@@ -205,6 +261,13 @@ async def _send_stt_recording_to_salesforce(
     account_id: str | None,
 ) -> None:
     if not job_id:
+        return
+
+    settings = await _load_note_taker_settings()
+    if not settings.get("send_transcript_to_salesforce"):
+        await context.send_activity(
+            "Salesforce sync skipped: sending transcripts to Salesforce is disabled in settings."
+        )
         return
 
     if not account_id:
@@ -861,11 +924,25 @@ async def _send_transcription_summary(
             await context.send_activity("No speech was detected in this recording.")
 
         if full_text:
-            templates = [
-                (PROMPT_TEMPLATE_STT_SUMMARY, "Summary"),
-                (PROMPT_TEMPLATE_STT_CHAPTERS, "Chapters"),
-                (PROMPT_TEMPLATE_STT_INSIGHTS, "Insights"),
-            ]
+            settings = await _load_note_taker_settings()
+
+            templates: list[tuple[str, str]] = []
+            for key, title in (
+                ("summary", "Summary"),
+                ("chapters", "Chapters"),
+                ("insights", "Insights"),
+            ):
+                section = settings.get(key) if isinstance(settings, dict) else None
+                if not isinstance(section, dict):
+                    continue
+                if not section.get("enabled"):
+                    continue
+                template_name = str(section.get("prompt_template") or "").strip()
+                if template_name:
+                    templates.append((template_name, title))
+
+            if not templates:
+                return
 
             async def _run_template(system_name: str):
                 return await execute_prompt_template(
@@ -2544,7 +2621,13 @@ def _register_note_taker_handlers(
         normalized = str(name or "").lower()
         if normalized == "application/vnd.microsoft.meetingstart":
             logger.info("[teams note-taker] meeting start event received.")
-            await _subscribe_to_recording_notifications(context)
+            settings = await _load_note_taker_settings()
+            if settings.get("subscription_recordings_ready"):
+                await _subscribe_to_recording_notifications(context)
+            else:
+                await context.send_activity(
+                    "Recordings-ready subscription is disabled in settings; skipping subscription."
+                )
         elif normalized == "application/vnd.microsoft.meetingend":
             logger.info("[teams note-taker] meeting end event received.")
 
