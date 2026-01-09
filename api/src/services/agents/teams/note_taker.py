@@ -368,6 +368,96 @@ def _format_iso_datetime(value: str | None) -> str:
         return value
 
 
+async def _send_expandable_section(
+    context: TurnContext,
+    *,
+    title: str,
+    content: str,
+    preserve_newlines: bool = False,
+) -> None:
+    details_block: dict[str, Any]
+    if preserve_newlines:
+        lines = [line for line in content.splitlines() if line.strip() != ""]
+        if not lines:
+            lines = [content]
+        details_block = {
+            "type": "Container",
+            "id": "details",
+            "isVisible": False,
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": line,
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+                for line in lines
+            ],
+        }
+    else:
+        details_block = {
+            "type": "TextBlock",
+            "id": "details",
+            "text": content,
+            "wrap": True,
+            "isVisible": False,
+            "spacing": "Small",
+        }
+    card = {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.5",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": title,
+                "weight": "Bolder",
+                "size": "Medium",
+                "wrap": True,
+            },
+            details_block,
+            {
+                "type": "ActionSet",
+                "id": "show-actions",
+                "actions": [
+                    {
+                        "type": "Action.ToggleVisibility",
+                        "title": "Show details",
+                        "targetElements": [
+                            "details",
+                            "show-actions",
+                            "hide-actions",
+                        ],
+                    }
+                ],
+            },
+            {
+                "type": "ActionSet",
+                "id": "hide-actions",
+                "isVisible": False,
+                "actions": [
+                    {
+                        "type": "Action.ToggleVisibility",
+                        "title": "🙈 Hide details",
+                        "targetElements": [
+                            "details",
+                            "show-actions",
+                            "hide-actions",
+                        ],
+                    }
+                ],
+            },
+        ],
+        "msteams": {"width": "Full"},
+    }
+    attachment = Attachment(
+        content_type="application/vnd.microsoft.card.adaptive",
+        content=card,
+    )
+    activity = Activity(type="message", attachments=[attachment])
+    await context.send_activity(activity)
+
+
 async def _download_file_from_link(
     link: str, token: str | None
 ) -> tuple[bytes, str, str, str]:
@@ -917,9 +1007,15 @@ async def _send_transcription_summary(
             f"Transcription completed (job={job_id or 'n/a'}, segments={segs_count}{duration_part})."
         )
         if full_text:
-            snippet = full_text[:1000]
-            suffix = "." if len(full_text) > len(snippet) else ""
-            await context.send_activity(f"Transcript text: {snippet}{suffix}")
+            max_chars = 4000
+            snippet = full_text[:max_chars]
+            suffix = "..." if len(full_text) > len(snippet) else ""
+            await _send_expandable_section(
+                context,
+                title="Transcript",
+                content=f"{snippet}{suffix}",
+                preserve_newlines=True,
+            )
         elif segs_count == 0:
             await context.send_activity("No speech was detected in this recording.")
 
@@ -971,7 +1067,14 @@ async def _send_transcription_summary(
                     await context.send_activity(f"{title} generation failed.")
                     continue
 
-                await context.send_activity(f"{title}:\n{result.content}")
+                content = getattr(result, "content", None)
+                if content is None:
+                    content = str(result)
+                await _send_expandable_section(
+                    context,
+                    title=f"Meeting {title.lower()}",
+                    content=str(content),
+                )
         return
 
     if status == "failed":
