@@ -4,7 +4,7 @@ from typing import Optional
 
 from advanced_alchemy.base import BigIntAuditBase
 from advanced_alchemy.types import DateTimeUTC, JsonB
-from sqlalchemy import Boolean, Index, Text, text
+from sqlalchemy import Boolean, Index, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -17,13 +17,22 @@ class TeamsMeeting(BigIntAuditBase):
             "ix_teams_meeting_graph_online_meeting_id",
             "graph_online_meeting_id",
         ),
+        UniqueConstraint(
+            "chat_id",
+            "bot_id",
+            name="uq_teams_meeting_chat_id_bot_id",
+        ),
+        UniqueConstraint(
+            "graph_online_meeting_id",
+            "bot_id",
+            name="uq_teams_meeting_graph_online_meeting_id_bot_id",
+        ),
     )
 
     # Core identities
     chat_id: Mapped[str] = mapped_column(
         Text,
         nullable=False,
-        unique=True,
         comment="Teams meeting chat / conversation ID",
     )
     meeting_id: Mapped[Optional[str]] = mapped_column(
@@ -34,7 +43,6 @@ class TeamsMeeting(BigIntAuditBase):
     graph_online_meeting_id: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
-        unique=True,
         comment="Graph OnlineMeeting ID for recording subscriptions",
     )
 
@@ -44,6 +52,16 @@ class TeamsMeeting(BigIntAuditBase):
     )
     title: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True, comment="Meeting subject/title"
+    )
+    account_id: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Salesforce account id linked to this meeting",
+    )
+    account_name: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Salesforce account name linked to this meeting",
     )
     bot_id: Mapped[Optional[str]] = mapped_column(
         Text,
