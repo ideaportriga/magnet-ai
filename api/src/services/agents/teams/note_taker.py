@@ -1205,6 +1205,7 @@ def _register_note_taker_handlers(
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
             "**/recordings-find** - List meeting recordings and transcribe the latest.",
+            "**/process-transcript-job TRANSCRIPTION_JOB_ID** - Process an existing transcription job.",
             "**/process-recording RECORDING_ID** - Download and transcribe a specific recording.",
             "**/process-file LINK** - Download and transcribe an audio/video file.",
             "**/meeting-info** - Show current meeting details.",
@@ -1328,6 +1329,31 @@ def _register_note_taker_handlers(
 
         await context.send_activity("\n\n".join(lines))
 
+    async def _build_salesforce_submit_callback(
+        context: TurnContext,
+        *,
+        conversation_date: str | None,
+        source_file_name: str,
+        source_file_type: str,
+    ) -> Callable[[str], Awaitable[None]] | None:
+        if not _is_meeting_conversation(context):
+            return None
+
+        meeting_context = _resolve_meeting_details(context)
+        account_id = await _get_meeting_account_id(context, meeting_context.get("id"))
+
+        async def _notify_salesforce(submit_job_id: str) -> None:
+            await _send_stt_recording_to_salesforce(
+                context,
+                job_id=submit_job_id,
+                conversation_date=conversation_date,
+                source_file_name=source_file_name,
+                source_file_type=source_file_type,
+                account_id=account_id,
+            )
+
+        return _notify_salesforce
+
     async def _transcribe_bytes_and_notify(
         context: TurnContext,
         *,
@@ -1345,24 +1371,12 @@ def _register_note_taker_handlers(
             )
             return
 
-        on_submit = None
-        if _is_meeting_conversation(context):
-            meeting_context = _resolve_meeting_details(context)
-            account_id = await _get_meeting_account_id(
-                context, meeting_context.get("id")
-            )
-
-            async def _notify_salesforce(submit_job_id: str) -> None:
-                await _send_stt_recording_to_salesforce(
-                    context,
-                    job_id=submit_job_id,
-                    conversation_date=conversation_date,
-                    source_file_name=f"{name}{ext}",
-                    source_file_type=content_type,
-                    account_id=account_id,
-                )
-
-            on_submit = _notify_salesforce
+        on_submit = await _build_salesforce_submit_callback(
+            context,
+            conversation_date=conversation_date,
+            source_file_name=f"{name}{ext}",
+            source_file_type=content_type,
+        )
 
         try:
             status, result = await _start_transcription_from_bytes(
@@ -1394,6 +1408,50 @@ def _register_note_taker_handlers(
         await _send_transcription_summary(
             context,
             status,
+            job_id,
+            transcription,
+            conversation_date=conversation_date,
+        )
+
+    async def _process_transcription_job_and_notify(
+        context: TurnContext,
+        *,
+        job_id: str,
+        conversation_date: str | None = None,
+    ) -> None:
+        await _send_typing(context)
+        on_submit = await _build_salesforce_submit_callback(
+            context,
+            conversation_date=conversation_date,
+            source_file_name=f"transcription_job_{job_id}",
+            source_file_type="application/json",
+        )
+        if on_submit:
+            await on_submit(job_id)
+
+        try:
+            status = await transcription_service.get_status(job_id)
+        except Exception as err:
+            logger.exception("Failed to fetch transcription status for %s", job_id)
+            await context.send_activity(
+                f"Could not retrieve transcription status for job {job_id}: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        transcription = None
+        if status in {"completed", "transcribed", "diarized"}:
+            try:
+                transcription = await transcription_service.get_transcription(job_id)
+            except Exception as err:
+                logger.exception("Failed to fetch transcription for %s", job_id)
+                await context.send_activity(
+                    f"Could not retrieve transcription for job {job_id}: {getattr(err, 'message', str(err))}"
+                )
+                return
+
+        await _send_transcription_summary(
+            context,
+            status or "unknown",
             job_id,
             transcription,
             conversation_date=conversation_date,
@@ -2786,6 +2844,16 @@ def _register_note_taker_handlers(
         if normalized_text.startswith("/recordings-list"):
             await _send_typing(context)
             await _handle_recordings_list(context, _state)
+            return
+        if normalized_text.startswith("/process-transcript-job"):
+            parts = normalized_text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity(
+                    "Usage: /process-transcript-job TRANSCRIPTION_JOB_ID"
+                )
+                return
+            job_id = parts[1].strip()
+            await _process_transcription_job_and_notify(context, job_id=job_id)
             return
 
         await context.send_activity("...not implemented yet...")
