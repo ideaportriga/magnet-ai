@@ -1203,6 +1203,7 @@ def _register_note_taker_handlers(
             "**/whoami** - Show your Teams identity and sign-in status.",
             "**/sf-account-lookup ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
+            "**/recordings-list** - List meeting recordings.",
             "**/recordings-find** - List meeting recordings and transcribe the latest.",
             "**/process-recording RECORDING_ID** - Download and transcribe a specific recording.",
             "**/process-file LINK** - Download and transcribe an audio/video file.",
@@ -1722,8 +1723,75 @@ def _register_note_taker_handlers(
             )
             return
 
+        await _handle_recordings_list(
+            context,
+            state,
+            recordings=recordings,
+            meeting=meeting,
+            delegated_token=delegated_token,
+            transcribe_latest=True,
+        )
+
+    async def _handle_recordings_list(
+        context: TurnContext,
+        state: Optional[TurnState],
+        recordings: list | None = None,
+        meeting: dict[str, Any] | None = None,
+        delegated_token: str | None = None,
+        transcribe_latest: bool = False,
+    ) -> None:
+        meeting = meeting or _resolve_meeting_details(context)
+        if recordings is None:
+            if not (meeting.get("id") or meeting.get("conversationId")):
+                logger.warning("No meeting id found for recordings-list command.")
+                return
+
+            await _send_typing(context)
+
+            try:
+                online_meeting_id = await _get_online_meeting_id(context)
+                if not online_meeting_id:
+                    await context.send_activity(
+                        "No online meeting id found for this meeting."
+                    )
+                    return
+
+                if not delegated_token:
+                    delegated_token = await _get_delegated_token(
+                        context,
+                        auth_handler_id,
+                        "Please sign in (Recordings connection) so I can fetch recordings with delegated Graph permissions.",
+                    )
+                    if not delegated_token:
+                        return
+
+                async with create_graph_client_with_token(
+                    delegated_token
+                ) as graph_client:
+                    recordings = await get_meeting_recordings(
+                        client=graph_client,
+                        online_meeting_id=online_meeting_id,
+                        add_size=True,
+                        content_token=delegated_token,
+                    )
+            except Exception as err:
+                logger.exception("Failed to fetch meeting recordings")
+                await context.send_activity(
+                    f"Could not retrieve meeting recordings for {meeting.get('title') or 'meeting'}: {getattr(err, 'message', str(err))}"
+                )
+                return
+
+        if not delegated_token:
+            delegated_token = await _get_delegated_token(
+                context,
+                auth_handler_id,
+                "Please sign in (Recordings connection) so I can fetch recordings with delegated Graph permissions.",
+            )
+            if not delegated_token:
+                return
+
         await _send_recordings_summary(context, recordings, delegated_token)
-        if recordings:
+        if transcribe_latest and recordings:
             await context.send_activity("Streaming the latest recording now...")
             await _send_typing(context)
             try:
@@ -2714,6 +2782,10 @@ def _register_note_taker_handlers(
         if normalized_text.startswith("/recordings-find"):
             await _send_typing(context)
             await _handle_recordings_find(context, _state)
+            return
+        if normalized_text.startswith("/recordings-list"):
+            await _send_typing(context)
+            await _handle_recordings_list(context, _state)
             return
 
         await context.send_activity("...not implemented yet...")
