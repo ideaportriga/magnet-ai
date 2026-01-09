@@ -16,9 +16,10 @@ _ELEVEN_CACHE: dict[str, Dict[str, Any]] = {}
 # ElevenLabs / HTTP timeouts (seconds)
 # ────────────────────────────────
 ELEVEN_HTTP_CONNECT_TIMEOUT = 10.0
-ELEVEN_HTTP_READ_TIMEOUT = 900.0   # 15 minutes
+ELEVEN_HTTP_READ_TIMEOUT = 900.0  # 15 minutes
 ELEVEN_HTTP_WRITE_TIMEOUT = 60.0
 ELEVEN_HTTP_POOL_TIMEOUT = 10.0
+
 
 def _to_dict(obj):
     if obj is None:
