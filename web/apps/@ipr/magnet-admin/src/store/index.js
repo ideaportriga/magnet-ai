@@ -33,6 +33,7 @@ import api_servers from './modules/api_servers'
 import providers from './modules/providers'
 import deepResearch from './modules/deepResearch'
 import knowledgeGraph from './modules/knowledgeGraph'
+import noteTaker from './modules/noteTaker'
 
 const merged = mergeModules([
   main,
@@ -63,6 +64,7 @@ const merged = mergeModules([
   providers,
   deepResearch,
   knowledgeGraph,
+  noteTaker,
 ])
 
 export default createStore({

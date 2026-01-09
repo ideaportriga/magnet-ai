@@ -20,6 +20,7 @@ from .knowledge_graph import (
 )
 from .metric import Metric
 from .provider import Provider
+from .settings import Settings
 from .trace import Trace
 
 __all__ = [
@@ -34,6 +35,7 @@ __all__ = [
     "Job",
     "Metric",
     "Provider",
+    "Settings",
     "Trace",
     "KnowledgeGraph",
     "KnowledgeGraphSource",

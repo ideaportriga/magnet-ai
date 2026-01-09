@@ -206,6 +206,11 @@ const experimental = [
     icon: 'fas fa-play',
     path: 'deep-research/runs',
   },
+  {
+    label: 'Note Taker',
+    icon: 'fas fa-clipboard-list',
+    path: 'note-taker',
+  },
 ]
 
 const dev = [

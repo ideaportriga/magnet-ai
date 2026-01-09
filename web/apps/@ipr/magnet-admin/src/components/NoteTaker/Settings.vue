@@ -1,0 +1,271 @@
+<template lang="pug">
+.row.no-wrap.overflow-hidden.full-height
+  q-scroll-area.fit
+    .row.no-wrap.full-height.justify-center.fit
+      .col(style='max-width: 1200px; min-width: 600px')
+        .full-height.q-pb-md.relative-position.q-px-md
+          .ba-border.bg-white.border-radius-12.q-pa-16.q-my-16
+            .column.no-wrap.q-gap-24.full-height.full-width
+              .col-auto.full-width
+                .km-heading-6.q-mb-md General Settings
+                .q-gutter-md
+                  .km-field.q-mt-lg
+                    .text-secondary-text.q-pb-xs.km-title Set the subscription for recordings ready
+                    q-toggle(v-model='subscriptionRecordingsReady', color='primary')
+                    .km-description.text-secondary-text.q-pt-2 Automatically create recordings-ready subscriptions for meetings.
+
+                .km-field.q-mt-md
+                  .text-secondary-text.q-pb-xs.km-title Send transcript to Salesforce
+                  q-toggle(v-model='sendTranscriptToSalesforce', color='primary')
+                  .km-description.text-secondary-text.q-pt-2 Push completed transcripts to Salesforce.
+
+              q-separator
+
+              .col-auto.full-width
+                .km-heading-6.q-mb-md Prompts
+                .q-gutter-md
+                  .km-field
+                    .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-title Create Chapters
+                      q-toggle(v-model='createChaptersEnabled', color='primary')
+                    .q-gutter-sm(v-if='createChaptersEnabled')
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='createChaptersPromptTemplate',
+                            :options='promptTemplates',
+                            option-label='name',
+                            option-value='system_name',
+                            emit-value,
+                            map-options,
+                            hasDropdownSearch,
+                            height='30px'
+                          )
+                        .col-auto(v-if='createChaptersPromptTemplate')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='navigateToPrompt(createChaptersPromptTemplate)'
+                          )
+                    .km-description.text-secondary-text.q-pt-2(v-if='createChaptersEnabled') Prompt template for chapters.
+
+                  .km-field
+                    .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-title Create Summary
+                      q-toggle(v-model='createSummaryEnabled', color='primary')
+                    .q-gutter-sm(v-if='createSummaryEnabled')
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='createSummaryPromptTemplate',
+                            :options='promptTemplates',
+                            option-label='name',
+                            option-value='system_name',
+                            emit-value,
+                            map-options,
+                            hasDropdownSearch,
+                            height='30px'
+                          )
+                        .col-auto(v-if='createSummaryPromptTemplate')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='navigateToPrompt(createSummaryPromptTemplate)'
+                          )
+                    .km-description.text-secondary-text.q-pt-2(v-if='createSummaryEnabled') Prompt template for summary.
+
+                  .km-field
+                    .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-title Create Insights
+                      q-toggle(v-model='createInsightsEnabled', color='primary')
+                    .q-gutter-sm(v-if='createInsightsEnabled')
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='createInsightsPromptTemplate',
+                            :options='promptTemplates',
+                            option-label='name',
+                            option-value='system_name',
+                            emit-value,
+                            map-options,
+                            hasDropdownSearch,
+                            height='30px'
+                          )
+                        .col-auto(v-if='createInsightsPromptTemplate')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='navigateToPrompt(createInsightsPromptTemplate)'
+                          )
+                    .km-description.text-secondary-text.q-pt-2(v-if='createInsightsEnabled') Prompt template for insights.
+
+                  q-separator
+
+                  .km-heading-6 Knowledge Graph
+
+                  .km-field
+                    .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-heading-8 Create Knowledge Graph Embedding
+                      q-toggle(v-model='createKnowledgeGraphEmbedding', color='primary')
+                    .q-gutter-sm(v-if='createKnowledgeGraphEmbedding')
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='knowledgeGraphSystemName',
+                            :options='knowledgeGraphs',
+                            option-label='name',
+                            option-value='system_name',
+                            emit-value,
+                            map-options,
+                            hasDropdownSearch,
+                            height='30px'
+                          )
+                        .col-auto(v-if='selectedKnowledgeGraph?.id')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='router.push(`/knowledge-graph/${selectedKnowledgeGraph.id}`)'
+                          )
+                    .km-description.text-secondary-text.q-pt-2(v-if='createKnowledgeGraphEmbedding') Select the knowledge graph to embed when enabled.
+</template>
+
+<script setup lang="ts">
+import { computed, watch, ref } from 'vue'
+import { useStore } from 'vuex'
+import { useRouter } from 'vue-router'
+import { fetchData } from '@shared'
+
+const store = useStore()
+const router = useRouter()
+
+const knowledgeGraphs = ref<any[]>([])
+
+const promptTemplates = computed(() => {
+  return store.getters['chroma/promptTemplates']?.items || []
+})
+
+const subscriptionRecordingsReady = computed({
+  get: () => store.getters.noteTakerSettings?.subscription_recordings_ready ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'subscription_recordings_ready', value })
+  },
+})
+
+const sendTranscriptToSalesforce = computed({
+  get: () => store.getters.noteTakerSettings?.send_transcript_to_salesforce ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'send_transcript_to_salesforce', value })
+  },
+})
+
+const createKnowledgeGraphEmbedding = computed({
+  get: () => store.getters.noteTakerSettings?.create_knowledge_graph_embedding ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'create_knowledge_graph_embedding', value })
+  },
+})
+
+const knowledgeGraphSystemName = computed({
+  get: () => store.getters.noteTakerSettings?.knowledge_graph_system_name || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'knowledge_graph_system_name', value })
+  },
+})
+
+const selectedKnowledgeGraph = computed(() => {
+  return knowledgeGraphs.value.find((graph: any) => graph.system_name === knowledgeGraphSystemName.value)
+})
+
+const createChaptersEnabled = computed({
+  get: () => store.getters.noteTakerSettings?.chapters?.enabled ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'chapters.enabled', value })
+  },
+})
+
+const createChaptersPromptTemplate = computed({
+  get: () => store.getters.noteTakerSettings?.chapters?.prompt_template || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'chapters.prompt_template', value })
+  },
+})
+
+const createSummaryEnabled = computed({
+  get: () => store.getters.noteTakerSettings?.summary?.enabled ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'summary.enabled', value })
+  },
+})
+
+const createSummaryPromptTemplate = computed({
+  get: () => store.getters.noteTakerSettings?.summary?.prompt_template || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'summary.prompt_template', value })
+  },
+})
+
+const createInsightsEnabled = computed({
+  get: () => store.getters.noteTakerSettings?.insights?.enabled ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'insights.enabled', value })
+  },
+})
+
+const createInsightsPromptTemplate = computed({
+  get: () => store.getters.noteTakerSettings?.insights?.prompt_template || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'insights.prompt_template', value })
+  },
+})
+
+const apiReady = computed(() => Boolean(store.getters.config?.api?.aiBridge?.urlAdmin))
+
+const fetchKnowledgeGraphs = async () => {
+  const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+  if (!endpoint) return
+
+  try {
+    const response = await fetchData({
+      method: 'GET',
+      endpoint,
+      service: 'knowledge_graphs/',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    })
+    if (!response?.ok) {
+      console.error('Failed to fetch knowledge graphs:', response?.error)
+      return
+    }
+    const data = await response.json()
+    knowledgeGraphs.value = Array.isArray(data) ? data : (data?.items || data?.data || [])
+  } catch (error) {
+    console.error('Error fetching knowledge graphs:', error)
+  }
+}
+
+watch(
+  apiReady,
+  (ready) => {
+    if (!ready) return
+    if (!store.getters['chroma/promptTemplates']?.items?.length) {
+      store.dispatch('chroma/get', { entity: 'promptTemplates' })
+    }
+    fetchKnowledgeGraphs()
+    store.dispatch('fetchNoteTakerSettings')
+  },
+  { immediate: true }
+)
+
+const navigateToPrompt = (systemName: string) => {
+  const prompt = promptTemplates.value.find((p: any) => p.system_name === systemName)
+  if (prompt) {
+    window.open(router.resolve({ path: `/prompt-templates/${prompt.id}` }).href, '_blank')
+  }
+}
+</script>

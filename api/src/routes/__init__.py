@@ -27,6 +27,7 @@ from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
 from .admin.deep_research import DeepResearchConfigController, DeepResearchRunController
+from .admin.note_taker_settings import NoteTakerSettingsController
 
 
 from .admin.knowledge_sources import (
@@ -71,6 +72,7 @@ def get_route_handlers(
         knowledge_sources_router_deprecated,  # Admin / Knowledge Sources
         MCPServersController,  # Admin / MCP Servers
         MetricsController,  # Admin / Metrics
+        NoteTakerSettingsController,  # Admin / Note Taker
         AIModelsController,  # Admin / Models
         observability_router,  # Admin / Observability
         PromptsController,  # Admin / Prompt Templates
