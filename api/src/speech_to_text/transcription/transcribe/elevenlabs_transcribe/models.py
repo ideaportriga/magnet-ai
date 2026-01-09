@@ -59,7 +59,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
 
         self._client = ElevenLabs(
             api_key=api_key,
-            http_client=http_client,
+            httpx_client=http_client,
         )
         self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v1")
         self._diarize = os.getenv("ELEVEN_DIARIZE", "true").lower() == "true"
