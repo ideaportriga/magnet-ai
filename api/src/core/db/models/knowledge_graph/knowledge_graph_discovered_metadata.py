@@ -12,25 +12,24 @@ if TYPE_CHECKING:
     from .knowledge_graph import KnowledgeGraph
     from .knowledge_graph_source import KnowledgeGraphSource
 
-from .knowledge_graph_source_discovered_metadata import (
-    knowledge_graph_source_discovered_metadata_table,
-)
 
+class KnowledgeGraphMetadataDiscovery(UUIDv7AuditBase):
+    """A metadata field discovered for a specific knowledge graph source.
 
-class KnowledgeGraphDiscoveredMetadata(UUIDv7AuditBase):
-    """A metadata field observed across documents in a knowledge graph.
-
-    This table stores *discovered* fields (from native document metadata and/or LLM
-    extraction) so the UI can list "Discovered Fields" and allow users to promote
-    them into the graph's metadata schema (stored in graph settings).
+    This table stores *discovered* fields (from native document metadata, ingestion
+    source systems, and/or LLM extraction) so the UI can list "Discovered Fields"
+    and allow users to promote them into the graph's metadata schema (stored in
+    graph settings).
     """
 
-    __tablename__ = "knowledge_graph_discovered_metadata"
+    __tablename__ = "knowledge_graph_metadata_discoveries"
     __table_args__ = (
         UniqueConstraint(
             "graph_id",
+            "source_id",
+            "origin",
             "name",
-            name="uq_knowledge_graph_discovered_metadata_fields_graph_id_name",
+            name="uq_knowledge_graph_metadata_discoveries_name",
         ),
     )
 
@@ -48,12 +47,18 @@ class KnowledgeGraphDiscoveredMetadata(UUIDv7AuditBase):
         back_populates="discovered_metadata_fields",
     )
 
-    # Sources that observed this discovered field (best-effort attribution)
-    sources: Mapped[list["KnowledgeGraphSource"]] = relationship(
+    # Parent source (1:M) that observed this discovered field (best-effort attribution)
+    source_id: Mapped[UUID] = mapped_column(
+        GUID(),
+        ForeignKey("knowledge_graph_sources.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="Foreign key to knowledge_graph_sources",
+    )
+
+    source: Mapped["KnowledgeGraphSource"] = relationship(
         "KnowledgeGraphSource",
-        secondary=knowledge_graph_source_discovered_metadata_table,
         back_populates="discovered_metadata_fields",
-        passive_deletes=True,
     )
 
     # Field identity
@@ -71,10 +76,10 @@ class KnowledgeGraphDiscoveredMetadata(UUIDv7AuditBase):
         comment="Inferred metadata value type (string, number, boolean, date, ...)",
     )
 
-    origins: Mapped[Optional[list[str]]] = mapped_column(
-        JsonB,
+    origin: Mapped[Optional[str]] = mapped_column(
+        String(50),
         nullable=True,
-        comment="Origins where this field was observed (e.g. document, llm, source)",
+        comment="Origin where this field was observed (file, source, llm)",
     )
 
     sample_values: Mapped[Optional[list[str]]] = mapped_column(

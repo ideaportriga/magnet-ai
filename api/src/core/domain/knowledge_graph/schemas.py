@@ -49,10 +49,10 @@ class KnowledgeGraphDiscoveredMetadataExternalSchema(BaseModel):
     id: str
     name: str
     inferred_type: Optional[str] = None
-    origins: Optional[list[str]] = None
+    origin: Optional[str] = None
     sample_values: Optional[list[str]] = None
     value_count: int = 0
-    sources: list[KnowledgeGraphSourceLinkExternalSchema] = Field(default_factory=list)
+    source: Optional[KnowledgeGraphSourceLinkExternalSchema] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -92,9 +92,15 @@ class KnowledgeGraphMetadataExtractionRunResponse(BaseModel):
     status: str = Field(default="ok")
     approach: str = Field(..., description="Extraction approach used")
     processed_documents: int = Field(default=0, description="Documents processed")
-    processed_chunks: int = Field(default=0, description="Chunks processed (chunks approach)")
-    skipped_documents: int = Field(default=0, description="Documents skipped due to missing content")
-    skipped_chunks: int = Field(default=0, description="Chunks skipped due to missing content")
+    processed_chunks: int = Field(
+        default=0, description="Chunks processed (chunks approach)"
+    )
+    skipped_documents: int = Field(
+        default=0, description="Documents skipped due to missing content"
+    )
+    skipped_chunks: int = Field(
+        default=0, description="Chunks skipped due to missing content"
+    )
     errors: int = Field(default=0, description="Number of per-item extraction errors")
 
 
@@ -250,6 +256,7 @@ class KnowledgeGraphDocumentMetadataExternalSchema(BaseModel):
 
     file: Optional[dict[str, Any]] = None
     source: Optional[dict[str, Any]] = None
+    llm: Optional[dict[str, Any]] = None
 
 
 class KnowledgeGraphDocumentDetailSchema(BaseModel):
@@ -304,6 +311,10 @@ class KnowledgeGraphRetrievalPreviewRequest(BaseModel):
     query: str = Field(..., description="User question or query for retrieval")
     conversation_id: Optional[str] = Field(
         default=None, description="Existing conversation id to continue"
+    )
+    tool_inputs: Optional[dict[str, Any]] = Field(
+        default=None,
+        description=("External tool inputs provided by the API caller. "),
     )
 
 

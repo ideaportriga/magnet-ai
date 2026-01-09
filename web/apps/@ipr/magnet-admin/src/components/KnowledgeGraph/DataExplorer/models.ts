@@ -15,6 +15,15 @@ export interface Document {
   toc?: TocNode[]
   summary?: string
   total_pages?: number
+  metadata?: DocumentMetadata | null
+}
+
+export type DocumentMetadataScalar = string | number | boolean
+
+export interface DocumentMetadata {
+  file?: Record<string, DocumentMetadataScalar | null> | null
+  source?: Record<string, DocumentMetadataScalar | null> | null
+  llm?: Record<string, DocumentMetadataScalar | null> | null
 }
 
 export interface Chunk {

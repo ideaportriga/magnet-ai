@@ -12,8 +12,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
-    KnowledgeGraphDiscoveredMetadata,
-    knowledge_graph_source_discovered_metadata_table,
+    KnowledgeGraphMetadataDiscovery,
 )
 
 from .models import MetadataMultiValueContainer
@@ -178,18 +177,27 @@ async def accumulate_discovered_metadata_fields(
 ) -> None:
     """Accumulate discovered metadata fields for a knowledge graph (best-effort).
 
-    This performs a read-modify-write update on `KnowledgeGraphDiscoveredMetadata`:
-    - creates missing fields (unique per graph_id + name)
+    This performs a read-modify-write update on `KnowledgeGraphMetadataDiscovery`:
+    - creates missing fields (unique per source_id + name)
     - increments `value_count` for each observed non-empty value
     - stores limited sample values (strings)
-    - tracks origins (e.g. "source")
+    - tracks origin (file/source/llm)
 
     Caller controls commit/rollback.
     """
     if not metadata:
         return
 
-    origin_val = str(origin or "").strip() or None
+    if source_id is None:
+        # 1:M model requires attribution to a single source.
+        return
+
+    origin_val = str(origin or "").strip().lower()
+    if origin_val == "document":
+        # Back-compat alias for "file"
+        origin_val = "file"
+    if origin_val not in ("file", "source", "llm"):
+        origin_val = None
 
     rows: list[dict[str, Any]] = []
     for raw_name, value in metadata.items():
@@ -209,9 +217,10 @@ async def accumulate_discovered_metadata_fields(
         rows.append(
             {
                 "graph_id": graph_id,
+                "source_id": source_id,
                 "name": name,
                 "inferred_type": inferred_type,
-                "origins": ([origin_val] if origin_val else None),
+                "origin": origin_val,
                 "sample_values": sample_values,
                 "value_count": value_count,
             }
@@ -224,11 +233,9 @@ async def accumulate_discovered_metadata_fields(
     if max_sample_values_int < 0:
         max_sample_values_int = 0
 
-    insert_stmt = pg_insert(KnowledgeGraphDiscoveredMetadata).values(rows)
+    insert_stmt = pg_insert(KnowledgeGraphMetadataDiscovery).values(rows)
     excluded = insert_stmt.excluded
-    cur = KnowledgeGraphDiscoveredMetadata
-
-    empty_jsonb_array = literal("[]").cast(JSONB)
+    cur = KnowledgeGraphMetadataDiscovery
 
     inferred_type_expr = case(
         (cur.inferred_type.is_(None), excluded.inferred_type),
@@ -238,22 +245,6 @@ async def accumulate_discovered_metadata_fields(
         (excluded.inferred_type == literal("unknown"), cur.inferred_type),
         (cur.inferred_type == excluded.inferred_type, cur.inferred_type),
         else_=literal("mixed"),
-    )
-
-    # Merge origins (best-effort unique, capped) without overwriting when excluded.origins is NULL.
-    cur_origins = func.coalesce(cur.origins, empty_jsonb_array)
-    exc_origins = func.coalesce(excluded.origins, empty_jsonb_array)
-    origins_expr = case(
-        # If incoming origins are NULL, keep existing as-is.
-        (excluded.origins.is_(None), cur.origins),
-        # If existing is NULL, take incoming.
-        (cur.origins.is_(None), excluded.origins),
-        # If already contains incoming, keep.
-        (cur_origins.op("@>")(exc_origins), cur_origins),
-        # Cap size to avoid unbounded growth.
-        (func.jsonb_array_length(cur_origins) >= 10, cur_origins),
-        # Append (arrays concatenate with ||)
-        else_=cur_origins.op("||")(exc_origins),
     )
 
     # Merge sample values (unique-ish, capped).
@@ -288,7 +279,7 @@ async def accumulate_discovered_metadata_fields(
           FROM (
             SELECT value AS val, MIN(ord) AS ord
             FROM jsonb_array_elements_text(
-              COALESCE(knowledge_graph_discovered_metadata.sample_values, '[]'::jsonb) ||
+              COALESCE(knowledge_graph_metadata_discoveries.sample_values, '[]'::jsonb) ||
               COALESCE(excluded.sample_values, '[]'::jsonb)
             ) WITH ORDINALITY AS t(value, ord)
             GROUP BY value
@@ -302,40 +293,15 @@ async def accumulate_discovered_metadata_fields(
         )
 
     stmt = insert_stmt.on_conflict_do_update(
-        index_elements=[cur.graph_id, cur.name],
+        index_elements=[cur.graph_id, cur.source_id, cur.origin, cur.name],
         set_={
             # Aggregations
             "value_count": cur.value_count + excluded.value_count,
             "inferred_type": inferred_type_expr,
-            "origins": origins_expr,
             "sample_values": samples_expr,
             # Audit
             "updated_at": func.now(),
         },
     )
 
-    if source_id is None:
-        await db_session.execute(stmt)
-        return
-
-    # Return ids so we can attribute fields to a specific source.
-    res = await db_session.execute(stmt.returning(cur.id))
-
-    discovered_ids = [r[0] for r in res.all() if r and r[0] is not None]
-    if not discovered_ids:
-        return
-
-    assoc_rows = [
-        {"source_id": source_id, "discovered_metadata_id": dm_id}
-        for dm_id in discovered_ids
-    ]
-    assoc_insert = pg_insert(knowledge_graph_source_discovered_metadata_table).values(
-        assoc_rows
-    )
-    assoc_insert = assoc_insert.on_conflict_do_nothing(
-        index_elements=[
-            knowledge_graph_source_discovered_metadata_table.c.source_id,
-            knowledge_graph_source_discovered_metadata_table.c.discovered_metadata_id,
-        ]
-    )
-    await db_session.execute(assoc_insert)
+    await db_session.execute(stmt)

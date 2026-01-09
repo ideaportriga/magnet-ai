@@ -289,11 +289,12 @@ class KnowledgeGraphController(Controller):
                 graph_id,
                 data.query,
                 conversation_record.id,
+                tool_inputs=data.tool_inputs,
                 **observability_overrides(trace_id=conversation_record.trace_id),
             )
         else:
             return await graph_service.start_conversation(
-                db_session, graph_id, data.query
+                db_session, graph_id, data.query, tool_inputs=data.tool_inputs
             )
 
     ###########################################################################

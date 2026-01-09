@@ -15,18 +15,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.models.knowledge_graph import (
     KnowledgeGraphChunk,
     KnowledgeGraphSource,
-    chunks_table_name,
     docs_table_name,
 )
-from core.domain.knowledge_graph.service import KnowledgeGraphChunkService
+from core.domain.knowledge_graph.service import (
+    KnowledgeGraphChunkService,
+    KnowledgeGraphDocumentService,
+)
 from open_ai.utils_new import get_embeddings
 
 from ..content_config_services import get_graph_embedding_model
 from ..content_split_services import split_content
 from ..models import ChunkerStrategy, ContentConfig, SourceType, SyncCounters
-from ..store_services import (
-    upsert_document_summary,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +63,7 @@ class AbstractDataSource(ABC):
             )
 
     async def _add_embeddings_to_chunks(
-        self,
-        *,
-        chunks: list[KnowledgeGraphChunk],
-        embedding_model: str | None,
+        self, chunks: list[KnowledgeGraphChunk], embedding_model: str | None
     ) -> None:
         """Populate embedding vectors for each chunk using the given embedding model.
 
@@ -295,64 +291,6 @@ class AbstractDataSource(ABC):
             params,
         )
 
-    async def _delete_document_chunks(
-        self, db_session: AsyncSession, *, chunks_table: str, doc_id: str
-    ) -> None:
-        """Remove all chunks for a document prior to re-inserting.
-
-        Important: chunk inserts are performed through
-        `KnowledgeGraphChunkService.insert_chunks_bulk()` and use the same `db_session`,
-        so this delete + the subsequent insert participate in the same transaction.
-        """
-        await db_session.execute(
-            text(f"DELETE FROM {chunks_table} WHERE document_id = :id"),
-            {"id": doc_id},
-        )
-
-    async def _upsert_document_metadata(
-        self,
-        *,
-        graph_id: str,
-        doc_id: str,
-        title: str | None,
-        summary: str | None = None,
-        toc_json: dict | list | None,
-        embedding_model: str | None = None,
-    ) -> None:
-        """Persist document-level metadata (title/summary/toc) and summary embedding.
-
-        Notes:
-        - The *chunk embeddings* are stored in the chunks table; here we only embed the summary.
-        - Metadata persistence is best-effort: failures are logged and do not abort ingestion.
-        """
-        if not title and not summary and toc_json is None:
-            return
-
-        try:
-            summary_embedding_val: list[float] | None = None
-            if summary and embedding_model:
-                try:
-                    summary_embedding_val = await get_embeddings(
-                        text=summary, model_system_name=embedding_model
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "Failed to generate summary embedding for document %s: %s",
-                        doc_id,
-                        exc,
-                    )
-
-            await upsert_document_summary(
-                graph_id,
-                doc_id,
-                title=title or None,
-                summary=summary or None,
-                summary_embedding=summary_embedding_val,
-                toc_json=toc_json,
-            )
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to persist document metadata: %s", exc)
-
     async def process_document(
         self,
         db_session: AsyncSession,
@@ -378,7 +316,6 @@ class AbstractDataSource(ABC):
         """
         start_time = time.perf_counter()
         docs_table = docs_table_name(document["graph_id"])
-        chunks_table = chunks_table_name(document["graph_id"])
         doc_id = document["id"]
 
         try:
@@ -481,38 +418,45 @@ class AbstractDataSource(ABC):
                             result.document_metadata.toc
                         )
 
-            # ---------------------------------
             # Enrich chunks with embeddings
-            # ---------------------------------
-            # Chunks may already carry embeddings (e.g. from a previous run); in that case
-            # `_add_embeddings_to_chunks()` will skip them.
-            if embedding_model:
-                try:
-                    await self._add_embeddings_to_chunks(
-                        chunks=chunks_to_insert,
-                        embedding_model=embedding_model,
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(
-                        "Failed to generate embeddings for document %s chunks: %s",
-                        doc_id,
-                        exc,
-                    )
+            await self._add_embeddings_to_chunks(chunks_to_insert, embedding_model)
 
-            await self._upsert_document_metadata(
-                graph_id=document["graph_id"],
-                doc_id=doc_id,
-                title=document_title,
-                summary=document_summary,
-                toc_json=toc_json,
-                embedding_model=embedding_model,
-            )
+            # updated document title, summary and toc
+            try:
+                summary_embedding: list[float] | None = None
+                if document_summary and embedding_model:
+                    try:
+                        summary_embedding = await get_embeddings(
+                            text=document_summary, model_system_name=embedding_model
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "Failed to generate summary embedding for document %s: %s",
+                            doc_id,
+                            exc,
+                        )
+
+                await KnowledgeGraphDocumentService().update_document(
+                    db_session,
+                    graph_id=document["graph_id"],
+                    document_id=doc_id,
+                    fields={
+                        "title": document_title,
+                        "summary": document_summary,
+                        "summary_embedding": summary_embedding,
+                        "toc": toc_json,
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to persist document metadata: %s", exc)
 
             # Clear existing chunks before inserting new ones. This keeps re-sync idempotent
             # (a map/document won't accumulate duplicate chunks across runs).
             if delete_existing_chunks:
-                await self._delete_document_chunks(
-                    db_session, chunks_table=chunks_table, doc_id=doc_id
+                await KnowledgeGraphChunkService().delete_chunks(
+                    db_session,
+                    graph_id=UUID(document["graph_id"]),
+                    document_id=UUID(document["id"]),
                 )
 
             chunks_count = await KnowledgeGraphChunkService().insert_chunks_bulk(

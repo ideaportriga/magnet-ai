@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -18,6 +19,7 @@ from sqlalchemy import (
     select,
     text,
     type_coerce,
+    update,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -26,8 +28,8 @@ from core.db.models.job import Job as JobModel
 from core.db.models.knowledge_graph import (
     KnowledgeGraph,
     KnowledgeGraphChunk,
-    KnowledgeGraphDiscoveredMetadata,
     KnowledgeGraphDocument,
+    KnowledgeGraphMetadataDiscovery,
     KnowledgeGraphSource,
     chunks_index_prefix,
     chunks_table_name,
@@ -85,6 +87,8 @@ from .schemas import ChunkSearchResult
 
 class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGraph]):
     """Service for Knowledge Graph operations."""
+
+    _EXTERNAL_TOOL_INPUTS_VAR = "kg_external_tool_inputs"
 
     async def list_graphs(
         self, db_session: AsyncSession
@@ -351,6 +355,8 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         db_session: AsyncSession,
         graph_id: UUID,
         query: str,
+        *,
+        tool_inputs: dict[str, Any] | None = None,
     ) -> KnowledgeGraphRetrievalPreviewResponse:
         graph = await self.repository.get(graph_id)
         observability_context.update_current_trace(name=graph.name)
@@ -368,6 +374,17 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         # Get current trace id to link conversation to trace
         trace_id = observability_context.get_current_trace_id()
 
+        variables: dict[str, str] | None = None
+        if tool_inputs:
+            try:
+                variables = {
+                    self._EXTERNAL_TOOL_INPUTS_VAR: json.dumps(
+                        tool_inputs, ensure_ascii=False, default=str
+                    )
+                }
+            except Exception:
+                variables = None
+
         conversation_data = AgentConversationDataWithMessages(
             agent="KNOWLEDGE_GRAPH_AGENT",
             created_at=now,
@@ -376,7 +393,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             client_id=None,
             trace_id=trace_id,
             analytics_id=None,
-            variables=None,
+            variables=variables,
         )
         conversation_record = await conversation_service.create(
             conversation_data.model_dump(), auto_commit=True
@@ -398,7 +415,12 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         # Run agent over full conversation history
         from services.knowledge_graph.retrievers import run_agentic_retrieval
 
-        preview = await run_agentic_retrieval(db_session, graph_id, chat_history)
+        preview = await run_agentic_retrieval(
+            db_session,
+            graph_id,
+            chat_history,
+            external_tool_inputs=tool_inputs,
+        )
 
         # Append assistant response to conversation
         assistant_msg = AgentConversationMessageAssistant(
@@ -422,6 +444,8 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         graph_id: UUID,
         query: str,
         conversation_id: UUID,
+        *,
+        tool_inputs: dict[str, Any] | None = None,
     ) -> KnowledgeGraphRetrievalPreviewResponse:
         conversation_service = AgentConversationService(session=db_session)
         now = utc_now()
@@ -437,6 +461,47 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         conversation = conversation_service.to_schema(
             conversation_record, schema_type=AgentConversationDataWithMessages
         )
+
+        # Resolve external tool inputs (persisted per conversation, optionally overridden by caller).
+        stored_tool_inputs: dict[str, Any] | None = None
+        try:
+            raw_vars = conversation.variables or {}
+            raw_json = raw_vars.get(self._EXTERNAL_TOOL_INPUTS_VAR)
+            if isinstance(raw_json, str) and raw_json.strip():
+                parsed = json.loads(raw_json)
+                if isinstance(parsed, dict):
+                    stored_tool_inputs = parsed
+        except Exception:
+            stored_tool_inputs = None
+
+        # If the caller provided tool_inputs (even empty), it overrides stored value.
+        external_tool_inputs: dict[str, Any] | None
+        if tool_inputs is not None:
+            external_tool_inputs = tool_inputs
+        else:
+            external_tool_inputs = stored_tool_inputs
+
+        # Persist the effective external tool inputs back into the conversation record.
+        try:
+            if external_tool_inputs:
+                conversation.variables = conversation.variables or {}
+                conversation.variables[self._EXTERNAL_TOOL_INPUTS_VAR] = json.dumps(
+                    external_tool_inputs, ensure_ascii=False, default=str
+                )
+            else:
+                if (
+                    conversation.variables
+                    and self._EXTERNAL_TOOL_INPUTS_VAR in conversation.variables
+                ):
+                    del conversation.variables[self._EXTERNAL_TOOL_INPUTS_VAR]
+                if (
+                    conversation.variables is not None
+                    and len(conversation.variables) == 0
+                ):
+                    conversation.variables = None
+        except Exception:
+            pass
+
         user_msg = AgentConversationMessageUser(
             id=uuid4(),
             content=query,
@@ -463,7 +528,12 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         # Run agent over full conversation history
         from services.knowledge_graph.retrievers import run_agentic_retrieval
 
-        preview = await run_agentic_retrieval(db_session, graph_id, chat_history)
+        preview = await run_agentic_retrieval(
+            db_session,
+            graph_id,
+            chat_history,
+            external_tool_inputs=external_tool_inputs,
+        )
 
         # Append assistant response to conversation
         assistant_msg = AgentConversationMessageAssistant(
@@ -996,8 +1066,120 @@ class KnowledgeGraphDocumentService:
             updated_at=doc.updated_at.isoformat() if doc.updated_at else None,
         )
 
+    async def search_documents(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        query_vector: list[float],
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Similarity search over per-graph documents using summary embeddings."""
+
+        docs_table = docs_table_name(graph_id)
+        md = MetaData()
+        docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
+
+        qvec = bindparam("qvec", type_=docs_tbl.c.summary_embedding.type)
+        distance_expr = docs_tbl.c.summary_embedding.op("<=>")(qvec)
+        score_expr = (1 - type_coerce(distance_expr, Float)).label("score")
+
+        title_expr = func.coalesce(
+            func.nullif(docs_tbl.c.title, ""),
+            docs_tbl.c.name,
+        ).label("title")
+
+        stmt = (
+            select(
+                docs_tbl.c.id.label("id"),
+                title_expr,
+                docs_tbl.c.summary.label("summary"),
+                score_expr,
+            )
+            .select_from(docs_tbl)
+            .where(docs_tbl.c.summary_embedding.is_not(None))
+            .order_by(score_expr.desc())
+            .limit(int(limit))
+        )
+
+        rows = (await db_session.execute(stmt, {"qvec": query_vector})).mappings().all()
+
+        return [
+            {
+                "id": str(r.get("id") or ""),
+                "title": r.get("title"),
+                "content": r.get("summary"),
+                "score": float(r["score"]) if r.get("score") is not None else 0.0,
+            }
+            for r in rows
+        ]
+
+    async def update_document(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        document_id: UUID | str,
+        fields: dict[str, Any],
+        touch_updated_at: bool = True,
+        auto_commit: bool = True,
+        raise_if_missing: bool = False,
+    ) -> bool:
+        md = MetaData()
+        docs_tbl = knowledge_graph_document_table(
+            md, docs_table_name(graph_id), vector_size=None
+        )
+
+        allowed_cols = set(docs_tbl.c.keys())
+        immutable_cols = {"id", "created_at"}
+
+        requested_cols = set(fields.keys())
+        unknown_cols = requested_cols - allowed_cols
+        forbidden_cols = requested_cols & immutable_cols
+        if unknown_cols or forbidden_cols:
+            bad = sorted(unknown_cols | forbidden_cols)
+            raise ValueError(f"Cannot update document fields: {', '.join(bad)}")
+
+        update_values: dict[str, Any] = dict(fields)
+        if touch_updated_at and "updated_at" not in update_values:
+            update_values["updated_at"] = text("CURRENT_TIMESTAMP")
+
+        # Guard against accidental no-ops (e.g. only touching updated_at).
+        if not {k for k in update_values.keys() if k != "updated_at"}:
+            return False
+
+        doc_uuid: UUID = (
+            document_id if isinstance(document_id, UUID) else UUID(str(document_id))
+        )
+
+        stmt = (
+            update(docs_tbl)
+            .where(docs_tbl.c.id == doc_uuid)
+            .values(**update_values)
+            .returning(docs_tbl.c.id)
+        )
+
+        try:
+            res = await db_session.execute(stmt)
+            updated_id = res.scalar_one_or_none()
+            if auto_commit:
+                await db_session.commit()
+        except Exception:
+            if auto_commit:
+                # Keep session usable for best-effort callers.
+                try:
+                    await db_session.rollback()
+                except Exception:  # noqa: BLE001
+                    pass
+            raise
+
+        if updated_id is None and raise_if_missing:
+            raise NotFoundException("Document not found")
+
+        return updated_id is not None
+
     async def delete_document(
-        self, db_session: AsyncSession, graph_id: UUID, document_id: UUID
+        self, db_session: AsyncSession, graph_id: UUID, id: UUID
     ) -> None:
         docs_table = docs_table_name(graph_id)
         ch_table = chunks_table_name(graph_id)
@@ -1013,12 +1195,12 @@ class KnowledgeGraphDocumentService:
 
         # Explicitly delete chunks first
         await db_session.execute(
-            delete(chunks_tbl).where(chunks_tbl.c.document_id == document_id)
+            delete(chunks_tbl).where(chunks_tbl.c.document_id == id)
         )
 
         # Then delete the document row
         res = await db_session.execute(
-            delete(docs_tbl).where(docs_tbl.c.id == document_id).returning(1)
+            delete(docs_tbl).where(docs_tbl.c.id == id).returning(1)
         )
         deleted = res.scalar_one_or_none()
         await db_session.commit()
@@ -1167,6 +1349,8 @@ class KnowledgeGraphChunkService:
         query_vector: list[float],
         limit: int,
         only_doc_ids: list[str] | None = None,
+        doc_filter_where_sql: str | None = None,
+        doc_filter_where_params: dict[str, Any] | None = None,
     ) -> list[ChunkSearchResult]:
         """Similarity search over per-graph chunks."""
 
@@ -1175,6 +1359,7 @@ class KnowledgeGraphChunkService:
 
         md = MetaData()
         docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
+        docs_alias = docs_tbl.alias("d")
         chunks_tbl = knowledge_graph_chunk_table(
             md,
             chunks_table,
@@ -1197,7 +1382,7 @@ class KnowledgeGraphChunkService:
                 score_expr,
             )
             .select_from(
-                chunks_tbl.join(docs_tbl, docs_tbl.c.id == chunks_tbl.c.document_id)
+                chunks_tbl.join(docs_alias, docs_alias.c.id == chunks_tbl.c.document_id)
             )
             .where(chunks_tbl.c.content_embedding.is_not(None))
             .order_by(score_expr.desc())
@@ -1209,7 +1394,14 @@ class KnowledgeGraphChunkService:
                 chunks_tbl.c.document_id.in_([UUID(str(x)) for x in only_doc_ids])
             )
 
-        rows = (await db_session.execute(stmt, {"qvec": query_vector})).mappings().all()
+        if doc_filter_where_sql:
+            stmt = stmt.where(text(str(doc_filter_where_sql)))
+
+        exec_params: dict[str, Any] = {"qvec": query_vector}
+        if isinstance(doc_filter_where_params, dict) and doc_filter_where_params:
+            exec_params.update(doc_filter_where_params)
+
+        rows = (await db_session.execute(stmt, exec_params)).mappings().all()
         return [
             ChunkSearchResult(
                 chunk=KnowledgeGraphChunk(
@@ -1319,6 +1511,28 @@ class KnowledgeGraphChunkService:
             chunks=chunks, total=total_count, limit=limit, offset=offset
         )
 
+    async def delete_chunks(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        *,
+        document_id: UUID | None = None,
+    ) -> None:
+        md = MetaData()
+        chunks_table = knowledge_graph_chunk_table(
+            md,
+            chunks_table_name(graph_id),
+            docs_table=docs_table_name(graph_id),
+            vector_size=None,
+        )
+
+        conditions = []
+        if document_id is not None:
+            conditions.append(chunks_table.c.document_id == document_id)
+
+        await db_session.execute(delete(chunks_table).where(*conditions))
+        await db_session.commit()
+
 
 class KnowledgeGraphMetadataService:
     async def list_discovered_metadata(
@@ -1332,12 +1546,13 @@ class KnowledgeGraphMetadataService:
             raise NotFoundException("Graph not found")
 
         res = await db_session.execute(
-            select(KnowledgeGraphDiscoveredMetadata)
-            .where(KnowledgeGraphDiscoveredMetadata.graph_id == graph_id)
-            .options(selectinload(KnowledgeGraphDiscoveredMetadata.sources))
+            select(KnowledgeGraphMetadataDiscovery)
+            .where(KnowledgeGraphMetadataDiscovery.graph_id == graph_id)
+            .options(selectinload(KnowledgeGraphMetadataDiscovery.source))
             .order_by(
-                KnowledgeGraphDiscoveredMetadata.value_count.desc(),
-                KnowledgeGraphDiscoveredMetadata.name.asc(),
+                KnowledgeGraphMetadataDiscovery.value_count.desc(),
+                KnowledgeGraphMetadataDiscovery.name.asc(),
+                KnowledgeGraphMetadataDiscovery.created_at.desc(),
             )
         )
         rows = res.scalars().all()
@@ -1347,17 +1562,16 @@ class KnowledgeGraphMetadataService:
                 id=str(row.id),
                 name=row.name,
                 inferred_type=row.inferred_type,
-                origins=row.origins,
+                origin=row.origin,
                 sample_values=row.sample_values,
                 value_count=int(row.value_count or 0),
-                sources=[
-                    KnowledgeGraphSourceLinkExternalSchema(
-                        id=str(src.id),
-                        name=src.name,
-                        type=src.type,
-                    )
-                    for src in (row.sources or [])
-                ],
+                source=KnowledgeGraphSourceLinkExternalSchema(
+                    id=str(row.source.id),
+                    name=row.source.name,
+                    type=row.source.type,
+                )
+                if row.source is not None
+                else None,
                 created_at=row.created_at.isoformat() if row.created_at else None,
                 updated_at=row.updated_at.isoformat() if row.updated_at else None,
             )
@@ -1429,14 +1643,37 @@ class KnowledgeGraphMetadataService:
 
         # Import locally to avoid heavy imports / circular deps at module import time
         from services.knowledge_graph.llm_metadata_extraction import (
+            build_typescript_schema_from_field_definitions,
             run_graph_llm_metadata_extraction,
         )
+
+        # Prefer explicit schema override, otherwise derive schema from field_definitions.
+        schema_value = extraction_settings.get("schema")
+        if schema_value is None or (
+            isinstance(schema_value, str) and not schema_value.strip()
+        ):
+            schema_str = build_typescript_schema_from_field_definitions(
+                metadata_settings.get("field_definitions")
+                if isinstance(metadata_settings, dict)
+                else None
+            )
+        elif isinstance(schema_value, str):
+            schema_str = schema_value
+        else:
+            try:
+                schema_str = json.dumps(
+                    schema_value, ensure_ascii=False, indent=2, default=str
+                )
+            except Exception:  # noqa: BLE001
+                schema_str = str(schema_value)
+        schema_str = str(schema_str or "").strip()
 
         result = await run_graph_llm_metadata_extraction(
             db_session,
             graph_id=graph_id,
             approach=approach_raw,  # type: ignore[arg-type]
             prompt_template_system_name=prompt_template_system_name,
+            schema=schema_str,
             segment_size=segment_size,
             segment_overlap=segment_overlap,
         )

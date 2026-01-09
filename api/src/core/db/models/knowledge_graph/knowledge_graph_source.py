@@ -10,11 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from .knowledge_graph import KnowledgeGraph
-    from .knowledge_graph_discovered_metadata import KnowledgeGraphDiscoveredMetadata
-
-from .knowledge_graph_source_discovered_metadata import (
-    knowledge_graph_source_discovered_metadata_table,
-)
+    from .knowledge_graph_discovered_metadata import KnowledgeGraphMetadataDiscovery
 
 
 class KnowledgeGraphSource(UUIDv7AuditBase):
@@ -87,11 +83,11 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
     )
 
     # Discovered metadata fields observed for this source
-    discovered_metadata_fields: Mapped[list["KnowledgeGraphDiscoveredMetadata"]] = (
+    discovered_metadata_fields: Mapped[list["KnowledgeGraphMetadataDiscovery"]] = (
         relationship(
-            "KnowledgeGraphDiscoveredMetadata",
-            secondary=knowledge_graph_source_discovered_metadata_table,
-            back_populates="sources",
+            "KnowledgeGraphMetadataDiscovery",
+            back_populates="source",
+            cascade="all, delete-orphan",
             passive_deletes=True,
         )
     )

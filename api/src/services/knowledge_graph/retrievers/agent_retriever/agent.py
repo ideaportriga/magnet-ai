@@ -17,9 +17,13 @@ from services.knowledge_graph.content_config_services import (
     get_graph_embedding_model,
     get_graph_settings,
 )
-from services.observability import observability_context, observe
+from services.observability import observability_overrides, observe
 
-from .tools import execute_tool, get_available_tools
+from .tools import get_available_tools
+from .tools.exit_tool import exit_tool
+from .tools.find_chunks_by_similarity import findChunksBySimilarity
+from .tools.find_documents_by_metadata import findDocumentsByMetadata
+from .tools.find_documents_by_summary_similarity import findDocumentsBySummarySimilarity
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +93,8 @@ async def run_agentic_retrieval(
     db_session: AsyncSession,
     graph_id: UUID,
     chat_history: Sequence[dict[str, Any]],
+    *,
+    external_tool_inputs: dict[str, Any] | None = None,
 ) -> KnowledgeGraphRetrievalPreviewResponse:
     """Execute agentic retrieval against a Knowledge Graph using ReAct."""
 
@@ -104,6 +110,7 @@ async def run_agentic_retrieval(
     docs_tool_cfg = (
         retrieval_tools_cfg.get("findDocumentsBySummarySimilarity", {}) or {}
     )
+    meta_tool_cfg = retrieval_tools_cfg.get("findDocumentsByMetadata", {}) or {}
     chunks_tool_cfg = retrieval_tools_cfg.get("findChunksBySimilarity", {}) or {}
     exit_tool_cfg = retrieval_tools_cfg.get("exit", {}) or {}
 
@@ -111,11 +118,18 @@ async def run_agentic_retrieval(
     output_format = exit_tool_cfg.get("outputFormat") or "markdown"
     strategy = exit_tool_cfg.get("strategy") or "confidence"
 
-    doc_limit = int(docs_tool_cfg.get("limit", 5))
-    doc_score_threshold = float(docs_tool_cfg.get("scoreThreshold", 0.7))
     chunk_limit = int(chunks_tool_cfg.get("limit", 5))
     chunk_score_threshold = float(chunks_tool_cfg.get("scoreThreshold", 0.7))
     max_iterations = int(exit_tool_cfg.get("maxIterations", 4))
+
+    metadata_field_definitions: list[dict[str, Any]] = []
+    try:
+        metadata_cfg = settings.get("metadata") or {}
+        raw_defs = metadata_cfg.get("field_definitions")
+        if isinstance(raw_defs, list):
+            metadata_field_definitions = [d for d in raw_defs if isinstance(d, dict)]
+    except Exception:
+        metadata_field_definitions = []
 
     # Resolve embedding model from graph settings
     embedding_model = await get_graph_embedding_model(db_session, graph_id)
@@ -134,7 +148,9 @@ async def run_agentic_retrieval(
     exitStrategy = _build_exit_strategy_instr(strategy)
 
     # TODO: for preview, we should use the prompt template from the graph settings, because it might be unsaved yet
-    tools = get_available_tools(retrieval_tools_cfg)
+    tools = get_available_tools(
+        retrieval_tools_cfg, metadata_field_definitions=metadata_field_definitions
+    )
 
     # Normalize incoming history to role/content pairs; ignore other keys
     normalized_history: list[dict[str, Any]] = []
@@ -151,18 +167,33 @@ async def run_agentic_retrieval(
             last_user_query = str(m["content"])
             break
 
-    @observe(name="Exit from loop")
-    def exit_tool(answer: str, reasoning: str):
-        observability_context.update_current_span(description=reasoning)
-        return answer
-
     # State for the ReAct loop starting from full chat history
-    agent_messages: list[dict[str, Any]] = list(normalized_history)
+    agent_messages: list[dict[str, Any]] = []
+    ext_inputs = external_tool_inputs if isinstance(external_tool_inputs, dict) else {}
+    # Let the model know about external constraints (if present).
+    try:
+        if ext_inputs:
+            agent_messages.append(
+                {
+                    "role": "system",
+                    "content": (
+                        "External tool inputs are provided by the caller and may constrain retrieval.\n"
+                        "Do NOT invent or assume external filters. Use the provided inputs.\n"
+                        f"external_tool_inputs = {json.dumps(ext_inputs, ensure_ascii=False)}"
+                    ),
+                }
+            )
+    except Exception:
+        pass
+    agent_messages.extend(list(normalized_history))
+
     relevant_document_ids: list[str] = []
     collected_chunks: list[dict[str, Any]] = []
     successful_answer: str = ""
     erroneous_answer: str = ""
     workflow_steps: list[KnowledgeGraphRetrievalWorkflowStep] = []
+    last_metadata_doc_where_sql: str | None = None
+    last_metadata_doc_where_params: dict[str, Any] | None = None
 
     # ReAct loop
     for iteration_idx in range(1, max_iterations + 1):
@@ -240,37 +271,41 @@ async def run_agentic_retrieval(
                         args = {}
                 query = str(args.get("query") or last_user_query)
 
-                if tool_name == "findDocumentsBySummarySimilarity":
-                    limit_arg = doc_limit
-                    min_score_arg = doc_score_threshold
-                    if docs_tool_cfg.get("searchControl") == "agent":
-                        limit_arg = int(args.get("limit", doc_limit))
-                        min_score_arg = float(
-                            args.get("scoreThreshold", doc_score_threshold)
-                        )
-
-                    docs = await execute_tool(
-                        tool_name,
-                        args.get("reasoning"),
+                if tool_name == "findDocumentsByMetadata":
+                    tool_payload, loop_state, step = await findDocumentsByMetadata(
+                        db_session=db_session,
                         graph_id=graph_id,
-                        q=query,
+                        args=args,
+                        iteration=iteration_idx,
+                        tool_name=tool_name,
+                        tool_cfg=meta_tool_cfg,
+                        external_tool_inputs=ext_inputs,
+                        field_definitions=metadata_field_definitions,
+                        **observability_overrides(description=args.get("reasoning")),
+                    )
+                    last_metadata_doc_where_sql = loop_state.get("doc_filter_where_sql")
+                    last_metadata_doc_where_params = loop_state.get(
+                        "doc_filter_where_params"
+                    )
+                    workflow_steps.append(step)
+                elif tool_name == "findDocumentsBySummarySimilarity":
+                    (
+                        tool_payload,
+                        loop_state,
+                        step,
+                    ) = await findDocumentsBySummarySimilarity(
+                        db_session=db_session,
+                        graph_id=graph_id,
+                        query=query,
                         embedding_model=embedding_model,
-                        limit=limit_arg,
-                        min_score=min_score_arg,
+                        args=args,
+                        iteration=iteration_idx,
+                        tool_name=tool_name,
+                        tool_cfg=docs_tool_cfg,
+                        **observability_overrides(description=args.get("reasoning")),
                     )
-                    relevant_document_ids = [d["id"] for d in docs]
-                    tool_result_payload = {"documents": docs}
-                    workflow_steps.append(
-                        KnowledgeGraphRetrievalWorkflowStep(
-                            iteration=iteration_idx,
-                            tool=tool_name,
-                            arguments={"query": query},
-                            call_summary={
-                                "reasoning": args.get("reasoning"),
-                                "result_count": len(docs),
-                            },
-                        )
-                    )
+                    relevant_document_ids = loop_state.get("doc_filter_ids") or []
+                    workflow_steps.append(step)
                 elif tool_name == "findChunksBySimilarity":
                     limit_arg = chunk_limit
                     min_score_arg = chunk_score_threshold
@@ -280,9 +315,7 @@ async def run_agentic_retrieval(
                             args.get("scoreThreshold", chunk_score_threshold)
                         )
 
-                    chunks = await execute_tool(
-                        tool_name,
-                        args.get("reasoning"),
+                    chunks = await findChunksBySimilarity(
                         db_session=db_session,
                         graph_id=graph_id,
                         q=query,
@@ -290,9 +323,12 @@ async def run_agentic_retrieval(
                         limit=limit_arg,
                         min_score=min_score_arg,
                         doc_filter_ids=relevant_document_ids,
+                        doc_filter_where_sql=last_metadata_doc_where_sql,
+                        doc_filter_where_params=last_metadata_doc_where_params,
+                        **observability_overrides(description=args.get("reasoning")),
                     )
                     collected_chunks.extend(chunks)
-                    tool_result_payload = {"chunks": chunks}
+                    tool_payload = {"chunks": chunks}
                     workflow_steps.append(
                         KnowledgeGraphRetrievalWorkflowStep(
                             iteration=iteration_idx,
@@ -311,7 +347,7 @@ async def run_agentic_retrieval(
                     successful_answer = exit_tool(
                         args.get("answer", ""), args.get("reasoning", "")
                     )
-                    tool_result_payload = {"answer": successful_answer}
+                    tool_payload = {"answer": successful_answer}
                     workflow_steps.append(
                         KnowledgeGraphRetrievalWorkflowStep(
                             iteration=iteration_idx,
@@ -332,7 +368,7 @@ async def run_agentic_retrieval(
                     {
                         "role": "tool",
                         "tool_call_id": tool_call.id,
-                        "content": json.dumps(tool_result_payload),
+                        "content": json.dumps(tool_payload),
                     }
                 )
             except Exception as exc:

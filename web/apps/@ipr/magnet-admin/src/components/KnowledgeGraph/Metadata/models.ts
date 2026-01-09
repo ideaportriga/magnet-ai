@@ -6,26 +6,23 @@
 export type MetadataValueType = 'string' | 'number' | 'boolean' | 'date' | 'array' | 'object'
 
 // Origin of metadata - where it came from
-export type MetadataOrigin = 'document' | 'llm' | 'system' | 'source'
+export type MetadataOrigin = 'file' | 'llm' | 'source'
 
 export const MetadataOriginLabels: Record<MetadataOrigin, string> = {
-  document: 'Document Native',
-  llm: 'LLM Extracted',
-  system: 'System',
-  source: 'Ingestion Source',
+  file: 'File',
+  llm: 'Smart Extraction',
+  source: 'Source',
 }
 
 export const MetadataOriginColors: Record<MetadataOrigin, string> = {
-  document: 'teal-2',
+  file: 'teal-2',
   llm: 'purple-2',
-  system: 'grey-3',
   source: 'indigo-2',
 }
 
 export const MetadataOriginTextColors: Record<MetadataOrigin, string> = {
-  document: 'teal-9',
+  file: 'teal-9',
   llm: 'purple-9',
-  system: 'grey-8',
   source: 'indigo-9',
 }
 
@@ -50,6 +47,41 @@ export interface MetadataFieldSourceOverride {
   constant_values?: string[]
 }
 
+/**
+ * Metadata value resolution / fallback chain (per source).
+ *
+ * This lets admins define where a schema field should be populated from, in what order:
+ * - source: metadata provided by the ingestion source
+ * - file: native document metadata
+ * - llm: extracted by LLM
+ * - constant: a user-defined constant (terminal step)
+ */
+export type MetadataFieldValueSourceKind = 'file' | 'llm' | 'source' | 'constant'
+
+export interface MetadataFieldValueSourceStep {
+  kind: MetadataFieldValueSourceKind
+  /**
+   * Discovered metadata field name to read from for the given origin.
+   * Required for kind in: file | llm | source
+   */
+  field_name?: string
+  /**
+   * Constant values for kind=constant (terminal).
+   * Use either constant_value (single) or constant_values (multi).
+   */
+  constant_value?: string
+  constant_values?: string[]
+}
+
+export interface MetadataFieldSourceValueResolution {
+  source_id: string
+  /**
+   * Ordered chain of sources to try. The first non-empty value wins.
+   * Note: kind=constant should be last.
+   */
+  chain: MetadataFieldValueSourceStep[]
+}
+
 // Metadata field definition - user-defined schema
 export interface MetadataFieldDefinition {
   id: string
@@ -58,12 +90,19 @@ export interface MetadataFieldDefinition {
   description: string
   value_type: MetadataValueType
   is_multiple: boolean
-  is_required: boolean
   allowed_values?: AllowedValue[]
   default_value?: string
   default_values?: string[]
   llm_extraction_hint?: string
+  /**
+   * Legacy per-source constant overrides.
+   * Prefer `source_value_resolution`.
+   */
   source_overrides?: MetadataFieldSourceOverride[]
+  /**
+   * Per-source value resolution chain.
+   */
+  source_value_resolution?: MetadataFieldSourceValueResolution[]
   created_at?: string
   updated_at?: string
 }
@@ -73,7 +112,7 @@ export interface DiscoveredMetadataField {
   name: string
   sample_values: string[]
   value_count: number
-  origins: MetadataOrigin[]
+  origin: MetadataOrigin | null
   inferred_type: MetadataValueType
   is_defined: boolean
 }
@@ -111,6 +150,12 @@ export interface MetadataExtractionSettings {
   prompt_template_system_name?: string
 
   /**
+   * Preview prompt template system name.
+   * Used to preview extraction results before full extraction.
+   */
+  preview_prompt_template_system_name?: string
+
+  /**
    * Legacy prompt storage (raw template text or legacy key).
    * Kept to avoid breaking older persisted configs.
    */
@@ -143,8 +188,8 @@ export interface MetadataFieldRow {
   display_name?: string
   description: string
   value_type: MetadataValueType
-  origins: MetadataOrigin[]
-  sources: SourceLink[]
+  origin: MetadataOrigin | null
+  source: SourceLink | null
   is_defined: boolean
   sample_values: string[]
   allowed_values?: AllowedValue[]

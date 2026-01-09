@@ -33,12 +33,14 @@
         :discovered-fields="allMetadataValues"
         :available-presets="availablePresets"
         :loading="loadingValues"
+        :can-run-extraction="canRunExtraction"
+        :running-extraction="runningExtraction"
         @add-field="openFieldDialog()"
         @add-preset="addPresetField"
-        @define-all="defineAllDiscovered"
         @edit-field="openFieldDialog"
         @delete-field="confirmDeleteField"
         @define-field="openFieldDialogFromDiscovered"
+        @run-extraction="runExtraction"
       />
 
       <!-- AI Metadata Extraction -->
@@ -69,37 +71,23 @@
             </div>
           </div>
 
-          <kg-field-row label="Extraction Prompt">
-            <div class="row items-start q-col-gutter-md">
-              <div class="col">
-                <kg-dropdown-field
-                  v-model="extractionPromptTemplateSystemName"
-                  placeholder="Select a prompt template"
-                  :options="promptTemplateOptions"
-                  :loading="loadingPromptTemplates"
-                  :disable="extractionApproach === 'disabled'"
-                  option-value="system_name"
-                  option-label="name"
-                  searchable
-                  clearable
-                />
-                <div class="km-description text-secondary-text q-mt-sm">
-                  Pick a template that returns a JSON object with the metadata fields you want to store.
-                </div>
+          <kg-field-row>
+            <kg-field-row label="Extraction Prompt">
+              <kg-dropdown-field
+                v-model="extractionPromptTemplateSystemName"
+                placeholder="Select a prompt template"
+                :options="promptTemplateOptions"
+                :loading="loadingPromptTemplates"
+                :disable="extractionApproach === 'disabled'"
+                option-value="system_name"
+                option-label="name"
+                searchable
+                clearable
+              />
+              <div class="km-description text-secondary-text q-mt-sm">
+                Pick a template that returns a JSON object with the metadata fields you want to store.
               </div>
-              <div class="col-auto">
-                <q-btn
-                  no-caps
-                  unelevated
-                  color="primary"
-                  label="Run Extraction"
-                  class="kg-action-btn"
-                  :loading="runningExtraction"
-                  :disable="!canRunExtraction || runningExtraction"
-                  @click="runExtraction"
-                />
-              </div>
-            </div>
+            </kg-field-row>
           </kg-field-row>
 
           <div v-if="extractionApproach === 'document'" class="q-pa-md rounded-borders bg-grey-1" style="border: 1px solid rgba(0, 0, 0, 0.06)">
@@ -137,6 +125,7 @@
       :show-dialog="showFieldDialog"
       :field="editingField"
       :existing-field-names="definedFieldNames"
+      :discovered-fields="allMetadataValues"
       :sources="sources"
       @update:show-dialog="showFieldDialog = $event"
       @cancel="showFieldDialog = false"
@@ -253,11 +242,6 @@ const definedFieldNames = computed(() => definedFields.value.map((f) => f.name))
 const availablePresets = computed(() => {
   const existingNames = new Set(definedFieldNames.value)
   return PRESET_FIELDS.filter((p) => !existingNames.has(p.name!))
-})
-
-// Undefined fields (discovered but not in schema)
-const undefinedFields = computed(() => {
-  return allMetadataValues.value.filter((f) => !f.is_defined)
 })
 
 // Check for unsaved changes
@@ -382,10 +366,10 @@ const fetchMetadataValues = async () => {
     id?: string
     name?: string
     inferred_type?: string | null
-    origins?: string[] | null
+    origin?: string | null
     sample_values?: string[] | null
     value_count?: number | null
-    sources?: ApiSourceLink[] | null
+    source?: ApiSourceLink | null
   }
 
   const toDisplayName = (fieldName: string) => {
@@ -414,14 +398,23 @@ const fetchMetadataValues = async () => {
         .filter((f) => !!f?.name)
         .map((f) => {
           const name = String(f.name || '').trim()
+          const origin = String(f.origin || '').trim()
+          const src = f.source
+          const source = src
+            ? {
+                id: String(src.id || ''),
+                name: String(src.name || ''),
+                type: String(src.type || ''),
+              }
+            : null
           return {
             id: String(f.id || name),
             name,
             display_name: toDisplayName(name),
             description: '',
             value_type: (f.inferred_type || 'string') as MetadataValueType,
-            origins: (Array.isArray(f.origins) ? f.origins : []) as MetadataOrigin[],
-            sources: Array.isArray(f.sources) ? f.sources : [],
+            origin: (origin || null) as MetadataOrigin | null,
+            source,
             is_defined: definedFieldNames.value.includes(name),
             sample_values: Array.isArray(f.sample_values) ? f.sample_values : [],
           } as MetadataFieldRow
@@ -530,7 +523,6 @@ const openFieldDialogFromDiscovered = (discovered: MetadataFieldRow | Discovered
     description: '',
     value_type: (discovered as MetadataFieldRow).value_type || 'string',
     is_multiple: false,
-    is_required: false,
   }
   showFieldDialog.value = true
 }
@@ -567,34 +559,11 @@ const addPresetField = (preset: Partial<MetadataFieldDefinition>) => {
     description: preset.description || '',
     value_type: preset.value_type || 'string',
     is_multiple: preset.is_multiple ?? false,
-    is_required: preset.is_required ?? false,
     allowed_values: preset.allowed_values ? preset.allowed_values.map((v) => ({ ...v })) : undefined,
     default_value: preset.default_value,
     default_values: preset.default_values ? [...preset.default_values] : undefined,
   }
   definedFields.value.push(field)
-  syncDefinitionsToValues()
-}
-
-const defineAllDiscovered = () => {
-  const toDefine = undefinedFields.value
-  if (toDefine.length === 0) return
-
-  toDefine.forEach((field) => {
-    const newField: MetadataFieldDefinition = {
-      id: crypto.randomUUID(),
-      name: field.name,
-      display_name: field.name
-        .split('_')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' '),
-      description: '',
-      value_type: field.value_type || 'string',
-      is_multiple: false,
-      is_required: false,
-    }
-    definedFields.value.push(newField)
-  })
   syncDefinitionsToValues()
 }
 
@@ -639,6 +608,10 @@ onMounted(() => {
 defineExpose({
   save: saveSettings,
   discard: discardChanges,
+  refresh: () => {
+    fetchMetadataValues()
+    fetchSources()
+  },
 })
 </script>
 

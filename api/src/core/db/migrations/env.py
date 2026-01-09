@@ -33,7 +33,7 @@ from core.db.models.evaluation import Evaluation  # noqa: F401
 from core.db.models.evaluation_set import EvaluationSet  # noqa: F401
 from core.db.models.knowledge_graph import (  # noqa: F401
     KnowledgeGraph,
-    KnowledgeGraphDiscoveredMetadata,
+    KnowledgeGraphMetadataDiscovery,
     KnowledgeGraphSource,
 )
 from core.db.models.mcp_server import MCPServer  # noqa: F401

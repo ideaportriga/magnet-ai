@@ -35,6 +35,7 @@ class KnowledgeGraphDocumentMetadata:
 
     file: dict[str, Any] | None = None
     source: dict[str, Any] | None = None
+    llm: dict[str, Any] | None = None
 
     @classmethod
     def from_value(cls, value: Any) -> KnowledgeGraphDocumentMetadata | None:
@@ -48,16 +49,18 @@ class KnowledgeGraphDocumentMetadata:
 
         file_val = value.get("file")
         source_val = value.get("source")
+        llm_val = value.get("llm")
 
         file_meta = file_val if isinstance(file_val, dict) and file_val else None
         source_meta = (
             source_val if isinstance(source_val, dict) and source_val else None
         )
+        llm_meta = llm_val if isinstance(llm_val, dict) and llm_val else None
 
-        if file_meta is None and source_meta is None:
+        if file_meta is None and source_meta is None and llm_meta is None:
             return None
 
-        return cls(file=file_meta, source=source_meta)
+        return cls(file=file_meta, source=source_meta, llm=llm_meta)
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {}
@@ -65,6 +68,8 @@ class KnowledgeGraphDocumentMetadata:
             out["file"] = self.file
         if self.source:
             out["source"] = self.source
+        if self.llm:
+            out["llm"] = self.llm
         return out
 
 

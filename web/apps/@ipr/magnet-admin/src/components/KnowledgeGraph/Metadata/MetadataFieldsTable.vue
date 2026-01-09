@@ -23,17 +23,12 @@
       <q-space />
 
       <!-- Filter Dropdown (only for Discovered) -->
-      <q-select
+      <kg-dropdown-field
         v-if="selectedCategory === 'discovered'"
         v-model="discoveredFilter"
         :options="discoveredFilterOptions"
         dense
-        outlined
-        emit-value
-        map-options
-        options-dense
-        style="min-width: 160px"
-        class="filter-select"
+        style="min-width: 180px"
       />
 
       <!-- Actions (fixed position on right) -->
@@ -71,16 +66,17 @@
         </q-btn-dropdown>
       </template>
 
-      <template v-else>
+      <template v-else-if="selectedCategory === 'extracted'">
         <q-btn
           no-caps
-          flat
+          unelevated
           color="primary"
-          icon="playlist_add"
-          label="Define All"
-          :disable="undefinedInCurrentView === 0"
+          icon="play_arrow"
+          label="Run Extraction"
+          :loading="runningExtraction"
+          :disable="!canRunExtraction || runningExtraction"
           class="action-btn"
-          @click.stop="emit('define-all')"
+          @click.stop="emit('run-extraction')"
         />
       </template>
     </div>
@@ -97,117 +93,58 @@
     <!-- Schema Fields Table -->
     <q-table
       v-else-if="selectedCategory === 'schema'"
-      v-model:pagination="pagination"
+      v-model:pagination="schemaPagination"
       :rows="schemaRows"
       :columns="schemaColumns"
       row-key="name"
       flat
       bordered
-      table-header-class="bg-primary-light"
-      :rows-per-page-options="[10, 25, 50]"
-      @row-click="onSchemaRowClick"
+      dense
+      :rows-per-page-options="[5]"
+      class="compact-table"
+      @row-click="(evt, row) => emit('edit-field', row)"
     >
       <template #body-cell-field="slotProps">
         <q-td :props="slotProps">
-          <div class="row items-center no-wrap q-gutter-x-sm">
-            <div style="max-width: 300px">
-              <div class="text-body2 text-weight-medium ellipsis">
-                {{ slotProps.row.display_name || slotProps.row.name }}
-                <q-tooltip>{{ slotProps.row.display_name || slotProps.row.name }}</q-tooltip>
-              </div>
-              <div class="text-caption text-grey-6 ellipsis font-mono">
-                {{ slotProps.row.name }}
-                <q-tooltip>{{ slotProps.row.name }}</q-tooltip>
-              </div>
-            </div>
+          <div class="row items-center no-wrap q-gutter-x-xs">
+            <span class="compact-field-name ellipsis" style="max-width: 280px">
+              {{ slotProps.row.display_name || slotProps.row.name }}
+            </span>
           </div>
         </q-td>
       </template>
 
       <template #body-cell-type="slotProps">
         <q-td :props="slotProps">
-          <span class="text-caption text-grey-8">{{ getTypeLabel(slotProps.row.value_type) }}</span>
+          <span class="compact-type">{{ getTypeLabel(slotProps.row.value_type) }}</span>
         </q-td>
       </template>
 
       <template #body-cell-constraints="slotProps">
         <q-td :props="slotProps">
           <div class="row items-center no-wrap q-gutter-x-sm">
-            <span v-if="slotProps.row.is_required" class="text-caption text-orange-9">Required</span>
-            <span v-if="slotProps.row.allowed_values?.length" class="text-caption text-grey-7">
-              {{ slotProps.row.allowed_values.length }} allowed
-              <q-tooltip>
-                <div class="text-caption">Allowed values:</div>
-                <div v-for="av in slotProps.row.allowed_values.slice(0, 10)" :key="av.value">
-                  • {{ av.value }}
-                  <span v-if="av.hint" class="text-grey-5">— {{ av.hint }}</span>
-                </div>
-                <div v-if="slotProps.row.allowed_values.length > 10">...and {{ slotProps.row.allowed_values.length - 10 }} more</div>
-              </q-tooltip>
-            </span>
-            <span v-if="slotProps.row.is_multiple" class="text-caption text-grey-7">Multiple</span>
-            <span v-if="!slotProps.row.is_required && !slotProps.row.allowed_values?.length && !slotProps.row.is_multiple" class="text-grey-5">
-              —
-            </span>
+            <span v-if="slotProps.row.allowed_values?.length" class="compact-constraint">{{ slotProps.row.allowed_values.length }} allowed</span>
+            <span v-if="slotProps.row.is_multiple" class="compact-constraint">Multiple</span>
+            <span v-if="!slotProps.row.allowed_values?.length && !slotProps.row.is_multiple" class="text-grey-5">—</span>
           </div>
-        </q-td>
-      </template>
-
-      <template #body-cell-extraction="slotProps">
-        <q-td :props="slotProps">
-          <div v-if="slotProps.row.llm_extraction_hint" class="row items-center no-wrap q-gutter-x-xs text-purple-6">
-            <q-icon name="smart_toy" size="16px" />
-            <span class="text-caption">{{ slotProps.row.is_required ? 'Mandatory' : 'Optional' }}</span>
-            <q-tooltip max-width="320px">
-              <div class="text-weight-medium q-mb-xs">AI Extraction Hint:</div>
-              <div class="text-caption" style="white-space: pre-wrap">{{ slotProps.row.llm_extraction_hint }}</div>
-            </q-tooltip>
-          </div>
-          <span v-else class="text-caption text-grey-5">Disabled</span>
-        </q-td>
-      </template>
-
-      <template #body-cell-observed="slotProps">
-        <q-td :props="slotProps">
-          <template v-if="getDiscoveredForDefinition(slotProps.row)">
-            <div class="row items-center no-wrap q-gutter-x-sm">
-              <!-- Origins as text labels -->
-              <div class="row items-center no-wrap q-gutter-x-xs">
-                <template v-for="origin in getDiscoveredForDefinition(slotProps.row)?.origins || []" :key="origin">
-                  <span class="origin-label" :class="`origin-label--${origin}`">{{ getOriginLabel(origin) }}</span>
-                </template>
-              </div>
-              <!-- Sample values -->
-              <div v-if="getDiscoveredForDefinition(slotProps.row)?.sample_values?.length" class="row items-center no-wrap q-gutter-x-xs">
-                <span v-for="sample in getDiscoveredForDefinition(slotProps.row)?.sample_values?.slice(0, 2)" :key="sample" class="sample-chip">
-                  {{ truncateValue(sample, 12) }}
-                  <q-tooltip v-if="sample.length > 12">{{ sample }}</q-tooltip>
-                </span>
-                <span v-if="(getDiscoveredForDefinition(slotProps.row)?.sample_values?.length || 0) > 2" class="text-caption text-grey-6">
-                  +{{ (getDiscoveredForDefinition(slotProps.row)?.sample_values?.length || 0) - 2 }}
-                </span>
-              </div>
-            </div>
-          </template>
-          <span v-else class="text-grey-5">—</span>
         </q-td>
       </template>
 
       <template #body-cell-actions="slotProps">
         <q-td :props="slotProps" class="text-right">
-          <q-btn dense flat color="dark" icon="more_vert" @click.stop>
+          <q-btn dense flat round color="grey-7" icon="more_vert" size="sm" @click.stop>
             <q-menu class="field-menu" anchor="bottom right" self="top right" auto-close>
               <q-list dense>
                 <q-item v-ripple="false" clickable @click="emit('edit-field', slotProps.row)">
                   <q-item-section thumbnail>
-                    <q-icon name="o_edit" color="primary" size="20px" class="q-ml-sm" />
+                    <q-icon name="o_edit" color="primary" size="18px" class="q-ml-sm" />
                   </q-item-section>
                   <q-item-section>Edit</q-item-section>
                 </q-item>
                 <q-separator />
                 <q-item v-ripple="false" clickable @click="emit('delete-field', slotProps.row)">
                   <q-item-section thumbnail>
-                    <q-icon name="o_delete" color="negative" size="20px" class="q-ml-sm" />
+                    <q-icon name="o_delete" color="negative" size="18px" class="q-ml-sm" />
                   </q-item-section>
                   <q-item-section>Delete</q-item-section>
                 </q-item>
@@ -220,64 +157,64 @@
 
     <!-- Discovered Fields Table -->
     <q-table
-      v-else
-      v-model:pagination="pagination"
+      v-else-if="selectedCategory === 'discovered'"
+      v-model:pagination="discoveredPagination"
       :rows="discoveredRows"
       :columns="discoveredColumns"
-      row-key="name"
+      row-key="id"
       flat
       bordered
-      table-header-class="bg-primary-light"
-      :rows-per-page-options="[10, 25, 50]"
-      @row-click="onDiscoveredRowClick"
+      dense
+      :rows-per-page-options="[5]"
+      class="compact-table"
     >
       <template #body-cell-field="slotProps">
         <q-td :props="slotProps">
-          <div class="row items-center no-wrap q-gutter-x-sm">
-            <div style="max-width: 300px">
-              <div class="row items-center no-wrap q-gutter-x-sm">
-                <span class="text-body2 text-weight-medium ellipsis">
-                  {{ slotProps.row.display_name || slotProps.row.name }}
-                </span>
-                <q-icon v-if="slotProps.row.is_defined" name="check_circle" size="14px" color="positive">
-                  <q-tooltip>Defined in schema</q-tooltip>
-                </q-icon>
-              </div>
-              <div class="text-caption text-grey-6 ellipsis font-mono">
-                {{ slotProps.row.name }}
-                <q-tooltip>{{ slotProps.row.name }}</q-tooltip>
-              </div>
-            </div>
+          <div class="row items-center no-wrap q-gutter-x-xs">
+            <span class="compact-field-name ellipsis" style="max-width: 280px">
+              {{ slotProps.row.display_name || slotProps.row.name }}
+            </span>
+            <q-icon v-if="slotProps.row.is_defined" name="check_circle" size="12px" color="positive" />
           </div>
         </q-td>
       </template>
 
       <template #body-cell-type="slotProps">
         <q-td :props="slotProps">
-          <span class="text-caption text-grey-8">{{ getTypeLabel(slotProps.row.value_type) }}</span>
+          <span class="compact-type">{{ getTypeLabel(slotProps.row.value_type) }}</span>
         </q-td>
       </template>
 
-      <template #body-cell-origins="slotProps">
+      <template #body-cell-origin="slotProps">
         <q-td :props="slotProps">
-          <div class="row items-center no-wrap q-gutter-x-sm">
-            <template v-if="slotProps.row.origins?.length">
-              <template v-for="origin in slotProps.row.origins" :key="origin">
-                <span class="origin-chip" :class="`origin-chip--${origin}`">
-                  {{ getOriginLabel(origin) }}
-                  <template v-if="origin === 'source' && slotProps.row.sources?.length">
-                    <span class="text-weight-medium">({{ slotProps.row.sources.length }})</span>
-                    <q-tooltip>
-                      <div class="text-weight-medium q-mb-xs">Sources:</div>
-                      <div v-for="src in slotProps.row.sources.slice(0, 12)" :key="src.id">• {{ src.name }}</div>
-                      <div v-if="slotProps.row.sources.length > 12">...and {{ slotProps.row.sources.length - 12 }} more</div>
-                    </q-tooltip>
-                  </template>
-                </span>
-              </template>
-            </template>
-            <span v-else class="text-grey-5">—</span>
-          </div>
+          <template v-if="slotProps.row.origin">
+            <span class="origin-chip" :class="`origin-chip--${slotProps.row.origin}`">
+              {{ getOriginLabel(slotProps.row.origin) }}
+            </span>
+          </template>
+          <span v-else class="text-grey-5">—</span>
+        </q-td>
+      </template>
+
+      <template #body-cell-source="slotProps">
+        <q-td :props="slotProps">
+          <template v-if="slotProps.row.source">
+            <div class="row items-center no-wrap q-gutter-x-xs">
+              <q-img
+                v-if="getSourceVisual(slotProps.row.source.type).image"
+                :src="getSourceVisual(slotProps.row.source.type).image"
+                width="14px"
+                height="14px"
+                no-spinner
+                no-transition
+              />
+              <q-icon v-else :name="getSourceVisual(slotProps.row.source.type).icon" size="14px" color="grey-6" />
+              <span class="compact-source-name ellipsis" style="max-width: 180px">
+                {{ slotProps.row.source.name }}
+              </span>
+            </div>
+          </template>
+          <span v-else class="text-grey-5">—</span>
         </q-td>
       </template>
 
@@ -285,13 +222,10 @@
         <q-td :props="slotProps">
           <div class="row items-center no-wrap q-gutter-x-xs">
             <template v-if="slotProps.row.sample_values?.length">
-              <span v-for="sample in slotProps.row.sample_values.slice(0, 3)" :key="sample" class="sample-chip">
-                {{ truncateValue(sample, 20) }}
-                <q-tooltip v-if="sample.length > 20">{{ sample }}</q-tooltip>
+              <span v-for="sample in slotProps.row.sample_values.slice(0, 2)" :key="sample" class="sample-chip-sm">
+                {{ truncateValue(sample, 16) }}
               </span>
-              <span v-if="slotProps.row.sample_values.length > 3" class="text-caption text-grey-6">
-                +{{ slotProps.row.sample_values.length - 3 }}
-              </span>
+              <span v-if="slotProps.row.sample_values.length > 2" class="sample-more">+{{ slotProps.row.sample_values.length - 2 }}</span>
             </template>
             <span v-else class="text-grey-5">—</span>
           </div>
@@ -300,16 +234,121 @@
 
       <template #body-cell-actions="slotProps">
         <q-td :props="slotProps" class="text-right">
-          <template v-if="slotProps.row.is_defined">
-            <q-btn dense flat round icon="o_edit" size="sm" color="grey-7" @click.stop="editDefinedField(slotProps.row)">
-              <q-tooltip>Edit schema definition</q-tooltip>
-            </q-btn>
+          <q-btn dense flat round color="grey-7" icon="more_vert" size="sm" @click.stop>
+            <q-menu class="field-menu" anchor="bottom right" self="top right" auto-close>
+              <q-list dense>
+                <template v-if="slotProps.row.is_defined">
+                  <q-item v-ripple="false" clickable @click="editDefinedField(slotProps.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="o_edit" color="primary" size="18px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Edit</q-item-section>
+                  </q-item>
+                </template>
+                <template v-else>
+                  <q-item v-ripple="false" clickable @click="emit('define-field', slotProps.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="o_add" color="primary" size="18px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Define Field</q-item-section>
+                  </q-item>
+                </template>
+              </q-list>
+            </q-menu>
+          </q-btn>
+        </q-td>
+      </template>
+    </q-table>
+
+    <!-- Extracted Fields Table -->
+    <q-table
+      v-else-if="selectedCategory === 'extracted'"
+      v-model:pagination="extractedPagination"
+      :rows="extractedRows"
+      :columns="extractedColumns"
+      row-key="id"
+      flat
+      bordered
+      dense
+      :rows-per-page-options="[5]"
+      class="compact-table"
+    >
+      <template #body-cell-field="slotProps">
+        <q-td :props="slotProps">
+          <div class="row items-center no-wrap q-gutter-x-xs">
+            <span class="compact-field-name ellipsis" style="max-width: 280px">
+              {{ slotProps.row.display_name || slotProps.row.name }}
+            </span>
+          </div>
+        </q-td>
+      </template>
+
+      <template #body-cell-type="slotProps">
+        <q-td :props="slotProps">
+          <span class="compact-type">{{ getTypeLabel(slotProps.row.value_type) }}</span>
+        </q-td>
+      </template>
+
+      <template #body-cell-source="slotProps">
+        <q-td :props="slotProps">
+          <template v-if="slotProps.row.source">
+            <div class="row items-center no-wrap q-gutter-x-xs">
+              <q-img
+                v-if="getSourceVisual(slotProps.row.source.type).image"
+                :src="getSourceVisual(slotProps.row.source.type).image"
+                width="14px"
+                height="14px"
+                no-spinner
+                no-transition
+              />
+              <q-icon v-else :name="getSourceVisual(slotProps.row.source.type).icon" size="14px" color="grey-6" />
+              <span class="compact-source-name ellipsis" style="max-width: 180px">
+                {{ slotProps.row.source.name }}
+              </span>
+            </div>
           </template>
-          <template v-else>
-            <q-btn flat dense no-caps color="primary" icon="o_add" size="sm" @click.stop="emit('define-field', slotProps.row)">
-              <q-tooltip>Define field</q-tooltip>
-            </q-btn>
-          </template>
+          <span v-else class="text-grey-5">—</span>
+        </q-td>
+      </template>
+
+      <template #body-cell-samples="slotProps">
+        <q-td :props="slotProps">
+          <div class="row items-center no-wrap q-gutter-x-xs">
+            <template v-if="slotProps.row.sample_values?.length">
+              <span v-for="sample in slotProps.row.sample_values.slice(0, 2)" :key="sample" class="sample-chip-sm">
+                {{ truncateValue(sample, 16) }}
+              </span>
+              <span v-if="slotProps.row.sample_values.length > 2" class="sample-more">+{{ slotProps.row.sample_values.length - 2 }}</span>
+            </template>
+            <span v-else class="text-grey-5">—</span>
+          </div>
+        </q-td>
+      </template>
+
+      <template #body-cell-actions="slotProps">
+        <q-td :props="slotProps" class="text-right">
+          <q-btn dense flat round color="grey-7" icon="more_vert" size="sm" @click.stop>
+            <q-menu class="field-menu" anchor="bottom right" self="top right" auto-close>
+              <q-list dense>
+                <template v-if="slotProps.row.is_defined">
+                  <q-item v-ripple="false" clickable @click="editDefinedField(slotProps.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="o_edit" color="primary" size="18px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Edit</q-item-section>
+                  </q-item>
+                </template>
+                <template v-else>
+                  <q-item v-ripple="false" clickable @click="emit('define-field', slotProps.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="o_add" color="primary" size="18px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Define Field</q-item-section>
+                  </q-item>
+                </template>
+              </q-list>
+            </q-menu>
+          </q-btn>
         </q-td>
       </template>
     </q-table>
@@ -317,68 +356,88 @@
 </template>
 
 <script setup lang="ts">
+import confluenceImage from '@/assets/brands/atlassian-confluence.png'
+import fluidTopicsImage from '@/assets/brands/fluid-topics.png'
+import sharepointImage from '@/assets/brands/sharepoint.svg'
 import type { QTableColumn } from 'quasar'
 import { computed, ref, watch } from 'vue'
+import { KgDropdownField } from '../common'
 import { MetadataFieldDefinition, MetadataFieldRow, MetadataOrigin, MetadataOriginLabels, MetadataValueType, ValueTypeOptions } from './models'
 
-type CategoryType = 'schema' | 'discovered'
-type DiscoveredFilterType = 'all' | 'undefined' | 'defined' | 'llm' | 'source' | 'document'
+// Source type visuals (image or icon)
+const sourceTypeVisuals: Record<string, { image?: string; icon?: string }> = {
+  upload: { icon: 'upload' },
+  sharepoint: { image: sharepointImage },
+  fluid_topics: { image: fluidTopicsImage },
+  confluence: { image: confluenceImage },
+}
+
+const getSourceVisual = (type: string) => {
+  return sourceTypeVisuals[type] || { icon: 'description' }
+}
+
+type CategoryType = 'schema' | 'discovered' | 'extracted'
+type DiscoveredFilterType = 'all' | 'undefined'
 
 const props = defineProps<{
   definedFields: MetadataFieldDefinition[]
   discoveredFields: MetadataFieldRow[]
   availablePresets: Partial<MetadataFieldDefinition>[]
   loading: boolean
+  canRunExtraction?: boolean
+  runningExtraction?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'add-field'): void
   (e: 'add-preset', preset: Partial<MetadataFieldDefinition>): void
-  (e: 'define-all'): void
   (e: 'edit-field', field: MetadataFieldDefinition): void
   (e: 'delete-field', field: MetadataFieldDefinition): void
   (e: 'define-field', row: MetadataFieldRow): void
+  (e: 'run-extraction'): void
 }>()
 
 const selectedCategory = ref<CategoryType>('schema')
-const discoveredFilter = ref<DiscoveredFilterType>('all')
+const discoveredFilter = ref<DiscoveredFilterType>('undefined')
 const search = ref('')
-const pagination = ref({ rowsPerPage: 10, page: 1 })
+const schemaPagination = ref({ rowsPerPage: 5, page: 1 })
+const discoveredPagination = ref({ rowsPerPage: 5, page: 1 })
+const extractedPagination = ref({ rowsPerPage: 5, page: 1 })
 
 // Maps for quick lookups
 const defsByName = computed(() => new Map((props.definedFields || []).map((f) => [f.name, f] as const)))
-const discoveredByName = computed(() => new Map((props.discoveredFields || []).map((r) => [r.name, r] as const)))
 
 // Counts
 const schemaCount = computed(() => (props.definedFields || []).length)
-const discoveredCount = computed(() => (props.discoveredFields || []).length)
-const undefinedDiscoveredCount = computed(() => (props.discoveredFields || []).filter((f) => !f.is_defined).length)
-const definedDiscoveredCount = computed(() => (props.discoveredFields || []).filter((f) => f.is_defined).length)
-const llmDiscoveredCount = computed(() => (props.discoveredFields || []).filter((f) => f.origins?.includes('llm')).length)
-const sourceDiscoveredCount = computed(() => (props.discoveredFields || []).filter((f) => f.origins?.includes('source')).length)
-const documentDiscoveredCount = computed(() => (props.discoveredFields || []).filter((f) => f.origins?.includes('document')).length)
+const discoveredCount = computed(() => (props.discoveredFields || []).filter((f) => f.origin !== 'llm').length)
+const extractedCount = computed(() => (props.discoveredFields || []).filter((f) => f.origin === 'llm').length)
+const undefinedDiscoveredCount = computed(() => (props.discoveredFields || []).filter((f) => !f.is_defined && f.origin !== 'llm').length)
 
 // Category tabs config
 const categories = computed(() => [
   { value: 'schema' as const, label: 'Schema', count: schemaCount.value, icon: 'tune' },
   { value: 'discovered' as const, label: 'Discovered', count: discoveredCount.value, icon: 'explore' },
+  { value: 'extracted' as const, label: 'Extracted', count: extractedCount.value, icon: 'smart_toy' },
 ])
 
 // Discovered filter dropdown options
 const discoveredFilterOptions = computed(() => [
-  { label: `All (${discoveredCount.value})`, value: 'all' },
   { label: `Needs Schema (${undefinedDiscoveredCount.value})`, value: 'undefined' },
-  { label: `Already Defined (${definedDiscoveredCount.value})`, value: 'defined' },
-  { label: `LLM Extracted (${llmDiscoveredCount.value})`, value: 'llm' },
-  { label: `From Source (${sourceDiscoveredCount.value})`, value: 'source' },
-  { label: `From Document (${documentDiscoveredCount.value})`, value: 'document' },
+  { label: `All (${discoveredCount.value})`, value: 'all' },
 ])
 
 // Section title and subtitle based on category
-const sectionTitle = computed(() => (selectedCategory.value === 'schema' ? 'Schema Fields' : 'Discovered Fields'))
+const sectionTitle = computed(() => {
+  if (selectedCategory.value === 'schema') return 'Schema Fields'
+  if (selectedCategory.value === 'extracted') return 'Extracted Fields'
+  return 'Discovered Fields'
+})
 const sectionSubtitle = computed(() => {
   if (selectedCategory.value === 'schema') {
     return 'User-defined metadata field definitions that structure your knowledge graph'
+  }
+  if (selectedCategory.value === 'extracted') {
+    return 'Metadata fields extracted by AI/LLM from document content'
   }
   return 'Metadata fields automatically detected from documents during ingestion'
 })
@@ -394,21 +453,14 @@ const schemaRows = computed(() => {
   )
 })
 
-// Filtered rows for Discovered table
+// Filtered rows for Discovered table (excludes LLM-extracted)
 const discoveredRows = computed(() => {
-  let rows = props.discoveredFields || []
+  // Exclude LLM-origin fields from discovered - those go to "extracted" tab
+  let rows = (props.discoveredFields || []).filter((r) => r.origin !== 'llm')
 
   // Apply sub-filter
   if (discoveredFilter.value === 'undefined') {
     rows = rows.filter((r) => !r.is_defined)
-  } else if (discoveredFilter.value === 'defined') {
-    rows = rows.filter((r) => r.is_defined)
-  } else if (discoveredFilter.value === 'llm') {
-    rows = rows.filter((r) => r.origins?.includes('llm'))
-  } else if (discoveredFilter.value === 'source') {
-    rows = rows.filter((r) => r.origins?.includes('source'))
-  } else if (discoveredFilter.value === 'document') {
-    rows = rows.filter((r) => r.origins?.includes('document'))
   }
 
   if (!search.value) return rows
@@ -422,8 +474,20 @@ const discoveredRows = computed(() => {
   )
 })
 
-// Count of undefined fields in current view
-const undefinedInCurrentView = computed(() => discoveredRows.value.filter((r) => !r.is_defined).length)
+// Filtered rows for Extracted table (LLM-origin only)
+const extractedRows = computed(() => {
+  let rows = (props.discoveredFields || []).filter((r) => r.origin === 'llm')
+
+  if (!search.value) return rows
+
+  const s = search.value.toLowerCase()
+  return rows.filter(
+    (r) =>
+      r.name.toLowerCase().includes(s) ||
+      (r.display_name || '').toLowerCase().includes(s) ||
+      r.sample_values?.some((v) => v.toLowerCase().includes(s))
+  )
+})
 
 // Empty state logic
 const showEmptyState = computed(() => {
@@ -431,31 +495,32 @@ const showEmptyState = computed(() => {
   if (selectedCategory.value === 'schema') {
     return schemaRows.value.length === 0
   }
+  if (selectedCategory.value === 'extracted') {
+    return extractedRows.value.length === 0
+  }
   return discoveredRows.value.length === 0
 })
 
 const emptyStateIcon = computed(() => {
   if (search.value) return 'search_off'
   if (selectedCategory.value === 'schema') return 'category'
+  if (selectedCategory.value === 'extracted') return 'smart_toy'
   if (discoveredFilter.value === 'undefined') return 'check_circle'
-  if (discoveredFilter.value === 'llm') return 'smart_toy'
   return 'explore'
 })
 
 const emptyStateTitle = computed(() => {
   if (search.value) return 'No matching fields'
   if (selectedCategory.value === 'schema') return 'No schema fields defined'
+  if (selectedCategory.value === 'extracted') return 'No extracted fields'
   if (discoveredFilter.value === 'undefined') return 'All fields are defined'
-  if (discoveredFilter.value === 'defined') return 'No defined fields found'
-  if (discoveredFilter.value === 'llm') return 'No LLM-extracted fields'
-  if (discoveredFilter.value === 'source') return 'No source-origin fields'
-  if (discoveredFilter.value === 'document') return 'No document-origin fields'
   return 'No discovered fields'
 })
 
 const emptyStateSubtitle = computed(() => {
   if (search.value) return 'Try a different search term'
   if (selectedCategory.value === 'schema') return 'Add a field definition to start building your metadata schema'
+  if (selectedCategory.value === 'extracted') return 'Run extraction to detect metadata fields using AI'
   if (discoveredFilter.value === 'undefined') return 'All discovered fields have been added to the schema'
   return 'Sync sources to discover metadata fields from your documents'
 })
@@ -465,8 +530,6 @@ const schemaColumns = computed<QTableColumn<MetadataFieldDefinition>[]>(() => [
   { name: 'field', label: 'Field', field: 'name', align: 'left', sortable: true },
   { name: 'type', label: 'Type', field: 'value_type', align: 'left', sortable: true, style: 'width: 100px' },
   { name: 'constraints', label: 'Constraints', field: () => '', align: 'left', style: 'width: 180px' },
-  { name: 'extraction', label: 'AI Extraction', field: () => '', align: 'left', style: 'width: 120px' },
-  { name: 'observed', label: 'Observed', field: () => '', align: 'left' },
   { name: 'actions', label: '', field: 'name', align: 'right', style: 'width: 60px' },
 ])
 
@@ -474,7 +537,17 @@ const schemaColumns = computed<QTableColumn<MetadataFieldDefinition>[]>(() => [
 const discoveredColumns = computed<QTableColumn<MetadataFieldRow>[]>(() => [
   { name: 'field', label: 'Field', field: 'name', align: 'left', sortable: true },
   { name: 'type', label: 'Type', field: 'value_type', align: 'left', sortable: true, style: 'width: 100px' },
-  { name: 'origins', label: 'Origin', field: () => '', align: 'left', style: 'width: 220px' },
+  { name: 'source', label: 'Source', field: () => '', align: 'left', style: 'width: 260px' },
+  { name: 'origin', label: 'Origin', field: () => '', align: 'left', style: 'width: 220px' },
+  { name: 'samples', label: 'Sample Values', field: () => '', align: 'left' },
+  { name: 'actions', label: '', field: 'name', align: 'right', style: 'width: 80px' },
+])
+
+// Extracted table columns
+const extractedColumns = computed<QTableColumn<MetadataFieldRow>[]>(() => [
+  { name: 'field', label: 'Field', field: 'name', align: 'left', sortable: true },
+  { name: 'type', label: 'Type', field: 'value_type', align: 'left', sortable: true, style: 'width: 100px' },
+  { name: 'source', label: 'Source', field: () => '', align: 'left', style: 'width: 260px' },
   { name: 'samples', label: 'Sample Values', field: () => '', align: 'left' },
   { name: 'actions', label: '', field: 'name', align: 'right', style: 'width: 80px' },
 ])
@@ -487,24 +560,6 @@ const truncateValue = (value: string, maxLength = 30) => {
   return value.length > maxLength ? value.substring(0, maxLength) + '…' : value
 }
 
-const getDiscoveredForDefinition = (def: MetadataFieldDefinition): MetadataFieldRow | undefined => {
-  return discoveredByName.value.get(def.name)
-}
-
-// Row click handlers
-const onSchemaRowClick = (_evt: Event, row: MetadataFieldDefinition) => {
-  emit('edit-field', row)
-}
-
-const onDiscoveredRowClick = (_evt: Event, row: MetadataFieldRow) => {
-  if (row.is_defined) {
-    const def = defsByName.value.get(row.name)
-    if (def) emit('edit-field', def)
-  } else {
-    emit('define-field', row)
-  }
-}
-
 const editDefinedField = (row: MetadataFieldRow) => {
   const def = defsByName.value.get(row.name)
   if (def) emit('edit-field', def)
@@ -512,7 +567,9 @@ const editDefinedField = (row: MetadataFieldRow) => {
 
 // Reset pagination on filter changes
 watch([search, selectedCategory, discoveredFilter], () => {
-  pagination.value.page = 1
+  schemaPagination.value.page = 1
+  discoveredPagination.value.page = 1
+  extractedPagination.value.page = 1
 })
 </script>
 
@@ -527,7 +584,7 @@ watch([search, selectedCategory, discoveredFilter], () => {
   gap: 2px;
   background: #f3f4f6;
   padding: 4px;
-  border-radius: 8px;
+  border-radius: 4px;
 }
 
 .category-tab {
@@ -537,7 +594,7 @@ watch([search, selectedCategory, discoveredFilter], () => {
   padding: 8px 16px;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 13px;
@@ -583,31 +640,68 @@ watch([search, selectedCategory, discoveredFilter], () => {
   padding-right: 12px;
 }
 
-.filter-select {
-  font-size: 13px;
-}
-
-:deep(.filter-select .q-field__control) {
-  height: 34px;
-  min-height: 34px;
-}
-
-:deep(.filter-select .q-field__native) {
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
-/* Table styles */
+/* Table styles - compact and light */
 :deep(.q-table thead th) {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  padding: 8px 12px;
+}
+
+:deep(.q-table tbody td) {
+  font-size: 12px;
+  padding: 6px 12px;
 }
 
 :deep(.q-table tbody tr) {
+  cursor: default;
+}
+
+:deep(.compact-table tbody tr) {
   cursor: pointer;
 }
 
-/* Sample chips */
+:deep(.q-table--bordered) {
+  border-color: #e5e7eb;
+}
+
+:deep(.q-table tbody tr:hover) {
+  background: #fafafa;
+}
+
+/* Compact table styles (shared by all tables) */
+:deep(.compact-table thead th) {
+  padding: 6px 12px;
+  font-size: 13px;
+  background: #f9fafb !important;
+}
+
+:deep(.compact-table tbody td) {
+  padding: 8px 12px;
+}
+
+.compact-field-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.compact-type {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.compact-constraint {
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.compact-source-name {
+  font-size: 12px;
+  color: #4b5563;
+}
+
+/* Sample chips - compact */
 .sample-chip {
   display: inline-block;
   padding: 2px 8px;
@@ -621,32 +715,22 @@ watch([search, selectedCategory, discoveredFilter], () => {
   white-space: nowrap;
 }
 
-/* Origin labels (compact text in Schema table) */
-.origin-label {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 1px 6px;
-  border-radius: 3px;
-}
-
-.origin-label--llm {
-  background: #f3e8ff;
-  color: #7c3aed;
-}
-
-.origin-label--document {
-  background: #ccfbf1;
-  color: #0d9488;
-}
-
-.origin-label--system {
+.sample-chip-sm {
+  display: inline-block;
+  padding: 2px 8px;
   background: #f3f4f6;
+  border-radius: 4px;
+  font-size: 11px;
   color: #4b5563;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.origin-label--source {
-  background: #e0e7ff;
-  color: #4338ca;
+.sample-more {
+  font-size: 11px;
+  color: #6b7280;
 }
 
 /* Origin chips (Discovered table) */
@@ -656,7 +740,7 @@ watch([search, selectedCategory, discoveredFilter], () => {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 

@@ -71,9 +71,14 @@
             @update:enabled="handleToolEnabledChange(tool, $event)"
           >
             <template v-if="!tool.isStub" #stats>
-              <tool-stat icon="search" :label="getSearchMethodLabel(tool.searchMethod)" />
-              <tool-stat icon="tune" :label="`Min score ${((tool.scoreThreshold || 0) * 100).toFixed(0)}%`" />
-              <tool-stat icon="format_list_numbered" :label="`Limit ${tool.limit}`" />
+              <!-- Metadata tool shows control mode -->
+              <template v-if="tool.id === 'findDocumentsByMetadata'" />
+              <!-- Other filter tools show search method, score, limit -->
+              <template v-else>
+                <tool-stat icon="search" :label="getSearchMethodLabel(tool.searchMethod)" />
+                <tool-stat icon="tune" :label="`Min score ${((tool.scoreThreshold || 0) * 100).toFixed(0)}%`" />
+                <tool-stat icon="format_list_numbered" :label="`Limit ${tool.limit}`" />
+              </template>
             </template>
           </tool-section>
         </div>
@@ -241,6 +246,7 @@ import ToolStat from './ToolStat.vue'
 import ComingSoonToolDialog from './Tools/ComingSoonToolDialog.vue'
 import ExitToolDialog from './Tools/ExitToolDialog.vue'
 import FindChunksBySimilarityDialog from './Tools/FindChunksBySimilarityDialog.vue'
+import FindDocumentsByMetadataDialog from './Tools/FindDocumentsByMetadataDialog.vue'
 import FindDocumentsBySummaryDialog from './Tools/FindDocumentsBySummaryDialog.vue'
 import {
   tools as defaultTools,
@@ -457,6 +463,7 @@ function serializeToolSettings() {
         searchMethod: tool.searchMethod,
         description: tool.description,
         enabled: tool.enabled,
+        metadataMergeStrategy: tool.metadataMergeStrategy,
       }
     }
   })
@@ -497,6 +504,7 @@ function applyGraphSettings(settings: any) {
         'searchMethod',
         'description',
         'enabled',
+        'metadataMergeStrategy',
       ])
     }
   })
@@ -871,7 +879,8 @@ const onSaveTool = (updatedTool: Tool) => {
       oldTool.strategy !== updatedTool.strategy ||
       oldTool.maxIterations !== updatedTool.maxIterations ||
       oldTool.answerMode !== updatedTool.answerMode ||
-      oldTool.outputFormat !== updatedTool.outputFormat
+      oldTool.outputFormat !== updatedTool.outputFormat ||
+      oldTool.metadataMergeStrategy !== updatedTool.metadataMergeStrategy
     ) {
       markGraphChanged()
     }
@@ -882,6 +891,8 @@ const onSaveTool = (updatedTool: Tool) => {
 
 const getToolComponent = (toolId?: string) => {
   switch (toolId) {
+    case 'findDocumentsByMetadata':
+      return FindDocumentsByMetadataDialog
     case 'findDocumentsBySummary':
       return FindDocumentsBySummaryDialog
     case 'findChunksBySimilarity':

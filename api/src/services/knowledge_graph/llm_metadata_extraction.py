@@ -23,6 +23,124 @@ logger = logging.getLogger(__name__)
 MetadataExtractionApproach = Literal["document", "chunks"]
 
 
+def build_typescript_schema_from_field_definitions(field_definitions: Any) -> str:
+    """Build a TypeScript interface schema string from KG metadata field_definitions.
+
+    Intended for prompt templates as {SCHEMA}.
+    """
+
+    def _is_valid_ts_identifier(name: str) -> bool:
+        return bool(re.match(r"^[A-Za-z_$][A-Za-z0-9_$]*$", name))
+
+    def _ts_prop_name(name: str) -> str:
+        # Quote names that aren't valid TS identifiers.
+        if _is_valid_ts_identifier(name):
+            return name
+        return json.dumps(name, ensure_ascii=False)
+
+    defs = field_definitions if isinstance(field_definitions, list) else []
+
+    lines: list[str] = ["interface ExtractedMetadata {"]
+
+    for fd in defs:
+        if not isinstance(fd, dict):
+            continue
+
+        name = str(fd.get("name") or "").strip()
+        if not name:
+            continue
+
+        display_name = str(fd.get("display_name") or "").strip()
+        description = str(fd.get("description") or "").strip()
+        llm_hint = str(fd.get("llm_extraction_hint") or "").strip()
+
+        value_type = str(fd.get("value_type") or "").strip().lower()
+        is_multiple = bool(fd.get("is_multiple"))
+
+        allowed_values_raw = fd.get("allowed_values")
+        allowed_values: list[tuple[str, str | None]] = []
+        if isinstance(allowed_values_raw, list):
+            seen: set[str] = set()
+            for av in allowed_values_raw:
+                if not isinstance(av, dict):
+                    continue
+                val = str(av.get("value") or "").strip()
+                if not val or val in seen:
+                    continue
+                seen.add(val)
+                hint = str(av.get("hint") or "").strip() or None
+                allowed_values.append((val, hint))
+
+        # Map value types to TS types.
+        # Note: value_type="array" in our models means "array-ish"; we treat it as element type `any`.
+        scalar_ts_type: str
+        if allowed_values:
+            scalar_ts_type = " | ".join(
+                json.dumps(v, ensure_ascii=False) for v, _ in allowed_values
+            )
+        else:
+            match value_type:
+                case "string":
+                    scalar_ts_type = "string"
+                case "number":
+                    scalar_ts_type = "number"
+                case "boolean":
+                    scalar_ts_type = "boolean"
+                case "date":
+                    # ISO date string (YYYY-MM-DD or full ISO 8601)
+                    scalar_ts_type = "string"
+                case "object":
+                    scalar_ts_type = "Record<string, any>"
+                case "array":
+                    scalar_ts_type = "any"
+                case _:
+                    scalar_ts_type = "any"
+
+        is_array = is_multiple or value_type == "array"
+        if is_array:
+            element = scalar_ts_type
+            if "|" in element:
+                element = f"({element})"
+            ts_type = f"{element}[]"
+        else:
+            ts_type = scalar_ts_type
+
+        ts_type = f"{ts_type} | null"
+
+        comment_lines: list[str] = []
+        if display_name and display_name != name:
+            comment_lines.append(f"Display: {display_name}")
+        if description:
+            comment_lines.append(description)
+        comment_lines.append(
+            f"Value type: {value_type or 'unknown'}; Multiple: {bool(is_array)}"
+        )
+        if allowed_values:
+            comment_lines.append("Allowed values:")
+            for v, hint in allowed_values:
+                comment_lines.append(f"- {v}{f' ({hint})' if hint else ''}")
+        if llm_hint:
+            comment_lines.append("LLM extraction hint:")
+            comment_lines.extend(llm_hint.splitlines())
+
+        if comment_lines:
+            lines.append("  /**")
+            for cl in comment_lines:
+                for cl_line in str(cl).splitlines():
+                    lines.append(f"   * {cl_line}".rstrip())
+            lines.append("   */")
+
+        lines.append(f"  {_ts_prop_name(name)}: {ts_type};")
+        lines.append("")
+
+    # Trim trailing blank line if present
+    if lines and lines[-1] == "":
+        lines.pop()
+
+    lines.append("}")
+    return "\n".join(lines).strip() + "\n"
+
+
 def _strip_surrounding_code_fences(value: str) -> str:
     if not value:
         return value
@@ -204,14 +322,17 @@ def _to_uuid_or_none(value: Any) -> UUID | None:
 async def _extract_metadata_from_content(
     *,
     prompt_template_system_name: str,
+    schema: str | None = None,
     content: str,
 ) -> dict[str, Any]:
     # Avoid capturing potentially large/sensitive content in spans; record only sizes/ids.
+    schema_str = str(schema or "")
     try:
         observability_context.update_current_span(
             extra_data={
                 "prompt_template_system_name": str(prompt_template_system_name or ""),
                 "content_chars": len(str(content or "")),
+                "schema_chars": len(schema_str),
                 "expected_format": "yaml_or_json",
             }
         )
@@ -220,11 +341,12 @@ async def _extract_metadata_from_content(
 
     user_content = (
         "Extract metadata from the following content.\n"
-        "Return ONLY a YAML mapping or a JSON object (no extra commentary).\n\n"
+        "Return ONLY a YAML mapping (no extra commentary).\n\n"
         f"```text\n{content}\n```"
     )
     result = await execute_prompt_template(
         system_name_or_config=prompt_template_system_name,
+        template_values={"SCHEMA": schema_str},
         template_additional_messages=[{"role": "user", "content": user_content}],
     )
     return _best_effort_json_object_from_text(result.content)
@@ -276,6 +398,7 @@ async def run_graph_llm_metadata_extraction(
     graph_id: UUID,
     approach: MetadataExtractionApproach,
     prompt_template_system_name: str,
+    schema: str | None = None,
     segment_size: int = 18000,
     segment_overlap: float = 0.1,
 ) -> dict[str, Any]:
@@ -297,6 +420,7 @@ async def run_graph_llm_metadata_extraction(
                 "graph_id": str(graph_id),
                 "approach": str(approach),
                 "prompt_template_system_name": prompt_template_system_name,
+                "schema_chars": len(str(schema or "")),
                 "segment_size": int(segment_size),
                 "segment_overlap": float(segment_overlap),
             }
@@ -353,7 +477,7 @@ async def run_graph_llm_metadata_extraction(
                         SELECT
                             NULLIF(content_plaintext, '') AS content
                         FROM {docs_tbl}
-                        WHERE id = :id\:\:uuid
+                        WHERE id = CAST(:id AS uuid)
                         LIMIT 1
                         """
                     ),
@@ -381,6 +505,7 @@ async def run_graph_llm_metadata_extraction(
                     try:
                         extracted = await _extract_metadata_from_content(
                             prompt_template_system_name=prompt_template_system_name,
+                            schema=schema,
                             content=segment,
                         )
                     except Exception as exc:  # noqa: BLE001
@@ -467,7 +592,7 @@ async def run_graph_llm_metadata_extraction(
                 SELECT
                     COALESCE(NULLIF(embedded_content, ''), NULLIF(content, '')) AS content
                 FROM {chunks_tbl}
-                WHERE document_id = :doc_id::uuid
+                WHERE document_id = CAST(:doc_id AS uuid)
                 ORDER BY index NULLS FIRST, created_at
                 """
             ),
@@ -496,6 +621,7 @@ async def run_graph_llm_metadata_extraction(
             try:
                 extracted = await _extract_metadata_from_content(
                     prompt_template_system_name=prompt_template_system_name,
+                    schema=schema,
                     content=content_str,
                 )
             except Exception as exc:  # noqa: BLE001

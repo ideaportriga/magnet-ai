@@ -32,6 +32,7 @@ class ContentReaderName(StrEnum):
 class ChunkerStrategy(StrEnum):
     """Chunker strategies for knowledge graph ingestion."""
 
+    NONE = "none"
     LLM = "llm"
     RECURSIVE = "recursive_character_text_splitting"
 

@@ -10,6 +10,7 @@ from litestar.exceptions import ClientException
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from core.db.session import async_session_maker
+from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
 
 from ...content_config_services import get_content_config
 from ...content_load_services import load_content_from_bytes
@@ -289,11 +290,14 @@ class FluidTopicsSyncPipeline(
                             default_document_type="html",
                         )
 
-                        await self._source._upsert_document_metadata(
+                        await KnowledgeGraphDocumentService().update_document(
+                            session,
                             graph_id=document["graph_id"],
                             doc_id=document["id"],
-                            title=str(map_title),
-                            toc_json=toc,
+                            fields={
+                                "title": str(map_title),
+                                "toc": toc,
+                            },
                         )
 
                         await ctx.document_processing_queue.put(

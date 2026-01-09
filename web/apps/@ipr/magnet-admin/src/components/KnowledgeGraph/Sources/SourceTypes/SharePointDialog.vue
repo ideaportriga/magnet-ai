@@ -44,48 +44,6 @@
         class="q-mt-lg"
       />
     </kg-dialog-section>
-
-    <kg-dialog-section
-      title="Metadata"
-      description="Add custom metadata that will be applied to all documents from this source. Press Enter to add multiple values."
-      icon="label"
-    >
-      <div class="metadata-entries">
-        <div v-for="(entry, index) in metadataEntries" :key="index" class="metadata-entry">
-          <div class="metadata-entry__key">
-            <div class="km-input-label q-pb-xs">Key</div>
-            <km-input :model-value="entry.key" height="36px" placeholder="Metadata key" @update:model-value="updateMetadataKey(index, $event)" />
-          </div>
-          <div class="metadata-entry__values">
-            <div class="km-input-label q-pb-xs">Values</div>
-            <q-select
-              :model-value="entry.values"
-              use-input
-              use-chips
-              multiple
-              hide-dropdown-icon
-              input-debounce="0"
-              new-value-mode="add-unique"
-              placeholder="Type and press Enter"
-              dense
-              outlined
-              class="metadata-values-select"
-              @update:model-value="updateMetadataValues(index, $event)"
-            >
-              <template #selected-item="scope">
-                <q-chip removable dense color="primary" text-color="white" class="q-my-xs" @remove="removeMetadataValue(index, scope.index)">
-                  {{ scope.opt }}
-                </q-chip>
-              </template>
-            </q-select>
-          </div>
-          <div class="metadata-entry__actions">
-            <q-btn flat round dense color="negative" icon="close" size="sm" @click="removeMetadataEntry(index)" />
-          </div>
-        </div>
-      </div>
-      <q-btn flat no-caps dense color="primary" icon="add" label="Add Metadata" class="q-mt-md" @click="addMetadataEntry" />
-    </kg-dialog-section>
   </kg-dialog-source-base>
 </template>
 
@@ -97,19 +55,11 @@ import { useStore } from 'vuex'
 import { KgDialogSection, KgDialogSourceBase, KgFieldRow, KgToggleField, ScheduleFormState } from '../../common'
 import type { SourceRow } from '../models'
 
-type MetadataValue = string | string[]
-
 type SharePointSourceConfig = {
   site_url?: string
   library?: string | null
   folder_path?: string | null
   recursive?: boolean
-  metadata?: Record<string, MetadataValue> | null
-}
-
-type MetadataEntry = {
-  key: string
-  values: string[]
 }
 
 type SharePointSourceRecord = Omit<SourceRow, 'type' | 'config'> & {
@@ -135,7 +85,6 @@ const siteUrl = ref('')
 const folderPath = ref('')
 const library = ref('')
 const includeSubfolders = ref<boolean>(false)
-const metadataEntries = ref<MetadataEntry[]>([])
 const loading = ref(false)
 const error = ref('')
 const showValidation = ref(false)
@@ -154,51 +103,6 @@ const isEditMode = computed(() => !!props.source)
 
 const dialogOpen = computed(() => props.showDialog)
 
-// Helper to convert metadata object to array of entries
-function metadataToEntries(metadata: Record<string, MetadataValue> | null | undefined): MetadataEntry[] {
-  if (!metadata) return []
-  return Object.entries(metadata).map(([key, value]) => ({
-    key,
-    values: Array.isArray(value) ? value : [value],
-  }))
-}
-
-// Helper to convert entries array back to metadata object
-function entriesToMetadata(entries: MetadataEntry[]): Record<string, MetadataValue> | null {
-  const validEntries = entries.filter((e) => e.key.trim() && e.values.length > 0)
-  if (validEntries.length === 0) return null
-  return Object.fromEntries(validEntries.map((e) => [e.key.trim(), e.values.length === 1 ? e.values[0] : e.values]))
-}
-
-// Metadata management functions
-function addMetadataEntry() {
-  metadataEntries.value.push({ key: '', values: [] })
-}
-
-function updateMetadataKey(index: number, newKey: string) {
-  if (index >= 0 && index < metadataEntries.value.length) {
-    metadataEntries.value[index].key = newKey
-  }
-}
-
-function updateMetadataValues(index: number, newValues: string[]) {
-  if (index >= 0 && index < metadataEntries.value.length) {
-    metadataEntries.value[index].values = newValues
-  }
-}
-
-function removeMetadataValue(entryIndex: number, valueIndex: number) {
-  if (entryIndex >= 0 && entryIndex < metadataEntries.value.length) {
-    metadataEntries.value[entryIndex].values.splice(valueIndex, 1)
-  }
-}
-
-function removeMetadataEntry(index: number) {
-  if (index >= 0 && index < metadataEntries.value.length) {
-    metadataEntries.value.splice(index, 1)
-  }
-}
-
 // Prefill or reset when dialog opens
 watch(
   () => [props.showDialog, props.source] as const,
@@ -211,7 +115,6 @@ watch(
           library.value = cfg.library || ''
           folderPath.value = cfg.folder_path || ''
           includeSubfolders.value = !!cfg.recursive
-          metadataEntries.value = metadataToEntries(cfg.metadata)
         } catch {
           // ignore prefill errors
         }
@@ -221,7 +124,6 @@ watch(
         library.value = ''
         folderPath.value = ''
         includeSubfolders.value = false
-        metadataEntries.value = []
       }
     }
   },
@@ -291,7 +193,6 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
         library: library.value.trim() || null,
         folder_path: folderPath.value.trim() || null,
         recursive: !!includeSubfolders.value,
-        metadata: entriesToMetadata(metadataEntries.value),
       },
     }
 
@@ -349,7 +250,6 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
         library: library.value.trim() || null,
         folder_path: folderPath.value.trim() || null,
         recursive: !!includeSubfolders.value,
-        metadata: entriesToMetadata(metadataEntries.value),
       },
     }
     const response = await fetchData({
@@ -386,48 +286,7 @@ const onConfirm = async (payload: { sourceName: string; schedule: ScheduleFormSt
 }
 
 // Clear error message when user edits inputs
-watch(
-  [siteUrl, library, folderPath, includeSubfolders, metadataEntries],
-  () => {
-    if (error.value) error.value = ''
-  },
-  { deep: true }
-)
+watch([siteUrl, library, folderPath, includeSubfolders], () => {
+  if (error.value) error.value = ''
+})
 </script>
-
-<style scoped>
-.metadata-entries {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.metadata-entry {
-  display: grid;
-  grid-template-columns: 180px 1fr auto;
-  gap: 12px;
-  align-items: end;
-}
-
-.metadata-entry__actions {
-  padding-bottom: 6px;
-}
-
-.metadata-values-select {
-  min-height: 36px;
-}
-
-.metadata-values-select :deep(.q-field__control) {
-  min-height: 36px;
-  padding: 4px 8px;
-}
-
-.metadata-values-select :deep(.q-field__native) {
-  min-height: 24px;
-  padding: 0;
-}
-
-.metadata-values-select :deep(.q-chip) {
-  margin: 2px;
-}
-</style>

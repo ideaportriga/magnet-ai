@@ -116,7 +116,7 @@
                         ref="sourcesRef"
                         :graph-id="graphId"
                         :graph-details="graphDetails"
-                        @refresh="fetchGraphDetails"
+                        @refresh="handleSourcesRefresh"
                       />
                       <settings-tab
                         v-show="activeTab === 'settings'"
@@ -339,6 +339,12 @@ const drawerOpen = ref(false)
 const drawerType = ref<'source' | 'chunk' | 'retrieval'>('source')
 const selectedChunk = ref<any>(null)
 
+const handleSourcesRefresh = async () => {
+  await fetchGraphDetails()
+  explorerRef.value?.refresh?.()
+  metadataRef.value?.refresh?.()
+}
+
 // Drag-and-drop upload state
 const isDragging = ref(false)
 const dragCounter = ref(0)
@@ -375,6 +381,7 @@ watch(kgUploading, (uploading) => {
   if (!uploading) {
     refreshSources()
     explorerRef.value?.refresh?.()
+    metadataRef.value?.refresh?.()
     fetchGraphDetails()
   }
 })
