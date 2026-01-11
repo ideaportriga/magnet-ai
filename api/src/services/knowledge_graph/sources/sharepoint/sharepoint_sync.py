@@ -317,7 +317,9 @@ class SharePointSyncPipeline(
                         task.document,
                         extracted_text=task.extracted_text,
                         config=task.content_config,
-                        document_title=PurePath(doc_name).stem if doc_name else doc_name,
+                        document_title=PurePath(doc_name).stem
+                        if doc_name
+                        else doc_name,
                         embedding_model=self._embedding_model,
                     )
                     await ctx.inc("synced")

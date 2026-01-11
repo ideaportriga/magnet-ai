@@ -12,14 +12,14 @@ from __future__ import annotations
 import warnings
 
 import sqlalchemy as sa
-from alembic import op
 from advanced_alchemy.types import (
-    EncryptedString,
-    EncryptedText,
     GUID,
     ORA_JSONB,
     DateTimeUTC,
+    EncryptedString,
+    EncryptedText,
 )
+from alembic import op
 from sqlalchemy import Text  # noqa: F401
 from sqlalchemy.dialects import postgresql
 

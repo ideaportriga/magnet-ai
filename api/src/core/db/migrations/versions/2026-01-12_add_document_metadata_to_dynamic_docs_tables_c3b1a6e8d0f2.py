@@ -2,7 +2,7 @@
 """add document metadata to dynamic docs tables
 
 Revision ID: c3b1a6e8d0f2
-Revises: defd97efc36c
+Revises: 39837e80ce55
 Create Date: 2026-01-06 00:00:00.000000+00:00
 
 """
@@ -47,7 +47,7 @@ sa.Text = Text
 
 # revision identifiers, used by Alembic.
 revision = "c3b1a6e8d0f2"
-down_revision = "defd97efc36c"
+down_revision = "39837e80ce55"
 branch_labels = None
 depends_on = None
 
