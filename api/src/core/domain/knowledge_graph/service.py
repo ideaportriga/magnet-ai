@@ -72,6 +72,8 @@ from services.knowledge_graph import (
     get_default_content_configs,
     get_default_retrieval_settings,
 )
+from services.observability import observability_context
+from services.observability.models import FeatureType
 from utils.datetime_utils import utc_now_isoformat
 
 from .schemas import ChunkSearchResult
@@ -629,14 +631,22 @@ class KnowledgeGraphSourceService(
         self, db_session: AsyncSession, graph_id: UUID, source_id: UUID
     ) -> dict[str, Any]:
         result = await db_session.execute(
-            select(KnowledgeGraphSource).where(
+            select(KnowledgeGraphSource, KnowledgeGraph)
+            .join(KnowledgeGraph, KnowledgeGraphSource.graph_id == KnowledgeGraph.id)
+            .where(
                 (KnowledgeGraphSource.id == source_id)
                 & (KnowledgeGraphSource.graph_id == graph_id)
             )
         )
-        source = result.scalar_one_or_none()
-        if not source:
+        row = result.first()
+        if not row:
             raise NotFoundException("Source not found")
+
+        source, graph = row
+
+        observability_context.update_current_trace(
+            name=graph.name, type=FeatureType.KNOWLEDGE_GRAPH.value
+        )
 
         source.status = "syncing"
         await db_session.commit()
@@ -1166,6 +1176,8 @@ class KnowledgeGraphChunkService:
                 chunks_tbl.c.title.label("title"),
                 chunks_tbl.c.content.label("content"),
                 chunks_tbl.c.document_id.label("document_id"),
+                docs_tbl.c.name.label("document_name"),
+                docs_tbl.c.title.label("document_title"),
                 chunks_tbl.c.page.label("page"),
                 chunks_tbl.c.index.label("index"),
                 score_expr,
@@ -1198,6 +1210,11 @@ class KnowledgeGraphChunkService:
                     title=r.get("title"),
                     content=r.get("content"),
                     document_id=r.get("document_id"),
+                    document=KnowledgeGraphDocument(
+                        id=r.get("document_id"),
+                        name=r.get("document_name"),
+                        title=r.get("document_title"),
+                    ),
                     page=r.get("page"),
                     index=r.get("index"),
                 ),

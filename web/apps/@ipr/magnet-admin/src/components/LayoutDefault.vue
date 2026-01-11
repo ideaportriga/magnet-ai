@@ -60,6 +60,8 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         knowledge-providers-header
       template(v-if='route.name === "KnowledgeGraphDetail" || route.name === "KnowledgeGraphDocumentDetail"')
         knowledge-graph-header
+      template(v-if='route.name === "NoteTakerSettings"')
+        note-taker-header
       template(v-if='route.name === "DeepResearchDetails"')
         deep-research-configs-header
   q-drawer.bg-primary.text-white(v-model='drawerLeft', show-if-above, :width='200', :breakpoint='1350')

@@ -354,7 +354,7 @@ class KnowledgeGraphController(Controller):
         await source_service.delete_source(db_session, graph_id, source_id, cascade)
 
     @observe(
-        name="Syncing knowledge graph source",
+        name="Sync knowledge graph source",
         channel="production",
         source="production",
     )

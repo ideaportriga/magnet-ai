@@ -131,14 +131,24 @@
 
                   <q-slide-transition>
                     <div v-show="msg.sourcesExpanded" class="sources-list">
-                      <div
-                        v-for="(source, idx) in msg.sources"
-                        :key="idx"
-                        class="source-chip"
-                        @click="openSourceDetail(source)"
-                      >
-                        <span class="source-chip-num">{{ idx + 1 }}</span>
-                        <span class="source-chip-title">{{ truncate(source.title || 'Untitled', 40) }}</span>
+                      <div v-for="group in groupSourcesByDocument(msg.sources)" :key="group.document_id" class="source-document-group">
+                        <router-link
+                          :to="{ name: 'KnowledgeGraphDocumentDetail', params: { id: graphId, documentId: group.document_id } }"
+                          class="source-document-group-header"
+                          target="_blank"
+                          rel="noopener"
+                          @click.stop
+                        >
+                          <q-icon name="description" size="12px" color="grey-7" />
+                          <span class="source-document-group-title">{{ truncate(group.document_name, 35) }}</span>
+                          <q-icon name="open_in_new" size="10px" color="grey-5" class="source-document-link-icon" />
+                        </router-link>
+                        <div class="source-document-chunks">
+                          <div v-for="(source, idx) in group.sources" :key="idx" class="source-chip" @click="openSourceDetail(source)">
+                            <span class="source-chip-num">{{ source.globalIndex }}</span>
+                            <span class="source-chip-title">{{ truncate(source.chunk_title || 'Untitled', 40) }}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </q-slide-transition>
@@ -185,16 +195,30 @@
     <q-dialog v-model="showSourceDialog" position="right" maximized>
       <q-card class="source-dialog-card">
         <q-card-section class="source-dialog-header">
-          <div class="row items-center no-wrap">
+          <div class="row items-start no-wrap">
             <div class="col">
-              <div class="km-heading-7">{{ selectedSource?.title || 'Source Content' }}</div>
+              <div class="row items-center no-wrap">
+                <router-link
+                  v-if="selectedDocumentRoute"
+                  :to="selectedDocumentRoute"
+                  class="km-heading-7 source-document-link"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  {{ selectedSource?.document_title || selectedSource?.document_name || 'Document' }}
+                </router-link>
+                <div v-else class="km-heading-7">
+                  {{ selectedSource?.document_title || selectedSource?.document_name || 'Document' }}
+                </div>
+              </div>
+              <div class="km-heading-8">{{ selectedSource?.chunk_title || 'Source Content' }}</div>
             </div>
             <q-btn flat round dense icon="close" @click="showSourceDialog = false" />
           </div>
         </q-card-section>
         <q-separator />
         <q-card-section class="source-dialog-content">
-          <div class="source-full-text markdown-content" v-html="renderMarkdown(selectedSource?.content || '')" />
+          <div class="source-full-text markdown-content" v-html="renderMarkdown(selectedSource?.chunk_content || '')" />
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -225,8 +249,11 @@ interface WorkflowStep {
 }
 
 interface Source {
-  title: string
-  content: string
+  document_id?: string
+  document_name?: string
+  document_title?: string
+  chunk_title: string
+  chunk_content: string
 }
 
 interface Message {
@@ -270,6 +297,11 @@ const conversationId = ref<string | null>(null)
 // Source dialog state
 const showSourceDialog = ref(false)
 const selectedSource = ref<Source | null>(null)
+const selectedDocumentRoute = computed(() => {
+  const docId = selectedSource.value?.document_id
+  if (!docId) return null
+  return `/knowledge-graph/${props.graphId}/documents/${docId}`
+})
 
 // Computed
 const canSend = computed(() => userInput.value.trim().length > 0 && !processing.value)
@@ -341,6 +373,32 @@ const formatArgValue = (value: any): string => {
 const openSourceDetail = (source: Source) => {
   selectedSource.value = source
   showSourceDialog.value = true
+}
+
+interface SourceWithIndex extends Source {
+  globalIndex: number
+}
+
+interface DocumentGroup {
+  document_id: string
+  document_name: string
+  sources: SourceWithIndex[]
+}
+
+const groupSourcesByDocument = (sources: Source[]): DocumentGroup[] => {
+  const groups = new Map<string, DocumentGroup>()
+  sources.forEach((source, idx) => {
+    const docId = source.document_id || 'unknown'
+    if (!groups.has(docId)) {
+      groups.set(docId, {
+        document_id: docId,
+        document_name: source.document_title || source.document_name || 'Unknown Document',
+        sources: [],
+      })
+    }
+    groups.get(docId)!.sources.push({ ...source, globalIndex: idx + 1 })
+  })
+  return Array.from(groups.values())
 }
 
 const sendMessage = async () => {
@@ -604,7 +662,13 @@ onMounted(() => {
 .plain-text-content {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    'SF Pro Text',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
 }
 
 /* Markdown Content Styling */
@@ -998,8 +1062,58 @@ onMounted(() => {
 .sources-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
   margin-top: 6px;
+}
+
+.source-document-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-document-group-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #f0f1f3 100%);
+  border-radius: 5px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.source-document-group-header:hover {
+  background: linear-gradient(135deg, #e8eaff 0%, #dfe1ff 100%);
+}
+
+.source-document-group-header:hover .source-document-link-icon {
+  opacity: 1;
+  color: var(--q-primary);
+}
+
+.source-document-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #424242;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-document-link-icon {
+  opacity: 0.5;
+  transition: all 0.15s ease;
+}
+
+.source-document-chunks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 20px;
 }
 
 .source-chip {
@@ -1058,6 +1172,22 @@ onMounted(() => {
 .source-dialog-header {
   flex-shrink: 0;
   background: #fafafa;
+}
+
+.source-document-link {
+  color: #6c5ce7;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.source-document-link:hover {
+  border-bottom-color: #6c5ce7;
 }
 
 .source-dialog-content {

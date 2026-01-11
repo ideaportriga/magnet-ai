@@ -16,6 +16,7 @@ from .evaluation import Evaluation
 from .job import Job
 from .metric import Metric
 from .provider import Provider
+from .settings import Settings
 from .trace import Trace
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "Job",
     "Metric",
     "Provider",
+    "Settings",
     "Trace",
     # "AgentConversation",
     # "Agent",

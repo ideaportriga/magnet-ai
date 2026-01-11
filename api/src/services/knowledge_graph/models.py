@@ -201,8 +201,11 @@ class MetadataMultiValueContainer:
 class KnowledgeGraphRetrievalSource(BaseModel):
     """Lightweight source item for UI (document title and excerpt)."""
 
-    title: str | None = None
-    content: str | None = None
+    document_id: Optional[str] = None
+    document_name: Optional[str] = None
+    document_title: Optional[str] = None
+    chunk_title: Optional[str] = None
+    chunk_content: Optional[str] = None
 
 
 class KnowledgeGraphRetrievalWorkflowStep(BaseModel):

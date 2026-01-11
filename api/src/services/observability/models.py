@@ -58,6 +58,11 @@ class FeatureType(Enum):
         "otel_name": "agent",
         "span_type": SpanType.SPAN,
     }
+    KNOWLEDGE_GRAPH = {
+        "value": "knowledge-graph",
+        "otel_name": "knowledge_graph",
+        "span_type": SpanType.SPAN,
+    }
     # Standard LLM APIs
     CHAT_COMPLETION = {
         "value": "chat-completion-api",

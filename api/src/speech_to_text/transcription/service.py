@@ -139,7 +139,7 @@ async def get_error(file_id: str) -> str | None:
 
 async def get_transcription(file_id: str):
     meta = await storage.get_meta(file_id)
-    return (meta or {}).get("transcription")
+    return meta
 
 
 async def _delete_object_if_needed(file_data: FileData) -> None:

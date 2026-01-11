@@ -1,6 +1,6 @@
 import datetime as dt
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 import asyncio
 
 import httpx
@@ -49,6 +49,58 @@ class GraphClient:
 
 def create_graph_client_with_token(token: str) -> GraphClient:
     return GraphClient(token)
+
+
+async def create_recordings_ready_subscription(
+    *,
+    token: str,
+    online_meeting_id: str,
+    notification_url: str,
+    lifecycle_notification_url: str | None = None,
+    expiration: dt.datetime | None = None,
+    client_state: str = "recordings-ready",
+) -> dict[str, Any]:
+    if not token:
+        raise ValueError("A Graph access token is required to create a subscription.")
+    if not online_meeting_id:
+        raise ValueError("A meeting id is required to create a subscription.")
+    if not notification_url:
+        raise ValueError("A notification URL is required to create a subscription.")
+
+    expiration_dt = expiration or (
+        dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=4)
+    )
+    expiration_iso = expiration_dt.isoformat()
+    if expiration_iso.endswith("+00:00"):
+        expiration_iso = expiration_iso.replace("+00:00", "Z")
+
+    encoded_meeting_id = quote(online_meeting_id, safe="")
+    resource = f"communications/onlineMeetings/{encoded_meeting_id}/recordings"
+    body = {
+        "changeType": "created",
+        "notificationUrl": notification_url,
+        "resource": resource,
+        "expirationDateTime": expiration_iso,
+        "clientState": client_state,
+        "latestSupportedTlsVersion": "v1_2",
+    }
+    if lifecycle_notification_url:
+        body["lifecycleNotificationUrl"] = lifecycle_notification_url
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            f"{GRAPH_BASE_URL}/subscriptions",
+            headers={"Authorization": f"Bearer {token}"},
+            json=body,
+        )
+        if response.status_code >= 400:
+            logger.error(
+                "Graph subscription create failed status=%s body=%s",
+                response.status_code,
+                response.text,
+            )
+            response.raise_for_status()
+        return response.json()
 
 
 async def get_recording_file_size(content_url: str, token: str) -> int | None:
@@ -160,6 +212,36 @@ async def fetch_recordings(
         raise
 
 
+async def get_recording_by_id(
+    *,
+    client: GraphClient,
+    online_meeting_id: str,
+    recording_id: str,
+    # base_path: str | None = None,
+) -> dict[str, Any] | None:
+    if not online_meeting_id or not recording_id:
+        return None
+
+    encoded_meeting_id = quote(online_meeting_id, safe="")
+    encoded_recording_id = quote(recording_id, safe="")
+    # path = base_path or f"/me/onlineMeetings/{encoded_meeting_id}"
+    path = f"/me/onlineMeetings/{encoded_meeting_id}"
+    url = f"{path}/recordings/{encoded_recording_id}"
+
+    try:
+        return await client.get_json(url)
+    except httpx.HTTPStatusError as err:
+        if getattr(err.response, "status_code", None) == 404:
+            return None
+        logger.error(
+            "Graph single recording fetch failed meetingId=%s recordingId=%s: %s",
+            online_meeting_id,
+            recording_id,
+            err,
+        )
+        raise
+
+
 async def get_meeting_recordings(
     *,
     client: GraphClient,
@@ -212,7 +294,85 @@ async def get_meeting_recordings(
     return []
 
 
+async def list_subscriptions(client: GraphClient) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    url: str | None = "/subscriptions"
+    first_page = True
+
+    while url:
+        try:
+            response = await client.get_json(url)
+        except httpx.HTTPStatusError as err:
+            if first_page and getattr(err.response, "status_code", None) == 400:
+                response = await client.get_json(url, params=None)
+            else:
+                raise
+
+        page_items = response.get("value") or []
+        if isinstance(page_items, list):
+            for item in page_items:
+                if isinstance(item, dict):
+                    items.append(item)
+
+        url = response.get("@odata.nextLink") or None
+        first_page = False
+
+    return items
+
+
+def pick_recordings_ready_subscription(
+    subscriptions: list[dict[str, Any]],
+    *,
+    online_meeting_id: str,
+) -> dict[str, Any] | None:
+    if not online_meeting_id:
+        return None
+
+    encoded_meeting_id = quote(online_meeting_id, safe="")
+    target_resources = {
+        f"communications/onlineMeetings/{encoded_meeting_id}/recordings",
+        f"communications/onlineMeetings/{online_meeting_id}/recordings",
+    }
+
+    matches: list[dict[str, Any]] = []
+    for item in subscriptions:
+        if not isinstance(item, dict):
+            continue
+        resource = str(item.get("resource") or "")
+        if not resource:
+            continue
+        if "recordings" not in resource or "onlineMeetings" not in resource:
+            continue
+        resource_unquoted = unquote(resource)
+        if online_meeting_id not in resource_unquoted and not any(
+            target in resource or target in resource_unquoted
+            for target in target_resources
+        ):
+            continue
+        client_state = item.get("clientState")
+        if client_state and client_state != "recordings-ready":
+            continue
+        matches.append(item)
+
+    if not matches:
+        return None
+
+    def _expires_at(item: dict[str, Any]) -> dt.datetime:
+        raw = item.get("expirationDateTime") or ""
+        try:
+            return dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except Exception:
+            return dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+
+    matches.sort(key=_expires_at, reverse=True)
+    return matches[0]
+
+
 __all__ = [
+    "create_recordings_ready_subscription",
     "create_graph_client_with_token",
+    "get_recording_by_id",
     "get_meeting_recordings",
+    "list_subscriptions",
+    "pick_recordings_ready_subscription",
 ]

@@ -3,6 +3,7 @@ import os
 import asyncio
 from typing import Any, Dict
 from elevenlabs.client import ElevenLabs
+import httpx
 
 from ..base import BaseTranscriber
 from ...storage.postgres_storage import PgDataStorage
@@ -10,6 +11,14 @@ from ...models import TranscriptionCfg
 from ...services.ffmpeg import extract_audio_to_wav
 
 _ELEVEN_CACHE: dict[str, Dict[str, Any]] = {}
+
+# ────────────────────────────────
+# ElevenLabs / HTTP timeouts (seconds)
+# ────────────────────────────────
+ELEVEN_HTTP_CONNECT_TIMEOUT = 10.0
+ELEVEN_HTTP_READ_TIMEOUT = 900.0  # 15 minutes
+ELEVEN_HTTP_WRITE_TIMEOUT = 60.0
+ELEVEN_HTTP_POOL_TIMEOUT = 10.0
 
 
 def _to_dict(obj):
@@ -39,7 +48,19 @@ class ElevenLabsTranscriber(BaseTranscriber):
         api_key = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY")
         if not api_key:
             raise RuntimeError("Set ELEVENLABS_API_KEY")
-        self._client = ElevenLabs(api_key=api_key)
+        http_client = httpx.Client(
+            timeout=httpx.Timeout(
+                connect=ELEVEN_HTTP_CONNECT_TIMEOUT,
+                read=ELEVEN_HTTP_READ_TIMEOUT,
+                write=ELEVEN_HTTP_WRITE_TIMEOUT,
+                pool=ELEVEN_HTTP_POOL_TIMEOUT,
+            )
+        )
+
+        self._client = ElevenLabs(
+            api_key=api_key,
+            httpx_client=http_client,
+        )
         self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v1")
         self._diarize = os.getenv("ELEVEN_DIARIZE", "true").lower() == "true"
         self._language_code = None

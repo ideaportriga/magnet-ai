@@ -19,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 
+from .knowledge_graph_document import KnowledgeGraphDocument
 from .utils import to_uuid
 
 
@@ -56,12 +57,12 @@ class KnowledgeGraphChunk:
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+    # References
+    document: KnowledgeGraphDocument | None = None
+
     def to_json(self) -> dict:
         return {
             "id": str(self.id) if self.id is not None else None,
-            "document_id": str(self.document_id)
-            if self.document_id is not None
-            else None,
             "name": self.name,
             "index": self.index,
             "generated_id": self.generated_id,
@@ -79,6 +80,7 @@ class KnowledgeGraphChunk:
             "updated_at": self.updated_at.isoformat()
             if self.updated_at is not None
             else None,
+            "document": self.document.to_json() if self.document is not None else None,
         }
 
     @classmethod

@@ -28,6 +28,7 @@ from ...models import (
     KnowledgeGraphConversationDataWithMessages,
     KnowledgeGraphConversationMessageAssistant,
     KnowledgeGraphConversationMessageUser,
+    KnowledgeGraphRetrievalSource,
     KnowledgeGraphRetrievalWorkflowStep,
 )
 from .tools import get_available_tools
@@ -656,7 +657,7 @@ async def run_agentic_retrieval(
         return KnowledgeGraphAgentRunResult(content=erroneous_answer)
 
     # Build sources from collected chunks (top N unique by chunk id)
-    sources: list[dict[str, Any]] = []
+    sources: list[KnowledgeGraphRetrievalSource] = []
     seen_chunk_ids: set[str] = set()
     for ch in sorted(collected_chunks, key=lambda x: x.get("score", 0.0), reverse=True)[
         :10
@@ -666,10 +667,13 @@ async def run_agentic_retrieval(
             continue
         seen_chunk_ids.add(cid)
         sources.append(
-            {
-                "title": ch.get("title"),
-                "content": ch.get("content"),
-            }
+            KnowledgeGraphRetrievalSource(
+                document_id=ch.get("document", {}).get("id"),
+                document_name=ch.get("document", {}).get("name"),
+                document_title=ch.get("document", {}).get("title"),
+                chunk_title=ch.get("title"),
+                chunk_content=ch.get("content"),
+            )
         )
 
     final_content = successful_answer or ""

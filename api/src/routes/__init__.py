@@ -30,6 +30,7 @@ from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
 )
+from .admin.note_taker_settings import NoteTakerSettingsController
 from .admin.observability import observability_router
 from .admin.rag import RagController
 from .admin.scheduler import SchedulerController
@@ -69,6 +70,7 @@ def get_route_handlers(
         knowledge_sources_router_deprecated,  # Admin / Knowledge Sources
         MCPServersController,  # Admin / MCP Servers
         MetricsController,  # Admin / Metrics
+        NoteTakerSettingsController,  # Admin / Note Taker
         AIModelsController,  # Admin / Models
         observability_router,  # Admin / Observability
         PromptsController,  # Admin / Prompt Templates
