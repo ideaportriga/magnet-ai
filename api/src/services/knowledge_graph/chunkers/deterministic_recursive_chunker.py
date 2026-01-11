@@ -84,4 +84,4 @@ class DeterministicRecursiveChunker(AbstractChunker):
             )
             chunks.append(chunk)
 
-        return ChunkerResult(chunks=chunks, document_metadata=None)
+        return ChunkerResult(chunks=chunks)

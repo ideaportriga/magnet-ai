@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, override
 
 import httpx
@@ -10,6 +11,7 @@ from litestar.exceptions import ClientException
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from core.db.session import async_session_maker
+from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
 
 from ...content_config_services import get_content_config
 from ...content_load_services import load_content_from_bytes
@@ -316,14 +318,20 @@ class FluidTopicsSyncPipeline(
                             await ctx.inc("skipped", int(skipped))
 
                         document = await self._source.create_document_for_source(
-                            session, filename=doc_name, default_document_type="html"
+                            session,
+                            filename=doc_name,
+                            source_metadata={"map_id": map_id, "map_title": map_title},
+                            default_document_type="html",
                         )
 
-                        await self._source._upsert_document_metadata(
+                        await KnowledgeGraphDocumentService().update_document(
+                            session,
                             graph_id=document["graph_id"],
                             doc_id=document["id"],
-                            title=str(map_title),
-                            toc_json=toc,
+                            fields={
+                                "title": str(map_title),
+                                "toc": toc,
+                            },
                         )
 
                         await ctx.document_processing_queue.put(
@@ -370,6 +378,9 @@ class FluidTopicsSyncPipeline(
                             session,
                             filename=filename,
                             total_pages=total_pages,
+                            file_metadata=content.get("metadata")
+                            if isinstance(content, dict)
+                            else None,
                             default_document_type="pdf",
                             content_profile=content_config.name
                             if content_config
@@ -452,12 +463,19 @@ class FluidTopicsSyncPipeline(
 
         async with async_session_maker() as session:
             async for task in ctx.iter_document_processing_tasks():
+                doc_name = str(task.document.get("name") or "").strip()
+                filename_fallback_title = (
+                    PurePath(doc_name).stem if doc_name else doc_name
+                )
+                resolved_document_title = (
+                    str(task.document_title or "").strip() or filename_fallback_title
+                )
                 try:
                     await self._source.process_document(
                         session,
                         task.document,
                         chunks=task.chunks,
-                        document_title=task.document_title,
+                        document_title=resolved_document_title,
                         toc_json=task.toc,
                         extracted_text=task.extracted_text,
                         config=task.content_config,
@@ -466,7 +484,6 @@ class FluidTopicsSyncPipeline(
                     await ctx.inc("synced")
 
                 except Exception as exc:  # noqa: BLE001
-                    doc_name = str(task.document.get("name") or "")
                     logger.exception(
                         "Failed to process document",
                         extra=self._log_extra(

@@ -25,8 +25,17 @@ from core.db.models.api_tool import APITool  # noqa: F401
 # Import specific models to register them with metadata
 from core.db.models.base import UUIDAuditEntityBase  # noqa: F401
 from core.db.models.collection import Collection  # noqa: F401
+from core.db.models.deep_research import (  # noqa: F401
+    DeepResearchConfig,
+    DeepResearchRun,
+)
 from core.db.models.evaluation import Evaluation  # noqa: F401
 from core.db.models.evaluation_set import EvaluationSet  # noqa: F401
+from core.db.models.knowledge_graph import (  # noqa: F401
+    KnowledgeGraph,
+    KnowledgeGraphMetadataDiscovery,
+    KnowledgeGraphSource,
+)
 from core.db.models.mcp_server import MCPServer  # noqa: F401
 from core.db.models.mcp_server.mcp_server import EncryptedJsonB  # noqa: F401
 from core.db.models.metric import Metric  # noqa: F401
@@ -38,7 +47,6 @@ from core.db.models.slack import SlackInstallation, SlackOAuthState  # noqa: F40
 from core.db.models.teams import TeamsMeeting  # noqa: F401
 from core.db.models.settings import Settings  # noqa: F401
 from core.db.models.trace import Trace  # noqa: F401
-from core.db.models.deep_research import DeepResearchConfig, DeepResearchRun  # noqa: F401
 from core.db.models.transcription.transcription import Transcription  # noqa: F401
 
 # Add the src directory to the Python path
@@ -105,10 +113,10 @@ def run_migrations_offline() -> None:
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
-            if re.match(r"idx_kg_.*_(chunks|docs|documents|docume)$", name):
+            if re.match(r"idx_kg_.*_(chunks|docs|documents|docume).*", name):
                 return False
             if re.match(
-                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume)$", name
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume).*", name
             ):
                 return False
         return True
@@ -152,11 +160,15 @@ def do_run_migrations(connection: Connection) -> None:
             if name == "apscheduler_jobs":
                 return False
             # Ignore knowledge graph tables
-            if re.match(r"knowledge_graph_.*_(chunks|documents)$", name):
+            if re.match(r"knowledge_graph_.*_(chunks|docs|documents)$", name):
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
-            if re.match(r"idx_knowledge_graph_.*_(chunks|docume)$", name):
+            if re.match(r"idx_kg_.*_(chunks|docs|documents|docume).*", name):
+                return False
+            if re.match(
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume).*", name
+            ):
                 return False
         return True
 

@@ -7,17 +7,21 @@
     icon="insert_drive_file"
     class="text-weight-medium text-caption q-py-12 q-px-sm q-mx-none"
   >
-    {{ type.toUpperCase() }}
+    {{ label }}
   </q-chip>
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+
+const props = defineProps<{
   type: string
 }>()
 
-const getTypeColor = (type: string) => {
-  switch (type?.toLowerCase()) {
+const label = computed(() => String(props.type || '').toUpperCase())
+
+function getTypeColor(type: string) {
+  switch (String(type || '').toLowerCase()) {
     case 'pdf':
       return 'red-7'
     case 'html':
@@ -36,3 +40,5 @@ const getTypeColor = (type: string) => {
   }
 }
 </script>
+
+

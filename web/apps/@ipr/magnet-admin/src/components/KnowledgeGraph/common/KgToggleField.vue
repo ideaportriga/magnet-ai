@@ -9,7 +9,7 @@
   >
     <div class="full-width row items-center no-wrap">
       <div class="col">
-        <div class="kg-toggle-field__title">{{ title }}</div>
+        <div v-if="title" class="kg-toggle-field__title">{{ title }}</div>
         <div v-if="description" class="kg-toggle-field__description">{{ description }}</div>
       </div>
       <q-toggle
@@ -28,7 +28,7 @@
 <script setup lang="ts">
 interface Props {
   modelValue: boolean
-  title: string
+  title?: string
   description?: string
   disabled?: boolean
 }

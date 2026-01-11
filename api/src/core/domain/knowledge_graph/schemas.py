@@ -10,6 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from scheduler.types import CronConfig
+from services.knowledge_graph.models import (
+    KnowledgeGraphRetrievalSource,
+    KnowledgeGraphRetrievalWorkflowStep,
+)
 
 
 class KnowledgeGraphSourceScheduleExternalSchema(BaseModel):
@@ -33,6 +37,75 @@ class KnowledgeGraphExternalSchema(BaseModel):
     created_at: Optional[str]
     updated_at: Optional[str]
     settings: Optional[dict[str, Any]] = None
+
+
+class KnowledgeGraphSourceLinkExternalSchema(BaseModel):
+    """Lightweight source model used for linkage/attribution."""
+
+    id: str
+    name: str
+    type: str
+
+
+class KnowledgeGraphDiscoveredMetadataExternalSchema(BaseModel):
+    """Item model for a discovered metadata field in a knowledge graph."""
+
+    id: str
+    name: str
+    inferred_type: Optional[str] = None
+    origin: Optional[str] = None
+    sample_values: Optional[list[str]] = None
+    value_count: int = 0
+    source: Optional[KnowledgeGraphSourceLinkExternalSchema] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class KnowledgeGraphMetadataExtractionRunRequest(BaseModel):
+    """Request model for triggering LLM-based metadata extraction for an existing graph."""
+
+    # Extraction scope / strategy.
+    # - document: run extraction on full document text (may segment large docs)
+    # - chunks: run extraction per chunk and merge results per document
+    approach: Optional[str] = Field(
+        default=None, description="Extraction approach: 'document' or 'chunks'"
+    )
+
+    # Prompt template to execute (must return a JSON object)
+    prompt_template_system_name: Optional[str] = Field(
+        default=None, description="Prompt template system name to execute"
+    )
+
+    # Document segmentation (used when approach=document)
+    segment_size: Optional[int] = Field(
+        default=None,
+        ge=100,
+        description="Segment size in characters (used when approach=document)",
+    )
+    segment_overlap: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=0.9,
+        description="Segment overlap ratio 0..0.9 (used when approach=document)",
+    )
+
+
+class KnowledgeGraphMetadataExtractionRunResponse(BaseModel):
+    """Response model for metadata extraction trigger endpoint."""
+
+    status: str = Field(default="ok")
+    approach: str = Field(..., description="Extraction approach used")
+    processed_documents: int = Field(default=0, description="Documents processed")
+    processed_chunks: int = Field(
+        default=0, description="Chunks processed (chunks approach)"
+    )
+    skipped_documents: int = Field(
+        default=0, description="Documents skipped due to missing content"
+    )
+    skipped_chunks: int = Field(
+        default=0, description="Chunks skipped due to missing content"
+    )
+    errors: int = Field(default=0, description="Number of per-item extraction errors")
 
 
 class KnowledgeGraphCreateRequest(BaseModel):
@@ -182,6 +255,14 @@ class KnowledgeGraphDocumentExternalSchema(BaseModel):
     updated_at: Optional[str] = None
 
 
+class KnowledgeGraphDocumentMetadataExternalSchema(BaseModel):
+    """Document metadata grouped by origin."""
+
+    file: Optional[dict[str, Any]] = None
+    source: Optional[dict[str, Any]] = None
+    llm: Optional[dict[str, Any]] = None
+
+
 class KnowledgeGraphDocumentDetailSchema(BaseModel):
     """Detail model for a single knowledge graph document."""
 
@@ -196,6 +277,7 @@ class KnowledgeGraphDocumentDetailSchema(BaseModel):
     status_message: Optional[str] = None
     total_pages: Optional[int] = None
     processing_time: Optional[float] = None
+    metadata: Optional[KnowledgeGraphDocumentMetadataExternalSchema] = None
     source_id: Optional[str] = None
     chunks_count: int = 0
     created_at: Optional[str] = None
@@ -234,25 +316,10 @@ class KnowledgeGraphRetrievalPreviewRequest(BaseModel):
     conversation_id: Optional[str] = Field(
         default=None, description="Existing conversation id to continue"
     )
-
-
-class KnowledgeGraphRetrievalSource(BaseModel):
-    """Lightweight source item for UI (document title and excerpt)."""
-
-    document_id: Optional[str] = None
-    document_name: Optional[str] = None
-    document_title: Optional[str] = None
-    chunk_title: Optional[str] = None
-    chunk_content: Optional[str] = None
-
-
-class KnowledgeGraphRetrievalWorkflowStep(BaseModel):
-    """Workflow step describing a single tool call execution."""
-
-    iteration: int
-    tool: str
-    arguments: dict[str, Any] = Field(default_factory=dict)
-    call_summary: dict[str, Any] = Field(default_factory=dict)
+    tool_inputs: Optional[dict[str, Any]] = Field(
+        default=None,
+        description=("External tool inputs provided by the API caller. "),
+    )
 
 
 class KnowledgeGraphRetrievalPreviewResponse(BaseModel):
@@ -263,6 +330,24 @@ class KnowledgeGraphRetrievalPreviewResponse(BaseModel):
     workflow: list[KnowledgeGraphRetrievalWorkflowStep] = Field(default_factory=list)
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation id associated with this preview run"
+    )
+    trace_id: Optional[str] = Field(
+        default=None,
+        description="OpenTelemetry trace id associated with this retrieval run.",
+    )
+
+
+class KnowledgeGraphAgentResponse(BaseModel):
+    """Response model for Knowledge Graph Agent runs (without workflow)."""
+
+    content: str
+    sources: list[KnowledgeGraphRetrievalSource] = Field(default_factory=list)
+    conversation_id: Optional[str] = Field(
+        default=None, description="Conversation id associated with this agent run"
+    )
+    trace_id: Optional[str] = Field(
+        default=None,
+        description="OpenTelemetry trace id associated with this agent run.",
     )
 
 

@@ -22,7 +22,7 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
           .row.items-center.q-gap-8
             q-icon.col-auto.q-pt-2(v-if='showBackButton', name='fas fa-chevron-left', color='text-secondary', size='12px')
             div {{ route.meta?.pageLabel }}:
-      template(v-else)
+      template(v-else-if='showPageLabel')
         .col-auto.text-white.km-body.q-mx-md
           .row.items-center.q-gap-8
             div {{ route.meta?.pageLabel }}:
@@ -58,7 +58,7 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         model-providers-header
       template(v-if='route.name === "KnowledgeProvidersDetails"')
         knowledge-providers-header
-      template(v-if='route.name === "KnowledgeGraphDetail"')
+      template(v-if='route.name === "KnowledgeGraphDetail" || route.name === "KnowledgeGraphDocumentDetail"')
         knowledge-graph-header
       template(v-if='route.name === "NoteTakerSettings"')
         note-taker-header
@@ -106,9 +106,15 @@ export default {
     showBackButton() {
       if (this.route.name === 'Conversation') return false
       if (this.route.name === 'McpToolsDetail') return false
+      // Use KnowledgeGraph's own header navigation for document details
+      if (this.route.name === 'KnowledgeGraphDocumentDetail') return false
       if (this.route.name === 'EvaluationCompare') return true
       if (this.route.params.id) return true
       return false
+    },
+    showPageLabel() {
+      if (this.route.name === 'KnowledgeGraphDocumentDetail') return false
+      return true
     },
     showLeaveConfirm() {
       return this.$store.getters.showLeaveConfirm
