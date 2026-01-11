@@ -28,9 +28,10 @@
 
       <!-- Actions -->
       <q-card-actions class="kg-dialog__actions">
-        <km-btn :label="cancelLabel" flat color="primary" @click="onCancel" />
+        <km-btn v-if="showConfirm" :label="cancelLabel" flat color="primary" @click="onCancel" />
         <q-space />
         <q-btn
+          v-if="showConfirm"
           no-caps
           unelevated
           color="primary"
@@ -39,6 +40,15 @@
           :disable="disableConfirm || loading"
           :loading="loading"
           @click="$emit('confirm')"
+        />
+        <q-btn
+          v-if="!showConfirm"
+          no-caps
+          unelevated
+          color="primary"
+          class="kg-dialog__action__button"
+          :label="cancelLabel"
+          @click="onCancel"
         />
       </q-card-actions>
 
@@ -58,6 +68,7 @@ interface Props {
   subtitle?: string
   confirmLabel?: string
   cancelLabel?: string
+  showConfirm?: boolean
   disableConfirm?: boolean
   loading?: boolean
   innerLoading?: boolean
@@ -70,6 +81,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   confirmLabel: 'Save',
   cancelLabel: 'Cancel',
+  showConfirm: true,
   disableConfirm: false,
   loading: false,
   innerLoading: false,

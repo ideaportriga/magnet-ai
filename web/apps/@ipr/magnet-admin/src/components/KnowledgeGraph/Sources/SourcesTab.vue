@@ -76,7 +76,7 @@
                 <q-list dense>
                   <q-item
                     v-ripple="false"
-                    :disable="slotScope.row.type === 'upload' || syncingIds.has(slotScope.row.id)"
+                    :disable="!isSyncable(slotScope.row.type) || syncingIds.has(slotScope.row.id)"
                     clickable
                     @click="handleSync(slotScope.row)"
                   >

@@ -2,7 +2,9 @@ from .chunkers import DeterministicRecursiveChunker, LLMChunker, NoneChunker
 from .models import ChunkerResult, ChunkerStrategy, ContentConfig
 
 
-async def split_content(content: str, config: ContentConfig) -> ChunkerResult:
+async def split_content(
+    content: str, config: ContentConfig, *, document_title: str | None = None
+) -> ChunkerResult:
     strategy = config.chunker.get("strategy", "").lower() if config.chunker else ""
 
     match strategy:
@@ -15,4 +17,4 @@ async def split_content(content: str, config: ContentConfig) -> ChunkerResult:
         case _:
             raise ValueError(f"Unsupported strategy: {strategy!r}")
 
-    return await chunker.chunk_text(content)
+    return await chunker.chunk_text(content, document_title=document_title)

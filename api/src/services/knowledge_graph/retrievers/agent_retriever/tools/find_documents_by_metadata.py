@@ -27,9 +27,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import docs_table_name
-from core.domain.knowledge_graph.schemas import KnowledgeGraphRetrievalWorkflowStep
 from services.observability import observability_context, observe
 from services.observability.models import SpanType
+
+from ....models import KnowledgeGraphRetrievalWorkflowStep
 
 # Description of the `filter` parameter shown to the LLM.
 # The value is a JSON-serialized expression language compiled by `_MetadataFilterCompiler`.
@@ -704,7 +705,6 @@ async def findDocumentsByMetadata(
 
     observability_context.update_current_span(
         output={
-            "where_sql": doc_filter_where_sql or "",
             "count": count,
         }
     )

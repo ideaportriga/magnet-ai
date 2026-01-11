@@ -20,7 +20,9 @@ class NoneChunker(AbstractChunker):
         super().__init__(config)
 
     @override
-    async def chunk_text(self, text: str) -> ChunkerResult:
+    async def chunk_text(
+        self, text: str, *, document_title: str | None = None
+    ) -> ChunkerResult:
         options = (self.config.chunker or {}).get("options", {}) if self.config else {}
         try:
             chunk_max_size = int(options.get("chunk_max_size", 18000))
@@ -32,10 +34,11 @@ class NoneChunker(AbstractChunker):
 
         truncated = text[:chunk_max_size] if text is not None else ""
 
-        # NOTE: We set `embedded_content` to the same value so embedding generation
-        # works consistently across strategies.
+        print(f"document_title: {document_title}")
+
         chunk = KnowledgeGraphChunk(
             chunk_type="TEXT",
+            title=document_title,
             content=truncated,
             embedded_content=truncated,
         )

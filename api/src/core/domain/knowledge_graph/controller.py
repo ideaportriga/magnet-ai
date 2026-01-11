@@ -49,6 +49,10 @@ from core.domain.knowledge_graph.service import (
     KnowledgeGraphService,
     KnowledgeGraphSourceService,
 )
+from services.knowledge_graph.retrievers.agent_retriever.agent import (
+    continue_conversation,
+    start_conversation,
+)
 from services.knowledge_graph.sources import FileUploadDataSource
 from services.observability import observability_overrides, observe
 
@@ -270,7 +274,6 @@ class KnowledgeGraphController(Controller):
     @post("/{graph_id:uuid}/retrieval/preview", status_code=HTTP_200_OK)
     async def preview_retrieval(
         self,
-        graph_service: KnowledgeGraphService,
         db_session: AsyncSession,
         graph_id: UUID,
         data: KnowledgeGraphRetrievalPreviewRequest,
@@ -284,7 +287,7 @@ class KnowledgeGraphController(Controller):
             )
 
         if conversation_record:
-            return await graph_service.continue_conversation(
+            result = await continue_conversation(
                 db_session,
                 graph_id,
                 data.query,
@@ -292,10 +295,12 @@ class KnowledgeGraphController(Controller):
                 tool_inputs=data.tool_inputs,
                 **observability_overrides(trace_id=conversation_record.trace_id),
             )
+            return KnowledgeGraphRetrievalPreviewResponse(**result.model_dump())
         else:
-            return await graph_service.start_conversation(
+            result = await start_conversation(
                 db_session, graph_id, data.query, tool_inputs=data.tool_inputs
             )
+            return KnowledgeGraphRetrievalPreviewResponse(**result.model_dump())
 
     ###########################################################################
     # KNOWLEDGE GRAPH SOURCE ENDPOINTS #

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, override
 
 import httpx
@@ -429,12 +430,19 @@ class FluidTopicsSyncPipeline(
 
         async with async_session_maker() as session:
             async for task in ctx.iter_document_processing_tasks():
+                doc_name = str(task.document.get("name") or "").strip()
+                filename_fallback_title = (
+                    PurePath(doc_name).stem if doc_name else doc_name
+                )
+                resolved_document_title = (
+                    str(task.document_title or "").strip() or filename_fallback_title
+                )
                 try:
                     await self._source.process_document(
                         session,
                         task.document,
                         chunks=task.chunks,
-                        document_title=task.document_title,
+                        document_title=resolved_document_title,
                         toc_json=task.toc,
                         extracted_text=task.extracted_text,
                         config=task.content_config,
@@ -443,7 +451,6 @@ class FluidTopicsSyncPipeline(
                     await ctx.inc("synced")
 
                 except Exception as exc:  # noqa: BLE001
-                    doc_name = str(task.document.get("name") or "")
                     logger.exception(
                         "Failed to process document",
                         extra=self._log_extra(

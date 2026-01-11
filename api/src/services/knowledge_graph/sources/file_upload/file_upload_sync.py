@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import PurePath
 from typing import TYPE_CHECKING, override
 
 from core.db.session import async_session_maker
@@ -175,13 +176,16 @@ class FileUploadSyncPipeline(
     ) -> None:
         async with async_session_maker() as session:
             async for task in ctx.iter_document_processing_tasks():
-                doc_name = str(task.document.get("name") or "")
+                doc_name = str(task.document.get("name") or "").strip()
                 try:
                     await self._source.process_document(
                         session,
                         task.document,
                         extracted_text=task.extracted_text,
                         config=task.content_config,
+                        document_title=PurePath(doc_name).stem
+                        if doc_name
+                        else doc_name,
                         embedding_model=self._embedding_model,
                     )
                     await ctx.inc("synced")

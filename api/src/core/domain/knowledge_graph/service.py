@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import repository, service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -39,7 +39,6 @@ from core.db.models.knowledge_graph import (
     knowledge_graph_document_table,
     resolve_vector_size_for_embedding_model,
 )
-from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.ai_models.service import AIModelsService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
@@ -52,7 +51,6 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphExternalSchema,
     KnowledgeGraphMetadataExtractionRunRequest,
     KnowledgeGraphMetadataExtractionRunResponse,
-    KnowledgeGraphRetrievalPreviewResponse,
     KnowledgeGraphSourceCreateRequest,
     KnowledgeGraphSourceCreateResponse,
     KnowledgeGraphSourceExternalSchema,
@@ -70,25 +68,17 @@ from scheduler.types import (
     RunConfiguration,
     RunConfigurationType,
 )
-from services.agents.models import (
-    AgentConversationDataWithMessages,
-    AgentConversationMessageAssistant,
-    AgentConversationMessageUser,
-)
 from services.knowledge_graph import (
     get_default_content_configs,
     get_default_retrieval_settings,
 )
-from services.observability import observability_context, observe
-from utils.datetime_utils import utc_now, utc_now_isoformat
+from utils.datetime_utils import utc_now_isoformat
 
 from .schemas import ChunkSearchResult
 
 
 class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGraph]):
     """Service for Knowledge Graph operations."""
-
-    _EXTERNAL_TOOL_INPUTS_VAR = "kg_external_tool_inputs"
 
     async def list_graphs(
         self, db_session: AsyncSession
@@ -348,207 +338,6 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
 
         # Remove graph record
         await self.delete(item_id=graph_id, auto_commit=True)
-
-    @observe(name="Start conversation", channel="production", source="production")
-    async def start_conversation(
-        self,
-        db_session: AsyncSession,
-        graph_id: UUID,
-        query: str,
-        *,
-        tool_inputs: dict[str, Any] | None = None,
-    ) -> KnowledgeGraphRetrievalPreviewResponse:
-        graph = await self.repository.get(graph_id)
-        observability_context.update_current_trace(name=graph.name)
-
-        conversation_service = AgentConversationService(session=db_session)
-        now = utc_now()
-
-        # Start a new conversation with the initial user message
-        user_msg = AgentConversationMessageUser(
-            id=uuid4(),
-            content=query,
-            created_at=now,
-        )
-
-        # Get current trace id to link conversation to trace
-        trace_id = observability_context.get_current_trace_id()
-
-        variables: dict[str, str] | None = None
-        if tool_inputs:
-            try:
-                variables = {
-                    self._EXTERNAL_TOOL_INPUTS_VAR: json.dumps(
-                        tool_inputs, ensure_ascii=False, default=str
-                    )
-                }
-            except Exception:
-                variables = None
-
-        conversation_data = AgentConversationDataWithMessages(
-            agent="KNOWLEDGE_GRAPH_AGENT",
-            created_at=now,
-            last_user_message_at=now,
-            messages=[user_msg],
-            client_id=None,
-            trace_id=trace_id,
-            analytics_id=None,
-            variables=variables,
-        )
-        conversation_record = await conversation_service.create(
-            conversation_data.model_dump(), auto_commit=True
-        )
-        conversation = conversation_service.to_schema(
-            conversation_record, schema_type=AgentConversationDataWithMessages
-        )
-
-        conversation_id_str = str(conversation.id)
-
-        # Build chat history to run the retrieval agent
-        chat_history: list[dict[str, Any]] = []
-        for m in conversation.messages:
-            if not getattr(m, "content", None):
-                continue
-            role_value = getattr(m.role, "value", m.role)
-            chat_history.append({"role": role_value, "content": m.content})
-
-        # Run agent over full conversation history
-        from services.knowledge_graph.retrievers import run_agentic_retrieval
-
-        preview = await run_agentic_retrieval(
-            db_session,
-            graph_id,
-            chat_history,
-            external_tool_inputs=tool_inputs,
-        )
-
-        # Append assistant response to conversation
-        assistant_msg = AgentConversationMessageAssistant(
-            id=uuid4(),
-            content=preview.content,
-            created_at=utc_now(),
-        )
-        conversation.messages.append(assistant_msg)
-        await conversation_service.update(
-            item_id=str(conversation.id),
-            data=conversation.model_dump(),
-            auto_commit=True,
-        )
-
-        return preview.model_copy(update={"conversation_id": conversation_id_str})
-
-    @observe(name="New user message", channel="production", source="production")
-    async def continue_conversation(
-        self,
-        db_session: AsyncSession,
-        graph_id: UUID,
-        query: str,
-        conversation_id: UUID,
-        *,
-        tool_inputs: dict[str, Any] | None = None,
-    ) -> KnowledgeGraphRetrievalPreviewResponse:
-        conversation_service = AgentConversationService(session=db_session)
-        now = utc_now()
-
-        conversation_record = await conversation_service.get_one_or_none(
-            id=str(conversation_id)
-        )
-
-        if not conversation_record:
-            raise NotFoundException("Conversation not found")
-
-        # Continue existing conversation: append user message
-        conversation = conversation_service.to_schema(
-            conversation_record, schema_type=AgentConversationDataWithMessages
-        )
-
-        # Resolve external tool inputs (persisted per conversation, optionally overridden by caller).
-        stored_tool_inputs: dict[str, Any] | None = None
-        try:
-            raw_vars = conversation.variables or {}
-            raw_json = raw_vars.get(self._EXTERNAL_TOOL_INPUTS_VAR)
-            if isinstance(raw_json, str) and raw_json.strip():
-                parsed = json.loads(raw_json)
-                if isinstance(parsed, dict):
-                    stored_tool_inputs = parsed
-        except Exception:
-            stored_tool_inputs = None
-
-        # If the caller provided tool_inputs (even empty), it overrides stored value.
-        external_tool_inputs: dict[str, Any] | None
-        if tool_inputs is not None:
-            external_tool_inputs = tool_inputs
-        else:
-            external_tool_inputs = stored_tool_inputs
-
-        # Persist the effective external tool inputs back into the conversation record.
-        try:
-            if external_tool_inputs:
-                conversation.variables = conversation.variables or {}
-                conversation.variables[self._EXTERNAL_TOOL_INPUTS_VAR] = json.dumps(
-                    external_tool_inputs, ensure_ascii=False, default=str
-                )
-            else:
-                if (
-                    conversation.variables
-                    and self._EXTERNAL_TOOL_INPUTS_VAR in conversation.variables
-                ):
-                    del conversation.variables[self._EXTERNAL_TOOL_INPUTS_VAR]
-                if (
-                    conversation.variables is not None
-                    and len(conversation.variables) == 0
-                ):
-                    conversation.variables = None
-        except Exception:
-            pass
-
-        user_msg = AgentConversationMessageUser(
-            id=uuid4(),
-            content=query,
-            created_at=now,
-        )
-        conversation.messages.append(user_msg)
-        conversation.last_user_message_at = now
-        await conversation_service.update(
-            item_id=str(conversation.id),
-            data=conversation.model_dump(),
-            auto_commit=True,
-        )
-
-        conversation_id_str = str(conversation.id)
-
-        # Build chat history to run the retrieval agent
-        chat_history: list[dict[str, Any]] = []
-        for m in conversation.messages:
-            if not getattr(m, "content", None):
-                continue
-            role_value = getattr(m.role, "value", m.role)
-            chat_history.append({"role": role_value, "content": m.content})
-
-        # Run agent over full conversation history
-        from services.knowledge_graph.retrievers import run_agentic_retrieval
-
-        preview = await run_agentic_retrieval(
-            db_session,
-            graph_id,
-            chat_history,
-            external_tool_inputs=external_tool_inputs,
-        )
-
-        # Append assistant response to conversation
-        assistant_msg = AgentConversationMessageAssistant(
-            id=uuid4(),
-            content=preview.content,
-            created_at=utc_now(),
-        )
-        conversation.messages.append(assistant_msg)
-        await conversation_service.update(
-            item_id=str(conversation.id),
-            data=conversation.model_dump(),
-            auto_commit=True,
-        )
-
-        return preview.model_copy(update={"conversation_id": conversation_id_str})
 
     class Repo(repository.SQLAlchemyAsyncRepository[KnowledgeGraph]):
         model_type = KnowledgeGraph

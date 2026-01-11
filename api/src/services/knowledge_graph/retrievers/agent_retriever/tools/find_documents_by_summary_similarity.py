@@ -14,11 +14,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.domain.knowledge_graph.schemas import KnowledgeGraphRetrievalWorkflowStep
 from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
 from open_ai.utils_new import get_embeddings
 from services.observability import observability_context, observe
 from services.observability.models import SpanType
+
+from ....models import KnowledgeGraphRetrievalWorkflowStep
 
 # OpenAI tool schema (sent to the LLM).
 # `get_available_tools()` may augment this schema at runtime based on graph config.

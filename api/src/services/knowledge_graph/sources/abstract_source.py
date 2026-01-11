@@ -403,7 +403,9 @@ class AbstractDataSource(ABC):
                 # `split_content()` returns:
                 # - a list of chunk dicts (stored in chunks table)
                 # - optional document metadata (stored in documents table)
-                result = await split_content(extracted_text, config)
+                result = await split_content(
+                    extracted_text, config, document_title=document_title
+                )
                 chunks_to_insert = result.chunks
 
                 # Prefer explicit metadata provided by the caller. Otherwise take the

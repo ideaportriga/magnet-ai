@@ -1,14 +1,13 @@
 import json
 import logging
 from typing import Any, Sequence
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from litestar.exceptions import NotFoundException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.domain.knowledge_graph.schemas import (
-    KnowledgeGraphRetrievalPreviewResponse,
-    KnowledgeGraphRetrievalWorkflowStep,
-)
+from core.db.models.knowledge_graph import KnowledgeGraph
+from core.domain.agent_conversation.service import AgentConversationService
 from open_ai.utils_new import (
     create_chat_completion_from_prompt_template,
 )
@@ -17,8 +16,20 @@ from services.knowledge_graph.content_config_services import (
     get_graph_embedding_model,
     get_graph_settings,
 )
-from services.observability import observability_overrides, observe
+from services.observability import (
+    observability_context,
+    observability_overrides,
+    observe,
+)
+from utils.datetime_utils import utc_now
 
+from ...models import (
+    KnowledgeGraphAgentRunResult,
+    KnowledgeGraphConversationDataWithMessages,
+    KnowledgeGraphConversationMessageAssistant,
+    KnowledgeGraphConversationMessageUser,
+    KnowledgeGraphRetrievalWorkflowStep,
+)
 from .tools import get_available_tools
 from .tools.exit_tool import exit_tool
 from .tools.find_chunks_by_similarity import findChunksBySimilarity
@@ -26,6 +37,8 @@ from .tools.find_documents_by_metadata import findDocumentsByMetadata
 from .tools.find_documents_by_summary_similarity import findDocumentsBySummarySimilarity
 
 logger = logging.getLogger(__name__)
+
+_EXTERNAL_TOOL_INPUTS_VAR = "kg_external_tool_inputs"
 
 
 def _build_example_list_str(retrieval_examples: list[dict[str, Any]]) -> str:
@@ -85,6 +98,208 @@ def _build_output_instr(output_format: str) -> str:
     return ""
 
 
+@observe(name="Start conversation", channel="production", source="production")
+async def start_conversation(
+    db_session: AsyncSession,
+    graph_id: UUID,
+    query: str,
+    *,
+    tool_inputs: dict[str, Any] | None = None,
+) -> KnowledgeGraphAgentRunResult:
+    graph = await db_session.get(KnowledgeGraph, graph_id)
+    if not graph:
+        raise NotFoundException("Graph not found")
+    observability_context.update_current_trace(name=graph.name)
+
+    conversation_service = AgentConversationService(session=db_session)
+    now = utc_now()
+
+    # Start a new conversation with the initial user message
+    user_msg = KnowledgeGraphConversationMessageUser(
+        id=uuid4(),
+        content=query,
+        created_at=now,
+    )
+
+    # Get current trace id to link conversation to trace
+    # FIXME: fix trace_id value format, it shouldn't be so that it's getting cut to 8 chars
+    trace_id = observability_context.get_current_trace_id()[:8]
+
+    variables: dict[str, str] | None = None
+    if tool_inputs:
+        try:
+            variables = {
+                _EXTERNAL_TOOL_INPUTS_VAR: json.dumps(
+                    tool_inputs, ensure_ascii=False, default=str
+                )
+            }
+        except Exception:
+            variables = None
+
+    conversation_data = KnowledgeGraphConversationDataWithMessages(
+        agent="KNOWLEDGE_GRAPH_AGENT",
+        created_at=now,
+        last_user_message_at=now,
+        messages=[user_msg],
+        client_id=None,
+        trace_id=trace_id,
+        analytics_id=None,
+        variables=variables,
+    )
+    conversation_record = await conversation_service.create(
+        conversation_data.model_dump(), auto_commit=True
+    )
+    conversation = conversation_service.to_schema(
+        conversation_record, schema_type=KnowledgeGraphConversationDataWithMessages
+    )
+
+    conversation_id_str = str(conversation.id)
+
+    # Build chat history to run the retrieval agent
+    chat_history: list[dict[str, Any]] = []
+    for m in conversation.messages:
+        if not getattr(m, "content", None):
+            continue
+        role_value = getattr(m.role, "value", m.role)
+        chat_history.append({"role": role_value, "content": m.content})
+
+    # Run agent over full conversation history
+    run_result = await run_agentic_retrieval(
+        db_session,
+        graph_id,
+        chat_history,
+        external_tool_inputs=tool_inputs,
+    )
+
+    # Append assistant response to conversation
+    assistant_msg = KnowledgeGraphConversationMessageAssistant(
+        id=uuid4(),
+        content=run_result.content,
+        created_at=utc_now(),
+    )
+    conversation.messages.append(assistant_msg)
+    await conversation_service.update(
+        item_id=str(conversation.id),
+        data=conversation.model_dump(),
+        auto_commit=True,
+    )
+
+    return run_result.model_copy(
+        update={"conversation_id": conversation_id_str, "trace_id": trace_id}
+    )
+
+
+@observe(name="New user message", channel="production", source="production")
+async def continue_conversation(
+    db_session: AsyncSession,
+    graph_id: UUID,
+    query: str,
+    conversation_id: UUID,
+    *,
+    tool_inputs: dict[str, Any] | None = None,
+) -> KnowledgeGraphAgentRunResult:
+    conversation_service = AgentConversationService(session=db_session)
+    now = utc_now()
+
+    conversation_record = await conversation_service.get_one_or_none(
+        id=str(conversation_id)
+    )
+
+    if not conversation_record:
+        raise NotFoundException("Conversation not found")
+
+    # Continue existing conversation: append user message
+    conversation = conversation_service.to_schema(
+        conversation_record, schema_type=KnowledgeGraphConversationDataWithMessages
+    )
+
+    # Resolve external tool inputs (persisted per conversation, optionally overridden by caller).
+    stored_tool_inputs: dict[str, Any] | None = None
+    try:
+        raw_vars = conversation.variables or {}
+        raw_json = raw_vars.get(_EXTERNAL_TOOL_INPUTS_VAR)
+        if isinstance(raw_json, str) and raw_json.strip():
+            parsed = json.loads(raw_json)
+            if isinstance(parsed, dict):
+                stored_tool_inputs = parsed
+    except Exception:
+        stored_tool_inputs = None
+
+    # If the caller provided tool_inputs (even empty), it overrides stored value.
+    external_tool_inputs: dict[str, Any] | None
+    if tool_inputs is not None:
+        external_tool_inputs = tool_inputs
+    else:
+        external_tool_inputs = stored_tool_inputs
+
+    # Persist the effective external tool inputs back into the conversation record.
+    try:
+        if external_tool_inputs:
+            conversation.variables = conversation.variables or {}
+            conversation.variables[_EXTERNAL_TOOL_INPUTS_VAR] = json.dumps(
+                external_tool_inputs, ensure_ascii=False, default=str
+            )
+        else:
+            if (
+                conversation.variables
+                and _EXTERNAL_TOOL_INPUTS_VAR in conversation.variables
+            ):
+                del conversation.variables[_EXTERNAL_TOOL_INPUTS_VAR]
+            if conversation.variables is not None and len(conversation.variables) == 0:
+                conversation.variables = None
+    except Exception:
+        pass
+
+    user_msg = KnowledgeGraphConversationMessageUser(
+        id=uuid4(),
+        content=query,
+        created_at=now,
+    )
+    conversation.messages.append(user_msg)
+    conversation.last_user_message_at = now
+    await conversation_service.update(
+        item_id=str(conversation.id),
+        data=conversation.model_dump(),
+        auto_commit=True,
+    )
+
+    conversation_id_str = str(conversation.id)
+
+    # Build chat history to run the retrieval agent
+    chat_history: list[dict[str, Any]] = []
+    for m in conversation.messages:
+        if not getattr(m, "content", None):
+            continue
+        role_value = getattr(m.role, "value", m.role)
+        chat_history.append({"role": role_value, "content": m.content})
+
+    # Run agent over full conversation history
+    run_result = await run_agentic_retrieval(
+        db_session,
+        graph_id,
+        chat_history,
+        external_tool_inputs=external_tool_inputs,
+    )
+
+    # Append assistant response to conversation
+    assistant_msg = KnowledgeGraphConversationMessageAssistant(
+        id=uuid4(),
+        content=run_result.content,
+        created_at=utc_now(),
+    )
+    conversation.messages.append(assistant_msg)
+    await conversation_service.update(
+        item_id=str(conversation.id),
+        data=conversation.model_dump(),
+        auto_commit=True,
+    )
+
+    trace_id = conversation.trace_id or observability_context.get_current_trace_id()[:8]
+    return run_result.model_copy(
+        update={"conversation_id": conversation_id_str, "trace_id": trace_id}
+    )
+
+
 @observe(
     name="Run agentic loop",
     description="Run agentic loop to retrieve data from the knowledge graph.",
@@ -95,7 +310,7 @@ async def run_agentic_retrieval(
     chat_history: Sequence[dict[str, Any]],
     *,
     external_tool_inputs: dict[str, Any] | None = None,
-) -> KnowledgeGraphRetrievalPreviewResponse:
+) -> KnowledgeGraphAgentRunResult:
     """Execute agentic retrieval against a Knowledge Graph using ReAct."""
 
     # Resolve Knowledge Graph settings
@@ -134,7 +349,7 @@ async def run_agentic_retrieval(
     # Resolve embedding model from graph settings
     embedding_model = await get_graph_embedding_model(db_session, graph_id)
     if not embedding_model:
-        return KnowledgeGraphRetrievalPreviewResponse(
+        return KnowledgeGraphAgentRunResult(
             content="Embedding model is not configured for this knowledge graph.",
             sources=[],
         )
@@ -170,21 +385,6 @@ async def run_agentic_retrieval(
     # State for the ReAct loop starting from full chat history
     agent_messages: list[dict[str, Any]] = []
     ext_inputs = external_tool_inputs if isinstance(external_tool_inputs, dict) else {}
-    # Let the model know about external constraints (if present).
-    try:
-        if ext_inputs:
-            agent_messages.append(
-                {
-                    "role": "system",
-                    "content": (
-                        "External tool inputs are provided by the caller and may constrain retrieval.\n"
-                        "Do NOT invent or assume external filters. Use the provided inputs.\n"
-                        f"external_tool_inputs = {json.dumps(ext_inputs, ensure_ascii=False)}"
-                    ),
-                }
-            )
-    except Exception:
-        pass
     agent_messages.extend(list(normalized_history))
 
     relevant_document_ids: list[str] = []
@@ -194,6 +394,78 @@ async def run_agentic_retrieval(
     workflow_steps: list[KnowledgeGraphRetrievalWorkflowStep] = []
     last_metadata_doc_where_sql: str | None = None
     last_metadata_doc_where_params: dict[str, Any] | None = None
+
+    # If the caller supplied a metadata filter externally, apply it immediately when
+    # the graph config delegates filter control to external/collaborative modes.
+    #
+    # This removes the need to "force" the LLM via a system message: the tool is
+    # executed deterministically and the run starts with a proper tool-call/tool-result
+    # message pair in the conversation history.
+    try:
+        meta_sc = str(meta_tool_cfg.get("searchControl") or "agent").strip().lower()
+        meta_enabled = bool(meta_tool_cfg.get("enabled", True))
+
+        ext_meta_cfg = ext_inputs.get("findDocumentsByMetadata") if ext_inputs else None
+        if isinstance(ext_meta_cfg, dict):
+            ext_filter_raw = (
+                ext_meta_cfg.get("filter") if "filter" in ext_meta_cfg else ext_meta_cfg
+            )
+        else:
+            ext_filter_raw = ext_meta_cfg
+
+        has_ext_filter = False
+        if ext_filter_raw is not None:
+            if isinstance(ext_filter_raw, str):
+                has_ext_filter = bool(ext_filter_raw.strip())
+            elif isinstance(ext_filter_raw, (dict, list)):
+                has_ext_filter = bool(ext_filter_raw)
+            else:
+                has_ext_filter = True
+
+        if meta_enabled and has_ext_filter and meta_sc in {"external", "collaborative"}:
+            pre_args = {"reasoning": "Apply external metadata filter"}
+            tool_call_id = str(uuid4())
+
+            tool_payload, loop_state, step = await findDocumentsByMetadata(
+                db_session=db_session,
+                graph_id=graph_id,
+                args=pre_args,
+                iteration=0,
+                tool_name="findDocumentsByMetadata",
+                tool_cfg=meta_tool_cfg,
+                external_tool_inputs=ext_inputs,
+                field_definitions=metadata_field_definitions,
+                **observability_overrides(description=pre_args.get("reasoning")),
+            )
+
+            last_metadata_doc_where_sql = loop_state.get("doc_filter_where_sql")
+            last_metadata_doc_where_params = loop_state.get("doc_filter_where_params")
+            workflow_steps.append(step)
+
+            agent_messages.append(
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": tool_call_id,
+                            "type": "function",
+                            "function": {
+                                "name": "findDocumentsByMetadata",
+                                "arguments": json.dumps(pre_args, ensure_ascii=False),
+                            },
+                        }
+                    ],
+                }
+            )
+            agent_messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tool_call_id,
+                    "content": json.dumps(tool_payload, ensure_ascii=False),
+                }
+            )
+    except Exception:
+        pass
 
     # ReAct loop
     for iteration_idx in range(1, max_iterations + 1):
@@ -381,7 +653,7 @@ async def run_agentic_retrieval(
             break
 
     if erroneous_answer:
-        return KnowledgeGraphRetrievalPreviewResponse(content=erroneous_answer)
+        return KnowledgeGraphAgentRunResult(content=erroneous_answer)
 
     # Build sources from collected chunks (top N unique by chunk id)
     sources: list[dict[str, Any]] = []
@@ -408,7 +680,7 @@ async def run_agentic_retrieval(
     elif answer_mode == "sources_only":
         final_content = ""
 
-    return KnowledgeGraphRetrievalPreviewResponse(
+    return KnowledgeGraphAgentRunResult(
         content=final_content,
         sources=final_sources,
         workflow=workflow_steps,

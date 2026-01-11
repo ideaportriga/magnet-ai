@@ -8,5 +8,7 @@ class AbstractChunker(ABC):
         self.config = config
 
     @abstractmethod
-    async def chunk_text(self, text: str) -> ChunkerResult:
+    async def chunk_text(
+        self, text: str, *, document_title: str | None = None
+    ) -> ChunkerResult:
         """Chunk the text and return chunks with optional document metadata."""

@@ -10,6 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from scheduler.types import CronConfig
+from services.knowledge_graph.models import (
+    KnowledgeGraphRetrievalSource,
+    KnowledgeGraphRetrievalWorkflowStep,
+)
 
 
 class KnowledgeGraphSourceScheduleExternalSchema(BaseModel):
@@ -318,22 +322,6 @@ class KnowledgeGraphRetrievalPreviewRequest(BaseModel):
     )
 
 
-class KnowledgeGraphRetrievalSource(BaseModel):
-    """Lightweight source item for UI (document title and excerpt)."""
-
-    title: Optional[str] = None
-    content: Optional[str] = None
-
-
-class KnowledgeGraphRetrievalWorkflowStep(BaseModel):
-    """Workflow step describing a single tool call execution."""
-
-    iteration: int
-    tool: str
-    arguments: dict[str, Any] = Field(default_factory=dict)
-    call_summary: dict[str, Any] = Field(default_factory=dict)
-
-
 class KnowledgeGraphRetrievalPreviewResponse(BaseModel):
     """Response model for retrieval preview run."""
 
@@ -342,6 +330,24 @@ class KnowledgeGraphRetrievalPreviewResponse(BaseModel):
     workflow: list[KnowledgeGraphRetrievalWorkflowStep] = Field(default_factory=list)
     conversation_id: Optional[str] = Field(
         default=None, description="Conversation id associated with this preview run"
+    )
+    trace_id: Optional[str] = Field(
+        default=None,
+        description="OpenTelemetry trace id associated with this retrieval run.",
+    )
+
+
+class KnowledgeGraphAgentResponse(BaseModel):
+    """Response model for Knowledge Graph Agent runs (without workflow)."""
+
+    content: str
+    sources: list[KnowledgeGraphRetrievalSource] = Field(default_factory=list)
+    conversation_id: Optional[str] = Field(
+        default=None, description="Conversation id associated with this agent run"
+    )
+    trace_id: Optional[str] = Field(
+        default=None,
+        description="OpenTelemetry trace id associated with this agent run.",
     )
 
 
