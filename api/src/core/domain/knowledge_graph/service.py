@@ -1158,7 +1158,6 @@ class KnowledgeGraphChunkService:
 
         md = MetaData()
         docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
-        docs_alias = docs_tbl.alias("d")
         chunks_tbl = knowledge_graph_chunk_table(
             md,
             chunks_table,
@@ -1183,7 +1182,7 @@ class KnowledgeGraphChunkService:
                 score_expr,
             )
             .select_from(
-                chunks_tbl.join(docs_alias, docs_alias.c.id == chunks_tbl.c.document_id)
+                chunks_tbl.join(docs_tbl, docs_tbl.c.id == chunks_tbl.c.document_id)
             )
             .where(chunks_tbl.c.content_embedding.is_not(None))
             .order_by(score_expr.desc())
