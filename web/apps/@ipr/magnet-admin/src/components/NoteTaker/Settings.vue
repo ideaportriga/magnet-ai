@@ -14,11 +14,6 @@
                     q-toggle(v-model='subscriptionRecordingsReady', color='primary')
                     .km-description.text-secondary-text.q-pt-2 Automatically create recordings-ready subscriptions for meetings.
 
-                .km-field.q-mt-md
-                  .text-secondary-text.q-pb-xs.km-title Send transcript to Salesforce
-                  q-toggle(v-model='sendTranscriptToSalesforce', color='primary')
-                  .km-description.text-secondary-text.q-pt-2 Push completed transcripts to Salesforce.
-
               q-separator
 
               .col-auto.full-width
@@ -131,6 +126,64 @@
                             @click='router.push(`/knowledge-graph/${selectedKnowledgeGraph.id}`)'
                           )
                     .km-description.text-secondary-text.q-pt-2(v-if='createKnowledgeGraphEmbedding') Select the knowledge graph to embed when enabled.
+
+              q-separator
+
+              .col-auto.full-width
+                .km-heading-6.q-mb-md Salesforce Integration
+                .q-gutter-md
+                  .km-field
+                    .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-title Send transcript to Salesforce
+                      q-toggle(v-model='sendTranscriptToSalesforce', color='primary')
+                    .km-description.text-secondary-text.q-pt-2 Push completed transcripts to Salesforce.
+
+                  .q-gutter-md(v-if='sendTranscriptToSalesforce')
+                    .km-field
+                      .text-secondary-text.q-pb-xs API Server
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='salesforceApiServer',
+                            :options='apiServers',
+                            option-label='name',
+                            option-value='system_name',
+                            emit-value,
+                            map-options,
+                            height='30px',
+                            clearable
+                          )
+                        .col-auto(v-if='salesforceApiServer')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='navigateToApiServer(salesforceApiServer)'
+                          )
+                      .km-description.text-secondary-text.q-pt-2 API server for Salesforce tool calls.
+
+                    .km-field
+                      .text-secondary-text.q-pb-xs STT Recording Tool
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='salesforceSttRecordingTool',
+                            :options='availableTools',
+                            option-label='label',
+                            option-value='value',
+                            emit-value,
+                            map-options,
+                            height='30px',
+                            clearable
+                          )
+                        .col-auto(v-if='salesforceSttRecordingTool')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='navigateToTool(salesforceApiServer, salesforceSttRecordingTool)'
+                          )
+                      .km-description.text-secondary-text.q-pt-2 Tool for creating STT recordings in Salesforce.
 </template>
 
 <script setup lang="ts">
@@ -156,9 +209,23 @@ const subscriptionRecordingsReady = computed({
 })
 
 const sendTranscriptToSalesforce = computed({
-  get: () => store.getters.noteTakerSettings?.send_transcript_to_salesforce ?? false,
+  get: () => store.getters.noteTakerSettings?.integration?.salesforce?.send_transcript_to_salesforce ?? false,
   set: (value: boolean) => {
-    store.dispatch('updateNoteTakerSetting', { path: 'send_transcript_to_salesforce', value })
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.salesforce.send_transcript_to_salesforce', value })
+  },
+})
+
+const salesforceApiServer = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.salesforce?.salesforce_api_server || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.salesforce.salesforce_api_server', value })
+  },
+})
+
+const salesforceSttRecordingTool = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.salesforce?.salesforce_stt_recording_tool || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.salesforce.salesforce_stt_recording_tool', value })
   },
 })
 
@@ -223,6 +290,19 @@ const createInsightsPromptTemplate = computed({
 })
 
 const apiReady = computed(() => Boolean(store.getters.config?.api?.aiBridge?.urlAdmin))
+const apiServers = computed(() => {
+  return store.getters['chroma/api_servers']?.items || []
+})
+
+const availableTools = computed(() => {
+  const serverName = salesforceApiServer.value
+  if (!serverName) return []
+  const server = apiServers.value.find((s: any) => s.system_name === serverName)
+  return server?.tools?.map((t: any) => ({
+    label: t.name,
+    value: t.system_name,
+  })) || []
+})
 
 const fetchKnowledgeGraphs = async () => {
   const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
@@ -256,6 +336,9 @@ watch(
     if (!store.getters['chroma/promptTemplates']?.items?.length) {
       store.dispatch('chroma/get', { entity: 'promptTemplates' })
     }
+    if (!store.getters['chroma/api_servers']?.items?.length) {
+      store.dispatch('chroma/get', { entity: 'api_servers' })
+    }
     fetchKnowledgeGraphs()
     store.dispatch('fetchNoteTakerSettings')
   },
@@ -266,6 +349,23 @@ const navigateToPrompt = (systemName: string) => {
   const prompt = promptTemplates.value.find((p: any) => p.system_name === systemName)
   if (prompt) {
     window.open(router.resolve({ path: `/prompt-templates/${prompt.id}` }).href, '_blank')
+  }
+}
+
+const navigateToApiServer = (systemName: string) => {
+  const server = apiServers.value.find((s: any) => s.system_name === systemName)
+  if (server) {
+    window.open(router.resolve({ path: `/api-servers/${server.id}` }).href, '_blank')
+  }
+}
+
+const navigateToTool = (serverSystemName: string, toolName: string) => {
+  const server = apiServers.value.find((s: any) => s.system_name === serverSystemName)
+  if (server) {
+    window.open(
+      router.resolve({ path: `/api-servers/${server.id}/tools/${toolName}` }).href,
+      '_blank'
+    )
   }
 }
 </script>

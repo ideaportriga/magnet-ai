@@ -5,11 +5,19 @@ interface PromptSetting {
   prompt_template: string
 }
 
+interface SalesforceIntegrationSettings {
+  send_transcript_to_salesforce: boolean
+  salesforce_api_server: string
+  salesforce_stt_recording_tool: string
+}
+
 interface NoteTakerSettings {
   subscription_recordings_ready: boolean
-  send_transcript_to_salesforce: boolean
   create_knowledge_graph_embedding: boolean
   knowledge_graph_system_name: string
+  integration: {
+    salesforce: SalesforceIntegrationSettings
+  }
   chapters: PromptSetting
   summary: PromptSetting
   insights: PromptSetting
@@ -22,9 +30,15 @@ interface State {
 
 const defaultSettings = (): NoteTakerSettings => ({
   subscription_recordings_ready: false,
-  send_transcript_to_salesforce: false,
   create_knowledge_graph_embedding: false,
   knowledge_graph_system_name: '',
+  integration: {
+    salesforce: {
+      send_transcript_to_salesforce: false,
+      salesforce_api_server: '',
+      salesforce_stt_recording_tool: '',
+    },
+  },
   chapters: {
     enabled: false,
     prompt_template: '',
@@ -42,6 +56,14 @@ const defaultSettings = (): NoteTakerSettings => ({
 const mergeSettings = (settings?: Partial<NoteTakerSettings> | null): NoteTakerSettings => ({
   ...defaultSettings(),
   ...(settings || {}),
+  integration: {
+    ...defaultSettings().integration,
+    ...(settings?.integration || {}),
+    salesforce: {
+      ...defaultSettings().integration.salesforce,
+      ...(settings?.integration?.salesforce || {}),
+    },
+  },
   chapters: {
     ...defaultSettings().chapters,
     ...(settings?.chapters || {}),

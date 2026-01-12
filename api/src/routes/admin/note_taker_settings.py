@@ -21,9 +21,17 @@ class PromptSettingSchema(BaseModel):
 
 class NoteTakerSettingsSchema(BaseModel):
     subscription_recordings_ready: bool = False
-    send_transcript_to_salesforce: bool = False
     create_knowledge_graph_embedding: bool = False
     knowledge_graph_system_name: str = ""
+    integration: dict[str, Any] = Field(
+        default_factory=lambda: {
+            "salesforce": {
+                "send_transcript_to_salesforce": False,
+                "salesforce_api_server": "",
+                "salesforce_stt_recording_tool": "",
+            }
+        }
+    )
     chapters: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
     summary: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
     insights: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
@@ -70,6 +78,15 @@ class NoteTakerSettingsController(Controller):
         self,
         data: NoteTakerSettingsSchema = Body(),
     ) -> dict[str, Any]:
+        salesforce_settings = (data.integration or {}).get("salesforce") or {}
+        if salesforce_settings.get("send_transcript_to_salesforce") and (
+            not salesforce_settings.get("salesforce_api_server")
+            or not salesforce_settings.get("salesforce_stt_recording_tool")
+        ):
+            raise ValueError(
+                "Salesforce API server and STT recording tool are required when "
+                "send_transcript_to_salesforce is enabled."
+            )
         async with async_session_maker() as session:
             stmt = select(Settings).where(
                 Settings.system_name == NOTE_TAKER_SETTINGS_SYSTEM_NAME

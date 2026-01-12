@@ -90,9 +90,15 @@ _ORGANIZER_PERSONAL_INSTALL_PROMPT = "Please install me."
 
 _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
     "subscription_recordings_ready": False,
-    "send_transcript_to_salesforce": False,
     "create_knowledge_graph_embedding": False,
     "knowledge_graph_system_name": "",
+    "integration": {
+        "salesforce": {
+            "send_transcript_to_salesforce": False,
+            "salesforce_api_server": "",
+            "salesforce_stt_recording_tool": "",
+        }
+    },
     "chapters": {"enabled": False, "prompt_template": ""},
     "summary": {"enabled": False, "prompt_template": ""},
     "insights": {"enabled": False, "prompt_template": ""},
@@ -104,11 +110,33 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(raw, dict):
         return settings
 
+    # Backwards compatibility: lift legacy flat Salesforce fields into integration.salesforce.
+    if "integration" not in raw and any(
+        key in raw
+        for key in (
+            "send_transcript_to_salesforce",
+            "salesforce_api_server",
+            "salesforce_stt_recording_tool",
+        )
+    ):
+        raw = dict(raw)
+        raw["integration"] = {
+            "salesforce": {
+                "send_transcript_to_salesforce": raw.get(
+                    "send_transcript_to_salesforce", False
+                ),
+                "salesforce_api_server": raw.get("salesforce_api_server", ""),
+                "salesforce_stt_recording_tool": raw.get(
+                    "salesforce_stt_recording_tool", ""
+                ),
+            }
+        }
+
     for key in (
         "subscription_recordings_ready",
-        "send_transcript_to_salesforce",
         "create_knowledge_graph_embedding",
         "knowledge_graph_system_name",
+        "integration",
     ):
         if key in raw:
             settings[key] = raw[key]
@@ -264,7 +292,8 @@ async def _send_stt_recording_to_salesforce(
         return
 
     settings = await _load_note_taker_settings()
-    if not settings.get("send_transcript_to_salesforce"):
+    salesforce_settings = (settings.get("integration") or {}).get("salesforce") or {}
+    if not salesforce_settings.get("send_transcript_to_salesforce"):
         await context.send_activity(
             "Salesforce sync skipped: sending transcripts to Salesforce is disabled in settings."
         )
@@ -279,6 +308,16 @@ async def _send_stt_recording_to_salesforce(
     if not conversation_date:
         conversation_date = dt.datetime.now(dt.timezone.utc).date().isoformat()
 
+    salesforce_api_server = salesforce_settings.get("salesforce_api_server") or None
+    salesforce_stt_recording_tool = (
+        salesforce_settings.get("salesforce_stt_recording_tool") or None
+    )
+    if not salesforce_api_server or not salesforce_stt_recording_tool:
+        await context.send_activity(
+            "Salesforce sync skipped: API server or STT recording tool is not configured in settings."
+        )
+        return
+
     payload = {
         "external_job_id": job_id,
         "conversation_date": conversation_date,
@@ -291,7 +330,11 @@ async def _send_stt_recording_to_salesforce(
     await context.send_activity(f"```json\n{payload_json}\n```")
 
     try:
-        result = await post_stt_recording(payload)
+        result = await post_stt_recording(
+            payload,
+            server=salesforce_api_server,
+            tool=salesforce_stt_recording_tool,
+        )
     except Exception as err:
         logger.exception("Salesforce sttRecording failed for job %s", job_id)
         await context.send_activity(
@@ -2407,7 +2450,17 @@ def _register_note_taker_handlers(
         await _send_typing(context)
 
         try:
-            result = await account_lookup(account_name)
+            settings = await _load_note_taker_settings()
+            salesforce_settings = (settings.get("integration") or {}).get(
+                "salesforce"
+            ) or {}
+            salesforce_api_server = (
+                salesforce_settings.get("salesforce_api_server") or None
+            )
+            result = await account_lookup(
+                account_name,
+                server=salesforce_api_server,
+            )
         except Exception as err:
             logger.exception(
                 "Salesforce account lookup failed for %s",
@@ -2456,7 +2509,17 @@ def _register_note_taker_handlers(
         await _send_typing(context)
 
         try:
-            result = await account_lookup(account_name)
+            settings = await _load_note_taker_settings()
+            salesforce_settings = (settings.get("integration") or {}).get(
+                "salesforce"
+            ) or {}
+            salesforce_api_server = (
+                salesforce_settings.get("salesforce_api_server") or None
+            )
+            result = await account_lookup(
+                account_name,
+                server=salesforce_api_server,
+            )
         except Exception as err:
             logger.exception(
                 "Salesforce account lookup failed for %s",

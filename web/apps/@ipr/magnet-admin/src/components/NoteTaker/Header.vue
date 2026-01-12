@@ -29,6 +29,22 @@ const validateSettings = () => {
     return false
   }
 
+  if (settings.integration?.salesforce?.send_transcript_to_salesforce) {
+    if (
+      !settings.integration?.salesforce?.salesforce_api_server ||
+      !settings.integration?.salesforce?.salesforce_stt_recording_tool
+    ) {
+      $q.notify({
+        position: 'top',
+        message: 'Select Salesforce API server and STT recording tool.',
+        color: 'positive',
+        textColor: 'black',
+        timeout: 1200,
+      })
+      return false
+    }
+  }
+
   const checks = [
     { enabled: settings.chapters?.enabled, template: settings.chapters?.prompt_template, label: 'chapters' },
     { enabled: settings.summary?.enabled, template: settings.summary?.prompt_template, label: 'summary' },
