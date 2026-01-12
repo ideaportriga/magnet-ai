@@ -1246,6 +1246,7 @@ onBeforeUnmount(() => {
   transition:
     box-shadow 0.2s ease,
     border-color 0.2s ease;
+  border: 1px solid #9ca3af;
 }
 
 .chunk-index-badge {
