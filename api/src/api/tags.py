@@ -7,6 +7,7 @@ class TagNames(StrEnum):
     UserExecute = "User / Execute"
     UserAgentConversations = "User / Agent Conversations"
     UserAiApps = "User / AI Apps"
+    UserKnowledgeGraph = "User / Knowledge Graph"
     UserTelemetry = "User / Telemetry"
     UserUtils = "User / Utils"
     UserAgentsMessages = "User / Agents Messages"
@@ -25,6 +26,10 @@ def get_tags() -> list[Tag]:
         Tag(
             name=TagNames.UserAiApps,
             description="User API endpoints related to retrieving AI app configurations.",
+        ),
+        Tag(
+            name=TagNames.UserKnowledgeGraph,
+            description="User API endpoints for working with Knowledge Graphs, including ingestion, search, and querying.",
         ),
         Tag(
             name=TagNames.UserTelemetry,

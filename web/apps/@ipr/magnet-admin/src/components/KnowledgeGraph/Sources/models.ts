@@ -35,6 +35,8 @@ export function getSourceTypeName(type: string) {
   switch (type) {
     case 'upload':
       return 'Manual Upload'
+    case 'api_ingest':
+      return 'API Ingest'
     case 'sharepoint':
       return 'SharePoint'
     case 'confluence':
@@ -50,7 +52,7 @@ export function getSourceTypeName(type: string) {
     case 'fluid_topics':
       return 'Fluid Topics'
     default:
-      return type?.charAt(0).toUpperCase() + type?.slice(1)
+      return type
   }
 }
 

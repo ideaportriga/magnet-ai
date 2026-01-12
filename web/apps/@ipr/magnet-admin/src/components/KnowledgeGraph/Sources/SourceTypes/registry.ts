@@ -1,9 +1,10 @@
 import type { Component } from 'vue'
+import ApiIngestDialog from './ApiIngestDialog.vue'
 import FluidTopicsDialog from './FluidTopicsDialog.vue'
 import SharePointDialog from './SharePointDialog.vue'
 import UploadDialog from './UploadDialog.vue'
 
-export type SourceTypeKey = 'upload' | 'sharepoint' | 'fluid_topics' | 'confluence'
+export type SourceTypeKey = 'upload' | 'sharepoint' | 'fluid_topics' | 'confluence' | 'api_ingest'
 
 export interface SourceTypeConfig {
   key: SourceTypeKey
@@ -37,6 +38,12 @@ export const sourceRegistry: Record<SourceTypeKey, SourceTypeConfig> = {
     label: 'Confluence',
     syncable: false,
     comingSoon: true,
+  },
+  api_ingest: {
+    key: 'api_ingest',
+    label: 'API Ingest',
+    syncable: false,
+    dialogComponent: ApiIngestDialog,
   },
 }
 

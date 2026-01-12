@@ -1,7 +1,14 @@
 <template>
-  <div class="col-auto q-py-auto">
+  <div v-if="!showBackToExplorer" class="col-auto q-py-auto">
     <div class="km-heading-4">{{ graphName }}</div>
   </div>
+  <div v-if="showBackToExplorer" class="col-auto text-white km-body km-underline q-mx-md" @click="goBackToExplorer">
+    <div class="row items-center no-wrap q-gap-8">
+      <q-icon class="col-auto q-pt-2" name="fas fa-chevron-left" color="text-secondary" size="12px" />
+      <div>Back to Explorer</div>
+    </div>
+  </div>
+
   <div class="col" />
   <div class="col-auto q-mr-sm">
     <km-btn label="Record info" icon="info" icon-size="16px" />
@@ -48,7 +55,7 @@
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import { useQuasar } from 'quasar'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 
@@ -63,6 +70,7 @@ const showDeleteDialog = ref(false)
 const deleting = ref(false)
 
 const graphId = computed(() => route.params.id as string)
+const showBackToExplorer = computed(() => !!route.params.documentId)
 
 const load = async () => {
   if (!graphId.value) return
@@ -83,6 +91,11 @@ const load = async () => {
   } catch (e) {
     // noop
   }
+}
+
+const goBackToExplorer = async () => {
+  if (!graphId.value) return
+  await router.push({ path: `/knowledge-graph/${graphId.value}`, query: { tab: 'explorer' } })
 }
 
 const deleteGraph = async () => {
@@ -127,4 +140,8 @@ const deleteGraph = async () => {
 }
 
 onMounted(load)
+
+watch(graphId, () => {
+  load()
+})
 </script>

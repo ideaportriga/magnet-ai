@@ -52,6 +52,7 @@ from microsoft_agents.hosting.teams import TeamsInfo
 
 from core.db.session import async_session_maker
 from core.db.models.teams import TeamsMeeting, TeamsUser
+from core.db.models.settings import Settings
 from sqlalchemy import func, select, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
@@ -83,11 +84,66 @@ _TRANSCRIPTION_TIMEOUT_SECONDS = float(
 _TRANSCRIPTION_POLL_SECONDS = float(
     os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5")
 )
-PROMPT_TEMPLATE_STT_SUMMARY = "STT_SUMMARY"
-PROMPT_TEMPLATE_STT_CHAPTERS = "STT_CHAPTERS"
-PROMPT_TEMPLATE_STT_INSIGHTS = "STT_INSIGHTS"
+NOTE_TAKER_SETTINGS_SYSTEM_NAME = "NOTE_TAKER_SETTINGS"
 _ORGANIZER_SIGN_IN_PROMPT = "I need you to sign in with /sign-in in our 1:1 chat so I can access meeting resources."
 _ORGANIZER_PERSONAL_INSTALL_PROMPT = "Please install me."
+
+_DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
+    "subscription_recordings_ready": False,
+    "send_transcript_to_salesforce": False,
+    "create_knowledge_graph_embedding": False,
+    "knowledge_graph_system_name": "",
+    "chapters": {"enabled": False, "prompt_template": ""},
+    "summary": {"enabled": False, "prompt_template": ""},
+    "insights": {"enabled": False, "prompt_template": ""},
+}
+
+
+def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
+    settings = dict(_DEFAULT_NOTE_TAKER_SETTINGS)
+    if not isinstance(raw, dict):
+        return settings
+
+    for key in (
+        "subscription_recordings_ready",
+        "send_transcript_to_salesforce",
+        "create_knowledge_graph_embedding",
+        "knowledge_graph_system_name",
+    ):
+        if key in raw:
+            settings[key] = raw[key]
+
+    for section in ("chapters", "summary", "insights"):
+        base_section = dict(settings[section])
+        section_raw = raw.get(section)
+        if isinstance(section_raw, dict):
+            for key in base_section.keys():
+                if key in section_raw:
+                    base_section[key] = section_raw[key]
+        settings[section] = base_section
+
+    return settings
+
+
+async def _load_note_taker_settings() -> dict[str, Any]:
+    try:
+        async with async_session_maker() as session:
+            stmt = select(Settings.config).where(
+                Settings.system_name == NOTE_TAKER_SETTINGS_SYSTEM_NAME
+            )
+            result = await session.execute(stmt)
+            config = result.scalar_one_or_none()
+    except Exception as err:
+        logger.debug("Failed to load note taker settings: %s", err)
+        return dict(_DEFAULT_NOTE_TAKER_SETTINGS)
+
+    if isinstance(config, str):
+        try:
+            config = json.loads(config)
+        except json.JSONDecodeError:
+            config = None
+
+    return _merge_note_taker_settings(config if isinstance(config, dict) else None)
 
 
 def _format_duration(seconds: float | int | None) -> str:
@@ -207,6 +263,13 @@ async def _send_stt_recording_to_salesforce(
     if not job_id:
         return
 
+    settings = await _load_note_taker_settings()
+    if not settings.get("send_transcript_to_salesforce"):
+        await context.send_activity(
+            "Salesforce sync skipped: sending transcripts to Salesforce is disabled in settings."
+        )
+        return
+
     if not account_id:
         await context.send_activity(
             "Salesforce sync skipped: account id is not set for this meeting."
@@ -303,6 +366,96 @@ def _format_iso_datetime(value: str | None) -> str:
         return parsed.strftime("%Y-%m-%d %H:%M UTC")
     except Exception:
         return value
+
+
+async def _send_expandable_section(
+    context: TurnContext,
+    *,
+    title: str,
+    content: str,
+    preserve_newlines: bool = False,
+) -> None:
+    details_block: dict[str, Any]
+    if preserve_newlines:
+        lines = [line for line in content.splitlines() if line.strip() != ""]
+        if not lines:
+            lines = [content]
+        details_block = {
+            "type": "Container",
+            "id": "details",
+            "isVisible": False,
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": line,
+                    "wrap": True,
+                    "spacing": "Small",
+                }
+                for line in lines
+            ],
+        }
+    else:
+        details_block = {
+            "type": "TextBlock",
+            "id": "details",
+            "text": content,
+            "wrap": True,
+            "isVisible": False,
+            "spacing": "Small",
+        }
+    card = {
+        "type": "AdaptiveCard",
+        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+        "version": "1.5",
+        "body": [
+            {
+                "type": "TextBlock",
+                "text": title,
+                "weight": "Bolder",
+                "size": "Medium",
+                "wrap": True,
+            },
+            details_block,
+            {
+                "type": "ActionSet",
+                "id": "show-actions",
+                "actions": [
+                    {
+                        "type": "Action.ToggleVisibility",
+                        "title": "Show details",
+                        "targetElements": [
+                            "details",
+                            "show-actions",
+                            "hide-actions",
+                        ],
+                    }
+                ],
+            },
+            {
+                "type": "ActionSet",
+                "id": "hide-actions",
+                "isVisible": False,
+                "actions": [
+                    {
+                        "type": "Action.ToggleVisibility",
+                        "title": "🙈 Hide details",
+                        "targetElements": [
+                            "details",
+                            "show-actions",
+                            "hide-actions",
+                        ],
+                    }
+                ],
+            },
+        ],
+        "msteams": {"width": "Full"},
+    }
+    attachment = Attachment(
+        content_type="application/vnd.microsoft.card.adaptive",
+        content=card,
+    )
+    activity = Activity(type="message", attachments=[attachment])
+    await context.send_activity(activity)
 
 
 async def _download_file_from_link(
@@ -854,18 +1007,38 @@ async def _send_transcription_summary(
             f"Transcription completed (job={job_id or 'n/a'}, segments={segs_count}{duration_part})."
         )
         if full_text:
-            snippet = full_text[:1000]
-            suffix = "." if len(full_text) > len(snippet) else ""
-            await context.send_activity(f"Transcript text: {snippet}{suffix}")
+            max_chars = 4000
+            snippet = full_text[:max_chars]
+            suffix = "..." if len(full_text) > len(snippet) else ""
+            await _send_expandable_section(
+                context,
+                title="Transcript",
+                content=f"{snippet}{suffix}",
+                preserve_newlines=True,
+            )
         elif segs_count == 0:
             await context.send_activity("No speech was detected in this recording.")
 
         if full_text:
-            templates = [
-                (PROMPT_TEMPLATE_STT_SUMMARY, "Summary"),
-                (PROMPT_TEMPLATE_STT_CHAPTERS, "Chapters"),
-                (PROMPT_TEMPLATE_STT_INSIGHTS, "Insights"),
-            ]
+            settings = await _load_note_taker_settings()
+
+            templates: list[tuple[str, str]] = []
+            for key, title in (
+                ("summary", "Summary"),
+                ("chapters", "Chapters"),
+                ("insights", "Insights"),
+            ):
+                section = settings.get(key) if isinstance(settings, dict) else None
+                if not isinstance(section, dict):
+                    continue
+                if not section.get("enabled"):
+                    continue
+                template_name = str(section.get("prompt_template") or "").strip()
+                if template_name:
+                    templates.append((template_name, title))
+
+            if not templates:
+                return
 
             async def _run_template(system_name: str):
                 return await execute_prompt_template(
@@ -894,7 +1067,14 @@ async def _send_transcription_summary(
                     await context.send_activity(f"{title} generation failed.")
                     continue
 
-                await context.send_activity(f"{title}:\n{result.content}")
+                content = getattr(result, "content", None)
+                if content is None:
+                    content = str(result)
+                await _send_expandable_section(
+                    context,
+                    title=f"Meeting {title.lower()}",
+                    content=str(content),
+                )
         return
 
     if status == "failed":
@@ -1023,7 +1203,9 @@ def _register_note_taker_handlers(
             "**/whoami** - Show your Teams identity and sign-in status.",
             "**/sf-account-lookup ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
+            "**/recordings-list** - List meeting recordings.",
             "**/recordings-find** - List meeting recordings and transcribe the latest.",
+            "**/process-transcript-job TRANSCRIPTION_JOB_ID** - Process an existing transcription job.",
             "**/process-recording RECORDING_ID** - Download and transcribe a specific recording.",
             "**/process-file LINK** - Download and transcribe an audio/video file.",
             "**/meeting-info** - Show current meeting details.",
@@ -1147,6 +1329,31 @@ def _register_note_taker_handlers(
 
         await context.send_activity("\n\n".join(lines))
 
+    async def _build_salesforce_submit_callback(
+        context: TurnContext,
+        *,
+        conversation_date: str | None,
+        source_file_name: str,
+        source_file_type: str,
+    ) -> Callable[[str], Awaitable[None]] | None:
+        if not _is_meeting_conversation(context):
+            return None
+
+        meeting_context = _resolve_meeting_details(context)
+        account_id = await _get_meeting_account_id(context, meeting_context.get("id"))
+
+        async def _notify_salesforce(submit_job_id: str) -> None:
+            await _send_stt_recording_to_salesforce(
+                context,
+                job_id=submit_job_id,
+                conversation_date=conversation_date,
+                source_file_name=source_file_name,
+                source_file_type=source_file_type,
+                account_id=account_id,
+            )
+
+        return _notify_salesforce
+
     async def _transcribe_bytes_and_notify(
         context: TurnContext,
         *,
@@ -1164,24 +1371,12 @@ def _register_note_taker_handlers(
             )
             return
 
-        on_submit = None
-        if _is_meeting_conversation(context):
-            meeting_context = _resolve_meeting_details(context)
-            account_id = await _get_meeting_account_id(
-                context, meeting_context.get("id")
-            )
-
-            async def _notify_salesforce(submit_job_id: str) -> None:
-                await _send_stt_recording_to_salesforce(
-                    context,
-                    job_id=submit_job_id,
-                    conversation_date=conversation_date,
-                    source_file_name=f"{name}{ext}",
-                    source_file_type=content_type,
-                    account_id=account_id,
-                )
-
-            on_submit = _notify_salesforce
+        on_submit = await _build_salesforce_submit_callback(
+            context,
+            conversation_date=conversation_date,
+            source_file_name=f"{name}{ext}",
+            source_file_type=content_type,
+        )
 
         try:
             status, result = await _start_transcription_from_bytes(
@@ -1213,6 +1408,50 @@ def _register_note_taker_handlers(
         await _send_transcription_summary(
             context,
             status,
+            job_id,
+            transcription,
+            conversation_date=conversation_date,
+        )
+
+    async def _process_transcription_job_and_notify(
+        context: TurnContext,
+        *,
+        job_id: str,
+        conversation_date: str | None = None,
+    ) -> None:
+        await _send_typing(context)
+        on_submit = await _build_salesforce_submit_callback(
+            context,
+            conversation_date=conversation_date,
+            source_file_name=f"transcription_job_{job_id}",
+            source_file_type="application/json",
+        )
+        if on_submit:
+            await on_submit(job_id)
+
+        try:
+            status = await transcription_service.get_status(job_id)
+        except Exception as err:
+            logger.exception("Failed to fetch transcription status for %s", job_id)
+            await context.send_activity(
+                f"Could not retrieve transcription status for job {job_id}: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        transcription = None
+        if status in {"completed", "transcribed", "diarized"}:
+            try:
+                transcription = await transcription_service.get_transcription(job_id)
+            except Exception as err:
+                logger.exception("Failed to fetch transcription for %s", job_id)
+                await context.send_activity(
+                    f"Could not retrieve transcription for job {job_id}: {getattr(err, 'message', str(err))}"
+                )
+                return
+
+        await _send_transcription_summary(
+            context,
+            status or "unknown",
             job_id,
             transcription,
             conversation_date=conversation_date,
@@ -1542,8 +1781,75 @@ def _register_note_taker_handlers(
             )
             return
 
+        await _handle_recordings_list(
+            context,
+            state,
+            recordings=recordings,
+            meeting=meeting,
+            delegated_token=delegated_token,
+            transcribe_latest=True,
+        )
+
+    async def _handle_recordings_list(
+        context: TurnContext,
+        state: Optional[TurnState],
+        recordings: list | None = None,
+        meeting: dict[str, Any] | None = None,
+        delegated_token: str | None = None,
+        transcribe_latest: bool = False,
+    ) -> None:
+        meeting = meeting or _resolve_meeting_details(context)
+        if recordings is None:
+            if not (meeting.get("id") or meeting.get("conversationId")):
+                logger.warning("No meeting id found for recordings-list command.")
+                return
+
+            await _send_typing(context)
+
+            try:
+                online_meeting_id = await _get_online_meeting_id(context)
+                if not online_meeting_id:
+                    await context.send_activity(
+                        "No online meeting id found for this meeting."
+                    )
+                    return
+
+                if not delegated_token:
+                    delegated_token = await _get_delegated_token(
+                        context,
+                        auth_handler_id,
+                        "Please sign in (Recordings connection) so I can fetch recordings with delegated Graph permissions.",
+                    )
+                    if not delegated_token:
+                        return
+
+                async with create_graph_client_with_token(
+                    delegated_token
+                ) as graph_client:
+                    recordings = await get_meeting_recordings(
+                        client=graph_client,
+                        online_meeting_id=online_meeting_id,
+                        add_size=True,
+                        content_token=delegated_token,
+                    )
+            except Exception as err:
+                logger.exception("Failed to fetch meeting recordings")
+                await context.send_activity(
+                    f"Could not retrieve meeting recordings for {meeting.get('title') or 'meeting'}: {getattr(err, 'message', str(err))}"
+                )
+                return
+
+        if not delegated_token:
+            delegated_token = await _get_delegated_token(
+                context,
+                auth_handler_id,
+                "Please sign in (Recordings connection) so I can fetch recordings with delegated Graph permissions.",
+            )
+            if not delegated_token:
+                return
+
         await _send_recordings_summary(context, recordings, delegated_token)
-        if recordings:
+        if transcribe_latest and recordings:
             await context.send_activity("Streaming the latest recording now...")
             await _send_typing(context)
             try:
@@ -2535,6 +2841,20 @@ def _register_note_taker_handlers(
             await _send_typing(context)
             await _handle_recordings_find(context, _state)
             return
+        if normalized_text.startswith("/recordings-list"):
+            await _send_typing(context)
+            await _handle_recordings_list(context, _state)
+            return
+        if normalized_text.startswith("/process-transcript-job"):
+            parts = normalized_text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity(
+                    "Usage: /process-transcript-job TRANSCRIPTION_JOB_ID"
+                )
+                return
+            job_id = parts[1].strip()
+            await _process_transcription_job_and_notify(context, job_id=job_id)
+            return
 
         await context.send_activity("...not implemented yet...")
 
@@ -2544,7 +2864,13 @@ def _register_note_taker_handlers(
         normalized = str(name or "").lower()
         if normalized == "application/vnd.microsoft.meetingstart":
             logger.info("[teams note-taker] meeting start event received.")
-            await _subscribe_to_recording_notifications(context)
+            settings = await _load_note_taker_settings()
+            if settings.get("subscription_recordings_ready"):
+                await _subscribe_to_recording_notifications(context)
+            else:
+                await context.send_activity(
+                    "Recordings-ready subscription is disabled in settings; skipping subscription."
+                )
         elif normalized == "application/vnd.microsoft.meetingend":
             logger.info("[teams note-taker] meeting end event received.")
 

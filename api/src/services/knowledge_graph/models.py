@@ -1,16 +1,21 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
-from typing import Any, Optional, TypedDict
+from typing import Any, Iterable, Iterator, Literal, Optional, TypedDict
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
+from utils.datetime_utils import utc_now
 
 
 class SourceType(StrEnum):
     """Source types for knowledge graph documents."""
 
     UPLOAD = "upload"
+    API_INGEST = "api_ingest"
+    API_FETCH = "api_fetch"
     SHAREPOINT = "sharepoint"
     SHAREPOINT_PAGES = "sharepoint_pages"
     CONFLUENCE = "confluence"
@@ -32,6 +37,7 @@ class ContentReaderName(StrEnum):
 class ChunkerStrategy(StrEnum):
     """Chunker strategies for knowledge graph ingestion."""
 
+    NONE = "none"
     LLM = "llm"
     RECURSIVE = "recursive_character_text_splitting"
 
@@ -167,3 +173,118 @@ class SyncCounters:
     failed: int = 0
     skipped: int = 0
     total_found: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataMultiValueContainer:
+    """Explicit wrapper for metadata fields that logically contain multiple values.
+
+    Some ingestion sources (e.g., SharePoint multi-choice fields) return values in
+    shapes that are easy to mis-handle downstream (lists, dicts with `results`, or
+    custom collection objects). Wrapping the extracted values into this container
+    makes it easy for downstream services to detect and expand them.
+    """
+
+    values: tuple[Any, ...]
+
+    @classmethod
+    def from_iterable(cls, values: Iterable[Any]) -> "MetadataMultiValueContainer":
+        return cls(tuple(values))
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.values)
+
+    def __len__(self) -> int:
+        return len(self.values)
+
+
+class KnowledgeGraphRetrievalSource(BaseModel):
+    """Lightweight source item for UI (document title and excerpt)."""
+
+    document_id: Optional[str] = None
+    document_name: Optional[str] = None
+    document_title: Optional[str] = None
+    chunk_title: Optional[str] = None
+    chunk_content: Optional[str] = None
+
+
+class KnowledgeGraphRetrievalWorkflowStep(BaseModel):
+    """Workflow step describing a single tool call execution."""
+
+    iteration: int
+    tool: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    call_summary: dict[str, Any] = Field(default_factory=dict)
+
+
+class KnowledgeGraphAgentRunResult(BaseModel):
+    """Internal result model returned by Knowledge Graph agent runs."""
+
+    content: str
+    sources: list[KnowledgeGraphRetrievalSource] = Field(default_factory=list)
+    workflow: list[KnowledgeGraphRetrievalWorkflowStep] = Field(default_factory=list)
+    conversation_id: str | None = Field(
+        default=None, description="Conversation id associated with this agent run"
+    )
+    trace_id: str | None = Field(
+        default=None,
+        description="OpenTelemetry trace id associated with this agent run.",
+    )
+
+
+class KnowledgeGraphConversationMessageRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
+
+class KnowledgeGraphConversationMessageBase(BaseModel):
+    """Minimal agent-conversation message schema for Knowledge Graph conversations.
+
+    Notes:
+    - `extra="allow"` is important: we must preserve any additional fields written
+      by other services (e.g., feedback / copied flags) when we round-trip
+      messages through `model_dump()` in start/continue flows.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    id: UUID
+    created_at: datetime = Field(default_factory=utc_now)
+    role: KnowledgeGraphConversationMessageRole
+    content: str | None = None
+
+
+class KnowledgeGraphConversationMessageUser(KnowledgeGraphConversationMessageBase):
+    role: Literal[KnowledgeGraphConversationMessageRole.USER] = (
+        KnowledgeGraphConversationMessageRole.USER
+    )
+
+
+class KnowledgeGraphConversationMessageAssistant(KnowledgeGraphConversationMessageBase):
+    role: Literal[KnowledgeGraphConversationMessageRole.ASSISTANT] = (
+        KnowledgeGraphConversationMessageRole.ASSISTANT
+    )
+
+
+KnowledgeGraphConversationMessage = (
+    KnowledgeGraphConversationMessageUser | KnowledgeGraphConversationMessageAssistant
+)
+
+
+class KnowledgeGraphConversationData(BaseModel):
+    """Minimal agent-conversation schema for Knowledge Graph conversations."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: UUID | None = None
+    agent: str
+    created_at: datetime
+    last_user_message_at: datetime
+    client_id: str | None = None
+    trace_id: str | None = None
+    analytics_id: str | None = None
+    variables: dict[str, str] | None = None
+
+
+class KnowledgeGraphConversationDataWithMessages(KnowledgeGraphConversationData):
+    messages: list[KnowledgeGraphConversationMessage]

@@ -19,6 +19,7 @@ export interface Tool {
   hybridWeight?: number
   scoreThreshold?: number
   limit?: number
+  metadataMergeStrategy?: 'merge_and' | 'merge_or' | 'agent_priority' | 'caller_priority'
 
   // Exit specific
   strategy?: string
@@ -34,16 +35,11 @@ export const tools: Tool[] = [
     id: 'findDocumentsByMetadata',
     name: 'findDocumentsByMetadata',
     label: 'Document Metadata Search',
-    description: '',
+    description: 'Filter documents by their metadata fields',
     category: 'filter',
-    searchControl: 'configuration',
-    scopeControl: 'configuration',
-    searchMethod: 'vector',
-    hybridWeight: 0,
-    scoreThreshold: 0,
-    limit: 10,
-    enabled: false,
-    isStub: true, // Coming Soon
+    searchControl: 'agent',
+    metadataMergeStrategy: 'merge_and',
+    enabled: true,
     ui: {
       previewExecutionFlowColor: 'orange',
     },

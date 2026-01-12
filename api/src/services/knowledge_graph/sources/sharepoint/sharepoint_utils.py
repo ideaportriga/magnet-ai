@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import date, datetime
 from typing import Any, cast
+from uuid import UUID
 
 from litestar.exceptions import ClientException
 from office365.runtime.auth.authentication_context import AuthenticationContext
@@ -11,6 +13,7 @@ from office365.sharepoint.files.file import File, Folder
 
 from core.config.base import get_knowledge_source_settings
 
+from ...models import MetadataMultiValueContainer
 from .sharepoint_models import SharePointFileRef, SharePointRuntimeConfig
 
 logger = logging.getLogger(__name__)
@@ -411,4 +414,114 @@ async def download_sharepoint_file_bytes(
 
     return await asyncio.to_thread(
         _download_file_bytes_sync, ctx, server_relative_url=server_relative_url
+    )
+
+
+def _is_simple_scalar(value: Any) -> bool:
+    return value is None or isinstance(
+        value, (str, bool, int, float, datetime, date, UUID)
+    )
+
+
+def _extract_sharepoint_choice_values(value: Any) -> list[Any] | None:
+    """Best-effort extraction of multi-choice values from SharePoint list item fields."""
+
+    if value is None or isinstance(value, MetadataMultiValueContainer):
+        return None
+
+    if isinstance(value, dict):
+        # SharePoint choice fields come back as an index->value mapping:
+        # {0: "Choice 3", 1: "Choice 2"} (or {"0": "...", "1": "..."})
+        indexed_items: list[tuple[int, Any]] = []
+        for k, v in value.items():
+            if isinstance(k, int):
+                idx = k
+            elif isinstance(k, str) and k.strip().isdigit():
+                idx = int(k.strip())
+            else:
+                indexed_items = []
+                break
+            indexed_items.append((idx, v))
+
+        if indexed_items and all(_is_simple_scalar(v) for _, v in indexed_items):
+            indexed_items.sort(key=lambda t: t[0])
+            return [v for _, v in indexed_items]
+
+        return None
+
+    return None
+
+
+def _normalize_sharepoint_choice_fields(metadata: dict[str, Any]) -> None:
+    """Wrap detected SharePoint multi-choice values in `MetadataMultiValueContainer`."""
+    for key, value in list((metadata or {}).items()):
+        values = _extract_sharepoint_choice_values(value)
+        if values is None:
+            continue
+        metadata[key] = MetadataMultiValueContainer.from_iterable(values)
+
+
+def _fetch_file_list_item_fields_sync(
+    ctx: ClientContext, *, server_relative_url: str
+) -> dict[str, Any]:
+    """Fetch SharePoint list item fields for a file (sync, blocking).
+
+    This mirrors the legacy SharePoint processor behavior, returning a dict of
+    list-item properties with a few noisy/large fields removed.
+    """
+    f = ctx.web.get_file_by_server_relative_url(server_relative_url)
+
+    list_item = (
+        getattr(f, "listItemAllFields", None)
+        or getattr(f, "list_item_all_fields", None)
+        or None
+    )
+    if not list_item:
+        return {}
+
+    # Load fields
+    list_item.get().execute_query()
+
+    props = getattr(list_item, "properties", None) or {}
+    if not isinstance(props, dict):
+        return {}
+
+    # Remove noisy / large fields (legacy behavior)
+    cleaned = dict(props)
+    cleaned.pop("ParentList", None)
+    cleaned.pop("CanvasContent1", None)
+    cleaned.pop("ComplianceAssetId", None)
+    cleaned.pop("OData__AuthorBylineId", None)
+    cleaned.pop("OData__UIVersionString", None)
+    cleaned.pop("OData__ColorTag", None)
+    cleaned.pop("OData__CopySource", None)
+    cleaned.pop("_AuthorBylineStringId", None)
+    cleaned.pop("FileSystemObjectType", None)
+    cleaned.pop("EditorId", None)
+    cleaned.pop("AuthorId", None)
+    cleaned.pop("ContentTypeId", None)
+    cleaned.pop("CheckoutUserId", None)
+    cleaned.pop("Id", None)
+    cleaned.pop("ID", None)
+    cleaned.pop("GUID", None)
+    cleaned.pop("ServerRedirectedEmbedUri", None)
+    cleaned.pop("ServerRedirectedEmbedUrl", None)
+
+    # Try to find choice fields and convert them to special MetadataMultiValueContainer object
+    _normalize_sharepoint_choice_fields(cleaned)
+
+    return cleaned
+
+
+async def fetch_sharepoint_file_list_item_fields(
+    ctx: ClientContext, *, server_relative_url: str
+) -> dict[str, Any]:
+    """Fetch list item fields/properties for a SharePoint file by server-relative URL."""
+    if not server_relative_url:
+        raise ClientException(
+            "Missing SharePoint server_relative_url for file metadata fetch"
+        )
+
+    return await asyncio.to_thread(
+        _fetch_file_list_item_fields_sync, ctx, server_relative_url=server_relative_url
     )

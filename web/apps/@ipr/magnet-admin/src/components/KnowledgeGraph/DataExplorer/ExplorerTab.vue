@@ -71,7 +71,7 @@
           <template #body-cell-name="slotScope">
             <q-td :props="slotScope">
               <div class="row items-center no-wrap q-gutter-x-sm">
-                <file-type-badge :type="slotScope.row.type" />
+                <kg-file-type-badge :type="slotScope.row.type" />
                 <div style="max-width: 300px">
                   <div class="text-body2 text-weight-medium ellipsis">
                     {{ slotScope.row.title }}
@@ -87,18 +87,7 @@
           </template>
           <template #body-cell-status="slotScope">
             <q-td :props="slotScope">
-              <q-chip
-                class="text-uppercase q-ma-none"
-                size="sm"
-                :color="getStatusColor(slotScope.row.status)"
-                :text-color="getStatusTextColor(slotScope.row.status)"
-                :label="slotScope.row.status"
-                :icon="getStatusIcon(slotScope.row.status)"
-              >
-                <q-tooltip v-if="slotScope.row.status_message" :offset="[0, 10]" style="max-width: 520px; white-space: pre-wrap">
-                  {{ slotScope.row.status_message }}
-                </q-tooltip>
-              </q-chip>
+              <kg-status-badge :status="slotScope.row.status" :message="slotScope.row.status_message" />
             </q-td>
           </template>
         </q-table>
@@ -132,7 +121,7 @@
           <template #body-cell-title="slotScope">
             <q-td :props="slotScope">
               <div class="row items-center no-wrap q-gutter-x-sm">
-                <chunk-type-badge v-if="slotScope.row.chunk_type" :type="slotScope.row.chunk_type" />
+                <kg-chunk-type-badge v-if="slotScope.row.chunk_type" :type="slotScope.row.chunk_type" />
                 <div>
                   <div class="text-body2 text-weight-medium">
                     {{ slotScope.row.title || slotScope.row.name || '—' }}
@@ -157,8 +146,7 @@ import { QTableColumn, useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import ChunkTypeBadge from './ChunkTypeBadge.vue'
-import FileTypeBadge from './FileTypeBadge.vue'
+import { KgChunkTypeBadge, KgFileTypeBadge, KgStatusBadge } from '../common'
 import { Chunk, Document } from './models'
 
 const props = defineProps<{
@@ -342,54 +330,6 @@ const onChunksRequest = (props: any) => {
   chunksPagination.value.page = page
   chunksPagination.value.rowsPerPage = rowsPerPage
   fetchChunks(page, rowsPerPage, searchQuery.value)
-}
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return 'status-ready'
-    case 'processing':
-    case 'extracted':
-      return 'info'
-    case 'error':
-      return 'error-bg'
-    case 'pending':
-      return 'warning'
-    default:
-      return 'gray'
-  }
-}
-
-const getStatusTextColor = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return 'status-ready-text'
-    case 'processing':
-    case 'extracted':
-      return 'white'
-    case 'error':
-      return 'error-text'
-    case 'pending':
-      return 'black'
-    default:
-      return 'text-gray'
-  }
-}
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return 'check_circle'
-    case 'processing':
-    case 'extracted':
-      return 'hourglass_top'
-    case 'error':
-      return 'error'
-    case 'pending':
-      return 'schedule'
-    default:
-      return 'help_outline'
-  }
 }
 
 // Quasar instance for dialogs

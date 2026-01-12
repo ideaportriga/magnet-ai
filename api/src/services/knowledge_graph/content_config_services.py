@@ -19,7 +19,7 @@ def get_default_content_configs() -> list[ContentConfig]:
             name="PDF",
             enabled=True,
             glob_pattern="*.pdf",
-            source_types=["upload", "sharepoint", "fluid_topics"],
+            source_types=["upload", "api_ingest", "sharepoint", "fluid_topics"],
             reader={"name": ContentReaderName.PDF, "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.LLM,
@@ -41,7 +41,7 @@ def get_default_content_configs() -> list[ContentConfig]:
             name="Default",
             enabled=True,
             glob_pattern="",
-            source_types=["upload", "sharepoint", "fluid_topics"],
+            source_types=["upload", "api_ingest", "sharepoint", "fluid_topics"],
             reader={"name": ContentReaderName.PLAIN_TEXT, "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.RECURSIVE,
@@ -127,19 +127,25 @@ async def get_content_config(
     """
     configs = await _get_all_configs(db_session, graph_id)
 
+    normalized_filename = (filename or "").strip().lower()
+
     for config in configs:
         if not config.enabled:
             continue
 
         # Check glob pattern match
-        if not fnmatch.fnmatch(filename.lower(), config.glob_pattern.lower()):
+        glob_pattern = (config.glob_pattern or "").strip()
+        if glob_pattern and not fnmatch.fnmatch(
+            normalized_filename, glob_pattern.lower()
+        ):
             continue
 
         # Check source type match (AND logic)
         # If source_types is not specified or empty in config, it matches all source types
-        if config.source_types and len(config.source_types) > 0:
-            if not source_type or source_type not in config.source_types:
-                continue
+        # FIXME: temporarily disable source type matching
+        # if config.source_types and len(config.source_types) > 0:
+        #     if not source_type or source_type not in config.source_types:
+        #         continue
 
         return config
 

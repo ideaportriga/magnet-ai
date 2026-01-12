@@ -1,10 +1,9 @@
 import os
-
 from typing import Any
 
 from litestar import Router, get
-from litestar.types import ControllerRouterHandler
 from litestar.static_files import create_static_files_router
+from litestar.types import ControllerRouterHandler
 
 from core.domain.ai_apps import AiAppsController
 from core.domain.ai_models import AIModelsController
@@ -13,39 +12,39 @@ from core.domain.collections import CollectionsController
 from core.domain.evaluation_sets import EvaluationSetsController
 from core.domain.evaluations import EvaluationsController
 from core.domain.jobs import JobsController
+from core.domain.knowledge_graph import KnowledgeGraphController
 from core.domain.mcp_servers import MCPServersController
 from core.domain.metrics import MetricsController
-from core.domain.prompts import PromptsController
+from core.domain.prompts.controller import PromptsController
 from core.domain.providers import ProvidersController
 from core.domain.rag_tools import RagToolsController
 from core.domain.retrieval_tools import RetrievalToolsController
 from core.domain.traces import TracesController
-from core.domain.knowledge_graph import KnowledgeGraphController
 from guards.role import UserRole, create_role_guard
 from routes.admin.api_keys import ApiKeysController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
 from .admin.deep_research import DeepResearchConfigController, DeepResearchRunController
-
-
 from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
 )
+from .admin.note_taker_settings import NoteTakerSettingsController
 from .admin.observability import observability_router
 from .admin.rag import RagController
 from .admin.scheduler import SchedulerController
 from .admin.transfer import TransferController
 from .admin.utils import UtilsController
 from .auth import AuthController
-from .user.agent_conversations import AgentConversationsController
-from .user.ask_magnet import AskMagnetController
-from .user.ai_apps import UserAiAppsController
-from .user.execute import UserExecuteController
-from .user.utils import UserUtilsController
-from .user.agents import UserAgentsController
 from .static import serve_static_file
+from .user.agent_conversations import AgentConversationsController
+from .user.agents import UserAgentsController
+from .user.ai_apps import UserAiAppsController
+from .user.ask_magnet import AskMagnetController
+from .user.execute import UserExecuteController
+from .user.knowledge_graph import UserKnowledgeGraphController
+from .user.utils import UserUtilsController
 
 
 def get_route_handlers(
@@ -71,6 +70,7 @@ def get_route_handlers(
         knowledge_sources_router_deprecated,  # Admin / Knowledge Sources
         MCPServersController,  # Admin / MCP Servers
         MetricsController,  # Admin / Metrics
+        NoteTakerSettingsController,  # Admin / Note Taker
         AIModelsController,  # Admin / Models
         observability_router,  # Admin / Observability
         PromptsController,  # Admin / Prompt Templates
@@ -104,6 +104,7 @@ def get_route_handlers(
         UserAgentsController,  # User / Agents Messages
         UserAiAppsController,  # User / AI Apps
         UserExecuteController,  # User / Execute
+        UserKnowledgeGraphController,  # User / Knowledge Graph
         TelemetryController,  # User / Telemetry
         UserUtilsController,  # User / Utils
     ]

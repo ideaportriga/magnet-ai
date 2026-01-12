@@ -46,6 +46,7 @@ import ModelProvidersDetails from '@/components/ModelProviders/Details.vue'
 import KnowledgeProvidersPage from '@/components/KnowledgeProviders/Page.vue'
 import KnowledgeProvidersDetails from '@/components/KnowledgeProviders/Details.vue'
 import KnowledgeGraphPage from '@/components/KnowledgeGraph/Page.vue'
+import NoteTakerSettingsPage from '@/components/NoteTaker/Settings.vue'
 import store from '@/store/index'
 
 const routes = [
@@ -536,6 +537,14 @@ const routes = [
       chroma: true,
       entity: 'knowledge_graph',
       detail: true,
+    },
+  },
+  {
+    path: '/note-taker',
+    name: 'NoteTakerSettings',
+    component: NoteTakerSettingsPage,
+    meta: {
+      pageLabel: 'Note Taker',
     },
   },
   

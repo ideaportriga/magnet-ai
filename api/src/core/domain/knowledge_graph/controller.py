@@ -25,8 +25,12 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
     KnowledgeGraphCreateRequest,
     KnowledgeGraphCreateResponse,
+    KnowledgeGraphDiscoveredMetadataExternalSchema,
+    KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
     KnowledgeGraphExternalSchema,
+    KnowledgeGraphMetadataExtractionRunRequest,
+    KnowledgeGraphMetadataExtractionRunResponse,
     KnowledgeGraphRetrievalPreviewRequest,
     KnowledgeGraphRetrievalPreviewResponse,
     KnowledgeGraphSourceCreateRequest,
@@ -41,8 +45,13 @@ from core.domain.knowledge_graph.schemas import (
 from core.domain.knowledge_graph.service import (
     KnowledgeGraphChunkService,
     KnowledgeGraphDocumentService,
+    KnowledgeGraphMetadataService,
     KnowledgeGraphService,
     KnowledgeGraphSourceService,
+)
+from services.knowledge_graph.retrievers.agent_retriever.agent import (
+    continue_conversation,
+    start_conversation,
 )
 from services.knowledge_graph.sources import FileUploadDataSource
 from services.observability import observability_overrides, observe
@@ -72,6 +81,9 @@ class KnowledgeGraphController(Controller):
             KnowledgeGraphDocumentService, sync_to_thread=False
         ),
         "chunk_service": Provide(KnowledgeGraphChunkService, sync_to_thread=False),
+        "metadata_service": Provide(
+            KnowledgeGraphMetadataService, sync_to_thread=False
+        ),
     }
 
     ###########################################################################
@@ -262,7 +274,6 @@ class KnowledgeGraphController(Controller):
     @post("/{graph_id:uuid}/retrieval/preview", status_code=HTTP_200_OK)
     async def preview_retrieval(
         self,
-        graph_service: KnowledgeGraphService,
         db_session: AsyncSession,
         graph_id: UUID,
         data: KnowledgeGraphRetrievalPreviewRequest,
@@ -276,17 +287,20 @@ class KnowledgeGraphController(Controller):
             )
 
         if conversation_record:
-            return await graph_service.continue_conversation(
+            result = await continue_conversation(
                 db_session,
                 graph_id,
                 data.query,
                 conversation_record.id,
+                tool_inputs=data.tool_inputs,
                 **observability_overrides(trace_id=conversation_record.trace_id),
             )
+            return KnowledgeGraphRetrievalPreviewResponse(**result.model_dump())
         else:
-            return await graph_service.start_conversation(
-                db_session, graph_id, data.query
+            result = await start_conversation(
+                db_session, graph_id, data.query, tool_inputs=data.tool_inputs
             )
+            return KnowledgeGraphRetrievalPreviewResponse(**result.model_dump())
 
     ###########################################################################
     # KNOWLEDGE GRAPH SOURCE ENDPOINTS #
@@ -417,7 +431,7 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         document_id: UUID,
-    ) -> KnowledgeGraphDocumentExternalSchema:
+    ) -> KnowledgeGraphDocumentDetailSchema:
         return await document_service.get_document(db_session, graph_id, document_id)
 
     @delete(
@@ -464,4 +478,35 @@ class KnowledgeGraphController(Controller):
     ) -> list[KnowledgeGraphChunkExternalSchema]:
         return await chunk_service.list_chunks(
             db_session, graph_id, limit, offset, None, document_id
+        )
+
+    ###########################################################################
+    # KNOWLEDGE GRAPH METADATA ENDPOINTS #
+    ###########################################################################
+
+    @get("/{graph_id:uuid}/metadata/discovered", status_code=HTTP_200_OK)
+    async def list_discovered_metadata(
+        self,
+        metadata_service: KnowledgeGraphMetadataService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+    ) -> list[KnowledgeGraphDiscoveredMetadataExternalSchema]:
+        return await metadata_service.list_discovered_metadata(db_session, graph_id)
+
+    @observe(
+        name="Running knowledge graph metadata/entity extraction",
+        channel="production",
+        source="production",
+    )
+    @post("/{graph_id:uuid}/metadata/extract", status_code=HTTP_200_OK)
+    async def run_metadata_extraction(
+        self,
+        metadata_service: KnowledgeGraphMetadataService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        data: KnowledgeGraphMetadataExtractionRunRequest,
+    ) -> KnowledgeGraphMetadataExtractionRunResponse:
+        """Start (and run) metadata extraction for all documents/chunks in a graph."""
+        return await metadata_service.run_metadata_extraction(
+            db_session, graph_id, data
         )

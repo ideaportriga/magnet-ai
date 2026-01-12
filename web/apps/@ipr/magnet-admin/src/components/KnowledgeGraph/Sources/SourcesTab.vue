@@ -41,14 +41,7 @@
             <div class="kg-sync-cell row items-center no-wrap">
               <!-- Status column (fixed width for alignment) -->
               <div class="column items-start justify-center q-gap-6">
-                <q-chip
-                  :class="['text-uppercase q-ma-none', { 'chip-rotating': effectiveStatus(slotScope.row) === 'syncing' }]"
-                  size="sm"
-                  :color="getSourceStatusColor(effectiveStatus(slotScope.row))"
-                  :text-color="getSourceStatusTextColor(effectiveStatus(slotScope.row))"
-                  :label="formatSourceStatusLabel(effectiveStatus(slotScope.row))"
-                  :icon="getSourceStatusIcon(effectiveStatus(slotScope.row))"
-                />
+                <kg-status-badge :status="effectiveStatus(slotScope.row)" />
                 <div class="kg-sync-meta row items-center no-wrap q-gutter-x-xs q-ml-4">
                   <span class="kg-sync-meta-label">Last sync:</span>
                   <span class="kg-sync-meta-value">
@@ -83,7 +76,7 @@
                 <q-list dense>
                   <q-item
                     v-ripple="false"
-                    :disable="slotScope.row.type === 'upload' || syncingIds.has(slotScope.row.id)"
+                    :disable="!isSyncable(slotScope.row.type) || syncingIds.has(slotScope.row.id)"
                     clickable
                     @click="handleSync(slotScope.row)"
                   >
@@ -153,7 +146,7 @@ import { formatRelative } from '@shared/utils'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
 import { useStore } from 'vuex'
-import { KgConfirmDialog } from '../common'
+import { KgConfirmDialog, KgStatusBadge } from '../common'
 import { formatAdded, getSourceTypeName, type SourceRow, type SourceSchedule } from './models'
 import SourceTypeDialog from './SourceTypeDialog.vue'
 import { getDialogComponentFor, isSyncable, type SourceTypeKey } from './SourceTypes/registry'
@@ -296,12 +289,6 @@ const fetchSources = async () => {
   }
 }
 
-function formatSourceStatusLabel(status?: string) {
-  const s = (status || '').toLowerCase()
-  if (!s) return 'unknown'
-  return s.split('_').join(' ')
-}
-
 function effectiveStatus(row: SourceRow): string {
   // If manual upload in progress, surface 'syncing' for upload source
   if ((kgUploading?.value && row.type === 'upload') || syncingIds.value.has(row.id)) {
@@ -366,60 +353,6 @@ function formatScheduleSummary(schedule?: SourceSchedule): string {
   return `Every day at ${time}`
 }
 
-function getSourceStatusColor(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'status-ready'
-    case 'syncing':
-      return 'info'
-    case 'partial':
-      return 'warning'
-    case 'failed':
-    case 'error':
-      return 'error-bg'
-    case 'not_synced':
-      return 'gray'
-    default:
-      return 'gray'
-  }
-}
-
-function getSourceStatusTextColor(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'status-ready-text'
-    case 'syncing':
-      return 'white'
-    case 'partial':
-      return 'black'
-    case 'failed':
-    case 'error':
-      return 'error-text'
-    case 'not_synced':
-      return 'text-gray'
-    default:
-      return 'text-gray'
-  }
-}
-
-function getSourceStatusIcon(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'check_circle'
-    case 'syncing':
-      return 'sync'
-    case 'partial':
-      return 'warning'
-    case 'failed':
-    case 'error':
-      return 'error'
-    case 'not_synced':
-      return 'schedule'
-    default:
-      return 'help_outline'
-  }
-}
-
 const handleSourceTypeSelect = (sourceType: 'upload' | 'sharepoint' | 'fluid_topics') => {
   selectedRow.value = null
   activeSourceType.value = sourceType as SourceTypeKey
@@ -438,7 +371,7 @@ const handleSourceCancelled = () => {
   selectedRow.value = null
 }
 
-const syncSource = async (source: SourceRow) => {
+const syncSource = async (source: SourceRow, showNotification = true): Promise<boolean> => {
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
@@ -449,28 +382,37 @@ const syncSource = async (source: SourceRow) => {
     })
 
     if (response.ok) {
-      $q.notify({
-        message: `Source ${source.name} synchronized successfully`,
-        position: 'top',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
-      fetchSources()
+      if (showNotification) {
+        $q.notify({
+          message: `Source ${source.name} synchronized successfully`,
+          position: 'top',
+          color: 'positive',
+          textColor: 'black',
+          timeout: 1000,
+        })
+      }
+      await fetchSources()
+      return true
     } else {
-      $q.notify({
-        message: `Failed to synchronize source ${source.name}`,
-        position: 'top',
-        color: 'error-text',
-        timeout: 1000,
-      })
+      if (showNotification) {
+        $q.notify({
+          message: `Failed to synchronize source ${source.name}`,
+          position: 'top',
+          color: 'error-text',
+          timeout: 1000,
+        })
+      }
+      return false
     }
   } catch (error) {
     console.error('Error syncing source:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Error syncing SharePoint',
-    })
+    if (showNotification) {
+      $q.notify({
+        type: 'negative',
+        message: 'Error syncing SharePoint',
+      })
+    }
+    return false
   } finally {
     $q.loading.hide()
   }
@@ -489,7 +431,10 @@ function formatFull(dateStr?: string) {
 const handleSync = async (source: SourceRow) => {
   try {
     syncingIds.value.add(source.id)
-    await syncSource(source)
+    const ok = await syncSource(source)
+    if (ok) {
+      emit('refresh')
+    }
   } finally {
     syncingIds.value.delete(source.id)
   }
@@ -507,15 +452,29 @@ const handleSyncAll = async () => {
       $q.notify({ type: 'info', message: 'No syncable sources found', position: 'top', timeout: 1000 })
       return
     }
+    let anySuccess = false
+    let anyFailure = false
     for (const src of syncable) {
       try {
         syncingIds.value.add(src.id)
-        await syncSource(src)
+        const ok = await syncSource(src, false) // Don't show individual notifications
+        anySuccess = anySuccess || ok
+        anyFailure = anyFailure || !ok
       } finally {
         syncingIds.value.delete(src.id)
       }
     }
-    $q.notify({ type: 'positive', message: 'Sync complete', position: 'top', textColor: 'black', timeout: 1000 })
+    // Show single notification for Sync All
+    if (anySuccess && !anyFailure) {
+      $q.notify({ type: 'positive', message: 'Sync completed successfully', position: 'top', textColor: 'black', timeout: 1000 })
+    } else if (anySuccess && anyFailure) {
+      $q.notify({ type: 'warning', message: 'Sync completed with some errors', position: 'top', timeout: 2000 })
+    } else {
+      $q.notify({ type: 'negative', message: 'Sync failed', position: 'top', timeout: 2000 })
+    }
+    if (anySuccess) {
+      emit('refresh')
+    }
   } finally {
     syncAllInProgress.value = false
   }
