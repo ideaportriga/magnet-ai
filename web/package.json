@@ -43,7 +43,7 @@
     "@vue/eslint-config-typescript": "^14.4.0",
     "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.7.0",
-    "cypress": "^14.0.3",
+    "cypress": "^15.8.2",
     "eslint": "^9.20.1",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-cypress": "^4.1.0",
@@ -73,8 +73,7 @@
     "vitepress": "^1.6.3",
     "vitepress-plugin-mermaid": "^2.0.17",
     "vitest": "^3.0.6",
-    "vue-tsc": "^2.2.2",
-    "vuepress": "^1.9.10"
+    "vue-tsc": "^2.2.2"
   },
   "packageManager": "yarn@4.6.0",
   "dependencies": {

@@ -110,10 +110,26 @@ class ApiIngestDataSource(AbstractDataSource):
         if not resolved_filename:
             raise ClientException("filename is required for text ingestion.")
 
+        existing_source_id: str | None = None
+        if self.source:
+            existing_source_id = str(self.source.id)
+        else:
+            # Best-effort: find existing source id without creating a new source.
+            # This avoids creating sources for unsupported file types.
+            result = await db_session.execute(
+                select(KnowledgeGraphSource.id)
+                .where(KnowledgeGraphSource.graph_id == graph_id)
+                .where(KnowledgeGraphSource.type == self.type)
+                .where(KnowledgeGraphSource.name == self.name)
+            )
+            sid = result.scalar_one_or_none()
+            existing_source_id = str(sid) if sid else None
+
         config = await get_content_config(
             db_session,
             graph_id,
             resolved_filename,
+            source_id=existing_source_id,
             source_type=str(self.type),
         )
         if not config:
@@ -172,10 +188,26 @@ class ApiIngestDataSource(AbstractDataSource):
         if not resolved_filename:
             raise ClientException("filename is required for file ingestion.")
 
+        existing_source_id: str | None = None
+        if self.source:
+            existing_source_id = str(self.source.id)
+        else:
+            # Best-effort: find existing source id without creating a new source.
+            # This avoids creating sources for unsupported file types.
+            result = await db_session.execute(
+                select(KnowledgeGraphSource.id)
+                .where(KnowledgeGraphSource.graph_id == graph_id)
+                .where(KnowledgeGraphSource.type == self.type)
+                .where(KnowledgeGraphSource.name == self.name)
+            )
+            sid = result.scalar_one_or_none()
+            existing_source_id = str(sid) if sid else None
+
         config = await get_content_config(
             db_session,
             graph_id,
             resolved_filename,
+            source_id=existing_source_id,
             source_type=str(self.type),
         )
         if not config:

@@ -4,10 +4,10 @@ from uuid import UUID
 
 from litestar.exceptions import ClientException
 from litestar.status_codes import HTTP_415_UNSUPPORTED_MEDIA_TYPE
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models.knowledge_graph import docs_table_name
+from core.db.models.knowledge_graph import KnowledgeGraphSource, docs_table_name
 
 from ...content_config_services import get_content_config
 from ...models import SourceType, SyncPipelineConfig
@@ -65,8 +65,21 @@ class FileUploadDataSource(AbstractDataSource):
             db_session, graph_id=graph_id
         )
 
+        existing_source_id: str | None = None
+        result = await db_session.execute(
+            select(KnowledgeGraphSource.id)
+            .where(KnowledgeGraphSource.graph_id == graph_id)
+            .where(KnowledgeGraphSource.type == self.type)
+        )
+        sid = result.scalar_one_or_none()
+        existing_source_id = str(sid) if sid else None
+
         config = await get_content_config(
-            db_session, graph_id, filename, source_type=str(self.type)
+            db_session,
+            graph_id,
+            filename,
+            source_id=existing_source_id,
+            source_type=str(self.type),
         )
         if not config:
             raise ClientException(

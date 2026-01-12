@@ -351,6 +351,7 @@ class FluidTopicsSyncPipeline(
                             session,
                             self._graph_id,
                             filename,
+                            source_id=str(self._source.source.id),
                             source_type=self._source.source.type,
                         )
                         if not content_config:

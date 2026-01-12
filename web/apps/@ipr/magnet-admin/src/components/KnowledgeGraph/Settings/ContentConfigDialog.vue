@@ -36,42 +36,24 @@
             <!-- Content Matching -->
             <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Matching</div>
             <div class="km-description text-secondary-text q-mt-xs q-mb-md">
-              Select source types and file pattern to which this configuration applies. Use glob pattern syntax to match content, separate multiple
+              Select sources and file pattern to which this configuration applies. Use glob pattern syntax to match content, separate multiple
               patterns with commas. If source doesn't support file pattern, leave it blank - empty pattern matches all content.
             </div>
             <div class="row q-col-gutter-lg">
-              <!-- Source types -->
+              <!-- Sources -->
               <div class="col-6">
-                <div class="km-input-label q-pb-sm">Source Types</div>
-                <q-field borderless dense :error="!!sourceTypesError" :error-message="sourceTypesError" no-error-icon hide-bottom-space>
-                  <template #control>
-                    <div class="row q-gutter-xs">
-                      <q-btn
-                        v-for="sourceType in sourceTypeOptions"
-                        :key="sourceType.value"
-                        :color="isSourceTypeSelected(sourceType.value) ? 'grey-2' : 'grey-5'"
-                        :unelevated="isSourceTypeSelected(sourceType.value)"
-                        :flat="!isSourceTypeSelected(sourceType.value)"
-                        :outline="!isSourceTypeSelected(sourceType.value)"
-                        :ripple="false"
-                        dense
-                        :class="['source-type-toggle', { 'is-selected': isSourceTypeSelected(sourceType.value) }]"
-                        @click="toggleSourceType(sourceType.value)"
-                      >
-                        <template v-if="sourceType.image">
-                          <q-img :src="sourceType.image" width="20px" height="20px" no-spinner no-transition />
-                        </template>
-                        <template v-else-if="sourceType.icon">
-                          <q-icon :name="sourceType.icon" size="18px" color="black" />
-                        </template>
-                        <q-tooltip>{{ sourceType.label }}</q-tooltip>
-                      </q-btn>
-                    </div>
-                  </template>
-                  <template #error>
-                    <div class="km-small-chip q-pa-4 q-pl-8 text-error-text">dasfsdf</div>
-                  </template>
-                </q-field>
+                <div class="km-input-label q-pb-sm">Sources</div>
+                <kg-dropdown-field
+                  v-model="sourceIdsModel"
+                  :options="sourceOptions"
+                  placeholder="Select sources"
+                  option-value="value"
+                  option-label="label"
+                  multiple
+                  dense
+                  show-all-option
+                  all-option-label="All Sources"
+                />
               </div>
               <!-- File pattern -->
               <div class="col-6">
@@ -379,11 +361,14 @@ import { fetchData, required } from '@shared'
 import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { chunkingStrategyOptions, readerOptions, sourceTypeOptions } from './models'
+import { KgDropdownField } from '../common'
+import type { SourceRow } from '../Sources/models'
+import { chunkingStrategyOptions, readerOptions } from './models'
 
 const props = defineProps<{
   showDialog: boolean
   config?: any
+  sources?: SourceRow[]
 }>()
 
 const emit = defineEmits<{
@@ -427,18 +412,64 @@ const loadTemplates = async () => {
   }
 }
 
-const allSourceTypeValues = sourceTypeOptions.map((o) => o.value)
+// Compute source options from props.sources
+const sourceOptions = computed(() => {
+  return (props.sources || []).map((s) => ({
+    value: s.id,
+    label: s.name,
+  }))
+})
+
+const allSourceIds = computed(() => sourceOptions.value.map((o) => o.value))
+
+const pendingLegacySourceTypes = ref<string[] | null>(null)
+const mapLegacySourceTypesToSourceIds = (legacyTypes: string[]) => {
+  const typeSet = new Set((legacyTypes || []).map((t) => String(t)))
+  return (props.sources || []).filter((s) => typeSet.has(String(s.type))).map((s) => s.id)
+}
+
+// Bridge UI ↔ stored semantics:
+// - UI shows "All Sources" selected by default
+// - stored `source_ids: []` means "all sources" (keeps it future-proof as sources change)
+const sourceIdsModel = computed<string[]>({
+  get: () => {
+    const stored = Array.isArray(form.value.source_ids) ? form.value.source_ids : []
+    if (stored.length === 0) {
+      return allSourceIds.value
+    }
+    return stored
+  },
+  set: (value) => {
+    const incoming = Array.isArray(value) ? value.filter(Boolean) : []
+    const all = allSourceIds.value
+
+    // If there are no sources yet, keep "all" semantics (stored empty)
+    if (all.length === 0) {
+      form.value.source_ids = []
+      return
+    }
+
+    // Treat empty selection as "All" (the UI should always have at least one)
+    if (incoming.length === 0) {
+      form.value.source_ids = []
+      return
+    }
+
+    const isAllSelected = all.every((id) => incoming.includes(id))
+    form.value.source_ids = isAllSelected ? [] : incoming
+  },
+})
 
 const selectedChunkingStrategyDescription = computed(() => {
   const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
   return option?.description || ''
 })
 
-const defaultForm = {
+const getDefaultForm = () => ({
   name: '',
   enabled: true,
   glob_pattern: '',
-  source_types: allSourceTypeValues,
+  source_ids: [] as string[],
   reader: {
     name: 'plain_text',
     options: {},
@@ -463,41 +494,20 @@ const defaultForm = {
       chunk_title_pattern: '',
     },
   },
-}
+})
 
-const form = ref(JSON.parse(JSON.stringify(defaultForm)))
-const initialFormState = ref(JSON.parse(JSON.stringify(defaultForm)))
+const form = ref(getDefaultForm())
+const initialFormState = ref(getDefaultForm())
 const nameRef = ref()
 const promptTemplateRef = ref()
 const newSplitter = ref('')
 const showNewSplitterInput = ref(false)
 const newSplitterInput = ref()
-const sourceTypesError = ref('')
 
 // Computed properties for conditional rendering
 const isLLMStrategy = computed(() => form.value.chunker.strategy === 'llm')
 const isRecursiveStrategy = computed(() => form.value.chunker.strategy === 'recursive_character_text_splitting')
 const isDirty = computed(() => JSON.stringify(form.value) !== JSON.stringify(initialFormState.value))
-
-// Source type toggle functions
-const isSourceTypeSelected = (sourceType: string): boolean => {
-  if (!form.value.source_types || form.value.source_types.length === 0) {
-    return false
-  }
-  return form.value.source_types.includes(sourceType)
-}
-
-const toggleSourceType = (sourceType: string) => {
-  if (!form.value.source_types) {
-    form.value.source_types = []
-  }
-  const index = form.value.source_types.indexOf(sourceType)
-  if (index > -1) {
-    form.value.source_types.splice(index, 1)
-  } else {
-    form.value.source_types.push(sourceType)
-  }
-}
 
 // Splitter management functions
 const formatSplitterDisplay = (splitter: string): string => {
@@ -573,12 +583,23 @@ const initForm = () => {
       chunk_title_pattern: chunkerOptions.chunk_title_pattern || '',
     }
 
+    // Backward compatibility:
+    // - prefer explicit source_ids
+    // - if only legacy source_types exist, map them to current sources (best-effort)
+    pendingLegacySourceTypes.value = null
+    let initialSourceIds: string[] = []
+    if (Array.isArray(props.config.source_ids)) {
+      initialSourceIds = props.config.source_ids
+    } else if (Array.isArray(props.config.source_types) && props.config.source_types.length > 0) {
+      pendingLegacySourceTypes.value = props.config.source_types
+      initialSourceIds = mapLegacySourceTypesToSourceIds(props.config.source_types)
+    }
+
     form.value = {
       name: props.config.name || '',
       enabled: props.config.enabled ?? true,
       glob_pattern: props.config.glob_pattern || '',
-      source_types:
-        Array.isArray(props.config.source_types) && props.config.source_types.length > 0 ? props.config.source_types : allSourceTypeValues,
+      source_ids: initialSourceIds,
       reader: {
         name: props.config.reader?.name || 'default',
         options: props.config.reader?.options || {},
@@ -590,7 +611,8 @@ const initForm = () => {
     }
   } else {
     isEditing.value = false
-    form.value = JSON.parse(JSON.stringify(defaultForm))
+    form.value = getDefaultForm()
+    pendingLegacySourceTypes.value = null
   }
   initialFormState.value = JSON.parse(JSON.stringify(form.value))
 }
@@ -622,14 +644,6 @@ const save = async () => {
     if (!isPromptValid) {
       isValid &&= false
     }
-  }
-
-  // Enforce at least one source type selected
-  if (!form.value.source_types || form.value.source_types.length === 0) {
-    sourceTypesError.value = 'Select at least one source type'
-    isValid &&= false
-  } else {
-    sourceTypesError.value = ''
   }
 
   if (!isValid) {
@@ -669,13 +683,21 @@ watch(
   }
 )
 
-// Clear source type error once at least one is selected after validation
+// If we loaded a legacy config that used `source_types` and sources arrived later,
+// apply the mapping once (without marking the form as "dirty").
 watch(
-  () => (form.value.source_types || []).length,
-  (len) => {
-    if (len > 0 && sourceTypesError.value) {
-      sourceTypesError.value = ''
+  () => (props.sources || []).length,
+  () => {
+    if (!dialogOpen.value) return
+    if (!pendingLegacySourceTypes.value || pendingLegacySourceTypes.value.length === 0) return
+    if (isDirty.value) return
+
+    const mapped = mapLegacySourceTypesToSourceIds(pendingLegacySourceTypes.value)
+    if (mapped.length > 0) {
+      form.value.source_ids = mapped
+      initialFormState.value = JSON.parse(JSON.stringify(form.value))
     }
+    pendingLegacySourceTypes.value = null
   }
 )
 
@@ -696,17 +718,6 @@ watch(
   overflow: auto;
 }
 
-.source-type-toggle {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  transition: none;
-}
-.source-type-toggle.is-selected {
-  background-color: #ede7f6 !important; /* faded purple */
-  border: 1px solid #b39ddb !important; /* purple border */
-}
 :deep(.q-field__messages div[role='alert']) {
   font-size: 10px;
   font-weight: 500;

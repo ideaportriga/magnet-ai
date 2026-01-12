@@ -5,10 +5,13 @@
         <div class="km-heading-7">Content Profiles</div>
         <div class="km-description text-secondary-text">Configure how different content types are processed and chunked</div>
       </div>
-      <div v-if="hasChanges" class="col-auto">
+      <div class="col-auto">
         <div class="row q-gutter-sm">
-          <km-btn label="Cancel" flat color="grey-7" @click="resetForm" />
-          <km-btn label="Save Changes" :loading="saving" :disable="!hasChanges" @click="saveSettings" />
+          <km-btn label="New Profile" @click="openContentConfigDialog()" />
+          <template v-if="hasChanges">
+            <km-btn label="Cancel" flat color="grey-7" @click="resetForm" />
+            <km-btn label="Save Changes" :loading="saving" :disable="!hasChanges" @click="saveSettings" />
+          </template>
         </div>
       </div>
     </div>
@@ -20,6 +23,9 @@
         <q-icon name="folder_open" size="64px" color="grey-5" />
         <div class="km-heading-7 text-grey-7 q-mt-md">No content profiles added yet</div>
         <div class="km-description text-grey-6">Start by creating a new content profile</div>
+        <div class="q-mt-md">
+          <km-btn label="Create Profile" @click="openContentConfigDialog()" />
+        </div>
       </div>
     </div>
 
@@ -46,6 +52,7 @@
     <ContentConfigDialog
       :config="editingContentConfig"
       :show-dialog="showContentConfigDialog"
+      :sources="sources"
       @update:show-dialog="showContentConfigDialog = $event"
       @save="upsertContentConfig"
       @delete="onDeleteContentConfig"
@@ -58,6 +65,7 @@ import { fetchData } from '@shared'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
+import type { SourceRow } from '../Sources/models'
 import ContentConfigDialog from './ContentConfigDialog.vue'
 import { ContentConfigRow, chunkingStrategyOptions, readerOptions } from './models'
 
@@ -74,11 +82,14 @@ const emit = defineEmits<{
 const store = useStore()
 const $q = useQuasar()
 
+const apiReady = computed(() => Boolean(store.getters.config?.api?.aiBridge?.urlAdmin))
+
 const saving = ref(false)
 const contentConfigs = ref<any[]>([])
 const loadingContentConfigs = ref(false)
 const showContentConfigDialog = ref(false)
 const editingContentConfig = ref<any>(null)
+const sources = ref<SourceRow[]>([])
 
 const originalContentConfigs = ref<any[]>([])
 
@@ -113,6 +124,29 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
 
 const initializeForm = () => {
   loadContentConfigs()
+  if (apiReady.value) {
+    fetchSources()
+  }
+}
+
+const fetchSources = async () => {
+  try {
+    const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+    if (!endpoint) return
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/sources`,
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      sources.value = Array.isArray(data) ? data : data?.items || data?.data || []
+    }
+  } catch (error) {
+    console.error('Error fetching sources:', error)
+  }
 }
 
 const loadContentConfigs = async () => {
@@ -228,6 +262,15 @@ watch(
     }
   },
   { immediate: true, deep: true }
+)
+
+watch(
+  apiReady,
+  (ready) => {
+    if (!ready) return
+    fetchSources()
+  },
+  { immediate: true }
 )
 </script>
 

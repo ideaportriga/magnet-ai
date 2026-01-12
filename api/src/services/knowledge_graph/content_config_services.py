@@ -19,7 +19,6 @@ def get_default_content_configs() -> list[ContentConfig]:
             name="PDF",
             enabled=True,
             glob_pattern="*.pdf",
-            source_types=["upload", "api_ingest", "sharepoint", "fluid_topics"],
             reader={"name": ContentReaderName.PDF, "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.LLM,
@@ -41,7 +40,6 @@ def get_default_content_configs() -> list[ContentConfig]:
             name="Default",
             enabled=True,
             glob_pattern="",
-            source_types=["upload", "api_ingest", "sharepoint", "fluid_topics"],
             reader={"name": ContentReaderName.PLAIN_TEXT, "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.RECURSIVE,
@@ -118,12 +116,15 @@ async def get_content_config(
     db_session: AsyncSession,
     graph_id: UUID,
     filename: str,
+    source_id: str | None = None,
     source_type: str | None = None,
 ) -> ContentConfig | None:
-    """Get content config matching filename and optionally source_type.
+    """Get content config matching filename and optionally source_id/source_type.
 
-    Matching uses AND logic: both glob_pattern AND source_types (if specified) must match.
-    If source_types is None or empty in config, it matches all source types.
+    Matching uses AND logic:
+    - glob_pattern must match (if specified)
+    - source_ids must match (if specified), otherwise falls back to deprecated source_types (if specified)
+    If neither source_ids nor source_types are set, it matches all sources.
     """
     configs = await _get_all_configs(db_session, graph_id)
 
@@ -140,12 +141,16 @@ async def get_content_config(
         ):
             continue
 
-        # Check source type match (AND logic)
-        # If source_types is not specified or empty in config, it matches all source types
-        # FIXME: temporarily disable source type matching
-        # if config.source_types and len(config.source_types) > 0:
-        #     if not source_type or source_type not in config.source_types:
-        #         continue
+        # Check source match (AND logic)
+        # - Prefer matching by explicit source_ids
+        # - Fall back to legacy source_types if source_ids is not set
+        # - If neither is set, match all sources
+        if config.source_ids and len(config.source_ids) > 0:
+            if not source_id or str(source_id) not in config.source_ids:
+                continue
+        elif config.source_types and len(config.source_types) > 0:
+            if not source_type or str(source_type) not in config.source_types:
+                continue
 
         return config
 
