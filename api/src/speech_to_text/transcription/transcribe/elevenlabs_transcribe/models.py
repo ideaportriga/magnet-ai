@@ -54,6 +54,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
                 read=ELEVEN_HTTP_READ_TIMEOUT,
                 write=ELEVEN_HTTP_WRITE_TIMEOUT,
                 pool=ELEVEN_HTTP_POOL_TIMEOUT,
+                timeout=ELEVEN_HTTP_READ_TIMEOUT
             )
         )
 
