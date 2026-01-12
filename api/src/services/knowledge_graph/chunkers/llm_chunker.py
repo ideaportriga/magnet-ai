@@ -78,7 +78,9 @@ class LLMChunker(AbstractChunker):
         return segments
 
     @override
-    async def chunk_text(self, text: str) -> ChunkerResult:
+    async def chunk_text(
+        self, text: str, *, document_title: str | None = None
+    ) -> ChunkerResult:
         # Get prompt template system name from config
         prompt_template_system_name = self.config.chunker.get("options", {}).get(
             "prompt_template_system_name"

@@ -1,12 +1,14 @@
 <template>
   <q-select
     ref="selectRef"
-    :model-value="modelValue"
+    :model-value="computedModelValue"
+    :display-value="selectDisplayValue"
     :class="selectClasses"
     outlined
     dense
     emit-value
     map-options
+    :multiple="multiple"
     :placeholder="placeholder"
     :option-value="optionValue"
     :option-label="optionLabel"
@@ -14,12 +16,12 @@
     :disable="disable"
     :loading="loading"
     :popup-content-class="popupClasses"
-    @update:model-value="$emit('update:modelValue', $event)"
+    @update:model-value="handleModelValueUpdate"
     @popup-show="onPopupShow"
     @popup-hide="onPopupHide"
   >
     <template #append>
-      <span v-if="modelValue && clearable" class="styled-select__clear" @click.stop="$emit('update:modelValue', '')">CLEAR</span>
+      <span v-if="hasValue && clearable" class="styled-select__clear" @click.stop="handleClear">CLEAR</span>
     </template>
     <template v-if="searchable" #before-options>
       <q-item class="styled-select__search-item">
@@ -49,6 +51,24 @@
       <q-item v-if="opt.__noResults" disable class="styled-select__option--empty styled-select__no-results">
         <q-item-section class="text-center">
           <q-item-label class="text-grey-5">No matching options</q-item-label>
+        </q-item-section>
+      </q-item>
+      <!-- Select all option -->
+      <q-item v-else-if="opt.__selectAll" v-bind="itemProps" :class="optionClasses(selected)">
+        <q-item-section>
+          <div class="styled-select__option-row">
+            <span class="styled-select__option-name">{{ opt[optionLabel] }}</span>
+          </div>
+        </q-item-section>
+        <q-item-section side class="styled-select__side">
+          <div
+            :class="[
+              'styled-select__check-wrapper',
+              { 'styled-select__check-wrapper--dense': dense, 'styled-select__check-wrapper--visible': selected },
+            ]"
+          >
+            <q-icon name="check" color="white" :size="dense ? '10px' : '12px'" />
+          </div>
         </q-item-section>
       </q-item>
       <!-- Regular option -->
@@ -86,7 +106,7 @@ import type { QInput, QSelect } from 'quasar'
 import { computed, nextTick, ref } from 'vue'
 
 interface Props {
-  modelValue: string | undefined
+  modelValue: string | string[] | undefined
   options: any[]
   placeholder?: string
   noOptionsLabel?: string
@@ -99,6 +119,9 @@ interface Props {
   optionMeta?: string | ((opt: any) => string | undefined)
   dense?: boolean
   searchable?: boolean
+  multiple?: boolean
+  showAllOption?: boolean
+  allOptionLabel?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -113,10 +136,13 @@ const props = withDefaults(defineProps<Props>(), {
   optionMeta: undefined,
   dense: false,
   searchable: false,
+  multiple: false,
+  showAllOption: false,
+  allOptionLabel: 'Select All',
 })
 
-defineEmits<{
-  'update:modelValue': [value: string | undefined]
+const $emit = defineEmits<{
+  'update:modelValue': [value: string | string[] | undefined]
 }>()
 
 const selectRef = ref<QSelect | null>(null)
@@ -126,20 +152,88 @@ const searchQuery = ref('')
 // Sentinel object to show "no results" message while keeping #before-options visible
 const NO_RESULTS_SENTINEL = { __noResults: true }
 
+// Sentinel value for "select all" option
+const SELECT_ALL_VALUE = '__SELECT_ALL__'
+
+// Get all regular option values (excluding select all sentinel)
+const allOptionValues = computed(() => {
+  return props.options.map((opt) => opt?.[props.optionValue] ?? opt?.value ?? opt)
+})
+
+// Sentinel object for "select all" option (computed to be reactive)
+const SELECT_ALL_OPTION = computed(() => ({
+  __selectAll: true,
+  [props.optionValue]: SELECT_ALL_VALUE,
+  [props.optionLabel]: props.allOptionLabel,
+}))
+
+// Check if all regular options are selected
+const areAllOptionsSelected = computed(() => {
+  if (!props.multiple || !props.showAllOption) return false
+  if (!Array.isArray(props.modelValue)) return false
+
+  const selectedValues = props.modelValue.filter((v) => v !== SELECT_ALL_VALUE)
+  const allValues = allOptionValues.value
+
+  if (allValues.length === 0) return false
+
+  // Check if all option values are in the selected values
+  return allValues.every((val) => selectedValues.includes(val))
+})
+
+// Computed modelValue that includes SELECT_ALL_VALUE when all options are selected
+const computedModelValue = computed(() => {
+  if (!props.multiple || !props.showAllOption) {
+    return props.modelValue
+  }
+
+  if (!Array.isArray(props.modelValue)) {
+    return areAllOptionsSelected.value ? [SELECT_ALL_VALUE, ...allOptionValues.value] : props.modelValue
+  }
+
+  // If all options are selected, include SELECT_ALL_VALUE
+  if (areAllOptionsSelected.value && !props.modelValue.includes(SELECT_ALL_VALUE)) {
+    return [SELECT_ALL_VALUE, ...props.modelValue]
+  }
+
+  // Remove SELECT_ALL_VALUE if not all options are selected
+  return props.modelValue.filter((v) => v !== SELECT_ALL_VALUE)
+})
+
+const selectDisplayValue = computed(() => {
+  if (props.multiple && props.showAllOption && areAllOptionsSelected.value) {
+    return props.allOptionLabel
+  }
+  return undefined
+})
+
 const filteredOptions = computed(() => {
-  if (!props.searchable || !searchQuery.value) {
-    return props.options
+  let options = props.options
+
+  // Apply search filter if enabled
+  if (props.searchable && searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    const filtered = options.filter((opt) => {
+      const label = opt[props.optionLabel] || opt.label || String(opt)
+      return label.toLowerCase().includes(query)
+    })
+
+    // Return sentinel if no matches
+    if (filtered.length === 0) {
+      return [NO_RESULTS_SENTINEL]
+    }
+    options = filtered
   }
-  const query = searchQuery.value.toLowerCase()
-  const filtered = props.options.filter((opt) => {
-    const label = opt[props.optionLabel] || opt.label || String(opt)
-    return label.toLowerCase().includes(query)
-  })
-  // Return sentinel if no matches, so #before-options stays rendered and search input keeps focus
-  if (filtered.length === 0) {
-    return [NO_RESULTS_SENTINEL]
+
+  // Add "select all" option at the beginning if enabled and in multiple mode
+  if (props.showAllOption && props.multiple && !searchQuery.value) {
+    // Only show select all if we have regular options (not just the no results sentinel)
+    if (options.length > 0 && !options.some((opt) => opt.__noResults)) {
+      return [SELECT_ALL_OPTION.value, ...options]
+    }
   }
-  return filtered
+
+  return options
 })
 
 const onPopupShow = () => {
@@ -162,10 +256,58 @@ const getOptionMeta = (opt: any): string | undefined => {
   return opt[props.optionMeta]
 }
 
+const hasValue = computed(() => {
+  if (props.multiple) {
+    return Array.isArray(props.modelValue) && props.modelValue.length > 0
+  }
+  return props.modelValue !== undefined && props.modelValue !== ''
+})
+
+const handleClear = () => {
+  if (props.multiple) {
+    $emit('update:modelValue', [])
+  } else {
+    $emit('update:modelValue', '')
+  }
+}
+
+const handleModelValueUpdate = (value: string | string[] | undefined) => {
+  if (!props.multiple || !props.showAllOption) {
+    $emit('update:modelValue', value)
+    return
+  }
+
+  if (!Array.isArray(value)) {
+    $emit('update:modelValue', value)
+    return
+  }
+
+  const prev = computedModelValue.value
+  const prevHasSelectAll = Array.isArray(prev) && prev.includes(SELECT_ALL_VALUE)
+  const nextHasSelectAll = value.includes(SELECT_ALL_VALUE)
+  const regularValues = value.filter((v) => v !== SELECT_ALL_VALUE)
+
+  // If SELECT_ALL_VALUE got added, user clicked "select all" -> select everything
+  if (!prevHasSelectAll && nextHasSelectAll) {
+    $emit('update:modelValue', allOptionValues.value)
+    return
+  }
+
+  // If SELECT_ALL_VALUE got removed, user clicked "select all" again -> clear everything
+  if (prevHasSelectAll && !nextHasSelectAll) {
+    $emit('update:modelValue', [])
+    return
+  }
+
+  // Regular toggle (also covers the case: select-all still checked but a regular option was toggled)
+  // -> drop SELECT_ALL_VALUE and keep only regular values
+  $emit('update:modelValue', regularValues)
+}
+
 const selectClasses = computed(() => [
   'styled-select',
   {
-    'styled-select--error': props.showError && !props.modelValue,
+    'styled-select--error': props.showError && !hasValue.value,
     'styled-select--dense': props.dense,
   },
 ])

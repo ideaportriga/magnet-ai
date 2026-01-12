@@ -24,7 +24,9 @@ class DeterministicRecursiveChunker(AbstractChunker):
         super().__init__(config)
 
     @override
-    async def chunk_text(self, text: str) -> ChunkerResult:
+    async def chunk_text(
+        self, text: str, *, document_title: str | None = None
+    ) -> ChunkerResult:
         if not text or not text.strip():
             logger.info("Empty text provided to DeterministicRecursiveChunker")
             return ChunkerResult(chunks=[], document_metadata=None)

@@ -71,9 +71,13 @@ class ContentConfig(BaseModel):
     glob_pattern: str = Field(
         ..., description="Glob pattern to match files (e.g., *.pdf)"
     )
+    source_ids: list[str] = Field(
+        default_factory=list,
+        description="List of source IDs to match. If specified, both glob_pattern AND source_ids must match (AND logic). If empty, matches all sources.",
+    )
     source_types: list[str] = Field(
         default_factory=list,
-        description="List of source types to match. If specified, both glob_pattern AND source_types must match (AND logic).",
+        description="DEPRECATED: List of source types to match. Prefer source_ids. If empty, matches all source types.",
     )
     reader: dict[str, Any] = Field(
         default_factory=lambda: {"name": ContentReaderName.PLAIN_TEXT, "options": {}},

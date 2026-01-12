@@ -2,6 +2,7 @@ export interface ContentConfigRow {
   name: string
   glob_pattern: string
   enabled: boolean
+  source_ids?: string[]
   chunker?: {
     strategy?: string
   }
@@ -13,12 +14,6 @@ export interface ContentConfigRow {
 export const readerOptions = [
   { label: 'Plain Text Reader', value: 'plain_text' },
   { label: 'PDF Reader', value: 'pdf' },
-]
-
-export const sourceTypeOptions = [
-  { label: 'File Upload', value: 'upload', icon: 'fas fa-upload' },
-  { label: 'SharePoint', value: 'sharepoint', image: 'images/brands/sharepoint.svg' },
-  { label: 'Fluid Topics', value: 'fluid_topics', image: 'images/brands/fluid-topics.png' },
 ]
 
 export const chunkingStrategyOptions = [
