@@ -53,6 +53,7 @@ from microsoft_agents.hosting.core.message_factory import MessageFactory
 from microsoft_agents.hosting.teams import TeamsInfo
 
 from core.db.session import async_session_maker
+from core.db.models.knowledge_graph import KnowledgeGraph
 from core.db.models.teams import TeamsMeeting, TeamsUser
 from core.db.models.settings import Settings
 from sqlalchemy import func, select, or_, update
@@ -71,6 +72,9 @@ from .static_connections import StaticConnections
 from .teams_user_store import upsert_teams_user, normalize_bot_id
 from speech_to_text.transcription import service as transcription_service
 from services.prompt_templates import execute_prompt_template
+from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
+    ApiIngestDataSource,
+)
 from stores import get_db_client
 from utils import upload_handler
 
@@ -981,6 +985,68 @@ def _get_meeting_id_part(meeting: Dict[str, Any] | None) -> str | None:
     )
 
 
+async def _ingest_knowledge_graph_sections(
+    *,
+    graph_system_name: str,
+    meeting: dict[str, Any] | None,
+    job_id: str | None,
+    conversation_date: str | None,
+    sections: dict[str, str],
+) -> int:
+    if not graph_system_name or not sections:
+        return 0
+
+    date_part = _format_recording_date_compact(conversation_date) or dt.datetime.now(
+        dt.timezone.utc
+    ).strftime("%Y%m%d")
+    meeting_part = _get_meeting_id_part(meeting) or "meeting"
+    item_id = job_id or "transcription"
+
+    async with async_session_maker() as session:
+        stmt = select(KnowledgeGraph).where(
+            KnowledgeGraph.system_name == graph_system_name
+        )
+        graph = (await session.execute(stmt)).scalars().first()
+        if not graph:
+            logger.warning(
+                "Knowledge graph %s not found for note taker embedding.",
+                graph_system_name,
+            )
+            return 0
+
+        data_source = ApiIngestDataSource(source_name="Note Taker")
+        ingested = 0
+        for kind, content in sections.items():
+            if not content:
+                continue
+            filename = _build_note_taker_filename(
+                kind=kind,
+                meeting_id=meeting_part,
+                item_id=item_id,
+                date_part=date_part,
+                ext=".txt",
+            )
+            try:
+                await data_source.ingest_text(
+                    session,
+                    graph.id,
+                    filename=filename,
+                    text=content,
+                )
+                ingested += 1
+            except Exception as err:
+                logger.warning(
+                    "Knowledge graph ingest failed for %s: %s",
+                    filename,
+                    getattr(err, "message", str(err)),
+                )
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass
+        return ingested
+
+
 async def _download_recording_bytes(
     recording: Dict[str, Any],
     token: str,
@@ -1165,7 +1231,7 @@ async def _send_transcription_summary(
         if full_text:
             settings = await _load_note_taker_settings()
 
-            templates: list[tuple[str, str]] = []
+            templates: list[tuple[str, str, str]] = []
             for key, title in (
                 ("summary", "Summary"),
                 ("chapters", "Chapters"),
@@ -1178,7 +1244,7 @@ async def _send_transcription_summary(
                     continue
                 template_name = str(section.get("prompt_template") or "").strip()
                 if template_name:
-                    templates.append((template_name, title))
+                    templates.append((template_name, title, key))
 
             if not templates:
                 return
@@ -1195,11 +1261,12 @@ async def _send_transcription_summary(
                 )
 
             results = await asyncio.gather(
-                *(_run_template(system_name) for system_name, _ in templates),
+                *(_run_template(system_name) for system_name, _, _ in templates),
                 return_exceptions=True,
             )
 
-            for (system_name, title), result in zip(templates, results):
+            knowledge_graph_sections: dict[str, str] = {}
+            for (system_name, title, key), result in zip(templates, results):
                 if isinstance(result, Exception):
                     logger.warning(
                         "Prompt template %s failed for transcription job %s: %s",
@@ -1213,11 +1280,28 @@ async def _send_transcription_summary(
                 content = getattr(result, "content", None)
                 if content is None:
                     content = str(result)
+                knowledge_graph_sections[key] = str(content)
                 await _send_expandable_section(
                     context,
                     title=f"Meeting {title.lower()}",
                     content=str(content),
                 )
+            knowledge_graph_name = settings.get("knowledge_graph_system_name")
+            if (
+                settings.get("create_knowledge_graph_embedding")
+                and knowledge_graph_name
+            ):
+                ingested = await _ingest_knowledge_graph_sections(
+                    graph_system_name=knowledge_graph_name,
+                    meeting=_resolve_meeting_details(context),
+                    job_id=job_id,
+                    conversation_date=conversation_date,
+                    sections=knowledge_graph_sections,
+                )
+                if ingested:
+                    await context.send_activity(
+                        f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
+                    )
         return
 
     if status == "failed":
