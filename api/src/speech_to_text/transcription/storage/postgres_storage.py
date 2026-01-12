@@ -193,6 +193,9 @@ class PgDataStorage:
             # Return dict with keys your service expects
             return {
                 "file_id": row.get("file_id"),
+                "filename": row.get("filename"),
+                "file_ext": row.get("file_ext"),
+                "content_type": row.get("content_type"),
                 "status": row.get("status"),
                 "job_id": row.get("job_id"),
                 "duration": row.get("duration_seconds"),

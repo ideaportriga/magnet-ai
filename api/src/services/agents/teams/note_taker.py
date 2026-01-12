@@ -4,6 +4,8 @@ import datetime as dt
 import json
 import os
 import base64
+import hashlib
+import re
 from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
@@ -51,6 +53,7 @@ from microsoft_agents.hosting.core.message_factory import MessageFactory
 from microsoft_agents.hosting.teams import TeamsInfo
 
 from core.db.session import async_session_maker
+from core.db.models.knowledge_graph import KnowledgeGraph
 from core.db.models.teams import TeamsMeeting, TeamsUser
 from core.db.models.settings import Settings
 from sqlalchemy import func, select, or_, update
@@ -69,6 +72,9 @@ from .static_connections import StaticConnections
 from .teams_user_store import upsert_teams_user, normalize_bot_id
 from speech_to_text.transcription import service as transcription_service
 from services.prompt_templates import execute_prompt_template
+from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
+    ApiIngestDataSource,
+)
 from stores import get_db_client
 from utils import upload_handler
 
@@ -90,9 +96,15 @@ _ORGANIZER_PERSONAL_INSTALL_PROMPT = "Please install me."
 
 _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
     "subscription_recordings_ready": False,
-    "send_transcript_to_salesforce": False,
     "create_knowledge_graph_embedding": False,
     "knowledge_graph_system_name": "",
+    "integration": {
+        "salesforce": {
+            "send_transcript_to_salesforce": False,
+            "salesforce_api_server": "",
+            "salesforce_stt_recording_tool": "",
+        }
+    },
     "chapters": {"enabled": False, "prompt_template": ""},
     "summary": {"enabled": False, "prompt_template": ""},
     "insights": {"enabled": False, "prompt_template": ""},
@@ -104,11 +116,33 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(raw, dict):
         return settings
 
+    # Backwards compatibility: lift legacy flat Salesforce fields into integration.salesforce.
+    if "integration" not in raw and any(
+        key in raw
+        for key in (
+            "send_transcript_to_salesforce",
+            "salesforce_api_server",
+            "salesforce_stt_recording_tool",
+        )
+    ):
+        raw = dict(raw)
+        raw["integration"] = {
+            "salesforce": {
+                "send_transcript_to_salesforce": raw.get(
+                    "send_transcript_to_salesforce", False
+                ),
+                "salesforce_api_server": raw.get("salesforce_api_server", ""),
+                "salesforce_stt_recording_tool": raw.get(
+                    "salesforce_stt_recording_tool", ""
+                ),
+            }
+        }
+
     for key in (
         "subscription_recordings_ready",
-        "send_transcript_to_salesforce",
         "create_knowledge_graph_embedding",
         "knowledge_graph_system_name",
+        "integration",
     ):
         if key in raw:
             settings[key] = raw[key]
@@ -217,6 +251,16 @@ def _format_recording_date_iso(iso_datetime: str | None) -> str | None:
     return dt_obj.date().isoformat()
 
 
+def _format_recording_date_compact(iso_datetime: str | None) -> str | None:
+    if not iso_datetime:
+        return None
+    try:
+        dt_obj = dt.datetime.fromisoformat(iso_datetime.replace("Z", "+00:00"))
+    except Exception:
+        return None
+    return dt_obj.strftime("%Y%m%d")
+
+
 async def _get_meeting_account_info(
     context: TurnContext, meeting_id: str | None
 ) -> tuple[str | None, str | None]:
@@ -264,7 +308,8 @@ async def _send_stt_recording_to_salesforce(
         return
 
     settings = await _load_note_taker_settings()
-    if not settings.get("send_transcript_to_salesforce"):
+    salesforce_settings = (settings.get("integration") or {}).get("salesforce") or {}
+    if not salesforce_settings.get("send_transcript_to_salesforce"):
         await context.send_activity(
             "Salesforce sync skipped: sending transcripts to Salesforce is disabled in settings."
         )
@@ -279,6 +324,16 @@ async def _send_stt_recording_to_salesforce(
     if not conversation_date:
         conversation_date = dt.datetime.now(dt.timezone.utc).date().isoformat()
 
+    salesforce_api_server = salesforce_settings.get("salesforce_api_server") or None
+    salesforce_stt_recording_tool = (
+        salesforce_settings.get("salesforce_stt_recording_tool") or None
+    )
+    if not salesforce_api_server or not salesforce_stt_recording_tool:
+        await context.send_activity(
+            "Salesforce sync skipped: API server or STT recording tool is not configured in settings."
+        )
+        return
+
     payload = {
         "external_job_id": job_id,
         "conversation_date": conversation_date,
@@ -288,23 +343,45 @@ async def _send_stt_recording_to_salesforce(
     }
 
     payload_json = json.dumps(payload, indent=2, ensure_ascii=True)
-    await context.send_activity(f"```json\n{payload_json}\n```")
+    await _send_expandable_section(
+        context,
+        title="Salesforce payload sent.",
+        content=payload_json,
+        preserve_newlines=True,
+    )
 
     try:
-        result = await post_stt_recording(payload)
+        result = await post_stt_recording(
+            payload,
+            server=salesforce_api_server,
+            tool=salesforce_stt_recording_tool,
+        )
     except Exception as err:
         logger.exception("Salesforce sttRecording failed for job %s", job_id)
-        await context.send_activity(
-            f"Salesforce sttRecording failed: {getattr(err, 'message', str(err))}"
+        await _send_expandable_section(
+            context,
+            title="Salesforce response: failed.",
+            content=getattr(err, "message", str(err)),
+            preserve_newlines=True,
         )
         return
 
     if isinstance(result, (dict, list)):
-        payload_json = json.dumps(result, indent=2, ensure_ascii=True)
-        await context.send_activity(f"```json\n{payload_json}\n```")
+        response_json = json.dumps(result, indent=2, ensure_ascii=True)
+        await _send_expandable_section(
+            context,
+            title="Salesforce response: success.",
+            content=response_json,
+            preserve_newlines=True,
+        )
         return
 
-    await context.send_activity(str(result))
+    await _send_expandable_section(
+        context,
+        title="Salesforce response: success.",
+        content=str(result),
+        preserve_newlines=True,
+    )
 
 
 async def _ensure_vector_pool_ready() -> None:
@@ -459,7 +536,7 @@ async def _send_expandable_section(
 
 
 async def _download_file_from_link(
-    link: str, token: str | None
+    link: str, token: str | None, meeting: Dict[str, Any] | None = None
 ) -> tuple[bytes, str, str, str]:
     # Unwrap Teams deep links first
     parsed = urlparse(link)
@@ -495,6 +572,7 @@ async def _download_file_from_link(
         # Otherwise download directly
         download_url = link
 
+    final_url = ""
     async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
         async with client.stream("GET", download_url, headers=headers) as response:
             response.raise_for_status()
@@ -514,6 +592,7 @@ async def _download_file_from_link(
             )
             if not filename:
                 filename = _guess_filename_from_link(str(response.url) or link)
+            final_url = str(response.url)
 
             path = Path(filename)
             name = path.stem or "file"
@@ -521,6 +600,20 @@ async def _download_file_from_link(
             if not ext:
                 guessed_ext = mimetypes.guess_extension(content_type) or ".bin"
                 ext = guessed_ext
+
+    meeting_part = _get_meeting_id_part(meeting)
+    source_key = final_url or link
+    item_hash = hashlib.sha1(source_key.encode("utf-8")).hexdigest()[:12]
+    date_part = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
+    filename = _build_note_taker_filename(
+        kind="file",
+        meeting_id=meeting_part,
+        item_id=item_hash,
+        date_part=date_part,
+        ext=ext,
+    )
+    name = Path(filename).stem
+    ext = Path(filename).suffix or ext
 
     return bytes(buf), content_type, name, ext
 
@@ -831,11 +924,127 @@ async def _fetch_organizer_conversation_reference(
 def _build_recording_filename(
     meeting: Dict[str, Any], recording: Dict[str, Any], content_url: str
 ) -> str:
-    meeting_part = meeting.get("title") or meeting.get("id") or "meeting"
-    rec_part = recording.get("id") or "recording"
+    meeting_part = _get_meeting_id_part(meeting) or "meeting"
+    rec_part = recording.get("id") or recording.get("recordingId") or "recording"
+    date_part = _format_recording_date_compact(recording.get("createdDateTime"))
     ext = Path(urlparse(content_url).path).suffix or ".mp4"
-    base = f"{meeting_part}-{rec_part}"
+    return _build_note_taker_filename(
+        kind="recording",
+        meeting_id=meeting_part,
+        item_id=rec_part,
+        date_part=date_part,
+        ext=ext,
+    )
+
+
+def _normalize_filename_part(value: str) -> str:
+    ascii_value = value.encode("ascii", "ignore").decode("ascii")
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "-", ascii_value).strip("-")
+    return cleaned or "item"
+
+
+def _truncate_filename(base: str, ext: str, max_len: int = 255) -> str:
+    ext = ext if ext.startswith(".") else f".{ext}" if ext else ""
+    max_base_len = max_len - len(ext)
+    if max_base_len <= 0:
+        return ext[:max_len]
+    if len(base) > max_base_len:
+        base = base[:max_base_len].rstrip("-")
     return f"{base}{ext}"
+
+
+def _build_note_taker_filename(
+    *,
+    kind: str,
+    meeting_id: str | None,
+    item_id: str | None,
+    date_part: str | None,
+    ext: str,
+) -> str:
+    parts = [
+        "note-taker",
+        kind,
+        meeting_id or "meeting",
+        item_id or "item",
+        date_part or "",
+    ]
+    normalized = [_normalize_filename_part(part) for part in parts if part]
+    base = "-".join(normalized)
+    return _truncate_filename(base, ext)
+
+
+def _get_meeting_id_part(meeting: Dict[str, Any] | None) -> str | None:
+    if not meeting:
+        return None
+    return (
+        meeting.get("id")
+        or meeting.get("conversationId")
+        or meeting.get("meetingId")
+        or meeting.get("meeting_id")
+        or meeting.get("chat_id")
+    )
+
+
+async def _ingest_knowledge_graph_sections(
+    *,
+    graph_system_name: str,
+    meeting: dict[str, Any] | None,
+    job_id: str | None,
+    conversation_date: str | None,
+    sections: dict[str, str],
+) -> int:
+    if not graph_system_name or not sections:
+        return 0
+
+    date_part = _format_recording_date_compact(conversation_date) or dt.datetime.now(
+        dt.timezone.utc
+    ).strftime("%Y%m%d")
+    meeting_part = _get_meeting_id_part(meeting) or "meeting"
+    item_id = job_id or "transcription"
+
+    async with async_session_maker() as session:
+        stmt = select(KnowledgeGraph).where(
+            KnowledgeGraph.system_name == graph_system_name
+        )
+        graph = (await session.execute(stmt)).scalars().first()
+        if not graph:
+            logger.warning(
+                "Knowledge graph %s not found for note taker embedding.",
+                graph_system_name,
+            )
+            return 0
+
+        data_source = ApiIngestDataSource(source_name="Note Taker")
+        ingested = 0
+        for kind, content in sections.items():
+            if not content:
+                continue
+            filename = _build_note_taker_filename(
+                kind=kind,
+                meeting_id=meeting_part,
+                item_id=item_id,
+                date_part=date_part,
+                ext=".txt",
+            )
+            try:
+                await data_source.ingest_text(
+                    session,
+                    graph.id,
+                    filename=filename,
+                    text=content,
+                )
+                ingested += 1
+            except Exception as err:
+                logger.warning(
+                    "Knowledge graph ingest failed for %s: %s",
+                    filename,
+                    getattr(err, "message", str(err)),
+                )
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass
+        return ingested
 
 
 async def _download_recording_bytes(
@@ -1022,7 +1231,7 @@ async def _send_transcription_summary(
         if full_text:
             settings = await _load_note_taker_settings()
 
-            templates: list[tuple[str, str]] = []
+            templates: list[tuple[str, str, str]] = []
             for key, title in (
                 ("summary", "Summary"),
                 ("chapters", "Chapters"),
@@ -1035,7 +1244,7 @@ async def _send_transcription_summary(
                     continue
                 template_name = str(section.get("prompt_template") or "").strip()
                 if template_name:
-                    templates.append((template_name, title))
+                    templates.append((template_name, title, key))
 
             if not templates:
                 return
@@ -1052,11 +1261,12 @@ async def _send_transcription_summary(
                 )
 
             results = await asyncio.gather(
-                *(_run_template(system_name) for system_name, _ in templates),
+                *(_run_template(system_name) for system_name, _, _ in templates),
                 return_exceptions=True,
             )
 
-            for (system_name, title), result in zip(templates, results):
+            knowledge_graph_sections: dict[str, str] = {}
+            for (system_name, title, key), result in zip(templates, results):
                 if isinstance(result, Exception):
                     logger.warning(
                         "Prompt template %s failed for transcription job %s: %s",
@@ -1070,11 +1280,28 @@ async def _send_transcription_summary(
                 content = getattr(result, "content", None)
                 if content is None:
                     content = str(result)
+                knowledge_graph_sections[key] = str(content)
                 await _send_expandable_section(
                     context,
                     title=f"Meeting {title.lower()}",
                     content=str(content),
                 )
+            knowledge_graph_name = settings.get("knowledge_graph_system_name")
+            if (
+                settings.get("create_knowledge_graph_embedding")
+                and knowledge_graph_name
+            ):
+                ingested = await _ingest_knowledge_graph_sections(
+                    graph_system_name=knowledge_graph_name,
+                    meeting=_resolve_meeting_details(context),
+                    job_id=job_id,
+                    conversation_date=conversation_date,
+                    sections=knowledge_graph_sections,
+                )
+                if ingested:
+                    await context.send_activity(
+                        f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
+                    )
         return
 
     if status == "failed":
@@ -1420,11 +1647,48 @@ def _register_note_taker_handlers(
         conversation_date: str | None = None,
     ) -> None:
         await _send_typing(context)
+        meeting = _resolve_meeting_details(context)
+        meeting_part = _get_meeting_id_part(meeting)
+        source_file_type = "application/json"
+        try:
+            meta = await transcription_service.get_transcription(job_id)
+        except Exception as err:
+            logger.debug(
+                "Failed to read transcription metadata for %s: %s",
+                job_id,
+                getattr(err, "message", str(err)),
+            )
+            meta = None
+
+        if not conversation_date:
+            created_at = (meta or {}).get("created_at")
+            if created_at:
+                conversation_date = _format_recording_date_iso(created_at)
+
+        date_part = (
+            _format_recording_date_compact(conversation_date)
+            if conversation_date
+            else dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
+        )
+        source_file_name = _build_note_taker_filename(
+            kind="transcription",
+            meeting_id=meeting_part,
+            item_id=job_id,
+            date_part=date_part,
+            ext=".json",
+        )
+        stored_name = (meta or {}).get("filename") or ""
+        stored_ext = (meta or {}).get("file_ext") or ""
+        stored_content_type = (meta or {}).get("content_type") or ""
+        if stored_name and stored_ext:
+            source_file_name = f"{stored_name}{stored_ext}"
+        if stored_content_type:
+            source_file_type = stored_content_type
         on_submit = await _build_salesforce_submit_callback(
             context,
             conversation_date=conversation_date,
-            source_file_name=f"transcription_job_{job_id}",
-            source_file_type="application/json",
+            source_file_name=source_file_name,
+            source_file_type=source_file_type,
         )
         if on_submit:
             await on_submit(job_id)
@@ -1980,9 +2244,10 @@ def _register_note_taker_handlers(
 
         await context.send_activity("Fetching the file from your link...")
 
+        meeting = _resolve_meeting_details(context)
         try:
             file_bytes, content_type, name, ext = await _download_file_from_link(
-                link, delegated_token
+                link, delegated_token, meeting=meeting
             )
         except Exception as err:
             logger.exception("Failed to download file from link")
@@ -2407,7 +2672,17 @@ def _register_note_taker_handlers(
         await _send_typing(context)
 
         try:
-            result = await account_lookup(account_name)
+            settings = await _load_note_taker_settings()
+            salesforce_settings = (settings.get("integration") or {}).get(
+                "salesforce"
+            ) or {}
+            salesforce_api_server = (
+                salesforce_settings.get("salesforce_api_server") or None
+            )
+            result = await account_lookup(
+                account_name,
+                server=salesforce_api_server,
+            )
         except Exception as err:
             logger.exception(
                 "Salesforce account lookup failed for %s",
@@ -2456,7 +2731,17 @@ def _register_note_taker_handlers(
         await _send_typing(context)
 
         try:
-            result = await account_lookup(account_name)
+            settings = await _load_note_taker_settings()
+            salesforce_settings = (settings.get("integration") or {}).get(
+                "salesforce"
+            ) or {}
+            salesforce_api_server = (
+                salesforce_settings.get("salesforce_api_server") or None
+            )
+            result = await account_lookup(
+                account_name,
+                server=salesforce_api_server,
+            )
         except Exception as err:
             logger.exception(
                 "Salesforce account lookup failed for %s",
