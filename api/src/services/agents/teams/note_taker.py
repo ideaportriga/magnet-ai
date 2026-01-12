@@ -4,6 +4,8 @@ import datetime as dt
 import json
 import os
 import base64
+import hashlib
+import re
 from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
@@ -243,6 +245,16 @@ def _format_recording_date_iso(iso_datetime: str | None) -> str | None:
     except Exception:
         return None
     return dt_obj.date().isoformat()
+
+
+def _format_recording_date_compact(iso_datetime: str | None) -> str | None:
+    if not iso_datetime:
+        return None
+    try:
+        dt_obj = dt.datetime.fromisoformat(iso_datetime.replace("Z", "+00:00"))
+    except Exception:
+        return None
+    return dt_obj.strftime("%Y%m%d")
 
 
 async def _get_meeting_account_info(
@@ -520,7 +532,7 @@ async def _send_expandable_section(
 
 
 async def _download_file_from_link(
-    link: str, token: str | None
+    link: str, token: str | None, meeting: Dict[str, Any] | None = None
 ) -> tuple[bytes, str, str, str]:
     # Unwrap Teams deep links first
     parsed = urlparse(link)
@@ -556,6 +568,7 @@ async def _download_file_from_link(
         # Otherwise download directly
         download_url = link
 
+    final_url = ""
     async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
         async with client.stream("GET", download_url, headers=headers) as response:
             response.raise_for_status()
@@ -575,6 +588,7 @@ async def _download_file_from_link(
             )
             if not filename:
                 filename = _guess_filename_from_link(str(response.url) or link)
+            final_url = str(response.url)
 
             path = Path(filename)
             name = path.stem or "file"
@@ -582,6 +596,20 @@ async def _download_file_from_link(
             if not ext:
                 guessed_ext = mimetypes.guess_extension(content_type) or ".bin"
                 ext = guessed_ext
+
+    meeting_part = _get_meeting_id_part(meeting)
+    source_key = final_url or link
+    item_hash = hashlib.sha1(source_key.encode("utf-8")).hexdigest()[:12]
+    date_part = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
+    filename = _build_note_taker_filename(
+        kind="file",
+        meeting_id=meeting_part,
+        item_id=item_hash,
+        date_part=date_part,
+        ext=ext,
+    )
+    name = Path(filename).stem
+    ext = Path(filename).suffix or ext
 
     return bytes(buf), content_type, name, ext
 
@@ -892,11 +920,65 @@ async def _fetch_organizer_conversation_reference(
 def _build_recording_filename(
     meeting: Dict[str, Any], recording: Dict[str, Any], content_url: str
 ) -> str:
-    meeting_part = meeting.get("title") or meeting.get("id") or "meeting"
-    rec_part = recording.get("id") or "recording"
+    meeting_part = _get_meeting_id_part(meeting) or "meeting"
+    rec_part = recording.get("id") or recording.get("recordingId") or "recording"
+    date_part = _format_recording_date_compact(recording.get("createdDateTime"))
     ext = Path(urlparse(content_url).path).suffix or ".mp4"
-    base = f"{meeting_part}-{rec_part}"
+    return _build_note_taker_filename(
+        kind="recording",
+        meeting_id=meeting_part,
+        item_id=rec_part,
+        date_part=date_part,
+        ext=ext,
+    )
+
+
+def _normalize_filename_part(value: str) -> str:
+    ascii_value = value.encode("ascii", "ignore").decode("ascii")
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "-", ascii_value).strip("-")
+    return cleaned or "item"
+
+
+def _truncate_filename(base: str, ext: str, max_len: int = 255) -> str:
+    ext = ext if ext.startswith(".") else f".{ext}" if ext else ""
+    max_base_len = max_len - len(ext)
+    if max_base_len <= 0:
+        return ext[:max_len]
+    if len(base) > max_base_len:
+        base = base[:max_base_len].rstrip("-")
     return f"{base}{ext}"
+
+
+def _build_note_taker_filename(
+    *,
+    kind: str,
+    meeting_id: str | None,
+    item_id: str | None,
+    date_part: str | None,
+    ext: str,
+) -> str:
+    parts = [
+        "note-taker",
+        kind,
+        meeting_id or "meeting",
+        item_id or "item",
+        date_part or "",
+    ]
+    normalized = [_normalize_filename_part(part) for part in parts if part]
+    base = "-".join(normalized)
+    return _truncate_filename(base, ext)
+
+
+def _get_meeting_id_part(meeting: Dict[str, Any] | None) -> str | None:
+    if not meeting:
+        return None
+    return (
+        meeting.get("id")
+        or meeting.get("conversationId")
+        or meeting.get("meetingId")
+        or meeting.get("meeting_id")
+        or meeting.get("chat_id")
+    )
 
 
 async def _download_recording_bytes(
@@ -1481,11 +1563,48 @@ def _register_note_taker_handlers(
         conversation_date: str | None = None,
     ) -> None:
         await _send_typing(context)
+        meeting = _resolve_meeting_details(context)
+        meeting_part = _get_meeting_id_part(meeting)
+        source_file_type = "application/json"
+        try:
+            meta = await transcription_service.get_transcription(job_id)
+        except Exception as err:
+            logger.debug(
+                "Failed to read transcription metadata for %s: %s",
+                job_id,
+                getattr(err, "message", str(err)),
+            )
+            meta = None
+
+        if not conversation_date:
+            created_at = (meta or {}).get("created_at")
+            if created_at:
+                conversation_date = _format_recording_date_iso(created_at)
+
+        date_part = (
+            _format_recording_date_compact(conversation_date)
+            if conversation_date
+            else dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
+        )
+        source_file_name = _build_note_taker_filename(
+            kind="transcription",
+            meeting_id=meeting_part,
+            item_id=job_id,
+            date_part=date_part,
+            ext=".json",
+        )
+        stored_name = (meta or {}).get("filename") or ""
+        stored_ext = (meta or {}).get("file_ext") or ""
+        stored_content_type = (meta or {}).get("content_type") or ""
+        if stored_name and stored_ext:
+            source_file_name = f"{stored_name}{stored_ext}"
+        if stored_content_type:
+            source_file_type = stored_content_type
         on_submit = await _build_salesforce_submit_callback(
             context,
             conversation_date=conversation_date,
-            source_file_name=f"transcription_job_{job_id}",
-            source_file_type="application/json",
+            source_file_name=source_file_name,
+            source_file_type=source_file_type,
         )
         if on_submit:
             await on_submit(job_id)
@@ -2041,9 +2160,10 @@ def _register_note_taker_handlers(
 
         await context.send_activity("Fetching the file from your link...")
 
+        meeting = _resolve_meeting_details(context)
         try:
             file_bytes, content_type, name, ext = await _download_file_from_link(
-                link, delegated_token
+                link, delegated_token, meeting=meeting
             )
         except Exception as err:
             logger.exception("Failed to download file from link")
