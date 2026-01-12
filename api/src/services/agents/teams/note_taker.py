@@ -327,7 +327,12 @@ async def _send_stt_recording_to_salesforce(
     }
 
     payload_json = json.dumps(payload, indent=2, ensure_ascii=True)
-    await context.send_activity(f"```json\n{payload_json}\n```")
+    await _send_expandable_section(
+        context,
+        title="Salesforce payload sent.",
+        content=payload_json,
+        preserve_newlines=True,
+    )
 
     try:
         result = await post_stt_recording(
@@ -337,17 +342,30 @@ async def _send_stt_recording_to_salesforce(
         )
     except Exception as err:
         logger.exception("Salesforce sttRecording failed for job %s", job_id)
-        await context.send_activity(
-            f"Salesforce sttRecording failed: {getattr(err, 'message', str(err))}"
+        await _send_expandable_section(
+            context,
+            title="Salesforce response: failed.",
+            content=getattr(err, "message", str(err)),
+            preserve_newlines=True,
         )
         return
 
     if isinstance(result, (dict, list)):
-        payload_json = json.dumps(result, indent=2, ensure_ascii=True)
-        await context.send_activity(f"```json\n{payload_json}\n```")
+        response_json = json.dumps(result, indent=2, ensure_ascii=True)
+        await _send_expandable_section(
+            context,
+            title="Salesforce response: success.",
+            content=response_json,
+            preserve_newlines=True,
+        )
         return
 
-    await context.send_activity(str(result))
+    await _send_expandable_section(
+        context,
+        title="Salesforce response: success.",
+        content=str(result),
+        preserve_newlines=True,
+    )
 
 
 async def _ensure_vector_pool_ready() -> None:
