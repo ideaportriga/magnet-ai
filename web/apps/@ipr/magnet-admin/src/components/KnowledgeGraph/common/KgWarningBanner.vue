@@ -8,9 +8,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed } from 'vue'
 
-type BannerVariant = 'warning' | 'error' | 'info'
+type BannerVariant = 'warning' | 'error' | 'info' | 'neutral'
 
 interface Props {
   variant?: BannerVariant
@@ -25,6 +25,7 @@ const variantConfig: Record<BannerVariant, { icon: string; iconColor: string }> 
   warning: { icon: 'warning', iconColor: 'yellow-8' },
   error: { icon: 'error', iconColor: 'negative' },
   info: { icon: 'info', iconColor: 'primary' },
+  neutral: { icon: 'info', iconColor: 'grey-7' },
 }
 
 const iconName = computed(() => props.icon || variantConfig[props.variant].icon)
@@ -59,5 +60,10 @@ const iconColor = computed(() => variantConfig[props.variant].iconColor)
   border: 1px solid var(--q-primary);
   color: #0d47a1;
 }
-</style>
 
+.kg-warning-banner--neutral {
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  color: #616161;
+}
+</style>

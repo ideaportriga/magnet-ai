@@ -26,6 +26,8 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphCreateRequest,
     KnowledgeGraphCreateResponse,
     KnowledgeGraphDiscoveredMetadataExternalSchema,
+    KnowledgeGraphExtractedMetadataExternalSchema,
+    KnowledgeGraphExtractedMetadataUpsertRequest,
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
     KnowledgeGraphExternalSchema,
@@ -492,6 +494,40 @@ class KnowledgeGraphController(Controller):
         graph_id: UUID,
     ) -> list[KnowledgeGraphDiscoveredMetadataExternalSchema]:
         return await metadata_service.list_discovered_metadata(db_session, graph_id)
+
+    @get("/{graph_id:uuid}/metadata/extracted", status_code=HTTP_200_OK)
+    async def list_extracted_metadata(
+        self,
+        metadata_service: KnowledgeGraphMetadataService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+    ) -> list[KnowledgeGraphExtractedMetadataExternalSchema]:
+        return await metadata_service.list_extracted_metadata(db_session, graph_id)
+
+    @post("/{graph_id:uuid}/metadata/extracted", status_code=HTTP_200_OK)
+    async def upsert_extracted_metadata_field(
+        self,
+        metadata_service: KnowledgeGraphMetadataService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        data: KnowledgeGraphExtractedMetadataUpsertRequest,
+    ) -> KnowledgeGraphExtractedMetadataExternalSchema:
+        return await metadata_service.upsert_extracted_metadata_field(
+            db_session, graph_id, data
+        )
+
+    @delete(
+        "/{graph_id:uuid}/metadata/extracted/{name:str}",
+        status_code=HTTP_204_NO_CONTENT,
+    )
+    async def delete_extracted_metadata_field(
+        self,
+        metadata_service: KnowledgeGraphMetadataService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        name: str,
+    ) -> None:
+        await metadata_service.delete_extracted_metadata_field(db_session, graph_id, name)
 
     @observe(
         name="Running knowledge graph metadata/entity extraction",

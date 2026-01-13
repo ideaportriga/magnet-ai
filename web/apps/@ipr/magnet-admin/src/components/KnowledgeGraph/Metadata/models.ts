@@ -11,7 +11,7 @@ export type MetadataOrigin = 'file' | 'llm' | 'source'
 export const MetadataOriginLabels: Record<MetadataOrigin, string> = {
   file: 'File',
   llm: 'Smart Extraction',
-  source: 'Source',
+  source: 'Source Metadata',
 }
 
 export const MetadataOriginColors: Record<MetadataOrigin, string> = {
@@ -38,13 +38,6 @@ export const ValueTypeOptions = [
 export interface AllowedValue {
   value: string
   hint?: string
-}
-
-// Override metadata field values for specific sources (constant values during ingestion)
-export interface MetadataFieldSourceOverride {
-  source_id: string
-  constant_value?: string
-  constant_values?: string[]
 }
 
 /**
@@ -88,23 +81,10 @@ export interface MetadataFieldDefinition {
   name: string
   display_name?: string
   description: string
-  value_type: MetadataValueType
-  is_multiple: boolean
-  allowed_values?: AllowedValue[]
-  default_value?: string
-  default_values?: string[]
-  llm_extraction_hint?: string
-  /**
-   * Legacy per-source constant overrides.
-   * Prefer `source_value_resolution`.
-   */
-  source_overrides?: MetadataFieldSourceOverride[]
   /**
    * Per-source value resolution chain.
    */
   source_value_resolution?: MetadataFieldSourceValueResolution[]
-  created_at?: string
-  updated_at?: string
 }
 
 // Discovered metadata field - auto-detected from data
@@ -181,18 +161,30 @@ export interface SourceLink {
   type: string
 }
 
-// Combined view of defined and discovered metadata
-export interface MetadataFieldRow {
+// Discovered metadata field definition
+export interface MetadataDiscoveredField {
   id: string
   name: string
-  display_name?: string
   description: string
   value_type: MetadataValueType
   origin: MetadataOrigin | null
   source: SourceLink | null
   is_defined: boolean
   sample_values: string[]
+}
+
+// Smart extraction field definition
+export interface MetadataExtractedField {
+  id: string
+  name: string
+  value_type: MetadataValueType
+  is_multiple: boolean
   allowed_values?: AllowedValue[]
+  llm_extraction_hint?: string
+  sample_values?: string[]
+  value_count?: number
+  created_at?: string
+  updated_at?: string
 }
 
 // Default extraction prompt template
@@ -213,17 +205,28 @@ Only include fields that have values found in the document.
 Document content:
 {content}`
 
-// Preset field definitions for common metadata
-export const PRESET_FIELDS: Partial<MetadataFieldDefinition>[] = [
+// Preset field definition including both schema and smart extraction properties
+export interface PresetFieldDefinition {
+  // Schema field properties
+  name: string
+  display_name: string
+  description: string
+  // Smart extraction properties
+  value_type: MetadataValueType
+  is_multiple?: boolean
+  allowed_values?: AllowedValue[]
+  llm_extraction_hint?: string
+}
+
+// Preset schema fields for common metadata with smart extraction configuration
+export const PRESET_FIELDS: PresetFieldDefinition[] = [
   {
     name: 'author',
     display_name: 'Author',
     description: 'The creator or author of the document',
     value_type: 'string',
-    is_multiple: false,
-    llm_extraction_hint: `Extract the author or creator name from the document.
-Look for: bylines, "Written by", "Author:", signature blocks, or document metadata.
-Return the full name if available.`,
+    is_multiple: true,
+    llm_extraction_hint: 'Extract the name(s) of the author(s) or creator(s) of this document. Look for bylines, credits, or author attribution.',
   },
   {
     name: 'language_2l',
@@ -241,36 +244,12 @@ Return the full name if available.`,
       { value: 'nl', hint: 'Dutch' },
       { value: 'pl', hint: 'Polish' },
       { value: 'ru', hint: 'Russian' },
-      { value: 'zh', hint: 'Chinese' },
       { value: 'ja', hint: 'Japanese' },
+      { value: 'zh', hint: 'Chinese' },
       { value: 'ko', hint: 'Korean' },
-      { value: 'ar', hint: 'Arabic' },
-      { value: 'hi', hint: 'Hindi' },
-      { value: 'sv', hint: 'Swedish' },
-      { value: 'da', hint: 'Danish' },
-      { value: 'no', hint: 'Norwegian' },
-      { value: 'fi', hint: 'Finnish' },
-      { value: 'cs', hint: 'Czech' },
-      { value: 'hu', hint: 'Hungarian' },
-      { value: 'ro', hint: 'Romanian' },
-      { value: 'tr', hint: 'Turkish' },
-      { value: 'th', hint: 'Thai' },
-      { value: 'vi', hint: 'Vietnamese' },
-      { value: 'id', hint: 'Indonesian' },
-      { value: 'he', hint: 'Hebrew' },
-      { value: 'uk', hint: 'Ukrainian' },
-      { value: 'el', hint: 'Greek' },
-      { value: 'bg', hint: 'Bulgarian' },
-      { value: 'hr', hint: 'Croatian' },
-      { value: 'sk', hint: 'Slovak' },
-      { value: 'sl', hint: 'Slovenian' },
-      { value: 'sr', hint: 'Serbian' },
-      { value: 'ca', hint: 'Catalan' },
-      { value: 'eu', hint: 'Basque' },
     ],
-    llm_extraction_hint: `Detect the primary language of the document content.
-Use the ISO 639-1 two-letter code from the allowed values: {values}.
-Analyze the text and return one of the allowed values.`,
+    llm_extraction_hint:
+      'Identify the primary language of this document. Return the ISO 639-1 two-letter language code (e.g., "en" for English, "de" for German).',
   },
   {
     name: 'language_3l',
@@ -288,45 +267,12 @@ Analyze the text and return one of the allowed values.`,
       { value: 'nld', hint: 'Dutch' },
       { value: 'pol', hint: 'Polish' },
       { value: 'rus', hint: 'Russian' },
-      { value: 'zho', hint: 'Chinese' },
       { value: 'jpn', hint: 'Japanese' },
+      { value: 'zho', hint: 'Chinese' },
       { value: 'kor', hint: 'Korean' },
-      { value: 'ara', hint: 'Arabic' },
-      { value: 'hin', hint: 'Hindi' },
-      { value: 'swe', hint: 'Swedish' },
-      { value: 'dan', hint: 'Danish' },
-      { value: 'nor', hint: 'Norwegian' },
-      { value: 'fin', hint: 'Finnish' },
-      { value: 'ces', hint: 'Czech' },
-      { value: 'hun', hint: 'Hungarian' },
-      { value: 'ron', hint: 'Romanian' },
-      { value: 'tur', hint: 'Turkish' },
-      { value: 'tha', hint: 'Thai' },
-      { value: 'vie', hint: 'Vietnamese' },
-      { value: 'ind', hint: 'Indonesian' },
-      { value: 'heb', hint: 'Hebrew' },
-      { value: 'ukr', hint: 'Ukrainian' },
-      { value: 'ell', hint: 'Greek' },
-      { value: 'bul', hint: 'Bulgarian' },
-      { value: 'hrv', hint: 'Croatian' },
-      { value: 'slk', hint: 'Slovak' },
-      { value: 'slv', hint: 'Slovenian' },
-      { value: 'srp', hint: 'Serbian' },
-      { value: 'cat', hint: 'Catalan' },
-      { value: 'eus', hint: 'Basque' },
-      { value: 'lat', hint: 'Latin' },
-      { value: 'sqi', hint: 'Albanian' },
-      { value: 'est', hint: 'Estonian' },
-      { value: 'lav', hint: 'Latvian' },
-      { value: 'lit', hint: 'Lithuanian' },
-      { value: 'mlt', hint: 'Maltese' },
-      { value: 'gle', hint: 'Irish' },
-      { value: 'cym', hint: 'Welsh' },
-      { value: 'bre', hint: 'Breton' },
     ],
-    llm_extraction_hint: `Detect the primary language of the document content.
-Use the ISO 639-2 three-letter code from the allowed values: {values}.
-Analyze the text and return one of the allowed values.`,
+    llm_extraction_hint:
+      'Identify the primary language of this document. Return the ISO 639-2 three-letter language code (e.g., "eng" for English, "deu" for German).',
   },
   {
     name: 'document_type',
@@ -334,9 +280,17 @@ Analyze the text and return one of the allowed values.`,
     description: 'Type of document (manual, guide, article, etc.)',
     value_type: 'string',
     is_multiple: false,
-    llm_extraction_hint: `Classify the document type based on its structure and content.
-Common types: Manual, Guide, Article, Report, Policy, Specification, Tutorial, FAQ, Release Notes.
-Look for explicit labels or infer from document structure.`,
+    allowed_values: [
+      { value: 'manual', hint: 'User or technical manual' },
+      { value: 'guide', hint: 'How-to guide or tutorial' },
+      { value: 'article', hint: 'Article or blog post' },
+      { value: 'specification', hint: 'Technical specification' },
+      { value: 'report', hint: 'Report or analysis' },
+      { value: 'policy', hint: 'Policy or procedure document' },
+      { value: 'faq', hint: 'Frequently asked questions' },
+      { value: 'release_notes', hint: 'Release notes or changelog' },
+    ],
+    llm_extraction_hint: 'Determine the type or category of this document based on its structure and content.',
   },
   {
     name: 'version',
@@ -344,9 +298,7 @@ Look for explicit labels or infer from document structure.`,
     description: 'Document version number',
     value_type: 'string',
     is_multiple: false,
-    llm_extraction_hint: `Extract the version number or revision identifier.
-Look for: "Version X.Y", "Rev.", "v1.0", or version tables.
-Return the version string as-is (e.g., "2.1.0", "Rev A").`,
+    llm_extraction_hint: 'Extract the version number or revision of this document if mentioned (e.g., "1.0", "2.3.1", "Rev A").',
   },
   {
     name: 'created_date',
@@ -354,8 +306,6 @@ Return the version string as-is (e.g., "2.1.0", "Rev A").`,
     description: 'When the document was originally created',
     value_type: 'date',
     is_multiple: false,
-    llm_extraction_hint: `Extract the document creation or publication date.
-Look for: "Date:", "Published:", "Created:", or date stamps in headers/footers.
-Return in ISO format (YYYY-MM-DD) if possible.`,
+    llm_extraction_hint: 'Extract the creation date or publication date of this document. Return in ISO 8601 format (YYYY-MM-DD) if possible.',
   },
 ]

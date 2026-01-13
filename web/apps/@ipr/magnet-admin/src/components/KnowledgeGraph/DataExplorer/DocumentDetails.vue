@@ -319,7 +319,7 @@ function toMetadataItems(meta: unknown, origin: MetadataOrigin): MetadataItem[] 
     items.push({
       origin,
       key: rawKey,
-      label: formatKey(rawKey),
+      label: rawKey,
       kind,
       value,
     })

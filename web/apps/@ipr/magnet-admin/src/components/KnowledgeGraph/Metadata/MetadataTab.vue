@@ -8,20 +8,37 @@
           Define, discover, and manage metadata fields across all documents in this knowledge graph
         </div>
       </div>
-      <div v-if="hasChanges" class="col-auto">
-        <div class="row items-center no-wrap q-gutter-x-sm">
-          <q-btn no-caps flat color="grey-7" label="Cancel" class="kg-action-btn" @click="discardChanges" />
-          <q-btn
-            no-caps
-            unelevated
-            color="primary"
-            label="Save Changes"
-            class="kg-action-btn"
-            :loading="saving"
-            :disable="!hasChanges"
-            @click="saveSettings"
-          />
-        </div>
+      <div class="col-auto">
+        <q-btn-dropdown
+          no-caps
+          color="primary"
+          label="Preset"
+          dense
+          class="preset-selector q-pl-12"
+          dropdown-icon="expand_more"
+          content-class="preset-dropdown-menu"
+          :disable="availablePresets.length === 0"
+          @click.stop
+        >
+          <q-list dense class="preset-dropdown-list">
+            <q-item
+              v-for="preset in availablePresets"
+              :key="preset.name"
+              v-close-popup
+              clickable
+              class="preset-dropdown-item"
+              @click="addPresetField(preset)"
+            >
+              <q-item-section>
+                <q-item-label class="preset-label">{{ preset.display_name || preset.name }}</q-item-label>
+                <q-item-label v-if="preset.description" caption class="preset-caption">{{ preset.description }}</q-item-label>
+              </q-item-section>
+            </q-item>
+            <q-item v-if="availablePresets.length === 0" disable>
+              <q-item-section class="text-grey-6">All presets added</q-item-section>
+            </q-item>
+          </q-list>
+        </q-btn-dropdown>
       </div>
     </div>
 
@@ -31,93 +48,28 @@
       <metadata-fields-table
         :defined-fields="definedFields"
         :discovered-fields="allMetadataValues"
-        :available-presets="availablePresets"
+        :extracted-fields="extractedFields"
+        :discarded-field-names="discardedFieldNames"
+        :sources="sources"
         :loading="loadingValues"
         :can-run-extraction="canRunExtraction"
         :running-extraction="runningExtraction"
         @add-field="openFieldDialog()"
-        @add-preset="addPresetField"
+        @add-extraction-field="openSmartExtractionFieldDialog()"
+        @edit-extraction-field="openSmartExtractionFieldDialog"
+        @delete-extraction-field="confirmDeleteExtractedField"
         @edit-field="openFieldDialog"
         @delete-field="confirmDeleteField"
-        @define-field="openFieldDialogFromDiscovered"
+        @promote-field="openPromoteFieldDialog"
+        @discard-field="discardField"
+        @restore-field="restoreField"
         @run-extraction="runExtraction"
+        @open-extraction-settings="showExtractionDialog = true"
+        @quick-create-field="quickCreateField"
+        @quick-replace-field="quickReplaceField"
+        @quick-create-from-extraction="quickCreateFromExtraction"
+        @quick-replace-from-extraction="quickReplaceFromExtraction"
       />
-
-      <!-- AI Metadata Extraction -->
-      <km-section title="Smart Metadata Extraction" sub-title="Leverage LLM to extract metadata from documents during ingestion">
-        <div class="column q-gap-12">
-          <div>
-            <div class="row q-col-gutter-md">
-              <div v-for="opt in extractionApproachOptions" :key="opt.value" class="col-12 col-md-4">
-                <div
-                  class="kg-extraction-tile"
-                  :class="{ 'kg-extraction-tile--selected': extractionApproach === opt.value }"
-                  tabindex="0"
-                  role="radio"
-                  :aria-checked="extractionApproach === opt.value"
-                  @click="extractionApproach = opt.value"
-                  @keydown.enter.prevent="extractionApproach = opt.value"
-                  @keydown.space.prevent="extractionApproach = opt.value"
-                >
-                  <div class="kg-extraction-tile__header">
-                    <div class="kg-extraction-tile__radio" :class="{ 'kg-extraction-tile__radio--checked': extractionApproach === opt.value }">
-                      <div v-if="extractionApproach === opt.value" class="kg-extraction-tile__radio-dot" />
-                    </div>
-                    <span class="kg-extraction-tile__label">{{ opt.label }}</span>
-                  </div>
-                  <div class="kg-extraction-tile__description">{{ opt.description }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <kg-field-row>
-            <kg-field-row label="Extraction Prompt">
-              <kg-dropdown-field
-                v-model="extractionPromptTemplateSystemName"
-                placeholder="Select a prompt template"
-                :options="promptTemplateOptions"
-                :loading="loadingPromptTemplates"
-                :disable="extractionApproach === 'disabled'"
-                option-value="system_name"
-                option-label="name"
-                searchable
-                clearable
-              />
-              <div class="km-description text-secondary-text q-mt-sm">
-                Pick a template that returns a JSON object with the metadata fields you want to store.
-              </div>
-            </kg-field-row>
-          </kg-field-row>
-
-          <div v-if="extractionApproach === 'document'" class="q-pa-md rounded-borders bg-grey-1" style="border: 1px solid rgba(0, 0, 0, 0.06)">
-            <div class="km-heading-8 text-weight-medium q-mb-xs">Document segmentation</div>
-            <div class="km-description text-secondary-text q-mb-md">
-              When a document is larger than the segment size, Magnet will split it into overlapping segments and run extraction per segment.
-            </div>
-
-            <div class="row q-col-gutter-lg">
-              <div class="col-12 col-md-4">
-                <div class="km-input-label q-pb-sm">Segment size (characters)</div>
-                <km-input v-model.number="extractionSegmentSize" type="number" min="100" />
-              </div>
-              <div class="col-12 col-md-8">
-                <div class="km-input-label q-pb-sm">Segment overlap (%)</div>
-                <div class="row items-center" style="height: 36px">
-                  <q-slider
-                    v-model="extractionSegmentOverlap"
-                    :min="0"
-                    :max="0.9"
-                    :step="0.02"
-                    label
-                    :label-value="`${Math.round((extractionSegmentOverlap || 0) * 100)}%`"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </km-section>
     </div>
 
     <!-- Field Definition Dialog -->
@@ -127,9 +79,41 @@
       :existing-field-names="definedFieldNames"
       :discovered-fields="allMetadataValues"
       :sources="sources"
+      :extracted-fields="extractedFields"
       @update:show-dialog="showFieldDialog = $event"
       @cancel="showFieldDialog = false"
       @save="onFieldSave"
+    />
+
+    <!-- Smart Extraction Field Dialog -->
+    <smart-extraction-field-dialog
+      :show-dialog="showSmartExtractionFieldDialog"
+      :field="editingSmartExtractionField"
+      :existing-field-names="extractedFieldNames"
+      @update:show-dialog="showSmartExtractionFieldDialog = $event"
+      @cancel="showSmartExtractionFieldDialog = false"
+      @save="onSmartExtractionFieldSave"
+    />
+
+    <!-- Smart Extraction Settings Dialog -->
+    <smart-extraction-settings-dialog
+      :show-dialog="showExtractionDialog"
+      :settings="extractionSettings"
+      :prompt-template-options="promptTemplateOptions"
+      :loading-prompt-templates="loadingPromptTemplates"
+      @update:show-dialog="showExtractionDialog = $event"
+      @cancel="showExtractionDialog = false"
+      @save="onExtractionSettingsSave"
+    />
+
+    <!-- Promote Field Dialog -->
+    <promote-field-dialog
+      :show-dialog="showPromoteDialog"
+      :discovered-field="promotingField"
+      :existing-fields="definedFields"
+      @update:show-dialog="showPromoteDialog = $event"
+      @create-new="onPromoteCreateNew"
+      @link-existing="onPromoteLinkExisting"
     />
   </div>
 </template>
@@ -139,11 +123,24 @@ import { fetchData } from '@shared'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { KgDropdownField, KgFieldRow } from '../common'
 import { type SourceRow } from '../Sources/models'
 import MetadataFieldDialog from './MetadataFieldDialog.vue'
 import MetadataFieldsTable from './MetadataFieldsTable.vue'
-import { DiscoveredMetadataField, MetadataFieldDefinition, MetadataFieldRow, MetadataOrigin, MetadataValueType, PRESET_FIELDS } from './models'
+import {
+  DiscoveredMetadataField,
+  MetadataDiscoveredField,
+  MetadataExtractedField,
+  MetadataFieldDefinition,
+  MetadataFieldSourceValueResolution,
+  MetadataFieldValueSourceStep,
+  MetadataOrigin,
+  MetadataValueType,
+  PRESET_FIELDS,
+  PresetFieldDefinition,
+} from './models'
+import PromoteFieldDialog from './PromoteFieldDialog.vue'
+import SmartExtractionFieldDialog, { type SmartExtractionFieldDefinition } from './SmartExtractionFieldDialog.vue'
+import SmartExtractionSettingsDialog, { type MetadataExtractionApproach, type SmartExtractionSettings } from './SmartExtractionSettingsDialog.vue'
 
 const props = defineProps<{
   graphId: string
@@ -159,34 +156,21 @@ const store = useStore()
 const $q = useQuasar()
 
 // Extraction settings
-type MetadataExtractionApproach = 'disabled' | 'chunks' | 'document'
-
-const extractionApproach = ref<MetadataExtractionApproach>('disabled')
+const extractionApproach = ref<MetadataExtractionApproach>('document')
 const extractionPromptTemplateSystemName = ref<string>('')
 const extractionSegmentSize = ref<number>(18000)
 const extractionSegmentOverlap = ref<number>(0.1)
 
-const extractionApproachOptions: Array<{
-  label: string
-  value: MetadataExtractionApproach
-  description: string
-}> = [
-  {
-    label: 'Disabled',
-    value: 'disabled',
-    description: 'AI extraction is turned off. Metadata will only come from document properties and sources.',
-  },
-  {
-    label: 'Document Based',
-    value: 'document',
-    description: 'Extract metadata from the entire document in parallel to chunking. Recommended for most use cases.',
-  },
-  {
-    label: 'Chunk Based',
-    value: 'chunks',
-    description: 'Extract metadata from each ingested chunk. Works slower, but metadata is linked with the chunk.',
-  },
-]
+// Extraction dialog state
+const showExtractionDialog = ref(false)
+
+// Computed extraction settings for dialog
+const extractionSettings = computed<SmartExtractionSettings>(() => ({
+  approach: extractionApproach.value,
+  prompt_template_system_name: extractionPromptTemplateSystemName.value,
+  segment_size: extractionSegmentSize.value,
+  segment_overlap: extractionSegmentOverlap.value,
+}))
 
 // Prompt templates (admin API)
 const promptTemplateOptions = ref<any[]>([])
@@ -221,32 +205,53 @@ const definedFields = ref<MetadataFieldDefinition[]>([])
 const showFieldDialog = ref(false)
 const editingField = ref<MetadataFieldDefinition | null>(null)
 
+// Smart extraction field dialog state
+const showSmartExtractionFieldDialog = ref(false)
+const editingSmartExtractionField = ref<SmartExtractionFieldDefinition | null>(null)
+
+// Smart extraction fields (persisted separately via /metadata/extracted)
+const extractedFields = ref<MetadataExtractedField[]>([])
+
+// Promote field dialog state
+const showPromoteDialog = ref(false)
+const promotingField = ref<MetadataDiscoveredField | null>(null)
+
 // Sources (for per-source overrides)
 const sources = ref<SourceRow[]>([])
 
 // All metadata values
-const allMetadataValues = ref<MetadataFieldRow[]>([])
+const allMetadataValues = ref<MetadataDiscoveredField[]>([])
 const loadingValues = ref(false)
+
+// Discarded field names (persisted per knowledge graph)
+const discardedFieldNames = ref<string[]>([])
 
 // State tracking
 const saving = ref(false)
 const originalState = ref<string>('')
+const autoSaveEnabled = ref(false)
+const baseSettings = ref<Record<string, any>>({})
+let autoSaveTimer: number | undefined
+let autoSaveAfterInFlight = false
+let refreshTimer: number | undefined
 
 // Manual extraction run state
 const runningExtraction = ref(false)
 
 // Field names for select
 const definedFieldNames = computed(() => definedFields.value.map((f) => f.name))
+const extractedFieldNames = computed(() => extractedFields.value.map((f) => f.name))
 
-// Available presets (not already defined)
+// Available presets (not already defined in schema or extraction)
 const availablePresets = computed(() => {
-  const existingNames = new Set(definedFieldNames.value)
-  return PRESET_FIELDS.filter((p) => !existingNames.has(p.name!))
+  const existingSchemaNames = new Set(definedFieldNames.value)
+  const existingExtractionNames = new Set(extractedFieldNames.value)
+  return PRESET_FIELDS.filter((p) => !existingSchemaNames.has(p.name) && !existingExtractionNames.has(p.name))
 })
 
 // Check for unsaved changes
-const hasChanges = computed(() => {
-  const currentState = JSON.stringify({
+const currentStateJson = computed(() =>
+  JSON.stringify({
     extraction: {
       approach: extractionApproach.value,
       prompt_template_system_name: extractionPromptTemplateSystemName.value,
@@ -254,23 +259,36 @@ const hasChanges = computed(() => {
       segment_overlap: extractionSegmentOverlap.value,
     },
     definedFields: definedFields.value,
+    discardedFieldNames: discardedFieldNames.value,
   })
-  return currentState !== originalState.value
-})
+)
+
+const hasChanges = computed(() => currentStateJson.value !== originalState.value)
 
 // Initialize from graph settings
 const initializeFromSettings = () => {
+  autoSaveEnabled.value = false
+  if (autoSaveTimer) window.clearTimeout(autoSaveTimer)
+  autoSaveAfterInFlight = false
+
+  // Keep a local copy of the full settings object. The backend treats `settings` as a full replacement.
+  // This prevents us from accidentally dropping other settings keys when we persist metadata changes.
+  try {
+    baseSettings.value = JSON.parse(JSON.stringify(props.graphDetails?.settings || {}))
+  } catch {
+    baseSettings.value = (props.graphDetails?.settings || {}) as Record<string, any>
+  }
+
   const settings = props.graphDetails?.settings?.metadata || {}
 
   const extraction = settings.extraction || {}
   const approachRaw = String(extraction?.approach || '').trim()
-  const enabledLegacy = !!extraction?.enabled
 
-  if (approachRaw === 'disabled' || approachRaw === 'chunks' || approachRaw === 'document') {
+  // Read approach from settings, default to 'document' if not present or invalid
+  if (approachRaw === 'chunks' || approachRaw === 'document') {
     extractionApproach.value = approachRaw as MetadataExtractionApproach
   } else {
-    // Backward compatibility: old config only had enabled=true/false.
-    extractionApproach.value = enabledLegacy ? 'chunks' : 'disabled'
+    extractionApproach.value = 'document'
   }
 
   // Prompt template: prefer new key; fall back to legacy prompt_template if present.
@@ -283,28 +301,48 @@ const initializeFromSettings = () => {
   extractionSegmentOverlap.value = Number.isFinite(overlapRaw) ? Math.min(Math.max(overlapRaw, 0), 0.9) : 0.1
   // Strip legacy/unused flags that might still exist in persisted configs
   definedFields.value = (settings.field_definitions || []).map((f: any) => {
-    const { is_searchable, is_filterable, ...rest } = f || {}
+    const {
+      is_searchable,
+      is_filterable,
+      value_type,
+      is_multiple,
+      allowed_values,
+      default_value,
+      default_values,
+      llm_extraction_hint,
+      source_overrides,
+      created_at,
+      updated_at,
+      ...rest
+    } = f || {}
     return rest as MetadataFieldDefinition
   })
 
-  captureOriginalState()
+  // Load discarded field names
+  discardedFieldNames.value = Array.isArray(settings.discarded_field_names) ? settings.discarded_field_names : []
+
+  // Snapshot as "saved" baseline (auto-save will persist changes from here).
+  originalState.value = currentStateJson.value
   syncDefinitionsToValues()
+  autoSaveEnabled.value = true
+  emit('unsaved-change', false)
 }
 
-const captureOriginalState = () => {
-  originalState.value = JSON.stringify({
-    extraction: {
-      approach: extractionApproach.value,
-      prompt_template_system_name: extractionPromptTemplateSystemName.value,
-      segment_size: extractionSegmentSize.value,
-      segment_overlap: extractionSegmentOverlap.value,
-    },
-    definedFields: definedFields.value,
-  })
+const scheduleRefresh = () => {
+  if (refreshTimer) window.clearTimeout(refreshTimer)
+  refreshTimer = window.setTimeout(() => emit('refresh'), 300)
+}
+
+const scheduleAutoSave = () => {
+  if (!autoSaveEnabled.value) return
+  if (autoSaveTimer) window.clearTimeout(autoSaveTimer)
+  autoSaveTimer = window.setTimeout(() => {
+    void saveSettings()
+  }, 250)
 }
 
 const canRunExtraction = computed(() => {
-  return extractionApproach.value !== 'disabled' && !!String(extractionPromptTemplateSystemName.value || '').trim() && !loadingPromptTemplates.value
+  return !!String(extractionPromptTemplateSystemName.value || '').trim() && !loadingPromptTemplates.value
 })
 
 const runExtraction = async () => {
@@ -410,14 +448,13 @@ const fetchMetadataValues = async () => {
           return {
             id: String(f.id || name),
             name,
-            display_name: toDisplayName(name),
             description: '',
             value_type: (f.inferred_type || 'string') as MetadataValueType,
             origin: (origin || null) as MetadataOrigin | null,
             source,
             is_defined: definedFieldNames.value.includes(name),
             sample_values: Array.isArray(f.sample_values) ? f.sample_values : [],
-          } as MetadataFieldRow
+          } as MetadataDiscoveredField
         })
     } else {
       allMetadataValues.value = []
@@ -428,6 +465,43 @@ const fetchMetadataValues = async () => {
   } finally {
     loadingValues.value = false
     syncDefinitionsToValues()
+  }
+}
+
+// Fetch configured smart extraction fields
+const fetchExtractedFields = async () => {
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response: any = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/metadata/extracted`,
+      method: 'GET',
+      credentials: 'include',
+    })
+
+    if (response?.ok) {
+      const data = await response.json()
+      const rows = Array.isArray(data) ? data : []
+      extractedFields.value = rows
+        .filter((r: any) => !!r?.name)
+        .map((r: any) => ({
+          id: String(r.id || crypto.randomUUID()),
+          name: String(r.name || '').trim(),
+          value_type: (String(r.value_type || 'string') as any) || 'string',
+          is_multiple: !!r.is_multiple,
+          allowed_values: Array.isArray(r.allowed_values) ? r.allowed_values : undefined,
+          llm_extraction_hint: r.llm_extraction_hint ? String(r.llm_extraction_hint) : undefined,
+          sample_values: Array.isArray(r.sample_values) ? r.sample_values : undefined,
+          value_count: Number.isFinite(Number(r.value_count)) ? Number(r.value_count) : undefined,
+          created_at: r.created_at ? String(r.created_at) : undefined,
+          updated_at: r.updated_at ? String(r.updated_at) : undefined,
+        })) as MetadataExtractedField[]
+    } else {
+      extractedFields.value = []
+    }
+  } catch (error) {
+    console.error('Error fetching extracted metadata fields:', error)
+    extractedFields.value = []
   }
 }
 
@@ -453,26 +527,47 @@ const fetchSources = async () => {
 
 // Save settings
 const saveSettings = async () => {
-  if (!hasChanges.value) return
+  const snapshotJson = currentStateJson.value
+  if (snapshotJson === originalState.value) return
+
+  if (saving.value) {
+    autoSaveAfterInFlight = true
+    return
+  }
+
   saving.value = true
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
-    const fieldDefinitions = definedFields.value.map((f: any) => {
+
+    const snapshot = JSON.parse(snapshotJson) as {
+      extraction: {
+        approach: MetadataExtractionApproach
+        prompt_template_system_name: string
+        segment_size: number
+        segment_overlap: number
+      }
+      definedFields: MetadataFieldDefinition[]
+      discardedFieldNames: string[]
+    }
+
+    const fieldDefinitions = (snapshot.definedFields || []).map((f: any) => {
       const { is_searchable, is_filterable, ...rest } = f || {}
       return rest as MetadataFieldDefinition
     })
+
     const payload = {
       settings: {
-        ...(props.graphDetails?.settings || {}),
+        ...(baseSettings.value || {}),
         metadata: {
           extraction: {
-            enabled: extractionApproach.value !== 'disabled',
-            approach: extractionApproach.value,
-            prompt_template_system_name: extractionPromptTemplateSystemName.value || undefined,
-            segment_size: extractionSegmentSize.value,
-            segment_overlap: extractionSegmentOverlap.value,
+            enabled: !!snapshot.extraction.prompt_template_system_name,
+            approach: snapshot.extraction.approach,
+            prompt_template_system_name: snapshot.extraction.prompt_template_system_name || undefined,
+            segment_size: snapshot.extraction.segment_size,
+            segment_overlap: snapshot.extraction.segment_overlap,
           },
           field_definitions: fieldDefinitions,
+          discarded_field_names: snapshot.discardedFieldNames,
         },
       },
     }
@@ -491,20 +586,35 @@ const saveSettings = async () => {
       return
     }
 
-    captureOriginalState()
-    emit('refresh')
-    $q.notify({ type: 'positive', message: 'Settings saved successfully', position: 'top', textColor: 'black', timeout: 1500 })
+    // Persist baseline as the exact snapshot we sent (user may have changed state while request was in-flight).
+    originalState.value = snapshotJson
+    baseSettings.value = payload.settings
+    // Only refresh the parent graph details once we're caught up; otherwise we'd fetch intermediate state.
+    if (currentStateJson.value === snapshotJson) {
+      scheduleRefresh()
+    }
   } catch (error) {
     console.error('Error saving metadata settings:', error)
     $q.notify({ type: 'negative', message: 'Error saving settings', position: 'top' })
   } finally {
     saving.value = false
+    // If state changed while we were saving, immediately schedule another save.
+    if (autoSaveAfterInFlight || currentStateJson.value !== originalState.value) {
+      autoSaveAfterInFlight = false
+      scheduleAutoSave()
+    }
   }
 }
 
-const discardChanges = () => {
-  initializeFromSettings()
-}
+// Auto-save: persist any changes to schema/discarded/extraction settings.
+watch(
+  currentStateJson,
+  () => {
+    if (!autoSaveEnabled.value) return
+    scheduleAutoSave()
+  },
+  { deep: false }
+)
 
 // Field dialog
 const openFieldDialog = (field?: MetadataFieldDefinition) => {
@@ -512,19 +622,111 @@ const openFieldDialog = (field?: MetadataFieldDefinition) => {
   showFieldDialog.value = true
 }
 
-const openFieldDialogFromDiscovered = (discovered: MetadataFieldRow | DiscoveredMetadataField) => {
+// Smart extraction field dialog
+const openSmartExtractionFieldDialog = (field?: MetadataExtractedField) => {
+  editingSmartExtractionField.value = (field as any) || null
+  showSmartExtractionFieldDialog.value = true
+}
+
+const openFieldDialogFromDiscovered = (discovered: MetadataDiscoveredField | DiscoveredMetadataField) => {
+  const row = discovered as MetadataDiscoveredField
+
+  const sourceId = String(row?.source?.id || '').trim()
+  const origin = row?.origin || null
+
+  const chain: MetadataFieldValueSourceStep[] = []
+  if (origin === 'file' || origin === 'source') {
+    chain.push({ kind: origin, field_name: row.name })
+  } else if (origin === 'llm') {
+    chain.push({ kind: 'llm' })
+  }
+
+  const source_value_resolution: MetadataFieldSourceValueResolution[] | undefined =
+    sourceId && chain.length ? [{ source_id: sourceId, chain }] : undefined
+
   editingField.value = {
     id: '',
-    name: discovered.name,
-    display_name: discovered.name
+    name: row.name,
+    display_name: row.name
       .split('_')
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' '),
     description: '',
-    value_type: (discovered as MetadataFieldRow).value_type || 'string',
-    is_multiple: false,
+    source_value_resolution,
   }
   showFieldDialog.value = true
+}
+
+// Promote field dialog
+const openPromoteFieldDialog = (row: MetadataDiscoveredField) => {
+  promotingField.value = row
+  showPromoteDialog.value = true
+}
+
+const onPromoteCreateNew = (row: MetadataDiscoveredField) => {
+  openFieldDialogFromDiscovered(row)
+}
+
+const onPromoteLinkExisting = (payload: { discovered: MetadataDiscoveredField; targetFieldId: string }) => {
+  const { discovered: row, targetFieldId } = payload
+  const targetField = definedFields.value.find((f) => f.id === targetFieldId)
+  if (!targetField) return
+
+  const sourceId = String(row?.source?.id || '').trim()
+  const origin = row?.origin || null
+
+  const newStep: MetadataFieldValueSourceStep = { kind: origin || 'file', field_name: row.name }
+  if (origin === 'llm') {
+    newStep.kind = 'llm'
+    newStep.field_name = row.name
+  }
+
+  // Build or update the source_value_resolution
+  const existingResolutions = targetField.source_value_resolution || []
+
+  if (sourceId) {
+    // Find existing resolution for this source, or create new one
+    const existingIdx = existingResolutions.findIndex((r) => r.source_id === sourceId)
+    if (existingIdx !== -1) {
+      // Add step to beginning of existing chain (highest priority)
+      const existing = existingResolutions[existingIdx]
+      const chainHasStep = existing.chain.some((s) => s.kind === newStep.kind && s.field_name === newStep.field_name)
+      if (!chainHasStep) {
+        existing.chain.unshift(newStep)
+      }
+    } else {
+      // Create new resolution for this source
+      existingResolutions.push({ source_id: sourceId, chain: [newStep] })
+    }
+  } else {
+    // No source - add to all existing resolutions or create a default one
+    if (existingResolutions.length === 0) {
+      existingResolutions.push({ source_id: '*', chain: [newStep] })
+    } else {
+      existingResolutions.forEach((r) => {
+        const chainHasStep = r.chain.some((s) => s.kind === newStep.kind && s.field_name === newStep.field_name)
+        if (!chainHasStep) {
+          r.chain.unshift(newStep)
+        }
+      })
+    }
+  }
+
+  targetField.source_value_resolution = existingResolutions
+
+  // Auto-remove from discarded when linking a field
+  if (discardedFieldNames.value.includes(row.name)) {
+    discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== row.name)
+  }
+
+  syncDefinitionsToValues()
+  $q.notify({
+    type: 'positive',
+    message: `Linked "${row.name}" to "${targetField.display_name || targetField.name}"`,
+    position: 'top',
+    textColor: 'black',
+    timeout: 2000,
+  })
 }
 
 const onFieldSave = (field: MetadataFieldDefinition) => {
@@ -534,8 +736,88 @@ const onFieldSave = (field: MetadataFieldDefinition) => {
   } else {
     definedFields.value.push(field)
   }
+  // Auto-remove from discarded when defining a field
+  if (discardedFieldNames.value.includes(field.name)) {
+    discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== field.name)
+  }
   showFieldDialog.value = false
   syncDefinitionsToValues()
+}
+
+const onSmartExtractionFieldSave = async (field: SmartExtractionFieldDefinition) => {
+  const name = String(field?.name || '').trim()
+  if (!name) return
+
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const payload = {
+      name,
+      value_type: field.value_type || 'string',
+      is_multiple: !!field.is_multiple,
+      allowed_values: field.allowed_values?.length ? field.allowed_values : undefined,
+      llm_extraction_hint: field.llm_extraction_hint,
+    }
+
+    const res = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/metadata/extracted`,
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      $q.notify({ type: 'negative', message: 'Failed to save extraction field', position: 'top' })
+      return
+    }
+
+    showSmartExtractionFieldDialog.value = false
+    await fetchExtractedFields()
+    $q.notify({ type: 'positive', message: 'Extraction field saved', position: 'top', textColor: 'black', timeout: 1500 })
+  } catch (error) {
+    console.error('Error saving extracted metadata field:', error)
+    $q.notify({ type: 'negative', message: 'Error saving extraction field', position: 'top' })
+  }
+}
+
+const confirmDeleteExtractedField = (field: MetadataExtractedField) => {
+  const name = String(field?.name || '').trim()
+  if (!name) return
+  $q.dialog({
+    title: 'Delete Extraction Field',
+    message: `Delete the extraction field \"${name}\"?`,
+    cancel: true,
+    persistent: true,
+    ok: { color: 'negative', label: 'Delete', flat: true },
+  }).onOk(async () => {
+    try {
+      const endpoint = store.getters.config.api.aiBridge.urlAdmin
+      const res = await fetchData({
+        endpoint,
+        service: `knowledge_graphs/${props.graphId}/metadata/extracted/${name}`,
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        $q.notify({ type: 'negative', message: 'Failed to delete extraction field', position: 'top' })
+        return
+      }
+      await fetchExtractedFields()
+      $q.notify({ type: 'positive', message: 'Extraction field deleted', position: 'top', textColor: 'black', timeout: 1500 })
+    } catch (error) {
+      console.error('Error deleting extracted metadata field:', error)
+      $q.notify({ type: 'negative', message: 'Error deleting extraction field', position: 'top' })
+    }
+  })
+}
+
+const onExtractionSettingsSave = (settings: SmartExtractionSettings) => {
+  extractionApproach.value = settings.approach
+  extractionPromptTemplateSystemName.value = settings.prompt_template_system_name
+  extractionSegmentSize.value = settings.segment_size
+  extractionSegmentOverlap.value = settings.segment_overlap
+  showExtractionDialog.value = false
 }
 
 const confirmDeleteField = (field: MetadataFieldDefinition) => {
@@ -551,20 +833,52 @@ const confirmDeleteField = (field: MetadataFieldDefinition) => {
   })
 }
 
-const addPresetField = (preset: Partial<MetadataFieldDefinition>) => {
+const addPresetField = async (preset: PresetFieldDefinition) => {
+  // 1. Create the schema field definition
   const field: MetadataFieldDefinition = {
     id: crypto.randomUUID(),
-    name: preset.name!,
-    display_name: preset.display_name || preset.name!,
+    name: preset.name,
+    display_name: preset.display_name || preset.name,
     description: preset.description || '',
-    value_type: preset.value_type || 'string',
-    is_multiple: preset.is_multiple ?? false,
-    allowed_values: preset.allowed_values ? preset.allowed_values.map((v) => ({ ...v })) : undefined,
-    default_value: preset.default_value,
-    default_values: preset.default_values ? [...preset.default_values] : undefined,
   }
   definedFields.value.push(field)
   syncDefinitionsToValues()
+
+  // 2. Also create the smart extraction field
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const payload = {
+      name: preset.name,
+      value_type: preset.value_type || 'string',
+      is_multiple: !!preset.is_multiple,
+      allowed_values: preset.allowed_values?.length ? preset.allowed_values : undefined,
+      llm_extraction_hint: preset.llm_extraction_hint,
+    }
+
+    const res = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/metadata/extracted`,
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    if (!res.ok) {
+      console.error('Failed to create extraction field for preset')
+    } else {
+      await fetchExtractedFields()
+      $q.notify({
+        type: 'positive',
+        message: `Added preset field "${preset.display_name || preset.name}" to schema and smart extraction`,
+        position: 'top',
+        textColor: 'black',
+        timeout: 2000,
+      })
+    }
+  } catch (error) {
+    console.error('Error creating extraction field for preset:', error)
+  }
 }
 
 const syncDefinitionsToValues = () => {
@@ -573,16 +887,213 @@ const syncDefinitionsToValues = () => {
   allMetadataValues.value.forEach((row) => {
     const def = defsByName.get(row.name)
     row.is_defined = !!def
-    if (def?.display_name) {
-      row.display_name = def.display_name
-    }
   })
 }
 
-// Watch for changes
-watch(hasChanges, (val) => {
-  emit('unsaved-change', val)
-})
+// Discard/restore field handlers
+const discardField = (name: string) => {
+  if (!discardedFieldNames.value.includes(name)) {
+    discardedFieldNames.value = [...discardedFieldNames.value, name]
+  }
+}
+
+const restoreField = (name: string) => {
+  discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== name)
+}
+
+// Quick field creation/replacement via drag-and-drop
+const toDisplayName = (fieldName: string) => {
+  const s = String(fieldName || '').trim()
+  if (!s) return ''
+  return s
+    .split(/[_-]+/g)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+const buildResolutionChain = (row: MetadataDiscoveredField): MetadataFieldSourceValueResolution[] | undefined => {
+  const sourceId = String(row?.source?.id || '').trim()
+  const origin = row?.origin || null
+
+  const chain: MetadataFieldValueSourceStep[] = []
+  if (origin === 'file' || origin === 'source') {
+    chain.push({ kind: origin, field_name: row.name })
+  } else if (origin === 'llm') {
+    chain.push({ kind: 'llm', field_name: row.name })
+  }
+
+  if (sourceId && chain.length) {
+    return [{ source_id: sourceId, chain }]
+  } else if (chain.length) {
+    return [{ source_id: '*', chain }]
+  }
+  return undefined
+}
+
+const quickCreateField = (row: MetadataDiscoveredField) => {
+  const field: MetadataFieldDefinition = {
+    id: crypto.randomUUID(),
+    name: row.name,
+    display_name: toDisplayName(row.name),
+    description: '',
+    source_value_resolution: buildResolutionChain(row),
+  }
+  definedFields.value.push(field)
+  // Auto-remove from discarded
+  if (discardedFieldNames.value.includes(row.name)) {
+    discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== row.name)
+  }
+  syncDefinitionsToValues()
+  $q.notify({
+    type: 'positive',
+    message: `Created schema field "${field.display_name || field.name}"`,
+    position: 'top',
+    textColor: 'black',
+    timeout: 1500,
+  })
+}
+
+const quickReplaceField = (payload: { discovered: MetadataDiscoveredField; target: MetadataFieldDefinition }) => {
+  const { discovered: row, target: targetField } = payload
+  const idx = definedFields.value.findIndex((f) => f.id === targetField.id)
+  if (idx === -1) return
+
+  const sourceId = String(row?.source?.id || '').trim()
+  const origin = row?.origin || null
+
+  // Build the new step for this discovered field
+  const newStep: MetadataFieldValueSourceStep = { kind: origin || 'file', field_name: row.name }
+  if (origin === 'llm') {
+    newStep.kind = 'llm'
+    newStep.field_name = row.name
+  }
+
+  // Get existing resolutions or start fresh
+  const existingResolutions = [...(targetField.source_value_resolution || [])]
+
+  if (sourceId) {
+    // Find existing resolution for this source, or create new one
+    const existingIdx = existingResolutions.findIndex((r) => r.source_id === sourceId)
+    if (existingIdx !== -1) {
+      // Add step to beginning of existing chain (highest priority) if not already present
+      const existing = existingResolutions[existingIdx]
+      const chainHasStep = existing.chain.some((s) => s.kind === newStep.kind && s.field_name === newStep.field_name)
+      if (!chainHasStep) {
+        existing.chain = [newStep, ...existing.chain]
+      }
+    } else {
+      // Create new resolution for this source
+      existingResolutions.push({ source_id: sourceId, chain: [newStep] })
+    }
+  } else {
+    // No source - add to wildcard resolution or create one
+    const wildcardIdx = existingResolutions.findIndex((r) => r.source_id === '*')
+    if (wildcardIdx !== -1) {
+      const existing = existingResolutions[wildcardIdx]
+      const chainHasStep = existing.chain.some((s) => s.kind === newStep.kind && s.field_name === newStep.field_name)
+      if (!chainHasStep) {
+        existing.chain = [newStep, ...existing.chain]
+      }
+    } else {
+      existingResolutions.push({ source_id: '*', chain: [newStep] })
+    }
+  }
+
+  // Update the field with new resolution (keeping original name, display_name, etc.)
+  definedFields.value[idx] = {
+    ...targetField,
+    source_value_resolution: existingResolutions,
+  }
+
+  // Auto-remove from discarded
+  if (discardedFieldNames.value.includes(row.name)) {
+    discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== row.name)
+  }
+  syncDefinitionsToValues()
+  $q.notify({
+    type: 'positive',
+    message: `Linked "${row.name}" to "${targetField.display_name || targetField.name}"`,
+    position: 'top',
+    textColor: 'black',
+    timeout: 1500,
+  })
+}
+
+// Quick field creation/replacement from extraction field via drag-and-drop
+const quickCreateFromExtraction = (extractedField: MetadataExtractedField) => {
+  // Create resolution entries for all sources
+  const llmStep: MetadataFieldValueSourceStep = { kind: 'llm', field_name: extractedField.name }
+  const sourceValueResolution: MetadataFieldSourceValueResolution[] =
+    sources.value.length > 0 ? sources.value.map((src) => ({ source_id: src.id, chain: [llmStep] })) : [{ source_id: '*', chain: [llmStep] }]
+
+  const field: MetadataFieldDefinition = {
+    id: crypto.randomUUID(),
+    name: extractedField.name,
+    display_name: toDisplayName(extractedField.name),
+    description: extractedField.llm_extraction_hint || '',
+    source_value_resolution: sourceValueResolution,
+  }
+  definedFields.value.push(field)
+  syncDefinitionsToValues()
+  $q.notify({
+    type: 'positive',
+    message: `Created schema field "${field.display_name || field.name}" from extraction field`,
+    position: 'top',
+    textColor: 'black',
+    timeout: 1500,
+  })
+}
+
+const quickReplaceFromExtraction = (payload: { extracted: MetadataExtractedField; target: MetadataFieldDefinition }) => {
+  const { extracted: extractedField, target: targetField } = payload
+  const idx = definedFields.value.findIndex((f) => f.id === targetField.id)
+  if (idx === -1) return
+
+  // Build the new step for this extraction field
+  const newStep: MetadataFieldValueSourceStep = { kind: 'llm', field_name: extractedField.name }
+
+  // Get existing resolutions or start fresh
+  const existingResolutions = [...(targetField.source_value_resolution || [])]
+
+  // Get all source IDs that already have resolutions
+  const existingSourceIds = new Set(existingResolutions.map((r) => r.source_id))
+
+  // Add the LLM step to all existing resolutions
+  existingResolutions.forEach((resolution) => {
+    const chainHasStep = resolution.chain.some((s) => s.kind === newStep.kind && s.field_name === newStep.field_name)
+    if (!chainHasStep) {
+      resolution.chain = [newStep, ...resolution.chain]
+    }
+  })
+
+  // Add resolutions for any sources that don't have one yet
+  sources.value.forEach((src) => {
+    if (!existingSourceIds.has(src.id)) {
+      existingResolutions.push({ source_id: src.id, chain: [newStep] })
+    }
+  })
+
+  // If no sources exist and no resolutions, add a wildcard
+  if (existingResolutions.length === 0) {
+    existingResolutions.push({ source_id: '*', chain: [newStep] })
+  }
+
+  // Update the field with new resolution (keeping original name, display_name, etc.)
+  definedFields.value[idx] = {
+    ...targetField,
+    source_value_resolution: existingResolutions,
+  }
+
+  syncDefinitionsToValues()
+  $q.notify({
+    type: 'positive',
+    message: `Linked extraction field "${extractedField.name}" to "${targetField.display_name || targetField.name}"`,
+    position: 'top',
+    textColor: 'black',
+    timeout: 1500,
+  })
+}
 
 watch(showFieldDialog, (open) => {
   if (open) fetchSources()
@@ -592,6 +1103,17 @@ watch(
   () => props.graphDetails,
   () => {
     if (props.graphDetails) {
+      // Always refresh base settings from props so future PATCH payloads preserve all settings keys.
+      try {
+        baseSettings.value = JSON.parse(JSON.stringify(props.graphDetails?.settings || {}))
+      } catch {
+        baseSettings.value = (props.graphDetails?.settings || {}) as Record<string, any>
+      }
+
+      // Avoid clobbering local in-progress edits with incoming props updates.
+      if (saving.value) return
+      if (autoSaveEnabled.value && hasChanges.value) return
+
       initializeFromSettings()
     }
   },
@@ -600,110 +1122,65 @@ watch(
 
 onMounted(() => {
   fetchMetadataValues()
+  fetchExtractedFields()
   fetchSources()
   loadPromptTemplates()
 })
 
 // Expose methods for parent
 defineExpose({
-  save: saveSettings,
-  discard: discardChanges,
   refresh: () => {
     fetchMetadataValues()
+    fetchExtractedFields()
     fetchSources()
   },
 })
 </script>
 
 <style scoped>
-/* Extraction Approach Tiles - Clean Radio Style */
-.kg-extraction-tile {
-  display: flex;
-  flex-direction: column;
-  padding: 16px 18px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 4px;
-  cursor: pointer;
-  background: #fff;
-  transition: all 0.15s ease;
-  height: 100%;
-  min-height: 100px;
-}
-
-.kg-extraction-tile:hover {
-  border-color: rgba(0, 0, 0, 0.24);
-  background: #fafafa;
-}
-
-.kg-extraction-tile:focus-visible {
-  outline: 2px solid var(--q-primary);
-  outline-offset: 2px;
-}
-
-.kg-extraction-tile--selected {
-  border-color: var(--q-primary);
-  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.04);
-}
-
-.kg-extraction-tile--selected:hover {
-  border-color: var(--q-primary);
-  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
-}
-
-.kg-extraction-tile__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.kg-extraction-tile__radio {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(0, 0, 0, 0.38);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
-}
-
-.kg-extraction-tile__radio--checked {
-  border-color: var(--q-primary);
-}
-
-.kg-extraction-tile__radio-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--q-primary);
-}
-
-.kg-extraction-tile__label {
+/* Preset dropdown */
+.preset-selector {
+  height: 34px;
+  min-height: 34px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
+}
+
+:deep(.preset-dropdown-menu) {
+  border-radius: 8px;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  min-width: 280px;
+}
+
+:deep(.preset-dropdown-list) {
+  padding: 4px 0;
+}
+
+:deep(.preset-dropdown-item) {
+  padding: 8px 14px !important;
+  margin: 4px 6px;
+  border-radius: 6px;
+}
+
+:deep(.preset-dropdown-item:hover) {
+  background-color: #f3f4f6;
+}
+
+:deep(.preset-label) {
+  font-size: 13px;
+  font-weight: 500;
   color: #1f2937;
   line-height: 1.3;
 }
 
-.kg-extraction-tile--selected .kg-extraction-tile__label {
-  color: var(--q-primary);
-}
-
-.kg-extraction-tile__description {
-  font-size: 13px;
-  color: #6b7280;
-  line-height: 1.5;
-  padding-left: 28px;
-}
-
-/* Action buttons */
-.kg-action-btn {
-  font-size: 13px;
-  height: 34px;
-  min-height: 34px;
-  padding-left: 12px;
-  padding-right: 12px;
+:deep(.preset-caption) {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+  line-height: 1.3;
 }
 </style>

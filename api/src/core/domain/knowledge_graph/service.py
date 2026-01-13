@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 from uuid import UUID
 
@@ -30,6 +29,7 @@ from core.db.models.knowledge_graph import (
     KnowledgeGraphChunk,
     KnowledgeGraphDocument,
     KnowledgeGraphMetadataDiscovery,
+    KnowledgeGraphMetadataExtraction,
     KnowledgeGraphSource,
     chunks_index_prefix,
     chunks_table_name,
@@ -49,6 +49,8 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
     KnowledgeGraphExternalSchema,
+    KnowledgeGraphExtractedMetadataExternalSchema,
+    KnowledgeGraphExtractedMetadataUpsertRequest,
     KnowledgeGraphMetadataExtractionRunRequest,
     KnowledgeGraphMetadataExtractionRunResponse,
     KnowledgeGraphSourceCreateRequest,
@@ -70,6 +72,7 @@ from scheduler.types import (
 )
 from services.knowledge_graph import (
     get_default_content_configs,
+    get_default_metadata_settings,
     get_default_retrieval_settings,
 )
 from services.observability import observability_context
@@ -185,11 +188,13 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
 
         default_configs = get_default_content_configs()
         retrieval_settings = get_default_retrieval_settings()
+        metadata_settings = get_default_metadata_settings()
         settings: dict[str, Any] | None = {
             "chunking": {
                 "content_settings": [cfg.model_dump() for cfg in default_configs],
             },
             **retrieval_settings,
+            **metadata_settings,
         }
 
         # Set default embedding model if it exists
@@ -1164,6 +1169,12 @@ class KnowledgeGraphChunkService:
             docs_table=docs_table,
             vector_size=None,
         )
+        # IMPORTANT: `findDocumentsByMetadata` compiles a raw SQL predicate that
+        # references the documents table as alias `d` (e.g. `d.metadata ...`).
+        # When reusing that predicate here, we must ensure the documents table is
+        # present in the FROM clause with the same alias, otherwise Postgres will
+        # raise "missing FROM-clause entry for table d".
+        docs_alias = docs_tbl.alias("d")
 
         qvec = bindparam("qvec", type_=chunks_tbl.c.content_embedding.type)
         distance_expr = chunks_tbl.c.content_embedding.op("<=>")(qvec)
@@ -1175,14 +1186,14 @@ class KnowledgeGraphChunkService:
                 chunks_tbl.c.title.label("title"),
                 chunks_tbl.c.content.label("content"),
                 chunks_tbl.c.document_id.label("document_id"),
-                docs_tbl.c.name.label("document_name"),
-                docs_tbl.c.title.label("document_title"),
+                docs_alias.c.name.label("document_name"),
+                docs_alias.c.title.label("document_title"),
                 chunks_tbl.c.page.label("page"),
                 chunks_tbl.c.index.label("index"),
                 score_expr,
             )
             .select_from(
-                chunks_tbl.join(docs_tbl, docs_tbl.c.id == chunks_tbl.c.document_id)
+                chunks_tbl.join(docs_alias, docs_alias.c.id == chunks_tbl.c.document_id)
             )
             .where(chunks_tbl.c.content_embedding.is_not(None))
             .order_by(score_expr.desc())
@@ -1353,6 +1364,7 @@ class KnowledgeGraphMetadataService:
         res = await db_session.execute(
             select(KnowledgeGraphMetadataDiscovery)
             .where(KnowledgeGraphMetadataDiscovery.graph_id == graph_id)
+            .where(KnowledgeGraphMetadataDiscovery.origin.in_(("file", "source")))
             .options(selectinload(KnowledgeGraphMetadataDiscovery.source))
             .order_by(
                 KnowledgeGraphMetadataDiscovery.value_count.desc(),
@@ -1383,6 +1395,152 @@ class KnowledgeGraphMetadataService:
             for row in rows
         ]
 
+    async def list_extracted_metadata(
+        self, db_session: AsyncSession, graph_id: UUID
+    ) -> list[KnowledgeGraphExtractedMetadataExternalSchema]:
+        # Ensure the graph exists so we can distinguish "no fields yet" vs "graph not found".
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph.id).where(KnowledgeGraph.id == graph_id)
+        )
+        if graph_res.scalar_one_or_none() is None:
+            raise NotFoundException("Graph not found")
+
+        res = await db_session.execute(
+            select(KnowledgeGraphMetadataExtraction)
+            .where(KnowledgeGraphMetadataExtraction.graph_id == graph_id)
+            .order_by(
+                KnowledgeGraphMetadataExtraction.value_count.desc(),
+                KnowledgeGraphMetadataExtraction.name.asc(),
+                KnowledgeGraphMetadataExtraction.created_at.desc(),
+            )
+        )
+        rows = res.scalars().all()
+
+        out: list[KnowledgeGraphExtractedMetadataExternalSchema] = []
+        for row in rows:
+            settings = row.settings if isinstance(row.settings, dict) else {}
+            allowed_values = settings.get("allowed_values")
+            if not isinstance(allowed_values, list):
+                allowed_values = None
+            out.append(
+                KnowledgeGraphExtractedMetadataExternalSchema(
+                    id=str(row.id),
+                    name=row.name,
+                    value_type=str(settings.get("value_type") or "string"),
+                    is_multiple=bool(settings.get("is_multiple")),
+                    allowed_values=allowed_values,
+                    llm_extraction_hint=str(settings.get("llm_extraction_hint") or "")
+                    or None,
+                    sample_values=row.sample_values,
+                    value_count=int(row.value_count or 0),
+                    created_at=row.created_at.isoformat() if row.created_at else None,
+                    updated_at=row.updated_at.isoformat() if row.updated_at else None,
+                )
+            )
+        return out
+
+    async def upsert_extracted_metadata_field(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        data: KnowledgeGraphExtractedMetadataUpsertRequest,
+    ) -> KnowledgeGraphExtractedMetadataExternalSchema:
+        # Ensure graph exists
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph.id).where(KnowledgeGraph.id == graph_id)
+        )
+        if graph_res.scalar_one_or_none() is None:
+            raise NotFoundException("Graph not found")
+
+        name = str(getattr(data, "name", "") or "").strip()
+        if not name:
+            raise ClientException("Field name is required")
+
+        value_type = (
+            str(getattr(data, "value_type", "") or "string").strip() or "string"
+        )
+        is_multiple = bool(getattr(data, "is_multiple", False))
+        allowed_values = getattr(data, "allowed_values", None)
+        if allowed_values is not None and not isinstance(allowed_values, list):
+            allowed_values = None
+        llm_extraction_hint = (
+            str(getattr(data, "llm_extraction_hint", "") or "").strip() or None
+        )
+
+        settings: dict[str, Any] = {
+            "value_type": value_type,
+            "is_multiple": is_multiple,
+        }
+        if allowed_values is not None:
+            settings["allowed_values"] = allowed_values
+        if llm_extraction_hint:
+            settings["llm_extraction_hint"] = llm_extraction_hint
+
+        res = await db_session.execute(
+            select(KnowledgeGraphMetadataExtraction).where(
+                KnowledgeGraphMetadataExtraction.graph_id == graph_id,
+                KnowledgeGraphMetadataExtraction.name == name,
+            )
+        )
+        row = res.scalar_one_or_none()
+        if row is None:
+            row = KnowledgeGraphMetadataExtraction(
+                graph_id=graph_id,
+                name=name,
+                settings=settings,
+                sample_values=None,
+                value_count=0,
+            )
+            db_session.add(row)
+        else:
+            row.settings = settings
+
+        await db_session.commit()
+        await db_session.refresh(row)
+
+        allowed_values_out = settings.get("allowed_values")
+        if not isinstance(allowed_values_out, list):
+            allowed_values_out = None
+
+        return KnowledgeGraphExtractedMetadataExternalSchema(
+            id=str(row.id),
+            name=row.name,
+            value_type=str(settings.get("value_type") or "string"),
+            is_multiple=bool(settings.get("is_multiple")),
+            allowed_values=allowed_values_out,
+            llm_extraction_hint=str(settings.get("llm_extraction_hint") or "") or None,
+            sample_values=row.sample_values,
+            value_count=int(row.value_count or 0),
+            created_at=row.created_at.isoformat() if row.created_at else None,
+            updated_at=row.updated_at.isoformat() if row.updated_at else None,
+        )
+
+    async def delete_extracted_metadata_field(
+        self, db_session: AsyncSession, graph_id: UUID, name: str
+    ) -> None:
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph.id).where(KnowledgeGraph.id == graph_id)
+        )
+        if graph_res.scalar_one_or_none() is None:
+            raise NotFoundException("Graph not found")
+
+        fname = str(name or "").strip()
+        if not fname:
+            raise ClientException("Field name is required")
+
+        res = await db_session.execute(
+            select(KnowledgeGraphMetadataExtraction).where(
+                KnowledgeGraphMetadataExtraction.graph_id == graph_id,
+                KnowledgeGraphMetadataExtraction.name == fname,
+            )
+        )
+        row = res.scalar_one_or_none()
+        if row is None:
+            return
+
+        await db_session.delete(row)
+        await db_session.commit()
+
     async def run_metadata_extraction(
         self,
         db_session: AsyncSession,
@@ -1410,26 +1568,20 @@ class KnowledgeGraphMetadataService:
             else {}
         ) or {}
 
-        # Determine approach (prefer request; fall back to persisted settings; handle legacy enabled flag)
+        # Determine approach (prefer request; fall back to persisted settings)
         approach_raw = (
             str(data.approach).strip()
             if getattr(data, "approach", None) is not None
             else str(extraction_settings.get("approach") or "").strip()
         )
-        enabled_legacy = bool(extraction_settings.get("enabled"))
-        if approach_raw not in ("disabled", "chunks", "document"):
-            approach_raw = "chunks" if enabled_legacy else "disabled"
-
-        if approach_raw == "disabled":
-            raise ClientException("Metadata extraction is disabled")
+        if approach_raw not in ("chunks", "document"):
+            raise ClientException("Extraction approach must be 'chunks' or 'document'")
 
         prompt_template_system_name = (
             str(data.prompt_template_system_name).strip()
             if getattr(data, "prompt_template_system_name", None) is not None
             else str(
-                extraction_settings.get("prompt_template_system_name")
-                or extraction_settings.get("prompt_template")
-                or ""
+                extraction_settings.get("prompt_template_system_name") or ""
             ).strip()
         )
         if not prompt_template_system_name:
@@ -1452,32 +1604,39 @@ class KnowledgeGraphMetadataService:
             run_graph_llm_metadata_extraction,
         )
 
-        # Prefer explicit schema override, otherwise derive schema from field_definitions.
-        schema_value = extraction_settings.get("schema")
-        if schema_value is None or (
-            isinstance(schema_value, str) and not schema_value.strip()
-        ):
-            schema_str = build_typescript_schema_from_field_definitions(
-                metadata_settings.get("field_definitions")
-                if isinstance(metadata_settings, dict)
-                else None
+        # Schema + aggregation whitelist come strictly from DB-stored extraction fields.
+        extracted_res = await db_session.execute(
+            select(KnowledgeGraphMetadataExtraction).where(
+                KnowledgeGraphMetadataExtraction.graph_id == graph_id
             )
-        elif isinstance(schema_value, str):
-            schema_str = schema_value
-        else:
-            try:
-                schema_str = json.dumps(
-                    schema_value, ensure_ascii=False, indent=2, default=str
-                )
-            except Exception:  # noqa: BLE001
-                schema_str = str(schema_value)
-        schema_str = str(schema_str or "").strip()
+        )
+        extracted_rows = extracted_res.scalars().all()
+        if not extracted_rows:
+            raise ClientException("No extracted metadata fields configured")
+
+        extracted_defs: list[dict[str, Any]] = []
+        extraction_field_settings: dict[str, dict[str, Any]] = {}
+        for r in extracted_rows:
+            settings = r.settings if isinstance(r.settings, dict) else {}
+            extracted_defs.append({"name": r.name, **settings})
+            extraction_field_settings[r.name] = settings
+
+        schema_str = build_typescript_schema_from_field_definitions(extracted_defs)
+
+        # Reset aggregated stats so the UI reflects the current extraction run.
+        await db_session.execute(
+            update(KnowledgeGraphMetadataExtraction)
+            .where(KnowledgeGraphMetadataExtraction.graph_id == graph_id)
+            .values(sample_values=None, value_count=0, updated_at=func.now())
+        )
+        await db_session.commit()
 
         result = await run_graph_llm_metadata_extraction(
             db_session,
             graph_id=graph_id,
             approach=approach_raw,  # type: ignore[arg-type]
             prompt_template_system_name=prompt_template_system_name,
+            extraction_field_settings=extraction_field_settings,
             schema=schema_str,
             segment_size=segment_size,
             segment_overlap=segment_overlap,

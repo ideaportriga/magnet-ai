@@ -61,6 +61,37 @@ class KnowledgeGraphDiscoveredMetadataExternalSchema(BaseModel):
     updated_at: Optional[str] = None
 
 
+class KnowledgeGraphExtractedMetadataExternalSchema(BaseModel):
+    """Item model for a configured (graph-level) smart extraction metadata field."""
+
+    id: str
+    name: str
+    # Core extraction field settings (stored in DB as JSON `settings`)
+    value_type: Optional[str] = None
+    is_multiple: bool = False
+    allowed_values: Optional[list[dict[str, Any]]] = None
+    llm_extraction_hint: Optional[str] = None
+    # Best-effort stats (optional / may be unused depending on pipeline)
+    sample_values: Optional[list[str]] = None
+    value_count: int = 0
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class KnowledgeGraphExtractedMetadataUpsertRequest(BaseModel):
+    """Request model for creating/updating a smart extraction metadata field."""
+
+    name: str = Field(..., description="Extraction field name (snake_case recommended)")
+    value_type: Optional[str] = Field(default="string", description="Value type")
+    is_multiple: bool = Field(default=False, description="Whether the field can have multiple values")
+    allowed_values: Optional[list[dict[str, Any]]] = Field(
+        default=None, description="Optional list of allowed values (objects with at least `value`)"
+    )
+    llm_extraction_hint: Optional[str] = Field(
+        default=None, description="LLM instruction/hint for extracting this field"
+    )
+
+
 class KnowledgeGraphMetadataExtractionRunRequest(BaseModel):
     """Request model for triggering LLM-based metadata extraction for an existing graph."""
 

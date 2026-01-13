@@ -9,7 +9,7 @@ def get_default_retrieval_settings() -> dict[str, Any]:
                 "description": "Filter documents by their metadata fields",
                 "enabled": True,
                 # can be: agent | collaborative | external
-                "searchControl": "agent",
+                "searchControl": "collaborative",
                 # can be: merge_and | merge_or | agent_priority | external_priority
                 "filterMergeStrategy": "merge_and",
             },
