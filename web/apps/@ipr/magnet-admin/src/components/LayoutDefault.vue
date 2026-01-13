@@ -141,6 +141,9 @@ export default {
       if (segments[1] === 'deep-research' && segments[2] === 'configs') {
         return `/deep-research/configs`
       }
+      if (segments[1] === 'note-taker' && segments[2]) {
+        return `/note-taker`
+      }
       return `/${segments[1]}`
     },
     route() {

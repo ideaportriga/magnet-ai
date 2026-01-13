@@ -16,7 +16,7 @@ from .evaluation import Evaluation
 from .job import Job
 from .metric import Metric
 from .provider import Provider
-from .settings import Settings
+from .teams.note_taker_settings import NoteTakerSettings
 from .trace import Trace
 
 __all__ = [
@@ -31,7 +31,7 @@ __all__ = [
     "Job",
     "Metric",
     "Provider",
-    "Settings",
+    "NoteTakerSettings",
     "Trace",
     # "AgentConversation",
     # "Agent",

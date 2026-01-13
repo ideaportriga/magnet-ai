@@ -6,7 +6,7 @@ from litestar.static_files import create_static_files_router
 from litestar.types import ControllerRouterHandler
 
 from core.domain.ai_apps import AiAppsController
-from core.domain.ai_models import AIModelsController
+from core.domain.ai_models.controller import AIModelsController
 from core.domain.api_servers import ApiServersController
 from core.domain.collections import CollectionsController
 from core.domain.evaluation_sets import EvaluationSetsController

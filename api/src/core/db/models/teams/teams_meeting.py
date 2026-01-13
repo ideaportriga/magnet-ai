@@ -47,12 +47,6 @@ class TeamsMeeting(BigIntAuditBase):
     )
 
     # Optional cache / display
-    join_url: Mapped[Optional[str]] = mapped_column(
-        Text, nullable=True, comment="Meeting join link"
-    )
-    title: Mapped[Optional[str]] = mapped_column(
-        Text, nullable=True, comment="Meeting subject/title"
-    )
     account_id: Mapped[Optional[str]] = mapped_column(
         Text,
         nullable=True,
@@ -67,6 +61,11 @@ class TeamsMeeting(BigIntAuditBase):
         Text,
         nullable=True,
         comment="Bot app id installed in meeting",
+    )
+    note_taker_settings_system_name: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="Note taker settings system name associated with this meeting",
     )
 
     added_by_user_id: Mapped[Optional[str]] = mapped_column(
@@ -141,11 +140,6 @@ class TeamsMeeting(BigIntAuditBase):
         DateTimeUTC(timezone=True),
         nullable=True,
         comment="Last time the bot observed activity in this meeting",
-    )
-    last_recordings_check_at: Mapped[Optional[DateTimeUTC]] = mapped_column(
-        DateTimeUTC(timezone=True),
-        nullable=True,
-        comment="Last time recordings were checked for this meeting",
     )
     extra: Mapped[dict] = mapped_column(
         JsonB,

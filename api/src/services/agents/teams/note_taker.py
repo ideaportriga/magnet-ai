@@ -12,6 +12,7 @@ from logging import getLogger
 from typing import Any, Awaitable, Callable, Dict, Optional
 from urllib.parse import parse_qs, urlparse, unquote
 from types import SimpleNamespace
+from uuid import UUID, uuid4
 
 import httpx
 from microsoft_agents.activity import (
@@ -55,7 +56,9 @@ from microsoft_agents.hosting.teams import TeamsInfo
 from core.db.session import async_session_maker
 from core.db.models.knowledge_graph import KnowledgeGraph
 from core.db.models.teams import TeamsMeeting, TeamsUser
-from core.db.models.settings import Settings
+from core.db.models.teams.note_taker_settings import (
+    NoteTakerSettings as NoteTakerSettingsModel,
+)
 from sqlalchemy import func, select, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
@@ -74,7 +77,9 @@ from speech_to_text.transcription import service as transcription_service
 from services.prompt_templates import execute_prompt_template
 from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
     ApiIngestDataSource,
+    run_background_ingest,
 )
+from services.observability import observe
 from stores import get_db_client
 from utils import upload_handler
 
@@ -90,7 +95,6 @@ _TRANSCRIPTION_TIMEOUT_SECONDS = float(
 _TRANSCRIPTION_POLL_SECONDS = float(
     os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5")
 )
-NOTE_TAKER_SETTINGS_SYSTEM_NAME = "NOTE_TAKER_SETTINGS"
 _ORGANIZER_SIGN_IN_PROMPT = "I need you to sign in with /sign-in in our 1:1 chat so I can access meeting resources."
 _ORGANIZER_PERSONAL_INSTALL_PROMPT = "Please install me."
 
@@ -116,28 +120,6 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(raw, dict):
         return settings
 
-    # Backwards compatibility: lift legacy flat Salesforce fields into integration.salesforce.
-    if "integration" not in raw and any(
-        key in raw
-        for key in (
-            "send_transcript_to_salesforce",
-            "salesforce_api_server",
-            "salesforce_stt_recording_tool",
-        )
-    ):
-        raw = dict(raw)
-        raw["integration"] = {
-            "salesforce": {
-                "send_transcript_to_salesforce": raw.get(
-                    "send_transcript_to_salesforce", False
-                ),
-                "salesforce_api_server": raw.get("salesforce_api_server", ""),
-                "salesforce_stt_recording_tool": raw.get(
-                    "salesforce_stt_recording_tool", ""
-                ),
-            }
-        }
-
     for key in (
         "subscription_recordings_ready",
         "create_knowledge_graph_embedding",
@@ -159,17 +141,36 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
     return settings
 
 
-async def _load_note_taker_settings() -> dict[str, Any]:
-    try:
-        async with async_session_maker() as session:
-            stmt = select(Settings.config).where(
-                Settings.system_name == NOTE_TAKER_SETTINGS_SYSTEM_NAME
-            )
-            result = await session.execute(stmt)
-            config = result.scalar_one_or_none()
-    except Exception as err:
-        logger.debug("Failed to load note taker settings: %s", err)
-        return dict(_DEFAULT_NOTE_TAKER_SETTINGS)
+async def _require_meeting_note_taker_settings_system_name(
+    context: TurnContext, *, meeting_id: str
+) -> str:
+    _account_id, _account_name, settings_system_name = await _get_meeting_account_info(
+        context, meeting_id
+    )
+    if not settings_system_name:
+        raise ValueError(
+            "No note taker config is set for this meeting (missing note_taker_settings_system_name on teams_meeting)."
+        )
+    return str(settings_system_name)
+
+
+async def _load_note_taker_settings_by_system_name(
+    system_name: str,
+) -> dict[str, Any]:
+    if not system_name:
+        raise ValueError("Missing note taker settings system name.")
+
+    async with async_session_maker() as session:
+        stmt = select(NoteTakerSettingsModel.config).where(
+            NoteTakerSettingsModel.system_name == system_name
+        )
+        result = await session.execute(stmt)
+        config = result.scalar_one_or_none()
+
+    if config is None:
+        raise LookupError(
+            f"Note taker settings record not found (system_name={system_name})."
+        )
 
     if isinstance(config, str):
         try:
@@ -178,6 +179,21 @@ async def _load_note_taker_settings() -> dict[str, Any]:
             config = None
 
     return _merge_note_taker_settings(config if isinstance(config, dict) else None)
+
+
+async def _load_note_taker_settings_for_context(context: TurnContext) -> dict[str, Any]:
+    if not _is_meeting_conversation(context):
+        raise ValueError("Note taker settings can only be loaded in a meeting context.")
+
+    meeting = _resolve_meeting_details(context)
+    meeting_id = meeting.get("id")
+    if not meeting_id:
+        raise ValueError("Could not resolve meeting id from Teams channel data.")
+
+    settings_system_name = await _require_meeting_note_taker_settings_system_name(
+        context, meeting_id=str(meeting_id)
+    )
+    return await _load_note_taker_settings_by_system_name(settings_system_name)
 
 
 def _format_duration(seconds: float | int | None) -> str:
@@ -263,35 +279,40 @@ def _format_recording_date_compact(iso_datetime: str | None) -> str | None:
 
 async def _get_meeting_account_info(
     context: TurnContext, meeting_id: str | None
-) -> tuple[str | None, str | None]:
+) -> tuple[str | None, str | None, str | None]:
     if not meeting_id:
-        return (None, None)
+        return (None, None, None)
 
     recipient = getattr(getattr(context, "activity", None), "recipient", None)
     bot_id = normalize_bot_id(getattr(recipient, "id", None))
     if not bot_id:
-        return (None, None)
+        return (None, None, None)
 
     try:
         async with async_session_maker() as session:
-            stmt = select(TeamsMeeting.account_id, TeamsMeeting.account_name).where(
-                TeamsMeeting.meeting_id == meeting_id,
-                TeamsMeeting.bot_id == bot_id,
+            stmt = select(
+                TeamsMeeting.account_id,
+                TeamsMeeting.account_name,
+                TeamsMeeting.note_taker_settings_system_name,
+            ).where(
+                TeamsMeeting.meeting_id == meeting_id, TeamsMeeting.bot_id == bot_id
             )
             result = await session.execute(stmt)
             row = result.one_or_none()
             if not row:
-                return (None, None)
-            return row[0], row[1]
+                return (None, None, None)
+            return row[0], row[1], row[2]
     except Exception as err:
         logger.debug("Failed to load meeting account id: %s", err)
-        return (None, None)
+        return (None, None, None)
 
 
 async def _get_meeting_account_id(
     context: TurnContext, meeting_id: str | None
 ) -> str | None:
-    account_id, _account_name = await _get_meeting_account_info(context, meeting_id)
+    account_id, _account_name, _settings_system_name = await _get_meeting_account_info(
+        context, meeting_id
+    )
     return account_id
 
 
@@ -307,7 +328,7 @@ async def _send_stt_recording_to_salesforce(
     if not job_id:
         return
 
-    settings = await _load_note_taker_settings()
+    settings = await _load_note_taker_settings_for_context(context)
     salesforce_settings = (settings.get("integration") or {}).get("salesforce") or {}
     if not salesforce_settings.get("send_transcript_to_salesforce"):
         await context.send_activity(
@@ -800,8 +821,6 @@ async def _upsert_teams_meeting_record(
         )
         return
 
-    join_url = meeting.get("joinUrl")
-    title = meeting.get("title")
     bot_id = normalize_bot_id(
         getattr(
             getattr(getattr(context, "activity", None), "recipient", None), "id", None
@@ -825,8 +844,6 @@ async def _upsert_teams_meeting_record(
         chat_id=chat_id,
         meeting_id=meeting_id,
         graph_online_meeting_id=online_meeting_id,
-        join_url=join_url,
-        title=title,
         bot_id=bot_id,
         is_bot_installed=is_bot_installed,
         removed_from_meeting_at=removed_at,
@@ -845,10 +862,6 @@ async def _upsert_teams_meeting_record(
     }
     if meeting_id is not None:
         update_values["meeting_id"] = meeting_id
-    if join_url is not None:
-        update_values["join_url"] = join_url
-    if title is not None:
-        update_values["title"] = title
     if bot_id is not None:
         update_values["bot_id"] = bot_id
     if online_meeting_id:
@@ -985,6 +998,11 @@ def _get_meeting_id_part(meeting: Dict[str, Any] | None) -> str | None:
     )
 
 
+@observe(
+    name="Ingest into knowledge graph",
+    channel="production",
+    source="Runtime API",
+)
 async def _ingest_knowledge_graph_sections(
     *,
     graph_system_name: str,
@@ -1015,7 +1033,9 @@ async def _ingest_knowledge_graph_sections(
             return 0
 
         data_source = ApiIngestDataSource(source_name="Note Taker")
-        ingested = 0
+        source = await data_source.get_or_create_source(session, graph.id)
+
+        items = []
         for kind, content in sections.items():
             if not content:
                 continue
@@ -1026,25 +1046,28 @@ async def _ingest_knowledge_graph_sections(
                 date_part=date_part,
                 ext=".txt",
             )
-            try:
-                await data_source.ingest_text(
-                    session,
-                    graph.id,
+            items.append(
+                SimpleNamespace(
+                    kind="text",
                     filename=filename,
                     text=content,
+                    file_bytes=None,
                 )
-                ingested += 1
-            except Exception as err:
-                logger.warning(
-                    "Knowledge graph ingest failed for %s: %s",
-                    filename,
-                    getattr(err, "message", str(err)),
-                )
-                try:
-                    await session.rollback()
-                except Exception:
-                    pass
-        return ingested
+            )
+
+        if not items:
+            return 0
+
+        ingestion_id = str(uuid4())
+        asyncio.create_task(
+            run_background_ingest(
+                ingestion_id=ingestion_id,
+                graph_id=graph.id,
+                source_id=UUID(str(source.id)),
+                items=items,
+            )
+        )
+        return len(items)
 
 
 async def _download_recording_bytes(
@@ -1173,9 +1196,6 @@ async def _send_transcription_summary(
             transcript_payload = nested
         job_id = job_id or transcription.get("job_id") or transcription.get("id")
 
-    if duration is None and isinstance(transcript_payload, dict):
-        duration = transcript_payload.get("duration")
-
     duration_str = _format_duration(duration) if duration is not None else None
     if duration_str == "Unknown":
         duration_str = None
@@ -1229,7 +1249,7 @@ async def _send_transcription_summary(
             await context.send_activity("No speech was detected in this recording.")
 
         if full_text:
-            settings = await _load_note_taker_settings()
+            settings = await _load_note_taker_settings_for_context(context)
 
             templates: list[tuple[str, str, str]] = []
             for key, title in (
@@ -1249,20 +1269,11 @@ async def _send_transcription_summary(
             if not templates:
                 return
 
-            async def _run_template(system_name: str):
-                return await execute_prompt_template(
-                    system_name_or_config=system_name,
-                    template_values={
-                        "transcription": full_text,
-                        "participants": participants,
-                        "language": "the same as the transcription",
-                        "conversation_date": conversation_date or "",
-                    },
-                )
-
-            results = await asyncio.gather(
-                *(_run_template(system_name) for system_name, _, _ in templates),
-                return_exceptions=True,
+            results = await _execute_transcription_prompt_templates(
+                [system_name for system_name, _, _ in templates],
+                transcription=full_text,
+                participants=participants,
+                conversation_date=conversation_date,
             )
 
             knowledge_graph_sections: dict[str, str] = {}
@@ -1320,6 +1331,42 @@ async def _send_transcription_summary(
     duration_note = f", duration={duration_str}" if duration_str else ""
     await context.send_activity(
         f"Transcription incomplete (status={status}, job={job_id or 'n/a'}{duration_note})."
+    )
+
+
+@observe(
+    name="Execute the prompt tempates",
+    channel="production",
+    source="Runtime API",
+)
+async def _execute_transcription_prompt_templates(
+    template_system_names: list[str],
+    *,
+    transcription: str,
+    participants: list[str],
+    conversation_date: str | None,
+) -> list[Any]:
+    """
+    Execute prompt templates for a transcription.
+
+    Returns a list aligned with `template_system_names`. Each item is either the
+    template execution result or an Exception (when `return_exceptions=True`).
+    """
+
+    async def _run_template(system_name: str):
+        return await execute_prompt_template(
+            system_name_or_config=system_name,
+            template_values={
+                "transcription": transcription,
+                "participants": participants,
+                "language": "the same as the transcription",
+                "conversation_date": conversation_date or "",
+            },
+        )
+
+    return await asyncio.gather(
+        *(_run_template(system_name) for system_name in template_system_names),
+        return_exceptions=True,
     )
 
 
@@ -1428,6 +1475,8 @@ def _register_note_taker_handlers(
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - Show your Teams identity and sign-in status.",
+            "**/note-taker-config-list** - List available note taker configs.",
+            "**/note-taker-config-set CONFIG_SYSTEM_NAME** - Assign a note taker config to this meeting.",
             "**/sf-account-lookup ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
@@ -2672,7 +2721,7 @@ def _register_note_taker_handlers(
         await _send_typing(context)
 
         try:
-            settings = await _load_note_taker_settings()
+            settings = await _load_note_taker_settings_for_context(context)
             salesforce_settings = (settings.get("integration") or {}).get(
                 "salesforce"
             ) or {}
@@ -2731,7 +2780,7 @@ def _register_note_taker_handlers(
         await _send_typing(context)
 
         try:
-            settings = await _load_note_taker_settings()
+            settings = await _load_note_taker_settings_for_context(context)
             salesforce_settings = (settings.get("integration") or {}).get(
                 "salesforce"
             ) or {}
@@ -2825,6 +2874,148 @@ def _register_note_taker_handlers(
             f"Saved Salesforce account {account_label} (id {account_id}) for this meeting."
         )
 
+    async def _handle_note_taker_config_list(context: TurnContext) -> None:
+        """List available note taker configs stored in DB."""
+        await _send_typing(context)
+
+        try:
+            async with async_session_maker() as session:
+                stmt = select(
+                    NoteTakerSettingsModel.id,
+                    NoteTakerSettingsModel.name,
+                    NoteTakerSettingsModel.system_name,
+                    NoteTakerSettingsModel.description,
+                ).order_by(NoteTakerSettingsModel.created_at.asc())
+                result = await session.execute(stmt)
+                rows = result.all()
+        except Exception as err:
+            logger.exception("Failed to list note taker configs")
+            await context.send_activity(
+                f"Failed to list note taker configs: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if not rows:
+            await context.send_activity(
+                "No note taker configs found. Create one in the admin UI first."
+            )
+            return
+
+        lines = ["Available note taker configs:"]
+        for row in rows[:30]:
+            config_id, name, system_name, description = row
+            label = name or system_name or str(config_id)
+            desc_part = f" — {description}" if description else ""
+            lines.append(
+                f"- {label}{desc_part} (system_name: {system_name}, id: {config_id})"
+            )
+
+        if len(rows) > 30:
+            lines.append(f"...and {len(rows) - 30} more")
+        lines.append(
+            "Use: /note-taker-config-set CONFIG_SYSTEM_NAME (in a meeting chat)"
+        )
+        await context.send_activity("\n".join(lines))
+
+    async def _handle_note_taker_config_set(
+        context: TurnContext, config_id_or_system_name: str
+    ) -> None:
+        """Assign a note taker config to the current meeting record."""
+        if not config_id_or_system_name:
+            await context.send_activity(
+                "Usage: /note-taker-config-set CONFIG_SYSTEM_NAME (or config UUID)"
+            )
+            return
+
+        if not _is_meeting_conversation(context):
+            await context.send_activity("This command works only in meeting chats.")
+            return
+
+        await _send_typing(context)
+
+        try:
+            async with async_session_maker() as session:
+                resolved_uuid: UUID | None = None
+                try:
+                    resolved_uuid = UUID(config_id_or_system_name)
+                except (TypeError, ValueError):
+                    resolved_uuid = None
+
+                if resolved_uuid is not None:
+                    stmt = select(NoteTakerSettingsModel).where(
+                        NoteTakerSettingsModel.id == resolved_uuid
+                    )
+                else:
+                    stmt = select(NoteTakerSettingsModel).where(
+                        NoteTakerSettingsModel.system_name == config_id_or_system_name
+                    )
+                config_row = (await session.execute(stmt)).scalars().first()
+        except Exception as err:
+            logger.exception(
+                "Failed to resolve note taker config %s", config_id_or_system_name
+            )
+            await context.send_activity(
+                f"Failed to resolve note taker config: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if config_row is None:
+            await context.send_activity(
+                "Note taker config not found. Run /note-taker-config-list to see available configs."
+            )
+            return
+
+        meeting_context = _resolve_meeting_details(context)
+        chat_id = meeting_context.get("conversationId")
+        recipient = getattr(getattr(context, "activity", None), "recipient", None)
+        bot_id = normalize_bot_id(getattr(recipient, "id", None))
+        if not chat_id or not bot_id:
+            await context.send_activity(
+                "Could not resolve chat or bot id for this conversation."
+            )
+            return
+
+        now = dt.datetime.now(dt.timezone.utc)
+        stmt = (
+            update(TeamsMeeting)
+            .where(
+                TeamsMeeting.chat_id == chat_id,
+                TeamsMeeting.bot_id == bot_id,
+            )
+            .values(
+                note_taker_settings_system_name=config_row.system_name,
+                last_seen_at=now,
+                updated_at=func.now(),
+            )
+        )
+
+        try:
+            async with async_session_maker() as session:
+                try:
+                    result = await session.execute(stmt)
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    raise
+        except Exception as err:
+            logger.exception(
+                "Failed to update Teams meeting for note taker config set (chat_id=%s, bot_id=%s)",
+                chat_id,
+                bot_id,
+            )
+            await context.send_activity(
+                f"Failed to save note taker config for this meeting: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if getattr(result, "rowcount", 0) == 0:
+            await context.send_activity("I couldn't find a meeting record to update.")
+            return
+
+        await context.send_activity(
+            f"Saved note taker config {config_row.name or config_row.system_name} (system_name: {config_row.system_name}) for this meeting."
+        )
+
     async def _handle_meeting_info(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -2871,7 +3062,11 @@ def _register_note_taker_handlers(
 
         organizer = f"Organizer: {organizer_name} ({organizer_email}) [id: {organizer_id}, aadObjectId: {organizer_aad}]"
 
-        account_id, account_name = await _get_meeting_account_info(context, meeting_id)
+        (
+            account_id,
+            account_name,
+            note_taker_settings_system_name,
+        ) = await _get_meeting_account_info(context, meeting_id)
 
         try:
             in_progress = await _check_meeting_in_progress(context, meeting_id)
@@ -2895,8 +3090,8 @@ def _register_note_taker_handlers(
             f"- Type: {meeting_type}",
             f"- Meeting id: {meeting_id or 'Unknown'}",
             f"- Online meeting id: {online_meeting_id or 'Unknown'}",
-            f"- Salesforce account id: {account_id or 'Unknown'}",
-            f"- Salesforce account name: {account_name or 'Unknown'}",
+            f"- Salesforce account: {(account_name or 'Unknown')} (id: {(account_id or 'Unknown')})",
+            f"- Note Taker config: {note_taker_settings_system_name or 'Unknown'}",
             f"- {organizer}",
             f"- Start: {_format_iso_datetime(start_time)}",
             f"- End: {_format_iso_datetime(end_time)}",
@@ -3095,6 +3290,22 @@ def _register_note_taker_handlers(
             await _handle_sf_account_set(context, account_name)
             return
 
+        if normalized_text.startswith("/note-taker-config-list"):
+            await _handle_note_taker_config_list(context)
+            return
+
+        if normalized_text.startswith("/note-taker-config-set"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity(
+                    "Usage: /note-taker-config-set CONFIG_SYSTEM_NAME (or config UUID)"
+                )
+                return
+
+            config_id_or_system_name = parts[1].strip()
+            await _handle_note_taker_config_set(context, config_id_or_system_name)
+            return
+
         if normalized_text.startswith("/process-file"):
             parts = text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
@@ -3149,7 +3360,7 @@ def _register_note_taker_handlers(
         normalized = str(name or "").lower()
         if normalized == "application/vnd.microsoft.meetingstart":
             logger.info("[teams note-taker] meeting start event received.")
-            settings = await _load_note_taker_settings()
+            settings = await _load_note_taker_settings_for_context(context)
             if settings.get("subscription_recordings_ready"):
                 await _subscribe_to_recording_notifications(context)
             else:
@@ -3568,7 +3779,6 @@ async def _process_recording_notification_for_meeting(
             recording["contentUrl"] = recording.get("recordingContentUrl")
     meeting_info = {
         "id": meeting_row.meeting_id or meeting_row.graph_online_meeting_id,
-        "title": meeting_row.title,
     }
 
     try:

@@ -8,8 +8,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from core.db.models.base import UUIDAuditSimpleBase
 
 
-class Settings(UUIDAuditSimpleBase):
-    __tablename__ = "settings"
+class NoteTakerSettings(UUIDAuditSimpleBase):
+    __tablename__ = "note_taker_settings"
 
     config: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JsonB,
