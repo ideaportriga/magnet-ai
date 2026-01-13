@@ -1475,6 +1475,8 @@ def _register_note_taker_handlers(
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - Show your Teams identity and sign-in status.",
+            "**/note-taker-config-list** - List available note taker configs.",
+            "**/note-taker-config-set CONFIG_SYSTEM_NAME** - Assign a note taker config to this meeting.",
             "**/sf-account-lookup ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
@@ -2872,6 +2874,148 @@ def _register_note_taker_handlers(
             f"Saved Salesforce account {account_label} (id {account_id}) for this meeting."
         )
 
+    async def _handle_note_taker_config_list(context: TurnContext) -> None:
+        """List available note taker configs stored in DB."""
+        await _send_typing(context)
+
+        try:
+            async with async_session_maker() as session:
+                stmt = select(
+                    NoteTakerSettingsModel.id,
+                    NoteTakerSettingsModel.name,
+                    NoteTakerSettingsModel.system_name,
+                    NoteTakerSettingsModel.description,
+                ).order_by(NoteTakerSettingsModel.created_at.asc())
+                result = await session.execute(stmt)
+                rows = result.all()
+        except Exception as err:
+            logger.exception("Failed to list note taker configs")
+            await context.send_activity(
+                f"Failed to list note taker configs: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if not rows:
+            await context.send_activity(
+                "No note taker configs found. Create one in the admin UI first."
+            )
+            return
+
+        lines = ["Available note taker configs:"]
+        for row in rows[:30]:
+            config_id, name, system_name, description = row
+            label = name or system_name or str(config_id)
+            desc_part = f" — {description}" if description else ""
+            lines.append(
+                f"- {label}{desc_part} (system_name: {system_name}, id: {config_id})"
+            )
+
+        if len(rows) > 30:
+            lines.append(f"...and {len(rows) - 30} more")
+        lines.append(
+            "Use: /note-taker-config-set CONFIG_SYSTEM_NAME (in a meeting chat)"
+        )
+        await context.send_activity("\n".join(lines))
+
+    async def _handle_note_taker_config_set(
+        context: TurnContext, config_id_or_system_name: str
+    ) -> None:
+        """Assign a note taker config to the current meeting record."""
+        if not config_id_or_system_name:
+            await context.send_activity(
+                "Usage: /note-taker-config-set CONFIG_SYSTEM_NAME (or config UUID)"
+            )
+            return
+
+        if not _is_meeting_conversation(context):
+            await context.send_activity("This command works only in meeting chats.")
+            return
+
+        await _send_typing(context)
+
+        try:
+            async with async_session_maker() as session:
+                resolved_uuid: UUID | None = None
+                try:
+                    resolved_uuid = UUID(config_id_or_system_name)
+                except (TypeError, ValueError):
+                    resolved_uuid = None
+
+                if resolved_uuid is not None:
+                    stmt = select(NoteTakerSettingsModel).where(
+                        NoteTakerSettingsModel.id == resolved_uuid
+                    )
+                else:
+                    stmt = select(NoteTakerSettingsModel).where(
+                        NoteTakerSettingsModel.system_name == config_id_or_system_name
+                    )
+                config_row = (await session.execute(stmt)).scalars().first()
+        except Exception as err:
+            logger.exception(
+                "Failed to resolve note taker config %s", config_id_or_system_name
+            )
+            await context.send_activity(
+                f"Failed to resolve note taker config: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if config_row is None:
+            await context.send_activity(
+                "Note taker config not found. Run /note-taker-config-list to see available configs."
+            )
+            return
+
+        meeting_context = _resolve_meeting_details(context)
+        chat_id = meeting_context.get("conversationId")
+        recipient = getattr(getattr(context, "activity", None), "recipient", None)
+        bot_id = normalize_bot_id(getattr(recipient, "id", None))
+        if not chat_id or not bot_id:
+            await context.send_activity(
+                "Could not resolve chat or bot id for this conversation."
+            )
+            return
+
+        now = dt.datetime.now(dt.timezone.utc)
+        stmt = (
+            update(TeamsMeeting)
+            .where(
+                TeamsMeeting.chat_id == chat_id,
+                TeamsMeeting.bot_id == bot_id,
+            )
+            .values(
+                note_taker_settings_system_name=config_row.system_name,
+                last_seen_at=now,
+                updated_at=func.now(),
+            )
+        )
+
+        try:
+            async with async_session_maker() as session:
+                try:
+                    result = await session.execute(stmt)
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    raise
+        except Exception as err:
+            logger.exception(
+                "Failed to update Teams meeting for note taker config set (chat_id=%s, bot_id=%s)",
+                chat_id,
+                bot_id,
+            )
+            await context.send_activity(
+                f"Failed to save note taker config for this meeting: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if getattr(result, "rowcount", 0) == 0:
+            await context.send_activity("I couldn't find a meeting record to update.")
+            return
+
+        await context.send_activity(
+            f"Saved note taker config {config_row.name or config_row.system_name} (system_name: {config_row.system_name}) for this meeting."
+        )
+
     async def _handle_meeting_info(
         context: TurnContext, state: Optional[TurnState]
     ) -> None:
@@ -3144,6 +3288,22 @@ def _register_note_taker_handlers(
 
             account_name = parts[1].strip()
             await _handle_sf_account_set(context, account_name)
+            return
+
+        if normalized_text.startswith("/note-taker-config-list"):
+            await _handle_note_taker_config_list(context)
+            return
+
+        if normalized_text.startswith("/note-taker-config-set"):
+            parts = text.split(maxsplit=1)
+            if len(parts) < 2 or not parts[1].strip():
+                await context.send_activity(
+                    "Usage: /note-taker-config-set CONFIG_SYSTEM_NAME (or config UUID)"
+                )
+                return
+
+            config_id_or_system_name = parts[1].strip()
+            await _handle_note_taker_config_set(context, config_id_or_system_name)
             return
 
         if normalized_text.startswith("/process-file"):
