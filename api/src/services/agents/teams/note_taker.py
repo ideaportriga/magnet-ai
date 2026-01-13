@@ -1186,9 +1186,6 @@ async def _send_transcription_summary(
             transcript_payload = nested
         job_id = job_id or transcription.get("job_id") or transcription.get("id")
 
-    if duration is None and isinstance(transcript_payload, dict):
-        duration = transcript_payload.get("duration")
-
     duration_str = _format_duration(duration) if duration is not None else None
     if duration_str == "Unknown":
         duration_str = None
@@ -1262,20 +1259,11 @@ async def _send_transcription_summary(
             if not templates:
                 return
 
-            async def _run_template(system_name: str):
-                return await execute_prompt_template(
-                    system_name_or_config=system_name,
-                    template_values={
-                        "transcription": full_text,
-                        "participants": participants,
-                        "language": "the same as the transcription",
-                        "conversation_date": conversation_date or "",
-                    },
-                )
-
-            results = await asyncio.gather(
-                *(_run_template(system_name) for system_name, _, _ in templates),
-                return_exceptions=True,
+            results = await _execute_transcription_prompt_templates(
+                [system_name for system_name, _, _ in templates],
+                transcription=full_text,
+                participants=participants,
+                conversation_date=conversation_date,
             )
 
             knowledge_graph_sections: dict[str, str] = {}
@@ -1333,6 +1321,41 @@ async def _send_transcription_summary(
     duration_note = f", duration={duration_str}" if duration_str else ""
     await context.send_activity(
         f"Transcription incomplete (status={status}, job={job_id or 'n/a'}{duration_note})."
+    )
+
+@observe(
+    name="Execute the prompt tempates",
+    channel="production",
+    source="Runtime API",
+)
+async def _execute_transcription_prompt_templates(
+    template_system_names: list[str],
+    *,
+    transcription: str,
+    participants: list[str],
+    conversation_date: str | None,
+) -> list[Any]:
+    """
+    Execute prompt templates for a transcription.
+
+    Returns a list aligned with `template_system_names`. Each item is either the
+    template execution result or an Exception (when `return_exceptions=True`).
+    """
+
+    async def _run_template(system_name: str):
+        return await execute_prompt_template(
+            system_name_or_config=system_name,
+            template_values={
+                "transcription": transcription,
+                "participants": participants,
+                "language": "the same as the transcription",
+                "conversation_date": conversation_date or "",
+            },
+        )
+
+    return await asyncio.gather(
+        *(_run_template(system_name) for system_name in template_system_names),
+        return_exceptions=True,
     )
 
 
