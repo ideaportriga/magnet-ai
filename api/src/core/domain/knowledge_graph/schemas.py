@@ -83,9 +83,12 @@ class KnowledgeGraphExtractedMetadataUpsertRequest(BaseModel):
 
     name: str = Field(..., description="Extraction field name (snake_case recommended)")
     value_type: Optional[str] = Field(default="string", description="Value type")
-    is_multiple: bool = Field(default=False, description="Whether the field can have multiple values")
+    is_multiple: bool = Field(
+        default=False, description="Whether the field can have multiple values"
+    )
     allowed_values: Optional[list[dict[str, Any]]] = Field(
-        default=None, description="Optional list of allowed values (objects with at least `value`)"
+        default=None,
+        description="Optional list of allowed values (objects with at least `value`)",
     )
     llm_extraction_hint: Optional[str] = Field(
         default=None, description="LLM instruction/hint for extracting this field"

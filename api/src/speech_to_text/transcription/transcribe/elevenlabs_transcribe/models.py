@@ -1,14 +1,16 @@
 from __future__ import annotations
-import os
-import asyncio
-from typing import Any, Dict
-from elevenlabs.client import ElevenLabs
-import httpx
 
-from ..base import BaseTranscriber
-from ...storage.postgres_storage import PgDataStorage
+import asyncio
+import os
+from typing import Any, Dict
+
+import httpx
+from elevenlabs.client import ElevenLabs
+
 from ...models import TranscriptionCfg
 from ...services.ffmpeg import extract_audio_to_wav
+from ...storage.postgres_storage import PgDataStorage
+from ..base import BaseTranscriber
 
 _ELEVEN_CACHE: dict[str, Dict[str, Any]] = {}
 
@@ -54,7 +56,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
                 read=ELEVEN_HTTP_READ_TIMEOUT,
                 write=ELEVEN_HTTP_WRITE_TIMEOUT,
                 pool=ELEVEN_HTTP_POOL_TIMEOUT,
-                timeout=ELEVEN_HTTP_READ_TIMEOUT
+                timeout=ELEVEN_HTTP_READ_TIMEOUT,
             )
         )
 

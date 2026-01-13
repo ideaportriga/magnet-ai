@@ -26,11 +26,11 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphCreateRequest,
     KnowledgeGraphCreateResponse,
     KnowledgeGraphDiscoveredMetadataExternalSchema,
-    KnowledgeGraphExtractedMetadataExternalSchema,
-    KnowledgeGraphExtractedMetadataUpsertRequest,
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
     KnowledgeGraphExternalSchema,
+    KnowledgeGraphExtractedMetadataExternalSchema,
+    KnowledgeGraphExtractedMetadataUpsertRequest,
     KnowledgeGraphMetadataExtractionRunRequest,
     KnowledgeGraphMetadataExtractionRunResponse,
     KnowledgeGraphRetrievalPreviewRequest,
@@ -527,7 +527,9 @@ class KnowledgeGraphController(Controller):
         graph_id: UUID,
         name: str,
     ) -> None:
-        await metadata_service.delete_extracted_metadata_field(db_session, graph_id, name)
+        await metadata_service.delete_extracted_metadata_field(
+            db_session, graph_id, name
+        )
 
     @observe(
         name="Running knowledge graph metadata/entity extraction",
