@@ -14,6 +14,7 @@ from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.ai_models.service import (
     AIModelsService,
 )
+from openai_model.utils import clear_model_cache
 
 from .schemas import AIModel, AIModelCreate, AIModelSetDefaultRequest, AIModelUpdate
 
@@ -59,6 +60,7 @@ class AIModelsController(Controller):
     ) -> AIModel:
         """Create a new AI model."""
         obj = await ai_models_service.create(data)
+        clear_model_cache()
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
     @get("/code/{code:str}")
@@ -96,6 +98,7 @@ class AIModelsController(Controller):
         obj = await ai_models_service.update(
             data, item_id=ai_model_id, auto_commit=True
         )
+        clear_model_cache()
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
     @delete("/{ai_model_id:uuid}")
@@ -109,6 +112,7 @@ class AIModelsController(Controller):
     ) -> None:
         """Delete an AI model from the system."""
         _ = await ai_models_service.delete(ai_model_id)
+        clear_model_cache()
 
     @post("/set_default", status_code=HTTP_204_NO_CONTENT)
     async def set_default_handler(
