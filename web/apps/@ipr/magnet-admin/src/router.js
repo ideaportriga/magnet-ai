@@ -46,6 +46,7 @@ import ModelProvidersDetails from '@/components/ModelProviders/Details.vue'
 import KnowledgeProvidersPage from '@/components/KnowledgeProviders/Page.vue'
 import KnowledgeProvidersDetails from '@/components/KnowledgeProviders/Details.vue'
 import KnowledgeGraphPage from '@/components/KnowledgeGraph/Page.vue'
+import NoteTakerPage from '@/components/NoteTaker/Page.vue'
 import NoteTakerSettingsPage from '@/components/NoteTaker/Settings.vue'
 import store from '@/store/index'
 
@@ -541,6 +542,14 @@ const routes = [
   },
   {
     path: '/note-taker',
+    name: 'NoteTakerConfigs',
+    component: NoteTakerPage,
+    meta: {
+      pageLabel: 'Note Taker',
+    },
+  },
+  {
+    path: '/note-taker/:id',
     name: 'NoteTakerSettings',
     component: NoteTakerSettingsPage,
     meta: {

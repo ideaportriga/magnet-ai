@@ -1,9 +1,37 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height
+.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
+  q-inner-loading(:showing='loading')
+    q-spinner-gears(size='50px', color='primary')
+.row.no-wrap.overflow-hidden.full-height(v-else)
   q-scroll-area.fit
     .row.no-wrap.full-height.justify-center.fit
       .col(style='max-width: 1200px; min-width: 600px')
         .full-height.q-pb-md.relative-position.q-px-md
+          .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
+            .col
+              .row.items-center
+                .col
+                  km-input-flat.km-heading-4.full-width.text-black(
+                    placeholder='Name',
+                    :modelValue='recordName',
+                    @input='recordName = $event'
+                  )
+              .row.items-center.q-mt-sm
+                .col
+                  km-input-flat.km-description.full-width.text-black(
+                    placeholder='Description',
+                    :modelValue='recordDescription',
+                    @input='recordDescription = $event'
+                  )
+              .row.items-center.q-pl-6.q-mt-sm
+                q-icon.col-auto(name='o_info', color='text-secondary')
+                  q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
+                .col
+                  km-input-flat.km-description.full-width(
+                    placeholder='Enter system name',
+                    :modelValue='recordSystemName',
+                    @input='recordSystemName = $event'
+                  )
           .ba-border.bg-white.border-radius-12.q-pa-16.q-my-16
             .column.no-wrap.q-gap-24.full-height.full-width
               .col-auto.full-width
@@ -187,18 +215,44 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref } from 'vue'
+import { computed, watch, ref, onMounted } from 'vue'
 import { useStore } from 'vuex'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { fetchData } from '@shared'
 
 const store = useStore()
 const router = useRouter()
+const route = useRoute()
 
 const knowledgeGraphs = ref<any[]>([])
 
 const promptTemplates = computed(() => {
   return store.getters['chroma/promptTemplates']?.items || []
+})
+
+const configId = computed(() => route.params.id as string)
+const activeRecord = computed(() => store.getters.noteTakerSettingsActiveRecord)
+const loading = computed(() => store.getters.noteTakerLoading || !activeRecord.value)
+
+const recordName = computed({
+  get: () => activeRecord.value?.name || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerRecordMeta', { name: value })
+  },
+})
+
+const recordDescription = computed({
+  get: () => activeRecord.value?.description || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerRecordMeta', { description: value })
+  },
+})
+
+const recordSystemName = computed({
+  get: () => activeRecord.value?.system_name || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerRecordMeta', { system_name: value })
+  },
 })
 
 const subscriptionRecordingsReady = computed({
@@ -294,6 +348,14 @@ const apiServers = computed(() => {
   return store.getters['chroma/api_servers']?.items || []
 })
 
+const loadRecord = async () => {
+  if (!configId.value || !apiReady.value) return
+  const record = await store.dispatch('fetchNoteTakerSettingsById', configId.value)
+  if (!record) {
+    router.push('/note-taker')
+  }
+}
+
 const availableTools = computed(() => {
   const serverName = salesforceApiServer.value
   if (!serverName) return []
@@ -340,9 +402,16 @@ watch(
       store.dispatch('chroma/get', { entity: 'api_servers' })
     }
     fetchKnowledgeGraphs()
-    store.dispatch('fetchNoteTakerSettings')
+    loadRecord()
   },
   { immediate: true }
+)
+
+watch(
+  () => configId.value,
+  () => {
+    loadRecord()
+  }
 )
 
 const navigateToPrompt = (systemName: string) => {
