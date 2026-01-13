@@ -12,6 +12,7 @@ from logging import getLogger
 from typing import Any, Awaitable, Callable, Dict, Optional
 from urllib.parse import parse_qs, urlparse, unquote
 from types import SimpleNamespace
+from uuid import UUID, uuid4
 
 import httpx
 from microsoft_agents.activity import (
@@ -74,7 +75,9 @@ from speech_to_text.transcription import service as transcription_service
 from services.prompt_templates import execute_prompt_template
 from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
     ApiIngestDataSource,
+    run_background_ingest,
 )
+from services.observability import observe
 from stores import get_db_client
 from utils import upload_handler
 
@@ -985,6 +988,11 @@ def _get_meeting_id_part(meeting: Dict[str, Any] | None) -> str | None:
     )
 
 
+@observe(
+    name="Ingest into knowledge graph",
+    channel="production",
+    source="Runtime API",
+)
 async def _ingest_knowledge_graph_sections(
     *,
     graph_system_name: str,
@@ -1015,7 +1023,9 @@ async def _ingest_knowledge_graph_sections(
             return 0
 
         data_source = ApiIngestDataSource(source_name="Note Taker")
-        ingested = 0
+        source = await data_source.get_or_create_source(session, graph.id)
+
+        items = []
         for kind, content in sections.items():
             if not content:
                 continue
@@ -1026,25 +1036,28 @@ async def _ingest_knowledge_graph_sections(
                 date_part=date_part,
                 ext=".txt",
             )
-            try:
-                await data_source.ingest_text(
-                    session,
-                    graph.id,
+            items.append(
+                SimpleNamespace(
+                    kind="text",
                     filename=filename,
                     text=content,
+                    file_bytes=None,
                 )
-                ingested += 1
-            except Exception as err:
-                logger.warning(
-                    "Knowledge graph ingest failed for %s: %s",
-                    filename,
-                    getattr(err, "message", str(err)),
-                )
-                try:
-                    await session.rollback()
-                except Exception:
-                    pass
-        return ingested
+            )
+
+        if not items:
+            return 0
+
+        ingestion_id = str(uuid4())
+        asyncio.create_task(
+            run_background_ingest(
+                ingestion_id=ingestion_id,
+                graph_id=graph.id,
+                source_id=UUID(str(source.id)),
+                items=items,
+            )
+        )
+        return len(items)
 
 
 async def _download_recording_bytes(
