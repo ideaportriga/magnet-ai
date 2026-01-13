@@ -23,6 +23,8 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     
     steps:
@@ -66,3 +68,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release
+
+      - name: Get Release Version
+        id: get-version
+        run: |
+          if [ -f release_version.txt ]; then
+            echo "version=$(cat release_version.txt)" >> $GITHUB_OUTPUT
+          fi
+
+  publish-docker:
+    needs: release
+    if: needs.release.outputs.version != ''
+    uses: ./.github/workflows/docker-publish.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+    secrets: inherit
+

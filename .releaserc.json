@@ -65,7 +65,8 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "cd api && poetry version ${nextRelease.version} && cd .."
+        "prepareCmd": "cd api && poetry version ${nextRelease.version} && cd ..",
+        "successCmd": "echo \"${nextRelease.version}\" > release_version.txt"
       }
     ],
     [
