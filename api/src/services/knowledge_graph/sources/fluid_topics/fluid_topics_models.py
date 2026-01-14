@@ -14,6 +14,7 @@ class FluidTopicsRuntimeConfig:
     pdf_api_url: str | None
     map_content_url_template: str | None
     map_toc_url_template: str | None
+    map_structure_url_template: str | None
     filters: list[Any]
 
 
@@ -31,6 +32,15 @@ class FluidTopicsContentFetchTask:
     kind: Literal["map", "document"]
     map_id: str | None = None
     map_title: str | None = None
+    # If true, map metadata should be fetched from the configured map-structure endpoint
+    # (used for TOPIC entries where search results don't contain map metadata).
+    map_metadata_from_structure: bool = False
+    # Source metadata coming from the Fluid Topics search response (MAP entry metadata array),
+    # normalized as a JSON-friendly mapping of key -> scalar-or-list.
+    map_metadata: dict[str, Any] | None = None
+    # DOCUMENT entry metadata/title from the Fluid Topics search response.
+    document_title: str | None = None
+    document_metadata: dict[str, Any] | None = None
     filename: str | None = None
 
 

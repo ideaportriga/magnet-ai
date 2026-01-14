@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from .knowledge_graph import KnowledgeGraph
-    from .knowledge_graph_discovered_metadata import KnowledgeGraphMetadataDiscovery
+    from .knowledge_graph_metadata_discovery import KnowledgeGraphMetadataDiscovery
 
 
 class KnowledgeGraphSource(UUIDv7AuditBase):

@@ -17,9 +17,8 @@ class KnowledgeGraphMetadataDiscovery(UUIDv7AuditBase):
     """A metadata field discovered for a specific knowledge graph source.
 
     This table stores *discovered* fields (from native document metadata, ingestion
-    source systems, and/or LLM extraction) so the UI can list "Discovered Fields"
-    and allow users to promote them into the graph's metadata schema (stored in
-    graph settings).
+    source systems) so the UI can list "Discovered Fields" and allow users to
+    promote them into the graph's metadata schema (stored in graph settings).
     """
 
     __tablename__ = "knowledge_graph_metadata_discoveries"
@@ -79,7 +78,7 @@ class KnowledgeGraphMetadataDiscovery(UUIDv7AuditBase):
     origin: Mapped[Optional[str]] = mapped_column(
         String(50),
         nullable=True,
-        comment="Origin where this field was observed (file, source, llm)",
+        comment="Origin where this field was observed (file, source)",
     )
 
     sample_values: Mapped[Optional[list[str]]] = mapped_column(

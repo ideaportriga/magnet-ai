@@ -20,6 +20,7 @@ internally to constrain later chunk retrieval (`findChunksBySimilarity`).
 """
 
 import json
+import logging
 from typing import Any, NamedTuple
 from uuid import UUID
 
@@ -31,6 +32,8 @@ from services.observability import observability_context, observe
 from services.observability.models import SpanType
 
 from ....models import KnowledgeGraphRetrievalWorkflowStep
+
+logger = logging.getLogger(__name__)
 
 # Description of the `filter` parameter shown to the LLM.
 # The value is a JSON-serialized expression language compiled by `_MetadataFilterCompiler`.
@@ -324,12 +327,31 @@ class _MetadataFilterCompiler:
             # Strict mode: only allow filtering on defined fields unless caller uses `path`.
             return "(1=0)"
 
-        value_type = str(fd.get("value_type") or "").strip().lower()
-        is_multiple = bool(fd.get("is_multiple")) or value_type == "array"
-
         # Source-specific chain overrides
         # This allows a field like "author" to be resolved differently for "github" vs "slack" sources.
         chain_by_source: dict[str, list[dict[str, Any]]] = {}
+        wildcard_chain: list[dict[str, Any]] | None = None
+
+        def _normalize_chain(chain: list[Any]) -> list[dict[str, Any]]:
+            """Normalize/defensively validate chain steps.
+
+            - ensure kind is lowercased
+            - ensure file/source/llm steps always have a field_name (fallback to schema field name)
+            - keep constant payload as-is (validated later)
+            """
+
+            out: list[dict[str, Any]] = []
+            for c in chain or []:
+                if not isinstance(c, dict):
+                    continue
+                kind = str(c.get("kind") or "").strip().lower()
+                if kind in {"file", "source", "llm"}:
+                    fname = str(c.get("field_name") or "").strip() or field_name
+                    out.append({"kind": kind, "field_name": fname})
+                elif kind == "constant":
+                    out.append(c)
+            return out
+
         raw_resolutions = fd.get("source_value_resolution")
         if isinstance(raw_resolutions, list):
             for r in raw_resolutions:
@@ -339,57 +361,25 @@ class _MetadataFilterCompiler:
                 chain = r.get("chain")
                 if not sid or not isinstance(chain, list) or not chain:
                     continue
-                chain_by_source[sid] = [c for c in chain if isinstance(c, dict)]
-
-        # Legacy constant overrides (back-compat)
-        raw_overrides = fd.get("source_overrides")
-        if isinstance(raw_overrides, list):
-            for ov in raw_overrides:
-                if not isinstance(ov, dict):
+                normalized = _normalize_chain(chain)
+                if not normalized:
                     continue
-                sid = str(ov.get("source_id") or "").strip()
-                if not sid or sid in chain_by_source:
-                    continue
-                const_values = ov.get("constant_values")
-                const_value = ov.get("constant_value")
-                if isinstance(const_values, list) and const_values:
-                    chain_by_source[sid] = [
-                        {"kind": "constant", "constant_values": const_values}
-                    ]
-                elif const_value is not None and str(const_value).strip():
-                    chain_by_source[sid] = [
-                        {"kind": "constant", "constant_value": const_value}
-                    ]
+                if sid == "*":
+                    wildcard_chain = normalized
+                else:
+                    chain_by_source[sid] = normalized
 
         # Default chain when a source doesn't have an explicit mapping.
         # Best-effort: check same key name across origins.
-        fallback_chain: list[dict[str, Any]] = [
-            {"kind": "source", "field_name": field_name},
-            {"kind": "file", "field_name": field_name},
-            {"kind": "llm", "field_name": field_name},
-        ]
-
-        # Field-level defaults (applies only when no earlier chain provides a value)
-        default_value = fd.get("default_value")
-        default_values = fd.get("default_values")
-        if is_multiple:
-            if isinstance(default_values, list) and default_values:
-                fallback_chain.append(
-                    {"kind": "constant", "constant_values": default_values}
-                )
-            elif default_value is not None and str(default_value).strip():
-                fallback_chain.append(
-                    {"kind": "constant", "constant_values": [default_value]}
-                )
-        else:
-            if default_value is not None and str(default_value).strip():
-                fallback_chain.append(
-                    {"kind": "constant", "constant_value": default_value}
-                )
-            elif isinstance(default_values, list) and default_values:
-                fallback_chain.append(
-                    {"kind": "constant", "constant_value": default_values[0]}
-                )
+        fallback_chain: list[dict[str, Any]] = (
+            wildcard_chain
+            if wildcard_chain is not None
+            else [
+                {"kind": "source", "field_name": field_name},
+                {"kind": "file", "field_name": field_name},
+                {"kind": "llm", "field_name": field_name},
+            ]
+        )
 
         # Compile per-source conditions, with a fallback for all other sources.
         parts: list[str] = []
@@ -397,33 +387,17 @@ class _MetadataFilterCompiler:
         # (d.source_id::text = sid AND predicate(resolved(chain)))
         for sid, chain in chain_by_source.items():
             sid_param = self.builder.add(str(sid))
-            resolved_expr = (
-                self._resolved_jsonb_array(chain)
-                if is_multiple
-                else self._resolved_text(chain)
-            )
-            pred = (
-                self._apply_array_op(resolved_expr, op=op, value=value, values=values)
-                if is_multiple
-                else self._apply_scalar_op(
-                    resolved_expr, op=op, value=value, values=values
-                )
+            resolved_expr = self._resolved_jsonb_array(chain)
+            pred = self._apply_array_op(
+                resolved_expr, op=op, value=value, values=values
             )
             parts.append(f"((d.source_id::text = {sid_param}) AND {pred})")
 
         # Fallback applies to docs whose source_id is not in the explicit mapping list.
         # This ensures that if a new source is added, we still attempt to find the metadata.
-        resolved_fallback = (
-            self._resolved_jsonb_array(fallback_chain)
-            if is_multiple
-            else self._resolved_text(fallback_chain)
-        )
-        pred_fallback = (
-            self._apply_array_op(resolved_fallback, op=op, value=value, values=values)
-            if is_multiple
-            else self._apply_scalar_op(
-                resolved_fallback, op=op, value=value, values=values
-            )
+        resolved_fallback = self._resolved_jsonb_array(fallback_chain)
+        pred_fallback = self._apply_array_op(
+            resolved_fallback, op=op, value=value, values=values
         )
 
         if chain_by_source:
@@ -567,11 +541,20 @@ class _MetadataFilterCompiler:
 
     def _apply_array_op(self, expr: str, *, op: str, value: Any, values: Any) -> str:
         op = (op or "eq").strip().lower()
+        expr_sql = f"({expr})"
 
         if op in {"exists", "is_set"}:
-            return f"({expr} IS NOT NULL)"
+            return f"({expr_sql} IS NOT NULL)"
         if op in {"not_exists", "is_not_set"}:
-            return f"({expr} IS NULL)"
+            return f"({expr_sql} IS NULL)"
+
+        def _exists(where_sql: str) -> str:
+            return (
+                f"({expr_sql} IS NOT NULL AND EXISTS ("
+                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
+                f"WHERE {where_sql}"
+                f"))"
+            )
 
         if op in {"in"}:
             vals = values
@@ -579,27 +562,51 @@ class _MetadataFilterCompiler:
                 vals = value
             if not isinstance(vals, list):
                 return self._apply_array_op(expr, op="eq", value=value, values=None)
-            sub = []
+            sub: list[str] = []
+            if any(v is None for v in vals):
+                sub.append(f"({expr_sql} IS NULL)")
             for v in vals:
                 if v is None:
                     continue
                 p = self.builder.add(str(v))
-                sub.append(f"({expr} ? {p})")
+                sub.append(_exists(f"e.val = {p}"))
             if not sub:
                 return "(1=0)"
             return "(" + " OR ".join(sub) + ")"
 
-        if op in {"eq", "contains", "has"}:
+        if op in {"eq", "=", "==", "has"}:
             if value is None:
-                return "(1=0)"
+                return f"({expr_sql} IS NULL)"
             p = self.builder.add(str(value))
-            return f"({expr} ? {p})"
+            return _exists(f"e.val = {p}")
 
-        if op in {"ne", "not_contains"}:
+        if op in {"contains", "like"}:
             if value is None:
                 return "(1=0)"
             p = self.builder.add(str(value))
-            return f"(NOT ({expr} ? {p}))"
+            return _exists(f"e.val ILIKE '%' || {p} || '%'")
+
+        if op in {"ne", "!=", "<>"}:
+            if value is None:
+                return f"({expr_sql} IS NOT NULL)"
+            p = self.builder.add(str(value))
+            return (
+                f"({expr_sql} IS NOT NULL AND NOT EXISTS ("
+                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
+                f"WHERE e.val = {p}"
+                f"))"
+            )
+
+        if op in {"not_contains"}:
+            if value is None:
+                return "(1=0)"
+            p = self.builder.add(str(value))
+            return (
+                f"({expr_sql} IS NOT NULL AND NOT EXISTS ("
+                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
+                f"WHERE e.val ILIKE '%' || {p} || '%'"
+                f"))"
+            )
 
         return "(1=0)"
 
@@ -629,6 +636,8 @@ async def findDocumentsByMetadata(
     - filterMergeStrategy: merge_and | merge_or | agent_priority | external_priority
     """
 
+    logger.debug(f"Finding documents by metadata for graph {graph_id}")
+
     args = args if isinstance(args, dict) else {}
     tool_cfg_d = tool_cfg if isinstance(tool_cfg, dict) else {}
 
@@ -639,6 +648,10 @@ async def findDocumentsByMetadata(
 
     ext_filter_raw = _extract_external_metadata_filter(external_tool_inputs)
     agent_filter_raw = args.get("filter")
+
+    logger.debug(f"External filter: {ext_filter_raw}")
+    logger.debug(f"Agent filter: {agent_filter_raw}")
+    logger.debug(f"Search control: {search_control}")
 
     # Determine the final filter based on the configured control mode.
     # - "agent": The LLM controls the filter entirely.

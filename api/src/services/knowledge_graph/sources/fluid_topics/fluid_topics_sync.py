@@ -5,6 +5,7 @@ import logging
 import time
 from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, override
+from uuid import UUID
 
 import httpx
 from litestar.exceptions import ClientException
@@ -15,7 +16,8 @@ from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
 
 from ...content_config_services import get_content_config
 from ...content_load_services import load_content_from_bytes
-from ...models import SyncCounters, SyncPipelineConfig
+from ...metadata_services import accumulate_discovered_metadata_fields
+from ...models import MetadataMultiValueContainer, SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
 from .fluid_topics_models import (
     FluidTopicsContentFetchTask,
@@ -26,11 +28,13 @@ from .fluid_topics_models import (
 )
 from .fluid_topics_utils import (
     download_file,
+    fetch_map_structure,
     fetch_map_toc,
     fetch_topic_content,
     ft_toc_to_kg_toc,
     iter_ft_toc_content_nodes,
     normalize_map_toc_payload,
+    parse_fluid_topics_metadata_list,
 )
 
 if TYPE_CHECKING:
@@ -159,13 +163,20 @@ class FluidTopicsSyncPipeline(
 
                             doc_info = entry.get("document") or {}
                             filename = str(doc_info.get("filename"))
+                            doc_title = str(doc_info.get("title") or "").strip() or None
+                            doc_metadata = parse_fluid_topics_metadata_list(
+                                doc_info.get("metadata")
+                            )
                             if not filename:
                                 await ctx.inc("skipped")
                                 continue
 
                             await ctx.content_fetch_queue.put(
                                 FluidTopicsContentFetchTask(
-                                    kind="document", filename=filename
+                                    kind="document",
+                                    filename=filename,
+                                    document_title=doc_title,
+                                    document_metadata=doc_metadata,
                                 )
                             )
 
@@ -198,7 +209,10 @@ class FluidTopicsSyncPipeline(
 
                             await ctx.content_fetch_queue.put(
                                 FluidTopicsContentFetchTask(
-                                    kind="map", map_id=map_id, map_title=map_title
+                                    kind="map",
+                                    map_id=map_id,
+                                    map_title=map_title,
+                                    map_metadata_from_structure=True,
                                 )
                             )
 
@@ -217,6 +231,9 @@ class FluidTopicsSyncPipeline(
                                 map_info = entry.get("map") or {}
                                 map_id = str(map_info.get("mapId") or "")
                                 map_title = str(map_info.get("title") or "")
+                                map_metadata = parse_fluid_topics_metadata_list(
+                                    map_info.get("metadata")
+                                )
                                 if not map_id:
                                     await ctx.inc("skipped")
                                     continue
@@ -231,7 +248,10 @@ class FluidTopicsSyncPipeline(
 
                             await ctx.content_fetch_queue.put(
                                 FluidTopicsContentFetchTask(
-                                    kind="map", map_id=map_id, map_title=map_title
+                                    kind="map",
+                                    map_id=map_id,
+                                    map_title=map_title,
+                                    map_metadata=map_metadata,
                                 )
                             )
 
@@ -290,6 +310,25 @@ class FluidTopicsSyncPipeline(
             extra=self._log_extra(worker_id=worker_id),
         )
 
+        graph_uuid = UUID(self._graph_id)
+        source_uuid = self._source.source.id
+
+        def _to_discovery_metadata(meta: dict[str, Any] | None) -> dict[str, Any]:
+            """Convert JSON-friendly metadata dict into discovery-friendly values."""
+            if not isinstance(meta, dict) or not meta:
+                return {}
+            out: dict[str, Any] = {}
+            for k, v in meta.items():
+                key = str(k or "").strip()
+                if not key:
+                    continue
+                if isinstance(v, list):
+                    # Expand multi-valued fields for discovery stats.
+                    out[key] = MetadataMultiValueContainer.from_iterable(v)
+                else:
+                    out[key] = v
+            return out
+
         async with async_session_maker() as session:
             async for task in ctx.iter_content_fetch_tasks():
                 try:
@@ -297,6 +336,102 @@ class FluidTopicsSyncPipeline(
                         map_id = task.map_id
                         map_title = task.map_title or map_id
                         doc_name = map_title.strip()
+                        map_metadata = task.map_metadata
+
+                        # For TOPIC search entries, Fluid Topics doesn't include map metadata in the search
+                        # response. We fetch it from the map structure endpoint when available.
+                        if task.map_metadata_from_structure:
+                            if not self._fluid_topics_config.map_structure_url_template:
+                                logger.warning(
+                                    "Skipping Fluid Topics map structure metadata fetch: FLUID_TOPICS_MAP_STRUCTURE is not configured",
+                                    extra=self._log_extra(
+                                        worker_id=worker_id,
+                                        map_id=map_id,
+                                        map_title=map_title,
+                                    ),
+                                )
+                            else:
+                                try:
+                                    structure = await fetch_map_structure(
+                                        self, ctx, str(map_id)
+                                    )
+                                    if isinstance(structure, dict):
+                                        structure_title = str(
+                                            structure.get("title") or ""
+                                        ).strip()
+                                        if structure_title:
+                                            map_title = structure_title
+
+                                        structure_metadata = (
+                                            parse_fluid_topics_metadata_list(
+                                                structure.get("metadata")
+                                            )
+                                        )
+
+                                        # Also persist common top-level structure fields under familiar keys
+                                        # (keeps metadata consistent between MAP vs TOPIC ingestion paths).
+                                        top_level: dict[str, Any] = {}
+                                        lang = str(structure.get("lang") or "").strip()
+                                        origin_id = str(
+                                            structure.get("originId") or ""
+                                        ).strip()
+                                        base_id = str(
+                                            structure.get("baseId") or ""
+                                        ).strip()
+                                        cluster_id = str(
+                                            structure.get("clusterId") or ""
+                                        ).strip()
+
+                                        if structure_title:
+                                            top_level["ft:title"] = structure_title
+                                        if lang:
+                                            top_level["ft:locale"] = lang
+                                        if origin_id:
+                                            top_level["ft:originId"] = origin_id
+                                        if base_id:
+                                            top_level["ft:baseId"] = base_id
+                                        if cluster_id:
+                                            top_level["ft:clusterId"] = cluster_id
+
+                                        map_metadata = {
+                                            **(structure_metadata or {}),
+                                            **top_level,
+                                        } or None
+                                except Exception as meta_exc:  # noqa: BLE001
+                                    logger.warning(
+                                        "Failed to fetch Fluid Topics map structure metadata",
+                                        extra=self._log_extra(
+                                            worker_id=worker_id,
+                                            map_id=map_id,
+                                            map_title=map_title,
+                                            error=str(meta_exc),
+                                            error_type=type(meta_exc).__name__,
+                                        ),
+                                    )
+
+                        # Best-effort: persist discovered metadata fields for this graph/source.
+                        if map_metadata:
+                            try:
+                                await accumulate_discovered_metadata_fields(
+                                    session,
+                                    graph_id=graph_uuid,
+                                    source_id=source_uuid,
+                                    metadata=_to_discovery_metadata(map_metadata),
+                                    origin="source",
+                                )
+                                await session.commit()
+                            except Exception as meta_db_exc:  # noqa: BLE001
+                                await session.rollback()
+                                logger.error(
+                                    "Failed to persist Fluid Topics discovered map metadata",
+                                    extra=self._log_extra(
+                                        worker_id=worker_id,
+                                        map_id=map_id,
+                                        map_title=map_title,
+                                        error=str(meta_db_exc),
+                                        error_type=type(meta_db_exc).__name__,
+                                    ),
+                                )
 
                         logger.debug(
                             "Fetching Fluid Topics map",
@@ -320,14 +455,14 @@ class FluidTopicsSyncPipeline(
                         document = await self._source.create_document_for_source(
                             session,
                             filename=doc_name,
-                            source_metadata={"map_id": map_id, "map_title": map_title},
+                            source_metadata=map_metadata,
                             default_document_type="html",
                         )
 
                         await KnowledgeGraphDocumentService().update_document(
                             session,
                             graph_id=document["graph_id"],
-                            doc_id=document["id"],
+                            document_id=document["id"],
                             fields={
                                 "title": str(map_title),
                                 "toc": toc,
@@ -364,6 +499,31 @@ class FluidTopicsSyncPipeline(
                             await ctx.inc("skipped")
                             continue
 
+                        # Best-effort: persist discovered metadata fields for this graph/source.
+                        if task.document_metadata:
+                            try:
+                                await accumulate_discovered_metadata_fields(
+                                    session,
+                                    graph_id=graph_uuid,
+                                    source_id=source_uuid,
+                                    metadata=_to_discovery_metadata(
+                                        task.document_metadata
+                                    ),
+                                    origin="source",
+                                )
+                                await session.commit()
+                            except Exception as meta_db_exc:  # noqa: BLE001
+                                await session.rollback()
+                                logger.error(
+                                    "Failed to persist Fluid Topics discovered document metadata",
+                                    extra=self._log_extra(
+                                        worker_id=worker_id,
+                                        doc_filename=filename,
+                                        error=str(meta_db_exc),
+                                        error_type=type(meta_db_exc).__name__,
+                                    ),
+                                )
+
                         logger.debug(
                             "Downloading Fluid Topics file",
                             extra=self._log_extra(
@@ -382,6 +542,7 @@ class FluidTopicsSyncPipeline(
                             file_metadata=content.get("metadata")
                             if isinstance(content, dict)
                             else None,
+                            source_metadata=task.document_metadata,
                             default_document_type="pdf",
                             content_profile=content_config.name
                             if content_config
@@ -391,6 +552,7 @@ class FluidTopicsSyncPipeline(
                         await ctx.document_processing_queue.put(
                             ProcessDocumentTask(
                                 document=document,
+                                document_title=task.document_title,
                                 extracted_text=content["text"],
                                 content_config=content_config,
                             )

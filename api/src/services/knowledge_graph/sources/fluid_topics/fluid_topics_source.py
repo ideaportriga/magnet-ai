@@ -145,6 +145,8 @@ class FluidTopicsSource(AbstractDataSource):
             or knowledge_settings.FLUID_TOPICS_MAP_CONTENT,
             map_toc_url_template=cfg.get("map_toc_url")
             or knowledge_settings.FLUID_TOPICS_MAP_TOC,
+            map_structure_url_template=cfg.get("map_structure_url")
+            or knowledge_settings.FLUID_TOPICS_MAP_STRUCTURE,
             filters=filters,
         )
 
@@ -160,6 +162,10 @@ class FluidTopicsSource(AbstractDataSource):
         if not cfg.map_toc_url_template:
             logger.warning(
                 "FLUID_TOPICS_MAP_TOC is not configured; TOPIC entries will be skipped."
+            )
+        if not cfg.map_structure_url_template:
+            logger.warning(
+                "FLUID_TOPICS_MAP_STRUCTURE is not configured; TOPIC entries will not have map metadata."
             )
 
         if not cfg.pdf_api_url:

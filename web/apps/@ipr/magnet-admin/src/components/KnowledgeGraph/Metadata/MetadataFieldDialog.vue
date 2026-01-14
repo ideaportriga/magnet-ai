@@ -13,7 +13,7 @@
       <!-- Basic Info Section -->
       <kg-dialog-section title="Field Identity" description="Define the field name and display properties" icon="edit">
         <kg-field-row :cols="2">
-          <kg-field-row label="Field Name" hint="Internal identifier, can be used in API or by AI for smart extraction. Use snake_case.">
+          <kg-field-row label="Field Name">
             <km-input
               ref="fieldNameInputRef"
               v-model="fieldName"
@@ -38,96 +38,6 @@
             height="36px"
           />
         </kg-field-row>
-      </kg-dialog-section>
-
-      <!-- Field Configuration -->
-      <kg-dialog-section title="Data Type" description="Choose the type of values this field will store" icon="tune">
-        <kg-field-row>
-          <kg-dropdown-field v-model="valueTypeModel" :options="valueTypeOptions" placeholder="Select type" dense />
-        </kg-field-row>
-      </kg-dialog-section>
-
-      <!-- Values Configuration -->
-      <kg-dialog-section title="Input Constraints" description="Define cardinality and value restrictions" icon="list_alt">
-        <kg-field-row :cols="2" class="q-mb-md">
-          <kg-toggle-field v-model="isMultiple" title="Accept multiple values" />
-          <kg-toggle-field v-model="restrictToAllowedValues" title="Limit to predefined options" />
-        </kg-field-row>
-
-        <!-- Restricted Values -->
-        <kg-field-row
-          v-if="restrictToAllowedValues"
-          label="Predefined Options"
-          :error="predefinedOptionsError ? 'At least one predefined option is required' : undefined"
-        >
-          <div class="value-options-container">
-            <div class="value-options-list">
-              <div v-for="(av, idx) in allowedValues" :key="idx" class="value-option-chip">
-                <span class="value-option-text">{{ av.value }}</span>
-                <q-icon name="close" size="14px" class="value-option-remove" @click.stop="removeAllowedValue(idx)" />
-              </div>
-
-              <div class="value-options-input-row">
-                <km-input
-                  v-model="newAllowedValue"
-                  height="32px"
-                  placeholder="Enter option and press Enter"
-                  class="col"
-                  @keyup.enter="addAllowedValue"
-                />
-                <km-btn flat label="Add" @click="addAllowedValue" />
-              </div>
-            </div>
-          </div>
-        </kg-field-row>
-      </kg-dialog-section>
-
-      <!-- Smart Extraction Section -->
-      <kg-dialog-section
-        title="Smart Extraction"
-        description="Define how AI should extract this field, variables can be used to insert dynamic values into the instructions"
-        icon="smart_toy"
-      >
-        <div class="extraction-content">
-          <km-input
-            ref="extractionHintInputRef"
-            v-model="extractionHint"
-            autogrow
-            rows="3"
-            type="textarea"
-            placeholder="Guide the AI on how to extract this field..."
-          />
-
-          <div class="row justify-between">
-            <div class="extraction-variables-list">
-              <q-chip
-                v-for="v in EXTRACTION_VARIABLES"
-                :key="v.key"
-                clickable
-                dense
-                outline
-                class="extraction-var-chip"
-                @mousedown.prevent
-                @click="insertExtractionVariable(v.key)"
-              >
-                <span class="extraction-var-token">{{ formatExtractionVariableToken(v.key) }}</span>
-              </q-chip>
-            </div>
-
-            <div class="extraction-subtoolbar">
-              <div class="extraction-toolbar">
-                <q-btn flat dense size="sm" icon="restart_alt" color="grey-6" @click="resetToDefaultTemplate">
-                  <q-tooltip>Reset to default template</q-tooltip>
-                </q-btn>
-                <q-btn flat dense size="sm" :icon="showPreview ? 'visibility_off' : 'visibility'" color="grey-6" @click="showPreview = !showPreview">
-                  <q-tooltip>{{ showPreview ? 'Hide' : 'Show' }} preview</q-tooltip>
-                </q-btn>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="showPreview" class="extraction-preview">{{ renderedExtractionHint }}</div>
-        </div>
       </kg-dialog-section>
 
       <!-- Field & Value Mappings -->
@@ -156,15 +66,7 @@
                     color="grey-7"
                     class="source-section__chevron"
                   />
-                  <div class="source-section__logo">
-                    <q-img
-                      v-if="getSourceVisual(source.source_type_key).image"
-                      :src="getSourceVisual(source.source_type_key).image"
-                      no-spinner
-                      no-transition
-                    />
-                    <q-icon v-else :name="getSourceVisual(source.source_type_key).icon" size="16px" color="grey-7" />
-                  </div>
+                  <span class="source-section__type">{{ getSourceTypeName(source.source_type_key) }}</span>
                   <span class="source-section__name">{{ source.source_name }}</span>
                 </div>
                 <div class="source-section__right">
@@ -251,7 +153,19 @@
 
                       <div class="value-chain__config">
                         <template v-if="step.kind === 'llm'">
-                          <div class="value-chain__llm-hint">Use LLM instructions to extract value for this field</div>
+                          <kg-dropdown-field
+                            v-model="step.field_name"
+                            :options="smartExtractionFieldOptions(step.field_name)"
+                            placeholder="Select extraction field"
+                            option-value="value"
+                            option-label="label"
+                            :option-meta="(o) => o.meta"
+                            searchable
+                            clearable
+                            dense
+                            :show-error="showValueResolutionErrors && !step.field_name"
+                          />
+                          <div v-if="showValueResolutionErrors && !step.field_name" class="value-chain__error">Required</div>
                         </template>
 
                         <template v-else>
@@ -297,25 +211,20 @@
 
                     <div class="value-chain__config">
                       <km-input
-                        v-if="!isMultiple"
                         v-model="activeResolutionConstantStep.constant_value"
-                        placeholder="Enter constant value"
-                        :class="{ 'value-chain__input--error': showValueResolutionErrors && !activeResolutionConstantStep.constant_value.trim() }"
-                      />
-                      <km-input
-                        v-else
-                        v-model="activeResolutionConstantStep.constant_values_text"
-                        placeholder="Values (comma-separated)"
+                        placeholder="Enter value (or comma-separated values)"
                         :class="{
                           'value-chain__input--error':
-                            showValueResolutionErrors && parseCommaSeparated(activeResolutionConstantStep.constant_values_text).length === 0,
+                            showValueResolutionErrors &&
+                            !activeResolutionConstantStep.constant_value.trim() &&
+                            parseCommaSeparated(activeResolutionConstantStep.constant_values_text).length === 0,
                         }"
                       />
                       <div
                         v-if="
                           showValueResolutionErrors &&
-                            ((isMultiple && parseCommaSeparated(activeResolutionConstantStep.constant_values_text).length === 0) ||
-                              (!isMultiple && !activeResolutionConstantStep.constant_value.trim()))
+                            !activeResolutionConstantStep.constant_value.trim() &&
+                            parseCommaSeparated(activeResolutionConstantStep.constant_values_text).length === 0
                         "
                         class="value-chain__error"
                       >
@@ -343,58 +252,26 @@
 </template>
 
 <script setup lang="ts">
-import confluenceImage from '@/assets/brands/atlassian-confluence.png'
-import fluidTopicsImage from '@/assets/brands/fluid-topics.png'
-import sharepointImage from '@/assets/brands/sharepoint.svg'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
-import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgToggleField } from '../common'
-import { type SourceRow } from '../Sources/models'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow } from '../common'
+import { type SourceRow, getSourceTypeName } from '../Sources/models'
 import {
-  AllowedValue,
+  MetadataDiscoveredField,
+  MetadataExtractedField,
   MetadataFieldDefinition,
-  MetadataFieldRow,
-  MetadataFieldSourceOverride,
   MetadataFieldSourceValueResolution,
   MetadataFieldValueSourceKind,
   MetadataFieldValueSourceStep,
-  MetadataValueType,
-  PRESET_FIELDS,
-  ValueTypeOptions,
 } from './models'
-
-// Source type visuals (image or icon)
-const sourceTypeVisuals: Record<string, { image?: string; icon?: string }> = {
-  upload: { icon: 'fas fa-upload' },
-  sharepoint: { image: sharepointImage },
-  fluid_topics: { image: fluidTopicsImage },
-  confluence: { image: confluenceImage },
-}
-
-const getSourceVisual = (type: string) => {
-  return sourceTypeVisuals[type] || { icon: 'description' }
-}
-
-// Default extraction template
-const DEFAULT_EXTRACTION_TEMPLATE = `Extract {display_name} ({type}, {cardinality}).
-Allowed: {values}.`
-
-type ExtractionVariableKey = 'field_name' | 'display_name' | 'type' | 'values' | 'cardinality'
-
-const EXTRACTION_VARIABLES: Array<{ key: ExtractionVariableKey }> = [
-  { key: 'field_name' },
-  { key: 'display_name' },
-  { key: 'type' },
-  { key: 'values' },
-  { key: 'cardinality' },
-]
 
 const props = defineProps<{
   showDialog: boolean
   field?: MetadataFieldDefinition | null
   existingFieldNames?: string[]
   sources?: SourceRow[]
-  discoveredFields?: MetadataFieldRow[]
+  discoveredFields?: MetadataDiscoveredField[]
+  extractedFields?: MetadataExtractedField[]
 }>()
 
 const emit = defineEmits<{
@@ -407,23 +284,8 @@ const emit = defineEmits<{
 const fieldName = ref('')
 const displayName = ref('')
 const description = ref('')
-const valueType = ref<MetadataValueType>('string')
-const valueTypeModel = computed<string | undefined>({
-  get: () => valueType.value,
-  set: (v) => {
-    valueType.value = (v as MetadataValueType) || 'string'
-  },
-})
-const isMultiple = ref(false)
-const restrictToAllowedValues = ref(false)
-const allowedValues = ref<AllowedValue[]>([])
-const newAllowedValue = ref('')
-const extractionHint = ref('')
-const showPreview = ref(false)
 const loading = ref(false)
-const extractionHintInputRef = ref<any>(null)
 const fieldNameInputRef = ref<any>(null)
-const showPredefinedOptionsError = ref(false)
 const showValueResolutionErrors = ref(false)
 
 type ValueResolutionStepDraft = {
@@ -474,20 +336,15 @@ const sanitizeChain = (chain: ValueResolutionStepDraft[]): ValueResolutionStepDr
   return out
 }
 
-const initSourceValueResolution = (existingResolution?: MetadataFieldSourceValueResolution[], legacyOverrides?: MetadataFieldSourceOverride[]) => {
+const initSourceValueResolution = (existingResolution?: MetadataFieldSourceValueResolution[]) => {
   const sources = props.sources || []
   const existingMap = new Map<string, MetadataFieldSourceValueResolution>()
   ;(existingResolution || []).forEach((r) => {
     if (r?.source_id) existingMap.set(r.source_id, r)
   })
-  const legacyMap = new Map<string, MetadataFieldSourceOverride>()
-  ;(legacyOverrides || []).forEach((o) => {
-    if (o?.source_id) legacyMap.set(o.source_id, o)
-  })
 
   sourceValueResolutions.value = sources.map((s) => {
     const existing = existingMap.get(s.id)
-    const legacy = legacyMap.get(s.id)
 
     const chain: ValueResolutionStepDraft[] = []
 
@@ -514,18 +371,6 @@ const initSourceValueResolution = (existingResolution?: MetadataFieldSourceValue
             constant_values_text: '',
           })
         }
-      }
-    } else if (legacy) {
-      const multi = Array.isArray(legacy.constant_values) ? legacy.constant_values.map((v) => String(v)).filter(Boolean) : []
-      const single = String(legacy.constant_value || '').trim() || multi[0] || ''
-      if (single || multi.length) {
-        chain.push({
-          _id: crypto.randomUUID(),
-          kind: 'constant',
-          field_name: '',
-          constant_value: single,
-          constant_values_text: multi.join(', '),
-        })
       }
     }
 
@@ -621,7 +466,7 @@ const fieldOptionsForStep = (kind: MetadataFieldValueSourceKind, sourceId: strin
   }
 
   // De-dupe by field name, then sort
-  const unique = new Map<string, MetadataFieldRow>()
+  const unique = new Map<string, MetadataDiscoveredField>()
   for (const r of rows) {
     if (!r?.name) continue
     if (!unique.has(r.name)) unique.set(r.name, r)
@@ -638,6 +483,26 @@ const fieldOptionsForStep = (kind: MetadataFieldValueSourceKind, sourceId: strin
   const sel = String(selectedValue || '').trim()
   if (sel && !opts.some((o) => o.value === sel)) {
     opts.unshift({ label: sel, value: sel, meta: 'Not currently discovered' })
+  }
+
+  return opts
+}
+
+const smartExtractionFieldOptions = (selectedValue?: string): FieldOption[] => {
+  const fields = props.extractedFields || []
+
+  const opts: FieldOption[] = fields
+    .slice()
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .map((f) => ({
+      label: f.name,
+      value: f.name,
+      meta: f.sample_values?.length ? `e.g. ${truncate(f.sample_values[0])}` : undefined,
+    }))
+
+  const sel = String(selectedValue || '').trim()
+  if (sel && !opts.some((o) => o.value === sel)) {
+    opts.unshift({ label: sel, value: sel, meta: 'Field not found' })
   }
 
   return opts
@@ -682,7 +547,7 @@ const canAddKind = (kind: MetadataFieldValueSourceKind) => {
 const guessDefaultFieldName = (kind: Exclude<MetadataFieldValueSourceKind, 'constant'>, sourceId: string): string => {
   const desired = fieldName.value.trim()
   if (!desired) return ''
-  const opts = fieldOptionsForStep(kind, sourceId, desired)
+  const opts = kind === 'llm' ? smartExtractionFieldOptions(desired) : fieldOptionsForStep(kind, sourceId, desired)
   return opts.some((o) => o.value === desired) ? desired : ''
 }
 
@@ -707,8 +572,6 @@ const addChainStep = (kind: MetadataFieldValueSourceKind) => {
 
   if (kind !== 'constant') {
     newStep.field_name = guessDefaultFieldName(kind, src.source_id)
-  } else if (isMultiple.value && src.chain.some((s) => s.kind === 'constant') === false && newStep.constant_value.trim()) {
-    newStep.constant_values_text = newStep.constant_value.trim()
   }
 
   const constIdx = src.chain.findIndex((s) => s.kind === 'constant')
@@ -759,89 +622,6 @@ const applyActiveChainToAllSources = () => {
   showValueResolutionErrors.value = false
 }
 
-const getPresetExtractionHint = (name?: string | null): string | undefined => {
-  const fieldName = (name || '').trim()
-  if (!fieldName) return undefined
-  return PRESET_FIELDS.find((p) => p.name === fieldName)?.llm_extraction_hint
-}
-
-// Computed values for variable substitution
-const typeLabel = computed(() => ValueTypeOptions.find((o) => o.value === valueType.value)?.label || valueType.value)
-const allowedValuesLabel = computed(() => {
-  if (!restrictToAllowedValues.value) return 'any'
-  return allowedValues.value.length ? allowedValues.value.map((v) => v.value).join(', ') : 'any'
-})
-const predefinedOptionsError = computed(() => showPredefinedOptionsError.value && restrictToAllowedValues.value && allowedValues.value.length === 0)
-const cardinalityLabel = computed(() => (isMultiple.value ? 'Multi-Value' : 'Single-Value'))
-const displayNameLabel = computed(() => displayName.value.trim() || fieldName.value.trim() || 'Untitled')
-
-const extractionVars = computed<Record<string, string>>(() => ({
-  field_name: fieldName.value.trim() || 'field_name',
-  display_name: displayNameLabel.value,
-  type: typeLabel.value,
-  values: allowedValuesLabel.value,
-  cardinality: cardinalityLabel.value,
-}))
-
-// Render extraction hint with variable substitution
-const renderedExtractionHint = computed(() => {
-  const vars = extractionVars.value
-  return extractionHint.value.replace(/\{(\w+)\}/g, (match, key) => vars[key] ?? match)
-})
-
-const formatExtractionVariableToken = (key: string) => `{${key}}`
-
-const insertExtractionVariable = async (key: ExtractionVariableKey) => {
-  const token = `{${key}}`
-  const pos = extractionHintInputRef.value?.getCursorIndex?.()
-  const cursor = typeof pos === 'number' ? pos : extractionHint.value.length
-
-  const text = extractionHint.value || ''
-  const before = text.slice(0, cursor)
-  const after = text.slice(cursor)
-
-  const needsSpaceBefore = before.length > 0 && !/\s$/.test(before) && !/[([{]$/.test(before)
-  const needsSpaceAfter = after.length > 0 && !/^\s/.test(after) && !/^[,.;:!?)}\]]/.test(after)
-  const insertion = `${needsSpaceBefore ? ' ' : ''}${token}${needsSpaceAfter ? ' ' : ''}`
-
-  extractionHint.value = before + insertion + after
-
-  await nextTick()
-
-  const nativeEl = extractionHintInputRef.value?.input?.nativeEl as HTMLTextAreaElement | HTMLInputElement | undefined
-  const newPos = cursor + insertion.length
-
-  if (nativeEl && typeof nativeEl.setSelectionRange === 'function') {
-    nativeEl.focus?.()
-    nativeEl.setSelectionRange(newPos, newPos)
-  } else {
-    extractionHintInputRef.value?.focus?.()
-  }
-}
-
-// Reset to default template
-const resetToDefaultTemplate = () => {
-  extractionHint.value = DEFAULT_EXTRACTION_TEMPLATE
-}
-
-// Methods for managing allowed values
-const addAllowedValue = () => {
-  const val = newAllowedValue.value.trim()
-  if (val) {
-    if (!allowedValues.value.some((av) => av.value === val)) {
-      allowedValues.value.push({ value: val })
-    }
-    // Clear input even if value already exists
-    newAllowedValue.value = ''
-  }
-}
-
-const removeAllowedValue = (idx: number) => {
-  allowedValues.value.splice(idx, 1)
-}
-
-const valueTypeOptions = ValueTypeOptions
-
 const isEditMode = computed(() => !!props.field?.id)
 
 const fieldNameRules = [
@@ -863,29 +643,14 @@ watch(
         fieldName.value = props.field.name
         displayName.value = props.field.display_name || ''
         description.value = props.field.description || ''
-        valueType.value = props.field.value_type || 'string'
-        isMultiple.value = !!props.field.is_multiple
-        restrictToAllowedValues.value = !!props.field.allowed_values?.length
-        allowedValues.value = props.field.allowed_values || []
-        extractionHint.value = props.field.llm_extraction_hint || getPresetExtractionHint(props.field.name) || DEFAULT_EXTRACTION_TEMPLATE
-        showPreview.value = false
-        showPredefinedOptionsError.value = false
         showValueResolutionErrors.value = false
 
-        initSourceValueResolution(props.field.source_value_resolution, props.field.source_overrides)
+        initSourceValueResolution(props.field.source_value_resolution)
       } else {
         // Reset for new field
         fieldName.value = ''
         displayName.value = ''
         description.value = ''
-        valueType.value = 'string'
-        isMultiple.value = false
-        restrictToAllowedValues.value = false
-        allowedValues.value = []
-        newAllowedValue.value = ''
-        extractionHint.value = DEFAULT_EXTRACTION_TEMPLATE
-        showPreview.value = false
-        showPredefinedOptionsError.value = false
         showValueResolutionErrors.value = false
         initSourceValueResolution()
       }
@@ -893,30 +658,6 @@ watch(
   },
   { immediate: true }
 )
-
-// Keep constant inputs sane when switching between single/multi value fields
-watch(isMultiple, (multi) => {
-  if (multi) {
-    sourceValueResolutions.value.forEach((src) => {
-      src.chain.forEach((step) => {
-        if (step.kind !== 'constant') return
-        if (!step.constant_values_text.trim() && step.constant_value.trim()) {
-          step.constant_values_text = step.constant_value.trim()
-        }
-      })
-    })
-  } else {
-    sourceValueResolutions.value.forEach((src) => {
-      src.chain.forEach((step) => {
-        if (step.kind !== 'constant') return
-        if (!step.constant_value.trim()) {
-          const parsed = parseCommaSeparated(step.constant_values_text)
-          if (parsed.length) step.constant_value = parsed[0]
-        }
-      })
-    })
-  }
-})
 
 // Auto-generate display name from field name
 watch(fieldName, (newVal) => {
@@ -934,32 +675,23 @@ const onConfirm = () => {
     return
   }
 
-  // Validate predefined options
-  showPredefinedOptionsError.value = true
-  if (restrictToAllowedValues.value && allowedValues.value.length === 0) {
-    return
-  }
-
   // Validate per-source value resolution chains (only if configured for a source)
   showValueResolutionErrors.value = true
   const invalid = sourceValueResolutions.value.some((src) => {
     if (!src.chain.length) return false
     return src.chain.some((step) => {
       if (step.kind === 'constant') {
-        if (isMultiple.value) return parseCommaSeparated(step.constant_values_text).length === 0
-        return !step.constant_value.trim()
+        // For value resolution, we still need to handle constant steps
+        // Use single value mode by default since we no longer have isMultiple here
+        return !step.constant_value.trim() && parseCommaSeparated(step.constant_values_text).length === 0
       }
-      if (step.kind === 'llm') return false
+      // All other kinds (file, source, llm) require a field_name
       return !step.field_name.trim()
     })
   })
   if (invalid) return
 
-  // When saving, render the extraction hint with actual values (not variables)
-  const finalExtractionHint = renderedExtractionHint.value.trim() || undefined
-
   const valueResolution: MetadataFieldSourceValueResolution[] = []
-  const legacyOverrides: MetadataFieldSourceOverride[] = []
 
   for (const src of sourceValueResolutions.value) {
     const sid = String(src.source_id || '').trim()
@@ -968,16 +700,17 @@ const onConfirm = () => {
     const chain: MetadataFieldValueSourceStep[] = []
     for (const step of sanitizeChain(src.chain)) {
       if (step.kind === 'constant') {
-        if (isMultiple.value) {
-          const values = parseCommaSeparated(step.constant_values_text)
-          if (values.length) chain.push({ kind: 'constant', constant_values: values })
+        // Check if multiple values are provided
+        const multiValues = parseCommaSeparated(step.constant_values_text)
+        if (multiValues.length > 1) {
+          chain.push({ kind: 'constant', constant_values: multiValues })
         } else {
-          const v = step.constant_value.trim()
+          const v = step.constant_value.trim() || multiValues[0] || ''
           if (v) chain.push({ kind: 'constant', constant_value: v })
         }
       } else if (step.kind === 'llm') {
-        // LLM value is for this field; no field selection needed in UI.
-        const fname = fieldName.value.trim()
+        // LLM value: use the selected smart extraction field
+        const fname = step.field_name.trim()
         if (fname) chain.push({ kind: 'llm', field_name: fname })
       } else {
         const fname = step.field_name.trim()
@@ -987,16 +720,6 @@ const onConfirm = () => {
 
     if (chain.length) {
       valueResolution.push({ source_id: sid, chain })
-
-      // Back-compat: if the chain is exactly a constant, also write legacy override.
-      if (chain.length === 1 && chain[0].kind === 'constant') {
-        const c = chain[0]
-        if (Array.isArray(c.constant_values) && c.constant_values.length) {
-          legacyOverrides.push({ source_id: sid, constant_values: c.constant_values })
-        } else if (c.constant_value) {
-          legacyOverrides.push({ source_id: sid, constant_value: c.constant_value })
-        }
-      }
     }
   }
 
@@ -1005,135 +728,13 @@ const onConfirm = () => {
     name: fieldName.value.trim(),
     display_name: displayName.value.trim() || fieldName.value.trim(),
     description: description.value.trim(),
-    value_type: valueType.value,
-    is_multiple: isMultiple.value,
-    allowed_values: restrictToAllowedValues.value && allowedValues.value.length > 0 ? allowedValues.value : undefined,
-    llm_extraction_hint: finalExtractionHint || undefined,
     source_value_resolution: valueResolution.length ? valueResolution : undefined,
-    source_overrides: legacyOverrides.length ? legacyOverrides : undefined,
   }
   emit('save', field)
 }
 </script>
 
 <style scoped>
-/* Value Options Section */
-.value-options-container {
-  border: 1px solid var(--q-control-border);
-  border-radius: 6px;
-  background: #fff;
-  overflow: hidden;
-}
-
-.value-options-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
-  align-items: center;
-}
-
-.value-option-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 9px 5px 7px;
-  background: white;
-  border: 1px solid var(--q-control-border);
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: default;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-.value-option-chip:hover {
-  border-color: var(--q-primary);
-  background: rgba(var(--q-primary-rgb), 0.03);
-}
-
-.value-option-text {
-  font-weight: 500;
-  color: #444;
-}
-
-.value-option-remove {
-  color: #999;
-  opacity: 0;
-  transition: all 0.15s ease;
-  margin-left: 2px;
-}
-
-.value-option-chip:hover .value-option-remove {
-  opacity: 1;
-}
-
-.value-option-remove:hover {
-  color: #c00;
-}
-
-.value-options-input-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  flex-basis: 100%;
-  margin-top: 4px;
-}
-
-/* Smart Extraction Section */
-.extraction-content {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.extraction-subtoolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.extraction-variables-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.extraction-var-chip {
-  color: #5c6670;
-}
-
-.extraction-var-chip:hover {
-  color: var(--q-primary);
-  background: rgba(var(--q-primary-rgb), 0.04);
-}
-
-.extraction-var-token {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
-  line-height: normal !important;
-}
-
-.extraction-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.extraction-preview {
-  background: #f8f9fa;
-  border: 1px dashed var(--q-control-border);
-  border-radius: 4px;
-  padding: 8px 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #555;
-  white-space: pre-wrap;
-}
-
 /* Value Resolution - Source Sections */
 .value-resolution {
   display: flex;
@@ -1184,12 +785,15 @@ const onConfirm = () => {
   transition: transform 0.15s ease;
 }
 
-.source-section__logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
+.source-section__type {
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  background: #f0f0f0;
+  border-radius: 3px;
   flex-shrink: 0;
 }
 

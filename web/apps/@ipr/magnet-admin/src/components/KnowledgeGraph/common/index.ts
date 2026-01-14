@@ -10,10 +10,12 @@ export { default as KgFileTypeBadge } from './KgFileTypeBadge.vue'
 export { default as KgPromptSection } from './KgPromptSection.vue'
 export { default as KgSectionControl } from './KgSectionControl.vue'
 export { default as KgStatusBadge } from './KgStatusBadge.vue'
+export { default as KgTileSelect } from './KgTileSelect.vue'
 export { default as KgToggleField } from './KgToggleField.vue'
 export { default as KgWarningBanner } from './KgWarningBanner.vue'
 
 // Re-export types
+export type { TileOption } from './KgTileSelect.vue'
 export type { DialogSize } from './KgDialogBase.vue'
 export type { ScheduleFormState, ScheduleInterval } from './KgDialogSourceBase.vue'
 export type { ControlOption } from './KgSectionControl.vue'

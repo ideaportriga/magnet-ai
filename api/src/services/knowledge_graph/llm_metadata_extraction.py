@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import chunks_table_name, docs_table_name
 from services.knowledge_graph.metadata_services import (
-    accumulate_discovered_metadata_fields,
+    accumulate_extracted_metadata_fields,
 )
 from services.knowledge_graph.models import MetadataMultiValueContainer
 from services.observability import observability_context, observe
@@ -104,8 +104,6 @@ def build_typescript_schema_from_field_definitions(field_definitions: Any) -> st
             ts_type = f"{element}[]"
         else:
             ts_type = scalar_ts_type
-
-        ts_type = f"{ts_type} | null"
 
         comment_lines: list[str] = []
         if display_name and display_name != name:
@@ -303,15 +301,6 @@ def _split_into_segments(
     return segments
 
 
-def _to_uuid_or_none(value: Any) -> UUID | None:
-    if value is None:
-        return None
-    try:
-        return value if isinstance(value, UUID) else UUID(str(value))
-    except Exception:
-        return None
-
-
 @observe(
     name="Knowledge graph entity extraction (LLM)",
     channel="production",
@@ -398,6 +387,7 @@ async def run_graph_llm_metadata_extraction(
     graph_id: UUID,
     approach: MetadataExtractionApproach,
     prompt_template_system_name: str,
+    extraction_field_settings: dict[str, dict[str, Any]],
     schema: str | None = None,
     segment_size: int = 18000,
     segment_overlap: float = 0.1,
@@ -414,6 +404,9 @@ async def run_graph_llm_metadata_extraction(
     if approach not in ("document", "chunks"):
         raise ValueError("approach must be 'document' or 'chunks'")
 
+    if not isinstance(extraction_field_settings, dict) or not extraction_field_settings:
+        raise ValueError("extraction_field_settings is required and cannot be empty")
+
     try:
         observability_context.update_current_span(
             extra_data={
@@ -423,6 +416,7 @@ async def run_graph_llm_metadata_extraction(
                 "schema_chars": len(str(schema or "")),
                 "segment_size": int(segment_size),
                 "segment_overlap": float(segment_overlap),
+                "extraction_fields_count": len(extraction_field_settings),
             }
         )
     except Exception:
@@ -449,8 +443,7 @@ async def run_graph_llm_metadata_extraction(
                 text(
                     f"""
                     SELECT
-                        id::text AS id,
-                        source_id::text AS source_id
+                        id::text AS id
                     FROM {docs_tbl}
                     ORDER BY created_at DESC
                     LIMIT :limit OFFSET :offset
@@ -538,12 +531,11 @@ async def run_graph_llm_metadata_extraction(
 
                 discovery_metadata = _build_discovery_metadata(discovery_values)
                 if discovery_metadata:
-                    await accumulate_discovered_metadata_fields(
+                    await accumulate_extracted_metadata_fields(
                         db_session,
                         graph_id=graph_id,
-                        source_id=_to_uuid_or_none(row.get("source_id")),
                         metadata=discovery_metadata,
-                        origin="llm",
+                        extraction_field_settings=extraction_field_settings,
                     )
 
                 await db_session.commit()
@@ -567,8 +559,7 @@ async def run_graph_llm_metadata_extraction(
         text(
             f"""
             SELECT
-                d.id::text AS id,
-                d.source_id::text AS source_id
+                d.id::text AS id
             FROM {docs_tbl} d
             WHERE EXISTS (
                 SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id
@@ -660,12 +651,11 @@ async def run_graph_llm_metadata_extraction(
 
         discovery_metadata = _build_discovery_metadata(discovery_values)
         if discovery_metadata:
-            await accumulate_discovered_metadata_fields(
+            await accumulate_extracted_metadata_fields(
                 db_session,
                 graph_id=graph_id,
-                source_id=_to_uuid_or_none(drow.get("source_id")),
                 metadata=discovery_metadata,
-                origin="llm",
+                extraction_field_settings=extraction_field_settings,
             )
 
         await db_session.commit()

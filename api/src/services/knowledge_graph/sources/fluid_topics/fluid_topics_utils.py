@@ -54,6 +54,85 @@ def _extract_text_from_html(html: str) -> str:
     return text_out.strip()
 
 
+def parse_fluid_topics_metadata_list(raw: Any) -> dict[str, Any]:
+    """Normalize Fluid Topics `metadata` payloads into a JSON-friendly dict.
+
+    Fluid Topics often returns a list like:
+      [{"key": "ft:locale", "label": "...", "values": ["en-US"]}, ...]
+
+    We convert this into:
+      {"ft:locale": "en-US", "created_date": "2016-07-18T10:42:00.000Z", ...}
+
+    For multi-valued fields, we store a list of unique (stable-order) strings.
+    """
+    if not isinstance(raw, list) or not raw:
+        return {}
+
+    out: dict[str, Any] = {}
+
+    def _normalize_values(values: Any) -> list[str]:
+        vals: list[str] = []
+        if isinstance(values, list):
+            items = values
+        elif values is None:
+            items = []
+        else:
+            items = [values]
+
+        seen: set[str] = set()
+        for v in items:
+            if v is None:
+                continue
+            s = str(v).strip()
+            if not s:
+                continue
+            if s in seen:
+                continue
+            seen.add(s)
+            vals.append(s)
+        return vals
+
+    def _merge_value(existing: Any, incoming: Any) -> Any:
+        # Merge scalar/array values while preserving uniqueness and stable order.
+        if existing is None:
+            return incoming
+
+        if isinstance(existing, list):
+            ex_list = existing
+        else:
+            ex_list = [existing]
+
+        if isinstance(incoming, list):
+            in_list = incoming
+        else:
+            in_list = [incoming]
+
+        for v in in_list:
+            if v not in ex_list:
+                ex_list.append(v)
+
+        if len(ex_list) == 1:
+            return ex_list[0]
+        return ex_list
+
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key") or "").strip()
+        if not key:
+            continue
+        values = _normalize_values(item.get("values"))
+        if not values:
+            continue
+        value_out: Any = values[0] if len(values) == 1 else values
+        if key in out:
+            out[key] = _merge_value(out.get(key), value_out)
+        else:
+            out[key] = value_out
+
+    return out
+
+
 def normalize_map_toc_payload(payload: Any) -> list[dict[str, Any]]:
     """Normalize the map TOC API payload into a list of root toc-node dicts."""
 
@@ -188,6 +267,67 @@ async def fetch_map_toc(
 
     logger.debug(
         "Fluid Topics map TOC fetch completed",
+        extra=_log_extra_from_ctx(
+            pipeline,
+            map_id=map_id,
+            status_code=resp.status_code,
+            elapsed_ms=(time.monotonic() - t0) * 1000.0,
+        ),
+    )
+    return payload
+
+
+async def fetch_map_structure(
+    pipeline: FluidTopicsSyncPipeline,
+    ctx: FluidTopicsPipelineContext,
+    map_id: str,
+    *,
+    timeout_s: float = 30.0,
+) -> Any:
+    """Fetch structure payload for a Fluid Topics map (metadata, ids, urls, etc.)."""
+
+    url_template = pipeline._fluid_topics_config.map_structure_url_template
+    if not url_template:
+        raise ClientException(
+            "Fluid Topics map structure URL template is not configured."
+        )
+
+    t0 = time.monotonic()
+    try:
+        async with ctx.semaphore("fluid_api"):
+            resp = await pipeline._client.get(
+                _build_ft_url_template(url_template, map_id=map_id),
+                headers={"x-api-key": pipeline._fluid_topics_config.api_key},
+                timeout=timeout_s,
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+    except httpx.HTTPStatusError as exc:
+        logger.warning(
+            "Fluid Topics map structure fetch failed",
+            extra=_log_extra_from_ctx(
+                pipeline,
+                map_id=map_id,
+                status_code=exc.response.status_code,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            ),
+        )
+        raise
+    except httpx.RequestError as exc:
+        logger.warning(
+            "Fluid Topics map structure fetch failed",
+            extra=_log_extra_from_ctx(
+                pipeline,
+                map_id=map_id,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            ),
+        )
+        raise
+
+    logger.debug(
+        "Fluid Topics map structure fetch completed",
         extra=_log_extra_from_ctx(
             pipeline,
             map_id=map_id,

@@ -24,27 +24,7 @@
       icon="logout"
       icon-color="deep-orange-7"
     >
-      <div class="row q-col-gutter-md">
-        <div v-for="strategy in strategyOptions" :key="strategy.value" class="col-12 col-md-4">
-          <q-card
-            flat
-            bordered
-            class="strategy-card cursor-pointer full-height"
-            :class="{ 'strategy-card--selected': localTool.strategy === strategy.value }"
-            @click="localTool.strategy = strategy.value"
-          >
-            <q-card-section class="q-pa-md">
-              <div class="row items-center q-gutter-x-sm q-mb-sm">
-                <q-icon :name="strategy.icon" :color="localTool.strategy === strategy.value ? 'primary' : ''" size="20px" />
-                <div class="text-weight-medium" :class="localTool.strategy === strategy.value ? 'primary' : ''">
-                  {{ strategy.label }}
-                </div>
-              </div>
-              <div class="text-caption text-secondary-text">{{ strategy.description }}</div>
-            </q-card-section>
-          </q-card>
-        </div>
-      </div>
+      <kg-tile-select v-model="localTool.strategy" :options="strategyOptions" :cols="3" />
       <div class="q-mt-32 q-mx-sm">
         <div class="km-input-label row justify-between q-pb-8">
           <span>Max Iterations</span>
@@ -102,7 +82,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { KgDialogBase, KgDialogSection, KgFieldRow, KgPromptSection } from '../../common'
+import { KgDialogBase, KgDialogSection, KgFieldRow, KgPromptSection, KgTileSelect, type TileOption } from '../../common'
 
 export interface ExitToolConfig {
   description: string
@@ -126,21 +106,21 @@ const emit = defineEmits<{
   (e: 'save', tool: any): void
 }>()
 
-const strategyOptions = [
+const strategyOptions: TileOption[] = [
   {
-    value: 'confidence' as const,
+    value: 'confidence',
     label: 'Confidence-based',
     icon: 'psychology',
     description: 'Exit when confident enough to answer, balancing thoroughness with efficiency.',
   },
   {
-    value: 'exhaustive' as const,
+    value: 'exhaustive',
     label: 'Exhaustive',
     icon: 'search',
     description: 'Explore all available tools before exiting, ensuring comprehensive coverage.',
   },
   {
-    value: 'efficient' as const,
+    value: 'efficient',
     label: 'Efficient',
     icon: 'bolt',
     description: 'Exit as soon as a satisfactory answer is found, prioritizing speed.',
@@ -214,20 +194,3 @@ const save = () => {
   emit('update:modelValue', false)
 }
 </script>
-
-<style scoped>
-.strategy-card {
-  transition: all 0.2s ease;
-  border-color: #e0e0e0;
-}
-
-.strategy-card--selected,
-.strategy-card:hover {
-  color: var(--q-primary);
-  border-color: var(--q-primary);
-  background-color: color-mix(in srgb, var(--q-primary) 10%, white);
-}
-.strategy-card:hover :deep(.q-icon) {
-  color: var(--q-primary);
-}
-</style>

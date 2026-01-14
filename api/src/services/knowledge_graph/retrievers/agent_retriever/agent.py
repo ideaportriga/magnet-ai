@@ -314,6 +314,8 @@ async def run_agentic_retrieval(
 ) -> KnowledgeGraphAgentRunResult:
     """Execute agentic retrieval against a Knowledge Graph using ReAct."""
 
+    logger.info(f"Running agentic retrieval for graph {graph_id}")
+
     # Resolve Knowledge Graph settings
     settings = await get_graph_settings(db_session, graph_id)
     retrieval_variant = settings.get("retrieval_variant") or "base_variant"
@@ -465,10 +467,11 @@ async def run_agentic_retrieval(
                     "content": json.dumps(tool_payload, ensure_ascii=False),
                 }
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.error(f"Error applying external metadata filter: {exc}")
 
     # ReAct loop
+    logger.debug(f"Running ReAct loop for graph {graph_id}")
     for iteration_idx in range(1, max_iterations + 1):
         # Calculate dynamic instructions
         remaining_iterations = max_iterations - iteration_idx
@@ -645,6 +648,7 @@ async def run_agentic_retrieval(
                     }
                 )
             except Exception as exc:
+                logger.error(f"Error executing tool {tool_name}: {exc}")
                 erroneous_answer = (
                     f"Tool execution failed: {str(exc)}. Contact support."
                 )

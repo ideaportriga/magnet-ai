@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
     KnowledgeGraphMetadataDiscovery,
+    KnowledgeGraphMetadataExtraction,
 )
 
 from .models import MetadataMultiValueContainer
@@ -105,6 +106,8 @@ def _stringify_metadata_value(value: Any, *, max_chars: int) -> str | None:
         s = value.strip()
         if not s:
             return None
+        if s.lower() == "null":
+            return None
         return s[:max_chars]
 
     if isinstance(value, (datetime, date)):
@@ -181,7 +184,7 @@ async def accumulate_discovered_metadata_fields(
     - creates missing fields (unique per source_id + name)
     - increments `value_count` for each observed non-empty value
     - stores limited sample values (strings)
-    - tracks origin (file/source/llm)
+    - tracks origin (file/source)
 
     Caller controls commit/rollback.
     """
@@ -193,11 +196,8 @@ async def accumulate_discovered_metadata_fields(
         return
 
     origin_val = str(origin or "").strip().lower()
-    if origin_val == "document":
-        # Back-compat alias for "file"
-        origin_val = "file"
-    if origin_val not in ("file", "source", "llm"):
-        origin_val = None
+    if origin_val not in ("file", "source"):
+        raise ValueError("origin must be one of: 'file', 'source'")
 
     rows: list[dict[str, Any]] = []
     for raw_name, value in metadata.items():
@@ -282,6 +282,9 @@ async def accumulate_discovered_metadata_fields(
               COALESCE(knowledge_graph_metadata_discoveries.sample_values, '[]'::jsonb) ||
               COALESCE(excluded.sample_values, '[]'::jsonb)
             ) WITH ORDINALITY AS t(value, ord)
+            WHERE value IS NOT NULL
+              AND BTRIM(value) <> ''
+              AND LOWER(BTRIM(value)) <> 'null'
             GROUP BY value
             ORDER BY MIN(ord)
           ) u
@@ -300,6 +303,115 @@ async def accumulate_discovered_metadata_fields(
             "inferred_type": inferred_type_expr,
             "sample_values": samples_expr,
             # Audit
+            "updated_at": func.now(),
+        },
+    )
+
+    await db_session.execute(stmt)
+
+
+async def accumulate_extracted_metadata_fields(
+    db_session: AsyncSession,
+    *,
+    graph_id: UUID,
+    metadata: dict[str, Any],
+    extraction_field_settings: dict[str, dict[str, Any]],
+    max_sample_values: int = _DEFAULT_MAX_SAMPLE_VALUES,
+    max_sample_chars: int = _DEFAULT_MAX_SAMPLE_CHARS,
+) -> None:
+    """Accumulate extracted (LLM) metadata field stats for a knowledge graph.
+
+    Updates `KnowledgeGraphMetadataExtraction` (graph-level) by:
+    - incrementing `value_count` based on observed values
+    - merging `sample_values` (unique-ish, capped)
+
+    NOTE:
+    - This function does **not** create new extraction field configs from observed data.
+      It only aggregates values for fields present in `extraction_field_settings`.
+    - Caller controls commit/rollback.
+    """
+    if not metadata:
+        return
+
+    if not extraction_field_settings:
+        return
+
+    rows: list[dict[str, Any]] = []
+    for raw_name, value in metadata.items():
+        name = str(raw_name or "").strip()
+        if not name:
+            continue
+
+        settings = extraction_field_settings.get(name)
+        if not isinstance(settings, dict):
+            # Only aggregate stats for configured fields.
+            continue
+
+        sample_values, value_count = _extract_sample_values_and_count(
+            value, max_chars=max_sample_chars, max_sample_values=max_sample_values
+        )
+        if not sample_values or value_count <= 0:
+            continue
+
+        rows.append(
+            {
+                "graph_id": graph_id,
+                "name": name,
+                "settings": settings,
+                "sample_values": sample_values,
+                "value_count": value_count,
+            }
+        )
+
+    if not rows:
+        return
+
+    max_sample_values_int = int(max_sample_values)
+    if max_sample_values_int < 0:
+        max_sample_values_int = 0
+
+    insert_stmt = pg_insert(KnowledgeGraphMetadataExtraction).values(rows)
+    excluded = insert_stmt.excluded
+    cur = KnowledgeGraphMetadataExtraction
+
+    # Merge sample values (unique-ish, capped).
+    if max_sample_values_int <= 0:
+        samples_expr = case(
+            (excluded.sample_values.is_(None), cur.sample_values),
+            else_=func.coalesce(cur.sample_values, excluded.sample_values),
+        )
+    else:
+        cap_path_str = f"$[0 to {max(0, max_sample_values_int - 1)}]"
+        samples_union_dedup_sql = f"""
+        (
+          SELECT jsonb_path_query_array(
+            COALESCE(jsonb_agg(val ORDER BY ord), '[]'::jsonb),
+            '{cap_path_str}'::jsonpath
+          )
+          FROM (
+            SELECT value AS val, MIN(ord) AS ord
+            FROM jsonb_array_elements_text(
+              COALESCE(knowledge_graph_metadata_extractions.sample_values, '[]'::jsonb) ||
+              COALESCE(excluded.sample_values, '[]'::jsonb)
+            ) WITH ORDINALITY AS t(value, ord)
+            WHERE value IS NOT NULL
+              AND BTRIM(value) <> ''
+              AND LOWER(BTRIM(value)) <> 'null'
+            GROUP BY value
+            ORDER BY MIN(ord)
+          ) u
+        )
+        """
+        samples_expr = case(
+            (excluded.sample_values.is_(None), cur.sample_values),
+            else_=literal_column(samples_union_dedup_sql).cast(JSONB),
+        )
+
+    stmt = insert_stmt.on_conflict_do_update(
+        index_elements=[cur.graph_id, cur.name],
+        set_={
+            "value_count": cur.value_count + excluded.value_count,
+            "sample_values": samples_expr,
             "updated_at": func.now(),
         },
     )
