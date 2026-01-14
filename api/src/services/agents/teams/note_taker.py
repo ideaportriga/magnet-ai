@@ -83,6 +83,7 @@ from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
 )
 from services.observability import observe
 from stores import get_db_client
+from routes.admin.recordings import DEFAULT_PIPELINE
 from utils import upload_handler
 
 logger = getLogger(__name__)
@@ -165,14 +166,8 @@ def _extract_process_file_link(context: TurnContext, text: str) -> str | None:
 
 
 ENV_PREFIX = "TEAMS_NOTE_TAKER_"
-_DEFAULT_TRANSCRIPTION_LANGUAGE = os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_LANGUAGE", "en")
-_DEFAULT_PIPELINE_ID = os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_PIPELINE", "elevenlabs")
-_TRANSCRIPTION_TIMEOUT_SECONDS = float(
-    os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_TIMEOUT_SECONDS", "900")
-)
-_TRANSCRIPTION_POLL_SECONDS = float(
-    os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5")
-)
+_TRANSCRIPTION_TIMEOUT_SECONDS = 900
+_TRANSCRIPTION_POLL_SECONDS = 5
 _ORGANIZER_SIGN_IN_PROMPT = "I need you to sign in with /sign-in in our 1:1 chat so I can access meeting resources."
 _ORGANIZER_PERSONAL_INSTALL_PROMPT = "Please install me."
 
@@ -1184,7 +1179,6 @@ async def _start_transcription_from_bytes(
     ext: str,
     data: bytes,
     content_type: str,
-    language: str,
     pipeline_id: str,
     on_submit: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, dict | None]:
@@ -1235,7 +1229,6 @@ async def _start_transcription_from_bytes(
         object_key=object_key,
         content_type=content_type,
         backend=pipeline_id,
-        # language=language,
     )
     if on_submit and job_id:
         await on_submit(job_id)
@@ -1739,8 +1732,7 @@ def _register_note_taker_handlers(
                 ext=ext,
                 data=file_bytes,
                 content_type=content_type,
-                language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
-                pipeline_id=_DEFAULT_PIPELINE_ID,
+                pipeline_id=DEFAULT_PIPELINE,
                 on_submit=on_submit,
             )
         except Exception as err:
@@ -3148,6 +3140,16 @@ def _register_note_taker_handlers(
             context, online_meeting_id
         )
 
+        try:
+            organizer_token_available = await _ensure_organizer_delegated_token_cached(
+                context,
+                auth_handler_id,
+                prompt_on_missing=False,
+            )
+        except Exception as err:
+            logger.debug("Organizer token availability check failed: %s", err)
+            organizer_token_available = None
+
         lines = [
             "Meeting info:",
             f"- Type: {meeting_type}",
@@ -3156,6 +3158,7 @@ def _register_note_taker_handlers(
             f"- Salesforce account: {(account_name or 'Unknown')} (id: {(account_id or 'Unknown')})",
             f"- Note Taker config: {note_taker_settings_system_name or 'Unknown'}",
             f"- {organizer}",
+            f"- Organizer token available: {'yes' if organizer_token_available is True else 'no' if organizer_token_available is False else 'unknown'}",
             f"- Start: {_format_iso_datetime(start_time)}",
             f"- End: {_format_iso_datetime(end_time)}",
             f"- In progress: {status}",
@@ -3266,7 +3269,6 @@ def _register_note_taker_handlers(
                 aad_object_id=aad_object_id,
                 tenant_id=bot_tenant_id,
             )
-
             await context.send_activity(
                 "✅ token found" if token else "❌ no cached token"
             )
@@ -3307,13 +3309,6 @@ def _register_note_taker_handlers(
                 )
             return
 
-        if _is_meeting_conversation(context):
-            allowed = await _ensure_meeting_organizer_and_signed_in(
-                context, auth_handler_id
-            )
-            if not allowed:
-                return
-
         if normalized_text.startswith("/sign-out"):
             try:
                 await app.auth.sign_out(context, auth_handler_id)
@@ -3341,12 +3336,23 @@ def _register_note_taker_handlers(
             await context.send_activity("\n".join(lines))
             return
 
+        if normalized_text.startswith("/meeting-info"):
+            await _send_typing(context)
+            await _handle_meeting_info(context, _state)
+            return
+
+        if _is_meeting_conversation(context):
+            allowed = await _ensure_meeting_organizer_and_signed_in(
+                context, auth_handler_id
+            )
+            if not allowed:
+                return
+
         if normalized_text.startswith("/sf-account-lookup"):
             parts = text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
                 await context.send_activity("Usage: /sf-account-lookup ACCOUNT_NAME")
                 return
-
             account_name = parts[1].strip()
             await _handle_sf_account_lookup(context, account_name)
             return
@@ -3356,7 +3362,6 @@ def _register_note_taker_handlers(
             if len(parts) < 2 or not parts[1].strip():
                 await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
                 return
-
             account_name = parts[1].strip()
             await _handle_sf_account_set(context, account_name)
             return
@@ -3402,19 +3407,16 @@ def _register_note_taker_handlers(
             await _handle_process_recording(context, _state, rec_id)
             return
 
-        if normalized_text.startswith("/meeting-info"):
-            await _send_typing(context)
-            await _handle_meeting_info(context, _state)
-            return
-
         if normalized_text.startswith("/recordings-find"):
             await _send_typing(context)
             await _handle_recordings_find(context, _state)
             return
+
         if normalized_text.startswith("/recordings-list"):
             await _send_typing(context)
             await _handle_recordings_list(context, _state)
             return
+
         if normalized_text.startswith("/process-transcript-job"):
             parts = normalized_text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
@@ -3897,8 +3899,7 @@ async def _process_recording_notification_for_meeting(
             ext=ext,
             data=file_bytes,
             content_type=content_type,
-            language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
-            pipeline_id=_DEFAULT_PIPELINE_ID,
+            pipeline_id=DEFAULT_PIPELINE,
             on_submit=on_submit,
         )
     except Exception as err:
