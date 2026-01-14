@@ -2,7 +2,7 @@
 """knowledge_graph_metadata_extracted
 
 Revision ID: 2d9361e34275
-Revises: e73a517576e8
+Revises: bb6c84b84a19
 Create Date: 2026-01-12 20:50:06.392313+00:00
 
 """
@@ -50,7 +50,7 @@ sa.Text = Text
 
 # revision identifiers, used by Alembic.
 revision = "2d9361e34275"
-down_revision = "e73a517576e8"
+down_revision = "bb6c84b84a19"
 branch_labels = None
 depends_on = None
 
