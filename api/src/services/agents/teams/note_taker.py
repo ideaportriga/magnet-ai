@@ -1,11 +1,13 @@
 import asyncio
 import mimetypes
 import datetime as dt
+import html as html_lib
 import json
 import os
 import base64
 import hashlib
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
@@ -81,20 +83,91 @@ from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
 )
 from services.observability import observe
 from stores import get_db_client
+from routes.admin.recordings import DEFAULT_PIPELINE
 from utils import upload_handler
 
 logger = getLogger(__name__)
 
 
+_URL_RE = re.compile(r"(https?://[^\s<>\"]+)", re.IGNORECASE)
+
+
+class _AnchorHrefExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.hrefs: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag.lower() != "a":
+            return
+        for key, value in attrs:
+            if key.lower() == "href" and value:
+                self.hrefs.append(value)
+
+
+def _extract_first_url(text: str) -> str | None:
+    if not text:
+        return None
+    match = _URL_RE.search(text)
+    if not match:
+        return None
+    url = (match.group(1) or "").strip()
+    # Strip common trailing punctuation that comes from surrounding markup.
+    url = url.rstrip(").,>\"'")
+    return url if url.lower().startswith(("http://", "https://")) else None
+
+
+def _extract_first_url_from_attachments(activity: Any) -> str | None:
+    attachments = getattr(activity, "attachments", None) or []
+    for attachment in attachments:
+        content_url = getattr(attachment, "content_url", None)
+        if isinstance(content_url, str):
+            url = _extract_first_url(content_url)
+            if url:
+                return url
+
+        content = getattr(attachment, "content", None)
+        if isinstance(content, str) and content:
+            try:
+                parser = _AnchorHrefExtractor()
+                parser.feed(content)
+                for href in parser.hrefs:
+                    url = _extract_first_url(html_lib.unescape(href).strip())
+                    if url:
+                        return url
+            except Exception:
+                # Best-effort parsing; ignore malformed HTML.
+                pass
+        elif isinstance(content, dict) and content:
+            # Best-effort scan of dict values for URL strings.
+            for value in content.values():
+                if isinstance(value, str):
+                    url = _extract_first_url(value)
+                    if url:
+                        return url
+
+    return None
+
+
+def _extract_process_file_link(context: TurnContext, text: str) -> str | None:
+    # 1) Prefer explicit URL in the command arg (raw link pasting).
+    candidate = ""
+    parts = (text or "").strip().split(maxsplit=1)
+    if parts and parts[0].lower() == "/process-file" and len(parts) > 1:
+        candidate = parts[1].strip()
+
+    url = _extract_first_url(candidate) or _extract_first_url(text or "")
+    if url:
+        return url
+
+    # 2) Teams “formatted links” are often stored in HTML attachments.
+    activity = getattr(context, "activity", None)
+    return _extract_first_url_from_attachments(activity)
+
+
 ENV_PREFIX = "TEAMS_NOTE_TAKER_"
-_DEFAULT_TRANSCRIPTION_LANGUAGE = os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_LANGUAGE", "en")
-_DEFAULT_PIPELINE_ID = os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_PIPELINE", "elevenlabs")
-_TRANSCRIPTION_TIMEOUT_SECONDS = float(
-    os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_TIMEOUT_SECONDS", "900")
-)
-_TRANSCRIPTION_POLL_SECONDS = float(
-    os.getenv(f"{ENV_PREFIX}TRANSCRIPTION_POLL_SECONDS", "5")
-)
+_TRANSCRIPTION_TIMEOUT_SECONDS = 900
+_TRANSCRIPTION_POLL_SECONDS = 5
 _ORGANIZER_SIGN_IN_PROMPT = "I need you to sign in with /sign-in in our 1:1 chat so I can access meeting resources."
 _ORGANIZER_PERSONAL_INSTALL_PROMPT = "Please install me."
 
@@ -1106,7 +1179,6 @@ async def _start_transcription_from_bytes(
     ext: str,
     data: bytes,
     content_type: str,
-    language: str,
     pipeline_id: str,
     on_submit: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, dict | None]:
@@ -1157,7 +1229,6 @@ async def _start_transcription_from_bytes(
         object_key=object_key,
         content_type=content_type,
         backend=pipeline_id,
-        # language=language,
     )
     if on_submit and job_id:
         await on_submit(job_id)
@@ -1475,8 +1546,8 @@ def _register_note_taker_handlers(
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - Show your Teams identity and sign-in status.",
-            "**/note-taker-config-list** - List available note taker configs.",
-            "**/note-taker-config-set CONFIG_SYSTEM_NAME** - Assign a note taker config to this meeting.",
+            "**/config-list** - List available note taker configs.",
+            "**/config-set CONFIG_SYSTEM_NAME** - Assign a note taker config to this meeting.",
             "**/sf-account-lookup ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
@@ -1485,6 +1556,7 @@ def _register_note_taker_handlers(
             "**/process-recording RECORDING_ID** - Download and transcribe a specific recording.",
             "**/process-file LINK** - Download and transcribe an audio/video file.",
             "**/meeting-info** - Show current meeting details.",
+            "**/test-proactive-token** - (debug) Check for a cached delegated token.",
         ]
 
         body = [
@@ -1660,8 +1732,7 @@ def _register_note_taker_handlers(
                 ext=ext,
                 data=file_bytes,
                 content_type=content_type,
-                language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
-                pipeline_id=_DEFAULT_PIPELINE_ID,
+                pipeline_id=DEFAULT_PIPELINE,
                 on_submit=on_submit,
             )
         except Exception as err:
@@ -2912,19 +2983,14 @@ def _register_note_taker_handlers(
 
         if len(rows) > 30:
             lines.append(f"...and {len(rows) - 30} more")
-        lines.append(
-            "Use: /note-taker-config-set CONFIG_SYSTEM_NAME (in a meeting chat)"
-        )
+        lines.append("Use: /config-set CONFIG_SYSTEM_NAME (in a meeting chat)")
         await context.send_activity("\n".join(lines))
 
     async def _handle_note_taker_config_set(
-        context: TurnContext, config_id_or_system_name: str
+        context: TurnContext, config_system_name: str
     ) -> None:
-        """Assign a note taker config to the current meeting record."""
-        if not config_id_or_system_name:
-            await context.send_activity(
-                "Usage: /note-taker-config-set CONFIG_SYSTEM_NAME (or config UUID)"
-            )
+        if not config_system_name:
+            await context.send_activity("Usage: /config-set CONFIG_SYSTEM_NAME")
             return
 
         if not _is_meeting_conversation(context):
@@ -2935,24 +3001,13 @@ def _register_note_taker_handlers(
 
         try:
             async with async_session_maker() as session:
-                resolved_uuid: UUID | None = None
-                try:
-                    resolved_uuid = UUID(config_id_or_system_name)
-                except (TypeError, ValueError):
-                    resolved_uuid = None
-
-                if resolved_uuid is not None:
-                    stmt = select(NoteTakerSettingsModel).where(
-                        NoteTakerSettingsModel.id == resolved_uuid
-                    )
-                else:
-                    stmt = select(NoteTakerSettingsModel).where(
-                        NoteTakerSettingsModel.system_name == config_id_or_system_name
-                    )
+                stmt = select(NoteTakerSettingsModel).where(
+                    NoteTakerSettingsModel.system_name == config_system_name
+                )
                 config_row = (await session.execute(stmt)).scalars().first()
         except Exception as err:
             logger.exception(
-                "Failed to resolve note taker config %s", config_id_or_system_name
+                "Failed to resolve note taker config %s", config_system_name
             )
             await context.send_activity(
                 f"Failed to resolve note taker config: {getattr(err, 'message', str(err))}"
@@ -2961,7 +3016,7 @@ def _register_note_taker_handlers(
 
         if config_row is None:
             await context.send_activity(
-                "Note taker config not found. Run /note-taker-config-list to see available configs."
+                "Note taker config not found. Run /config-list to see available configs."
             )
             return
 
@@ -3085,6 +3140,16 @@ def _register_note_taker_handlers(
             context, online_meeting_id
         )
 
+        try:
+            organizer_token_available = await _ensure_organizer_delegated_token_cached(
+                context,
+                auth_handler_id,
+                prompt_on_missing=False,
+            )
+        except Exception as err:
+            logger.debug("Organizer token availability check failed: %s", err)
+            organizer_token_available = None
+
         lines = [
             "Meeting info:",
             f"- Type: {meeting_type}",
@@ -3093,6 +3158,7 @@ def _register_note_taker_handlers(
             f"- Salesforce account: {(account_name or 'Unknown')} (id: {(account_id or 'Unknown')})",
             f"- Note Taker config: {note_taker_settings_system_name or 'Unknown'}",
             f"- {organizer}",
+            f"- Organizer token available: {'yes' if organizer_token_available is True else 'no' if organizer_token_available is False else 'unknown'}",
             f"- Start: {_format_iso_datetime(start_time)}",
             f"- End: {_format_iso_datetime(end_time)}",
             f"- In progress: {status}",
@@ -3174,6 +3240,14 @@ def _register_note_taker_handlers(
     async def _on_message(context: TurnContext, _state: TurnState) -> None:
         text = (getattr(getattr(context, "activity", None), "text", "") or "").strip()
         logger.info("[teams note-taker] message received: %s", text)
+        logger.info(
+            "[teams note-taker] context details: activity=%s, conversation=%s, from=%s, recipient=%s, channel_id=%s",
+            getattr(context, "activity", None),
+            getattr(getattr(context, "activity", None), "conversation", None),
+            getattr(getattr(context, "activity", None), "from_property", None),
+            getattr(getattr(context, "activity", None), "recipient", None),
+            getattr(getattr(context, "activity", None), "channel_id", None),
+        )
 
         await _upsert_teams_user_record(context)
 
@@ -3182,7 +3256,7 @@ def _register_note_taker_handlers(
 
         normalized_text = text.lower()
 
-        if normalized_text.startswith("/test-proactive-token"):  # TODO: remove this
+        if normalized_text.startswith("/test-proactive-token"):
             conv_ref = context.activity.get_conversation_reference()
             logger.info("[teams note-taker] conv_ref: %s", conv_ref)
             aad_object_id = context.activity.from_property.aad_object_id
@@ -3195,7 +3269,6 @@ def _register_note_taker_handlers(
                 aad_object_id=aad_object_id,
                 tenant_id=bot_tenant_id,
             )
-
             await context.send_activity(
                 "✅ token found" if token else "❌ no cached token"
             )
@@ -3232,16 +3305,9 @@ def _register_note_taker_handlers(
                     )
             else:
                 await context.send_activity(
-                    "Please use **/signin** in our 1:1 chat to authenticate."
+                    "Please use **/sign-in** in our 1:1 chat to authenticate."
                 )
             return
-
-        if _is_meeting_conversation(context):
-            allowed = await _ensure_meeting_organizer_and_signed_in(
-                context, auth_handler_id
-            )
-            if not allowed:
-                return
 
         if normalized_text.startswith("/sign-out"):
             try:
@@ -3270,12 +3336,23 @@ def _register_note_taker_handlers(
             await context.send_activity("\n".join(lines))
             return
 
+        if normalized_text.startswith("/meeting-info"):
+            await _send_typing(context)
+            await _handle_meeting_info(context, _state)
+            return
+
+        if _is_meeting_conversation(context):
+            allowed = await _ensure_meeting_organizer_and_signed_in(
+                context, auth_handler_id
+            )
+            if not allowed:
+                return
+
         if normalized_text.startswith("/sf-account-lookup"):
             parts = text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
                 await context.send_activity("Usage: /sf-account-lookup ACCOUNT_NAME")
                 return
-
             account_name = parts[1].strip()
             await _handle_sf_account_lookup(context, account_name)
             return
@@ -3285,21 +3362,18 @@ def _register_note_taker_handlers(
             if len(parts) < 2 or not parts[1].strip():
                 await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
                 return
-
             account_name = parts[1].strip()
             await _handle_sf_account_set(context, account_name)
             return
 
-        if normalized_text.startswith("/note-taker-config-list"):
+        if normalized_text.startswith("/config-list"):
             await _handle_note_taker_config_list(context)
             return
 
-        if normalized_text.startswith("/note-taker-config-set"):
+        if normalized_text.startswith("/config-set"):
             parts = text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity(
-                    "Usage: /note-taker-config-set CONFIG_SYSTEM_NAME (or config UUID)"
-                )
+                await context.send_activity("Usage: /config-set CONFIG_SYSTEM_NAME")
                 return
 
             config_id_or_system_name = parts[1].strip()
@@ -3307,12 +3381,17 @@ def _register_note_taker_handlers(
             return
 
         if normalized_text.startswith("/process-file"):
-            parts = text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity("Usage: /process-file link_to_file")
+            logger.info(
+                "[teams note-taker] process-file normalized_text: %s", normalized_text
+            )
+            link = _extract_process_file_link(context, text)
+            logger.info("[teams note-taker] process-file extracted_link: %s", link)
+            if not link:
+                await context.send_activity(
+                    "Usage: /process-file link_to_file (you can also paste a formatted link)"
+                )
                 return
 
-            link = parts[1].strip()
             await _send_typing(context)
             await _handle_process_file(context, _state, link)
             return
@@ -3328,19 +3407,16 @@ def _register_note_taker_handlers(
             await _handle_process_recording(context, _state, rec_id)
             return
 
-        if normalized_text.startswith("/meeting-info"):
-            await _send_typing(context)
-            await _handle_meeting_info(context, _state)
-            return
-
         if normalized_text.startswith("/recordings-find"):
             await _send_typing(context)
             await _handle_recordings_find(context, _state)
             return
+
         if normalized_text.startswith("/recordings-list"):
             await _send_typing(context)
             await _handle_recordings_list(context, _state)
             return
+
         if normalized_text.startswith("/process-transcript-job"):
             parts = normalized_text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
@@ -3823,8 +3899,7 @@ async def _process_recording_notification_for_meeting(
             ext=ext,
             data=file_bytes,
             content_type=content_type,
-            language=_DEFAULT_TRANSCRIPTION_LANGUAGE,
-            pipeline_id=_DEFAULT_PIPELINE_ID,
+            pipeline_id=DEFAULT_PIPELINE,
             on_submit=on_submit,
         )
     except Exception as err:
