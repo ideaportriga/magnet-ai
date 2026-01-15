@@ -53,7 +53,16 @@
           @row-click="onDocumentClick"
         >
           <template #body-cell-menu="slotScope">
-            <q-td :props="slotScope" class="text-right">
+            <q-td :props="slotScope" class="flex items-center justify-end q-gap-2">
+              <km-btn
+                flat
+                color="secondary-text"
+                label-class="km-button-text"
+                icon-size="16px"
+                icon="fa fa-external-link"
+                :disable="!slotScope.row.external_link"
+                @click.stop="openExternalLink(slotScope.row.external_link)"
+              />
               <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
                 <q-menu anchor="bottom right" self="top right" auto-close>
                   <q-list dense>
@@ -277,7 +286,7 @@ const fetchDocuments = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${props.graphId}/documents`,
+      service: `knowledge_graphs/${props.graphId}/documents`,
       method: 'GET',
       credentials: 'include',
     })
@@ -300,7 +309,7 @@ const fetchChunks = async (page = 1, rowsPerPage = 20, search = '') => {
     const searchParam = search ? `&q=${encodeURIComponent(search)}` : ''
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${props.graphId}/chunks?limit=${rowsPerPage}&offset=${offset}${searchParam}`,
+      service: `knowledge_graphs/${props.graphId}/chunks?limit=${rowsPerPage}&offset=${offset}${searchParam}`,
       method: 'GET',
       credentials: 'include',
     })
@@ -355,7 +364,7 @@ const confirmDelete = (row: Document) => {
         const endpoint = store.getters.config.api.aiBridge.urlAdmin
         const response = await fetchData({
           endpoint,
-          service: `knowledge_graphs//${props.graphId}/documents/${row.id}`,
+          service: `knowledge_graphs/${props.graphId}/documents/${row.id}`,
           method: 'DELETE',
           credentials: 'include',
         })
@@ -369,6 +378,12 @@ const confirmDelete = (row: Document) => {
         deletingIds.value.delete(row.id)
       }
     })
+}
+
+const openExternalLink = (url?: string) => {
+  const target = (url || '').trim()
+  if (!target) return
+  window.open(target, '_blank', 'noopener')
 }
 
 // Watch for view mode changes

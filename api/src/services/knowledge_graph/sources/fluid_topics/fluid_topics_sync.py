@@ -5,11 +5,13 @@ import logging
 import time
 from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, override
+from urllib.parse import urlparse, urlunparse
 from uuid import UUID
 
 import httpx
 from litestar.exceptions import ClientException
 
+from core.config.base import get_knowledge_source_settings
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from core.db.session import async_session_maker
 from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
@@ -72,6 +74,7 @@ class FluidTopicsSyncPipeline(
         self._source_id = str(source.source.id)
         self._fluid_topics_config = fluid_topics_config
         self._embedding_model = embedding_model
+        self._viewer_base_url = self._resolve_viewer_base_url()
 
         # Run-scoped resources/state (created in `run()`)
         self._client: httpx.AsyncClient | None = None
@@ -164,6 +167,9 @@ class FluidTopicsSyncPipeline(
                             doc_info = entry.get("document") or {}
                             filename = str(doc_info.get("filename"))
                             doc_title = str(doc_info.get("title") or "").strip() or None
+                            external_link = self._build_document_external_link(
+                                doc_info.get("viewerUrl")
+                            )
                             doc_metadata = parse_fluid_topics_metadata_list(
                                 doc_info.get("metadata")
                             )
@@ -177,6 +183,7 @@ class FluidTopicsSyncPipeline(
                                     filename=filename,
                                     document_title=doc_title,
                                     document_metadata=doc_metadata,
+                                    external_link=external_link,
                                 )
                             )
 
@@ -337,6 +344,8 @@ class FluidTopicsSyncPipeline(
                         map_title = task.map_title or map_id
                         doc_name = map_title.strip()
                         map_metadata = task.map_metadata
+                        external_link: str | None = None
+                        structure: dict[str, Any] | None = None
 
                         # For TOPIC search entries, Fluid Topics doesn't include map metadata in the search
                         # response. We fetch it from the map structure endpoint when available.
@@ -366,6 +375,9 @@ class FluidTopicsSyncPipeline(
                                             parse_fluid_topics_metadata_list(
                                                 structure.get("metadata")
                                             )
+                                        )
+                                        external_link = self._build_map_external_link(
+                                            structure.get("readerUrl")
                                         )
 
                                         # Also persist common top-level structure fields under familiar keys
@@ -400,6 +412,32 @@ class FluidTopicsSyncPipeline(
                                 except Exception as meta_exc:  # noqa: BLE001
                                     logger.warning(
                                         "Failed to fetch Fluid Topics map structure metadata",
+                                        extra=self._log_extra(
+                                            worker_id=worker_id,
+                                            map_id=map_id,
+                                            map_title=map_title,
+                                            error=str(meta_exc),
+                                            error_type=type(meta_exc).__name__,
+                                        ),
+                                    )
+                        else:
+                            # MAP entries have metadata in search results, but readerUrl lives in
+                            # the map structure endpoint; fetch it only to resolve external_link.
+                            if (
+                                self._viewer_base_url
+                                and self._fluid_topics_config.map_structure_url_template
+                            ):
+                                try:
+                                    structure = await fetch_map_structure(
+                                        self, ctx, str(map_id)
+                                    )
+                                    if isinstance(structure, dict):
+                                        external_link = self._build_map_external_link(
+                                            structure.get("readerUrl")
+                                        )
+                                except Exception as meta_exc:  # noqa: BLE001
+                                    logger.warning(
+                                        "Failed to fetch Fluid Topics map readerUrl",
                                         extra=self._log_extra(
                                             worker_id=worker_id,
                                             map_id=map_id,
@@ -475,6 +513,7 @@ class FluidTopicsSyncPipeline(
                                 chunks=chunks,
                                 toc=toc,
                                 document_title=str(map_title),
+                                external_link=external_link,
                             )
                         )
                         continue
@@ -555,6 +594,7 @@ class FluidTopicsSyncPipeline(
                                 document_title=task.document_title,
                                 extracted_text=content["text"],
                                 content_config=content_config,
+                                external_link=task.external_link,
                             )
                         )
                         continue
@@ -642,6 +682,7 @@ class FluidTopicsSyncPipeline(
                         toc_json=task.toc,
                         extracted_text=task.extracted_text,
                         config=task.content_config,
+                        external_link=task.external_link,
                         embedding_model=self._embedding_model,
                     )
                     await ctx.inc("synced")
@@ -791,3 +832,35 @@ class FluidTopicsSyncPipeline(
 
     def _log_extra(self, **extra: Any) -> dict[str, Any]:
         return {"graph_id": self._graph_id, "source_id": self._source_id, **extra}
+
+    def _resolve_viewer_base_url(self) -> str | None:
+        settings = get_knowledge_source_settings()
+        base_url = str(
+            getattr(settings, "FLUID_TOPICS_VIEWER_BASE_URL", "") or ""
+        ).strip()
+        return base_url or None
+
+    def _build_document_external_link(self, viewer_url: str | None) -> str | None:
+        url = str(viewer_url or "").strip()
+        if not url:
+            return None
+        if not self._viewer_base_url:
+            return url
+        parsed_base = urlparse(self._viewer_base_url)
+        parsed_viewer = urlparse(url)
+        replaced = parsed_viewer._replace(
+            scheme=parsed_base.scheme or parsed_viewer.scheme,
+            netloc=parsed_base.netloc or parsed_viewer.netloc,
+        )
+        return urlunparse(replaced)
+
+    def _build_map_external_link(self, reader_url: str | None) -> str | None:
+        if not self._viewer_base_url:
+            return None
+        rel = str(reader_url or "").strip()
+        if not rel:
+            return None
+        base = self._viewer_base_url.rstrip("/")
+        if not rel.startswith("/"):
+            rel = f"/{rel}"
+        return f"{base}{rel}"

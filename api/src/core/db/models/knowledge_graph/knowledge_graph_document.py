@@ -91,19 +91,22 @@ class KnowledgeGraphDocument:
 
     # Metadata
     type: str | None = None
-    content_profile: str | None = None
     title: str | None = None
-    status: str | None = None
-    status_message: str | None = None
-    total_pages: int | None = None
-    processing_time: float | None = None
+    total_pages: int | None = None  # TODO: move to metadata
     metadata: KnowledgeGraphDocumentMetadata | None = None
+    external_link: str | None = None
 
     # Content
+    content_profile: str | None = None
     content_plaintext: str | None = None
     toc: dict | list | None = None
     summary: str | None = None
     summary_embedding: list[float] | None = None
+
+    # Status
+    status: str = "pending"
+    status_message: str | None = None
+    processing_time: float | None = None
 
     # Audit
     created_at: datetime | None = None
@@ -159,17 +162,18 @@ class KnowledgeGraphDocument:
             source_id=to_uuid(row.get("source_id")),
             name=name,
             type=row.get("type"),
-            content_profile=row.get("content_profile"),
             title=row.get("title"),
+            total_pages=row.get("total_pages"),
+            metadata=metadata_obj,
+            external_link=row.get("external_link"),
+            content_profile=row.get("content_profile"),
             content_plaintext=row.get("content_plaintext"),
-            summary=row.get("summary"),
             toc=row.get("toc"),
+            summary=row.get("summary"),
             summary_embedding=embedding,
             status=row.get("status"),
             status_message=row.get("status_message"),
-            total_pages=row.get("total_pages"),
             processing_time=ptime,
-            metadata=metadata_obj,
             created_at=row.get("created_at"),
             updated_at=row.get("updated_at"),
         )
@@ -190,24 +194,25 @@ def knowledge_graph_document_table(
             primary_key=True,
             server_default=text("gen_random_uuid()"),
         ),
-        Column("name", String(255), nullable=False),
         Column(
             "source_id",
             PG_UUID(as_uuid=True),
             ForeignKey(KnowledgeGraphSource.__table__.c.id, ondelete="SET NULL"),
             nullable=True,
         ),
+        Column("name", String(255), nullable=False),
         Column("type", String(100), nullable=True),
-        Column("content_profile", String(100), nullable=True),
         Column("title", String(500), nullable=True),
+        Column("total_pages", Integer, nullable=True),
+        Column("metadata", JSONB, nullable=True, server_default=text("'{}'::jsonb")),
+        Column("external_link", Text, nullable=True),
+        Column("content_profile", String(100), nullable=True),
         Column("content_plaintext", Text, nullable=True),
+        Column("toc", JSONB, nullable=True),
         Column("summary", Text, nullable=True),
         Column("summary_embedding", vector_type, nullable=True),
-        Column("toc", JSONB, nullable=True),
-        Column("metadata", JSONB, nullable=True, server_default=text("'{}'::jsonb")),
         Column("status", String(50), server_default=text("'pending'"), nullable=True),
         Column("status_message", Text, nullable=True),
-        Column("total_pages", Integer, nullable=True),
         Column("processing_time", Float, nullable=True),
         Column(
             "created_at",

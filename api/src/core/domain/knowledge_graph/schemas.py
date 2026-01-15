@@ -283,6 +283,7 @@ class KnowledgeGraphDocumentExternalSchema(BaseModel):
     title: Optional[str] = None
     total_pages: Optional[int] = None
     processing_time: Optional[float] = None
+    external_link: Optional[str] = None
     chunks_count: int = 0
     source_name: Optional[str] = None
     created_at: Optional[str] = None
@@ -311,6 +312,7 @@ class KnowledgeGraphDocumentDetailSchema(BaseModel):
     status_message: Optional[str] = None
     total_pages: Optional[int] = None
     processing_time: Optional[float] = None
+    external_link: Optional[str] = None
     metadata: Optional[KnowledgeGraphDocumentMetadataExternalSchema] = None
     source_id: Optional[str] = None
     chunks_count: int = 0

@@ -5,6 +5,7 @@ export interface Document {
   content_profile?: string
   description?: string
   title?: string
+  external_link?: string
   chunks_count: number
   status: string
   status_message?: string

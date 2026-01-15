@@ -42,6 +42,7 @@ class FluidTopicsContentFetchTask:
     document_title: str | None = None
     document_metadata: dict[str, Any] | None = None
     filename: str | None = None
+    external_link: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class ProcessDocumentTask:
     # Document mode (split)
     extracted_text: str | None = None
     content_config: Any | None = None
+    external_link: str | None = None
 
 
 @dataclass

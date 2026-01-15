@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, override
+from urllib.parse import urlparse
 from uuid import UUID
 
 from core.db.session import async_session_maker
@@ -241,6 +242,9 @@ class SharePointSyncPipeline(
 
                     content = load_content_from_bytes(file_bytes, content_config)
                     total_pages = content["metadata"].get("total_pages")
+                    external_link = self._build_external_link(
+                        file_ref.server_relative_url
+                    )
 
                     document = await self._source.create_document_for_source(
                         session,
@@ -259,6 +263,7 @@ class SharePointSyncPipeline(
                             document=document,
                             extracted_text=content["text"],
                             content_config=content_config,
+                            external_link=external_link,
                         )
                     )
 
@@ -321,6 +326,7 @@ class SharePointSyncPipeline(
                         document_title=PurePath(doc_name).stem
                         if doc_name
                         else doc_name,
+                        external_link=task.external_link,
                         embedding_model=self._embedding_model,
                     )
                     await ctx.inc("synced")
@@ -367,3 +373,14 @@ class SharePointSyncPipeline(
 
     def _log_extra(self, **extra: Any) -> dict[str, Any]:
         return {"graph_id": self._graph_id, "source_id": self._source_id, **extra}
+
+    def _build_external_link(self, server_relative_url: str | None) -> str | None:
+        url = str(server_relative_url or "").strip()
+        if not url:
+            return None
+        parsed = urlparse(self._sharepoint_config.site_url or "")
+        if not parsed.scheme or not parsed.netloc:
+            return None
+        if not url.startswith("/"):
+            url = f"/{url}"
+        return f"{parsed.scheme}://{parsed.netloc}{url}"

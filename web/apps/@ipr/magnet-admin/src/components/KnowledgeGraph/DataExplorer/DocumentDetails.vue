@@ -10,8 +10,8 @@
           unelevated
           toggle-color="primary"
           :options="[
-            { label: 'Contents', value: 'toc' },
-            { label: 'Chunks', value: 'chunks' },
+            { label: 'TOC', value: 'toc' },
+            { label: `Chunks (${document?.chunks_count || chunks.length})`, value: 'chunks' },
           ]"
           class="nav-tabs-toggle"
         />
@@ -100,11 +100,15 @@
             <div class="doc-header-info">
               <div class="doc-header-title-row">
                 <div class="doc-header-title km-heading-5">{{ document?.title || document?.name || 'Document' }}</div>
-                <div class="chunk-counter">
-                  <q-icon name="layers" size="14px" />
-                  <span class="chunk-counter-value">{{ document?.chunks_count || chunks.length }}</span>
-                  <span class="chunk-counter-label">chunks</span>
-                </div>
+                <km-btn
+                  v-if="document?.external_link"
+                  flat
+                  icon="fa fa-external-link"
+                  color="secondary-text"
+                  label-class="km-button-text"
+                  icon-size="16px"
+                  @click="openExternalLink(document?.external_link)"
+                />
               </div>
               <div class="doc-header-subtitle km-description text-secondary-text">{{ document?.name }}</div>
             </div>
@@ -495,7 +499,7 @@ const fetchDocument = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${graphId.value}/documents/${documentId.value}`,
+      service: `knowledge_graphs/${graphId.value}/documents/${documentId.value}`,
       method: 'GET',
       credentials: 'include',
     })
@@ -518,7 +522,7 @@ const fetchAllChunks = async () => {
     do {
       const response = await fetchData({
         endpoint,
-        service: `knowledge_graphs//${graphId.value}/documents/${documentId.value}/chunks?limit=${limit}&offset=${offset}`,
+        service: `knowledge_graphs/${graphId.value}/documents/${documentId.value}/chunks?limit=${limit}&offset=${offset}`,
         method: 'GET',
         credentials: 'include',
       })
@@ -851,6 +855,12 @@ const updateActiveChunkFromScroll = () => {
 
 const onWindowResize = () => scheduleRecomputeChunkScrollPositions()
 
+const openExternalLink = (url?: string) => {
+  const target = (url || '').trim()
+  if (!target) return
+  window.open(target, '_blank', 'noopener')
+}
+
 // Watch for chunks loading and sync scroll positions + initial selection
 watch(
   sortedChunks,
@@ -1138,7 +1148,7 @@ onBeforeUnmount(() => {
 .doc-header-title-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
 }
 
 .doc-header-title {
@@ -1146,29 +1156,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.chunk-counter {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: #f3f4f6;
-  border-radius: 6px;
-  color: #4b5563;
-  flex-shrink: 0;
-}
-
-.chunk-counter-value {
-  font-size: 12px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.chunk-counter-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #6b7280;
 }
 
 .doc-header-subtitle {

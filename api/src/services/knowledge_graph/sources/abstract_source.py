@@ -301,6 +301,7 @@ class AbstractDataSource(ABC):
         chunks: list[KnowledgeGraphChunk] | None = None,
         document_title: str | None = None,
         document_summary: str | None = None,
+        external_link: str | None = None,
         toc_json: dict | list | None = None,
         embedding_model: str | None = None,
         delete_existing_chunks: bool = True,
@@ -444,6 +445,7 @@ class AbstractDataSource(ABC):
                     document_id=doc_id,
                     fields={
                         "title": document_title,
+                        "external_link": external_link,
                         "summary": document_summary,
                         "summary_embedding": summary_embedding,
                         "toc": toc_json,
