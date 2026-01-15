@@ -11,7 +11,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from dataclasses import dataclass
 from logging import getLogger
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Optional
 from urllib.parse import parse_qs, urlparse, unquote
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -67,6 +67,7 @@ from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
     create_recordings_ready_subscription,
     create_graph_client_with_token,
+    get_recording_file_size,
     get_meeting_recordings,
     get_recording_by_id,
     list_subscriptions,
@@ -259,6 +260,7 @@ async def _load_note_taker_settings_for_context(context: TurnContext) -> dict[st
         raise ValueError("Note taker settings can only be loaded in a meeting context.")
 
     meeting = _resolve_meeting_details(context)
+    logger.info("[teams note-taker] meeting: %s", meeting)
     meeting_id = meeting.get("id")
     if not meeting_id:
         raise ValueError("Could not resolve meeting id from Teams channel data.")
@@ -397,11 +399,23 @@ async def _send_stt_recording_to_salesforce(
     source_file_name: str,
     source_file_type: str,
     account_id: str | None,
+    settings_system_name: str | None = None,
 ) -> None:
     if not job_id:
         return
 
-    settings = await _load_note_taker_settings_for_context(context)
+    try:
+        settings = (
+            await _load_note_taker_settings_by_system_name(settings_system_name)
+            if settings_system_name
+            else await _load_note_taker_settings_for_context(context)
+        )
+    except Exception as err:
+        logger.warning(
+            "Salesforce sync skipped: failed to load note taker settings: %s",
+            getattr(err, "message", str(err)),
+        )
+        return
     salesforce_settings = (settings.get("integration") or {}).get("salesforce") or {}
     if not salesforce_settings.get("send_transcript_to_salesforce"):
         await context.send_activity(
@@ -631,8 +645,7 @@ async def _send_expandable_section(
 
 async def _download_file_from_link(
     link: str, token: str | None, meeting: Dict[str, Any] | None = None
-) -> tuple[bytes, str, str, str]:
-    # Unwrap Teams deep links first
+) -> tuple[str, dict[str, str], Callable[[str, str | None, str], tuple[str, str]]]:
     parsed = urlparse(link)
     query = parse_qs(parsed.query)
     file_urls = (
@@ -646,12 +659,14 @@ async def _download_file_from_link(
         parsed = urlparse(link)
 
     headers = {}
+    # TODO: before sending the token ensure it is teams.microsoft.com or sharepint.com
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
+    download_url = link
     # If it's a SharePoint/OneDrive URL, go via Graph /shares
+    # TODO: include sharepoint-df.com and 1drv.ms
     if parsed.netloc.endswith("sharepoint.com") or "d.docs.live.net" in parsed.netloc:
-        # Build Graph /shares URL
         raw_url = link
         # base64url encode WITHOUT padding
         share_id = "u!" + base64.urlsafe_b64encode(raw_url.encode("utf-8")).decode(
@@ -660,56 +675,35 @@ async def _download_file_from_link(
         graph_download_url = (
             f"https://graph.microsoft.com/v1.0/shares/{share_id}/driveItem/content"
         )
-
         download_url = graph_download_url
-    else:
-        # Otherwise download directly
-        download_url = link
 
-    final_url = ""
-    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
-        async with client.stream("GET", download_url, headers=headers) as response:
-            response.raise_for_status()
-            buf = bytearray()
-            async for chunk in response.aiter_bytes():
-                if chunk:
-                    buf.extend(chunk)
+    def _name_resolver(
+        content_type: str, content_disposition: str | None, final_url: str
+    ) -> tuple[str, str]:
+        filename = _parse_content_disposition_filename(content_disposition)
+        if not filename:
+            filename = _guess_filename_from_link(final_url or link)
 
-            content_type = (
-                (response.headers.get("Content-Type") or "application/octet-stream")
-                .split(";")[0]
-                .strip()
-            )
+        path = Path(filename)
+        ext = path.suffix
+        if not ext:
+            guessed_ext = mimetypes.guess_extension(content_type) or ".bin"
+            ext = guessed_ext
 
-            filename = _parse_content_disposition_filename(
-                response.headers.get("Content-Disposition")
-            )
-            if not filename:
-                filename = _guess_filename_from_link(str(response.url) or link)
-            final_url = str(response.url)
+        meeting_part = _get_meeting_id_part(meeting)
+        source_key = final_url or link
+        item_hash = hashlib.sha1(source_key.encode("utf-8")).hexdigest()[:12]
+        date_part = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
+        final_name = _build_note_taker_filename(
+            kind="file",
+            meeting_id=meeting_part,
+            item_id=item_hash,
+            date_part=date_part,
+            ext=ext,
+        )
+        return Path(final_name).stem, Path(final_name).suffix or ext
 
-            path = Path(filename)
-            name = path.stem or "file"
-            ext = path.suffix
-            if not ext:
-                guessed_ext = mimetypes.guess_extension(content_type) or ".bin"
-                ext = guessed_ext
-
-    meeting_part = _get_meeting_id_part(meeting)
-    source_key = final_url or link
-    item_hash = hashlib.sha1(source_key.encode("utf-8")).hexdigest()[:12]
-    date_part = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
-    filename = _build_note_taker_filename(
-        kind="file",
-        meeting_id=meeting_part,
-        item_id=item_hash,
-        date_part=date_part,
-        ext=ext,
-    )
-    name = Path(filename).stem
-    ext = Path(filename).suffix or ext
-
-    return bytes(buf), content_type, name, ext
+    return download_url, headers, _name_resolver
 
 
 @dataclass(frozen=True, slots=True)
@@ -1143,41 +1137,190 @@ async def _ingest_knowledge_graph_sections(
         return len(items)
 
 
-async def _download_recording_bytes(
-    recording: Dict[str, Any],
-    token: str,
-    meeting: Dict[str, Any],
-) -> tuple[bytes, str, str, str] | None:
-    """Fetch recording content into memory (full memory read)."""
-    content_url = recording.get("contentUrl")
-    if not content_url:
+def _parse_content_length(value: str | None) -> int | None:
+    if not value:
         return None
+    try:
+        length = int(value)
+    except ValueError:
+        return None
+    return length if length > 0 else None
 
-    filename = _build_recording_filename(meeting, recording, content_url)
-    name = Path(filename).stem
-    ext = Path(filename).suffix
 
-    headers = {"Authorization": f"Bearer {token}"}
-    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
-        async with client.stream("GET", content_url, headers=headers) as response:
-            response.raise_for_status()
-            buf = bytearray()
-            async for chunk in response.aiter_bytes():
-                if chunk:
-                    buf.extend(chunk)
-            content_type = (
-                (response.headers.get("Content-Type") or "application/octet-stream")
-                .split(";")[0]
-                .strip()
+async def _probe_remote_file_metadata(
+    client: httpx.AsyncClient,
+    url: str,
+    *,
+    headers: dict[str, str],
+) -> tuple[int | None, str | None, str | None, str]:
+    """
+    Best-effort probe for size/content headers without downloading the full file.
+    Returns: (size_bytes, content_type, content_disposition, final_url)
+    """
+    # 1) HEAD (preferred if supported)
+    try:
+        head_resp = await client.head(url, headers=headers)
+        if head_resp.status_code < 400:
+            size = _parse_content_length(head_resp.headers.get("Content-Length"))
+            content_type = head_resp.headers.get("Content-Type")
+            content_disposition = head_resp.headers.get("Content-Disposition")
+            final_url = str(head_resp.url) if head_resp.url else url
+            return size, content_type, content_disposition, final_url
+    except httpx.HTTPError:
+        pass
+
+    # 2) Range request to retrieve total size via Content-Range.
+    range_headers = {**headers, "Range": "bytes=0-0"}
+    try:
+        async with client.stream("GET", url, headers=range_headers) as resp:
+            if resp.status_code >= 400:
+                resp.raise_for_status()
+            content_range = resp.headers.get("Content-Range")
+            total_size = None
+            if content_range and "/" in content_range:
+                raw_total = content_range.split("/")[-1]
+                if raw_total.isdigit():
+                    total_size = int(raw_total)
+            size = total_size or _parse_content_length(
+                resp.headers.get("Content-Length")
             )
-    return bytes(buf), content_type, name, ext
+            content_type = resp.headers.get("Content-Type")
+            content_disposition = resp.headers.get("Content-Disposition")
+            final_url = str(resp.url) if resp.url else url
+            return size, content_type, content_disposition, final_url
+    except httpx.HTTPError:
+        pass
+
+    return None, None, None, url
 
 
-async def _start_transcription_from_bytes(
+async def _upload_part(
+    client: httpx.AsyncClient,
+    url: str,
+    data: bytes,
+    headers: dict[str, str],
+) -> str:
+    part_headers = dict(headers)
+    part_headers["Content-Length"] = str(len(data))
+    response = await client.put(url, content=data, headers=part_headers)
+    response.raise_for_status()
+    etag = response.headers.get("ETag") or response.headers.get("etag") or ""
+    return etag.strip('"')
+
+
+async def _complete_multipart_upload(
+    client: httpx.AsyncClient,
+    complete_url: str,
+    parts: list[dict[str, Any]],
+) -> None:
+    response = await client.post(complete_url, json={"parts": parts})
+    response.raise_for_status()
+
+
+async def _upload_stream_to_object(
+    *,
+    stream: AsyncIterator[bytes],
+    size: int,
+    content_type: str,
+    filename: str,
+) -> str:
+    session = await upload_handler.make_multipart_session(
+        filename=filename,
+        size=size,
+        content_type=content_type,
+    )
+
+    object_key = (session or {}).get("object_key")
+    upload_url = (session or {}).get("upload_url") or (session or {}).get("url")
+    upload_headers: dict[str, str] = (session or {}).get("upload_headers") or {}
+    presigned_urls = (session or {}).get("presigned_urls") or []
+    part_size_raw = (session or {}).get("part_size")
+    try:
+        part_size = int(part_size_raw) if part_size_raw else None
+    except (TypeError, ValueError):
+        part_size = None
+    complete_url = (session or {}).get("complete_url")
+
+    if not object_key:
+        raise RuntimeError("Upload session did not return an object key.")
+
+    logger.info("[teams note-taker] streaming upload to object: %s", object_key)
+
+    timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        use_multipart = False
+        if presigned_urls:
+            if len(presigned_urls) == 1 and not part_size and not complete_url:
+                upload_url = upload_url or presigned_urls[0]
+            else:
+                use_multipart = True
+
+        if use_multipart:
+            if not part_size:
+                raise RuntimeError("Multipart upload session missing part size.")
+            if not complete_url:
+                raise RuntimeError("Multipart upload session missing completion URL.")
+
+            parts: list[dict[str, Any]] = []
+            buffer = bytearray()
+            part_index = 0
+
+            async for chunk in stream:
+                if not chunk:
+                    continue
+                buffer.extend(chunk)
+                while len(buffer) >= part_size:
+                    if part_index >= len(presigned_urls):
+                        raise RuntimeError(
+                            "Multipart upload session provided insufficient part URLs."
+                        )
+                    data = bytes(buffer[:part_size])
+                    del buffer[:part_size]
+                    etag = await _upload_part(
+                        client, presigned_urls[part_index], data, upload_headers
+                    )
+                    parts.append({"part_number": part_index + 1, "etag": etag})
+                    part_index += 1
+
+            if buffer:
+                if part_index >= len(presigned_urls):
+                    raise RuntimeError(
+                        "Multipart upload session provided insufficient part URLs."
+                    )
+                etag = await _upload_part(
+                    client, presigned_urls[part_index], bytes(buffer), upload_headers
+                )
+                parts.append({"part_number": part_index + 1, "etag": etag})
+                part_index += 1
+
+            if part_index != len(presigned_urls):
+                raise RuntimeError(
+                    "Multipart upload session returned unexpected part URLs."
+                )
+
+            await _complete_multipart_upload(client, complete_url, parts)
+            return object_key
+
+        if not upload_url:
+            raise RuntimeError("Upload session missing upload URL.")
+
+        upload_headers = {
+            "Content-Type": content_type,
+            "Content-Length": str(size),
+            **upload_headers,
+        }
+
+        response = await client.put(upload_url, content=stream, headers=upload_headers)
+        response.raise_for_status()
+
+    return object_key
+
+
+async def _start_transcription_from_object_key(
     *,
     name: str,
     ext: str,
-    data: bytes,
+    object_key: str,
     content_type: str,
     pipeline_id: str,
     on_submit: Callable[[str], Awaitable[None]] | None = None,
@@ -1185,42 +1328,6 @@ async def _start_transcription_from_bytes(
     await _ensure_vector_pool_ready()
 
     ext_no_dot = ext.lstrip(".")
-    ext_with_dot = f".{ext_no_dot}" if ext_no_dot else ""
-
-    session = await upload_handler.make_multipart_session(
-        filename=f"{name}{ext_with_dot}",
-        size=len(data),
-        content_type=content_type,
-    )
-
-    object_key = (session or {}).get("object_key")
-    upload_url = (session or {}).get("upload_url") or (session or {}).get("url")
-    upload_headers: dict[str, str] = (session or {}).get("upload_headers") or {}
-    if not upload_url:
-        presigned_urls = (session or {}).get("presigned_urls") or []
-        upload_url = presigned_urls[0] if presigned_urls else None
-
-    if not object_key:
-        raise RuntimeError("Upload session did not return an object key.")
-
-    logger.info("[teams note-taker] uploading bytes to object: %s", object_key)
-    logger.info("[teams note-taker] upload_url: %s", upload_url)
-
-    if not upload_url:
-        raise RuntimeError("Upload session missing upload URL.")
-
-    upload_headers = {
-        "Content-Type": content_type,
-        **upload_headers,
-    }
-
-    async with httpx.AsyncClient(timeout=300.0, follow_redirects=True) as client:
-        response = await client.put(
-            upload_url,
-            content=data,
-            headers=upload_headers,
-        )
-        response.raise_for_status()
 
     job_id = await transcription_service.submit(
         name=name,
@@ -1231,7 +1338,12 @@ async def _start_transcription_from_bytes(
         backend=pipeline_id,
     )
     if on_submit and job_id:
-        await on_submit(job_id)
+        try:
+            await on_submit(job_id)
+        except Exception:
+            logger.exception(
+                "on_submit callback failed for transcription job %s", job_id
+            )
 
     deadline = asyncio.get_event_loop().time() + _TRANSCRIPTION_TIMEOUT_SECONDS
     status: str | None = None
@@ -1251,12 +1363,141 @@ async def _start_transcription_from_bytes(
     return status or "unknown", {"id": job_id, "transcription": transcription}
 
 
+async def _send_typing(context: TurnContext) -> None:
+    try:
+        await context.send_activity(Activity(type="typing"))
+    except Exception as err:
+        logger.debug(
+            "Failed to send typing indicator: %s",
+            getattr(err, "message", str(err)),
+        )
+
+
+async def _transcribe_stream_and_notify(
+    context: TurnContext,
+    *,
+    download_url: str,
+    headers: dict[str, str],
+    name_resolver: Callable[[str, str | None, str], tuple[str, str]],
+    conversation_date: str | None = None,
+    known_size: int | None = None,
+    settings_system_name: str | None = None,
+    on_submit: Callable[[str], Awaitable[None]] | None = None,
+    on_submit_factory: Callable[
+        [str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]
+    ]
+    | None = None,
+) -> None:
+    await _send_typing(context)
+    timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        (
+            probed_size,
+            probed_type,
+            probed_disposition,
+            probed_final_url,
+        ) = await _probe_remote_file_metadata(client, download_url, headers=headers)
+        async with client.stream("GET", download_url, headers=headers) as response:
+            response.raise_for_status()
+            content_type = (
+                (response.headers.get("Content-Type") or "application/octet-stream")
+                .split(";")[0]
+                .strip()
+            )
+            if not content_type or content_type == "application/octet-stream":
+                probed_ct = (probed_type or "").split(";")[0].strip()
+                if probed_ct:
+                    content_type = probed_ct
+
+            content_length = _parse_content_length(
+                response.headers.get("Content-Length")
+            )
+            if content_length is None:
+                content_length = known_size or probed_size
+
+            final_url = str(response.url) if response.url else download_url
+            if not final_url and probed_final_url:
+                final_url = probed_final_url
+            content_disposition = response.headers.get("Content-Disposition")
+            if not content_disposition:
+                content_disposition = probed_disposition
+
+            name, ext = name_resolver(content_type, content_disposition, final_url)
+
+            if not content_type.startswith(("audio/", "video/")):
+                await context.send_activity(
+                    f"I downloaded a file of type `{content_type}` (extension `{ext or 'n/a'}`), "
+                    "but I can only transcribe audio or video files like .mp3, .wav, .m4a, .mp4."
+                )
+                return
+
+            if content_length is None:
+                await context.send_activity(
+                    "I couldn't determine the file size for a streaming upload. "
+                    "Please provide a direct download link with a Content-Length header."
+                )
+                return
+
+            if on_submit is None and on_submit_factory is not None:
+                on_submit = await on_submit_factory(name, ext, content_type)
+
+            try:
+                object_key = await _upload_stream_to_object(
+                    stream=response.aiter_bytes(),
+                    size=content_length,
+                    content_type=content_type,
+                    filename=f"{name}{ext}",
+                )
+            except Exception as err:
+                logger.exception("Failed to upload streamed file")
+                await context.send_activity(
+                    f"I couldn't upload the file for transcription: {getattr(err, 'message', str(err))}"
+                )
+                return
+
+    try:
+        status, result = await _start_transcription_from_object_key(
+            name=name,
+            ext=ext,
+            object_key=object_key,
+            content_type=content_type,
+            pipeline_id=DEFAULT_PIPELINE,
+            on_submit=on_submit,
+        )
+    except Exception as err:
+        logger.exception("Failed to start transcription for streamed file")
+        await context.send_activity(
+            f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
+        )
+        return
+
+    logger.info(
+        "[teams note-taker] transcription result: %s",
+        result,
+    )
+
+    job_id = (result or {}).get("id") if isinstance(result, dict) else None
+    transcription = (
+        (result or {}).get("transcription") if isinstance(result, dict) else None
+    )
+
+    await _send_transcription_summary(
+        context,
+        status,
+        job_id,
+        transcription,
+        conversation_date=conversation_date,
+        settings_system_name=settings_system_name,
+    )
+
+
 async def _send_transcription_summary(
     context: TurnContext,
     status: str,
     job_id: str | None,
     transcription: dict | None,
     conversation_date: str | None = None,
+    settings_system_name: str | None = None,
 ) -> None:
     duration = None
     transcript_payload = transcription
@@ -1320,7 +1561,18 @@ async def _send_transcription_summary(
             await context.send_activity("No speech was detected in this recording.")
 
         if full_text:
-            settings = await _load_note_taker_settings_for_context(context)
+            try:
+                settings = (
+                    await _load_note_taker_settings_by_system_name(settings_system_name)
+                    if settings_system_name
+                    else await _load_note_taker_settings_for_context(context)
+                )
+            except Exception as err:
+                logger.warning(
+                    "Skipping summaries/embedding: cannot load note taker settings: %s",
+                    getattr(err, "message", str(err)),
+                )
+                return
 
             templates: list[tuple[str, str, str]] = []
             for key, title in (
@@ -1545,18 +1797,18 @@ def _register_note_taker_handlers(
             "**/welcome** - Show this help.",
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
-            "**/whoami** - Show your Teams identity and sign-in status.",
+            "**/whoami** - (to be removed) Show your Teams identity and sign-in status.",
             "**/config-list** - List available note taker configs.",
             "**/config-set CONFIG_SYSTEM_NAME** - Assign a note taker config to this meeting.",
-            "**/sf-account-lookup ACCOUNT_NAME** - Lookup a Salesforce account.",
+            "**/sf-account-lookup (to be removed) ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
-            "**/recordings-find** - List meeting recordings and transcribe the latest.",
+            "**/recordings-find** - (to be removed) List meeting recordings and transcribe the latest.",
             "**/process-transcript-job TRANSCRIPTION_JOB_ID** - Process an existing transcription job.",
             "**/process-recording RECORDING_ID** - Download and transcribe a specific recording.",
-            "**/process-file LINK** - Download and transcribe an audio/video file.",
+            "**/process-file LINK** - (to be removed) Download and transcribe an audio/video file.",
             "**/meeting-info** - Show current meeting details.",
-            "**/test-proactive-token** - (debug) Check for a cached delegated token.",
+            "**/test-proactive-token** - (to be removed) Check for a cached delegated token.",
         ]
 
         body = [
@@ -1702,35 +1954,97 @@ def _register_note_taker_handlers(
 
         return _notify_salesforce
 
-    async def _transcribe_bytes_and_notify(
+    async def _transcribe_stream_and_notify(
         context: TurnContext,
         *,
-        name: str,
-        ext: str,
-        file_bytes: bytes,
-        content_type: str,
+        download_url: str,
+        headers: dict[str, str],
+        name_resolver: Callable[[str, str | None, str], tuple[str, str]],
         conversation_date: str | None = None,
+        known_size: int | None = None,
+        on_submit: Callable[[str], Awaitable[None]] | None = None,
+        on_submit_factory: Callable[
+            [str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]
+        ]
+        | None = None,
     ) -> None:
         await _send_typing(context)
-        if not content_type.startswith(("audio/", "video/")):
-            await context.send_activity(
-                f"I downloaded a file of type `{content_type}` (extension `{ext or 'n/a'}`), "
-                "but I can only transcribe audio or video files like .mp3, .wav, .m4a, .mp4."
-            )
-            return
+        timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            (
+                probed_size,
+                probed_type,
+                probed_disposition,
+                probed_final_url,
+            ) = await _probe_remote_file_metadata(client, download_url, headers=headers)
+            async with client.stream("GET", download_url, headers=headers) as response:
+                response.raise_for_status()
+                content_type = (
+                    (response.headers.get("Content-Type") or "application/octet-stream")
+                    .split(";")[0]
+                    .strip()
+                )
+                if not content_type or content_type == "application/octet-stream":
+                    probed_ct = (probed_type or "").split(";")[0].strip()
+                    if probed_ct:
+                        content_type = probed_ct
+                content_length = _parse_content_length(
+                    response.headers.get("Content-Length")
+                )
+                if content_length is None:
+                    content_length = known_size or probed_size
+                final_url = str(response.url) if response.url else download_url
+                content_disposition = response.headers.get("Content-Disposition")
+                if not content_disposition:
+                    content_disposition = probed_disposition
+                if not final_url and probed_final_url:
+                    final_url = probed_final_url
+                name, ext = name_resolver(content_type, content_disposition, final_url)
 
-        on_submit = await _build_salesforce_submit_callback(
-            context,
-            conversation_date=conversation_date,
-            source_file_name=f"{name}{ext}",
-            source_file_type=content_type,
-        )
+                if not content_type.startswith(("audio/", "video/")):
+                    await context.send_activity(
+                        f"I downloaded a file of type `{content_type}` (extension `{ext or 'n/a'}`), "
+                        "but I can only transcribe audio or video files like .mp3, .wav, .m4a, .mp4."
+                    )
+                    return
+
+                if content_length is None:
+                    await context.send_activity(
+                        "I couldn't determine the file size for a streaming upload. "
+                        "Please provide a direct download link with a Content-Length header."
+                    )
+                    return
+
+                if on_submit is None:
+                    if on_submit_factory is not None:
+                        on_submit = await on_submit_factory(name, ext, content_type)
+                    else:
+                        on_submit = await _build_salesforce_submit_callback(
+                            context,
+                            conversation_date=conversation_date,
+                            source_file_name=f"{name}{ext}",
+                            source_file_type=content_type,
+                        )
+
+                try:
+                    object_key = await _upload_stream_to_object(
+                        stream=response.aiter_bytes(),
+                        size=content_length,
+                        content_type=content_type,
+                        filename=f"{name}{ext}",
+                    )
+                except Exception as err:
+                    logger.exception("Failed to upload streamed file")
+                    await context.send_activity(
+                        f"I couldn't upload the file for transcription: {getattr(err, 'message', str(err))}"
+                    )
+                    return
 
         try:
-            status, result = await _start_transcription_from_bytes(
+            status, result = await _start_transcription_from_object_key(
                 name=name,
                 ext=ext,
-                data=file_bytes,
+                object_key=object_key,
                 content_type=content_type,
                 pipeline_id=DEFAULT_PIPELINE,
                 on_submit=on_submit,
@@ -2236,38 +2550,35 @@ def _register_note_taker_handlers(
         if transcribe_latest and recordings:
             await context.send_activity("Streaming the latest recording now...")
             await _send_typing(context)
-            try:
-                recording_bytes = await _download_recording_bytes(
-                    recordings[0], delegated_token, meeting
-                )
-            except Exception as err:
-                logger.exception("Failed to download first recording")
-                await context.send_activity(
-                    f"I couldn't download the first recording: {getattr(err, 'message', str(err))}"
-                )
-                return
-
-            if recording_bytes:
-                file_bytes, content_type, name, ext = recording_bytes
-                await context.send_activity(
-                    "Recording downloaded; starting transcription..."
-                )
-                await _send_typing(context)
-
-                await _transcribe_bytes_and_notify(
-                    context,
-                    name=name,
-                    ext=ext,
-                    file_bytes=file_bytes,
-                    content_type=content_type,
-                    conversation_date=_format_recording_date_iso(
-                        recordings[0].get("createdDateTime")
-                    ),
-                )
-            else:
+            content_url = recordings[0].get("contentUrl") or recordings[0].get(
+                "recordingContentUrl"
+            )
+            if not content_url:
                 await context.send_activity(
                     "The first recording had no downloadable URL."
                 )
+                return
+
+            filename = _build_recording_filename(meeting, recordings[0], content_url)
+            name = Path(filename).stem
+            ext = Path(filename).suffix
+
+            await context.send_activity("Streaming the recording for transcription...")
+            await _send_typing(context)
+
+            headers = {"Authorization": f"Bearer {delegated_token}"}
+
+            await _transcribe_stream_and_notify(
+                context,
+                download_url=content_url,
+                headers=headers,
+                name_resolver=lambda *_: (name, ext),
+                known_size=recordings[0].get("size")
+                or await get_recording_file_size(content_url, delegated_token),
+                conversation_date=_format_recording_date_iso(
+                    recordings[0].get("createdDateTime")
+                ),
+            )
 
     async def _handle_process_recording(
         context: TurnContext, state: Optional[TurnState], recording_id: str
@@ -2319,31 +2630,27 @@ def _register_note_taker_handlers(
             if recording.get("recordingContentUrl"):
                 recording["contentUrl"] = recording.get("recordingContentUrl")
 
-        try:
-            recording_bytes = await _download_recording_bytes(
-                recording, delegated_token, meeting
-            )
-        except Exception as err:
-            logger.exception("Failed to download recording by id")
-            await context.send_activity(
-                f"I couldn't download recording {recording_id}: {getattr(err, 'message', str(err))}"
-            )
-            return
-
-        if not recording_bytes:
+        content_url = recording.get("contentUrl")
+        if not content_url:
             await context.send_activity("Recording did not include a downloadable URL.")
             return
 
-        file_bytes, content_type, name, ext = recording_bytes
-        await context.send_activity("Recording downloaded; starting transcription...")
+        filename = _build_recording_filename(meeting, recording, content_url)
+        name = Path(filename).stem
+        ext = Path(filename).suffix
+
+        await context.send_activity("Streaming the recording for transcription...")
         await _send_typing(context)
 
-        await _transcribe_bytes_and_notify(
+        headers = {"Authorization": f"Bearer {delegated_token}"}
+
+        await _transcribe_stream_and_notify(
             context,
-            name=name,
-            ext=ext,
-            file_bytes=file_bytes,
-            content_type=content_type,
+            download_url=content_url,
+            headers=headers,
+            name_resolver=lambda *_: (name, ext),
+            known_size=recording.get("size")
+            or await get_recording_file_size(content_url, delegated_token),
             conversation_date=_format_recording_date_iso(
                 recording.get("createdDateTime")
             ),
@@ -2366,24 +2673,23 @@ def _register_note_taker_handlers(
 
         meeting = _resolve_meeting_details(context)
         try:
-            file_bytes, content_type, name, ext = await _download_file_from_link(
+            download_url, headers, name_resolver = await _download_file_from_link(
                 link, delegated_token, meeting=meeting
             )
         except Exception as err:
-            logger.exception("Failed to download file from link")
+            logger.exception("Failed to resolve file download link")
             await context.send_activity(
-                f"I couldn't download that link: {getattr(err, 'message', str(err))}"
+                f"I couldn't resolve that link: {getattr(err, 'message', str(err))}"
             )
             return
 
-        await context.send_activity("File downloaded; starting transcription...")
+        await context.send_activity("Streaming the file for transcription...")
 
-        await _transcribe_bytes_and_notify(
+        await _transcribe_stream_and_notify(
             context,
-            name=name,
-            ext=ext,
-            file_bytes=file_bytes,
-            content_type=content_type,
+            download_url=download_url,
+            headers=headers,
+            name_resolver=name_resolver,
         )
 
     async def _get_token_proactively(
@@ -3068,7 +3374,12 @@ def _register_note_taker_handlers(
             return
 
         await context.send_activity(
-            f"Saved note taker config {config_row.name or config_row.system_name} (system_name: {config_row.system_name}) for this meeting."
+            (
+                f"Saved note taker config {config_row.name or config_row.system_name} "
+                f"(system_name: {config_row.system_name}) for this meeting. "
+                "If your config includes sending transcript to Salesforce, ensure you set SF account "
+                "using **/sf-account-set ACCOUNT_NAME**"
+            )
         )
 
     async def _handle_meeting_info(
@@ -3203,7 +3514,12 @@ def _register_note_taker_handlers(
             await _upsert_teams_meeting_record(context, is_bot_installed=True)
             await _handle_install_flow(context, _state)
             if _is_meeting_conversation(context):
-                await context.send_activity("Magnet note taker added to the meeting.")
+                await context.send_activity(
+                    "Magnet note taker added to the meeting. "
+                    "Please ensure the meeting has the config set using "
+                    "**/config-set CONFIG_SYSTEM_NAME**. "
+                    "Use **/meeting-info** to check the meeting details."
+                )
                 # TODO: refactor it
                 await _prompt_organizer_personal_install_if_missing(context)
                 await _ensure_organizer_delegated_token_cached(  # TODO: remove this?
@@ -3336,11 +3652,17 @@ def _register_note_taker_handlers(
             await context.send_activity("\n".join(lines))
             return
 
+        if normalized_text.startswith("/recordings-list"):
+            await _send_typing(context)
+            await _handle_recordings_list(context, _state)
+            return
+
         if normalized_text.startswith("/meeting-info"):
             await _send_typing(context)
             await _handle_meeting_info(context, _state)
             return
 
+        # Organizer gate
         if _is_meeting_conversation(context):
             allowed = await _ensure_meeting_organizer_and_signed_in(
                 context, auth_handler_id
@@ -3410,11 +3732,6 @@ def _register_note_taker_handlers(
         if normalized_text.startswith("/recordings-find"):
             await _send_typing(context)
             await _handle_recordings_find(context, _state)
-            return
-
-        if normalized_text.startswith("/recordings-list"):
-            await _send_typing(context)
-            await _handle_recordings_list(context, _state)
             return
 
         if normalized_text.startswith("/process-transcript-job"):
@@ -3857,26 +4174,20 @@ async def _process_recording_notification_for_meeting(
         "id": meeting_row.meeting_id or meeting_row.graph_online_meeting_id,
     }
 
-    try:
-        recording_bytes = await _download_recording_bytes(
-            recording, delegated_token, meeting_info
-        )
-    except Exception as err:
-        logger.exception("Failed to download recording during webhook processing")
-        await context.send_activity(
-            f"I couldn't download the recording: {getattr(err, 'message', str(err))}"
-        )
-        return
-
-    if not recording_bytes:
+    content_url = recording.get("contentUrl")
+    if not content_url:
         await context.send_activity("Recording did not include a downloadable URL.")
         return
 
-    file_bytes, content_type, name, ext = recording_bytes
-    await context.send_activity("Recording downloaded; starting transcription...")
+    filename = _build_recording_filename(meeting_info, recording, content_url)
+    name = Path(filename).stem
+    ext = Path(filename).suffix
 
-    on_submit = None
-    if _is_meeting_conversation(context):
+    async def _build_on_submit(
+        resolved_name: str, resolved_ext: str, content_type: str
+    ) -> Callable[[str], Awaitable[None]] | None:
+        if not _is_meeting_conversation(context):
+            return None
         account_id = getattr(meeting_row, "account_id", None)
 
         async def _notify_salesforce(submit_job_id: str) -> None:
@@ -3886,43 +4197,31 @@ async def _process_recording_notification_for_meeting(
                 conversation_date=_format_recording_date_iso(
                     recording.get("createdDateTime")
                 ),
-                source_file_name=f"{name}{ext}",
+                source_file_name=f"{resolved_name}{resolved_ext}",
                 source_file_type=content_type,
                 account_id=account_id,
+                settings_system_name=getattr(
+                    meeting_row, "note_taker_settings_system_name", None
+                ),
             )
 
-        on_submit = _notify_salesforce
+        return _notify_salesforce
 
-    try:
-        status, result = await _start_transcription_from_bytes(
-            name=name,
-            ext=ext,
-            data=file_bytes,
-            content_type=content_type,
-            pipeline_id=DEFAULT_PIPELINE,
-            on_submit=on_submit,
-        )
-    except Exception as err:
-        logger.exception("Failed to start transcription for webhook recording")
-        await context.send_activity(
-            f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
-        )
-        return
+    await context.send_activity("Streaming the recording for transcription...")
 
-    logger.info(
-        "[teams note-taker] transcription result...: %s",
-        result,
-    )
+    headers = {"Authorization": f"Bearer {delegated_token}"}
 
-    job_id = (result or {}).get("id") if isinstance(result, dict) else None
-    transcription = (
-        (result or {}).get("transcription") if isinstance(result, dict) else None
-    )
-
-    await _send_transcription_summary(
+    await _transcribe_stream_and_notify(
         context,
-        status,
-        job_id,
-        transcription,
+        download_url=content_url,
+        headers=headers,
+        name_resolver=lambda *_: (name, ext),
+        known_size=await get_recording_file_size(content_url, delegated_token),
+        settings_system_name=getattr(
+            meeting_row, "note_taker_settings_system_name", None
+        ),
         conversation_date=_format_recording_date_iso(recording.get("createdDateTime")),
+        on_submit_factory=_build_on_submit,
     )
+
+    return
