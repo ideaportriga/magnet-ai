@@ -425,7 +425,9 @@ async def _execute_web_search_workflow(
             "New results": len(new_results),
             "Newly relevant": len(newly_relevant_results),
             "Newly processed": len(processed_summaries),
-            "Summary": final_summary[:500] + "..." if len(final_summary) > 500 else final_summary,
+            "Summary": final_summary[:500] + "..."
+            if len(final_summary) > 500
+            else final_summary,
         }
     )
 
@@ -532,7 +534,9 @@ async def _execute_reasoning_step(
                 tc.get("function", {}).get("arguments", "{}") for tc in tool_calls
             ]
         if content and decided_action == "final_report":
-            output_data["Report preview"] = content[:200] + "..." if len(content) > 200 else content
+            output_data["Report preview"] = (
+                content[:200] + "..." if len(content) > 200 else content
+            )
 
         observability_context.update_current_span(output=output_data)
 
@@ -1142,8 +1146,7 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
 
             # Update trace with deep research context
             observability_context.update_current_trace(
-                name="Deep Research",
-                type="deep_research"
+                name="Deep Research", type="deep_research"
             )
 
             async def persist(run_state: DeepResearchRun) -> None:
