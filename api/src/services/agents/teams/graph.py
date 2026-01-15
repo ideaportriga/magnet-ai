@@ -110,20 +110,35 @@ async def get_recording_file_size(content_url: str, token: str) -> int | None:
     headers = {"Authorization": f"Bearer {token}"}
 
     try:
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        timeout = httpx.Timeout(connect=30.0, read=30.0, write=30.0, pool=30.0)
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+            # Prefer HEAD when available.
+            try:
+                head_resp = await client.head(content_url, headers=headers)
+                if head_resp.status_code < 400:
+                    content_length = head_resp.headers.get("Content-Length")
+                    if content_length and content_length.isdigit():
+                        return int(content_length)
+            except httpx.HTTPError:
+                pass
+
+            # Fallback: a 1-byte range request, then parse Content-Range total size.
             range_headers = {**headers, "Range": "bytes=0-0"}
-            get_resp = await client.get(content_url, headers=range_headers)
-            get_resp.raise_for_status()
+            async with client.stream(
+                "GET", content_url, headers=range_headers
+            ) as get_resp:
+                get_resp.raise_for_status()
 
-            content_range = get_resp.headers.get("Content-Range")
-            if content_range and "/" in content_range:
-                total_size = content_range.split("/")[-1]
-                if total_size.isdigit():
-                    return int(total_size)
+                content_range = get_resp.headers.get("Content-Range")
+                if content_range and "/" in content_range:
+                    total_size = content_range.split("/")[-1]
+                    if total_size.isdigit():
+                        return int(total_size)
 
-            content_length = get_resp.headers.get("Content-Length")
-            if content_length and content_length.isdigit():
-                return int(content_length)
+                content_length = get_resp.headers.get("Content-Length")
+                if content_length and content_length.isdigit():
+                    # Could be "1" for range responses; still better than None.
+                    return int(content_length)
 
             return None
 
