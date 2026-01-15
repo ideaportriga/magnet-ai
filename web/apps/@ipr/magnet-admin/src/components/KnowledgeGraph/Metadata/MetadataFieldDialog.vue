@@ -14,17 +14,10 @@
       <kg-dialog-section title="Field Identity" description="Define the field name and display properties" icon="edit">
         <kg-field-row :cols="2">
           <kg-field-row label="Field Name">
-            <km-input
-              ref="fieldNameInputRef"
-              v-model="fieldName"
-              height="36px"
-              placeholder="field_name"
-              :rules="fieldNameRules"
-              :disabled="isEditMode"
-            />
+            <km-input ref="fieldNameInputRef" v-model="fieldName" height="36px" />
           </kg-field-row>
           <kg-field-row label="Display Name">
-            <km-input v-model="displayName" height="36px" placeholder="Field Display Name" />
+            <km-input v-model="displayName" height="36px" />
           </kg-field-row>
         </kg-field-row>
 
@@ -624,16 +617,6 @@ const applyActiveChainToAllSources = () => {
 
 const isEditMode = computed(() => !!props.field?.id)
 
-const fieldNameRules = [
-  (val: string) => !!(val && val.trim()) || 'Field name is required',
-  (val: string) => /^[a-z][a-z0-9_]*$/.test(val || '') || 'Use lowercase letters, numbers, and underscores',
-  (val: string) => {
-    if (isEditMode.value) return true
-    const existing = props.existingFieldNames || []
-    return !existing.includes(val) || 'Field name already exists'
-  },
-]
-
 // Initialize form when dialog opens or field changes
 watch(
   () => [props.showDialog, props.field] as const,
@@ -670,11 +653,6 @@ watch(fieldName, (newVal) => {
 })
 
 const onConfirm = () => {
-  // Validate field name before saving
-  if (fieldNameInputRef.value && !fieldNameInputRef.value.validate()) {
-    return
-  }
-
   // Validate per-source value resolution chains (only if configured for a source)
   showValueResolutionErrors.value = true
   const invalid = sourceValueResolutions.value.some((src) => {
