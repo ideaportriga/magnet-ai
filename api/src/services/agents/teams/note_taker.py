@@ -1800,7 +1800,6 @@ def _register_note_taker_handlers(
             "**/whoami** - (to be removed) Show your Teams identity and sign-in status.",
             "**/config-list** - (to be removed) List available note taker configs.",
             "**/config** - Pick a note taker config for this meeting.",
-            "**/sf-account-lookup (to be removed) ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
             "**/recordings-find** - (to be removed) List meeting recordings and transcribe the latest.",
@@ -3088,63 +3087,6 @@ def _register_note_taker_handlers(
 
         return False
 
-    async def _handle_sf_account_lookup(
-        context: TurnContext, account_name: str
-    ) -> None:
-        if not account_name:
-            await context.send_activity("Usage: /sf-account-lookup ACCOUNT_NAME")
-            return
-
-        await _send_typing(context)
-
-        try:
-            settings = await _load_note_taker_settings_for_context(context)
-            salesforce_settings = (settings.get("integration") or {}).get(
-                "salesforce"
-            ) or {}
-            salesforce_api_server = (
-                salesforce_settings.get("salesforce_api_server") or None
-            )
-            result = await account_lookup(
-                account_name,
-                server=salesforce_api_server,
-            )
-        except Exception as err:
-            logger.exception(
-                "Salesforce account lookup failed for %s",
-                account_name,
-            )
-            await context.send_activity(
-                f"Salesforce account lookup failed: {getattr(err, 'message', str(err))}"
-            )
-            return
-
-        if isinstance(result, list):
-            count = len(result)
-            first_account_id = None
-            first_account_name = None
-            if result and isinstance(result[0], dict):
-                first_account_id = result[0].get("accountId")
-                first_account_name = (
-                    result[0].get("accountName")
-                    or result[0].get("name")
-                    or result[0].get("Name")
-                )
-            lines = [
-                f"Results: {count}",
-                f"First accountId: {first_account_id or 'n/a'}",
-                f"First accountName: {first_account_name or 'n/a'}",
-            ]
-            await context.send_activity("\n".join(lines))
-            return
-
-        if isinstance(result, dict):
-            payload = json.dumps(result, indent=2, ensure_ascii=True)
-            await context.send_activity(f"```json\n{payload}\n```")
-            return
-
-        await context.send_activity(str(result))
-
     async def _handle_sf_account_set(context: TurnContext, account_name: str) -> None:
         if not account_name:
             await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
@@ -3964,15 +3906,6 @@ def _register_note_taker_handlers(
             )
             if not allowed:
                 return
-
-        if normalized_text.startswith("/sf-account-lookup"):
-            parts = text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity("Usage: /sf-account-lookup ACCOUNT_NAME")
-                return
-            account_name = parts[1].strip()
-            await _handle_sf_account_lookup(context, account_name)
-            return
 
         if normalized_text.startswith("/sf-account-set"):
             parts = text.split(maxsplit=1)
