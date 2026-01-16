@@ -1799,7 +1799,7 @@ def _register_note_taker_handlers(
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - (to be removed) Show your Teams identity and sign-in status.",
             "**/config-list** - (to be removed) List available note taker configs.",
-            "**/config-set** - Pick a note taker config for this meeting.",
+            "**/config** - Pick a note taker config for this meeting.",
             "**/sf-account-lookup (to be removed) ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
@@ -3289,7 +3289,7 @@ def _register_note_taker_handlers(
 
         if len(rows) > 30:
             lines.append(f"...and {len(rows) - 30} more")
-        lines.append("Use: /config-set (in a meeting chat)")
+        lines.append("Use: /config (in a meeting chat)")
         await context.send_activity("\n".join(lines))
 
     def _build_note_taker_config_picker_card(
@@ -3421,11 +3421,69 @@ def _register_note_taker_handlers(
         activity = Activity(type="message", attachments=[attachment])
         await context.send_activity(activity)
 
+    async def _refresh_note_taker_config_picker_card(
+        context: TurnContext,
+        *,
+        selected_system_name: str,
+    ) -> None:
+        """Best-effort update of the picker card after Apply.
+
+        If Teams provides a reply_to_id, we attempt to update the original card message.
+        Otherwise, we send a new card.
+        """
+
+        try:
+            async with async_session_maker() as session:
+                stmt = select(
+                    NoteTakerSettingsModel.id,
+                    NoteTakerSettingsModel.name,
+                    NoteTakerSettingsModel.system_name,
+                    NoteTakerSettingsModel.description,
+                ).order_by(NoteTakerSettingsModel.created_at.asc())
+                result = await session.execute(stmt)
+                rows = result.all()
+        except Exception as err:
+            logger.debug("Failed to refresh note taker config picker card: %s", err)
+            return
+
+        if not rows:
+            return
+
+        card = _build_note_taker_config_picker_card(
+            rows, current_system_name=selected_system_name
+        )
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        outgoing = Activity(type="message", attachments=[attachment])
+
+        activity = getattr(context, "activity", None)
+        reply_to_id = getattr(activity, "reply_to_id", None)
+        if reply_to_id:
+            outgoing.id = reply_to_id
+            try:
+                updater = getattr(context, "update_activity", None)
+                if callable(updater):
+                    await updater(outgoing)
+                    return
+            except Exception as err:
+                logger.debug(
+                    "Failed to update config picker card activity %s: %s",
+                    reply_to_id,
+                    err,
+                )
+
+        try:
+            await context.send_activity(outgoing)
+        except Exception as err:
+            logger.debug("Failed to send refreshed config picker card: %s", err)
+
     async def _handle_note_taker_config_set(
         context: TurnContext, config_system_name: str
     ) -> None:
         if not config_system_name:
-            await context.send_activity("Usage: /config-set (or /config-set CONFIG_SYSTEM_NAME)")
+            await context.send_activity("Usage: /config (or /config CONFIG_SYSTEM_NAME)")
             return
 
         if not _is_meeting_conversation(context):
@@ -3646,7 +3704,7 @@ def _register_note_taker_handlers(
                 await context.send_activity(
                     "Magnet note taker added to the meeting. "
                     "Please ensure the meeting has the config set using "
-                    "**/config-set**. "
+                    "**/config**. "
                     "Use **/meeting-info** to check the meeting details."
                 )
                 # TODO: refactor it
@@ -3654,6 +3712,8 @@ def _register_note_taker_handlers(
                 await _ensure_organizer_delegated_token_cached(  # TODO: remove this?
                     context, auth_handler_id, prompt_on_missing=True
                 )
+                await _handle_note_taker_config_set_picker(context)
+
         elif action == "remove":
             await _upsert_teams_meeting_record(context, is_bot_installed=False)
 
@@ -3668,6 +3728,8 @@ def _register_note_taker_handlers(
         bot_added = any(getattr(member, "id", None) == bot_id for member in members)
         if bot_added:
             await _upsert_teams_meeting_record(context, is_bot_installed=True)
+            if _is_meeting_conversation(context):
+                await _handle_note_taker_config_set_picker(context)
 
     @app.conversation_update("membersRemoved")
     async def _on_members_removed(context: TurnContext, _state: TurnState) -> None:
@@ -3712,6 +3774,9 @@ def _register_note_taker_handlers(
                     if not allowed:
                         return
                 await _handle_note_taker_config_set(context, config_system_name)
+                await _refresh_note_taker_config_picker_card(
+                    context, selected_system_name=config_system_name
+                )
                 return
 
         if not text:
@@ -3839,8 +3904,9 @@ def _register_note_taker_handlers(
             await _handle_note_taker_config_list(context)
             return
 
-        if normalized_text.startswith("/config-set"):
-            parts = text.split(maxsplit=1)
+        parts = text.split(maxsplit=1)
+        command = (parts[0] or "").strip().lower() if parts else ""
+        if command in {"/config", "/config-set"}:
             if len(parts) < 2 or not parts[1].strip():
                 await _handle_note_taker_config_set_picker(context)
                 return
