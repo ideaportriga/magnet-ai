@@ -372,9 +372,7 @@ async def evaluate_variant(
         # Update evaluation status based on errors
         evaluation_record["finished_at"] = datetime.now(timezone.utc)
         evaluation_record["status"] = (
-            JobRunStatus.FAILED.value
-            if any_errors
-            else JobRunStatus.COMPLETED.value
+            JobRunStatus.FAILED.value if any_errors else JobRunStatus.COMPLETED.value
         )
 
         # Final update of the evaluation record using SQLAlchemy
