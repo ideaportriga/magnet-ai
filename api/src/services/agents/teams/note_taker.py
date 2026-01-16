@@ -3246,11 +3246,6 @@ def _register_note_taker_handlers(
             await context.send_activity("I couldn't find a meeting record to update.")
             return
 
-        account_label = account_name_value or "Unknown"
-        await context.send_activity(
-            f"Saved Salesforce account {account_label} (id {account_id}) for this meeting."
-        )
-
     async def _handle_note_taker_config_list(context: TurnContext) -> None:
         """List available note taker configs stored in DB."""
         await _send_typing(context)
@@ -3292,10 +3287,22 @@ def _register_note_taker_handlers(
         lines.append("Use: /config (in a meeting chat)")
         await context.send_activity("\n".join(lines))
 
+    def _config_requires_salesforce(settings: dict[str, Any] | None) -> bool:
+        if not isinstance(settings, dict):
+            return False
+        salesforce_settings = (settings.get("integration") or {}).get(
+            "salesforce"
+        ) or {}
+        if not isinstance(salesforce_settings, dict):
+            return False
+        return bool(salesforce_settings.get("send_transcript_to_salesforce"))
+
     def _build_note_taker_config_picker_card(
         rows: list[tuple[Any, Any, Any, Any]],
         *,
         current_system_name: str | None = None,
+        current_account_name: str | None = None,
+        salesforce_enabled: bool = False,
         limit: int = 15,
     ) -> dict:
         shown = rows[:limit]
@@ -3335,26 +3342,60 @@ def _register_note_taker_handlers(
                 "wrap": True,
                 "spacing": "Small",
             },
-            {
-                "type": "Input.ChoiceSet",
-                "id": "config_system_name",
-                "style": "expanded",
-                "isMultiSelect": False,
-                "value": current_system_name or "",
-                "choices": choices,
-            },
-            {
-                "type": "ActionSet",
-                "spacing": "Medium",
-                "actions": [
-                    {
-                        "type": "Action.Submit",
-                        "title": "Apply",
-                        "data": {"magnet_action": "note_taker_config_set"},
-                    }
-                ],
-            },
         ]
+
+        if salesforce_enabled:
+            body.extend(
+                [
+                    {
+                        "type": "TextBlock",
+                        "text": "Salesforce account",
+                        "weight": "Bolder",
+                        "spacing": "Medium",
+                    },
+                    {
+                        "type": "TextBlock",
+                        "text": (
+                            "This config sends transcripts to Salesforce. "
+                            "Enter the account name and click Apply."
+                        ),
+                        "wrap": True,
+                        "spacing": "Small",
+                        "isSubtle": True,
+                    },
+                    {
+                        "type": "Input.Text",
+                        "id": "account_name",
+                        "value": (current_account_name or "").strip(),
+                        "placeholder": "Account name (e.g. AccountTest11)",
+                        "spacing": "Small",
+                    },
+                ]
+            )
+
+        body.extend(
+            [
+                {
+                    "type": "Input.ChoiceSet",
+                    "id": "config_system_name",
+                    "style": "expanded",
+                    "isMultiSelect": False,
+                    "value": current_system_name or "",
+                    "choices": choices,
+                },
+                {
+                    "type": "ActionSet",
+                    "spacing": "Medium",
+                    "actions": [
+                        {
+                            "type": "Action.Submit",
+                            "title": "Apply",
+                            "data": {"magnet_action": "note_taker_config_set"},
+                        }
+                    ],
+                },
+            ]
+        )
 
         if len(rows) > limit:
             body.append(
@@ -3384,9 +3425,21 @@ def _register_note_taker_handlers(
 
         meeting_context = _resolve_meeting_details(context)
         meeting_id = meeting_context.get("id")
-        _account_id, _account_name, current_system_name = await _get_meeting_account_info(
-            context, meeting_id
-        )
+        (
+            _account_id,
+            current_account_name,
+            current_system_name,
+        ) = await _get_meeting_account_info(context, meeting_id)
+
+        salesforce_enabled = False
+        if current_system_name:
+            try:
+                settings = await _load_note_taker_settings_by_system_name(
+                    current_system_name
+                )
+                salesforce_enabled = _config_requires_salesforce(settings)
+            except Exception:
+                salesforce_enabled = False
 
         try:
             async with async_session_maker() as session:
@@ -3412,7 +3465,10 @@ def _register_note_taker_handlers(
             return
 
         card = _build_note_taker_config_picker_card(
-            rows, current_system_name=current_system_name
+            rows,
+            current_system_name=current_system_name,
+            current_account_name=current_account_name,
+            salesforce_enabled=salesforce_enabled,
         )
         attachment = Attachment(
             content_type="application/vnd.microsoft.card.adaptive",
@@ -3449,8 +3505,28 @@ def _register_note_taker_handlers(
         if not rows:
             return
 
+        meeting_context = _resolve_meeting_details(context)
+        meeting_id = meeting_context.get("id")
+        (
+            _account_id,
+            current_account_name,
+            _current_system_name,
+        ) = await _get_meeting_account_info(context, meeting_id)
+
+        salesforce_enabled = False
+        try:
+            settings = await _load_note_taker_settings_by_system_name(
+                selected_system_name
+            )
+            salesforce_enabled = _config_requires_salesforce(settings)
+        except Exception:
+            salesforce_enabled = False
+
         card = _build_note_taker_config_picker_card(
-            rows, current_system_name=selected_system_name
+            rows,
+            current_system_name=selected_system_name,
+            current_account_name=current_account_name,
+            salesforce_enabled=salesforce_enabled,
         )
         attachment = Attachment(
             content_type="application/vnd.microsoft.card.adaptive",
@@ -3483,7 +3559,9 @@ def _register_note_taker_handlers(
         context: TurnContext, config_system_name: str
     ) -> None:
         if not config_system_name:
-            await context.send_activity("Usage: /config (or /config CONFIG_SYSTEM_NAME)")
+            await context.send_activity(
+                "Usage: /config (or /config CONFIG_SYSTEM_NAME)"
+            )
             return
 
         if not _is_meeting_conversation(context):
@@ -3559,15 +3637,6 @@ def _register_note_taker_handlers(
         if getattr(result, "rowcount", 0) == 0:
             await context.send_activity("I couldn't find a meeting record to update.")
             return
-
-        await context.send_activity(
-            (
-                f"Saved note taker config {config_row.name or config_row.system_name} "
-                f"(system_name: {config_row.system_name}) for this meeting. "
-                "If your config includes sending transcript to Salesforce, ensure you set SF account "
-                "using **/sf-account-set ACCOUNT_NAME**"
-            )
-        )
 
     async def _handle_meeting_info(
         context: TurnContext, state: Optional[TurnState]
@@ -3701,12 +3770,6 @@ def _register_note_taker_handlers(
             await _upsert_teams_meeting_record(context, is_bot_installed=True)
             await _handle_install_flow(context, _state)
             if _is_meeting_conversation(context):
-                await context.send_activity(
-                    "Magnet note taker added to the meeting. "
-                    "Please ensure the meeting has the config set using "
-                    "**/config**. "
-                    "Use **/meeting-info** to check the meeting details."
-                )
                 # TODO: refactor it
                 await _prompt_organizer_personal_install_if_missing(context)
                 await _ensure_organizer_delegated_token_cached(  # TODO: remove this?
@@ -3763,7 +3826,9 @@ def _register_note_taker_handlers(
         if isinstance(submit_value, dict):
             magnet_action = submit_value.get("magnet_action")
             if magnet_action == "note_taker_config_set":
-                config_system_name = (submit_value.get("config_system_name") or "").strip()
+                config_system_name = (
+                    submit_value.get("config_system_name") or ""
+                ).strip()
                 if not config_system_name:
                     await context.send_activity("Please pick a valid config.")
                     return
@@ -3773,7 +3838,25 @@ def _register_note_taker_handlers(
                     )
                     if not allowed:
                         return
+                account_name = (submit_value.get("account_name") or "").strip()
+                salesforce_enabled = False
+                try:
+                    settings = await _load_note_taker_settings_by_system_name(
+                        config_system_name
+                    )
+                    salesforce_enabled = _config_requires_salesforce(settings)
+                except Exception:
+                    salesforce_enabled = False
+
                 await _handle_note_taker_config_set(context, config_system_name)
+                if salesforce_enabled and account_name:
+                    try:
+                        await _handle_sf_account_set(context, account_name)
+                    except Exception:
+                        # _handle_sf_account_set is already user-facing; avoid cascading failures.
+                        logger.exception(
+                            "Failed to save Salesforce account from config picker."
+                        )
                 await _refresh_note_taker_config_picker_card(
                     context, selected_system_name=config_system_name
                 )
