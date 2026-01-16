@@ -1798,8 +1798,8 @@ def _register_note_taker_handlers(
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - (to be removed) Show your Teams identity and sign-in status.",
-            "**/config-list** - List available note taker configs.",
-            "**/config-set CONFIG_SYSTEM_NAME** - Assign a note taker config to this meeting.",
+            "**/config-list** - (to be removed) List available note taker configs.",
+            "**/config-set** - Pick a note taker config for this meeting.",
             "**/sf-account-lookup (to be removed) ACCOUNT_NAME** - Lookup a Salesforce account.",
             "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
@@ -3289,14 +3289,169 @@ def _register_note_taker_handlers(
 
         if len(rows) > 30:
             lines.append(f"...and {len(rows) - 30} more")
-        lines.append("Use: /config-set CONFIG_SYSTEM_NAME (in a meeting chat)")
+        lines.append("Use: /config-set (in a meeting chat)")
         await context.send_activity("\n".join(lines))
+
+    def _build_note_taker_config_picker_card(
+        rows: list[tuple[Any, Any, Any, Any]],
+        *,
+        current_system_name: str | None = None,
+        limit: int = 15,
+    ) -> dict:
+        shown = rows[:limit]
+        header = "Pick a note taker config"
+        current = current_system_name or "None"
+
+        body: list[dict[str, Any]] = [
+            {
+                "type": "TextBlock",
+                "text": header,
+                "weight": "Bolder",
+                "size": "Large",
+            },
+            {
+                "type": "TextBlock",
+                "text": f"Current config: {current}",
+                "wrap": True,
+                "spacing": "Small",
+            },
+            {
+                "type": "TextBlock",
+                "text": "Click a config to apply it to this meeting.",
+                "wrap": True,
+                "spacing": "Small",
+            },
+        ]
+
+        for row in shown:
+            config_id, name, system_name, description = row
+            if not system_name:
+                continue
+            title = (name or system_name or str(config_id) or "").strip()
+            desc = (description or "").strip()
+            container_items: list[dict[str, Any]] = [
+                {
+                    "type": "TextBlock",
+                    "text": title,
+                    "weight": "Bolder",
+                    "wrap": True,
+                }
+            ]
+            if desc:
+                container_items.append(
+                    {
+                        "type": "TextBlock",
+                        "text": desc,
+                        "wrap": True,
+                        "spacing": "Small",
+                        "isSubtle": True,
+                    }
+                )
+            container_items.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"system_name: {system_name}",
+                    "wrap": True,
+                    "spacing": "Small",
+                    "isSubtle": True,
+                }
+            )
+            container_items.append(
+                {
+                    "type": "ActionSet",
+                    "spacing": "Small",
+                    "actions": [
+                        {
+                            "type": "Action.Submit",
+                            "title": "Select",
+                            "data": {
+                                "magnet_action": "note_taker_config_set",
+                                "config_system_name": system_name,
+                            },
+                        }
+                    ],
+                }
+            )
+
+            body.append(
+                {
+                    "type": "Container",
+                    "spacing": "Medium",
+                    "separator": True,
+                    "items": container_items,
+                }
+            )
+
+        if len(rows) > limit:
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"Showing first {limit} of {len(rows)} configs. Use **/config-list** to see all.",
+                    "wrap": True,
+                    "spacing": "Medium",
+                    "isSubtle": True,
+                }
+            )
+
+        return {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.5",
+            "body": body,
+            "msteams": {"width": "Full"},
+        }
+
+    async def _handle_note_taker_config_set_picker(context: TurnContext) -> None:
+        if not _is_meeting_conversation(context):
+            await context.send_activity("This command works only in meeting chats.")
+            return
+
+        await _send_typing(context)
+
+        meeting_context = _resolve_meeting_details(context)
+        meeting_id = meeting_context.get("id")
+        _account_id, _account_name, current_system_name = await _get_meeting_account_info(
+            context, meeting_id
+        )
+
+        try:
+            async with async_session_maker() as session:
+                stmt = select(
+                    NoteTakerSettingsModel.id,
+                    NoteTakerSettingsModel.name,
+                    NoteTakerSettingsModel.system_name,
+                    NoteTakerSettingsModel.description,
+                ).order_by(NoteTakerSettingsModel.created_at.asc())
+                result = await session.execute(stmt)
+                rows = result.all()
+        except Exception as err:
+            logger.exception("Failed to list note taker configs for picker")
+            await context.send_activity(
+                f"Failed to list note taker configs: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if not rows:
+            await context.send_activity(
+                "No note taker configs found. Create one in the admin UI first."
+            )
+            return
+
+        card = _build_note_taker_config_picker_card(
+            rows, current_system_name=current_system_name
+        )
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        activity = Activity(type="message", attachments=[attachment])
+        await context.send_activity(activity)
 
     async def _handle_note_taker_config_set(
         context: TurnContext, config_system_name: str
     ) -> None:
         if not config_system_name:
-            await context.send_activity("Usage: /config-set CONFIG_SYSTEM_NAME")
+            await context.send_activity("Usage: /config-set (or /config-set CONFIG_SYSTEM_NAME)")
             return
 
         if not _is_meeting_conversation(context):
@@ -3517,7 +3672,7 @@ def _register_note_taker_handlers(
                 await context.send_activity(
                     "Magnet note taker added to the meeting. "
                     "Please ensure the meeting has the config set using "
-                    "**/config-set CONFIG_SYSTEM_NAME**. "
+                    "**/config-set**. "
                     "Use **/meeting-info** to check the meeting details."
                 )
                 # TODO: refactor it
@@ -3554,18 +3709,36 @@ def _register_note_taker_handlers(
 
     @app.activity("message")
     async def _on_message(context: TurnContext, _state: TurnState) -> None:
-        text = (getattr(getattr(context, "activity", None), "text", "") or "").strip()
+        activity = getattr(context, "activity", None)
+        text = (getattr(activity, "text", "") or "").strip()
         logger.info("[teams note-taker] message received: %s", text)
         logger.info(
             "[teams note-taker] context details: activity=%s, conversation=%s, from=%s, recipient=%s, channel_id=%s",
-            getattr(context, "activity", None),
-            getattr(getattr(context, "activity", None), "conversation", None),
-            getattr(getattr(context, "activity", None), "from_property", None),
-            getattr(getattr(context, "activity", None), "recipient", None),
-            getattr(getattr(context, "activity", None), "channel_id", None),
+            activity,
+            getattr(activity, "conversation", None),
+            getattr(activity, "from_property", None),
+            getattr(activity, "recipient", None),
+            getattr(activity, "channel_id", None),
         )
 
         await _upsert_teams_user_record(context)
+
+        submit_value = getattr(activity, "value", None)
+        if isinstance(submit_value, dict):
+            magnet_action = submit_value.get("magnet_action")
+            if magnet_action == "note_taker_config_set":
+                config_system_name = (submit_value.get("config_system_name") or "").strip()
+                if not config_system_name:
+                    await context.send_activity("Please pick a valid config.")
+                    return
+                if _is_meeting_conversation(context):
+                    allowed = await _ensure_meeting_organizer_and_signed_in(
+                        context, auth_handler_id
+                    )
+                    if not allowed:
+                        return
+                await _handle_note_taker_config_set(context, config_system_name)
+                return
 
         if not text:
             return
@@ -3695,7 +3868,7 @@ def _register_note_taker_handlers(
         if normalized_text.startswith("/config-set"):
             parts = text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity("Usage: /config-set CONFIG_SYSTEM_NAME")
+                await _handle_note_taker_config_set_picker(context)
                 return
 
             config_id_or_system_name = parts[1].strip()
