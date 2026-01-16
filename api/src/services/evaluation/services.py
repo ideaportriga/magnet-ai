@@ -1,4 +1,5 @@
 from logging import getLogger
+import json
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -224,3 +225,32 @@ async def update_evaluation_score(
     )
 
     return check_result.fetchone() is not None
+
+
+async def append_evaluation_results(
+    db_session: AsyncSession,
+    evaluation_id: str,
+    new_results: list[dict],
+    errors: list[str] | None = None,
+) -> None:
+    """
+    Append new results to an evaluation's results array.
+    """
+    sql = """
+    UPDATE evaluations
+    SET
+        results = COALESCE(results, '[]'::jsonb) || CAST(:new_results AS jsonb),
+        errors = COALESCE(CAST(:errors AS jsonb), errors),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = CAST(:evaluation_id AS uuid)
+    """
+
+    await db_session.execute(
+        text(sql),
+        {
+            "evaluation_id": evaluation_id,
+            "new_results": json.dumps(new_results, default=str),
+            "errors": json.dumps(errors, default=str) if errors is not None else None,
+        },
+    )
+    await db_session.commit()
