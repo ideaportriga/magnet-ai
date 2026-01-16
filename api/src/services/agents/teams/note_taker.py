@@ -1783,25 +1783,13 @@ def _register_note_taker_handlers(
     bot_app_id: str,
     bot_tenant_id: str,
 ) -> None:
-    async def _send_typing(context: TurnContext) -> None:
-        try:
-            await context.send_activity(Activity(type="typing"))
-        except Exception as err:
-            logger.debug(
-                "Failed to send typing indicator: %s",
-                getattr(err, "message", str(err)),
-            )
-
     def _build_note_taker_welcome_card(bot_name: str | None) -> dict:
         commands = [
             "**/welcome** - Show this help.",
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - (to be removed) Show your Teams identity and sign-in status.",
-            "**/config-list** - List available note taker configs.",
-            "**/config-set CONFIG_SYSTEM_NAME** - Assign a note taker config to this meeting.",
-            "**/sf-account-lookup (to be removed) ACCOUNT_NAME** - Lookup a Salesforce account.",
-            "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
+            "**/config** - Pick a note taker config for this meeting.",
             "**/recordings-list** - List meeting recordings.",
             "**/recordings-find** - (to be removed) List meeting recordings and transcribe the latest.",
             "**/process-transcript-job TRANSCRIPTION_JOB_ID** - Process an existing transcription job.",
@@ -1954,125 +1942,22 @@ def _register_note_taker_handlers(
 
         return _notify_salesforce
 
-    async def _transcribe_stream_and_notify(
+    def _make_salesforce_on_submit_factory(
         context: TurnContext,
         *,
-        download_url: str,
-        headers: dict[str, str],
-        name_resolver: Callable[[str, str | None, str], tuple[str, str]],
-        conversation_date: str | None = None,
-        known_size: int | None = None,
-        on_submit: Callable[[str], Awaitable[None]] | None = None,
-        on_submit_factory: Callable[
-            [str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]
-        ]
-        | None = None,
-    ) -> None:
-        await _send_typing(context)
-        timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            (
-                probed_size,
-                probed_type,
-                probed_disposition,
-                probed_final_url,
-            ) = await _probe_remote_file_metadata(client, download_url, headers=headers)
-            async with client.stream("GET", download_url, headers=headers) as response:
-                response.raise_for_status()
-                content_type = (
-                    (response.headers.get("Content-Type") or "application/octet-stream")
-                    .split(";")[0]
-                    .strip()
-                )
-                if not content_type or content_type == "application/octet-stream":
-                    probed_ct = (probed_type or "").split(";")[0].strip()
-                    if probed_ct:
-                        content_type = probed_ct
-                content_length = _parse_content_length(
-                    response.headers.get("Content-Length")
-                )
-                if content_length is None:
-                    content_length = known_size or probed_size
-                final_url = str(response.url) if response.url else download_url
-                content_disposition = response.headers.get("Content-Disposition")
-                if not content_disposition:
-                    content_disposition = probed_disposition
-                if not final_url and probed_final_url:
-                    final_url = probed_final_url
-                name, ext = name_resolver(content_type, content_disposition, final_url)
-
-                if not content_type.startswith(("audio/", "video/")):
-                    await context.send_activity(
-                        f"I downloaded a file of type `{content_type}` (extension `{ext or 'n/a'}`), "
-                        "but I can only transcribe audio or video files like .mp3, .wav, .m4a, .mp4."
-                    )
-                    return
-
-                if content_length is None:
-                    await context.send_activity(
-                        "I couldn't determine the file size for a streaming upload. "
-                        "Please provide a direct download link with a Content-Length header."
-                    )
-                    return
-
-                if on_submit is None:
-                    if on_submit_factory is not None:
-                        on_submit = await on_submit_factory(name, ext, content_type)
-                    else:
-                        on_submit = await _build_salesforce_submit_callback(
-                            context,
-                            conversation_date=conversation_date,
-                            source_file_name=f"{name}{ext}",
-                            source_file_type=content_type,
-                        )
-
-                try:
-                    object_key = await _upload_stream_to_object(
-                        stream=response.aiter_bytes(),
-                        size=content_length,
-                        content_type=content_type,
-                        filename=f"{name}{ext}",
-                    )
-                except Exception as err:
-                    logger.exception("Failed to upload streamed file")
-                    await context.send_activity(
-                        f"I couldn't upload the file for transcription: {getattr(err, 'message', str(err))}"
-                    )
-                    return
-
-        try:
-            status, result = await _start_transcription_from_object_key(
-                name=name,
-                ext=ext,
-                object_key=object_key,
-                content_type=content_type,
-                pipeline_id=DEFAULT_PIPELINE,
-                on_submit=on_submit,
+        conversation_date: str | None,
+    ) -> Callable[[str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]]:
+        async def _factory(
+            name: str, ext: str, content_type: str
+        ) -> Callable[[str], Awaitable[None]] | None:
+            return await _build_salesforce_submit_callback(
+                context,
+                conversation_date=conversation_date,
+                source_file_name=f"{name}{ext}",
+                source_file_type=content_type,
             )
-        except Exception as err:
-            logger.exception("Failed to start transcription for streamed file")
-            await context.send_activity(
-                f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
-            )
-            return
 
-        logger.info(
-            "[teams note-taker] transcription result: %s",
-            result,
-        )
-
-        job_id = (result or {}).get("id") if isinstance(result, dict) else None
-        transcription = (
-            (result or {}).get("transcription") if isinstance(result, dict) else None
-        )
-
-        await _send_transcription_summary(
-            context,
-            status,
-            job_id,
-            transcription,
-            conversation_date=conversation_date,
-        )
+        return _factory
 
     async def _process_transcription_job_and_notify(
         context: TurnContext,
@@ -2568,6 +2453,9 @@ def _register_note_taker_handlers(
 
             headers = {"Authorization": f"Bearer {delegated_token}"}
 
+            conversation_date = _format_recording_date_iso(
+                recordings[0].get("createdDateTime")
+            )
             await _transcribe_stream_and_notify(
                 context,
                 download_url=content_url,
@@ -2575,8 +2463,10 @@ def _register_note_taker_handlers(
                 name_resolver=lambda *_: (name, ext),
                 known_size=recordings[0].get("size")
                 or await get_recording_file_size(content_url, delegated_token),
-                conversation_date=_format_recording_date_iso(
-                    recordings[0].get("createdDateTime")
+                conversation_date=conversation_date,
+                on_submit_factory=_make_salesforce_on_submit_factory(
+                    context,
+                    conversation_date=conversation_date,
                 ),
             )
 
@@ -2644,6 +2534,7 @@ def _register_note_taker_handlers(
 
         headers = {"Authorization": f"Bearer {delegated_token}"}
 
+        conversation_date = _format_recording_date_iso(recording.get("createdDateTime"))
         await _transcribe_stream_and_notify(
             context,
             download_url=content_url,
@@ -2651,8 +2542,10 @@ def _register_note_taker_handlers(
             name_resolver=lambda *_: (name, ext),
             known_size=recording.get("size")
             or await get_recording_file_size(content_url, delegated_token),
-            conversation_date=_format_recording_date_iso(
-                recording.get("createdDateTime")
+            conversation_date=conversation_date,
+            on_submit_factory=_make_salesforce_on_submit_factory(
+                context,
+                conversation_date=conversation_date,
             ),
         )
 
@@ -2690,6 +2583,10 @@ def _register_note_taker_handlers(
             download_url=download_url,
             headers=headers,
             name_resolver=name_resolver,
+            on_submit_factory=_make_salesforce_on_submit_factory(
+                context,
+                conversation_date=None,
+            ),
         )
 
     async def _get_token_proactively(
@@ -3088,63 +2985,6 @@ def _register_note_taker_handlers(
 
         return False
 
-    async def _handle_sf_account_lookup(
-        context: TurnContext, account_name: str
-    ) -> None:
-        if not account_name:
-            await context.send_activity("Usage: /sf-account-lookup ACCOUNT_NAME")
-            return
-
-        await _send_typing(context)
-
-        try:
-            settings = await _load_note_taker_settings_for_context(context)
-            salesforce_settings = (settings.get("integration") or {}).get(
-                "salesforce"
-            ) or {}
-            salesforce_api_server = (
-                salesforce_settings.get("salesforce_api_server") or None
-            )
-            result = await account_lookup(
-                account_name,
-                server=salesforce_api_server,
-            )
-        except Exception as err:
-            logger.exception(
-                "Salesforce account lookup failed for %s",
-                account_name,
-            )
-            await context.send_activity(
-                f"Salesforce account lookup failed: {getattr(err, 'message', str(err))}"
-            )
-            return
-
-        if isinstance(result, list):
-            count = len(result)
-            first_account_id = None
-            first_account_name = None
-            if result and isinstance(result[0], dict):
-                first_account_id = result[0].get("accountId")
-                first_account_name = (
-                    result[0].get("accountName")
-                    or result[0].get("name")
-                    or result[0].get("Name")
-                )
-            lines = [
-                f"Results: {count}",
-                f"First accountId: {first_account_id or 'n/a'}",
-                f"First accountName: {first_account_name or 'n/a'}",
-            ]
-            await context.send_activity("\n".join(lines))
-            return
-
-        if isinstance(result, dict):
-            payload = json.dumps(result, indent=2, ensure_ascii=True)
-            await context.send_activity(f"```json\n{payload}\n```")
-            return
-
-        await context.send_activity(str(result))
-
     async def _handle_sf_account_set(context: TurnContext, account_name: str) -> None:
         if not account_name:
             await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
@@ -3246,14 +3086,159 @@ def _register_note_taker_handlers(
             await context.send_activity("I couldn't find a meeting record to update.")
             return
 
-        account_label = account_name_value or "Unknown"
-        await context.send_activity(
-            f"Saved Salesforce account {account_label} (id {account_id}) for this meeting."
+    def _config_requires_salesforce(settings: dict[str, Any] | None) -> bool:
+        if not isinstance(settings, dict):
+            return False
+        salesforce_settings = (settings.get("integration") or {}).get(
+            "salesforce"
+        ) or {}
+        if not isinstance(salesforce_settings, dict):
+            return False
+        return bool(salesforce_settings.get("send_transcript_to_salesforce"))
+
+    def _build_note_taker_config_picker_card(
+        rows: list[tuple[Any, Any, Any, Any]],
+        *,
+        current_system_name: str | None = None,
+        current_account_name: str | None = None,
+        salesforce_enabled: bool = False,
+        limit: int = 15,
+    ) -> dict:
+        shown = rows[:limit]
+        header = "Pick a note taker config"
+        current = current_system_name or "None"
+
+        choices: list[dict[str, Any]] = []
+        for row in shown:
+            config_id, name, system_name, description = row
+            if not system_name:
+                continue
+            title = (name or system_name or str(config_id) or "").strip()
+            desc = (description or "").strip()
+            if desc:
+                compact_desc = " ".join(desc.split())
+                if len(compact_desc) > 90:
+                    compact_desc = f"{compact_desc[:87]}..."
+                title = f"{title} — {compact_desc}"
+            choices.append({"title": title, "value": system_name})
+
+        body: list[dict[str, Any]] = [
+            {
+                "type": "TextBlock",
+                "text": header,
+                "weight": "Bolder",
+                "size": "Large",
+            },
+            {
+                "type": "TextBlock",
+                "text": f"Current config: {current}",
+                "wrap": True,
+                "spacing": "Small",
+            },
+            {
+                "type": "TextBlock",
+                "text": "Select a config and click Apply to set it for this meeting.",
+                "wrap": True,
+                "spacing": "Small",
+            },
+        ]
+
+        if salesforce_enabled:
+            body.extend(
+                [
+                    {
+                        "type": "TextBlock",
+                        "text": "Salesforce account",
+                        "weight": "Bolder",
+                        "spacing": "Medium",
+                    },
+                    {
+                        "type": "TextBlock",
+                        "text": (
+                            "This config sends transcripts to Salesforce. "
+                            "Enter the account name and click Apply."
+                        ),
+                        "wrap": True,
+                        "spacing": "Small",
+                        "isSubtle": True,
+                    },
+                    {
+                        "type": "Input.Text",
+                        "id": "account_name",
+                        "value": (current_account_name or "").strip(),
+                        "placeholder": "Account name (e.g. AccountTest11)",
+                        "spacing": "Small",
+                    },
+                ]
+            )
+
+        body.extend(
+            [
+                {
+                    "type": "Input.ChoiceSet",
+                    "id": "config_system_name",
+                    "style": "expanded",
+                    "isMultiSelect": False,
+                    "value": current_system_name or "",
+                    "choices": choices,
+                },
+                {
+                    "type": "ActionSet",
+                    "spacing": "Medium",
+                    "actions": [
+                        {
+                            "type": "Action.Submit",
+                            "title": "Apply",
+                            "data": {"magnet_action": "note_taker_config_set"},
+                        }
+                    ],
+                },
+            ]
         )
 
-    async def _handle_note_taker_config_list(context: TurnContext) -> None:
-        """List available note taker configs stored in DB."""
+        if len(rows) > limit:
+            body.append(
+                {
+                    "type": "TextBlock",
+                    "text": f"Showing first {limit} of {len(rows)} configs.",
+                    "wrap": True,
+                    "spacing": "Medium",
+                    "isSubtle": True,
+                }
+            )
+
+        return {
+            "type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.5",
+            "body": body,
+            "msteams": {"width": "Full"},
+        }
+
+    async def _handle_note_taker_config_set_picker(context: TurnContext) -> None:
+        if not _is_meeting_conversation(context):
+            await context.send_activity("This command works only in meeting chats.")
+            return
+
         await _send_typing(context)
+
+        meeting_context = _resolve_meeting_details(context)
+        meeting_id = meeting_context.get("id")
+        (
+            _account_id,
+            current_account_name,
+            current_system_name,
+        ) = await _get_meeting_account_info(context, meeting_id)
+
+        salesforce_enabled = False
+        if current_system_name:
+            try:
+                settings = await _load_note_taker_settings_by_system_name(
+                    current_system_name
+                )
+                salesforce_enabled = _config_requires_salesforce(settings)
+            except Exception:
+                salesforce_enabled = False
 
         try:
             async with async_session_maker() as session:
@@ -3266,7 +3251,7 @@ def _register_note_taker_handlers(
                 result = await session.execute(stmt)
                 rows = result.all()
         except Exception as err:
-            logger.exception("Failed to list note taker configs")
+            logger.exception("Failed to list note taker configs for picker")
             await context.send_activity(
                 f"Failed to list note taker configs: {getattr(err, 'message', str(err))}"
             )
@@ -3278,31 +3263,100 @@ def _register_note_taker_handlers(
             )
             return
 
-        lines = ["Available note taker configs:"]
-        for row in rows[:30]:
-            config_id, name, system_name, description = row
-            label = name or system_name or str(config_id)
-            desc_part = f" — {description}" if description else ""
-            lines.append(
-                f"- {label}{desc_part} (system_name: {system_name}, id: {config_id})"
-            )
+        card = _build_note_taker_config_picker_card(
+            rows,
+            current_system_name=current_system_name,
+            current_account_name=current_account_name,
+            salesforce_enabled=salesforce_enabled,
+        )
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        activity = Activity(type="message", attachments=[attachment])
+        await context.send_activity(activity)
 
-        if len(rows) > 30:
-            lines.append(f"...and {len(rows) - 30} more")
-        lines.append("Use: /config-set CONFIG_SYSTEM_NAME (in a meeting chat)")
-        await context.send_activity("\n".join(lines))
+    async def _refresh_note_taker_config_picker_card(
+        context: TurnContext,
+        *,
+        selected_system_name: str,
+    ) -> None:
+        """Best-effort update of the picker card after Apply.
+
+        If Teams provides a reply_to_id, we attempt to update the original card message.
+        Otherwise, we send a new card.
+        """
+
+        try:
+            async with async_session_maker() as session:
+                stmt = select(
+                    NoteTakerSettingsModel.id,
+                    NoteTakerSettingsModel.name,
+                    NoteTakerSettingsModel.system_name,
+                    NoteTakerSettingsModel.description,
+                ).order_by(NoteTakerSettingsModel.created_at.asc())
+                result = await session.execute(stmt)
+                rows = result.all()
+        except Exception as err:
+            logger.debug("Failed to refresh note taker config picker card: %s", err)
+            return
+
+        if not rows:
+            return
+
+        meeting_context = _resolve_meeting_details(context)
+        meeting_id = meeting_context.get("id")
+        (
+            _account_id,
+            current_account_name,
+            _current_system_name,
+        ) = await _get_meeting_account_info(context, meeting_id)
+
+        salesforce_enabled = False
+        try:
+            settings = await _load_note_taker_settings_by_system_name(
+                selected_system_name
+            )
+            salesforce_enabled = _config_requires_salesforce(settings)
+        except Exception:
+            salesforce_enabled = False
+
+        card = _build_note_taker_config_picker_card(
+            rows,
+            current_system_name=selected_system_name,
+            current_account_name=current_account_name,
+            salesforce_enabled=salesforce_enabled,
+        )
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        outgoing = Activity(type="message", attachments=[attachment])
+
+        activity = getattr(context, "activity", None)
+        reply_to_id = getattr(activity, "reply_to_id", None)
+        if reply_to_id:
+            outgoing.id = reply_to_id
+            try:
+                updater = getattr(context, "update_activity", None)
+                if callable(updater):
+                    await updater(outgoing)
+                    return
+            except Exception as err:
+                logger.debug(
+                    "Failed to update config picker card activity %s: %s",
+                    reply_to_id,
+                    err,
+                )
+
+        try:
+            await context.send_activity(outgoing)
+        except Exception as err:
+            logger.debug("Failed to send refreshed config picker card: %s", err)
 
     async def _handle_note_taker_config_set(
         context: TurnContext, config_system_name: str
     ) -> None:
-        if not config_system_name:
-            await context.send_activity("Usage: /config-set CONFIG_SYSTEM_NAME")
-            return
-
-        if not _is_meeting_conversation(context):
-            await context.send_activity("This command works only in meeting chats.")
-            return
-
         await _send_typing(context)
 
         try:
@@ -3372,15 +3426,6 @@ def _register_note_taker_handlers(
         if getattr(result, "rowcount", 0) == 0:
             await context.send_activity("I couldn't find a meeting record to update.")
             return
-
-        await context.send_activity(
-            (
-                f"Saved note taker config {config_row.name or config_row.system_name} "
-                f"(system_name: {config_row.system_name}) for this meeting. "
-                "If your config includes sending transcript to Salesforce, ensure you set SF account "
-                "using **/sf-account-set ACCOUNT_NAME**"
-            )
-        )
 
     async def _handle_meeting_info(
         context: TurnContext, state: Optional[TurnState]
@@ -3514,17 +3559,13 @@ def _register_note_taker_handlers(
             await _upsert_teams_meeting_record(context, is_bot_installed=True)
             await _handle_install_flow(context, _state)
             if _is_meeting_conversation(context):
-                await context.send_activity(
-                    "Magnet note taker added to the meeting. "
-                    "Please ensure the meeting has the config set using "
-                    "**/config-set CONFIG_SYSTEM_NAME**. "
-                    "Use **/meeting-info** to check the meeting details."
-                )
                 # TODO: refactor it
                 await _prompt_organizer_personal_install_if_missing(context)
                 await _ensure_organizer_delegated_token_cached(  # TODO: remove this?
                     context, auth_handler_id, prompt_on_missing=True
                 )
+                await _handle_note_taker_config_set_picker(context)
+
         elif action == "remove":
             await _upsert_teams_meeting_record(context, is_bot_installed=False)
 
@@ -3539,6 +3580,8 @@ def _register_note_taker_handlers(
         bot_added = any(getattr(member, "id", None) == bot_id for member in members)
         if bot_added:
             await _upsert_teams_meeting_record(context, is_bot_installed=True)
+            if _is_meeting_conversation(context):
+                await _handle_note_taker_config_set_picker(context)
 
     @app.conversation_update("membersRemoved")
     async def _on_members_removed(context: TurnContext, _state: TurnState) -> None:
@@ -3554,18 +3597,59 @@ def _register_note_taker_handlers(
 
     @app.activity("message")
     async def _on_message(context: TurnContext, _state: TurnState) -> None:
-        text = (getattr(getattr(context, "activity", None), "text", "") or "").strip()
+        activity = getattr(context, "activity", None)
+        text = (getattr(activity, "text", "") or "").strip()
         logger.info("[teams note-taker] message received: %s", text)
         logger.info(
             "[teams note-taker] context details: activity=%s, conversation=%s, from=%s, recipient=%s, channel_id=%s",
-            getattr(context, "activity", None),
-            getattr(getattr(context, "activity", None), "conversation", None),
-            getattr(getattr(context, "activity", None), "from_property", None),
-            getattr(getattr(context, "activity", None), "recipient", None),
-            getattr(getattr(context, "activity", None), "channel_id", None),
+            activity,
+            getattr(activity, "conversation", None),
+            getattr(activity, "from_property", None),
+            getattr(activity, "recipient", None),
+            getattr(activity, "channel_id", None),
         )
 
         await _upsert_teams_user_record(context)
+
+        submit_value = getattr(activity, "value", None)
+        if isinstance(submit_value, dict):
+            magnet_action = submit_value.get("magnet_action")
+            if magnet_action == "note_taker_config_set":
+                config_system_name = (
+                    submit_value.get("config_system_name") or ""
+                ).strip()
+                if not config_system_name:
+                    await context.send_activity("Please pick a valid config.")
+                    return
+                if _is_meeting_conversation(context):
+                    allowed = await _ensure_meeting_organizer_and_signed_in(
+                        context, auth_handler_id
+                    )
+                    if not allowed:
+                        return
+                account_name = (submit_value.get("account_name") or "").strip()
+                salesforce_enabled = False
+                try:
+                    settings = await _load_note_taker_settings_by_system_name(
+                        config_system_name
+                    )
+                    salesforce_enabled = _config_requires_salesforce(settings)
+                except Exception:
+                    salesforce_enabled = False
+
+                await _handle_note_taker_config_set(context, config_system_name)
+                if salesforce_enabled and account_name:
+                    try:
+                        await _handle_sf_account_set(context, account_name)
+                    except Exception:
+                        # _handle_sf_account_set is already user-facing; avoid cascading failures.
+                        logger.exception(
+                            "Failed to save Salesforce account from config picker."
+                        )
+                await _refresh_note_taker_config_picker_card(
+                    context, selected_system_name=config_system_name
+                )
+                return
 
         if not text:
             return
@@ -3670,36 +3754,8 @@ def _register_note_taker_handlers(
             if not allowed:
                 return
 
-        if normalized_text.startswith("/sf-account-lookup"):
-            parts = text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity("Usage: /sf-account-lookup ACCOUNT_NAME")
-                return
-            account_name = parts[1].strip()
-            await _handle_sf_account_lookup(context, account_name)
-            return
-
-        if normalized_text.startswith("/sf-account-set"):
-            parts = text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
-                return
-            account_name = parts[1].strip()
-            await _handle_sf_account_set(context, account_name)
-            return
-
-        if normalized_text.startswith("/config-list"):
-            await _handle_note_taker_config_list(context)
-            return
-
-        if normalized_text.startswith("/config-set"):
-            parts = text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity("Usage: /config-set CONFIG_SYSTEM_NAME")
-                return
-
-            config_id_or_system_name = parts[1].strip()
-            await _handle_note_taker_config_set(context, config_id_or_system_name)
+        if normalized_text.startswith("/config"):
+            await _handle_note_taker_config_set_picker(context)
             return
 
         if normalized_text.startswith("/process-file"):
@@ -3931,7 +3987,6 @@ async def handle_recordings_ready_notifications(
             )
 
         # TEMP? organizer fallback below (this should not be needed)
-
         if meeting_row is None and meeting_id_hint:
             meeting_row = SimpleNamespace(
                 meeting_id=meeting_id_hint,
@@ -4120,11 +4175,6 @@ async def _process_recording_notification_for_meeting(
     try:
         async with create_graph_client_with_token(delegated_token) as graph_client:
             if recording_id:
-                # base_path = (
-                #     f"/users/{quote(user_id_hint, safe='')}/onlineMeetings/{quote(online_meeting_id, safe='')}"
-                #     if user_id_hint
-                #     else None
-                # )
                 recording = await get_recording_by_id(
                     client=graph_client,
                     online_meeting_id=online_meeting_id,
@@ -4135,14 +4185,6 @@ async def _process_recording_notification_for_meeting(
                     "[teams note-taker] recording=%s",
                     recording,
                 )
-                # if recording and not recording.get("contentUrl"):
-                #    # Fallback to communications path if user-scoped call lacked contentUrl.
-                #    recording = await get_recording_by_id(
-                #        client=graph_client,
-                #        online_meeting_id=online_meeting_id,
-                #        recording_id=recording_id,
-                #        # base_path=f"/communications/onlineMeetings/{quote(online_meeting_id, safe='')}",
-                #    )
                 recordings = [recording] if recording else []
             else:  # TODO: remove this
                 recordings = await get_meeting_recordings(
