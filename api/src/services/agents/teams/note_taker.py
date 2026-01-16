@@ -3302,6 +3302,20 @@ def _register_note_taker_handlers(
         header = "Pick a note taker config"
         current = current_system_name or "None"
 
+        choices: list[dict[str, Any]] = []
+        for row in shown:
+            config_id, name, system_name, description = row
+            if not system_name:
+                continue
+            title = (name or system_name or str(config_id) or "").strip()
+            desc = (description or "").strip()
+            if desc:
+                compact_desc = " ".join(desc.split())
+                if len(compact_desc) > 90:
+                    compact_desc = f"{compact_desc[:87]}..."
+                title = f"{title} — {compact_desc}"
+            choices.append({"title": title, "value": system_name})
+
         body: list[dict[str, Any]] = [
             {
                 "type": "TextBlock",
@@ -3317,70 +3331,30 @@ def _register_note_taker_handlers(
             },
             {
                 "type": "TextBlock",
-                "text": "Click a config to apply it to this meeting.",
+                "text": "Select a config and click Apply to set it for this meeting.",
                 "wrap": True,
                 "spacing": "Small",
             },
-        ]
-
-        for row in shown:
-            config_id, name, system_name, description = row
-            if not system_name:
-                continue
-            title = (name or system_name or str(config_id) or "").strip()
-            desc = (description or "").strip()
-            container_items: list[dict[str, Any]] = [
-                {
-                    "type": "TextBlock",
-                    "text": title,
-                    "weight": "Bolder",
-                    "wrap": True,
-                }
-            ]
-            if desc:
-                container_items.append(
+            {
+                "type": "Input.ChoiceSet",
+                "id": "config_system_name",
+                "style": "expanded",
+                "isMultiSelect": False,
+                "value": current_system_name or "",
+                "choices": choices,
+            },
+            {
+                "type": "ActionSet",
+                "spacing": "Medium",
+                "actions": [
                     {
-                        "type": "TextBlock",
-                        "text": desc,
-                        "wrap": True,
-                        "spacing": "Small",
-                        "isSubtle": True,
+                        "type": "Action.Submit",
+                        "title": "Apply",
+                        "data": {"magnet_action": "note_taker_config_set"},
                     }
-                )
-            container_items.append(
-                {
-                    "type": "TextBlock",
-                    "text": f"system_name: {system_name}",
-                    "wrap": True,
-                    "spacing": "Small",
-                    "isSubtle": True,
-                }
-            )
-            container_items.append(
-                {
-                    "type": "ActionSet",
-                    "spacing": "Small",
-                    "actions": [
-                        {
-                            "type": "Action.Submit",
-                            "title": "Select",
-                            "data": {
-                                "magnet_action": "note_taker_config_set",
-                                "config_system_name": system_name,
-                            },
-                        }
-                    ],
-                }
-            )
-
-            body.append(
-                {
-                    "type": "Container",
-                    "spacing": "Medium",
-                    "separator": True,
-                    "items": container_items,
-                }
-            )
+                ],
+            },
+        ]
 
         if len(rows) > limit:
             body.append(
