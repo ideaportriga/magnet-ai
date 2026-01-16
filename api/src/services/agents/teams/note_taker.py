@@ -1783,15 +1783,6 @@ def _register_note_taker_handlers(
     bot_app_id: str,
     bot_tenant_id: str,
 ) -> None:
-    async def _send_typing(context: TurnContext) -> None:
-        try:
-            await context.send_activity(Activity(type="typing"))
-        except Exception as err:
-            logger.debug(
-                "Failed to send typing indicator: %s",
-                getattr(err, "message", str(err)),
-            )
-
     def _build_note_taker_welcome_card(bot_name: str | None) -> dict:
         commands = [
             "**/welcome** - Show this help.",
@@ -1951,125 +1942,22 @@ def _register_note_taker_handlers(
 
         return _notify_salesforce
 
-    async def _transcribe_stream_and_notify(
+    def _make_salesforce_on_submit_factory(
         context: TurnContext,
         *,
-        download_url: str,
-        headers: dict[str, str],
-        name_resolver: Callable[[str, str | None, str], tuple[str, str]],
-        conversation_date: str | None = None,
-        known_size: int | None = None,
-        on_submit: Callable[[str], Awaitable[None]] | None = None,
-        on_submit_factory: Callable[
-            [str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]
-        ]
-        | None = None,
-    ) -> None:
-        await _send_typing(context)
-        timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            (
-                probed_size,
-                probed_type,
-                probed_disposition,
-                probed_final_url,
-            ) = await _probe_remote_file_metadata(client, download_url, headers=headers)
-            async with client.stream("GET", download_url, headers=headers) as response:
-                response.raise_for_status()
-                content_type = (
-                    (response.headers.get("Content-Type") or "application/octet-stream")
-                    .split(";")[0]
-                    .strip()
-                )
-                if not content_type or content_type == "application/octet-stream":
-                    probed_ct = (probed_type or "").split(";")[0].strip()
-                    if probed_ct:
-                        content_type = probed_ct
-                content_length = _parse_content_length(
-                    response.headers.get("Content-Length")
-                )
-                if content_length is None:
-                    content_length = known_size or probed_size
-                final_url = str(response.url) if response.url else download_url
-                content_disposition = response.headers.get("Content-Disposition")
-                if not content_disposition:
-                    content_disposition = probed_disposition
-                if not final_url and probed_final_url:
-                    final_url = probed_final_url
-                name, ext = name_resolver(content_type, content_disposition, final_url)
-
-                if not content_type.startswith(("audio/", "video/")):
-                    await context.send_activity(
-                        f"I downloaded a file of type `{content_type}` (extension `{ext or 'n/a'}`), "
-                        "but I can only transcribe audio or video files like .mp3, .wav, .m4a, .mp4."
-                    )
-                    return
-
-                if content_length is None:
-                    await context.send_activity(
-                        "I couldn't determine the file size for a streaming upload. "
-                        "Please provide a direct download link with a Content-Length header."
-                    )
-                    return
-
-                if on_submit is None:
-                    if on_submit_factory is not None:
-                        on_submit = await on_submit_factory(name, ext, content_type)
-                    else:
-                        on_submit = await _build_salesforce_submit_callback(
-                            context,
-                            conversation_date=conversation_date,
-                            source_file_name=f"{name}{ext}",
-                            source_file_type=content_type,
-                        )
-
-                try:
-                    object_key = await _upload_stream_to_object(
-                        stream=response.aiter_bytes(),
-                        size=content_length,
-                        content_type=content_type,
-                        filename=f"{name}{ext}",
-                    )
-                except Exception as err:
-                    logger.exception("Failed to upload streamed file")
-                    await context.send_activity(
-                        f"I couldn't upload the file for transcription: {getattr(err, 'message', str(err))}"
-                    )
-                    return
-
-        try:
-            status, result = await _start_transcription_from_object_key(
-                name=name,
-                ext=ext,
-                object_key=object_key,
-                content_type=content_type,
-                pipeline_id=DEFAULT_PIPELINE,
-                on_submit=on_submit,
+        conversation_date: str | None,
+    ) -> Callable[[str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]]:
+        async def _factory(
+            name: str, ext: str, content_type: str
+        ) -> Callable[[str], Awaitable[None]] | None:
+            return await _build_salesforce_submit_callback(
+                context,
+                conversation_date=conversation_date,
+                source_file_name=f"{name}{ext}",
+                source_file_type=content_type,
             )
-        except Exception as err:
-            logger.exception("Failed to start transcription for streamed file")
-            await context.send_activity(
-                f"I couldn't start transcription: {getattr(err, 'message', str(err))}"
-            )
-            return
 
-        logger.info(
-            "[teams note-taker] transcription result: %s",
-            result,
-        )
-
-        job_id = (result or {}).get("id") if isinstance(result, dict) else None
-        transcription = (
-            (result or {}).get("transcription") if isinstance(result, dict) else None
-        )
-
-        await _send_transcription_summary(
-            context,
-            status,
-            job_id,
-            transcription,
-            conversation_date=conversation_date,
-        )
+        return _factory
 
     async def _process_transcription_job_and_notify(
         context: TurnContext,
@@ -2565,6 +2453,9 @@ def _register_note_taker_handlers(
 
             headers = {"Authorization": f"Bearer {delegated_token}"}
 
+            conversation_date = _format_recording_date_iso(
+                recordings[0].get("createdDateTime")
+            )
             await _transcribe_stream_and_notify(
                 context,
                 download_url=content_url,
@@ -2572,8 +2463,10 @@ def _register_note_taker_handlers(
                 name_resolver=lambda *_: (name, ext),
                 known_size=recordings[0].get("size")
                 or await get_recording_file_size(content_url, delegated_token),
-                conversation_date=_format_recording_date_iso(
-                    recordings[0].get("createdDateTime")
+                conversation_date=conversation_date,
+                on_submit_factory=_make_salesforce_on_submit_factory(
+                    context,
+                    conversation_date=conversation_date,
                 ),
             )
 
@@ -2641,6 +2534,7 @@ def _register_note_taker_handlers(
 
         headers = {"Authorization": f"Bearer {delegated_token}"}
 
+        conversation_date = _format_recording_date_iso(recording.get("createdDateTime"))
         await _transcribe_stream_and_notify(
             context,
             download_url=content_url,
@@ -2648,8 +2542,10 @@ def _register_note_taker_handlers(
             name_resolver=lambda *_: (name, ext),
             known_size=recording.get("size")
             or await get_recording_file_size(content_url, delegated_token),
-            conversation_date=_format_recording_date_iso(
-                recording.get("createdDateTime")
+            conversation_date=conversation_date,
+            on_submit_factory=_make_salesforce_on_submit_factory(
+                context,
+                conversation_date=conversation_date,
             ),
         )
 
@@ -2687,6 +2583,10 @@ def _register_note_taker_handlers(
             download_url=download_url,
             headers=headers,
             name_resolver=name_resolver,
+            on_submit_factory=_make_salesforce_on_submit_factory(
+                context,
+                conversation_date=None,
+            ),
         )
 
     async def _get_token_proactively(
@@ -3185,47 +3085,6 @@ def _register_note_taker_handlers(
         if getattr(result, "rowcount", 0) == 0:
             await context.send_activity("I couldn't find a meeting record to update.")
             return
-
-    async def _handle_note_taker_config_list(context: TurnContext) -> None:
-        """List available note taker configs stored in DB."""
-        await _send_typing(context)
-
-        try:
-            async with async_session_maker() as session:
-                stmt = select(
-                    NoteTakerSettingsModel.id,
-                    NoteTakerSettingsModel.name,
-                    NoteTakerSettingsModel.system_name,
-                    NoteTakerSettingsModel.description,
-                ).order_by(NoteTakerSettingsModel.created_at.asc())
-                result = await session.execute(stmt)
-                rows = result.all()
-        except Exception as err:
-            logger.exception("Failed to list note taker configs")
-            await context.send_activity(
-                f"Failed to list note taker configs: {getattr(err, 'message', str(err))}"
-            )
-            return
-
-        if not rows:
-            await context.send_activity(
-                "No note taker configs found. Create one in the admin UI first."
-            )
-            return
-
-        lines = ["Available note taker configs:"]
-        for row in rows[:30]:
-            config_id, name, system_name, description = row
-            label = name or system_name or str(config_id)
-            desc_part = f" — {description}" if description else ""
-            lines.append(
-                f"- {label}{desc_part} (system_name: {system_name}, id: {config_id})"
-            )
-
-        if len(rows) > 30:
-            lines.append(f"...and {len(rows) - 30} more")
-        lines.append("Use: /config (in a meeting chat)")
-        await context.send_activity("\n".join(lines))
 
     def _config_requires_salesforce(settings: dict[str, Any] | None) -> bool:
         if not isinstance(settings, dict):
