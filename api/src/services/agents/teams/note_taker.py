@@ -1798,9 +1798,7 @@ def _register_note_taker_handlers(
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - (to be removed) Show your Teams identity and sign-in status.",
-            "**/config-list** - (to be removed) List available note taker configs.",
             "**/config** - Pick a note taker config for this meeting.",
-            "**/sf-account-set ACCOUNT_NAME** - Set the Salesforce account for this meeting.",
             "**/recordings-list** - List meeting recordings.",
             "**/recordings-find** - (to be removed) List meeting recordings and transcribe the latest.",
             "**/process-transcript-job TRANSCRIPTION_JOB_ID** - Process an existing transcription job.",
@@ -3343,7 +3341,7 @@ def _register_note_taker_handlers(
             body.append(
                 {
                     "type": "TextBlock",
-                    "text": f"Showing first {limit} of {len(rows)} configs. Use **/config-list** to see all.",
+                    "text": f"Showing first {limit} of {len(rows)} configs.",
                     "wrap": True,
                     "spacing": "Medium",
                     "isSubtle": True,
@@ -3500,16 +3498,6 @@ def _register_note_taker_handlers(
     async def _handle_note_taker_config_set(
         context: TurnContext, config_system_name: str
     ) -> None:
-        if not config_system_name:
-            await context.send_activity(
-                "Usage: /config (or /config CONFIG_SYSTEM_NAME)"
-            )
-            return
-
-        if not _is_meeting_conversation(context):
-            await context.send_activity("This command works only in meeting chats.")
-            return
-
         await _send_typing(context)
 
         try:
@@ -3907,28 +3895,8 @@ def _register_note_taker_handlers(
             if not allowed:
                 return
 
-        if normalized_text.startswith("/sf-account-set"):
-            parts = text.split(maxsplit=1)
-            if len(parts) < 2 or not parts[1].strip():
-                await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
-                return
-            account_name = parts[1].strip()
-            await _handle_sf_account_set(context, account_name)
-            return
-
-        if normalized_text.startswith("/config-list"):
-            await _handle_note_taker_config_list(context)
-            return
-
-        parts = text.split(maxsplit=1)
-        command = (parts[0] or "").strip().lower() if parts else ""
-        if command in {"/config", "/config-set"}:
-            if len(parts) < 2 or not parts[1].strip():
-                await _handle_note_taker_config_set_picker(context)
-                return
-
-            config_id_or_system_name = parts[1].strip()
-            await _handle_note_taker_config_set(context, config_id_or_system_name)
+        if normalized_text.startswith("/config"):
+            await _handle_note_taker_config_set_picker(context)
             return
 
         if normalized_text.startswith("/process-file"):
@@ -4160,7 +4128,6 @@ async def handle_recordings_ready_notifications(
             )
 
         # TEMP? organizer fallback below (this should not be needed)
-
         if meeting_row is None and meeting_id_hint:
             meeting_row = SimpleNamespace(
                 meeting_id=meeting_id_hint,
@@ -4349,11 +4316,6 @@ async def _process_recording_notification_for_meeting(
     try:
         async with create_graph_client_with_token(delegated_token) as graph_client:
             if recording_id:
-                # base_path = (
-                #     f"/users/{quote(user_id_hint, safe='')}/onlineMeetings/{quote(online_meeting_id, safe='')}"
-                #     if user_id_hint
-                #     else None
-                # )
                 recording = await get_recording_by_id(
                     client=graph_client,
                     online_meeting_id=online_meeting_id,
@@ -4364,14 +4326,6 @@ async def _process_recording_notification_for_meeting(
                     "[teams note-taker] recording=%s",
                     recording,
                 )
-                # if recording and not recording.get("contentUrl"):
-                #    # Fallback to communications path if user-scoped call lacked contentUrl.
-                #    recording = await get_recording_by_id(
-                #        client=graph_client,
-                #        online_meeting_id=online_meeting_id,
-                #        recording_id=recording_id,
-                #        # base_path=f"/communications/onlineMeetings/{quote(online_meeting_id, safe='')}",
-                #    )
                 recordings = [recording] if recording else []
             else:  # TODO: remove this
                 recordings = await get_meeting_recordings(
