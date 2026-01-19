@@ -105,6 +105,7 @@ async def start_conversation(
     graph_id: UUID,
     query: str,
     *,
+    client_id: str | None = None,
     tool_inputs: dict[str, Any] | None = None,
 ) -> KnowledgeGraphAgentRunResult:
     graph = await db_session.get(KnowledgeGraph, graph_id)
@@ -142,7 +143,7 @@ async def start_conversation(
         created_at=now,
         last_user_message_at=now,
         messages=[user_msg],
-        client_id=None,
+        client_id=client_id,
         trace_id=trace_id,
         analytics_id=None,
         variables=variables,

@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.tags import TagNames
+from services.agents.conversations import get_last_conversation_by_client_id
 from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
@@ -181,6 +182,15 @@ class KnowledgeGraphAskRequest(BaseModel):
         ..., min_length=1, description="User message to send to the agent."
     )
     conversation_id: UUID | None = None
+    client_id: str | None = Field(
+        default=None,
+        description=(
+            "Optional client-side identifier (e.g., user_id + page_name) to retrieve "
+            "or create a conversation without storing conversation_id on the client side. "
+            "If both conversation_id and client_id are provided, conversation_id takes precedence."
+        ),
+        examples=["user123_kg_dashboard"],
+    )
     filter_documents_by_metadata: str | dict[str, Any] | None = Field(
         default=None,
         description=(
@@ -265,42 +275,58 @@ class UserKnowledgeGraphController(Controller):
             if has_value:
                 tool_inputs = {"findDocumentsByMetadata": {"filter": raw_meta_filter}}
 
-        # Continue an existing conversation if provided
+        # Determine if we're continuing an existing conversation
+        existing_conversation = None
+
+        # Priority 1: Look up by conversation_id
         if data.conversation_id is not None:
             conversation_service = AgentConversationService(session=db_session)
-            conversation_record = await conversation_service.get_one_or_none(
+            existing_conversation = await conversation_service.get_one_or_none(
                 id=str(data.conversation_id)
             )
-            if conversation_record is None:
+            if existing_conversation is None:
                 raise ClientException("Conversation not found")
 
-            # Best-effort guard: prevent mixing non-KG conversations
+        # Priority 2: Look up by client_id if conversation_id wasn't provided
+        elif data.client_id is not None:
+            try:
+                existing_conversation = await get_last_conversation_by_client_id(
+                    data.client_id
+                )
+            except Exception:
+                # If lookup fails, proceed to create new conversation
+                existing_conversation = None
+
+        # Validate that existing conversation belongs to Knowledge Graph agent
+        if existing_conversation is not None:
             if (
-                conversation_record.agent
-                and conversation_record.agent != "KNOWLEDGE_GRAPH_AGENT"
+                existing_conversation.agent
+                and existing_conversation.agent != "KNOWLEDGE_GRAPH_AGENT"
             ):
                 raise ClientException(
                     "Conversation does not belong to Knowledge Graph agent"
                 )
 
+            # Continue existing conversation
             result = await continue_conversation(
                 db_session,
                 graph_id,
                 data.message,
-                conversation_record.id,
+                existing_conversation.id,
                 tool_inputs=tool_inputs,
-                **observability_overrides(trace_id=conversation_record.trace_id),
+                **observability_overrides(trace_id=existing_conversation.trace_id),
             )
-            return KnowledgeGraphAgentResponse(**result.model_dump())
+        else:
+            # Start new conversation (with optional client_id)
+            result = await start_conversation(
+                db_session,
+                graph_id,
+                data.message,
+                client_id=data.client_id,
+                tool_inputs=tool_inputs,
+                **observability_overrides(trace_id=data.trace_id),
+            )
 
-        # New conversation
-        result = await start_conversation(
-            db_session,
-            graph_id,
-            data.message,
-            tool_inputs=tool_inputs,
-            **observability_overrides(trace_id=data.trace_id),
-        )
         return KnowledgeGraphAgentResponse(**result.model_dump())
 
     @observe(
