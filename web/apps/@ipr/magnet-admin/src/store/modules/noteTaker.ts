@@ -20,8 +20,6 @@ interface ConfluenceIntegrationSettings {
   content_format: 'markdown' | 'wiki' | 'storage'
   enable_heading_anchors: boolean
   title_template: string
-  // Backward compatibility (old MCP-based settings)
-  mcp_server_system_name?: string
   tool_system_name?: string
 }
 
@@ -98,13 +96,6 @@ const mergeSettings = (settings?: Partial<NoteTakerSettings> | null): NoteTakerS
   const mergedConfluence: ConfluenceIntegrationSettings = {
     ...defaults.integration.confluence,
     ...((settings?.integration as any)?.confluence || {}),
-  }
-
-  if (!mergedConfluence.confluence_api_server && mergedConfluence.mcp_server_system_name) {
-    mergedConfluence.confluence_api_server = mergedConfluence.mcp_server_system_name
-  }
-  if (!mergedConfluence.confluence_create_page_tool && mergedConfluence.tool_system_name) {
-    mergedConfluence.confluence_create_page_tool = mergedConfluence.tool_system_name
   }
 
   return {

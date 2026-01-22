@@ -102,13 +102,12 @@ def _validate_confluence_settings(data: NoteTakerSettingsSchema) -> None:
 
     server = (
         confluence_settings.get("confluence_api_server")
-        or confluence_settings.get("api_server_system_name")
-        or confluence_settings.get("mcp_server_system_name")
+        #or confluence_settings.get("api_server_system_name")
     )
     tool = (
         confluence_settings.get("confluence_create_page_tool")
-        or confluence_settings.get("api_tool_system_name")
-        or confluence_settings.get("tool_system_name")
+        #or confluence_settings.get("api_tool_system_name")
+        # or confluence_settings.get("tool_system_name")
     )
     if not server or not tool:
         raise ValueError(
