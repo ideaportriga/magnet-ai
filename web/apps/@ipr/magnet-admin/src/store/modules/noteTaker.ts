@@ -11,11 +11,24 @@ interface SalesforceIntegrationSettings {
   salesforce_stt_recording_tool: string
 }
 
+interface ConfluenceIntegrationSettings {
+  enabled: boolean
+  confluence_api_server: string
+  confluence_create_page_tool: string
+  space_key: string
+  parent_id: string
+  content_format: 'markdown' | 'wiki' | 'storage'
+  enable_heading_anchors: boolean
+  title_template: string
+  tool_system_name?: string
+}
+
 interface NoteTakerSettings {
   subscription_recordings_ready: boolean
   create_knowledge_graph_embedding: boolean
   knowledge_graph_system_name: string
   integration: {
+    confluence: ConfluenceIntegrationSettings
     salesforce: SalesforceIntegrationSettings
   }
   chapters: PromptSetting
@@ -48,6 +61,16 @@ const defaultSettings = (): NoteTakerSettings => ({
   create_knowledge_graph_embedding: false,
   knowledge_graph_system_name: '',
   integration: {
+    confluence: {
+      enabled: false,
+      confluence_api_server: '',
+      confluence_create_page_tool: '',
+      space_key: '',
+      parent_id: '',
+      content_format: 'markdown',
+      enable_heading_anchors: true,
+      title_template: 'Meeting notes: {meeting_title} ({date})',
+    },
     salesforce: {
       send_transcript_to_salesforce: false,
       salesforce_api_server: '',
@@ -68,30 +91,39 @@ const defaultSettings = (): NoteTakerSettings => ({
   },
 })
 
-const mergeSettings = (settings?: Partial<NoteTakerSettings> | null): NoteTakerSettings => ({
-  ...defaultSettings(),
-  ...(settings || {}),
-  integration: {
-    ...defaultSettings().integration,
-    ...(settings?.integration || {}),
-    salesforce: {
-      ...defaultSettings().integration.salesforce,
-      ...(settings?.integration?.salesforce || {}),
+const mergeSettings = (settings?: Partial<NoteTakerSettings> | null): NoteTakerSettings => {
+  const defaults = defaultSettings()
+  const mergedConfluence: ConfluenceIntegrationSettings = {
+    ...defaults.integration.confluence,
+    ...((settings?.integration as any)?.confluence || {}),
+  }
+
+  return {
+    ...defaults,
+    ...(settings || {}),
+    integration: {
+      ...defaults.integration,
+      ...(settings?.integration || {}),
+      confluence: mergedConfluence,
+      salesforce: {
+        ...defaults.integration.salesforce,
+        ...(settings?.integration?.salesforce || {}),
+      },
     },
-  },
-  chapters: {
-    ...defaultSettings().chapters,
-    ...(settings?.chapters || {}),
-  },
-  summary: {
-    ...defaultSettings().summary,
-    ...(settings?.summary || {}),
-  },
-  insights: {
-    ...defaultSettings().insights,
-    ...(settings?.insights || {}),
-  },
-})
+    chapters: {
+      ...defaults.chapters,
+      ...(settings?.chapters || {}),
+    },
+    summary: {
+      ...defaults.summary,
+      ...(settings?.summary || {}),
+    },
+    insights: {
+      ...defaults.insights,
+      ...(settings?.insights || {}),
+    },
+  }
+}
 
 const toSettingsConfig = (payload: any): NoteTakerSettings => {
   let normalized = payload

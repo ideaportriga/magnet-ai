@@ -51,6 +51,25 @@ def create_graph_client_with_token(token: str) -> GraphClient:
     return GraphClient(token)
 
 
+async def get_online_meeting_title(
+    *,
+    client: GraphClient,
+    online_meeting_id: str,
+) -> str | None:
+    if not online_meeting_id:
+        return None
+
+    encoded_meeting_id = quote(str(online_meeting_id), safe="")
+    online_meeting = await client.get_json(f"/me/onlineMeetings/{encoded_meeting_id}")
+    if not isinstance(online_meeting, dict):
+        return None
+
+    title = str(
+        online_meeting.get("subject") or online_meeting.get("title") or ""
+    ).strip()
+    return title or None
+
+
 async def create_recordings_ready_subscription(
     *,
     token: str,
@@ -388,6 +407,7 @@ __all__ = [
     "create_graph_client_with_token",
     "get_recording_by_id",
     "get_meeting_recordings",
+    "get_online_meeting_title",
     "list_subscriptions",
     "pick_recordings_ready_subscription",
 ]

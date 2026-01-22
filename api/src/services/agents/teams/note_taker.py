@@ -70,6 +70,7 @@ from .graph import (
     get_recording_file_size,
     get_meeting_recordings,
     get_recording_by_id,
+    get_online_meeting_title,
     list_subscriptions,
     pick_recordings_ready_subscription,
 )
@@ -86,6 +87,9 @@ from services.observability import observe
 from stores import get_db_client
 from routes.admin.recordings import DEFAULT_PIPELINE
 from utils import upload_handler
+from .note_taker_confluence import (
+    maybe_publish_confluence_notes as _maybe_publish_confluence_notes,
+)
 
 logger = getLogger(__name__)
 
@@ -177,11 +181,21 @@ _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
     "create_knowledge_graph_embedding": False,
     "knowledge_graph_system_name": "",
     "integration": {
+        "confluence": {
+            "enabled": False,
+            "confluence_api_server": "",
+            "confluence_create_page_tool": "",
+            "space_key": "",
+            "parent_id": "",
+            "content_format": "markdown",
+            "enable_heading_anchors": True,
+            "title_template": "Meeting notes: {meeting_title} ({date})",
+        },
         "salesforce": {
             "send_transcript_to_salesforce": False,
             "salesforce_api_server": "",
             "salesforce_stt_recording_tool": "",
-        }
+        },
     },
     "chapters": {"enabled": False, "prompt_template": ""},
     "summary": {"enabled": False, "prompt_template": ""},
@@ -198,10 +212,27 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
         "subscription_recordings_ready",
         "create_knowledge_graph_embedding",
         "knowledge_graph_system_name",
-        "integration",
     ):
         if key in raw:
             settings[key] = raw[key]
+
+    default_integration = dict(settings.get("integration") or {})
+    raw_integration = raw.get("integration")
+    if isinstance(raw_integration, dict):
+        merged_integration: dict[str, Any] = dict(default_integration)
+        for integration_key, integration_value in raw_integration.items():
+            if isinstance(integration_value, dict) and isinstance(
+                merged_integration.get(integration_key), dict
+            ):
+                merged_integration[integration_key] = {
+                    **(merged_integration.get(integration_key) or {}),
+                    **integration_value,
+                }
+            else:
+                merged_integration[integration_key] = integration_value
+        settings["integration"] = merged_integration
+    else:
+        settings["integration"] = default_integration
 
     for section in ("chapters", "summary", "insights"):
         base_section = dict(settings[section])
@@ -340,6 +371,17 @@ def _format_recording_date_iso(iso_datetime: str | None) -> str | None:
     except Exception:
         return None
     return dt_obj.date().isoformat()
+
+
+def _format_recording_datetime_utc_label(iso_datetime: str | None) -> str | None:
+    if not iso_datetime:
+        return None
+    try:
+        dt_obj = dt.datetime.fromisoformat(iso_datetime.replace("Z", "+00:00"))
+        dt_obj = dt_obj.astimezone(dt.timezone.utc)
+    except Exception:
+        return None
+    return dt_obj.strftime("%Y-%m-%d %H:%M UTC")
 
 
 def _format_recording_date_compact(iso_datetime: str | None) -> str | None:
@@ -837,9 +879,43 @@ def _resolve_meeting_details(context: TurnContext) -> Dict[str, Any]:
     return {
         "id": meeting_data.get("id"),
         "conversationId": getattr(conversation, "id", None),
-        "joinUrl": meeting_data.get("joinUrl") or meeting_data.get("joinWebUrl"),
         "title": meeting_data.get("title") or meeting_data.get("subject"),
     }
+
+
+def _get_meeting_title_part(meeting: dict[str, Any] | None) -> str | None:
+    if not meeting:
+        return None
+    title = meeting.get("title") or meeting.get("subject")
+    title = str(title or "").strip()
+    return title or None
+
+
+async def _maybe_enrich_meeting_title(
+    *,
+    meeting: dict[str, Any] | None,
+    online_meeting_id: str | None,
+    delegated_token: str | None,
+) -> dict[str, Any] | None:
+    if (
+        not meeting
+        or _get_meeting_title_part(meeting)
+        or not online_meeting_id
+        or not delegated_token
+    ):
+        return meeting
+
+    try:
+        async with create_graph_client_with_token(delegated_token) as graph_client:
+            title = await get_online_meeting_title(
+                client=graph_client, online_meeting_id=str(online_meeting_id)
+            )
+        if title:
+            meeting["title"] = title
+    except Exception as err:
+        logger.debug("Failed to enrich meeting title via Graph: %s", err)
+
+    return meeting
 
 
 def _resolve_user_info(context: TurnContext) -> Dict[str, Any]:
@@ -1004,7 +1080,9 @@ async def _fetch_organizer_conversation_reference(
 def _build_recording_filename(
     meeting: Dict[str, Any], recording: Dict[str, Any], content_url: str
 ) -> str:
-    meeting_part = _get_meeting_id_part(meeting) or "meeting"
+    meeting_part = (
+        _get_meeting_title_part(meeting) or _get_meeting_id_part(meeting) or "meeting"
+    )
     rec_part = recording.get("id") or recording.get("recordingId") or "recording"
     date_part = _format_recording_date_compact(recording.get("createdDateTime"))
     ext = Path(urlparse(content_url).path).suffix or ".mp4"
@@ -1084,7 +1162,9 @@ async def _ingest_knowledge_graph_sections(
     date_part = _format_recording_date_compact(conversation_date) or dt.datetime.now(
         dt.timezone.utc
     ).strftime("%Y%m%d")
-    meeting_part = _get_meeting_id_part(meeting) or "meeting"
+    meeting_part = (
+        _get_meeting_title_part(meeting) or _get_meeting_id_part(meeting) or "meeting"
+    )
     item_id = job_id or "transcription"
 
     async with async_session_maker() as session:
@@ -1380,8 +1460,10 @@ async def _transcribe_stream_and_notify(
     headers: dict[str, str],
     name_resolver: Callable[[str, str | None, str], tuple[str, str]],
     conversation_date: str | None = None,
+    conversation_time: str | None = None,
     known_size: int | None = None,
     settings_system_name: str | None = None,
+    meeting_context: dict[str, Any] | None = None,
     on_submit: Callable[[str], Awaitable[None]] | None = None,
     on_submit_factory: Callable[
         [str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]
@@ -1487,7 +1569,9 @@ async def _transcribe_stream_and_notify(
         job_id,
         transcription,
         conversation_date=conversation_date,
+        conversation_time=conversation_time,
         settings_system_name=settings_system_name,
+        meeting_context=meeting_context,
     )
 
 
@@ -1497,7 +1581,9 @@ async def _send_transcription_summary(
     job_id: str | None,
     transcription: dict | None,
     conversation_date: str | None = None,
+    conversation_time: str | None = None,
     settings_system_name: str | None = None,
+    meeting_context: dict[str, Any] | None = None,
 ) -> None:
     duration = None
     transcript_payload = transcription
@@ -1620,14 +1706,45 @@ async def _send_transcription_summary(
                     title=f"Meeting {title.lower()}",
                     content=str(content),
                 )
-            knowledge_graph_name = settings.get("knowledge_graph_system_name")
-            if (
-                settings.get("create_knowledge_graph_embedding")
-                and knowledge_graph_name
-            ):
+
+            confluence_sections = {
+                key: knowledge_graph_sections[key]
+                for key in ("summary", "chapters")
+                if key in knowledge_graph_sections
+            }
+            if confluence_sections:
+                await _maybe_publish_confluence_notes(
+                    context,
+                    settings=settings,
+                    job_id=job_id,
+                    meeting_context=meeting_context
+                    or _resolve_meeting_details(context),
+                    participants=participants,
+                    conversation_date=conversation_date,
+                    conversation_time=conversation_time,
+                    duration=duration_str,
+                    sections=confluence_sections,
+                    send_expandable_section=_send_expandable_section,
+                )
+
+            knowledge_graph_name = str(
+                settings.get("knowledge_graph_system_name") or ""
+            ).strip()
+            embedding_enabled = bool(settings.get("create_knowledge_graph_embedding"))
+
+            logger.info(
+                "[teams note-taker] embedding enabled=%s graph=%s",
+                embedding_enabled,
+                knowledge_graph_name or None,
+            )
+            if embedding_enabled and knowledge_graph_name and knowledge_graph_sections:
+                meeting_for_ingest = meeting_context or _resolve_meeting_details(
+                    context
+                )
+
                 ingested = await _ingest_knowledge_graph_sections(
                     graph_system_name=knowledge_graph_name,
-                    meeting=_resolve_meeting_details(context),
+                    meeting=meeting_for_ingest,
                     job_id=job_id,
                     conversation_date=conversation_date,
                     sections=knowledge_graph_sections,
@@ -1785,7 +1902,7 @@ def _register_note_taker_handlers(
 ) -> None:
     def _build_note_taker_welcome_card(bot_name: str | None) -> dict:
         commands = [
-            "**/welcome** - Show this help.",
+            "**/welcome** - Show this help",
             "**/sign-in** - Sign in to allow access to meeting recordings (1:1 chat).",
             "**/sign-out** - Sign out and revoke access.",
             "**/whoami** - (to be removed) Show your Teams identity and sign-in status.",
@@ -2444,6 +2561,15 @@ def _register_note_taker_handlers(
                 )
                 return
 
+            try:
+                online_meeting_id = await _get_online_meeting_id(context)
+            except Exception:
+                online_meeting_id = None
+            meeting = await _maybe_enrich_meeting_title(
+                meeting=meeting,
+                online_meeting_id=online_meeting_id,
+                delegated_token=delegated_token,
+            )
             filename = _build_recording_filename(meeting, recordings[0], content_url)
             name = Path(filename).stem
             ext = Path(filename).suffix
@@ -2456,6 +2582,9 @@ def _register_note_taker_handlers(
             conversation_date = _format_recording_date_iso(
                 recordings[0].get("createdDateTime")
             )
+            conversation_time = _format_recording_datetime_utc_label(
+                recordings[0].get("createdDateTime")
+            )
             await _transcribe_stream_and_notify(
                 context,
                 download_url=content_url,
@@ -2463,7 +2592,9 @@ def _register_note_taker_handlers(
                 name_resolver=lambda *_: (name, ext),
                 known_size=recordings[0].get("size")
                 or await get_recording_file_size(content_url, delegated_token),
+                meeting_context=meeting,
                 conversation_date=conversation_date,
+                conversation_time=conversation_time,
                 on_submit_factory=_make_salesforce_on_submit_factory(
                     context,
                     conversation_date=conversation_date,
@@ -2525,6 +2656,11 @@ def _register_note_taker_handlers(
             await context.send_activity("Recording did not include a downloadable URL.")
             return
 
+        meeting = await _maybe_enrich_meeting_title(
+            meeting=meeting,
+            online_meeting_id=online_meeting_id,
+            delegated_token=delegated_token,
+        )
         filename = _build_recording_filename(meeting, recording, content_url)
         name = Path(filename).stem
         ext = Path(filename).suffix
@@ -2535,6 +2671,9 @@ def _register_note_taker_handlers(
         headers = {"Authorization": f"Bearer {delegated_token}"}
 
         conversation_date = _format_recording_date_iso(recording.get("createdDateTime"))
+        conversation_time = _format_recording_datetime_utc_label(
+            recording.get("createdDateTime")
+        )
         await _transcribe_stream_and_notify(
             context,
             download_url=content_url,
@@ -2542,7 +2681,9 @@ def _register_note_taker_handlers(
             name_resolver=lambda *_: (name, ext),
             known_size=recording.get("size")
             or await get_recording_file_size(content_url, delegated_token),
+            meeting_context=meeting,
             conversation_date=conversation_date,
+            conversation_time=conversation_time,
             on_submit_factory=_make_salesforce_on_submit_factory(
                 context,
                 conversation_date=conversation_date,
@@ -3119,7 +3260,7 @@ def _register_note_taker_handlers(
                 compact_desc = " ".join(desc.split())
                 if len(compact_desc) > 90:
                     compact_desc = f"{compact_desc[:87]}..."
-                title = f"{title} — {compact_desc}"
+                title = f"{title} - {compact_desc}"
             choices.append({"title": title, "value": system_name})
 
         body: list[dict[str, Any]] = [
@@ -3454,6 +3595,11 @@ def _register_note_taker_handlers(
         details = getattr(meeting_info, "details", None) or {}
         organizer_obj = getattr(meeting_info, "organizer", None) or {}
         online_meeting_id = getattr(details, "ms_graph_resource_id", None)
+        meeting_title = (
+            meeting_context.get("title")
+            or getattr(details, "title", None)
+            or getattr(details, "subject", None)
+        )
         start_time = getattr(details, "scheduled_start_time", None)
         end_time = getattr(details, "scheduled_end_time", None)
         meeting_type = getattr(details, "type", None)
@@ -3506,8 +3652,37 @@ def _register_note_taker_handlers(
             logger.debug("Organizer token availability check failed: %s", err)
             organizer_token_available = None
 
+        if not meeting_title and online_meeting_id:
+            try:
+                has_token = await _has_existing_token(context, auth_handler_id)
+            except Exception:
+                has_token = False
+
+            if has_token:
+                delegated_token = await _get_delegated_token(
+                    context,
+                    auth_handler_id,
+                    "Please sign in with /sign-in in our 1:1 chat so I can fetch meeting details from Microsoft Graph.",
+                )
+                if delegated_token:
+                    try:
+                        async with create_graph_client_with_token(
+                            delegated_token
+                        ) as graph_client:
+                            meeting_title = (
+                                await get_online_meeting_title(
+                                    client=graph_client,
+                                    online_meeting_id=str(online_meeting_id),
+                                )
+                            ) or meeting_title
+                    except Exception as err:
+                        logger.debug(
+                            "Failed to fetch online meeting title via Graph: %s", err
+                        )
+
         lines = [
             "Meeting info:",
+            f"- Title: {meeting_title or 'Unknown'}",
             f"- Type: {meeting_type}",
             f"- Meeting id: {meeting_id or 'Unknown'}",
             f"- Online meeting id: {online_meeting_id or 'Unknown'}",
@@ -4215,6 +4390,11 @@ async def _process_recording_notification_for_meeting(
     meeting_info = {
         "id": meeting_row.meeting_id or meeting_row.graph_online_meeting_id,
     }
+    meeting_info = await _maybe_enrich_meeting_title(
+        meeting=meeting_info,
+        online_meeting_id=online_meeting_id,
+        delegated_token=delegated_token,
+    )
 
     content_url = recording.get("contentUrl")
     if not content_url:
@@ -4262,7 +4442,11 @@ async def _process_recording_notification_for_meeting(
         settings_system_name=getattr(
             meeting_row, "note_taker_settings_system_name", None
         ),
+        meeting_context=meeting_info,
         conversation_date=_format_recording_date_iso(recording.get("createdDateTime")),
+        conversation_time=_format_recording_datetime_utc_label(
+            recording.get("createdDateTime")
+        ),
         on_submit_factory=_build_on_submit,
     )
 
