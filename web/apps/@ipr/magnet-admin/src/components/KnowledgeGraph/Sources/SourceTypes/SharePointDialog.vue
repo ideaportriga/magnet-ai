@@ -26,23 +26,34 @@
     </kg-dialog-section>
 
     <kg-dialog-section title="Scope" description="Optionally configure which content to sync from SharePoint." icon="folder">
-      <kg-field-row :cols="2">
-        <div>
-          <div class="km-input-label q-pb-xs">Library</div>
-          <km-input v-model="library" height="36px" placeholder="Documents" />
-        </div>
-        <div>
-          <div class="km-input-label q-pb-xs">Folder Path</div>
-          <km-input v-model="folderPath" height="36px" placeholder="Shared Documents/MyFolder" />
-        </div>
-      </kg-field-row>
-
-      <kg-toggle-field
-        v-model="includeSubfolders"
-        title="Include Subfolders"
-        description="Sync all nested folders under the selected path"
-        class="q-mt-lg"
+      <q-btn-toggle
+        v-model="contentType"
+        :options="[
+          { label: 'Documents', value: 'documents' },
+          { label: 'Pages', value: 'pages' }
+        ]"
+        toggle-color="primary"
+        unelevated
+        class="q-mb-lg"
       />
+
+      <template v-if="contentType === 'documents'">
+        <div class="q-mb-md">
+          <div class="km-input-label q-pb-xs">Folder Path</div>
+          <km-input v-model="folderPath" height="36px" placeholder="MyFolder/SubFolder" />
+        </div>
+
+        <kg-toggle-field
+          v-model="includeSubfolders"
+          title="Include Subfolders"
+          description="Sync all nested folders under the selected path"
+          class="q-mt-lg"
+        />
+      </template>
+
+      <div v-else class="text-grey-7 text-body2">
+        Will sync all pages from the SitePages library
+      </div>
     </kg-dialog-section>
   </kg-dialog-source-base>
 </template>
@@ -89,6 +100,16 @@ const loading = ref(false)
 const error = ref('')
 const showValidation = ref(false)
 
+const SITEPAGES_LIBRARY = 'SitePages'
+const DEFAULT_DOCUMENTS_LIBRARY = 'Shared Documents'
+
+const contentType = computed({
+  get: () => library.value === SITEPAGES_LIBRARY ? 'pages' : 'documents',
+  set: (val: 'documents' | 'pages') => {
+    library.value = val === 'pages' ? SITEPAGES_LIBRARY : DEFAULT_DOCUMENTS_LIBRARY
+  }
+})
+
 // Refs for field-level validation
 const siteUrlRef = ref<any>(null)
 
@@ -112,7 +133,7 @@ watch(
         try {
           const cfg = (props.source?.config || {}) as SharePointSourceConfig
           siteUrl.value = cfg.site_url || ''
-          library.value = cfg.library || ''
+          library.value = cfg.library || DEFAULT_DOCUMENTS_LIBRARY
           folderPath.value = cfg.folder_path || ''
           includeSubfolders.value = !!cfg.recursive
         } catch {
@@ -121,7 +142,7 @@ watch(
       } else {
         // opening in create mode - ensure clean form
         siteUrl.value = ''
-        library.value = ''
+        library.value = DEFAULT_DOCUMENTS_LIBRARY
         folderPath.value = ''
         includeSubfolders.value = false
       }
@@ -286,7 +307,7 @@ const onConfirm = async (payload: { sourceName: string; schedule: ScheduleFormSt
 }
 
 // Clear error message when user edits inputs
-watch([siteUrl, library, folderPath, includeSubfolders], () => {
+watch([siteUrl, contentType, library, folderPath, includeSubfolders], () => {
   if (error.value) error.value = ''
 })
 </script>

@@ -46,26 +46,30 @@ def resolve_sharepoint_site_url(cfg: dict[str, Any]) -> str:
 
 
 def resolve_sharepoint_location(cfg: dict[str, Any]) -> tuple[str, str | None, bool]:
-    """Resolve library/folder/recursive from source config."""
+    """Resolve library/folder/recursive from source config.
+
+    If library is 'SitePages', returns (SitePages, None, False) - pages mode.
+    Otherwise uses configurable library/folder/recursive - documents mode.
+    """
+    from .sharepoint_models import SharePointLibrary
 
     library = (
         cfg.get("library") or cfg.get("sharepoint_library") or ""
     ).strip() or None
-    folder = (cfg.get("folder") or cfg.get("sharepoint_folder") or "").strip() or None
-    folder_path = (cfg.get("folder_path") or "").strip() or None
 
+    # Pages mode: SitePages library, no folder, no recursion
+    if library == SharePointLibrary.PAGES:
+        return SharePointLibrary.PAGES, None, False
+
+    # Documents mode: configurable library/folder/recursive
+    folder = (
+        cfg.get("folder_path") or cfg.get("sharepoint_folder") or ""
+    ).strip() or None
     recursive_val = cfg.get("recursive", cfg.get("sharepoint_recursive", False))
     recursive = bool(recursive_val)
 
-    # Backward-compatible support: folder_path like "Shared Documents/sub/folder"
-    if not library and folder_path:
-        parts = [p for p in str(folder_path).split("/") if p]
-        if parts:
-            library = parts[0]
-            folder = "/".join(parts[1:]) if len(parts) > 1 else None
-
     if not library:
-        library = "Shared Documents"
+        library = SharePointLibrary.DOCUMENTS
 
     return library, folder, recursive
 
@@ -525,3 +529,30 @@ async def fetch_sharepoint_file_list_item_fields(
     return await asyncio.to_thread(
         _fetch_file_list_item_fields_sync, ctx, server_relative_url=server_relative_url
     )
+
+
+async def fetch_sharepoint_page_content(
+    ctx: ClientContext, *, server_relative_url: str
+) -> str | None:
+    """Fetch CanvasContent1 (HTML content) for a SharePoint .aspx page."""
+    if not server_relative_url:
+        return None
+
+    def _fetch_sync() -> str | None:
+        f = ctx.web.get_file_by_server_relative_url(server_relative_url)
+        list_item = (
+            getattr(f, "listItemAllFields", None)
+            or getattr(f, "list_item_all_fields", None)
+            or None
+        )
+        if not list_item:
+            return None
+
+        list_item.select(["CanvasContent1"]).get().execute_query()
+        props = getattr(list_item, "properties", None) or {}
+        if not isinstance(props, dict):
+            return None
+
+        return props.get("CanvasContent1")
+
+    return await asyncio.to_thread(_fetch_sync)
