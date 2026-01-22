@@ -212,10 +212,114 @@
                             @click='navigateToTool(salesforceApiServer, salesforceSttRecordingTool)'
                           )
                       .km-description.text-secondary-text.q-pt-2 Tool for creating STT recordings in Salesforce.
+
+              q-separator
+
+              .col-auto.full-width
+                .km-heading-6.q-mb-md Confluence Integration
+                .q-gutter-md
+                  .km-field
+                    .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-title Publish meeting notes to Confluence
+                      q-toggle(v-model='confluenceEnabled', color='primary')
+                    .km-description.text-secondary-text.q-pt-2 Create a Confluence page containing the generated Summary and Chapters.
+
+                  .q-gutter-md(v-if='confluenceEnabled')
+                    .km-field
+                      .text-secondary-text.q-pb-xs API Server
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='confluenceApiServer',
+                            :options='apiServers',
+                            option-label='name',
+                            option-value='system_name',
+                            emit-value,
+                            map-options,
+                            height='30px',
+                            clearable
+                          )
+                        .col-auto(v-if='confluenceApiServer')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='navigateToApiServer(confluenceApiServer)'
+                          )
+                      .km-description.text-secondary-text.q-pt-2 API server used to call Confluence tools.
+
+                    .km-field
+                      .text-secondary-text.q-pb-xs Create Page Tool
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='confluenceCreatePageTool',
+                            :options='confluenceAvailableApiTools',
+                            option-label='label',
+                            option-value='value',
+                            emit-value,
+                            map-options,
+                            height='30px',
+                            clearable
+                          )
+                        .col-auto(v-if='confluenceCreatePageTool')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='navigateToTool(confluenceApiServer, confluenceCreatePageTool)'
+                          )
+                      .km-description.text-secondary-text.q-pt-2 API tool used to create the Confluence page.
+
+                    .km-field
+                      .text-secondary-text.q-pb-xs Space ID
+                      km-input-flat.full-width(
+                        placeholder='e.g. 10387460',
+                        :modelValue='confluenceSpaceKey',
+                        @input='confluenceSpaceKey = $event'
+                      )
+                      .km-description.text-secondary-text.q-pt-2 Confluence REST v2 spaceId where the page will be created.
+
+                    .km-field
+                      .text-secondary-text.q-pb-xs Parent Page ID (optional)
+                      km-input-flat.full-width(
+                        placeholder='e.g. 123456',
+                        :modelValue='confluenceParentId',
+                        @input='confluenceParentId = $event'
+                      )
+                      .km-description.text-secondary-text.q-pt-2 If set, the page will be created under the specified parent.
+
+                    .km-field
+                      .text-secondary-text.q-pb-xs Content Format
+                      km-select(
+                        v-model='confluenceContentFormat',
+                        :options='confluenceContentFormatOptions',
+                        option-label='label',
+                        option-value='value',
+                        emit-value,
+                        map-options,
+                        height='30px'
+                      )
+                      .km-description.text-secondary-text.q-pt-2 Content format sent to Confluence (markdown, wiki, or storage).
+
+                    .km-field(v-if="confluenceContentFormat === 'markdown'")
+                      .row.items-center.justify-between
+                        .text-secondary-text.q-pb-xs.km-title Enable heading anchors
+                        q-toggle(v-model='confluenceEnableHeadingAnchors', color='primary')
+                      .km-description.text-secondary-text.q-pt-2 Adds automatic heading anchors (markdown only).
+
+                    .km-field
+                      .text-secondary-text.q-pb-xs Title Template
+                      km-input-flat.full-width(
+                        placeholder='Meeting notes: {meeting_title} ({date})',
+                        :modelValue='confluenceTitleTemplate',
+                        @input='confluenceTitleTemplate = $event'
+                      )
+                      .km-description.text-secondary-text.q-pt-2 Available placeholders: {meeting_title}, {date}, {job_id}, {meeting_id}.
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref, onMounted } from 'vue'
+import { computed, watch, ref } from 'vue'
 import { useStore } from 'vuex'
 import { useRouter, useRoute } from 'vue-router'
 import { fetchData } from '@shared'
@@ -366,6 +470,78 @@ const availableTools = computed(() => {
   })) || []
 })
 
+const confluenceEnabled = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.confluence?.enabled ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.enabled', value })
+  },
+})
+
+const confluenceApiServer = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.confluence?.confluence_api_server || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.confluence_api_server', value })
+  },
+})
+
+const confluenceCreatePageTool = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.confluence?.confluence_create_page_tool || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.confluence_create_page_tool', value })
+  },
+})
+
+const confluenceSpaceKey = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.confluence?.space_key || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.space_key', value })
+  },
+})
+
+const confluenceParentId = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.confluence?.parent_id || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.parent_id', value })
+  },
+})
+
+const confluenceContentFormat = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.confluence?.content_format || 'markdown',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.content_format', value })
+  },
+})
+
+const confluenceEnableHeadingAnchors = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.confluence?.enable_heading_anchors ?? true,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.enable_heading_anchors', value })
+  },
+})
+
+const confluenceTitleTemplate = computed({
+  get: () => store.getters.noteTakerSettings?.integration?.confluence?.title_template || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.title_template', value })
+  },
+})
+
+const confluenceContentFormatOptions = [
+  { label: 'markdown', value: 'markdown' },
+  { label: 'wiki', value: 'wiki' },
+  { label: 'storage', value: 'storage' },
+]
+
+const confluenceAvailableApiTools = computed(() => {
+  const serverName = confluenceApiServer.value
+  if (!serverName) return []
+  const server = apiServers.value.find((s: any) => s.system_name === serverName)
+  return server?.tools?.map((t: any) => ({
+    label: t.name,
+    value: t.system_name,
+  })) || []
+})
+
 const fetchKnowledgeGraphs = async () => {
   const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
   if (!endpoint) return
@@ -437,4 +613,5 @@ const navigateToTool = (serverSystemName: string, toolName: string) => {
     )
   }
 }
+
 </script>

@@ -26,11 +26,21 @@ class NoteTakerSettingsSchema(BaseModel):
     knowledge_graph_system_name: str = ""
     integration: dict[str, Any] = Field(
         default_factory=lambda: {
+            "confluence": {
+                "enabled": False,
+                "confluence_api_server": "",
+                "confluence_create_page_tool": "",
+                "space_key": "",
+                "parent_id": "",
+                "content_format": "markdown",
+                "enable_heading_anchors": True,
+                "title_template": "Meeting notes: {meeting_title} ({date})",
+            },
             "salesforce": {
                 "send_transcript_to_salesforce": False,
                 "salesforce_api_server": "",
                 "salesforce_stt_recording_tool": "",
-            }
+            },
         }
     )
     chapters: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
@@ -80,6 +90,32 @@ def _validate_salesforce_settings(data: NoteTakerSettingsSchema) -> None:
         )
 
 
+def _validate_confluence_settings(data: NoteTakerSettingsSchema) -> None:
+    confluence_settings = (data.integration or {}).get("confluence") or {}
+    if not confluence_settings.get("enabled"):
+        return
+
+    if not confluence_settings.get("space_key"):
+        raise ValueError(
+            "Confluence space_id is required when confluence is enabled (enter numeric spaceId from Confluence REST v2)."
+        )
+
+    server = (
+        confluence_settings.get("confluence_api_server")
+        or confluence_settings.get("api_server_system_name")
+        or confluence_settings.get("mcp_server_system_name")
+    )
+    tool = (
+        confluence_settings.get("confluence_create_page_tool")
+        or confluence_settings.get("api_tool_system_name")
+        or confluence_settings.get("tool_system_name")
+    )
+    if not server or not tool:
+        raise ValueError(
+            "Confluence API server and create-page tool are required when confluence is enabled."
+        )
+
+
 async def _get_settings_by_id_or_system_name(
     session, settings_id: str
 ) -> NoteTakerSettings | None:
@@ -126,6 +162,7 @@ class NoteTakerSettingsController(Controller):
         data: NoteTakerSettingsRecordCreateSchema = Body(),
     ) -> dict[str, Any]:
         _validate_salesforce_settings(data.config)
+        _validate_confluence_settings(data.config)
         async with async_session_maker() as session:
             settings = NoteTakerSettings(
                 name=data.name,
@@ -144,6 +181,7 @@ class NoteTakerSettingsController(Controller):
         data: NoteTakerSettingsSchema = Body(),
     ) -> dict[str, Any]:
         _validate_salesforce_settings(data)
+        _validate_confluence_settings(data)
         async with async_session_maker() as session:
             stmt = select(NoteTakerSettings).where(
                 NoteTakerSettings.system_name == NOTE_TAKER_SETTINGS_SYSTEM_NAME
@@ -178,6 +216,7 @@ class NoteTakerSettingsController(Controller):
 
             if data.config is not None:
                 _validate_salesforce_settings(data.config)
+                _validate_confluence_settings(data.config)
                 settings.config = data.config.model_dump()
             if data.name is not None:
                 settings.name = data.name

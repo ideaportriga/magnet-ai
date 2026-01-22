@@ -30,7 +30,7 @@ from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
 )
-from .admin.note_taker_settings import NoteTakerSettingsController
+from services.agents.teams.note_taker_settings import NoteTakerSettingsController
 from .admin.observability import observability_router
 from .admin.rag import RagController
 from .admin.scheduler import SchedulerController
