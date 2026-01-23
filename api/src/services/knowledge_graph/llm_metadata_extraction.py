@@ -15,6 +15,7 @@ from services.knowledge_graph.metadata_services import (
     accumulate_extracted_metadata_fields,
 )
 from services.knowledge_graph.models import MetadataMultiValueContainer
+from services.knowledge_graph.utils import normalize_metadata_value
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
 
@@ -354,9 +355,8 @@ async def _upsert_document_llm_metadata(
 
     docs_tbl = docs_table_name(graph_id)
     try:
-        metadata_json = json.dumps(
-            {"llm": llm_metadata}, ensure_ascii=False, default=str
-        )
+        normalized_metadata = normalize_metadata_value({"llm": llm_metadata})
+        metadata_json = json.dumps(normalized_metadata, ensure_ascii=False, default=str)
     except Exception:  # noqa: BLE001
         logger.warning("Failed to serialize LLM metadata for document %s", document_id)
         return

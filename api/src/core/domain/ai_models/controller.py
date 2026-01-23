@@ -241,7 +241,9 @@ class AIModelsController(Controller):
 
             else:
                 # Test chat/prompt model
-                test_messages = [{"role": "user", "content": "Say 'OK' if you can hear me."}]
+                test_messages = [
+                    {"role": "user", "content": "Say 'OK' if you can hear me."}
+                ]
 
                 try:
                     response = await ai_provider.create_chat_completion(
@@ -255,7 +257,9 @@ class AIModelsController(Controller):
                     if response and response.choices:
                         content = response.choices[0].message.content or ""
                         # Truncate long responses
-                        preview = content[:100] + "..." if len(content) > 100 else content
+                        preview = (
+                            content[:100] + "..." if len(content) > 100 else content
+                        )
                         return ModelTestResult(
                             success=True,
                             message=f"Model '{model.display_name}' is working correctly!",

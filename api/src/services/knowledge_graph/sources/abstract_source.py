@@ -26,6 +26,7 @@ from open_ai.utils_new import get_embeddings
 from ..content_config_services import get_graph_embedding_model
 from ..content_split_services import split_content
 from ..models import ChunkerStrategy, ContentConfig, SourceType, SyncCounters
+from ..utils import normalize_metadata_value
 
 logger = logging.getLogger(__name__)
 
@@ -168,8 +169,9 @@ class AbstractDataSource(ABC):
             doc_metadata_payload["source"] = source_metadata
         if doc_metadata_payload:
             try:
+                normalized_payload = normalize_metadata_value(doc_metadata_payload)
                 doc_metadata_json = json.dumps(
-                    doc_metadata_payload, ensure_ascii=False, default=str
+                    normalized_payload, ensure_ascii=False, default=str
                 )
             except Exception:  # noqa: BLE001
                 # Best-effort: do not fail document creation if metadata cannot be serialized.

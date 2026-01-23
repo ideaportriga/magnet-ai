@@ -128,8 +128,9 @@ class JobDefinition(BaseModel):
                 )
             if not self.scheduled_start_time:
                 from datetime import timezone as tz
-                self.scheduled_start_time = (
-                    datetime.now(tz.utc)
+
+                self.scheduled_start_time = datetime.now(
+                    tz.utc
                 )  # Default to current time in UTC if not provided
 
         return self

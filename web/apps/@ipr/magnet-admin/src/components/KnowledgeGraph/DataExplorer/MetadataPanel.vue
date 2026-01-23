@@ -75,10 +75,10 @@
             <div class="group-content">
               <div v-for="item in sourceMetadata" :key="`source:${item.key}`" class="metadata-item">
                 <div class="item-key-wrapper">
-                  <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
-                  <q-icon v-if="isDefined(item.key)" name="check_circle" size="14px" color="primary">
+                  <q-icon v-if="isDefined(item.key)" name="fact_check" size="14px" color="primary" class="q-mr-xs">
                     <q-tooltip>Defined in Metadata Schema</q-tooltip>
                   </q-icon>
+                  <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
                 </div>
                 <div class="item-value">
                   <q-badge
@@ -89,6 +89,18 @@
                   >
                     {{ item.value }}
                   </q-badge>
+                  <div v-else-if="item.kind === 'list'" class="value-list">
+                    <q-chip
+                      v-for="(val, idx) in item.value"
+                      :key="idx"
+                      dense
+                      color="grey-2"
+                      text-color="grey-9"
+                      class="value-chip"
+                    >
+                      {{ val }}
+                    </q-chip>
+                  </div>
                   <span v-else class="value-text">{{ item.value }}</span>
                 </div>
               </div>
@@ -138,14 +150,14 @@ import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
 
 type MetadataOrigin = 'file' | 'source' | 'llm'
-type MetadataValueKind = 'string' | 'number' | 'boolean' | 'date' | 'json'
+type MetadataValueKind = 'string' | 'number' | 'boolean' | 'date' | 'json' | 'list'
 
 interface MetadataItem {
   origin: MetadataOrigin
   key: string
   label: string
   kind: MetadataValueKind
-  value: string
+  value: any
 }
 
 const props = defineProps<{
@@ -397,6 +409,18 @@ onMounted(() => {
   color: #1e293b;
   word-break: break-word;
   line-height: 1.5;
+}
+
+.value-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.value-chip {
+  margin: 0;
+  height: 20px;
+  font-size: 11px;
 }
 
 .boolean-badge {

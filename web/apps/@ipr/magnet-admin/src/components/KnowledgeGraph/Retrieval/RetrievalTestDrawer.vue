@@ -358,13 +358,14 @@ const formatToolName = (tool: string): string => {
 
 const formatArgValue = (value: any): string => {
   if (typeof value === 'string') {
-    return value.length > 50 ? value.substring(0, 50) + '...' : value
+    return value
   }
-  if (Array.isArray(value)) {
-    return `[${value.length} items]`
-  }
-  if (typeof value === 'object' && value !== null) {
-    return JSON.stringify(value).substring(0, 50) + '...'
+  if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+    try {
+      return JSON.stringify(value)
+    } catch (error) {
+      return String(value)
+    }
   }
   return String(value)
 }
