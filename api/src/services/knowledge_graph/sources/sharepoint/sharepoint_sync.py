@@ -116,6 +116,12 @@ class SharePointSyncPipeline(
                         sp_ctx, folder_server_relative_url=folder_url
                     )
 
+                for f in files:
+                    await ctx.inc("total_found")
+                    await ctx.content_fetch_queue.put(
+                        SharePointContentFetchTask(file=f)
+                    )
+
                 if self._sharepoint_config.recursive:
                     for sub in subfolders:
                         sub_url = normalize_server_relative_url(sub)
