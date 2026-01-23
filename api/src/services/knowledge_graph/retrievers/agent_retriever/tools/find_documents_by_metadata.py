@@ -44,10 +44,9 @@ FILTER_PARAM_DESCRIPTION = (
     '  - {"field":"language_2l","op":"eq","value":"en"}\n'
     '  - {"and":[{"field":"language_2l","op":"in","values":["en","de"]},'
     '{"field":"candidate_name","op":"contains","value":"John"}]}\n'
-    '  - {"path":["source","Candidate"],"op":"eq","value":"Alice"}\n\n'
+    "\n"
     "Notes:\n"
     "- Use `field` for schema-defined metadata fields.\n"
-    "- Use `path` to query raw metadata at [origin, key] where origin ∈ {source,file,llm}."
 )
 
 # OpenAI tool schema (sent to the LLM).
@@ -224,10 +223,6 @@ class _MetadataFilterCompiler:
       - {"field": "candidate_name", "op": "contains", "value": "John"}
       - {"field": "language_2l", "op": "in", "values": ["en", "de"]}
 
-    - Raw predicate (bypass resolution; reads document metadata directly):
-      - {"path": ["source", "Candidate"], "op": "eq", "value": "Alice"}
-      - {"path": ["llm", "language_2l"], "op": "eq", "value": "en"}
-
     Notes:
     - `field` predicates are evaluated against the resolved value for each document's
       source using the configured `source_value_resolution` chain (fallback order).
@@ -264,7 +259,7 @@ class _MetadataFilterCompiler:
             parts = [self._compile_expr(e) for e in (items or []) if e is not None]
             parts = [p for p in parts if p]
             if not parts:
-                return "TRUE"
+                return ""
             return "(" + " AND ".join(parts) + ")"
 
         if "or" in expr:
@@ -272,7 +267,7 @@ class _MetadataFilterCompiler:
             parts = [self._compile_expr(e) for e in (items or []) if e is not None]
             parts = [p for p in parts if p]
             if not parts:
-                return "FALSE"
+                return ""
             return "(" + " OR ".join(parts) + ")"
 
         if "not" in expr:
@@ -293,38 +288,14 @@ class _MetadataFilterCompiler:
                 values=expr.get("values"),
             )
 
-        if "path" in expr:
-            path = expr.get("path")
-            if not isinstance(path, list) or len(path) < 2:
-                return ""
-            origin = str(path[-2] or "").strip().lower()
-            key = str(path[-1] or "").strip()
-            if origin not in {"file", "source", "llm"} or not key:
-                return ""
-            return self._compile_raw_predicate(
-                origin=origin,
-                key=key,
-                op=str(expr.get("op") or expr.get("operator") or "eq").strip().lower(),
-                value=expr.get("value"),
-                values=expr.get("values"),
-            )
-
         return ""
-
-    def _compile_raw_predicate(
-        self, *, origin: str, key: str, op: str, value: Any, values: Any
-    ) -> str:
-        key_param = self.builder.add(key)
-        # Normalize empty strings to NULL
-        extracted = f"NULLIF(BTRIM(jsonb_extract_path_text(d.metadata, '{origin}', {key_param})), '')"
-        return self._apply_scalar_op(extracted, op=op, value=value, values=values)
 
     def _compile_field_predicate(
         self, field_name: str, *, op: str, value: Any, values: Any
     ) -> str:
         fd = self.fields_by_name.get(field_name)
         if not fd:
-            # Strict mode: only allow filtering on defined fields unless caller uses `path`.
+            # Strict mode: only allow filtering on defined fields.
             return "(1=0)"
 
         # Source-specific chain overrides

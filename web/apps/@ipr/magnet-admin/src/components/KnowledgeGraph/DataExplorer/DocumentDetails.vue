@@ -204,14 +204,14 @@ import MetadataPanel from './MetadataPanel.vue'
 import { Chunk, Document, TocNode, TreeNode } from './models'
 
 type MetadataOrigin = 'file' | 'source' | 'llm'
-type MetadataValueKind = 'string' | 'number' | 'boolean' | 'date' | 'json'
+type MetadataValueKind = 'string' | 'number' | 'boolean' | 'date' | 'json' | 'list'
 
 interface MetadataItem {
   origin: MetadataOrigin
   key: string
   label: string
   kind: MetadataValueKind
-  value: string
+  value: any
 }
 
 const route = useRoute()
@@ -343,7 +343,7 @@ function formatKey(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-function formatMetadataValue(val: unknown): { kind: MetadataValueKind; value: string } {
+function formatMetadataValue(val: unknown): { kind: MetadataValueKind; value: any } {
   if (val === null || val === undefined) return { kind: 'string', value: '' }
 
   if (typeof val === 'boolean') return { kind: 'boolean', value: val ? 'Yes' : 'No' }
@@ -374,11 +374,13 @@ function formatMetadataValue(val: unknown): { kind: MetadataValueKind; value: st
   }
 
   if (Array.isArray(val)) {
-    const display = val
+    const validItems = val
       .filter((x) => x !== null && x !== undefined && x !== '')
       .map((x) => (typeof x === 'string' ? x : JSON.stringify(x)))
-      .join(', ')
-    return { kind: 'json', value: display }
+    
+    if (validItems.length === 0) return { kind: 'string', value: '' }
+    
+    return { kind: 'list', value: validItems }
   }
 
   if (typeof val === 'object') {
