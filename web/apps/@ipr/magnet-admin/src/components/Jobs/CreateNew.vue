@@ -70,6 +70,12 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
         .row.items-center.q-gap-8
           .km-field.text-secondary-text at
           km-select(v-model='form.time', :options='times')
+      //- Custom cron input
+      .row.q-mt-md.q-pl-8(v-if='form.interval === "custom" && form.executionType === "recurring"')
+        .col
+          .km-field.text-secondary-text.q-pb-xs Cron expression
+          km-input(height='30px', v-model='form.customCron', placeholder='*/10 * * * *')
+          .km-tiny.text-secondary-text.q-mt-xs Format: minute hour day month day_of_week (e.g., */10 * * * * for every 10 minutes)
       .row.q-mt-md.items-center
         km-checkbox(size='40px', v-model='form.enabled', disable)
         .km-field Send error notifications (upcoming feature)
@@ -92,9 +98,11 @@ import _ from 'lodash'
 import { useChroma } from '@shared'
 
 const intervals = [
+  { label: 'Every 5 minutes', value: 'every_5_minutes' },
   { label: 'Hourly', value: 'hourly' },
   { label: 'Daily', value: 'daily' },
   { label: 'Weekly', value: 'weekly' },
+  { label: 'Custom', value: 'custom' },
 ]
 const days = [
   { label: 'Monday', value: 0 },
@@ -155,6 +163,7 @@ export default {
         system_name: '',
         agents: [],
         is_system: false, // new param
+        customCron: '*/10 * * * *', // default custom cron
       },
       ...props.formDefault,
       ...(!_.isEmpty(job)
@@ -232,12 +241,27 @@ export default {
       // Only add cron and interval for scheduled jobs
       if (this.form.executionType !== 'one_time_immediate') {
         const hour = typeof this.form.time === 'object' ? this.form.time.value : this.form.time
-        const cron =
-          this.form.interval === 'hourly'
-            ? { minute: '0', hour: '*', day_of_month: '*' }
-            : this.form.interval === 'daily'
-              ? { minute: '0', hour, day_of_month: '*' }
-              : { minute: '0', hour, day_of_month: '*', day_of_week: this.form.day }
+        let cron
+        if (this.form.interval === 'custom') {
+          // Parse custom cron string: minute hour day month day_of_week
+          const parts = this.form.customCron.trim().split(/\s+/)
+          cron = {
+            minute: parts[0] || '*',
+            hour: parts[1] || '*',
+            day: parts[2] || '*',
+            month: parts[3] || '*',
+            day_of_week: parts[4] || '*',
+          }
+        } else if (this.form.interval === 'every_5_minutes') {
+          cron = { minute: '*/5', hour: '*', day_of_month: '*' }
+        } else if (this.form.interval === 'hourly') {
+          cron = { minute: '0', hour: '*', day_of_month: '*' }
+        } else if (this.form.interval === 'daily') {
+          cron = { minute: '0', hour, day_of_month: '*' }
+        } else {
+          // weekly
+          cron = { minute: '0', hour, day_of_month: '*', day_of_week: this.form.day }
+        }
 
         jobData.cron = cron
         jobData.interval = this.form.interval

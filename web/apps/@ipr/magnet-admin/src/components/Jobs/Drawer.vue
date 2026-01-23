@@ -46,6 +46,10 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
             .row
               .km-label {{ timezone }}
           .col-6
+            .km-description.text-secondary-text.q-pb-6 Job Interval
+            .row
+              .km-label {{ interval }}
+          .col-6
             .km-description.text-secondary-text.q-pb-6 Repeat at
             .row
               .km-label {{ cronDescription }}
@@ -85,7 +89,8 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
 </template>
 
 <script>
-import { jobRunTypeOptions, jobTypeOptions } from '@/config/jobs/jobs'
+import { jobRunTypeOptions, jobTypeOptions, jobIntervalOptions } from '@/config/jobs/jobs'
+import { DateTime } from 'luxon'
 
 export default {
   props: {
@@ -123,7 +128,27 @@ export default {
       return option?.label || 'Not specified'
     },
     interval() {
-      return this.job?.definition?.interval || 'Not specified'
+      const intervalValue = this.job?.definition?.interval
+      if (!intervalValue) return 'Not specified'
+      
+      // For custom interval, show the cron expression
+      if (intervalValue === 'custom') {
+        const cron = this.job?.definition?.cron
+        if (cron) {
+          const parts = [
+            cron.minute || '*',
+            cron.hour || '*',
+            cron.day || cron.day_of_month || '*',
+            cron.month || '*',
+            cron.day_of_week || '*',
+          ]
+          return `Custom (${parts.join(' ')})`
+        }
+        return 'Custom'
+      }
+      
+      const option = jobIntervalOptions.find((opt) => opt.value === intervalValue)
+      return option?.label || intervalValue
     },
     nextRun() {
       return this.formatDateTime(this.job?.next_run)
@@ -153,19 +178,82 @@ export default {
       return this.job?.id || this.job?._id || 'Not specified'
     },
     cronDescription() {
-      const hour = this.cronHour !== 'Not specified' ? this.cronHour : null
-      const day = this.cronDay !== 'Not specified' ? this.cronDay : null
-      const dayOfWeek = this.cronDayOfWeek
-
-      if (hour == '*') {
-        return `Every hour`
-      } else if (hour && !day && !(dayOfWeek || dayOfWeek == 0)) {
-        return `Every day at ${hour}:00`
-      } else if (hour && (dayOfWeek || dayOfWeek == 0) && !day) {
-        return `Every ${this.getDayOfWeekName(dayOfWeek)} at ${hour}:00`
-      } else {
-        return 'Schedule not specified'
+      const cron = this.job?.definition?.cron
+      if (!cron) return 'Not specified'
+      
+      const { minute, hour, day, day_of_month, month, day_of_week } = cron
+      const dayField = day || day_of_month
+      
+      // Helper to format time with timezone conversion
+      const formatTime = (h, m) => {
+        const parsedHour = parseInt(h)
+        const parsedMinute = parseInt(m)
+        if (isNaN(parsedHour) || isNaN(parsedMinute)) return null
+        
+        const jobTimezone = this.job?.definition?.timezone || 'UTC'
+        const jobTime = DateTime.now()
+          .setZone(jobTimezone)
+          .set({ hour: parsedHour, minute: parsedMinute })
+        const localTime = jobTime.toLocal()
+        return `${localTime.toFormat('HH:mm')} (${localTime.toFormat('ZZZZ')})`
       }
+      
+      // Check for step patterns like */5
+      if (minute && minute.startsWith('*/')) {
+        const stepValue = parseInt(minute.substring(2))
+        if (!isNaN(stepValue)) {
+          if (stepValue === 1) return 'Every minute'
+          return `Every ${stepValue} minutes`
+        }
+      }
+      
+      // Check for hourly pattern: specific minute, any hour
+      if (minute && !minute.includes('*') && (hour === '*' || !hour)) {
+        const parsedMinute = parseInt(minute)
+        if (!isNaN(parsedMinute)) {
+          const minStr = String(parsedMinute).padStart(2, '0')
+          return `Every hour at :${minStr}`
+        }
+      }
+      
+      // Check for hour step patterns like */2
+      if (hour && hour.startsWith('*/')) {
+        const stepValue = parseInt(hour.substring(2))
+        if (!isNaN(stepValue)) {
+          const minStr = minute && minute !== '*' ? String(parseInt(minute)).padStart(2, '0') : '00'
+          return `Every ${stepValue} hours at :${minStr}`
+        }
+      }
+      
+      // Daily pattern: specific hour and minute, any day
+      if (minute && hour && !minute.includes('*') && !hour.includes('*') && 
+          (dayField === '*' || !dayField) && (day_of_week === '*' || !day_of_week)) {
+        const timeStr = formatTime(hour, minute)
+        if (timeStr) return `Daily at ${timeStr}`
+      }
+      
+      // Weekly pattern: specific day_of_week
+      if (minute && hour && day_of_week && day_of_week !== '*' && !minute.includes('*') && !hour.includes('*')) {
+        const timeStr = formatTime(hour, minute)
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        const dayNum = parseInt(day_of_week)
+        const dayName = !isNaN(dayNum) && dayNum >= 0 && dayNum <= 6 ? dayNames[dayNum] : day_of_week
+        if (timeStr) return `Every ${dayName} at ${timeStr}`
+      }
+      
+      // Monthly pattern: specific day of month
+      if (minute && hour && dayField && dayField !== '*' && !minute.includes('*') && !hour.includes('*')) {
+        const timeStr = formatTime(hour, minute)
+        const dayNum = parseInt(dayField)
+        if (timeStr && !isNaN(dayNum)) {
+          const suffix = dayNum === 1 ? 'st' : dayNum === 2 ? 'nd' : dayNum === 3 ? 'rd' : 'th'
+          return `Monthly on the ${dayNum}${suffix} at ${timeStr}`
+        }
+      }
+      
+      // Fallback: show cron expression
+      const parts = [minute || '*', hour || '*', dayField || '*', month || '*', day_of_week || '*']
+      return parts.join(' ')
     },
   },
   methods: {
