@@ -12,13 +12,14 @@ km-popup-confirm(
     .col
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
       .full-width
-        km-input(data-test='name-input', height='30px', v-model='name', ref='nameRef', :rules='[required()]')
+        km-input(data-test='name-input', height='30px', v-model='name', ref='nameRef', :rules='[required()]', placeholder='E.g. My OpenAI Provider')
+      .km-description.text-secondary-text.q-pb-4.q-pl-8 Display name for this provider
 
     .col
       .km-field.text-secondary-text.q-pl-8 System name
       .full-width
-        km-input(data-test='system-name-input', height='30px', v-model='system_name', ref='system_nameRef', :rules='[required()]')
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 System name serves as a unique record ID
+        km-input(data-test='system-name-input', height='30px', v-model='system_name', ref='system_nameRef', :rules='[required()]', placeholder='E.g. MY_OPENAI_PROVIDER')
+      .km-description.text-secondary-text.q-pb-4.q-pl-8 System name serves as a unique record ID (auto-generated from name)
 
     .col
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Type
@@ -35,12 +36,20 @@ km-popup-confirm(
           emit-value,
           mapOptions
         )
+      .km-description.text-secondary-text.q-pb-4.q-pl-8 The type of API this provider uses
 
     .col
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Endpoint
+        span.text-secondary-text.q-ml-4 (optional for OpenAI)
       .full-width
-        km-input(data-test='endpoint-input', height='30px', v-model='newRow.endpoint', placeholder='https://api.example.com')
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 Provider API endpoint URL. Warning: changing endpoint later will clear all secrets
+        km-input(
+          data-test='endpoint-input',
+          height='30px',
+          v-model='newRow.endpoint',
+          placeholder='https://api.example.com',
+          :rules='[validateEndpoint]'
+        )
+      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ endpointHint }}
 </template>
 
 <script>
@@ -69,11 +78,31 @@ export default {
       { label: 'OCI Llama', value: 'oci_llama' },
     ]
 
+    // Validate endpoint URL format
+    const validateEndpoint = (val) => {
+      if (!val) return true // Empty is OK (optional for some providers)
+      // Check if it's a valid URL
+      try {
+        const url = new URL(val)
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          return 'Endpoint must use http:// or https://'
+        }
+        // Check for trailing slash warning
+        if (val.endsWith('/')) {
+          return 'Endpoint should not have a trailing slash'
+        }
+        return true
+      } catch {
+        return 'Please enter a valid URL (e.g., https://api.example.com)'
+      }
+    }
+
     return {
       create,
       useCollection,
       router,
       required,
+      validateEndpoint,
       newRow: reactive({
         name: '',
         system_name: '',
@@ -107,6 +136,18 @@ export default {
         this.newRow.system_name = val
         this.autoChangeCode = false
       },
+    },
+    endpointHint() {
+      const type = this.newRow?.type
+      const hints = {
+        openai: 'Leave empty to use official OpenAI API. Only specify for OpenAI-compatible APIs.',
+        azure_open_ai: 'Required. Your Azure OpenAI resource URL (e.g., https://your-resource.openai.azure.com)',
+        azure_ai: 'Required. Your Azure AI endpoint URL.',
+        groq: 'Leave empty to use default Groq API endpoint.',
+        oci: 'Required. Your OCI endpoint URL.',
+        oci_llama: 'Required. Your OCI Llama endpoint URL.',
+      }
+      return hints[type] || 'Provider API endpoint URL. Warning: changing endpoint later will clear all secrets.'
     },
   },
   mounted() {

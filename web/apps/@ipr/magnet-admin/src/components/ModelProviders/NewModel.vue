@@ -11,12 +11,12 @@ km-popup-confirm(
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
     .full-width
       km-input(height='30px', placeholder='E.g. gpt-4o-mini', v-model='model', ref='modelRef', :rules='config?.model?.rules || []')
-      .km-description.text-secondary-text Name used by the provider to identify the model
+      .km-description.text-secondary-text The exact model name/deployment name used by the provider (case-sensitive)
 
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
     .full-width
       km-input(height='30px', placeholder='E.g. GPT-4O-MINI', v-model='system_name', ref='system_nameRef', :rules='config?.system_name?.rules || []')
-      .km-description.text-secondary-text System name serves as a unique ID
+      .km-description.text-secondary-text System name serves as a unique ID (auto-generated)
 
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Display name
     .full-width
@@ -27,7 +27,7 @@ km-popup-confirm(
         ref='display_nameRef',
         :rules='config?.display_name?.rules || []'
       )
-      .km-description.text-secondary-text How the model name is displayed
+      .km-description.text-secondary-text How the model name is displayed in the UI
 
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Type
     .full-width
@@ -42,6 +42,7 @@ km-popup-confirm(
         emit-value,
         map-options
       )
+      .km-description.text-secondary-text {{ typeDescription }}
 </template>
 
 <script>
@@ -105,6 +106,15 @@ export default {
     },
     popupTitle() {
       return 'New Model'
+    },
+    typeDescription() {
+      const type = this.newRow?.type
+      const descriptions = {
+        prompts: 'Chat completion models for generating text responses (e.g., GPT-4, Claude)',
+        embeddings: 'Vector embedding models for text similarity and search (e.g., text-embedding-ada-002)',
+        're-ranking': 'Re-ranking models for improving search result relevance',
+      }
+      return descriptions[type] || 'Select the type of model based on its purpose'
     },
     model: {
       get() {

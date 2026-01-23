@@ -42,6 +42,7 @@
             q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') If marked as Default, model will be selected by default on related tools
           .q-ml
             km-btn(flat, label='Edit defaults', color='primary', @click='goToDefaultModels')
+
       q-separator.q-my-16
 
       // Features section for prompts models
@@ -156,10 +157,46 @@
             style='max-width: 120px'
           )
           .text-secondary-text {{ price_output_unit_name }}
-  .col-auto.q-pa-16(v-if='isEntityChanged')
-    .row.justify-end.q-gap-8
-      km-btn(flat, label='Cancel', color='primary', @click='cancelChanges', data-test='Cancel')
-      km-btn(label='Save', @click='save', data-test='Save')
+  .col-auto.q-pa-16
+    .row.items-center.q-gap-8
+      km-btn(
+        flat,
+        :label='testingModel ? "Testing..." : "Test Model"',
+        :loading='testingModel',
+        @click='testModel',
+        icon='fas fa-flask',
+        color='primary',
+        :disable='testingModel || isEntityChanged',
+        data-test='TestModel'
+      )
+      q-space
+      km-btn(v-if='isEntityChanged', flat, label='Cancel', color='primary', @click='cancelChanges', data-test='Cancel')
+      km-btn(v-if='isEntityChanged', label='Save', @click='save', data-test='Save')
+
+//- Test Result Dialog
+q-dialog(v-model='showTestDialog')
+  q-card(style='min-width: 400px; max-width: 500px')
+    q-card-section.row.items-center
+      .km-heading-7 Test Result
+      q-space
+      q-btn(icon='close', flat, round, dense, @click='showTestDialog = false')
+    q-card-section
+      .row.items-center.q-gap-12.q-mb-md
+        q-icon(
+          :name='testResult?.success ? "fas fa-check-circle" : "fas fa-times-circle"',
+          :color='testResult?.success ? "positive" : "negative"',
+          size='32px'
+        )
+        .text-h6(:class='testResult?.success ? "text-positive" : "text-negative"') {{ testResult?.success ? 'Success' : 'Failed' }}
+      .km-description.text-secondary-text.q-mb-sm {{ testResult?.message }}
+      .q-pa-sm.bg-grey-2.rounded-borders(v-if='testResult?.response_preview')
+        .km-field.text-secondary-text.q-mb-xs Response Preview
+        .text-body2 {{ testResult?.response_preview }}
+      .q-pa-sm.bg-negative-light.rounded-borders.q-mt-sm(v-if='testResult?.error')
+        .km-field.text-negative.q-mb-xs Error Details
+        .text-body2.text-negative {{ testResult?.error }}
+    q-card-actions(align='right')
+      km-btn(flat, label='Close', color='primary', @click='showTestDialog = false')
 
 q-inner-loading(:showing='loading')
 </template>
@@ -170,7 +207,7 @@ import { categoryOptions } from '../../config/model/model.js'
 
 export default {
   setup() {
-    const { items, update, create, selectedRow, ...useCollection } = useChroma('model')
+    const { items, update, create, selectedRow, test, ...useCollection } = useChroma('model')
 
     return {
       tab: ref('parameters'),
@@ -185,11 +222,15 @@ export default {
       ]),
       categoryOptions,
       loading: ref(false),
+      testingModel: ref(false),
+      testResult: ref(null),
+      showTestDialog: ref(false),
       items,
       update,
       create,
       selectedRow,
       useCollection,
+      testModelAction: test,
     }
   },
   computed: {
@@ -418,6 +459,44 @@ export default {
         })
       } finally {
         this.loading = false
+      }
+    },
+    async testModel() {
+      const modelId = this.modelConfig?.id
+      if (!modelId) {
+        this.$q.notify({
+          position: 'top',
+          message: 'Please save the model first before testing.',
+          color: 'warning',
+          textColor: 'black',
+          timeout: 2000,
+        })
+        return
+      }
+
+      this.testingModel = true
+      this.testResult = null
+
+      try {
+        // Use store dispatch directly if testModelAction is not available
+        let result
+        if (this.testModelAction) {
+          result = await this.testModelAction(modelId)
+        } else {
+          result = await this.$store.dispatch('chroma/test', { payload: modelId, entity: 'model' })
+        }
+        this.testResult = result
+        this.showTestDialog = true
+      } catch (error) {
+        console.error('Error testing model:', error)
+        this.testResult = {
+          success: false,
+          message: 'Failed to test model',
+          error: error?.text || error?.message || 'Unknown error',
+        }
+        this.showTestDialog = true
+      } finally {
+        this.testingModel = false
       }
     },
     cancelChanges() {

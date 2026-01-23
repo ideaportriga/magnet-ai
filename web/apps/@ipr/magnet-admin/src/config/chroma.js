@@ -628,6 +628,27 @@ const apiModelConfig = {
         }
       })
   },
+  test: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'POST',
+      endpoint,
+      credentials: 'include',
+      service: `models/${id}/test`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+      })
+      .catch((response) => {
+        throw {
+          technicalError: response?.error,
+          text: `Error testing model`,
+        }
+      })
+  },
 }
 const modelProviders = {
   get: async (service, endpoint) => {
@@ -746,6 +767,27 @@ const modelProviders = {
         throw {
           technicalError: response?.error,
           text: `Error deleting model provider`,
+        }
+      })
+  },
+  test: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'POST',
+      endpoint,
+      credentials: 'include',
+      service: `providers/${id}/test`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+      })
+      .catch((response) => {
+        throw {
+          technicalError: response?.error,
+          text: `Error testing model provider connection`,
         }
       })
   },
