@@ -46,8 +46,41 @@
       .col-auto
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
         km-btn(@click='removeConnection(key)', icon='o_delete', size='sm', flat, color='negative')
-    .row.q-pt-16
+    .row.q-pt-16.items-center
       km-btn(label='Add Record', @click='addConnection', size='sm', icon='o_add', flat)
+      q-space
+      km-btn(
+        flat,
+        :label='testingConnection ? "Testing..." : "Test Connection"',
+        :loading='testingConnection',
+        @click='testProviderConnection',
+        icon='fas fa-plug',
+        color='primary',
+        size='sm'
+      )
+
+  //- Test Result Dialog
+  q-dialog(v-model='showTestDialog')
+    q-card(style='min-width: 400px; max-width: 500px')
+      q-card-section.row.items-center
+        .km-heading-7 Test Result
+        q-space
+        q-btn(icon='close', flat, round, dense, @click='showTestDialog = false')
+      q-card-section
+        .row.items-center.q-gap-12.q-mb-md
+          q-icon(
+            :name='testResult?.success ? "fas fa-check-circle" : "fas fa-times-circle"',
+            :color='testResult?.success ? "positive" : "negative"',
+            size='32px'
+          )
+          .text-h6(:class='testResult?.success ? "text-positive" : "text-negative"') {{ testResult?.success ? 'Success' : 'Failed' }}
+        .km-description.text-secondary-text.q-mb-sm {{ testResult?.message }}
+        .q-pa-sm.bg-negative-light.rounded-borders.q-mt-sm(v-if='testResult?.error')
+          .km-field.text-negative.q-mb-xs Error Details
+          .text-body2.text-negative {{ testResult?.error }}
+      q-card-actions(align='right')
+        km-btn(flat, label='Close', color='primary', @click='showTestDialog = false')
+
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
     km-secrets(v-model:secrets='secrets', :original-secrets='originalProviderSecrets', :remount-value='remountValue')
@@ -67,6 +100,11 @@ const provider = computed(() => store.getters.provider)
 const isEditingEndpoint = ref(false)
 const tempEndpoint = ref('')
 const showEndpointWarning = ref(false)
+
+// Test connection state
+const testingConnection = ref(false)
+const testResult = ref(null)
+const showTestDialog = ref(false)
 
 const pendingNavigation = ref(null)
 
@@ -224,6 +262,39 @@ const updateConnectionValue = (key, newValue) => {
     key: 'connection_config',
     value: config,
   })
+}
+
+// Test provider connection
+const testProviderConnection = async () => {
+  if (!provider.value?.id) {
+    $q.notify({
+      position: 'top',
+      message: 'Please save the provider first before testing.',
+      color: 'warning',
+      textColor: 'black',
+      timeout: 2000,
+    })
+    return
+  }
+
+  testingConnection.value = true
+  testResult.value = null
+
+  try {
+    const result = await store.dispatch('chroma/test', { payload: provider.value.id, entity: 'provider' })
+    testResult.value = result
+    showTestDialog.value = true
+  } catch (error) {
+    console.error('Error testing provider:', error)
+    testResult.value = {
+      success: false,
+      message: 'Failed to test connection',
+      error: error?.text || error?.message || 'Unknown error',
+    }
+    showTestDialog.value = true
+  } finally {
+    testingConnection.value = false
+  }
 }
 </script>
 

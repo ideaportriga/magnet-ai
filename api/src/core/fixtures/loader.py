@@ -140,7 +140,19 @@ class FixtureLoader:
             await self.logger.awarning("No entity directories found in fixtures path")
             return
 
-        for entity_dir in sorted(entity_dirs):
+        # Ensure dependencies are loaded first
+        priority_order = [
+            "provider",
+            "ai_model",
+        ]
+
+        def _sort_key(dir_path: Path) -> tuple[int, str]:
+            try:
+                return (priority_order.index(dir_path.name), dir_path.name)
+            except ValueError:
+                return (len(priority_order), dir_path.name)
+
+        for entity_dir in sorted(entity_dirs, key=_sort_key):
             await self.load_entity_fixtures(entity_dir.name)
 
     def _get_model_class(self, entity_name: str) -> type | None:
@@ -155,22 +167,22 @@ class FixtureLoader:
         try:
             # Import the model dynamically - adjust path based on actual structure
             if entity_name == "ai_model":
-                module_path = "src.core.db.models.ai_model"
+                module_path = "core.db.models.ai_model"
                 class_name = "AIModel"
             elif entity_name == "ai_app":
-                module_path = "src.core.db.models.ai_app"
+                module_path = "core.db.models.ai_app"
                 class_name = "AIApp"
             elif entity_name == "mcp_server":
-                module_path = "src.core.db.models.mcp_server"
+                module_path = "core.db.models.mcp_server"
                 class_name = "MCPServer"
             elif entity_name == "evaluation_set":
-                module_path = "src.core.db.models.evaluation_set.evaluation_set"
+                module_path = "core.db.models.evaluation_set.evaluation_set"
                 class_name = "EvaluationSet"
             elif entity_name == "collection":
-                module_path = "src.core.db.models.collection.collection"
+                module_path = "core.db.models.collection.collection"
                 class_name = "Collection"
             else:
-                module_path = f"src.core.db.models.{entity_name}"
+                module_path = f"core.db.models.{entity_name}"
                 class_name = self._entity_name_to_class_name(entity_name)
 
             module = __import__(module_path, fromlist=[class_name])

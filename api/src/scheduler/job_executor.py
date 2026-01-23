@@ -45,7 +45,7 @@ async def create_job(
                 result = await session.execute(
                     text("""
                         SELECT id FROM jobs 
-                        WHERE definition->>'run_configuration'->>'type' = :run_config_type 
+                        WHERE definition->'run_configuration'->>'type' = :run_config_type 
                         AND definition->'run_configuration'->'params'->>'is_system' = 'true'
                     """),
                     {"run_config_type": run_config_type},
@@ -180,9 +180,8 @@ async def create_job(
             k: v for k, v in job_definition.cron.model_dump().items() if v is not None
         }
 
-        # if timezone is not provided, default to UTC
-        if "timezone" in job_definition.dict():
-            cron_params["timezone"] = pytz.timezone(job_definition.timezone or "UTC")
+        # Set timezone from job_definition (defaults to UTC via model validator)
+        cron_params["timezone"] = pytz.timezone(job_definition.timezone)
 
         # Create the CronTrigger with the extracted parameters
         cron_trigger = CronTrigger(**cron_params)

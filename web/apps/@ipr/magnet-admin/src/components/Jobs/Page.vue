@@ -124,18 +124,23 @@ export default {
         newFilterConfig[key] = { ...this.filterConfig[key] }
         delete newFilterConfig[key].default
       }
-      // Add _id field with value from query
-      newFilterConfig._id = {
+      // Add id field with value from query (Jobs API uses 'id', not '_id')
+      newFilterConfig.id = {
         label: 'ID',
-        key: '_id',
+        key: 'id',
         options: [{ label: routeJobId, value: routeJobId }],
         default: routeJobId,
       }
       this.filterConfig = newFilterConfig
+      // Also set filterObject to apply the filter immediately
+      this.filterObject = { id: routeJobId }
     }
   },
   async mounted() {
-    this.tableJobsRef.requestServerInteraction()
+    await this.$nextTick()
+    if (this.tableJobsRef) {
+      this.tableJobsRef.requestServerInteraction()
+    }
   },
   methods: {
     debounceSearch: _.debounce(function (search) {

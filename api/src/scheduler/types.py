@@ -127,9 +127,10 @@ class JobDefinition(BaseModel):
                     "cron configuration must be provided for recurring jobs",
                 )
             if not self.scheduled_start_time:
+                from datetime import timezone as tz
                 self.scheduled_start_time = (
-                    datetime.now()
-                )  # Default to current time if not provided
+                    datetime.now(tz.utc)
+                )  # Default to current time in UTC if not provided
 
         return self
 

@@ -81,13 +81,22 @@ async def rerank(
         # Call the LLM
         provider_instance = await get_ai_provider(provider_system_name)
         call_start_time = time.time()
-        rerank = await provider_instance.rerank(
-            documents=documents,
-            llm=llm,
-            query=query,
-            top_n=top_n,
-            truncation=False,
-        )
+        try:
+            rerank = await provider_instance.rerank(
+                documents=documents,
+                llm=llm,
+                query=query,
+                top_n=top_n,
+                truncation=False,
+            )
+        except (AttributeError, NotImplementedError) as exc:
+            observability_context.update_current_span(
+                output={
+                    "warning": "Rerank not supported by provider; returning original order",
+                    "details": str(exc),
+                }
+            )
+            return documents
         call_end_time = time.time()
         call_duration = call_end_time - call_start_time
 

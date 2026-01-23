@@ -19,6 +19,7 @@ from .sharepoint_models import (
     SharePointListingTask,
     SharePointRuntimeConfig,
     SharePointSharedSyncState,
+    SHAREPOINT_SYSTEM_FOLDERS,
 )
 from .sharepoint_utils import (
     create_sharepoint_context,
@@ -127,6 +128,19 @@ class SharePointSyncPipeline(
                         if not sub_url:
                             continue
 
+                        # Skip SharePoint system folders - these contain UI elements
+                        # and system files that can't be downloaded (403 errors)
+                        folder_name = sub_url.rstrip("/").split("/")[-1]
+
+                        if folder_name in SHAREPOINT_SYSTEM_FOLDERS:
+                            logger.debug(
+                                "Skipping SharePoint system folder",
+                                extra=self._log_extra(
+                                    worker_id=worker_id, folder=sub_url
+                                ),
+                            )
+                            continue
+
                         # De-dup at enqueue-time (so we don't flood the listing queue).
                         async with self._state.folders_lock:
                             if sub_url in self._state.queued_folders:
@@ -194,6 +208,11 @@ class SharePointSyncPipeline(
                     # "discovered metadata" for this knowledge graph. Failures here should
                     # not block ingestion.
                     file_metadata: dict[str, Any] = {}
+                    file_bytes: bytes | None = None
+
+                    # For .aspx pages, get HTML content from CanvasContent1 instead of downloading file bytes
+                    is_aspx_page = filename.lower().endswith(".aspx")
+
                     async with ctx.semaphore("sharepoint"):
                         try:
                             file_metadata = (
@@ -213,10 +232,35 @@ class SharePointSyncPipeline(
                                 ),
                             )
 
-                        file_bytes = await download_sharepoint_file_bytes(
-                            sp_ctx,
-                            server_relative_url=file_ref.server_relative_url,
-                        )
+                        if is_aspx_page:
+                            # For pages, get HTML content from CanvasContent1 property
+                            from .sharepoint_utils import fetch_sharepoint_page_content
+
+                            page_html = await fetch_sharepoint_page_content(
+                                sp_ctx,
+                                server_relative_url=file_ref.server_relative_url,
+                            )
+                            if page_html:
+                                file_bytes = page_html.encode("utf-8")
+                            else:
+                                logger.warning(
+                                    "No CanvasContent1 found for SharePoint page",
+                                    extra=self._log_extra(
+                                        worker_id=worker_id,
+                                        doc_filename=filename or None,
+                                    ),
+                                )
+                                file_bytes = b""
+                        else:
+                            # For documents, download file bytes normally
+                            file_bytes = await download_sharepoint_file_bytes(
+                                sp_ctx,
+                                server_relative_url=file_ref.server_relative_url,
+                            )
+
+                    if not file_bytes:
+                        await ctx.inc("skipped")
+                        continue
 
                     if file_metadata:
                         try:

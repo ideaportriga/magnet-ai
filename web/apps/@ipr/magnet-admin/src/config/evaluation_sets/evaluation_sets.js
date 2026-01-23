@@ -1,4 +1,4 @@
-import { required, minLength } from '@shared/utils/validationRules'
+import { required, minLength, validSystemName } from '@shared/utils/validationRules'
 import NameDescription from './component/NameDescription.vue'
 import { markRaw } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
@@ -58,7 +58,7 @@ const controls = {
     fromMetadata: false,
     ignorePatch: true,
     validate: true,
-    rules: [required(), minLength(3, 'Evaluation test set system name must consist of more than 3 characters')],
+    rules: [required(), minLength(3, 'Evaluation test set system name must consist of more than 3 characters'), validSystemName()],
     align: 'left',
   },
 

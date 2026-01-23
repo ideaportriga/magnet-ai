@@ -210,6 +210,7 @@ const actions = {
   },
 
   async getDetail({ state, commit, rootGetters, getters }: ActionContext<ChromaState, any>, { payload, entity }: { payload: any; entity: string }) {
+    console.log('[chroma.ts getDetail] called with:', { payload, entity })
     commit('setLoading', { entity, value: true })
     const endpoint = rootGetters.config?.collections?.endpoint
     const service = rootGetters.config?.collections?.service || ''
@@ -218,12 +219,17 @@ const actions = {
 
     try {
       const detailItem = await req.getDetail(service, endpoint, payload)
+      console.log('[chroma.ts getDetail] raw detailItem:', detailItem)
       const formattedDetail = format(detailItem)
+      console.log('[chroma.ts getDetail] formattedDetail:', formattedDetail)
 
       const index = state[entity].items.findIndex((item: any) => item.id === payload.id)
-      const updatedItem = { ...formattedDetail }
-      commit('updateItem', { entity, index, item: updatedItem })
+      console.log('[chroma.ts getDetail] found index:', index, 'looking for id:', payload.id)
+      // formattedDetail is an array from transformChromaResponse, pass it directly
+      commit('updateItem', { entity, index, item: formattedDetail })
+      console.log('[chroma.ts getDetail] after updateItem, items:', state[entity].items)
     } catch (errorMessage) {
+      console.error('[chroma.ts getDetail] error:', errorMessage)
       // commit('set', { errorMessage }, { root: true })
     } finally {
       commit('resetLoading', { entity })
@@ -295,6 +301,26 @@ const actions = {
     } catch (errorMessage) {
       commit('set', { errorMessage }, { root: true })
       return false
+    } finally {
+      commit('resetLoading', { entity })
+    }
+  },
+
+  async test({ rootGetters, commit, state }: ActionContext<ChromaState, any>, { payload, entity }: { payload: any; entity: string }) {
+    commit('setLoading', { entity, value: true })
+    const endpoint = rootGetters.config?.collections?.endpoint
+    const service = rootGetters.config?.collections?.service || ''
+    const req = state[entity].api
+
+    try {
+      if (!req.test) {
+        throw new Error('Test method not available for this entity')
+      }
+      const result = await req.test(service, endpoint, { id: payload })
+      return result
+    } catch (errorMessage) {
+      commit('set', { errorMessage }, { root: true })
+      throw errorMessage
     } finally {
       commit('resetLoading', { entity })
     }

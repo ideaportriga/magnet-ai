@@ -1,17 +1,20 @@
 <template lang="pug">
-input.flat-input.ellipsis.rounded-borders.q-px-6(
-  ref='input',
-  contenteditable,
-  :value='modelValue',
-  @input='$emit("input", $event.target.value)',
-  @change='$emit("change", $event.target.value)',
-  @focus='focus',
-  @blur='blur',
-  :readonly='readonly',
-  :disable='disabled',
-  :placeholder='placeholder',
-  :class='{ error: errorMessage != undefined }'
-)
+.km-input-flat-wrapper
+  input.flat-input.ellipsis.rounded-borders.q-px-6(
+    ref='input',
+    contenteditable,
+    :value='modelValue',
+    @input='$emit("input", $event.target.value)',
+    @change='handleChange($event.target.value)',
+    @focus='focus',
+    @blur='handleBlur',
+    :readonly='readonly',
+    :disable='disabled',
+    :placeholder='placeholder',
+    :class='{ error: errorMessage != undefined }',
+    :title='errorMessage'
+  )
+  .km-input-flat-error(v-if='errorMessage') {{ errorMessage }}
 </template>
 
 <script>
@@ -58,8 +61,13 @@ export default {
   },
   computed: {},
   methods: {
-    blur() {
+    handleBlur() {
+      this.validate()
       this.$emit('blur')
+    },
+    handleChange(value) {
+      this.validate(value)
+      this.$emit('change', value)
     },
     focus() {
       this.$emit('focus')
@@ -70,6 +78,12 @@ export default {
 </script>
 
 <style lang="stylus" scoped>
+.km-input-flat-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 .flat-input {
   border: none;
   outline: none;
@@ -88,5 +102,12 @@ export default {
   &:hover:not(:focus) {
     background: var(--q-control-active-bg);
   }
+}
+
+.km-input-flat-error {
+  color: var(--q-negative);
+  font-size: 11px;
+  padding: 2px 6px;
+  min-height: 14px;
 }
 </style>

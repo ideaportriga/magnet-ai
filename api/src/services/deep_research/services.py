@@ -9,6 +9,7 @@ from core.domain.deep_research.schemas import DeepResearchRunUpdateSchema
 from core.domain.deep_research.service import DeepResearchRunService
 from services.api_servers.services import call_api_server_tool
 from services.api_servers.types import ApiToolCall, ApiToolCallInputParams
+from services.observability import observe, observability_context
 from services.prompt_templates import execute_prompt_template
 
 from .models import (
@@ -68,6 +69,7 @@ def _track_usage(run: DeepResearchRun, result_data: Any) -> None:
         run.total_usage["total_tokens"] += usage.get("total_tokens", 0)
 
 
+@observe(name="Deep research execution")
 async def execute_deep_research(
     run: DeepResearchRun,
     persist_callback: Callable[[DeepResearchRun], Awaitable[None]] | None = None,
@@ -256,6 +258,7 @@ async def execute_deep_research(
         await persist_state()
 
 
+@observe(name="Web search workflow")
 async def _execute_web_search_workflow(
     run: DeepResearchRun,
     current_iteration: DeepResearchIteration,
@@ -273,6 +276,15 @@ async def _execute_web_search_workflow(
 
     Returns a formatted summary for the conversation history.
     """
+    # Update span with input details
+    observability_context.update_current_span(
+        input={
+            "Query": query,
+            "Already analyzed URLs": len(memory.analyzed_urls),
+            "Already processed URLs": len(memory.processed_urls),
+        }
+    )
+
     # Validate query
     if not query:
         return "Error: No search query provided"
@@ -404,9 +416,25 @@ async def _execute_web_search_workflow(
             f"\n⚠ {len(newly_relevant_results)} relevant pages found but not processed (reached limit or error)."
         )
 
-    return "\n".join(summary_parts)
+    final_summary = "\n".join(summary_parts)
+
+    # Update span with output details
+    observability_context.update_current_span(
+        output={
+            "Total results found": len(raw_results),
+            "New results": len(new_results),
+            "Newly relevant": len(newly_relevant_results),
+            "Newly processed": len(processed_summaries),
+            "Summary": final_summary[:500] + "..."
+            if len(final_summary) > 500
+            else final_summary,
+        }
+    )
+
+    return final_summary
 
 
+@observe(name="Determine next action")
 async def _execute_reasoning_step(
     run: DeepResearchRun,
     iteration: int,
@@ -421,6 +449,18 @@ async def _execute_reasoning_step(
         allow_tools: If False, don't pass web_search tool (forces final report generation)
     """
     try:
+        # Update span with input details
+        observability_context.update_current_span(
+            input={
+                "Iteration": f"{iteration}/{config.max_iterations}",
+                "Research query": run.input.get("query", ""),
+                "Search queries so far": len(memory.search_queries),
+                "Processed URLs": len(memory.processed_urls),
+                "Extracted info items": len(memory.extracted_info),
+                "Tools available": allow_tools,
+            }
+        )
+
         # Build template_values from input
         template_values = {
             **run.input,  # Spread all input variables
@@ -484,6 +524,22 @@ async def _execute_reasoning_step(
 
         decided_action = "final_report" if not tool_calls else "search"
 
+        # Update span with output details
+        output_data = {
+            "Decision": decided_action,
+            "Tool calls": len(tool_calls) if tool_calls else 0,
+        }
+        if tool_calls:
+            output_data["Search queries"] = [
+                tc.get("function", {}).get("arguments", "{}") for tc in tool_calls
+            ]
+        if content and decided_action == "final_report":
+            output_data["Report preview"] = (
+                content[:200] + "..." if len(content) > 200 else content
+            )
+
+        observability_context.update_current_span(output=output_data)
+
         step = DeepResearchStep(
             type=StepType.REASONING,
             title=f"Iteration {iteration}: Planning next action",
@@ -507,11 +563,20 @@ async def _execute_reasoning_step(
         )
 
 
+@observe(name="Execute web search")
 async def _execute_search_step(
     config: DeepResearchConfig, memory: DeepResearchMemory, query: str
 ) -> tuple[DeepResearchStep, list[dict]]:
     """Execute web search using Tavily API tool. Returns (step, results)."""
     try:
+        # Update span with input details
+        observability_context.update_current_span(
+            input={
+                "Query": query,
+                "Max results": config.max_results,
+            }
+        )
+
         # Add query to memory
         memory.search_queries.append(query)
 
@@ -570,6 +635,15 @@ async def _execute_search_step(
                     "processing_summary": None,
                 }
 
+        # Update span with output details
+        observability_context.update_current_span(
+            output={
+                "Total results": len(results),
+                "New results": new_count,
+                "URLs": [r.get("url", "") for r in results[:5]],  # First 5 URLs
+            }
+        )
+
         step = DeepResearchStep(
             type=StepType.SEARCH,
             title=f"Searching: '{query}'",
@@ -593,6 +667,7 @@ async def _execute_search_step(
         return step, []
 
 
+@observe(name="Analyze search results")
 async def _analyze_search_results(
     run: DeepResearchRun,
     config: DeepResearchConfig,
@@ -606,6 +681,15 @@ async def _analyze_search_results(
     Returns (step, relevant_results)
     """
     try:
+        # Update span with input details
+        observability_context.update_current_span(
+            input={
+                "Query": query,
+                "Results to analyze": len(results),
+                "Result titles": [r.get("title", "N/A") for r in results],
+            }
+        )
+
         # Format results for analysis (snippets only)
         results_text = "\n\n".join(
             [
@@ -683,6 +767,16 @@ async def _analyze_search_results(
             )
             return step, []
 
+        # Update span with output details
+        observability_context.update_current_span(
+            output={
+                "Analyzed": len(results),
+                "Relevant": len(relevant_results),
+                "Irrelevant": len(results) - len(relevant_results),
+                "Relevant URLs": [r.get("url", "") for r in relevant_results],
+            }
+        )
+
         step = DeepResearchStep(
             type=StepType.ANALYZE_RESULTS,
             title=f"Analyzed {len(results)} results: {len(relevant_results)} relevant",
@@ -711,6 +805,7 @@ async def _analyze_search_results(
         return step, []
 
 
+@observe(name="Process search result")
 async def _process_search_result(
     run: DeepResearchRun,
     config: DeepResearchConfig,
@@ -731,6 +826,16 @@ async def _process_search_result(
             result.get("raw_content")
             or result.get("content")
             or result.get("snippet", "")
+        )
+
+        # Update span with input details
+        observability_context.update_current_span(
+            input={
+                "URL": url,
+                "Title": title,
+                "Content length": len(page_content),
+                "Relevance reasoning": result.get("relevance_reasoning", "N/A"),
+            }
         )
 
         if not page_content:
@@ -773,6 +878,14 @@ async def _process_search_result(
         if url in memory.url_analysis:
             memory.url_analysis[url]["processed"] = True
             memory.url_analysis[url]["processing_summary"] = summary
+
+        # Update span with output details
+        observability_context.update_current_span(
+            output={
+                "Summary": summary[:300] + "..." if len(summary) > 300 else summary,
+                "Summary length": len(summary),
+            }
+        )
 
         return DeepResearchStep(
             type=StepType.PROCESS_PAGE,
@@ -1011,6 +1124,12 @@ async def _persist_run_state(
     await run_service.update(update, item_id=UUID(run_state.run_id), auto_commit=True)
 
 
+@observe(
+    name="Deep research workflow",
+    description="Execute deep research workflow for a research run",
+    channel="production",
+    source="Runtime AI App",
+)
 async def run_deep_research_workflow(run_id: str | UUID) -> None:
     """Orchestrate deep research execution for a persisted run."""
 
@@ -1021,6 +1140,14 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
             run_service = DeepResearchRunService(session=session)
             db_run = await run_service.get(run_uuid)
             run_model = _map_db_run_to_service(db_run)
+
+            # Import here to avoid circular dependency
+            from services.observability import observability_context
+
+            # Update trace with deep research context
+            observability_context.update_current_trace(
+                name="Deep Research", type="deep_research"
+            )
 
             async def persist(run_state: DeepResearchRun) -> None:
                 await _persist_run_state(run_service, run_state)

@@ -24,7 +24,8 @@
                 :modelValue='system_name',
                 @change='system_name = $event',
                 @focus='showInfo = true',
-                @blur='showInfo = false'
+                @blur='showInfo = false',
+                :rules='[validSystemName()]'
               )
               .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
             q-separator.q-mt-8
@@ -74,6 +75,7 @@
 import { categoryOptions } from '@/config/prompts/prompts'
 import { useChroma } from '@shared'
 import { ref } from 'vue'
+import { validSystemName } from '@shared/utils/validationRules'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -98,6 +100,7 @@ export default {
       selected,
       useCollection,
       categoryOptions,
+      validSystemName,
     }
   },
   computed: {

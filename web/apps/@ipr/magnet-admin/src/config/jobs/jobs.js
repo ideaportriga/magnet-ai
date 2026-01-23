@@ -25,6 +25,10 @@ export const jobTypeOptions = [
 
 export const jobIntervalOptions = [
   {
+    value: 'every_5_minutes',
+    label: 'Every 5 minutes',
+  },
+  {
     value: 'hourly',
     label: 'Hourly',
   },
@@ -39,6 +43,10 @@ export const jobIntervalOptions = [
   {
     value: 'monthly',
     label: 'Monthly',
+  },
+  {
+    value: 'custom',
+    label: 'Custom',
   },
 ]
 

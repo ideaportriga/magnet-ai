@@ -14,7 +14,7 @@
         .text-secondary-text.km-description {{ updated_at }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-mx-md
-  km-btn(label='Save', icon='far fa-save', iconSize='16px', color='primary', bg='background', @click='save')
+  km-btn(label='Save', icon='far fa-save', iconSize='16px', color='primary', bg='background', @click='save', :loading='loading', :disable='loading')
 .col-auto.text-white.q-mr-md
   q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px', data-test='show-more-btn')
     q-menu(anchor='bottom right', self='top right')
@@ -41,6 +41,7 @@ q-inner-loading(:showing='loading')
 
 <script>
 import { useChroma } from '@shared'
+import { validSystemName } from '@shared/utils/validationRules'
 import { ref } from 'vue'
 
 export default {
@@ -118,15 +119,43 @@ export default {
       }
     },
     async save() {
-      this.loading = true
-      if (this.currentRow?.created_at) {
-        const obj = { ...this.currentRow }
-        await this.update({ id: obj.id, data: JSON.stringify(obj) })
-      } else {
-        await this.create(JSON.stringify(this.currentRow))
+      // Validate system_name before saving
+      const systemNameValidation = validSystemName()(this.currentRow?.system_name)
+      if (systemNameValidation !== true) {
+        this.$q.notify({
+          position: 'top',
+          color: 'negative',
+          message: systemNameValidation,
+          timeout: 3000,
+        })
+        return
       }
-      this.$store.commit('setInitPromptTemplate')
-      this.loading = false
+
+      this.loading = true
+      try {
+        if (this.currentRow?.created_at) {
+          const obj = { ...this.currentRow }
+          await this.update({ id: obj.id, data: JSON.stringify(obj) })
+        } else {
+          await this.create(JSON.stringify(this.currentRow))
+        }
+        this.$store.commit('setInitPromptTemplate')
+        this.$q.notify({
+          position: 'top',
+          color: 'positive',
+          message: 'Saved successfully',
+          timeout: 2000,
+        })
+      } catch (error) {
+        this.$q.notify({
+          position: 'top',
+          color: 'negative',
+          message: error.message || 'Failed to save',
+          timeout: 3000,
+        })
+      } finally {
+        this.loading = false
+      }
     },
     formatDate(date) {
       const dateObject = new Date(date)

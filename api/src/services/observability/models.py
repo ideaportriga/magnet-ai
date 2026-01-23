@@ -413,7 +413,7 @@ class TraceObservabilityFields(ObservabilityFields):
             )
             for name, value in self.extra_data.value.items():
                 extra_data_attributes[f"{extra_data_otel_attr_prefix}.{name}"] = (
-                    json.dumps(value)
+                    json.dumps(value, default=str)
                 )
 
         return {**super().to_otel_attributes(prefix=prefix), **extra_data_attributes}

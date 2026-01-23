@@ -77,7 +77,8 @@ def job_executed_listener(event):
 
         next_run = format_next_run_time(running_job)
         current_time = datetime.now(UTC).isoformat()
-        status = JobStatus.PROCESSING if next_run else JobStatus.COMPLETED
+        # WAITING if recurring job has next run, COMPLETED if one-time job finished
+        status = JobStatus.WAITING if next_run else JobStatus.COMPLETED
 
         _run_async(
             update_job_status(

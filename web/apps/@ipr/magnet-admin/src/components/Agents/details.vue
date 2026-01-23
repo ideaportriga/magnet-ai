@@ -25,7 +25,8 @@
                 :modelValue='system_name',
                 @change='system_name = $event',
                 @focus='showInfo = true',
-                @blur='showInfo = false'
+                @blur='showInfo = false',
+                :rules='[validSystemName()]'
               )
               .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
             agents-sub-header
@@ -79,6 +80,7 @@
 <script>
 import { ref } from 'vue'
 import { useChroma } from '@shared'
+import { validSystemName } from '@shared/utils/validationRules'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -107,6 +109,7 @@ export default {
       selectedRow,
       selected,
       useCollection,
+      validSystemName,
     }
   },
   computed: {

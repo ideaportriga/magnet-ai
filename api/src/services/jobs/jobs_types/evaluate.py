@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 from enum import Enum, StrEnum
 from typing import Optional
 
+from tenacity import retry, stop_after_attempt, wait_exponential_jitter
+
 from core.config.app import alchemy
 from core.domain.evaluation_sets.service import EvaluationSetsService
 from core.domain.evaluations.service import EvaluationsService
@@ -13,6 +15,7 @@ from core.domain.rag_tools.service import RagToolsService
 from open_ai.utils_new import create_chat_completion_from_prompt_template
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
 from services.observability import observability_context, observe
+from services.evaluation.services import append_evaluation_results
 from services.rag_tools import execute_rag_tool
 from services.utils.metadata_filtering import metadata_filter_to_filter_object
 
@@ -138,6 +141,7 @@ async def execute_test_set_item_rag_tool(
 
 
 # Perform the actual evaluation based on job type
+@retry(stop=stop_after_attempt(3), wait=wait_exponential_jitter(initial=1, max=10))
 async def evaluate_record(
     job_type, system_name, variant, config, metadata_filter, user_message
 ) -> dict:
@@ -208,6 +212,7 @@ async def evaluate_variant(
     test_set_system_names,
     iteration_count,
     batch_size=5,
+    max_concurrency=10,
 ):
     variant = evaluation_record.get("tool").get("variant_name")
     variant_object = evaluation_record.get("tool").get("variant_object")
@@ -231,6 +236,8 @@ async def evaluate_variant(
             "Total number of test set records": total_records,
         }
     )
+
+    any_errors = False
 
     try:
         # Function to evaluate a single test set item
@@ -297,8 +304,13 @@ async def evaluate_variant(
             logger.info("Returning result record for later batch save")
             return result_record
 
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def run_with_semaphore(coro):
+            async with semaphore:
+                return await coro
+
         # Execute iterations with batch processing
-        tasks = []
         for iteration in range(1, iteration_count + 1):
             for test_set_index, test_set in enumerate(test_set_system_names):
                 async with alchemy.get_session() as session:
@@ -312,6 +324,7 @@ async def evaluate_variant(
                     evaluation_record["errors"].append(
                         f"Test set '{test_set}' not found"
                     )
+                    any_errors = True
                     continue
 
                 evaluation_set_config = evaluation_set_configs[0]
@@ -319,34 +332,50 @@ async def evaluate_variant(
                 test_set_items = evaluation_set_config.items or []
                 for i in range(0, len(test_set_items), batch_size):
                     batch = test_set_items[i : i + batch_size]
+                    tasks = []
                     for item_index, item in enumerate(batch):
                         tasks.append(
-                            evaluate_test_set_item(
-                                iteration,
-                                test_set_index + 1,
-                                i + item_index + 1,
-                                test_set,
-                                item,
+                            run_with_semaphore(
+                                evaluate_test_set_item(
+                                    iteration,
+                                    test_set_index + 1,
+                                    i + item_index + 1,
+                                    test_set,
+                                    item,
+                                )
                             )
                         )
 
-        # Execute all tasks concurrently and collect results
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+                    # Execute batch tasks concurrently and collect results
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Collect all successful results
-        all_result_records = []
-        for result in results:
-            if isinstance(result, dict) and "id" in result:
-                all_result_records.append(result)
-            elif isinstance(result, Exception):
-                logger.error(f"Task failed with exception: {result}")
-                evaluation_record["errors"].append(str(result))
+                    # Collect all successful results
+                    batch_result_records = []
+                    for result in results:
+                        if isinstance(result, dict) and "id" in result:
+                            batch_result_records.append(result)
+                        elif isinstance(result, Exception):
+                            logger.error(f"Task failed with exception: {result}")
+                            evaluation_record["errors"].append(str(result))
+                            any_errors = True
 
-        # Update evaluation status to completed
+                    # Incrementally update evaluation with batch results
+                    if batch_result_records or evaluation_record["errors"]:
+                        async with alchemy.get_session() as session:
+                            await append_evaluation_results(
+                                db_session=session,
+                                evaluation_id=str(evaluation_id),
+                                new_results=batch_result_records,
+                                errors=evaluation_record["errors"],
+                            )
+
+        # Update evaluation status based on errors
         evaluation_record["finished_at"] = datetime.now(timezone.utc)
-        evaluation_record["status"] = JobRunStatus.COMPLETED.value
+        evaluation_record["status"] = (
+            JobRunStatus.FAILED.value if any_errors else JobRunStatus.COMPLETED.value
+        )
 
-        # Final update of the evaluation record using SQLAlchemy with all results at once
+        # Final update of the evaluation record using SQLAlchemy
         async with alchemy.get_session() as session:
             evaluations_service = EvaluationsService(session=session)
 
@@ -354,7 +383,6 @@ async def evaluate_variant(
             evaluation = await evaluations_service.get(evaluation_id)
             if evaluation:
                 current_results = evaluation.results or []
-                current_results.extend(all_result_records)
 
                 await evaluations_service.update(
                     item_id=str(evaluation_id),  # Convert UUID to string for item_id
@@ -362,15 +390,34 @@ async def evaluate_variant(
                         "status": evaluation_record["status"],
                         "finished_at": evaluation_record["finished_at"],
                         "errors": evaluation_record["errors"],
-                        "results": current_results,
                     },
                 )
                 await session.commit()
                 logger.info(
                     f"Final update: evaluation {evaluation_id} now has {len(current_results)} results"
                 )
+        return {
+            "evaluation_id": str(evaluation_id),
+            "errors": evaluation_record["errors"],
+        }
     except Exception as e:
         logger.error(f"Error during evaluation processing: {e}")
+        evaluation_record["finished_at"] = datetime.now(timezone.utc)
+        evaluation_record["status"] = JobRunStatus.FAILED.value
+        evaluation_record["errors"].append(str(e))
+
+        async with alchemy.get_session() as session:
+            evaluations_service = EvaluationsService(session=session)
+            await evaluations_service.update(
+                item_id=str(evaluation_id),
+                data={
+                    "status": evaluation_record["status"],
+                    "finished_at": evaluation_record["finished_at"],
+                    "errors": evaluation_record["errors"],
+                },
+            )
+            await session.commit()
+        raise
 
 
 # Main evaluation function
@@ -411,20 +458,7 @@ async def evaluate(job_data) -> dict:
 
             logger.error(f"Full traceback: {traceback.format_exc()}")
 
-            # Return a failed evaluation record
-            return [
-                {
-                    "job_id": job_id,
-                    "type": job_type,  # job_type is already a string
-                    "system_name": system_name,
-                    "test_sets": test_set_system_names,
-                    "started_at": datetime.utcnow(),
-                    "status": JobRunStatus.FAILED.value,
-                    "finished_at": datetime.utcnow(),
-                    "results": [],
-                    "variant_object": {},
-                }
-            ]
+            raise
 
     @observe(name="Run evaluation", channel="evaluation", source="Evaluation")
     async def evaluate_tool(
@@ -452,7 +486,18 @@ async def evaluate(job_data) -> dict:
             )
 
         # Execute all evaluation tasks concurrently
-        await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        any_errors = False
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"Variant evaluation failed with exception: {result}")
+                any_errors = True
+            elif isinstance(result, dict) and result.get("errors"):
+                any_errors = True
+
+        if any_errors:
+            raise RuntimeError("One or more variant evaluations failed")
 
     try:
         evaluation_ids = []
@@ -472,8 +517,8 @@ async def evaluate(job_data) -> dict:
                 "evaluation_records": evaluation_ids,
             }
         logger.warning("No evaluation records were created.")
-        return {"status": JobRunStatus.FAILED.value}
+        raise RuntimeError("No evaluation records were created")
     except Exception as e:
         line_number = e.__traceback__.tb_lineno if e.__traceback__ else -1
         logger.error(f"An error occurred during evaluation: {e} (Line {line_number})")
-        return {"status": JobRunStatus.FAILED.value}
+        raise
