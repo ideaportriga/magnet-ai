@@ -81,10 +81,18 @@ export default defineComponent({
       return {
         ...this.$attrs,
         ...(typeof this.visibleColumns === 'boolean' ? {} : { 'visible-columns': this.visibleColumns }),
+        // When using server-side filtering, provide a no-op filter method
+        // to prevent Quasar from trying to apply client-side filtering
+        // which fails when filter is an object instead of a string
+        'filter-method': this.noOpFilterMethod,
       }
     },
   },
   methods: {
+    noOpFilterMethod(rows) {
+      // Always return all rows - filtering is done server-side
+      return rows
+    },
     getTableRows() {
       return this.$refs.table.filteredSortedRows
     },

@@ -14,7 +14,7 @@
         .text-secondary-text.km-description {{ modified_at }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-ml-md
-  km-btn(label='Save', icon='far fa-save', iconSize='16px', color='primary', bg='background', @click='save')
+  km-btn(label='Save', icon='far fa-save', iconSize='16px', color='primary', bg='background', @click='save', :loading='loading', :disable='loading')
 .col-auto.text-white.q-mx-md
   km-btn(label='Save & Sync', @click='refreshCollection', iconSize='16px', icon='fa-solid fa-rotate', color='primary', bg='background')
 .col-auto.text-white.q-mr-md
@@ -54,6 +54,7 @@ km-popup-confirm(
 
 <script>
 import { useChroma } from '@shared'
+import { validSystemName } from '@shared/utils/validationRules'
 import { ref } from 'vue'
 
 export default {
@@ -205,28 +206,56 @@ export default {
       return source
     },
     async save() {
-      this.loading = true
-      if (this.currentRow?.created_at) {
-        const obj = { ...this.currentRow }
-        delete obj._metadata
-        delete obj.id
-
-        // Ensure provider_system_name is preserved
-        if (this.activeRowDB?.provider_system_name) {
-          obj.provider_system_name = this.activeRowDB.provider_system_name
-        }
-
-        // Transform source fields for Documentation type
-        if (obj.source) {
-          obj.source = this.transformSourceFields(obj.source)
-        }
-
-        console.log(obj)
-        await this.update({ id: this.currentRow.id, data: obj })
-      } else {
-        await this.create(JSON.stringify(this.currentRow))
+      // Validate system_name before saving
+      const systemNameValidation = validSystemName()(this.currentRow?.system_name)
+      if (systemNameValidation !== true) {
+        this.$q.notify({
+          position: 'top',
+          color: 'negative',
+          message: systemNameValidation,
+          timeout: 3000,
+        })
+        return
       }
-      this.loading = false
+
+      this.loading = true
+      try {
+        if (this.currentRow?.created_at) {
+          const obj = { ...this.currentRow }
+          delete obj._metadata
+          delete obj.id
+
+          // Ensure provider_system_name is preserved
+          if (this.activeRowDB?.provider_system_name) {
+            obj.provider_system_name = this.activeRowDB.provider_system_name
+          }
+
+          // Transform source fields for Documentation type
+          if (obj.source) {
+            obj.source = this.transformSourceFields(obj.source)
+          }
+
+          console.log(obj)
+          await this.update({ id: this.currentRow.id, data: obj })
+        } else {
+          await this.create(JSON.stringify(this.currentRow))
+        }
+        this.$q.notify({
+          position: 'top',
+          color: 'positive',
+          message: 'Saved successfully',
+          timeout: 2000,
+        })
+      } catch (error) {
+        this.$q.notify({
+          position: 'top',
+          color: 'negative',
+          message: error.message || 'Failed to save',
+          timeout: 3000,
+        })
+      } finally {
+        this.loading = false
+      }
     },
     formatDate(date) {
       const dateObject = new Date(date)

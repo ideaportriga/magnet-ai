@@ -1,4 +1,4 @@
-import { required, minLength } from '@shared/utils/validationRules'
+import { required, minLength, validSystemName } from '@shared/utils/validationRules'
 import Check from './component/Check.vue'
 import Radio from './component/Radio.vue'
 import { markRaw } from 'vue'
@@ -38,7 +38,7 @@ const controls = {
     fromMetadata: false,
     ignorePatch: true,
     validate: true,
-    rules: [required()],
+    rules: [required(), validSystemName()],
     align: 'left',
   },
   display_name: {

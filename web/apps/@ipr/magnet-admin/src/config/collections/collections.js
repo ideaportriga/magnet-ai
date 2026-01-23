@@ -1,4 +1,4 @@
-import { required, minLength, validJson } from '@shared/utils/validationRules'
+import { required, minLength, validJson, validSystemName } from '@shared/utils/validationRules'
 import NameDescription from '@/config/rag-tools/component/NameDescription.vue'
 import { markRaw, ref } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
@@ -279,7 +279,7 @@ const controls = {
     fromMetadata: false,
     ignorePatch: true,
     validate: true,
-    rules: [required(), minLength(3, 'RAG Tools system name must consist of more than 3 characters')],
+    rules: [required(), minLength(3, 'RAG Tools system name must consist of more than 3 characters'), validSystemName()],
     align: 'left',
     classes: 'km-button-xs-text',
   },
