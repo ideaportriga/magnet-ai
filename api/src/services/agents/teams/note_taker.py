@@ -61,7 +61,7 @@ from core.db.models.teams import TeamsMeeting, TeamsUser
 from core.db.models.teams.note_taker_settings import (
     NoteTakerSettings as NoteTakerSettingsModel,
 )
-from sqlalchemy import func, select, or_, update
+from sqlalchemy import and_, func, select, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
@@ -4117,6 +4117,7 @@ async def handle_recordings_ready_notifications(
         or getattr(getattr(runtime, "validation_config", None), "CLIENT_ID", None)
         or getattr(getattr(runtime, "validation_config", None), "client_id", None)
     )
+    normalized_bot_id = normalize_bot_id(bot_app_id)
 
     for notification in notifications:
         if not isinstance(notification, dict):
@@ -4133,17 +4134,17 @@ async def handle_recordings_ready_notifications(
         try:
             async with async_session_maker() as session:
                 conditions = [TeamsMeeting.subscription_id == subscription_id]
-                if chat_id_hint:
-                    conditions.append(TeamsMeeting.chat_id == chat_id_hint)
-                if meeting_id_hint:
-                    conditions.append(
-                        or_(
-                            TeamsMeeting.graph_online_meeting_id == meeting_id_hint,
-                            TeamsMeeting.meeting_id == meeting_id_hint,
-                        )
+                conditions.append(
+                    and_(
+                        TeamsMeeting.graph_online_meeting_id == meeting_id_hint,
+                        TeamsMeeting.bot_id == normalized_bot_id,
                     )
-
-                stmt = select(TeamsMeeting).where(or_(*conditions))
+                )
+                stmt = (
+                    select(TeamsMeeting)
+                    .where(or_(*conditions))
+                    .order_by(TeamsMeeting.updated_at.desc())
+                )
                 result = await session.execute(stmt)
                 meeting_row = result.scalars().first()
 
