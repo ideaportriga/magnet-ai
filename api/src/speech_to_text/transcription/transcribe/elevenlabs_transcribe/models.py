@@ -64,7 +64,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
             api_key=api_key,
             httpx_client=http_client,
         )
-        self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v1")
+        self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v2")
         self._diarize = os.getenv("ELEVEN_DIARIZE", "true").lower() == "true"
         self._language_code = None
         ns = os.getenv("ELEVEN_NUM_SPEAKERS")
