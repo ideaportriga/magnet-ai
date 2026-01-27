@@ -177,6 +177,10 @@ class SyncCounters:
     failed: int = 0
     skipped: int = 0
     total_found: int = 0
+    unchanged_skipped: int = 0
+    metadata_only_updated: int = 0
+    content_changed: int = 0
+    deleted: int = 0  # Orphaned documents removed (exist in KG but not in source)
 
 
 @dataclass(frozen=True, slots=True)

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import logging
 import time
@@ -47,6 +45,17 @@ logger = logging.getLogger(__name__)
 FluidTopicsPipelineContext = SyncPipelineContext[
     FluidTopicsListingTask, FluidTopicsContentFetchTask, ProcessDocumentTask
 ]
+
+# TODO: Implement intelligent sync for Fluid Topics
+# Currently using legacy full-sync approach (always re-downloads and re-processes all content)
+# To implement:
+# 1. Extract source_document_id from FluidTopics API (mapId/documentId)
+# 2. Extract source_modified_at from FluidTopics API (lastModified/modificationDate)
+# 3. Compute content_hash (SHA256) of downloaded content
+# 4. Add timestamp-based skip logic in listing phase (like SharePoint)
+# 5. Add hash-based metadata-only update logic in content_fetch phase (like SharePoint)
+# 6. Pass these fields to create_document_for_source() calls below
+# Reference implementation: sharepoint_sync.py
 
 
 class FluidTopicsSyncPipeline(
@@ -490,6 +499,11 @@ class FluidTopicsSyncPipeline(
                         if skipped:
                             await ctx.inc("skipped", int(skipped))
 
+                        # TODO: Add intelligent sync support
+                        # When ENABLE_INTELLIGENT_SYNC = True, extract and pass:
+                        # - source_document_id=map_id (stable identifier)
+                        # - source_modified_at=map_metadata.get("lastModified") (timestamp)
+                        # - content_hash=hashlib.sha256(chunks_bytes).hexdigest() (for change detection)
                         document = await self._source.create_document_for_source(
                             session,
                             filename=doc_name,
@@ -574,6 +588,11 @@ class FluidTopicsSyncPipeline(
                         content = load_content_from_bytes(file_bytes, content_config)
                         total_pages = content["metadata"].get("total_pages")
 
+                        # TODO: Add intelligent sync support
+                        # When ENABLE_INTELLIGENT_SYNC = True, extract and pass:
+                        # - source_document_id=task.document_metadata.get("documentId") (stable identifier)
+                        # - source_modified_at=task.document_metadata.get("lastModified") (timestamp)
+                        # - content_hash=hashlib.sha256(file_bytes).hexdigest() (for change detection)
                         document = await self._source.create_document_for_source(
                             session,
                             filename=filename,

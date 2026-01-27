@@ -252,7 +252,21 @@ def _file_ref_from_office365_file(file: File) -> SharePointFileRef | None:
     if not server_relative_url:
         return None
 
-    return SharePointFileRef(name=name, server_relative_url=server_relative_url)
+    # Extract unique_id and time_last_modified from File object properties
+    # These are populated when file.listItemAllFields.get().execute_query() is called
+    unique_id = getattr(file, "unique_id", None)
+    time_last_modified = getattr(file, "time_last_modified", None)
+
+    # Convert to strings for SharePointFileRef
+    unique_id_str = str(unique_id) if unique_id else None
+    time_modified_str = str(time_last_modified) if time_last_modified else None
+
+    return SharePointFileRef(
+        name=name,
+        server_relative_url=server_relative_url,
+        unique_id=unique_id_str,
+        time_last_modified=time_modified_str,
+    )
 
 
 def _file_ref_from_office365_file_with_parent(
@@ -331,6 +345,15 @@ def _get_folder_children_sync(
     folders: list[Folder] = []
 
     if folder.files and len(folder.files) > 0:
+        # Load listItemAllFields for each file to populate unique_id and time_last_modified properties
+        # This mirrors the old knowledge sources behavior in source_abstract.py:106
+        for file in folder.files:
+            try:
+                file.listItemAllFields.get().execute_query()
+            except Exception:  # noqa: BLE001
+                # If loading list item fields fails, still include the file
+                # (better to process it without metadata than skip it entirely)
+                pass
         files.extend(cast(list[File], folder.files))
 
     if folder.folders and len(folder.folders) > 0:
@@ -483,8 +506,8 @@ def _fetch_file_list_item_fields_sync(
     if not list_item:
         return {}
 
-    # Load fields
-    list_item.get().execute_query()
+    # Load fields - explicitly select UniqueId and TimeLastModified for intelligent sync
+    list_item.select(["*", "UniqueId", "TimeLastModified"]).get().execute_query()
 
     props = getattr(list_item, "properties", None) or {}
     if not isinstance(props, dict):

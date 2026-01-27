@@ -749,6 +749,12 @@ class KnowledgeGraphDocumentService:
             Index(f"{index_prefix}_source_id", docs_tbl.c.source_id).create(
                 sync_conn, checkfirst=True
             )
+            # Composite index for efficient sync queries by source + external document ID
+            Index(
+                f"{index_prefix}_source_doc_id",
+                docs_tbl.c.source_id,
+                docs_tbl.c.source_document_id,
+            ).create(sync_conn, checkfirst=True)
 
         await conn.run_sync(_create)
 

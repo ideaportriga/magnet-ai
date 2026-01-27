@@ -52,6 +52,8 @@ class SharePointFileRef:
 
     name: str
     server_relative_url: str
+    unique_id: str | None = None
+    time_last_modified: str | None = None  # ISO format datetime string
 
 
 @dataclass(frozen=True)
@@ -85,3 +87,6 @@ class SharePointSharedSyncState:
     queued_folders: set[str] = field(default_factory=set)
     processed_folders: set[str] = field(default_factory=set)
     folders_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    # Track all source_document_ids seen during listing for orphan cleanup
+    seen_source_document_ids: set[str] = field(default_factory=set)
+    seen_ids_lock: asyncio.Lock = field(default_factory=asyncio.Lock)

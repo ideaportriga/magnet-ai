@@ -45,6 +45,20 @@ class AbstractDataSource(ABC):
     @abstractmethod
     async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]: ...
 
+    def extract_source_document_id(self, source_item: Any) -> str | None:
+        """Extract a stable unique identifier from the source system.
+
+        Returns None if source doesn't provide stable IDs (falls back to filename matching).
+        """
+        return None
+
+    def extract_source_modified_at(self, source_item: Any) -> datetime | None:
+        """Extract the last modified timestamp from the source system.
+
+        Returns None if source doesn't provide timestamps (falls back to hash-based change detection).
+        """
+        return None
+
     async def _refresh_documents_count(self, db_session: AsyncSession) -> None:
         source = self.source
         if not source:
@@ -150,6 +164,9 @@ class AbstractDataSource(ABC):
         source_metadata: dict[str, Any] | None = None,
         default_document_type: str = "txt",
         content_profile: str | None = None,
+        source_document_id: str | None = None,
+        source_modified_at: datetime | None = None,
+        content_hash: str | None = None,
     ) -> dict[str, Any]:
         source = self.source
         if not source:
@@ -178,20 +195,41 @@ class AbstractDataSource(ABC):
                 doc_metadata_json = None
 
         docs_table = docs_table_name(source.graph_id)
-        # Check for existing document by source_id + name
-        existing = await db_session.execute(
-            text(
-                f"""
-                SELECT id::text
-                FROM {docs_table}
-                WHERE source_id = :sid AND name = :name
-                ORDER BY created_at DESC
-                LIMIT 1
-                """
-            ),
-            {"sid": str(source.id), "name": base_name},
-        )
-        document_id = existing.scalar_one_or_none()
+
+        # Check for existing document - prioritize source_document_id (stable identifier)
+        # over name (which can change if file is renamed)
+        document_id = None
+
+        if source_document_id:
+            # First try to find by source_document_id (the stable unique identifier from the source)
+            existing = await db_session.execute(
+                text(
+                    f"""
+                    SELECT id::text
+                    FROM {docs_table}
+                    WHERE source_id = :sid AND source_document_id = :source_doc_id
+                    LIMIT 1
+                    """
+                ),
+                {"sid": str(source.id), "source_doc_id": source_document_id},
+            )
+            document_id = existing.scalar_one_or_none()
+
+        if not document_id:
+            # Fall back to searching by name (for sources that don't provide stable IDs)
+            existing = await db_session.execute(
+                text(
+                    f"""
+                    SELECT id::text
+                    FROM {docs_table}
+                    WHERE source_id = :sid AND name = :name
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                    """
+                ),
+                {"sid": str(source.id), "name": base_name},
+            )
+            document_id = existing.scalar_one_or_none()
         if document_id:
             await db_session.execute(
                 text(
@@ -207,6 +245,9 @@ class AbstractDataSource(ABC):
                         ELSE COALESCE(metadata, '{{}}'::jsonb) || CAST(:metadata_json AS jsonb)
                     END,
                     processing_time = NULL,
+                    source_document_id = :source_document_id,
+                    source_modified_at = :source_modified_at,
+                    content_hash = :content_hash,
                     updated_at = CURRENT_TIMESTAMP
                     WHERE id = :id
                     """
@@ -217,6 +258,9 @@ class AbstractDataSource(ABC):
                     "type": (file_ext or default_document_type),
                     "content_profile": content_profile,
                     "metadata_json": doc_metadata_json,
+                    "source_document_id": source_document_id,
+                    "source_modified_at": source_modified_at,
+                    "content_hash": content_hash,
                 },
             )
             await db_session.commit()
@@ -225,7 +269,8 @@ class AbstractDataSource(ABC):
                 text(
                     f"""
                     INSERT INTO {docs_table} (
-                    name, type, status, total_pages, source_id, content_profile, metadata
+                    name, type, status, total_pages, source_id, content_profile, metadata,
+                    source_document_id, source_modified_at, content_hash
                     )
                     VALUES (
                         :name,
@@ -234,7 +279,10 @@ class AbstractDataSource(ABC):
                         :total_pages,
                         :source_id,
                         :content_profile,
-                        COALESCE(CAST(:metadata_json AS jsonb), '{{}}'::jsonb)
+                        COALESCE(CAST(:metadata_json AS jsonb), '{{}}'::jsonb),
+                        :source_document_id,
+                        :source_modified_at,
+                        :content_hash
                     )
                     RETURNING id::text
                     """
@@ -246,6 +294,9 @@ class AbstractDataSource(ABC):
                     "source_id": str(source.id),
                     "content_profile": content_profile,
                     "metadata_json": doc_metadata_json,
+                    "source_document_id": source_document_id,
+                    "source_modified_at": source_modified_at,
+                    "content_hash": content_hash,
                 },
             )
             document_id = res.scalar_one()
@@ -254,6 +305,79 @@ class AbstractDataSource(ABC):
         await self._refresh_documents_count(db_session)
 
         return {"id": document_id, "graph_id": str(source.graph_id), "name": base_name}
+
+    async def update_document_metadata_only(
+        self,
+        db_session: AsyncSession,
+        *,
+        document_id: str,
+        filename: str | None = None,
+        source_document_id: str | None = None,
+        source_modified_at: datetime | None = None,
+        file_metadata: dict[str, Any] | None = None,
+        source_metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Update document metadata without re-processing content/chunks.
+
+        Used when source metadata changed (e.g., filename, timestamps) but content hash matches.
+        This is a cheap operation that avoids re-chunking and re-embedding.
+        """
+        source = self.source
+        if not source:
+            raise ClientException("Source is required to update a document")
+
+        docs_table = docs_table_name(source.graph_id)
+
+        set_clauses = ["updated_at = CURRENT_TIMESTAMP"]
+        params: dict[str, Any] = {"id": document_id}
+
+        if filename is not None:
+            base_name = PurePath(filename).name
+            set_clauses.append("name = :name")
+            params["name"] = base_name
+
+        if source_document_id is not None:
+            set_clauses.append("source_document_id = :source_document_id")
+            params["source_document_id"] = source_document_id
+
+        if source_modified_at is not None:
+            set_clauses.append("source_modified_at = :source_modified_at")
+            params["source_modified_at"] = source_modified_at
+
+        # Update title from source metadata if available (e.g., SharePoint Title field)
+        if isinstance(source_metadata, dict) and "Title" in source_metadata:
+            title = source_metadata.get("Title")
+            if title:
+                set_clauses.append("title = :title")
+                params["title"] = str(title)
+
+        # Update metadata if provided
+        if file_metadata or source_metadata:
+            doc_metadata_payload: dict[str, Any] = {}
+            if isinstance(file_metadata, dict) and file_metadata:
+                doc_metadata_payload["file"] = file_metadata
+            if isinstance(source_metadata, dict) and source_metadata:
+                doc_metadata_payload["source"] = source_metadata
+
+            if doc_metadata_payload:
+                try:
+                    normalized_payload = normalize_metadata_value(doc_metadata_payload)
+                    doc_metadata_json = json.dumps(
+                        normalized_payload, ensure_ascii=False, default=str
+                    )
+                    # Use same approach as INSERT - pass JSON string and let PostgreSQL parse it
+                    # Note: We merge with existing metadata using || operator
+                    set_clauses.append(
+                        "metadata = COALESCE(metadata, '{}'::jsonb) || COALESCE(CAST(:metadata_json AS jsonb), '{}'::jsonb)"
+                    )
+                    params["metadata_json"] = doc_metadata_json
+                except Exception:  # noqa: BLE001
+                    pass  # Best-effort: skip metadata update if serialization fails
+
+        if len(set_clauses) > 1:  # More than just updated_at
+            sql = f"UPDATE {docs_table} SET {', '.join(set_clauses)} WHERE id = :id"
+            await db_session.execute(text(sql), params)
+            await db_session.commit()
 
     async def _update_document_status(
         self,
