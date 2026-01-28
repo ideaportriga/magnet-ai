@@ -881,6 +881,9 @@ class KnowledgeGraphDocumentService:
         graph_id: UUID | str,
         query_vector: list[float],
         limit: int,
+        min_score: float = 0.0,
+        doc_filter_where_sql: str | None = None,
+        doc_filter_where_params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Similarity search over per-graph documents using summary embeddings."""
 
@@ -888,29 +891,39 @@ class KnowledgeGraphDocumentService:
         md = MetaData()
         docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
 
-        qvec = bindparam("qvec", type_=docs_tbl.c.summary_embedding.type)
-        distance_expr = docs_tbl.c.summary_embedding.op("<=>")(qvec)
+        # Alias for metadata filtering consistency (similar to chunk search)
+        docs_alias = docs_tbl.alias("d")
+
+        qvec = bindparam("qvec", type_=docs_alias.c.summary_embedding.type)
+        distance_expr = docs_alias.c.summary_embedding.op("<=>")(qvec)
         score_expr = (1 - type_coerce(distance_expr, Float)).label("score")
 
         title_expr = func.coalesce(
-            func.nullif(docs_tbl.c.title, ""),
-            docs_tbl.c.name,
+            func.nullif(docs_alias.c.title, ""),
+            docs_alias.c.name,
         ).label("title")
 
         stmt = (
             select(
-                docs_tbl.c.id.label("id"),
+                docs_alias.c.id.label("id"),
                 title_expr,
-                docs_tbl.c.summary.label("summary"),
+                docs_alias.c.summary.label("summary"),
                 score_expr,
             )
-            .select_from(docs_tbl)
-            .where(docs_tbl.c.summary_embedding.is_not(None))
+            .select_from(docs_alias)
+            .where(docs_alias.c.summary_embedding.is_not(None))
             .order_by(score_expr.desc())
             .limit(int(limit))
         )
 
-        rows = (await db_session.execute(stmt, {"qvec": query_vector})).mappings().all()
+        if doc_filter_where_sql:
+            stmt = stmt.where(text(str(doc_filter_where_sql)))
+
+        exec_params: dict[str, Any] = {"qvec": query_vector}
+        if isinstance(doc_filter_where_params, dict) and doc_filter_where_params:
+            exec_params.update(doc_filter_where_params)
+
+        rows = (await db_session.execute(stmt, exec_params)).mappings().all()
 
         return [
             {
@@ -920,6 +933,7 @@ class KnowledgeGraphDocumentService:
                 "score": float(r["score"]) if r.get("score") is not None else 0.0,
             }
             for r in rows
+            if float(r.get("score") or 0.0) >= min_score
         ]
 
     async def update_document(

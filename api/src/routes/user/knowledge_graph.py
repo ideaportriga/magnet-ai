@@ -11,7 +11,7 @@ from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException
 from litestar.params import Body, Parameter
-from litestar.status_codes import HTTP_202_ACCEPTED
+from litestar.status_codes import HTTP_202_ACCEPTED, HTTP_200_OK
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,6 +37,8 @@ from services.knowledge_graph.retrievers.agent_retriever.tools.find_chunks_by_si
 from services.knowledge_graph.retrievers.agent_retriever.tools.find_documents_by_metadata import (
     findDocumentsByMetadata,
 )
+from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
+from open_ai.utils_new import get_embeddings
 from services.knowledge_graph.sources.api_ingest import ApiIngestDataSource
 from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
     run_background_ingest,
@@ -208,7 +210,7 @@ class KnowledgeGraphSearchRequest(BaseModel):
 
     query: str = Field(..., min_length=1)
     limit: int = Field(default=10, ge=1, le=50)
-    min_score: float = Field(default=0.7, ge=0.0, le=1.0)
+    min_score: float = Field(default=0.5, ge=0.0, le=1.0)
     filter_documents_by_ids: list[UUID] | None = None
     filter_documents_by_metadata: str | dict[str, Any] | None = Field(
         default=None,
@@ -225,6 +227,30 @@ class KnowledgeGraphSearchResponse(BaseModel):
     """Search response for chunk-level semantic search."""
 
     chunks: list[dict[str, Any]] = Field(default_factory=list)
+    trace_id: str | None = None
+
+
+class KnowledgeGraphDocumentSearchRequest(BaseModel):
+    """Semantic search over a knowledge graph (document-level summary)."""
+
+    query: str = Field(..., min_length=1)
+    limit: int = Field(default=10, ge=1, le=50)
+    min_score: float = Field(default=0.5, ge=0.0, le=1.0)
+    filter_documents_by_metadata: str | dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Optional metadata filter expression to constrain documents. "
+            "May be provided as a JSON object or as a stringified JSON value."
+        ),
+    )
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class KnowledgeGraphDocumentSearchResponse(BaseModel):
+    """Search response for document-level summary semantic search."""
+
+    documents: list[dict[str, Any]] = Field(default_factory=list)
     trace_id: str | None = None
 
 
@@ -342,6 +368,7 @@ class UserKnowledgeGraphController(Controller):
             "Optionally constrains results using a structured `filter_documents_by_metadata` and/or "
             "`filter_documents_by_ids`."
         ),
+        status_code=HTTP_200_OK,
     )
     async def search(
         self,
@@ -419,6 +446,65 @@ class UserKnowledgeGraphController(Controller):
 
         trace_id = observability_context.get_current_trace_id()[:8]
         return KnowledgeGraphSearchResponse(chunks=chunks, trace_id=trace_id)
+
+    @observe(
+        name="Search knowledge graph documents",
+        channel="production",
+        source="Runtime API",
+    )
+    @post(
+        "/{graph_id_or_name:str}/documents/search",
+        summary="Search Knowledge Graph documents by summary",
+        description=(
+            "Performs vector similarity search over the graph's document summaries. "
+            "Optionally constrains results using a structured `filter_documents_by_metadata`."
+        ),
+        status_code=HTTP_200_OK,
+    )
+    async def search_documents(
+        self,
+        graph_id_or_name: Annotated[
+            str,
+            Parameter(
+                title="Knowledge Graph ID or System Name",
+                description="The UUID or System Name of the Knowledge Graph to search.",
+            ),
+        ],
+        db_session: AsyncSession,
+        data: KnowledgeGraphDocumentSearchRequest,
+    ) -> KnowledgeGraphDocumentSearchResponse:
+        graph_id = await _resolve_graph_id_or_name(db_session, graph_id_or_name)
+
+        # Validate embedding model exists (required for semantic search)
+        embedding_model = await get_graph_embedding_model(db_session, graph_id)
+        if not embedding_model:
+            raise ClientException(
+                "Embedding model is not configured in knowledge graph settings."
+            )
+
+        # TODO: Implement metadata filtering for document search endpoint
+        # Similar to chunk search endpoint using findDocumentsByMetadata
+        doc_filter_where_sql: str | None = None
+        doc_filter_where_params: dict[str, Any] | None = None
+
+        # Generate query embedding
+        query_vector = await get_embeddings(data.query, embedding_model)
+
+        # Perform document search with metadata filtering
+        documents = await KnowledgeGraphDocumentService().search_documents(
+            db_session=db_session,
+            graph_id=graph_id,
+            query_vector=query_vector,
+            limit=int(data.limit),
+            min_score=float(data.min_score),
+            doc_filter_where_sql=doc_filter_where_sql,
+            doc_filter_where_params=doc_filter_where_params,
+        )
+
+        trace_id = observability_context.get_current_trace_id()[:8]
+        return KnowledgeGraphDocumentSearchResponse(
+            documents=documents, trace_id=trace_id
+        )
 
     @observe(
         name="Ingest into knowledge graph",
