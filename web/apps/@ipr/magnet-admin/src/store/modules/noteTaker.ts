@@ -17,8 +17,6 @@ interface ConfluenceIntegrationSettings {
   confluence_create_page_tool: string
   space_key: string
   parent_id: string
-  content_format: 'markdown' | 'wiki' | 'storage'
-  enable_heading_anchors: boolean
   title_template: string
   tool_system_name?: string
 }
@@ -27,6 +25,7 @@ interface NoteTakerSettings {
   subscription_recordings_ready: boolean
   create_knowledge_graph_embedding: boolean
   knowledge_graph_system_name: string
+  keywords: string
   integration: {
     confluence: ConfluenceIntegrationSettings
     salesforce: SalesforceIntegrationSettings
@@ -60,6 +59,7 @@ const defaultSettings = (): NoteTakerSettings => ({
   subscription_recordings_ready: false,
   create_knowledge_graph_embedding: false,
   knowledge_graph_system_name: '',
+  keywords: '',
   integration: {
     confluence: {
       enabled: false,
@@ -67,8 +67,6 @@ const defaultSettings = (): NoteTakerSettings => ({
       confluence_create_page_tool: '',
       space_key: '',
       parent_id: '',
-      content_format: 'markdown',
-      enable_heading_anchors: true,
       title_template: 'Meeting notes: {meeting_title} ({date})',
     },
     salesforce: {
@@ -93,9 +91,10 @@ const defaultSettings = (): NoteTakerSettings => ({
 
 const mergeSettings = (settings?: Partial<NoteTakerSettings> | null): NoteTakerSettings => {
   const defaults = defaultSettings()
+  const incomingConfluence = ((settings?.integration as any)?.confluence || {}) as Record<string, any>
   const mergedConfluence: ConfluenceIntegrationSettings = {
     ...defaults.integration.confluence,
-    ...((settings?.integration as any)?.confluence || {}),
+    ...incomingConfluence,
   }
 
   return {

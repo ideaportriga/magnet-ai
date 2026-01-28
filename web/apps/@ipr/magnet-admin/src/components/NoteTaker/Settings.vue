@@ -42,6 +42,17 @@
                     q-toggle(v-model='subscriptionRecordingsReady', color='primary')
                     .km-description.text-secondary-text.q-pt-2 Automatically create recordings-ready subscriptions for meetings.
 
+                  .km-field
+                    .text-secondary-text.q-pb-xs.km-title Keywords
+                    km-input.full-width(
+                      type='textarea',
+                      rows='3',
+                      autogrow,
+                      placeholder='e.g. roadmap, blockers, next steps',
+                      v-model='keywords'
+                    )
+                    .km-description.text-secondary-text.q-pt-2 Optional keywords to improve the transciption accuracy.
+
               q-separator
 
               .col-auto.full-width
@@ -290,25 +301,6 @@
                       .km-description.text-secondary-text.q-pt-2 If set, the page will be created under the specified parent.
 
                     .km-field
-                      .text-secondary-text.q-pb-xs Content Format
-                      km-select(
-                        v-model='confluenceContentFormat',
-                        :options='confluenceContentFormatOptions',
-                        option-label='label',
-                        option-value='value',
-                        emit-value,
-                        map-options,
-                        height='30px'
-                      )
-                      .km-description.text-secondary-text.q-pt-2 Content format sent to Confluence (markdown, wiki, or storage).
-
-                    .km-field(v-if="confluenceContentFormat === 'markdown'")
-                      .row.items-center.justify-between
-                        .text-secondary-text.q-pb-xs.km-title Enable heading anchors
-                        q-toggle(v-model='confluenceEnableHeadingAnchors', color='primary')
-                      .km-description.text-secondary-text.q-pt-2 Adds automatic heading anchors (markdown only).
-
-                    .km-field
                       .text-secondary-text.q-pb-xs Title Template
                       km-input-flat.full-width(
                         placeholder='Meeting notes: {meeting_title} ({date})',
@@ -398,6 +390,13 @@ const knowledgeGraphSystemName = computed({
   get: () => store.getters.noteTakerSettings?.knowledge_graph_system_name || '',
   set: (value: string) => {
     store.dispatch('updateNoteTakerSetting', { path: 'knowledge_graph_system_name', value })
+  },
+})
+
+const keywords = computed({
+  get: () => store.getters.noteTakerSettings?.keywords || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'keywords', value })
   },
 })
 
@@ -505,32 +504,12 @@ const confluenceParentId = computed({
   },
 })
 
-const confluenceContentFormat = computed({
-  get: () => store.getters.noteTakerSettings?.integration?.confluence?.content_format || 'markdown',
-  set: (value: string) => {
-    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.content_format', value })
-  },
-})
-
-const confluenceEnableHeadingAnchors = computed({
-  get: () => store.getters.noteTakerSettings?.integration?.confluence?.enable_heading_anchors ?? true,
-  set: (value: boolean) => {
-    store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.enable_heading_anchors', value })
-  },
-})
-
 const confluenceTitleTemplate = computed({
   get: () => store.getters.noteTakerSettings?.integration?.confluence?.title_template || '',
   set: (value: string) => {
     store.dispatch('updateNoteTakerSetting', { path: 'integration.confluence.title_template', value })
   },
 })
-
-const confluenceContentFormatOptions = [
-  { label: 'markdown', value: 'markdown' },
-  { label: 'wiki', value: 'wiki' },
-  { label: 'storage', value: 'storage' },
-]
 
 const confluenceAvailableApiTools = computed(() => {
   const serverName = confluenceApiServer.value

@@ -42,17 +42,9 @@ async def maybe_publish_confluence_notes(
         logger.warning("[teams note-taker] confluence enabled but space_id is empty")
         return
 
-    api_server_system_name = str(
-        confluence.get("confluence_api_server")
-        # or confluence.get("api_server_system_name")
-        # or confluence.get("mcp_server_system_name")
-        or ""
-    ).strip()
+    api_server_system_name = str(confluence.get("confluence_api_server") or "").strip()
     api_tool_system_name = str(
-        confluence.get("confluence_create_page_tool")
-        # or confluence.get("api_tool_system_name")
-        # or confluence.get("tool_system_name")
-        or ""
+        confluence.get("confluence_create_page_tool") or ""
     ).strip()
 
     if not api_server_system_name or not api_tool_system_name:
@@ -62,9 +54,6 @@ async def maybe_publish_confluence_notes(
             api_tool_system_name or None,
         )
         return
-
-    content_format = str(confluence.get("content_format") or "markdown").strip()
-    enable_heading_anchors = bool(confluence.get("enable_heading_anchors", True))
 
     title = _confluence_title_from_context(
         title_template=str(confluence.get("title_template") or "").strip() or None,
@@ -107,10 +96,6 @@ async def maybe_publish_confluence_notes(
         "api_tool_system_name": api_tool_system_name,
         "space_id": space_id,
         "parent_id": parent_id or None,
-        "content_format": content_format,
-        "enable_heading_anchors": enable_heading_anchors
-        if content_format == "markdown"
-        else None,
         "title": title,
         "content_bytes": len(markdown_body.encode("utf-8", errors="ignore")),
         "content_sha256": _hash_text_sha256(markdown_body),
@@ -151,6 +136,8 @@ async def maybe_publish_confluence_notes(
         return
 
     if getattr(result, "status_code", 0) >= 400:
+        status = getattr(result, "status_code", None)
+        error_summary = _api_tool_error_summary(result)
         await _maybe_send_debug(
             send_expandable_section,
             context,
@@ -158,7 +145,9 @@ async def maybe_publish_confluence_notes(
             payload=_api_tool_result_debug_details(result),
         )
         await context.send_activity(
-            f"Failed to publish meeting notes to Confluence: API tool returned status {getattr(result, 'status_code', 'n/a')}."
+            "Failed to publish meeting notes to Confluence: "
+            f"API tool returned status {status if status is not None else 'n/a'}"
+            + (f" ({error_summary})." if error_summary else ".")
         )
         return
 
@@ -557,3 +546,72 @@ def _api_tool_result_debug_details(result: Any) -> dict[str, Any]:
         "headers": getattr(result, "headers", None),
         "content": _safe_truncate(getattr(result, "content", "") or ""),
     }
+
+
+# TODO: Standartize note taker error handling across API tools (use it also for sf)
+def _api_tool_error_summary(result: Any, *, limit: int = 220) -> str | None:
+    """
+    Extract a short, user-facing error summary from an API tool response.
+
+    The raw details are still available via `_api_tool_result_debug_details`.
+    """
+
+    def _clean(text: Any) -> str:
+        text = "" if text is None else str(text)
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            return ""
+        if limit > 0 and len(text) > limit:
+            return text[: max(0, limit - 3)] + "..."
+        return text
+
+    content = getattr(result, "content", None)
+    if content is None:
+        return None
+
+    if isinstance(content, (dict, list)):
+        payload = content
+    else:
+        raw = str(content or "").strip()
+        if not raw:
+            return None
+        payload = None
+        if raw[:1] in "{[":
+            try:
+                payload = json.loads(raw)
+            except Exception:
+                payload = None
+
+    if isinstance(payload, dict):
+        # Common patterns across Confluence / gateways / proxies.
+        for key in ("message", "error", "title", "detail", "reason"):
+            if key in payload:
+                msg = _clean(payload.get(key))
+                if msg:
+                    return msg
+
+        errors = payload.get("errors")
+        if isinstance(errors, list) and errors:
+            first = errors[0]
+            if isinstance(first, dict):
+                msg = _clean(
+                    first.get("message") or first.get("detail") or first.get("reason")
+                )
+                if msg:
+                    return msg
+            msg = _clean(first)
+            if msg:
+                return msg
+
+        status_code = payload.get("statusCode") or payload.get("status")
+        if status_code is not None:
+            msg = _clean(payload.get("message"))
+            if msg:
+                return f"{status_code}: {msg}"
+
+        return _clean(json.dumps(payload, ensure_ascii=False))
+
+    if isinstance(payload, list):
+        return _clean(json.dumps(payload, ensure_ascii=False))
+
+    return _clean(content)
