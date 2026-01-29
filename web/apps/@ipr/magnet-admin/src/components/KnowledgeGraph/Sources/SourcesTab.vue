@@ -384,19 +384,19 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
     if (response.ok) {
       if (showNotification) {
         $q.notify({
-          message: `Source ${source.name} synchronized successfully`,
+          message: `Sync started for ${source.name}. Click Refresh to see progress.`,
           position: 'top',
-          color: 'positive',
-          textColor: 'black',
-          timeout: 1000,
+          color: 'info',
+          textColor: 'white',
+          timeout: 2500,
         })
       }
-      await fetchSources()
+      // Don't auto-refresh - user clicks Refresh button to see updated status
       return true
     } else {
       if (showNotification) {
         $q.notify({
-          message: `Failed to synchronize source ${source.name}`,
+          message: `Failed to start sync for ${source.name}`,
           position: 'top',
           color: 'error-text',
           timeout: 1000,
@@ -409,7 +409,7 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
     if (showNotification) {
       $q.notify({
         type: 'negative',
-        message: 'Error syncing SharePoint',
+        message: 'Error starting sync',
       })
     }
     return false
@@ -429,15 +429,9 @@ function formatFull(dateStr?: string) {
 }
 
 const handleSync = async (source: SourceRow) => {
-  try {
-    syncingIds.value.add(source.id)
-    const ok = await syncSource(source)
-    if (ok) {
-      emit('refresh')
-    }
-  } finally {
-    syncingIds.value.delete(source.id)
-  }
+  await syncSource(source)
+  // Fetch sources to show the "syncing" status from backend
+  await fetchSources()
 }
 
 const handleSyncAll = async () => {
@@ -455,25 +449,21 @@ const handleSyncAll = async () => {
     let anySuccess = false
     let anyFailure = false
     for (const src of syncable) {
-      try {
-        syncingIds.value.add(src.id)
-        const ok = await syncSource(src, false) // Don't show individual notifications
-        anySuccess = anySuccess || ok
-        anyFailure = anyFailure || !ok
-      } finally {
-        syncingIds.value.delete(src.id)
-      }
+      const ok = await syncSource(src, false) // Don't show individual notifications
+      anySuccess = anySuccess || ok
+      anyFailure = anyFailure || !ok
+    }
+    // Fetch sources once after all syncs to show "syncing" status for all sources
+    if (anySuccess) {
+      await fetchSources()
     }
     // Show single notification for Sync All
     if (anySuccess && !anyFailure) {
-      $q.notify({ type: 'positive', message: 'Sync completed successfully', position: 'top', textColor: 'black', timeout: 1000 })
+      $q.notify({ type: 'info', message: 'Sync started for all sources. Click Refresh to see progress.', position: 'top', textColor: 'white', timeout: 2500 })
     } else if (anySuccess && anyFailure) {
-      $q.notify({ type: 'warning', message: 'Sync completed with some errors', position: 'top', timeout: 2000 })
+      $q.notify({ type: 'warning', message: 'Sync started with some errors', position: 'top', timeout: 2000 })
     } else {
-      $q.notify({ type: 'negative', message: 'Sync failed', position: 'top', timeout: 2000 })
-    }
-    if (anySuccess) {
-      emit('refresh')
+      $q.notify({ type: 'negative', message: 'Failed to start sync', position: 'top', timeout: 2000 })
     }
   } finally {
     syncAllInProgress.value = false

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import mimetypes
 import re
@@ -368,7 +369,15 @@ class KnowledgeGraphController(Controller):
         graph_id: UUID,
         source_id: UUID,
     ) -> dict[str, Any]:
-        return await source_service.sync_source(db_session, graph_id, source_id)
+        # Update status to "syncing" synchronously before launching background task
+        await source_service.set_source_status(db_session, source_id, "syncing")
+        await db_session.commit()
+        
+        # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh
+        asyncio.create_task(
+            source_service.sync_source_background(graph_id, source_id)
+        )
+        return {"status": "started", "message": "Sync started in background"}
 
     @observe(
         name="Schedule syncing knowledge graph source",

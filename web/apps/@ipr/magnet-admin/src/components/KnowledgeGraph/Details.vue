@@ -84,26 +84,42 @@
             </div>
           </div>
           <div class="column no-wrap ba-border bg-white border-radius-12 q-pa-16" style="min-width: 300px; height: calc(100vh - 190px)">
-            <q-tabs
-              :model-value="activeTab"
-              class="bb-border full-width"
-              narrow-indicator
-              dense
-              align="left"
-              active-color="primary"
-              indicator-color="primary"
-              active-bg-color="white"
-              no-caps
-              content-class="km-tabs"
-              @update:model-value="onTabAttemptChange"
-            >
-              <q-tab name="sources" label="Sources" />
-              <q-tab name="explorer" label="Data Explorer" />
-              <q-tab name="retrieval" label="Retrieval Agent" :alert="retrievalUnsaved" alert-color="orange-9" />
-              <q-tab name="metadata" label="Metadata Studio" :alert="metadataUnsaved" alert-color="orange-9" />
-              <q-tab name="contentProfiles" label="Content Profiles" />
-              <q-tab name="settings" label="Settings" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
-            </q-tabs>
+            <div class="row items-center bb-border q-pb-sm">
+              <q-tabs
+                :model-value="activeTab"
+                class="col"
+                narrow-indicator
+                dense
+                align="left"
+                active-color="primary"
+                indicator-color="primary"
+                active-bg-color="white"
+                no-caps
+                content-class="km-tabs"
+                @update:model-value="onTabAttemptChange"
+              >
+                <q-tab name="sources" label="Sources" />
+                <q-tab name="explorer" label="Data Explorer" />
+                <q-tab name="retrieval" label="Retrieval Agent" :alert="retrievalUnsaved" alert-color="orange-9" />
+                <q-tab name="metadata" label="Metadata Studio" :alert="metadataUnsaved" alert-color="orange-9" />
+                <q-tab name="contentProfiles" label="Content Profiles" />
+                <q-tab name="settings" label="Settings" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
+              </q-tabs>
+              <div class="col-auto">
+                <km-btn
+                  icon="refresh"
+                  label="Refresh"
+                  icon-color="icon"
+                  hover-color="primary"
+                  label-class="km-title"
+                  flat
+                  icon-size="16px"
+                  hover-bg="primary-bg"
+                  size="sm"
+                  @click="handleRefreshAll"
+                />
+              </div>
+            </div>
 
             <div class="column no-wrap q-gap-16 full-height full-width overflow-auto q-mt-lg">
               <div class="row q-gap-16 full-height full-width no-wrap">
@@ -343,6 +359,12 @@ const handleSourcesRefresh = async () => {
   await fetchGraphDetails()
   explorerRef.value?.refresh?.()
   metadataRef.value?.refresh?.()
+}
+
+const handleRefreshAll = async () => {
+  // Refresh all tabs that might be affected by sync
+  sourcesRef.value?.refresh?.()
+  await handleSourcesRefresh()
 }
 
 // Drag-and-drop upload state
