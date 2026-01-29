@@ -2,13 +2,244 @@ import datetime as dt
 from typing import Any
 from urllib.parse import quote, unquote
 import asyncio
+import os
 
 import httpx
 from logging import getLogger
 
+from core.db.models.teams import TeamsMeeting
+from core.db.session import async_session_maker
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+
 logger = getLogger(__name__)
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
+
+
+def resolve_recordings_ready_webhook_url(
+    *, public_base_url: str | None = None
+) -> str | None:
+    base_url = (
+        (
+            public_base_url
+            if public_base_url is not None
+            else os.getenv("PUBLIC_BASE_URL", "")
+        )
+        .strip()
+        .rstrip("/")
+    )
+    if base_url:
+        return f"{base_url}/api/user/agents/teams/webhooks/recordings-ready"
+    return None
+
+
+def resolve_recordings_lifecycle_webhook_url(
+    *, public_base_url: str | None = None
+) -> str | None:
+    base_url = (
+        (
+            public_base_url
+            if public_base_url is not None
+            else os.getenv("PUBLIC_BASE_URL", "")
+        )
+        .strip()
+        .rstrip("/")
+    )
+    if base_url:
+        return f"{base_url}/api/user/agents/teams/webhooks/recordings-lifecycle"
+    return None
+
+
+def extract_meeting_id_from_notification(notification: dict[str, Any]) -> str | None:
+    resource_data = notification.get("resourceData") or {}
+    meeting_id = resource_data.get("meetingId")
+    if meeting_id:
+        return meeting_id
+
+    resource = str(notification.get("resource") or "")
+    if not resource:
+        return None
+    marker = "onlineMeetings("
+    if marker in resource:
+        start = resource.index(marker) + len(marker)
+        end = resource.find(")", start)
+        if end > start:
+            raw = resource[start:end].strip("'\"")
+            return unquote(raw)
+    return None
+
+
+def extract_user_from_resource(notification: dict[str, Any]) -> str | None:
+    resource = str(notification.get("resource") or "")
+    if not resource or "users(" not in resource:
+        return None
+    try:
+        start = resource.index("users(") + len("users(")
+        end = resource.index(")", start)
+        return unquote(resource[start:end]).strip("'\"")
+    except ValueError:
+        return None
+
+
+async def create_and_persist_recordings_ready_subscription(
+    *,
+    delegated_token: str,
+    online_meeting_id: str,
+    chat_id: str | None,
+    bot_id: str | None,
+    notification_url: str,
+    lifecycle_notification_url: str | None,
+    subscription_conversation_reference: dict[str, Any] | None,
+    expiration: dt.datetime | None = None,
+) -> tuple[str | None, dt.datetime | None, str | None]:
+    """Create a recordings-ready Graph subscription and persist metadata into TeamsMeeting.
+
+    Returns (subscription_id, expiration_dt, error_message).
+    """
+    subscription_id: str | None = None
+    expiration_dt: dt.datetime | None = None
+
+    try:
+        payload = await create_recordings_ready_subscription(
+            token=delegated_token,
+            online_meeting_id=online_meeting_id,
+            notification_url=notification_url,
+            lifecycle_notification_url=lifecycle_notification_url,
+            expiration=expiration,
+        )
+        subscription_id = payload.get("id")
+        exp_raw = payload.get("expirationDateTime")
+        if exp_raw:
+            try:
+                expiration_dt = dt.datetime.fromisoformat(
+                    exp_raw.replace("Z", "+00:00")
+                )
+            except Exception:
+                expiration_dt = None
+
+        logger.info(
+            "[teams note-taker] recording subscription created id=%s expires=%s chat_id=%s meeting=%s",
+            subscription_id,
+            exp_raw,
+            chat_id,
+            online_meeting_id,
+        )
+    except Exception as err:
+        logger.exception(
+            "[teams note-taker] failed to create recording subscription for meeting %s",
+            online_meeting_id,
+        )
+        error_message = getattr(err, "message", str(err))
+        if isinstance(err, httpx.HTTPStatusError):
+            try:
+                body = err.response.json() if err.response is not None else {}
+            except Exception:
+                body = {}
+            if isinstance(body, dict):
+                reason = (
+                    body.get("error", {}).get("message")
+                    if isinstance(body, dict)
+                    else None
+                )
+                if reason:
+                    error_message = f"{error_message} (reason: {reason})"
+
+        if chat_id and bot_id:
+            try:
+                async with async_session_maker() as session:
+                    try:
+                        await session.execute(
+                            pg_insert(TeamsMeeting)
+                            .values(
+                                chat_id=chat_id,
+                                bot_id=bot_id,
+                                graph_online_meeting_id=online_meeting_id,
+                                subscription_last_error=getattr(
+                                    err, "message", str(err)
+                                ),
+                                last_seen_at=dt.datetime.now(dt.timezone.utc),
+                            )
+                            .on_conflict_do_update(
+                                index_elements=[
+                                    TeamsMeeting.chat_id,
+                                    TeamsMeeting.bot_id,
+                                ],
+                                set_={
+                                    "graph_online_meeting_id": online_meeting_id,
+                                    "subscription_last_error": getattr(
+                                        err, "message", str(err)
+                                    ),
+                                    "updated_at": func.now(),
+                                    "last_seen_at": func.now(),
+                                },
+                            )
+                        )
+                        await session.commit()
+                    except Exception:
+                        await session.rollback()
+                        raise
+            except Exception:
+                logger.debug(
+                    "[teams note-taker] failed to persist subscription error for chat %s",
+                    chat_id,
+                )
+
+        return None, None, error_message
+
+    if not chat_id or not bot_id or not subscription_id:
+        return (
+            subscription_id,
+            expiration_dt,
+            "Recording subscription not set (missing chat or subscription id).",
+        )
+
+    now = dt.datetime.now(dt.timezone.utc)
+    try:
+        async with async_session_maker() as session:
+            try:
+                stmt = pg_insert(TeamsMeeting).values(
+                    chat_id=chat_id,
+                    bot_id=bot_id,
+                    graph_online_meeting_id=online_meeting_id,
+                    subscription_id=subscription_id,
+                    subscription_expires_at=expiration_dt,
+                    subscription_is_active=True,
+                    subscription_last_error=None,
+                    subscription_conversation_reference=subscription_conversation_reference,
+                    last_seen_at=now,
+                )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=[TeamsMeeting.chat_id, TeamsMeeting.bot_id],
+                    set_={
+                        "graph_online_meeting_id": online_meeting_id,
+                        "subscription_id": subscription_id,
+                        "subscription_expires_at": expiration_dt,
+                        "subscription_is_active": True,
+                        "subscription_last_error": None,
+                        "subscription_conversation_reference": subscription_conversation_reference,
+                        "last_seen_at": now,
+                        "updated_at": func.now(),
+                    },
+                )
+                await session.execute(stmt)
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+    except Exception as err:
+        logger.warning(
+            "[teams note-taker] failed to persist recording subscription metadata for chat %s: %s",
+            chat_id,
+            getattr(err, "message", str(err)),
+        )
+        return (
+            subscription_id,
+            expiration_dt,
+            "Failed to persist recording subscription metadata.",
+        )
+
+    return subscription_id, expiration_dt, None
 
 
 class GraphClient:

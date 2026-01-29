@@ -26,7 +26,7 @@ class NoteTakerSettingsSchema(BaseModel):
     subscription_recordings_ready: bool = False
     create_knowledge_graph_embedding: bool = False
     knowledge_graph_system_name: str = ""
-    keywords: str = ""
+    keyterms: str = ""
     integration: dict[str, Any] = Field(
         default_factory=lambda: {
             "confluence": {

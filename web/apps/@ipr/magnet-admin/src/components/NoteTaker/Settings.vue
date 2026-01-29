@@ -43,15 +43,14 @@
                     .km-description.text-secondary-text.q-pt-2 Automatically create recordings-ready subscriptions for meetings.
 
                   .km-field
-                    .text-secondary-text.q-pb-xs.km-title Keywords
+                    .text-secondary-text.q-pb-xs.km-title Keyterms
                     km-input.full-width(
                       type='textarea',
-                      rows='3',
                       autogrow,
-                      placeholder='e.g. roadmap, blockers, next steps',
-                      v-model='keywords'
+                      placeholder='e.g. projects names',
+                      v-model='keyterms'
                     )
-                    .km-description.text-secondary-text.q-pt-2 Optional keywords to improve the transciption accuracy.
+                    .km-description.text-secondary-text.q-pt-2 Optional keyterms to improve the transciption accuracy (one per line).
 
               q-separator
 
@@ -393,10 +392,10 @@ const knowledgeGraphSystemName = computed({
   },
 })
 
-const keywords = computed({
-  get: () => store.getters.noteTakerSettings?.keywords || '',
+const keyterms = computed({
+  get: () => store.getters.noteTakerSettings?.keyterms || '',
   set: (value: string) => {
-    store.dispatch('updateNoteTakerSetting', { path: 'keywords', value })
+    store.dispatch('updateNoteTakerSetting', { path: 'keyterms', value })
   },
 })
 

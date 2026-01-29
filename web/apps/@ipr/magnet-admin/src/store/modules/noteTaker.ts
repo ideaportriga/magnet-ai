@@ -25,7 +25,7 @@ interface NoteTakerSettings {
   subscription_recordings_ready: boolean
   create_knowledge_graph_embedding: boolean
   knowledge_graph_system_name: string
-  keywords: string
+  keyterms: string
   integration: {
     confluence: ConfluenceIntegrationSettings
     salesforce: SalesforceIntegrationSettings
@@ -59,7 +59,7 @@ const defaultSettings = (): NoteTakerSettings => ({
   subscription_recordings_ready: false,
   create_knowledge_graph_embedding: false,
   knowledge_graph_system_name: '',
-  keywords: '',
+  keyterms: '',
   integration: {
     confluence: {
       enabled: false,
