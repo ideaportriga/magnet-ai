@@ -50,7 +50,7 @@
                       placeholder='e.g. projects names',
                       v-model='keyterms'
                     )
-                    .km-description.text-secondary-text.q-pt-2 Optional keyterms to improve the transciption accuracy.
+                    .km-description.text-secondary-text.q-pt-2 Optional keyterms to improve the transciption accuracy (one per line).
 
               q-separator
 

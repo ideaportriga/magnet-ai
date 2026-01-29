@@ -29,11 +29,14 @@ from .note_taker_utils import (
     _format_mm_ss,
     _format_recording_date_compact,
     _format_recording_date_iso,
+    merge_unique_strings,
     _parse_content_length,
+    parse_keyterms_list,
     _get_meeting_id_part,
     _get_meeting_title_part,
 )
-from .note_taker_confluence import _get_invited_people, maybe_publish_confluence_notes
+from .note_taker_confluence import maybe_publish_confluence_notes
+from .note_taker_people import get_invited_people, invited_people_to_names
 
 logger = getLogger(__name__)
 
@@ -52,50 +55,6 @@ def _format_prompt_template_error(err: Exception, *, limit: int = 300) -> str:
     if limit > 0 and len(text) > limit:
         text = text[: max(0, limit - 3)] + "..."
     return text
-
-
-def _parse_keyterms(value: str | None) -> list[str] | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-    parts = re.split(r"[\n,;]+", text)
-    seen: set[str] = set()
-    result: list[str] = []
-    for part in parts:
-        item = part.strip()
-        if not item:
-            continue
-        key = item.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        result.append(item)
-    return result or None
-
-
-def _merge_keyterms(
-    base: list[str] | None, extra: list[str] | None
-) -> list[str] | None:
-    items: list[str] = []
-    if base:
-        items.extend(base)
-    if extra:
-        items.extend(extra)
-    if not items:
-        return None
-
-    seen: set[str] = set()
-    merged: list[str] = []
-    for item in items:
-        text = str(item or "").strip()
-        if not text:
-            continue
-        key = text.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(text)
-    return merged or None
 
 
 async def _ensure_vector_pool_ready() -> None:
@@ -271,6 +230,8 @@ async def _send_transcription_summary(
     conversation_time: str | None,
     settings_system_name: str | None,
     meeting_context: dict[str, Any] | None,
+    keyterms: list[str] | None = None,
+    invited_people: list[dict[str, str]] | None = None,
     send_expandable_section: Callable[..., Awaitable[None]],
     load_settings_by_system_name: Callable[[str], Awaitable[dict[str, Any]]],
     load_settings_for_context: Callable[[TurnContext], Awaitable[dict[str, Any]]],
@@ -353,6 +314,28 @@ async def _send_transcription_summary(
                 )
                 return
 
+            if keyterms is None:
+                base_keyterms = (
+                    parse_keyterms_list(settings.get("keyterms"))
+                    if isinstance(settings, dict)
+                    else []
+                )
+                if invited_people is None:
+                    try:
+                        invited_people = await get_invited_people(context)
+                    except Exception as err:
+                        logger.debug(
+                            "Failed to load invited people for keyterms: %s",
+                            getattr(err, "message", str(err)),
+                        )
+                        invited_people = []
+                keyterms = merge_unique_strings(
+                    base_keyterms,
+                    invited_people_to_names(invited_people),
+                )
+
+            # keyterms_display = keyterms_to_display(keyterms) or None
+
             templates: list[tuple[str, str, str]] = []
             for key, title in (
                 ("summary", "Summary"),
@@ -417,6 +400,8 @@ async def _send_transcription_summary(
                     conversation_time=conversation_time,
                     duration=duration_str,
                     sections=confluence_sections,
+                    keyterms=keyterms,
+                    invited_people=invited_people,
                     send_expandable_section=send_expandable_section,
                 )
 
@@ -500,8 +485,8 @@ async def run_transcription_pipeline(
     if kind == "stream":
         assert download_url and headers is not None and name_resolver is not None
         await send_typing(context)
-        keyterms = None
-        invited_keyterms = None
+        keyterms: list[str] = []
+        invited_people: list[dict[str, str]] = []
         try:
             settings = (
                 await load_settings_by_system_name(settings_system_name)
@@ -509,30 +494,22 @@ async def run_transcription_pipeline(
                 else await load_settings_for_context(context)
             )
             if isinstance(settings, dict):
-                keyterms = _parse_keyterms(settings.get("keyterms"))
+                keyterms = parse_keyterms_list(settings.get("keyterms"))
         except Exception as err:
             logger.debug(
                 "Failed to load keyterms for transcription: %s",
                 getattr(err, "message", str(err)),
             )
         try:
-            invited_people = await _get_invited_people(context)
-            invited_names: list[str] = []
-            for person in invited_people or []:
-                first_name = str(person.get("first_name") or "").strip()
-                last_name = str(person.get("last_name") or "").strip()
-                display_name = " ".join(
-                    [p for p in (first_name, last_name) if p]
-                ).strip()
-                if display_name:
-                    invited_names.append(display_name)
-            invited_keyterms = invited_names or None
+            invited_people = await get_invited_people(context)
         except Exception as err:
             logger.debug(
                 "Failed to load invited people for keyterms: %s",
                 getattr(err, "message", str(err)),
             )
-        keyterms = _merge_keyterms(keyterms, invited_keyterms)
+        keyterms = merge_unique_strings(
+            keyterms, invited_people_to_names(invited_people)
+        )
         timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             (
@@ -631,6 +608,8 @@ async def run_transcription_pipeline(
             conversation_time=conversation_time,
             settings_system_name=settings_system_name,
             meeting_context=meeting_context,
+            keyterms=keyterms,
+            invited_people=invited_people,
             send_expandable_section=send_expandable_section,
             load_settings_by_system_name=load_settings_by_system_name,
             load_settings_for_context=load_settings_for_context,

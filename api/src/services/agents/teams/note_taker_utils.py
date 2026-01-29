@@ -288,6 +288,41 @@ def _truncate_filename(base: str, ext: str, max_len: int = 255) -> str:
     return f"{base}{ext}"
 
 
+def parse_keyterms_list(value: str | None) -> list[str]:
+    text = str(value or "").strip()
+    if not text:
+        return []
+    parts = re.split(r"[\n,;]+", text)
+    return [p.strip() for p in parts if str(p or "").strip()]
+
+
+def merge_unique_strings(*lists: list[str] | None) -> list[str]:
+    items: list[str] = []
+    for lst in lists:
+        if lst:
+            items.extend(lst)
+    if not items:
+        return []
+
+    seen: set[str] = set()
+    merged: list[str] = []
+    for item in items:
+        text = str(item or "").strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(text)
+    return merged
+
+
+def keyterms_to_display(keyterms: list[str] | None) -> str | None:
+    terms = [str(t or "").strip() for t in (keyterms or []) if str(t or "").strip()]
+    return ", ".join(terms) if terms else None
+
+
 def _build_note_taker_filename(
     *,
     kind: str,

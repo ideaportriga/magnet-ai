@@ -56,11 +56,11 @@ from .graph import (
     get_recording_file_size,
     get_meeting_recordings,
     get_recording_by_id,
-    get_online_meeting_title,
 )
 from .note_taker_salesforce import (
     send_stt_recording_to_salesforce as sf_send_stt_recording_to_salesforce,
 )
+from .note_taker_meeting import ensure_meeting_title
 from .static_connections import StaticConnections
 from .teams_user_store import upsert_teams_user, normalize_bot_id
 from . import note_taker_store
@@ -71,7 +71,6 @@ from .note_taker_utils import (
     _extract_first_url_from_attachments,
     _format_recording_date_iso,
     _format_recording_datetime_utc_label,
-    _get_meeting_title_part,
     _merge_note_taker_settings,
 )
 
@@ -418,33 +417,6 @@ def _resolve_meeting_details(context: TurnContext) -> Dict[str, Any]:
         "conversationId": getattr(conversation, "id", None),
         "title": meeting_data.get("title") or meeting_data.get("subject"),
     }
-
-
-async def _maybe_enrich_meeting_title(
-    *,
-    meeting: dict[str, Any] | None,
-    online_meeting_id: str | None,
-    delegated_token: str | None,
-) -> dict[str, Any] | None:
-    if (
-        not meeting
-        or _get_meeting_title_part(meeting)
-        or not online_meeting_id
-        or not delegated_token
-    ):
-        return meeting
-
-    try:
-        async with create_graph_client_with_token(delegated_token) as graph_client:
-            title = await get_online_meeting_title(
-                client=graph_client, online_meeting_id=str(online_meeting_id)
-            )
-        if title:
-            meeting["title"] = title
-    except Exception as err:
-        logger.debug("Failed to enrich meeting title via Graph: %s", err)
-
-    return meeting
 
 
 def _resolve_user_info(context: TurnContext) -> Dict[str, Any]:
@@ -970,8 +942,9 @@ async def _process_recording_notification_for_meeting(
     meeting_info = {
         "id": meeting_row.meeting_id or meeting_row.graph_online_meeting_id,
     }
-    meeting_info = await _maybe_enrich_meeting_title(
-        meeting=meeting_info,
+    await ensure_meeting_title(
+        context,
+        meeting_info,
         online_meeting_id=online_meeting_id,
         delegated_token=delegated_token,
     )

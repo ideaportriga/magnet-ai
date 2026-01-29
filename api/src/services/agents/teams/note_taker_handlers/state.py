@@ -12,6 +12,7 @@ from microsoft_agents.hosting.core import AgentApplication, TurnContext, TurnSta
 from microsoft_agents.hosting.teams import TeamsInfo
 
 from .. import note_taker_store
+from ..note_taker_meeting import ensure_meeting_title
 from ..teams_user_store import normalize_bot_id
 
 
@@ -122,54 +123,6 @@ class NoteTakerHandlerState:
                 getattr(err, "message", str(err)),
             )
             return False
-
-    async def _ensure_meeting_title(
-        self,
-        context: TurnContext,
-        meeting: dict[str, Any] | None,
-        *,
-        delegated_token: str | None = None,
-        online_meeting_id: str | None = None,
-    ) -> None:
-        if not meeting:
-            return
-        if meeting.get("title") or meeting.get("subject"):
-            return
-
-        try:
-            # Sooner or later it should be available in get_meeting_info
-            meeting_info = await TeamsInfo.get_meeting_info(context)
-            details = getattr(meeting_info, "details", None) or {}
-            title = getattr(details, "title", None) or getattr(details, "subject", None)
-            title = str(title or "").strip()
-            if title:
-                meeting["title"] = title
-                return
-        except Exception as err:
-            self._logger.debug(
-                "Failed to resolve meeting title from Teams info: %s",
-                getattr(err, "message", str(err)),
-            )
-
-        if not (delegated_token and online_meeting_id):
-            return
-
-        try:
-            from ..graph import create_graph_client_with_token, get_online_meeting_title
-
-            async with create_graph_client_with_token(delegated_token) as graph_client:
-                title = await get_online_meeting_title(
-                    client=graph_client,
-                    online_meeting_id=str(online_meeting_id),
-                )
-            title = str(title or "").strip()
-            if title:
-                meeting["title"] = title
-        except Exception as err:
-            self._logger.debug(
-                "Failed to resolve meeting title via Graph: %s",
-                getattr(err, "message", str(err)),
-            )
 
     async def _send_recordings_summary(
         self,
@@ -795,7 +748,7 @@ class NoteTakerHandlerState:
                     if not delegated_token:
                         return
 
-                await self._ensure_meeting_title(
+                await ensure_meeting_title(
                     context,
                     meeting,
                     delegated_token=delegated_token,
@@ -833,7 +786,7 @@ class NoteTakerHandlerState:
             await self.deps.send_typing(context)
             if not online_meeting_id:
                 online_meeting_id = await self.deps.get_online_meeting_id(context)
-            await self._ensure_meeting_title(
+            await ensure_meeting_title(
                 context,
                 meeting,
                 delegated_token=delegated_token,
@@ -949,7 +902,7 @@ class NoteTakerHandlerState:
             await context.send_activity("Recording did not include a downloadable URL.")
             return
 
-        await self._ensure_meeting_title(
+        await ensure_meeting_title(
             context,
             meeting,
             delegated_token=delegated_token,
@@ -1004,7 +957,7 @@ class NoteTakerHandlerState:
             if not token:
                 return
             online_meeting_id = await self.deps.get_online_meeting_id(context)
-            await self._ensure_meeting_title(
+            await ensure_meeting_title(
                 context,
                 meeting,
                 delegated_token=token,
@@ -1131,7 +1084,6 @@ class NoteTakerHandlerState:
         context: TurnContext,
         state: Optional[TurnState],
     ) -> None:
-        from ..graph import create_graph_client_with_token, get_online_meeting_title
         from ..note_taker_utils import _format_iso_datetime
 
         meeting_context = self.deps.resolve_meeting_details(context)
@@ -1149,11 +1101,12 @@ class NoteTakerHandlerState:
         organizer_obj = getattr(meeting_info, "organizer", None) or {}
         online_meeting_id = await self.deps.get_online_meeting_id(context)
 
-        meeting_title = (
-            meeting_context.get("title")
-            or getattr(details, "title", None)
-            or getattr(details, "subject", None)
+        await ensure_meeting_title(
+            context,
+            meeting_context,
+            meeting_details=details,
         )
+        meeting_title = meeting_context.get("title")
         start_time = getattr(details, "scheduled_start_time", None)
         end_time = getattr(details, "scheduled_end_time", None)
         meeting_type = getattr(details, "type", None)
@@ -1213,21 +1166,14 @@ class NoteTakerHandlerState:
                     self.deps.auth_handler_id,
                     "Please sign in with /sign-in in our 1:1 chat so I can fetch meeting details from Microsoft Graph.",
                 )
-                if delegated_token:
-                    try:
-                        async with create_graph_client_with_token(
-                            delegated_token
-                        ) as graph_client:
-                            meeting_title = (
-                                await get_online_meeting_title(
-                                    client=graph_client,
-                                    online_meeting_id=str(online_meeting_id),
-                                )
-                            ) or meeting_title
-                    except Exception as err:
-                        self._logger.debug(
-                            "Failed to fetch online meeting title via Graph: %s", err
-                        )
+                await ensure_meeting_title(
+                    context,
+                    meeting_context,
+                    delegated_token=delegated_token,
+                    online_meeting_id=online_meeting_id,
+                    meeting_details=details,
+                )
+                meeting_title = meeting_context.get("title")
 
         lines = [
             "Meeting info:",
