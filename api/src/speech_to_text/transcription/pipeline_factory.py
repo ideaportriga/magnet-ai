@@ -32,6 +32,9 @@ def build_pipeline(
     storage: PgDataStorage,
     language: str,
     number_of_participants: str | None = None,
+    *,
+    keyterms: list[str] | None = None,
+    entity_detection: str | list[str] | None = None,
 ) -> TranscriptionPipeline:
     if kind == "mock":
         stt = MockTranscriber(storage, TranscriptionCfg(model="MOCK"))
@@ -56,7 +59,11 @@ def build_pipeline(
         dr = MockDiarization(DiarizationCfg(model="mock"))
     elif kind == "elevenlabs":
         cfg = TranscriptionCfg(
-            model="elevenlabs", language=language, internal_cfg={"granularity": "word"}
+            model="elevenlabs",
+            language=language,
+            internal_cfg={"granularity": "word"},
+            keyterms=keyterms,
+            entity_detection=entity_detection,
         )
         stt = ElevenLabsTranscriber(storage, cfg)
         dr = ElevenLabsDiarization(storage, DiarizationCfg(model="elevenlabs"))
