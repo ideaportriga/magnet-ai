@@ -69,10 +69,37 @@ async def maybe_publish_confluence_notes(
     except Exception as err:
         logger.debug("[teams note-taker] failed to load invited people: %s", err)
 
+    keyterms_value = str(settings.get("keyterms") or "").strip()
+    base_keyterms: list[str] = []
+    if keyterms_value:
+        for part in re.split(r"[\n,;]+", keyterms_value):
+            item = str(part or "").strip()
+            if item:
+                base_keyterms.append(item)
+
+    invited_keyterms: list[str] = []
+    for person in invited_people or []:
+        first_name = str(person.get("first_name") or "").strip()
+        last_name = str(person.get("last_name") or "").strip()
+        display_name = " ".join([p for p in (first_name, last_name) if p]).strip()
+        if display_name:
+            invited_keyterms.append(display_name)
+
+    merged_keyterms: list[str] = []
+    seen_keyterms: set[str] = set()
+    for item in [*base_keyterms, *invited_keyterms]:
+        key = item.lower()
+        if key in seen_keyterms:  # skip duplicates?
+            continue
+        seen_keyterms.add(key)
+        merged_keyterms.append(item)
+    keyterms_part = ", ".join(merged_keyterms) if merged_keyterms else None
+
     markdown_body = _build_confluence_markdown(
         meeting=meeting_context,
         participants=participants,
         invited_people=invited_people,
+        keyterms=keyterms_part,
         conversation_date=conversation_date,
         conversation_time=conversation_time,
         duration=duration,
@@ -229,6 +256,7 @@ def _build_confluence_markdown(
     meeting: dict[str, Any] | None,
     participants: list[str] | None,
     invited_people: list[dict[str, str]] | None,
+    keyterms: str | None,
     conversation_date: str | None,
     conversation_time: str | None,
     duration: str | None,
@@ -240,6 +268,7 @@ def _build_confluence_markdown(
     time_part = str(conversation_time or "").strip() or date_part
     duration_part = str(duration or "").strip() or "n/a"
     participants_part = ", ".join([p for p in (participants or []) if p]) or "n/a"
+    keyterms_part = str(keyterms or "").strip()
 
     parts: list[str] = [
         f"# {meeting_title}",
@@ -248,6 +277,7 @@ def _build_confluence_markdown(
         f"- Duration: {duration_part}",
         f"- Meeting ID: {meeting_id}",
         f"- Participants: {participants_part}",
+        *([f"- Keyterms: {keyterms_part}"] if keyterms_part else []),
         "",
     ]
 

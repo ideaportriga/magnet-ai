@@ -123,6 +123,54 @@ class NoteTakerHandlerState:
             )
             return False
 
+    async def _ensure_meeting_title(
+        self,
+        context: TurnContext,
+        meeting: dict[str, Any] | None,
+        *,
+        delegated_token: str | None = None,
+        online_meeting_id: str | None = None,
+    ) -> None:
+        if not meeting:
+            return
+        if meeting.get("title") or meeting.get("subject"):
+            return
+
+        try:
+            # Sooner or later it should be available in get_meeting_info
+            meeting_info = await TeamsInfo.get_meeting_info(context)
+            details = getattr(meeting_info, "details", None) or {}
+            title = getattr(details, "title", None) or getattr(details, "subject", None)
+            title = str(title or "").strip()
+            if title:
+                meeting["title"] = title
+                return
+        except Exception as err:
+            self._logger.debug(
+                "Failed to resolve meeting title from Teams info: %s",
+                getattr(err, "message", str(err)),
+            )
+
+        if not (delegated_token and online_meeting_id):
+            return
+
+        try:
+            from ..graph import create_graph_client_with_token, get_online_meeting_title
+
+            async with create_graph_client_with_token(delegated_token) as graph_client:
+                title = await get_online_meeting_title(
+                    client=graph_client,
+                    online_meeting_id=str(online_meeting_id),
+                )
+            title = str(title or "").strip()
+            if title:
+                meeting["title"] = title
+        except Exception as err:
+            self._logger.debug(
+                "Failed to resolve meeting title via Graph: %s",
+                getattr(err, "message", str(err)),
+            )
+
     async def _send_recordings_summary(
         self,
         context: TurnContext,
@@ -722,6 +770,7 @@ class NoteTakerHandlerState:
         from ..note_taker_utils import _build_recording_filename
 
         meeting = meeting or self.deps.resolve_meeting_details(context)
+        online_meeting_id: str | None = None
         if recordings is None:
             if not (meeting.get("id") or meeting.get("conversationId")):
                 self._logger.warning("No meeting id found for recordings-list command.")
@@ -745,6 +794,13 @@ class NoteTakerHandlerState:
                     )
                     if not delegated_token:
                         return
+
+                await self._ensure_meeting_title(
+                    context,
+                    meeting,
+                    delegated_token=delegated_token,
+                    online_meeting_id=online_meeting_id,
+                )
 
                 async with create_graph_client_with_token(
                     delegated_token
@@ -775,6 +831,14 @@ class NoteTakerHandlerState:
 
         if transcribe_latest and recordings:
             await self.deps.send_typing(context)
+            if not online_meeting_id:
+                online_meeting_id = await self.deps.get_online_meeting_id(context)
+            await self._ensure_meeting_title(
+                context,
+                meeting,
+                delegated_token=delegated_token,
+                online_meeting_id=online_meeting_id,
+            )
             content_url = recordings[0].get("contentUrl") or recordings[0].get(
                 "recordingContentUrl"
             )
@@ -885,6 +949,13 @@ class NoteTakerHandlerState:
             await context.send_activity("Recording did not include a downloadable URL.")
             return
 
+        await self._ensure_meeting_title(
+            context,
+            meeting,
+            delegated_token=delegated_token,
+            online_meeting_id=online_meeting_id,
+        )
+
         filename = _build_recording_filename(meeting, recording, content_url)
         name = Path(filename).stem
         ext = Path(filename).suffix
@@ -932,6 +1003,13 @@ class NoteTakerHandlerState:
             )
             if not token:
                 return
+            online_meeting_id = await self.deps.get_online_meeting_id(context)
+            await self._ensure_meeting_title(
+                context,
+                meeting,
+                delegated_token=token,
+                online_meeting_id=online_meeting_id,
+            )
 
         try:
             download_url, headers, name_resolver = await _download_file_from_link(
@@ -950,6 +1028,7 @@ class NoteTakerHandlerState:
             download_url=download_url,
             headers=headers,
             name_resolver=name_resolver,
+            meeting_context=meeting,
             on_submit_factory=self._make_salesforce_on_submit_factory(
                 context,
                 conversation_date=None,

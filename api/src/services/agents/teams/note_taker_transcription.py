@@ -33,7 +33,7 @@ from .note_taker_utils import (
     _get_meeting_id_part,
     _get_meeting_title_part,
 )
-from .note_taker_confluence import maybe_publish_confluence_notes
+from .note_taker_confluence import _get_invited_people, maybe_publish_confluence_notes
 
 logger = getLogger(__name__)
 
@@ -54,6 +54,50 @@ def _format_prompt_template_error(err: Exception, *, limit: int = 300) -> str:
     return text
 
 
+def _parse_keyterms(value: str | None) -> list[str] | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    parts = re.split(r"[\n,;]+", text)
+    seen: set[str] = set()
+    result: list[str] = []
+    for part in parts:
+        item = part.strip()
+        if not item:
+            continue
+        key = item.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(item)
+    return result or None
+
+
+def _merge_keyterms(
+    base: list[str] | None, extra: list[str] | None
+) -> list[str] | None:
+    items: list[str] = []
+    if base:
+        items.extend(base)
+    if extra:
+        items.extend(extra)
+    if not items:
+        return None
+
+    seen: set[str] = set()
+    merged: list[str] = []
+    for item in items:
+        text = str(item or "").strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(text)
+    return merged or None
+
+
 async def _ensure_vector_pool_ready() -> None:
     """Block until the pgvector pool is ready (to fix the issue with the first call after the startup)."""
     try:
@@ -72,6 +116,7 @@ async def _start_transcription_from_object_key(
     object_key: str,
     content_type: str,
     pipeline_id: str,
+    keyterms: list[str] | None = None,
     on_submit: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, dict | None]:
     await _ensure_vector_pool_ready()
@@ -85,6 +130,7 @@ async def _start_transcription_from_object_key(
         object_key=object_key,
         content_type=content_type,
         backend=pipeline_id,
+        keyterms=keyterms,
     )
     if on_submit and job_id:
         try:
@@ -197,7 +243,6 @@ async def _execute_transcription_prompt_templates(
     transcription: str,
     participants: list[str],
     conversation_date: str | None,
-    keywords: str | None = None,
 ) -> list[Any]:
     async def _run_template(system_name: str):
         return await execute_prompt_template(
@@ -207,7 +252,6 @@ async def _execute_transcription_prompt_templates(
                 "participants": participants,
                 "language": "the same as the transcription",
                 "conversation_date": conversation_date or "",
-                "keywords": str(keywords or "").strip(),
             },
         )
 
@@ -456,6 +500,39 @@ async def run_transcription_pipeline(
     if kind == "stream":
         assert download_url and headers is not None and name_resolver is not None
         await send_typing(context)
+        keyterms = None
+        invited_keyterms = None
+        try:
+            settings = (
+                await load_settings_by_system_name(settings_system_name)
+                if settings_system_name
+                else await load_settings_for_context(context)
+            )
+            if isinstance(settings, dict):
+                keyterms = _parse_keyterms(settings.get("keyterms"))
+        except Exception as err:
+            logger.debug(
+                "Failed to load keyterms for transcription: %s",
+                getattr(err, "message", str(err)),
+            )
+        try:
+            invited_people = await _get_invited_people(context)
+            invited_names: list[str] = []
+            for person in invited_people or []:
+                first_name = str(person.get("first_name") or "").strip()
+                last_name = str(person.get("last_name") or "").strip()
+                display_name = " ".join(
+                    [p for p in (first_name, last_name) if p]
+                ).strip()
+                if display_name:
+                    invited_names.append(display_name)
+            invited_keyterms = invited_names or None
+        except Exception as err:
+            logger.debug(
+                "Failed to load invited people for keyterms: %s",
+                getattr(err, "message", str(err)),
+            )
+        keyterms = _merge_keyterms(keyterms, invited_keyterms)
         timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             (
@@ -530,6 +607,7 @@ async def run_transcription_pipeline(
                 object_key=object_key,
                 content_type=content_type,
                 pipeline_id=pipeline_id,
+                keyterms=keyterms,
                 on_submit=submit_cb,
             )
         except Exception as err:

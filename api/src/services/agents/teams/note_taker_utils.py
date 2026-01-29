@@ -68,7 +68,7 @@ _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
     "subscription_recordings_ready": False,
     "create_knowledge_graph_embedding": False,
     "knowledge_graph_system_name": "",
-    "keywords": "",
+    "keyterms": "",
     "integration": {
         "confluence": {
             "enabled": False,
@@ -99,7 +99,7 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
         "subscription_recordings_ready",
         "create_knowledge_graph_embedding",
         "knowledge_graph_system_name",
-        "keywords",
+        "keyterms",
     ):
         if key in raw:
             settings[key] = raw[key]
@@ -334,16 +334,12 @@ def _build_recording_filename(
     meeting_part = (
         _get_meeting_title_part(meeting) or _get_meeting_id_part(meeting) or "meeting"
     )
-    rec_part = recording.get("id") or recording.get("recordingId") or "recording"
     date_part = _format_recording_date_compact(recording.get("createdDateTime"))
     ext = Path(urlparse(content_url).path).suffix or ".mp4"
-    return _build_note_taker_filename(
-        kind="recording",
-        meeting_id=str(meeting_part),
-        item_id=str(rec_part),
-        date_part=date_part,
-        ext=ext,
-    )
+    parts = ["note-taker", "recording", str(meeting_part), str(date_part or "").strip()]
+    normalized = [_normalize_filename_part(part) for part in parts if part]
+    base = "-".join(normalized)
+    return _truncate_filename(base, ext)
 
 
 def _parse_content_length(value: str | None) -> int | None:
