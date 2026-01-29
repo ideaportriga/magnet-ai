@@ -5,7 +5,7 @@ from uuid import UUID
 
 from litestar import Controller, get, post, put
 from litestar.params import Body
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 
 from core.db.models.teams.note_taker_settings import NoteTakerSettings
@@ -21,9 +21,12 @@ class PromptSettingSchema(BaseModel):
 
 
 class NoteTakerSettingsSchema(BaseModel):
+    model_config = ConfigDict(extra="allow")  # TODO: remove it
+
     subscription_recordings_ready: bool = False
     create_knowledge_graph_embedding: bool = False
     knowledge_graph_system_name: str = ""
+    keywords: str = ""
     integration: dict[str, Any] = Field(
         default_factory=lambda: {
             "confluence": {
@@ -32,8 +35,6 @@ class NoteTakerSettingsSchema(BaseModel):
                 "confluence_create_page_tool": "",
                 "space_key": "",
                 "parent_id": "",
-                "content_format": "markdown",
-                "enable_heading_anchors": True,
                 "title_template": "Meeting notes: {meeting_title} ({date})",
             },
             "salesforce": {

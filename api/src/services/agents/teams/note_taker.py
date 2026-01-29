@@ -61,7 +61,7 @@ from core.db.models.teams import TeamsMeeting, TeamsUser
 from core.db.models.teams.note_taker_settings import (
     NoteTakerSettings as NoteTakerSettingsModel,
 )
-from sqlalchemy import func, select, or_, update
+from sqlalchemy import and_, func, select, or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from .config import NOTE_TAKER_GRAPH_SCOPES, ISSUER, SCOPE
 from .graph import (
@@ -180,6 +180,7 @@ _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
     "subscription_recordings_ready": False,
     "create_knowledge_graph_embedding": False,
     "knowledge_graph_system_name": "",
+    "keywords": "",
     "integration": {
         "confluence": {
             "enabled": False,
@@ -187,8 +188,6 @@ _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
             "confluence_create_page_tool": "",
             "space_key": "",
             "parent_id": "",
-            "content_format": "markdown",
-            "enable_heading_anchors": True,
             "title_template": "Meeting notes: {meeting_title} ({date})",
         },
         "salesforce": {
@@ -212,6 +211,7 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
         "subscription_recordings_ready",
         "create_knowledge_graph_embedding",
         "knowledge_graph_system_name",
+        "keywords",
     ):
         if key in raw:
             settings[key] = raw[key]
@@ -1599,6 +1599,19 @@ async def _send_transcription_summary(
         duration_str = None
 
     if status in {"completed", "transcribed", "diarized"}:
+
+        def _format_prompt_template_error(err: Exception, *, limit: int = 300) -> str:
+            raw = getattr(err, "message", None)
+            if raw is None:
+                raw = str(err) or err.__class__.__name__
+
+            text = re.sub(r"\s+", " ", str(raw)).strip()
+            if not text:
+                text = err.__class__.__name__
+            if limit > 0 and len(text) > limit:
+                text = text[: max(0, limit - 3)] + "..."
+            return text
+
         segs_count = 0
         full_text = None
         participants: list[str] = []
@@ -1688,13 +1701,14 @@ async def _send_transcription_summary(
             knowledge_graph_sections: dict[str, str] = {}
             for (system_name, title, key), result in zip(templates, results):
                 if isinstance(result, Exception):
+                    err_msg = _format_prompt_template_error(result)
                     logger.warning(
                         "Prompt template %s failed for transcription job %s: %s",
                         system_name,
                         job_id,
-                        getattr(result, "message", str(result)),
+                        err_msg,
                     )
-                    await context.send_activity(f"{title} generation failed.")
+                    await context.send_activity(f"{title} generation failed: {err_msg}")
                     continue
 
                 content = getattr(result, "content", None)
@@ -1785,6 +1799,7 @@ async def _execute_transcription_prompt_templates(
     transcription: str,
     participants: list[str],
     conversation_date: str | None,
+    keywords: str | None = None,
 ) -> list[Any]:
     """
     Execute prompt templates for a transcription.
@@ -1801,6 +1816,7 @@ async def _execute_transcription_prompt_templates(
                 "participants": participants,
                 "language": "the same as the transcription",
                 "conversation_date": conversation_date or "",
+                "keywords": str(keywords or "").strip(),
             },
         )
 
@@ -2550,7 +2566,7 @@ def _register_note_taker_handlers(
 
         await _send_recordings_summary(context, recordings, delegated_token)
         if transcribe_latest and recordings:
-            await context.send_activity("Streaming the latest recording now...")
+            # await context.send_activity("Streaming the latest recording now...")
             await _send_typing(context)
             content_url = recordings[0].get("contentUrl") or recordings[0].get(
                 "recordingContentUrl"
@@ -2574,7 +2590,9 @@ def _register_note_taker_handlers(
             name = Path(filename).stem
             ext = Path(filename).suffix
 
-            await context.send_activity("Streaming the recording for transcription...")
+            await context.send_activity(
+                "Streaming the latest recording for transcription..."
+            )
             await _send_typing(context)
 
             headers = {"Authorization": f"Bearer {delegated_token}"}
@@ -4117,6 +4135,7 @@ async def handle_recordings_ready_notifications(
         or getattr(getattr(runtime, "validation_config", None), "CLIENT_ID", None)
         or getattr(getattr(runtime, "validation_config", None), "client_id", None)
     )
+    normalized_bot_id = normalize_bot_id(bot_app_id)
 
     for notification in notifications:
         if not isinstance(notification, dict):
@@ -4133,17 +4152,17 @@ async def handle_recordings_ready_notifications(
         try:
             async with async_session_maker() as session:
                 conditions = [TeamsMeeting.subscription_id == subscription_id]
-                if chat_id_hint:
-                    conditions.append(TeamsMeeting.chat_id == chat_id_hint)
-                if meeting_id_hint:
-                    conditions.append(
-                        or_(
-                            TeamsMeeting.graph_online_meeting_id == meeting_id_hint,
-                            TeamsMeeting.meeting_id == meeting_id_hint,
-                        )
+                conditions.append(
+                    and_(
+                        TeamsMeeting.graph_online_meeting_id == meeting_id_hint,
+                        TeamsMeeting.bot_id == normalized_bot_id,
                     )
-
-                stmt = select(TeamsMeeting).where(or_(*conditions))
+                )
+                stmt = (
+                    select(TeamsMeeting)
+                    .where(or_(*conditions))
+                    .order_by(TeamsMeeting.updated_at.desc())
+                )
                 result = await session.execute(stmt)
                 meeting_row = result.scalars().first()
 
