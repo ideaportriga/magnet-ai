@@ -43,6 +43,26 @@ def _to_dict(obj):
             pass
     return obj
 
+def _sanitize_keyterms(keyterms: list[str]) -> list[str]:
+    if not keyterms:
+        return []
+
+    cleaned = []
+    for term in keyterms:
+        # skip non-string or empty
+        if not isinstance(term, str):
+            continue
+        t = term.strip()
+        # skip too long strings
+        if not t or len(t) > 50:
+            continue
+        # limit to 5 words
+        if len(t.split()) > 5:
+            t = " ".join(t.split()[:5])
+        cleaned.append(t)
+
+    return cleaned[:100]
+
 
 class ElevenLabsTranscriber(BaseTranscriber):
     def __init__(self, storage: PgDataStorage, cfg: TranscriptionCfg):
@@ -64,7 +84,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
             api_key=api_key,
             httpx_client=http_client,
         )
-        self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v1")
+        self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v2")
         self._diarize = os.getenv("ELEVEN_DIARIZE", "true").lower() == "true"
         self._language_code = None
         ns = os.getenv("ELEVEN_NUM_SPEAKERS")
@@ -83,11 +103,10 @@ class ElevenLabsTranscriber(BaseTranscriber):
         raw_payload = None
 
         try:
-            # Duration AFTER conversion (ffprobe on the WAV)
             try:
                 from ...services.ffmpeg import (
                     get_wav_duration_seconds,
-                )  # adjust name if needed
+                )
 
                 duration = await asyncio.to_thread(get_wav_duration_seconds, tmp_wav)
                 await self._storage._update_fields(
@@ -106,6 +125,13 @@ class ElevenLabsTranscriber(BaseTranscriber):
                     )
                     if self._language_code:
                         kwargs["language_code"] = self._language_code
+                    safe_terms = _sanitize_keyterms(self._cfg.keyterms)
+                    if safe_terms:
+                        kwargs["keyterms"] = safe_terms
+                    if self._cfg.entity_detection:
+                        kwargs["entity_detection"] = self._cfg.entity_detection
+                    if self._num_speakers is not None:
+                        kwargs["num_speakers"] = self._num_speakers
 
                     return self._client.speech_to_text.convert(**kwargs)
 

@@ -90,6 +90,8 @@ async def submit(
     backend: PipelineKind = "mock",
     language: str | None = None,
     number_of_participants: str | None = None,
+    keyterms: list[str] | None = None,
+    entity_detection: str | list[str] | None = None,
 ) -> str:
     if bytes_ is None and object_key is None:
         raise ValueError("submit(): supply either bytes_ or object_key")
@@ -116,6 +118,8 @@ async def submit(
         storage,
         language=language,
         number_of_participants=number_of_participants,
+        keyterms=keyterms,
+        entity_detection=entity_detection,
     )
 
     task = asyncio.create_task(
