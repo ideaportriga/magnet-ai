@@ -59,12 +59,12 @@ def build_pipeline(
         dr = MockDiarization(DiarizationCfg(model="mock"))
     elif kind == "elevenlabs":
         cfg = TranscriptionCfg(
-                model="elevenlabs",
-                language=language,
-                internal_cfg={"granularity": "word"},
-                keyterms=keyterms,
-                entity_detection=entity_detection,
-            )
+            model="elevenlabs",
+            language=language,
+            internal_cfg={"granularity": "word"},
+            keyterms=keyterms,
+            entity_detection=entity_detection,
+        )
         stt = ElevenLabsTranscriber(storage, cfg)
         dr = ElevenLabsDiarization(storage, DiarizationCfg(model="elevenlabs"))
         return TranscriptionPipeline(stt, dr, storage)

@@ -43,6 +43,7 @@ def _to_dict(obj):
             pass
     return obj
 
+
 def _sanitize_keyterms(keyterms: list[str]) -> list[str]:
     if not keyterms:
         return []
