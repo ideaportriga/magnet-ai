@@ -30,14 +30,20 @@
         v-model="contentType"
         :options="[
           { label: 'Documents', value: 'documents' },
-          { label: 'Pages', value: 'pages' }
+          { label: 'Pages', value: 'pages' },
+          { label: 'Custom', value: 'custom' }
         ]"
         toggle-color="primary"
         unelevated
         class="q-mb-lg"
       />
 
-      <template v-if="contentType === 'documents'">
+      <div class="q-mb-md">
+        <div class="km-input-label q-pb-xs">Library</div>
+        <km-input v-model="library" height="36px" />
+      </div>
+
+      <template v-if="library !== SITEPAGES_LIBRARY">
         <div class="q-mb-md">
           <div class="km-input-label q-pb-xs">Folder Path</div>
           <km-input v-model="folderPath" height="36px" placeholder="MyFolder/SubFolder" />
@@ -104,9 +110,20 @@ const SITEPAGES_LIBRARY = 'SitePages'
 const DEFAULT_DOCUMENTS_LIBRARY = 'Shared Documents'
 
 const contentType = computed({
-  get: () => library.value === SITEPAGES_LIBRARY ? 'pages' : 'documents',
-  set: (val: 'documents' | 'pages') => {
-    library.value = val === 'pages' ? SITEPAGES_LIBRARY : DEFAULT_DOCUMENTS_LIBRARY
+  get: () => {
+    if (library.value === SITEPAGES_LIBRARY) return 'pages'
+    if (library.value === DEFAULT_DOCUMENTS_LIBRARY) return 'documents'
+    return 'custom'
+  },
+  set: (val: 'documents' | 'pages' | 'custom') => {
+    if (val === 'pages') {
+      library.value = SITEPAGES_LIBRARY
+    } else if (val === 'documents') {
+      library.value = DEFAULT_DOCUMENTS_LIBRARY
+    } else {
+      // Clear for custom - let user type
+      library.value = ''
+    }
   }
 })
 
