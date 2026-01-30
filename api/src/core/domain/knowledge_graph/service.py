@@ -364,7 +364,7 @@ class KnowledgeGraphSourceService(
             .where(KnowledgeGraphSource.id == source_id)
             .values(status=status)
         )
-    
+
     async def list_sources(
         self, db_session: AsyncSession, graph_id: UUID
     ) -> list[KnowledgeGraphSourceExternalSchema]:
@@ -644,18 +644,19 @@ class KnowledgeGraphSourceService(
 
     async def sync_source_background(self, graph_id: UUID, source_id: UUID) -> None:
         """Run sync in background with its own database session.
-        
+
         This method is called via asyncio.create_task() and should not raise exceptions
         to the caller. All errors are logged and stored in the source status.
         """
         from core.config.app import alchemy
-        
+
         try:
             async with alchemy.get_session() as db_session:
                 await self._sync_source_impl(db_session, graph_id, source_id)
         except Exception as e:  # noqa: BLE001
             # Log the error but don't raise - this is running in background
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(
                 f"Background sync failed for graph {graph_id} source {source_id}: {e}",
