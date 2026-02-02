@@ -15,7 +15,8 @@ jobs:
   commit-lint:
     name: Commit Message Lint
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    # Skip commit lint for PRs targeting main (release merges have old commits)
+    if: github.event_name == 'pull_request' && github.base_ref != 'main'
     
     steps:
       - name: Checkout code
