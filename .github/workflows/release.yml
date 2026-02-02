@@ -107,6 +107,9 @@ jobs:
   publish-docker:
     needs: release
     if: needs.release.outputs.released == 'true' && needs.release.outputs.version != ''
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/docker-publish.yml
     with:
       version: ${{ needs.release.outputs.version }}
