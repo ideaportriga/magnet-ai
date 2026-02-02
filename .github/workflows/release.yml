@@ -9,10 +9,11 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to release (leave empty for auto)'
+      dry_run:
+        description: 'Dry run mode (no actual release)'
         required: false
-        type: string
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -25,7 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.get-version.outputs.version }}
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+      released: ${{ steps.get-version.outputs.released }}
+    if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout code
@@ -67,18 +71,30 @@ jobs:
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release
+        run: |
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            npx semantic-release --dry-run
+          else
+            npx semantic-release
+          fi
 
       - name: Get Release Version
         id: get-version
         run: |
           if [ -f release_version.txt ]; then
-            echo "version=$(cat release_version.txt)" >> $GITHUB_OUTPUT
+            VERSION=$(cat release_version.txt)
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "released=true" >> $GITHUB_OUTPUT
+            echo "✅ New release created: ${VERSION}"
+          else
+            echo "released=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No new release (no releasable commits)"
           fi
 
+  # Only publish Docker if a new version was actually released
   publish-docker:
     needs: release
-    if: needs.release.outputs.version != ''
+    if: needs.release.outputs.released == 'true' && needs.release.outputs.version != ''
     uses: ./.github/workflows/docker-publish.yml
     with:
       version: ${{ needs.release.outputs.version }}

@@ -1,21 +1,20 @@
 name: Docker Publish
 
 on:
+  # Triggered after CI passes on develop branch only
+  # For main branch, docker is built via release.yml workflow
   workflow_run:
     workflows: ["CI - Linting and Tests"]
     types:
       - completed
     branches:
-      - main
       - develop
-  push:
-    tags:
-      - 'v*'
+  # Called from release workflow with version (for main branch releases)
   workflow_call:
     inputs:
       version:
         description: "Version to build (e.g. 1.2.3)"
-        required: true
+        required: false
         type: string
 
 env:
@@ -25,7 +24,12 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    if: ${{ inputs.version != '' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || github.event_name == 'push' }}
+    # Only run if:
+    # 1. Called with version from release workflow, OR
+    # 2. Triggered by workflow_run AND CI was successful (for develop)
+    if: >
+      (github.event_name == 'workflow_call') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     permissions:
       contents: read
       packages: write
@@ -34,7 +38,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.version && format('v{0}', inputs.version) || github.event.workflow_run.head_sha || github.ref }}
+          # For release builds, checkout the version tag; otherwise use the CI commit
+          ref: ${{ inputs.version != '' && format('v{0}', inputs.version) || github.event.workflow_run.head_sha }}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -43,26 +48,56 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
+      - name: Determine tags
+        id: determine-tags
+        run: |
+          # Initialize tags array
+          TAGS=""
+          
+          # If version is provided (release build from main), add version tags + latest
+          if [[ -n "${{ inputs.version }}" ]]; then
+            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.version }}"
+            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ inputs.version }}"
+            # Also tag as latest for releases from main
+            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+            echo "Building release version: ${{ inputs.version }}"
+            exit 0
+          fi
+          
+          # For workflow_run events (CI completion on develop)
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          echo "Building for branch: ${BRANCH}"
+          
+          if [[ "${BRANCH}" == "develop" ]]; then
+            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
+          else
+            echo "Branch ${BRANCH} is handled by release workflow, skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        if: steps.determine-tags.outputs.skip != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (labels)
+        if: steps.determine-tags.outputs.skip != 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=tag
-            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
-            type=raw,value=latest,enable=${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main') || (github.event_name != 'workflow_run' && github.ref == 'refs/heads/main') }}
-            type=raw,value=dev,enable=${{ (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'develop') || (github.event_name != 'workflow_run' && github.ref == 'refs/heads/develop') }}
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
+        if: steps.determine-tags.outputs.skip != 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.determine-tags.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
