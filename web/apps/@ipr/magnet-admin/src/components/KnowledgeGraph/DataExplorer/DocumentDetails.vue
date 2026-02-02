@@ -1,129 +1,220 @@
 <template>
-  <div class="row no-wrap overflow-hidden full-height">
-    <div class="row no-wrap full-height justify-center fit">
-      <div class="col-auto full-width">
-        <div class="column no-wrap full-height q-pb-md relative-position q-px-md">
-          <div class="col-auto column full-width q-mt-lg q-mb-sm bg-white border-radius-8">
-            <div class="row items-center no-wrap full-width q-py-12 q-px-16">
-              <q-btn flat dense round icon="arrow_back" class="q-mr-sm" @click="goBack">
-                <q-tooltip>Back to Explorer</q-tooltip>
-              </q-btn>
-              <div class="col">
-                <div class="row items-center no-wrap" style="height: 32px">
-                  <div class="km-heading-4 text-black q-mr-md">{{ document?.title || document?.name || 'Document' }}</div>
-                  <file-type-badge v-if="document?.type" :type="document.type" class="q-mx-xs" />
-                  <q-chip dense outline square color="grey-7" icon="menu_book" class="q-ml-sm q-px-md q-py-12" style="font-size: 12px">
-                    {{ document?.total_pages || 0 }} pages
-                  </q-chip>
-                  <q-chip dense outline square color="grey-7" icon="splitscreen" class="q-ml-sm q-px-md q-py-12" style="font-size: 12px">
-                    {{ document?.chunks_count || chunks.length }} chunks
-                  </q-chip>
-                </div>
-                <div class="km-description text-secondary-text q-mt-xs">
-                  {{ document.name }}
-                </div>
-              </div>
-              <div class="col-auto row items-center q-gutter-sm">
-                <q-btn
-                  v-if="document?.summary"
-                  flat
-                  dense
-                  round
-                  :icon="summaryExpanded ? 'expand_less' : 'expand_more'"
-                  color="primary"
-                  @click="summaryExpanded = !summaryExpanded"
-                >
-                  <q-tooltip>{{ summaryExpanded ? 'Hide Summary' : 'Show Summary' }}</q-tooltip>
-                </q-btn>
-              </div>
-            </div>
+  <div class="doc-details">
+    <!-- Left Navigation Panel -->
+    <div class="doc-nav-panel">
+      <!-- Tab Switcher -->
+      <div class="nav-tabs-wrapper">
+        <q-btn-toggle
+          v-model="activeNavTab"
+          no-caps
+          unelevated
+          toggle-color="primary"
+          :options="[
+            { label: 'TOC', value: 'toc' },
+            { label: `Chunks (${document?.chunks_count || chunks.length})`, value: 'chunks' },
+          ]"
+          class="nav-tabs-toggle"
+        />
+      </div>
 
-            <!-- Expandable Summary Section -->
-            <div v-if="summaryExpanded && document?.summary" class="q-px-16 q-pb-md">
-              <q-separator class="q-mb-md" />
-              <div class="km-heading-8 text-weight-medium q-mb-sm q-pl-md">Summary</div>
-              <div class="text-body2 text-grey-8 q-pl-md" style="line-height: 1.65; white-space: pre-wrap; max-height: 300px; overflow-y: auto">
-                {{ document.summary }}
+      <!-- Search -->
+      <div class="nav-search">
+        <km-input v-model="treeFilter" placeholder="Filter..." icon-before="search" clearable dense />
+      </div>
+
+      <!-- TOC / Chunks List -->
+      <div class="nav-list">
+        <template v-if="activeNavTab === 'toc'">
+          <div v-if="loading" class="nav-loading">
+            <q-spinner size="24px" color="primary" />
+          </div>
+          <template v-else-if="hasToc">
+            <div class="nav-list-actions">
+              <km-btn flat size="sm" color="primary" :label="isAllExpanded ? 'Collapse all' : 'Expand all'" @click="toggleExpandCollapseAll" />
+            </div>
+            <q-tree
+              v-model:expanded="expandedKeys"
+              v-model:selected="selectedKey"
+              :nodes="treeNodes"
+              node-key="id"
+              :filter="treeFilter"
+              :filter-method="filterMethod"
+              no-selection-unset
+              no-transition
+              no-connectors
+              selected-color="primary"
+              dense
+              class="nav-tree"
+            >
+              <template #default-header="prop">
+                <div
+                  class="tree-node-item"
+                  :class="{ 'tree-node-item--chunk': prop.node.type === 'chunk' }"
+                  @click.stop="onTreeNodeClick(prop.node.id)"
+                >
+                  <q-icon :name="getIconForNode(prop.node)" size="16px" class="tree-node-icon" />
+                  <span class="tree-node-text">{{ prop.node.label }}</span>
+                </div>
+              </template>
+            </q-tree>
+          </template>
+          <div v-else class="nav-empty">
+            <q-icon name="folder_off" size="28px" color="grey-5" />
+            <span class="text-grey-6 km-description">No table of contents</span>
+          </div>
+        </template>
+
+        <template v-else-if="activeNavTab === 'chunks'">
+          <div v-if="loading" class="nav-loading">
+            <q-spinner size="24px" color="primary" />
+          </div>
+          <div v-else-if="filteredChunks.length === 0" class="nav-empty">
+            <q-icon name="layers" size="28px" color="grey-5" />
+            <span class="text-grey-6 km-description">{{ chunks.length === 0 ? 'No chunks' : 'No matches' }}</span>
+          </div>
+          <div v-else class="chunks-nav-list">
+            <div
+              v-for="(ch, idx) in filteredChunks"
+              :key="ch.id"
+              :data-chunk-id="ch.id"
+              class="chunk-nav-item"
+              :class="{ 'chunk-nav-item--active': selectedChunk?.id === ch.id }"
+              @click="onChunkNavClick(ch)"
+            >
+              <span class="chunk-nav-index">{{ idx + 1 }}</span>
+              <q-icon :name="getIconForChunk(ch)" size="16px" class="chunk-nav-icon" />
+              <span class="chunk-nav-title">{{ ch.title || ch.name || 'Chunk' }}</span>
+              <q-badge v-if="ch.page" color="grey-4" text-color="grey-8" class="chunk-nav-badge">{{ ch.page }}</q-badge>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="doc-main-content">
+      <!-- Document Header -->
+      <div class="doc-header-card">
+        <div class="doc-header-row">
+          <div class="doc-header-left">
+            <div class="doc-header-info">
+              <div class="doc-header-title-row">
+                <div class="doc-header-title km-heading-5">{{ document?.title || document?.name || 'Document' }}</div>
+                <km-btn
+                  v-if="document?.external_link"
+                  flat
+                  icon="fa fa-external-link"
+                  color="secondary-text"
+                  label-class="km-button-text"
+                  icon-size="16px"
+                  @click="openExternalLink(document?.external_link)"
+                />
+              </div>
+              <div class="doc-header-subtitle km-description text-secondary-text">{{ document?.name }}</div>
+            </div>
+          </div>
+          <div class="doc-header-right">
+            <q-btn
+              flat
+              round
+              dense
+              icon="info"
+              :color="metadataPanelOpen ? 'primary' : 'grey-7'"
+              class="metadata-toggle-btn"
+              @click="metadataPanelOpen = !metadataPanelOpen"
+            >
+              <q-tooltip>Document Info</q-tooltip>
+            </q-btn>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scrollable Content Area with Continuous Chunks -->
+      <div ref="scrollAreaRef" class="doc-scroll-area" @scroll="onScrollAreaScroll">
+        <!-- Continuous Chunks View -->
+        <div v-if="sortedChunks.length > 0" class="chunks-continuous-container">
+          <div
+            v-for="(chunk, index) in sortedChunks"
+            :key="chunk.id"
+            :ref="(el) => setChunkRef(chunk.id, el as HTMLElement)"
+            :data-chunk-id="chunk.id"
+            class="doc-section doc-section--chunk"
+            :class="{ 'doc-section--chunk-active': selectedChunk?.id === chunk.id }"
+          >
+            <div class="section-header section-header--chunk" @click="onChunkHeaderClick(chunk)">
+              <span class="chunk-index-badge">{{ index + 1 }}</span>
+              <span class="section-title">{{ chunk.title || chunk.name || 'Chunk Content' }}</span>
+              <q-space />
+              <q-badge v-if="chunk.page" color="secondary" text-color="white" class="chunk-page-badge">Page {{ chunk.page }}</q-badge>
+            </div>
+            <div class="section-body section-body--chunk">
+              <div class="chunk-content-wrapper">
+                <div class="chunk-content markdown-content" v-html="getRenderedContent(chunk)" />
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="col column no-wrap ba-border bg-white border-radius-12 q-px-32 q-py-24" style="min-width: 300px">
-            <div class="row items-center q-mb-sm">
-              <div class="col">
-                <div class="km-heading-7">Table of Contents</div>
-                <div class="km-description text-secondary-text">Navigate the structure and sections of selected document</div>
-              </div>
-              <div class="col-auto row items-center q-gutter-md">
-                <km-btn
-                  v-if="treeNodes.length > 0"
-                  flat
-                  color="primary"
-                  :label="isAllExpanded ? 'Collapse all' : 'Expand all'"
-                  @click="toggleExpandCollapseAll"
-                />
-                <km-input v-model="treeFilter" placeholder="Filter sections or chunks" icon-before="search" clearable style="width: 250px" />
-              </div>
-            </div>
-            <q-separator class="q-mt-sm" />
+        <!-- Empty State -->
+        <div v-else-if="!loading" class="doc-section doc-section--empty">
+          <div class="empty-placeholder">
+            <q-icon name="layers" size="40px" color="grey-4" />
+            <div class="km-heading-7 text-grey-6 q-mt-md">No chunks available</div>
+            <div class="km-description text-grey-5">This document has no content chunks</div>
+          </div>
+        </div>
 
-            <div v-if="!loading && treeNodes.length === 0" class="q-mt-md">
-              <div class="text-center q-pa-lg">
-                <q-icon name="article" size="64px" color="grey-5" />
-                <div class="km-heading-7 text-grey-7 q-mt-md">No content found</div>
-                <div class="km-description text-grey-6">This document has no TOC or chunks yet</div>
-              </div>
-            </div>
-            <q-linear-progress v-if="loading" indeterminate color="primary" />
-
-            <div v-else-if="!loading" class="q-mt-md q-pb-md" style="flex: 1; overflow: auto">
-              <q-tree
-                v-model:expanded="expandedKeys"
-                v-model:selected="selectedKey"
-                :nodes="treeNodes"
-                node-key="id"
-                :filter="treeFilter"
-                :filter-method="filterMethod"
-                no-selection-unset
-                no-transition
-                no-connectors
-                selected-color="primary"
-                dense
-              >
-                <template #default-header="prop">
-                  <div class="row items-center no-wrap full-width q-pa-xs" @click.stop="onTreeNodeClick(prop.node.id)">
-                    <q-icon :name="getIconForNode(prop.node)" size="20px" class="q-mr-sm text-grey-7" />
-                    <div class="text-body2 q-mr-md">{{ prop.node.label }}</div>
-                    <template v-if="prop.node.type === 'chunk'">
-                      <q-badge v-if="prop.node.chunk?.page" color="secondary" text-color="white" outline class="q-py-4">
-                        page {{ prop.node.chunk?.page }}
-                      </q-badge>
-                    </template>
-                  </div>
-                </template>
-              </q-tree>
-            </div>
+        <!-- Loading State -->
+        <div v-else class="doc-section doc-section--empty">
+          <div class="empty-placeholder">
+            <q-spinner size="40px" color="primary" />
+            <div class="km-heading-7 text-grey-6 q-mt-md">Loading chunks...</div>
           </div>
         </div>
       </div>
     </div>
-    <div v-if="drawerOpen && selectedChunk" class="col-auto">
-      <chunk-drawer :chunk="selectedChunk" @close="drawerOpen = false" />
-    </div>
+
+    <!-- Right Metadata Panel -->
+    <MetadataPanel
+      :open="metadataPanelOpen"
+      :summary="document?.summary ?? null"
+      :file-metadata="fileMetadata"
+      :source-metadata="sourceMetadata"
+      :llm-metadata="llmMetadata"
+      @close="metadataPanelOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import MarkdownIt from 'markdown-it'
+import MarkdownItAbbr from 'markdown-it-abbr'
+import MarkdownItAnchor from 'markdown-it-anchor'
+import MarkdownItFootnote from 'markdown-it-footnote'
+import MarkdownItHighlightjs from 'markdown-it-highlightjs'
+import MarkdownItSub from 'markdown-it-sub'
+import MarkdownItSup from 'markdown-it-sup'
+import MarkdownItTasklists from 'markdown-it-task-lists'
+import MarkdownItTOC from 'markdown-it-toc-done-right'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
-import ChunkDrawer from './ChunkDrawer.vue'
-import FileTypeBadge from './FileTypeBadge.vue'
+import MetadataPanel from './MetadataPanel.vue'
 import { Chunk, Document, TocNode, TreeNode } from './models'
 
+type MetadataOrigin = 'file' | 'source' | 'llm'
+type MetadataValueKind = 'string' | 'number' | 'boolean' | 'date' | 'json' | 'list'
+
+interface MetadataItem {
+  origin: MetadataOrigin
+  key: string
+  label: string
+  kind: MetadataValueKind
+  value: any
+}
+
 const route = useRoute()
-const router = useRouter()
 const store = useStore()
 
 const graphId = computed(() => route.params.id as string)
@@ -132,18 +223,184 @@ const documentId = computed(() => route.params.documentId as string)
 const document = ref<Document | null>(null)
 const chunks = ref<Chunk[]>([])
 const loading = ref(true)
-const loadingDocument = ref(false)
-const drawerOpen = ref(false)
 const selectedChunk = ref<Chunk | null>(null)
-const summaryExpanded = ref(false)
+const metadataPanelOpen = ref(false)
+const activeNavTab = ref<'toc' | 'chunks'>('toc')
 
 // Tree state
 const expandedKeys = ref<string[]>([])
 const selectedKey = ref<string>('')
 const treeFilter = ref('')
-// lookup map not required; we toggle by id only
 
-// Build tree nodes from document TOC and link chunks via toc_reference
+// Continuous scrolling state
+const scrollAreaRef = ref<HTMLElement | null>(null)
+const chunkRefs = ref<Map<string, HTMLElement>>(new Map())
+const activeChunkId = ref<string | null>(null)
+const isScrollingProgrammatically = ref(false)
+type ChunkScrollPosition = { id: string; top: number; bottom: number }
+const chunkScrollPositions = ref<ChunkScrollPosition[]>([])
+const ACTIVE_AREA_HEIGHT_PX = 120
+
+let scrollRafId: number | null = null
+let recomputePositionsTimer: number | null = null
+
+const setChunkRef = (chunkId: string, el: HTMLElement | null) => {
+  if (el) {
+    chunkRefs.value.set(chunkId, el)
+  } else {
+    chunkRefs.value.delete(chunkId)
+  }
+}
+
+// Markdown renderer
+const markdown = new MarkdownIt({ html: true, breaks: true, linkify: true })
+  .use(MarkdownItAbbr)
+  .use(MarkdownItAnchor)
+  .use(MarkdownItFootnote)
+  .use(MarkdownItHighlightjs)
+  .use(MarkdownItSub)
+  .use(MarkdownItSup)
+  .use(MarkdownItTasklists)
+  .use(MarkdownItTOC)
+
+// Cache for rendered chunk content
+const renderedContentCache = new Map<string, string>()
+
+const getRenderedContent = (chunk: Chunk): string => {
+  if (!chunk?.content) return ''
+
+  const cacheKey = `${chunk.id}-${chunk.content_format}`
+  if (renderedContentCache.has(cacheKey)) {
+    return renderedContentCache.get(cacheKey)!
+  }
+
+  let rendered: string
+  if (chunk.content_format === 'html') {
+    rendered = chunk.content
+  } else {
+    rendered = markdown.render(chunk.content)
+  }
+
+  renderedContentCache.set(cacheKey, rendered)
+  return rendered
+}
+
+const hasToc = computed(() => {
+  const toc = document.value?.toc
+  return Array.isArray(toc) && toc.length > 0
+})
+
+const metadataByOrigin = computed<Record<MetadataOrigin, MetadataItem[]>>(() => {
+  const metaAny = (document.value?.metadata ?? null) as any
+  if (!metaAny || typeof metaAny !== 'object' || Array.isArray(metaAny)) {
+    return { file: [], source: [], llm: [] }
+  }
+
+  const hasGroupedOrigins = 'file' in metaAny || 'source' in metaAny || 'llm' in metaAny
+  if (!hasGroupedOrigins) {
+    // Backward compatibility: treat unknown metadata shapes as file metadata.
+    return { file: toMetadataItems(metaAny, 'file'), source: [], llm: [] }
+  }
+
+  return {
+    file: toMetadataItems(metaAny?.file, 'file'),
+    source: toMetadataItems(metaAny?.source, 'source'),
+    llm: toMetadataItems(metaAny?.llm, 'llm'),
+  }
+})
+
+const fileMetadata = computed(() => metadataByOrigin.value.file)
+const sourceMetadata = computed(() => metadataByOrigin.value.source)
+const llmMetadata = computed(() => metadataByOrigin.value.llm)
+
+function toMetadataItems(meta: unknown, origin: MetadataOrigin): MetadataItem[] {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return []
+
+  const items: MetadataItem[] = []
+  for (const [rawKey, rawVal] of Object.entries(meta as Record<string, unknown>)) {
+    if (rawVal === undefined || rawVal === null || rawVal === '') continue
+    const { kind, value } = formatMetadataValue(rawVal)
+    items.push({
+      origin,
+      key: rawKey,
+      label: rawKey,
+      kind,
+      value,
+    })
+  }
+
+  items.sort((a, b) => a.label.localeCompare(b.label))
+  return items
+}
+
+function formatKey(key: string): string {
+  return String(key || '')
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function formatMetadataValue(val: unknown): { kind: MetadataValueKind; value: any } {
+  if (val === null || val === undefined) return { kind: 'string', value: '' }
+
+  if (typeof val === 'boolean') return { kind: 'boolean', value: val ? 'Yes' : 'No' }
+
+  if (typeof val === 'number') {
+    return { kind: 'number', value: Number.isFinite(val) ? val.toLocaleString() : String(val) }
+  }
+
+  if (val instanceof Date) {
+    return { kind: 'date', value: val.toLocaleString() }
+  }
+
+  if (typeof val === 'string') {
+    const s = val.trim()
+    if (looksLikeDateString(s)) {
+      const d = new Date(s)
+      if (!Number.isNaN(d.getTime())) {
+        const hasTime = /[T\s]\d{2}:\d{2}/.test(s)
+        return {
+          kind: 'date',
+          value: hasTime
+            ? d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }),
+        }
+      }
+    }
+    return { kind: 'string', value: val }
+  }
+
+  if (Array.isArray(val)) {
+    const validItems = val
+      .filter((x) => x !== null && x !== undefined && x !== '')
+      .map((x) => (typeof x === 'string' ? x : JSON.stringify(x)))
+    
+    if (validItems.length === 0) return { kind: 'string', value: '' }
+    
+    return { kind: 'list', value: validItems }
+  }
+
+  if (typeof val === 'object') {
+    try {
+      return { kind: 'json', value: JSON.stringify(val) }
+    } catch (e) {
+      return { kind: 'json', value: String(val) }
+    }
+  }
+
+  return { kind: 'string', value: String(val) }
+}
+
+function looksLikeDateString(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return false
+  const parsed = Date.parse(s)
+  return !Number.isNaN(parsed)
+}
+
+// Build tree nodes from document TOC
 const treeNodes = computed<TreeNode[]>(() => {
   const docToc = (document.value?.toc || []) as TocNode[]
   const nodes: TreeNode[] = []
@@ -151,7 +408,6 @@ const treeNodes = computed<TreeNode[]>(() => {
   const nameKeyToId = new Map<string, string>()
   const numKeyToId = new Map<string, string>()
 
-  // Helpers
   const normalize = (s: string) => (s || '').toLowerCase().replace(/\s+/g, ' ').trim()
   const onlyWordChars = (s: string) => normalize(s).replace(/[^a-z0-9\.\- _]/g, '')
   const extractNumPrefix = (s: string): string => {
@@ -171,13 +427,7 @@ const treeNodes = computed<TreeNode[]>(() => {
   const buildToc = (toc: TocNode[], parentId?: string): TreeNode[] => {
     return toc.map((t, idx) => {
       const id = parentId ? `${parentId}-${idx}` : `toc-${idx}`
-      const node: TreeNode = {
-        id,
-        label: t.name || 'Untitled',
-        type: 'toc',
-        children: [],
-        count: 0,
-      }
+      const node: TreeNode = { id, label: t.name || 'Untitled', type: 'toc', children: [] }
       registerTocNode(node, t.name || '')
       if (t.children && t.children.length) {
         node.children = buildToc(t.children, id)
@@ -189,7 +439,6 @@ const treeNodes = computed<TreeNode[]>(() => {
   const tocNodes = buildToc(docToc)
   nodes.push(...tocNodes)
 
-  // Link chunks to TOC nodes
   const orphanChunks: Chunk[] = []
   const allChunks = chunks.value || []
   for (const ch of allChunks) {
@@ -200,7 +449,6 @@ const treeNodes = computed<TreeNode[]>(() => {
     if (normalizedRef && nameKeyToId.has(normalizedRef)) targetId = nameKeyToId.get(normalizedRef)
     else if (numRef && numKeyToId.has(numRef)) targetId = numKeyToId.get(numRef)
     else {
-      // fallback: try contains match on name keys
       for (const [k, v] of nameKeyToId.entries()) {
         if (k.includes(normalizedRef) && normalizedRef.length >= 3) {
           targetId = v
@@ -213,12 +461,7 @@ const treeNodes = computed<TreeNode[]>(() => {
       const parent = idMap.get(targetId)
       if (parent) {
         if (!parent.children) parent.children = []
-        parent.children.push({
-          id: `chunk-${ch.id}`,
-          label: ch.title || ch.name || 'Chunk',
-          type: 'chunk',
-          chunk: ch,
-        })
+        parent.children.push({ id: `chunk-${ch.id}`, label: ch.title || ch.name || 'Chunk', type: 'chunk', chunk: ch })
       } else {
         orphanChunks.push(ch)
       }
@@ -227,7 +470,6 @@ const treeNodes = computed<TreeNode[]>(() => {
     }
   }
 
-  // Add Uncategorized group if needed
   if (orphanChunks.length) {
     nodes.push({
       id: 'group-uncategorized',
@@ -235,56 +477,39 @@ const treeNodes = computed<TreeNode[]>(() => {
       type: 'group',
       children: orphanChunks
         .sort((a, b) => (a.page || 0) - (b.page || 0))
-        .map((ch) => ({
-          id: `chunk-${ch.id}`,
-          label: ch.title || ch.name || 'Chunk',
-          type: 'chunk',
-          chunk: ch,
-        })),
+        .map((ch) => ({ id: `chunk-${ch.id}`, label: ch.title || ch.name || 'Chunk', type: 'chunk', chunk: ch })),
     })
   }
 
-  // Sort chunk children by page for each TOC node and compute counts
-  const computeCounts = (node: TreeNode): number => {
-    if (!node.children || node.children.length === 0) {
-      return node.type === 'chunk' ? 1 : 0
-    }
-    // Sort chunk children by page
-    const chunksChildren = node.children.filter((c) => c.type === 'chunk')
+  const sortChildren = (node: TreeNode) => {
+    if (!node.children || node.children.length === 0) return
+
+    const chunkChildren = node.children.filter((c) => c.type === 'chunk')
     const otherChildren = node.children.filter((c) => c.type !== 'chunk')
-    chunksChildren.sort((a, b) => (a.chunk?.page || 0) - (b.chunk?.page || 0))
-    node.children = [...otherChildren, ...chunksChildren]
-    const total = node.children.reduce((acc, child) => acc + computeCounts(child), 0)
-    if (node.type === 'toc') node.count = total
-    return total
+    chunkChildren.sort((a, b) => (a.chunk?.page || 0) - (b.chunk?.page || 0))
+    node.children = [...otherChildren, ...chunkChildren]
+
+    node.children.forEach(sortChildren)
   }
-  for (const n of nodes) computeCounts(n)
+  for (const n of nodes) sortChildren(n)
 
   return nodes
 })
 
-const goBack = () => {
-  router.push({ path: `/knowledge-graph/${graphId.value}`, query: { tab: 'explorer' } })
-}
-
 const fetchDocument = async () => {
-  loadingDocument.value = true
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${graphId.value}/documents/${documentId.value}`,
+      service: `knowledge_graphs/${graphId.value}/documents/${documentId.value}`,
       method: 'GET',
       credentials: 'include',
     })
-
     if (response.ok) {
       document.value = await response.json()
     }
   } catch (error) {
     console.error('Error fetching document:', error)
-  } finally {
-    loadingDocument.value = false
   }
 }
 
@@ -299,7 +524,7 @@ const fetchAllChunks = async () => {
     do {
       const response = await fetchData({
         endpoint,
-        service: `knowledge_graphs//${graphId.value}/documents/${documentId.value}/chunks?limit=${limit}&offset=${offset}`,
+        service: `knowledge_graphs/${graphId.value}/documents/${documentId.value}/chunks?limit=${limit}&offset=${offset}`,
         method: 'GET',
         credentials: 'include',
       })
@@ -339,27 +564,60 @@ const findNodeById = (nodes: TreeNode[], id: string): TreeNode | null => {
   return null
 }
 
+const findPathById = (nodes: TreeNode[], id: string, path: string[] = []): string[] | null => {
+  for (const n of nodes) {
+    const nextPath = [...path, n.id]
+    if (n.id === id) return nextPath
+    if (n.children) {
+      const found = findPathById(n.children, id, nextPath)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+const expandToNodeId = (id: string) => {
+  const path = findPathById(treeNodes.value, id)
+  if (!path) return
+
+  const parents = path.slice(0, -1)
+  if (parents.length === 0) return
+
+  const next = new Set(expandedKeys.value)
+  for (const p of parents) next.add(p)
+  expandedKeys.value = Array.from(next)
+}
+
+const syncTreeSelectionToChunkId = (chunkId: string) => {
+  const nodeId = `chunk-${chunkId}`
+  selectedKey.value = nodeId
+  if (findNodeById(treeNodes.value, nodeId)) {
+    expandToNodeId(nodeId)
+  }
+}
+
 const onTreeNodeClick = (nodeId: string) => {
   const node = findNodeById(treeNodes.value, nodeId)
   if (!node) return
-
   if (node.type === 'chunk' && node.chunk) {
-    selectedChunk.value = node.chunk
-    drawerOpen.value = true
+    setChunkSelection(node.chunk, { source: 'toc-tree', scrollTo: true, scrollBehavior: 'smooth' })
     return
   }
-  // toggle expand/collapse on header click for TOC/group nodes
   toggleNodeExpanded(node.id)
 }
 
-const expandAll = () => {
-  const keys: string[] = []
+const getExpandableNodeIds = (nodes: TreeNode[]): string[] => {
+  const ids: string[] = []
   const walk = (n: TreeNode) => {
-    if (n.type !== 'chunk') keys.push(n.id)
+    if (n.type !== 'chunk') ids.push(n.id)
     n.children?.forEach(walk)
   }
-  treeNodes.value.forEach(walk)
-  expandedKeys.value = keys
+  nodes.forEach(walk)
+  return ids
+}
+
+const expandAll = () => {
+  expandedKeys.value = getExpandableNodeIds(treeNodes.value)
 }
 
 const collapseAll = () => {
@@ -367,12 +625,7 @@ const collapseAll = () => {
 }
 
 const isAllExpanded = computed(() => {
-  const keys: string[] = []
-  const walk = (n: TreeNode) => {
-    if (n.type !== 'chunk') keys.push(n.id)
-    n.children?.forEach(walk)
-  }
-  treeNodes.value.forEach(walk)
+  const keys = getExpandableNodeIds(treeNodes.value)
   if (keys.length === 0) return false
   return keys.every((k) => expandedKeys.value.includes(k))
 })
@@ -382,15 +635,39 @@ const toggleExpandCollapseAll = () => {
   else expandAll()
 }
 
+const sortedChunks = computed<Chunk[]>(() => {
+  const all = chunks.value || []
+  return all
+    .map((ch, idx) => ({ ch, idx }))
+    .sort((a, b) => {
+      const ap = a.ch.page ?? Number.MAX_SAFE_INTEGER
+      const bp = b.ch.page ?? Number.MAX_SAFE_INTEGER
+      if (ap !== bp) return ap - bp
+      return a.idx - b.idx
+    })
+    .map((x) => x.ch)
+})
+
+const filteredChunks = computed<Chunk[]>(() => {
+  const f = (treeFilter.value || '').trim().toLowerCase()
+  if (!f) return sortedChunks.value
+  return sortedChunks.value.filter((ch) => {
+    const title = (ch.title || ch.name || '').toLowerCase()
+    const content = (((ch as any).content ?? (ch as any).text ?? '') as string).toLowerCase()
+    return title.includes(f) || content.includes(f)
+  })
+})
+
 const filterMethod = (node: any, filter: string) => {
   if (!filter) return true
   const f = filter.toLowerCase()
   const label = (node.label || '').toLowerCase()
   if (label.includes(f)) return true
   if (node.type === 'chunk') {
-    const t = (node.chunk?.text || '').toLowerCase()
+    const content = ((node.chunk?.content ?? node.chunk?.text ?? '') as string).toLowerCase()
     const title = (node.chunk?.title || '').toLowerCase()
-    return t.includes(f) || title.includes(f)
+    const name = (node.chunk?.name || '').toLowerCase()
+    return content.includes(f) || title.includes(f) || name.includes(f)
   }
   return false
 }
@@ -399,14 +676,761 @@ const getIconForNode = (node: TreeNode) => {
   if (node.type === 'chunk') {
     const t = (node.chunk?.chunk_type || '').toLowerCase()
     if (t === 'table') return 'grid_on'
-    return 'title'
+    return 'notes'
   }
   if (node.type === 'group') return 'folder'
-  return 'subject'
+  return 'bookmark'
 }
+
+const getIconForChunk = (chunk: Chunk) => {
+  const t = (chunk.chunk_type || '').toLowerCase()
+  if (t === 'table') return 'grid_on'
+  return 'notes'
+}
+
+type ChunkSelectionSource = 'init' | 'scroll' | 'chunks-nav' | 'toc-tree' | 'content'
+type ChunkSelectionOptions = {
+  source: ChunkSelectionSource
+  scrollTo?: boolean
+  scrollBehavior?: ScrollBehavior
+  navScrollBehavior?: ScrollBehavior
+}
+
+const setChunkSelection = (chunk: Chunk, opts: ChunkSelectionOptions) => {
+  if (!chunk?.id) return
+  const nextId = chunk.id
+
+  selectedChunk.value = chunk
+  activeChunkId.value = nextId
+
+  syncTreeSelectionToChunkId(nextId)
+
+  if (opts.scrollTo) {
+    nextTick(() => {
+      scrollToChunk(nextId, opts.scrollBehavior ?? 'smooth')
+    })
+  }
+
+  nextTick(() => {
+    scrollNavToChunk(nextId, opts.navScrollBehavior ?? (opts.source === 'chunks-nav' || opts.source === 'toc-tree' ? 'smooth' : 'auto'))
+  })
+}
+
+const onChunkNavClick = (chunk: Chunk) => {
+  setChunkSelection(chunk, { source: 'chunks-nav', scrollTo: true, scrollBehavior: 'smooth', navScrollBehavior: 'smooth' })
+}
+
+const onChunkHeaderClick = (chunk: Chunk) => {
+  setChunkSelection(chunk, { source: 'content', scrollTo: false, navScrollBehavior: 'auto' })
+}
+
+// Scroll to a specific chunk in the content area
+const scrollToChunk = (chunkId: string, behavior: ScrollBehavior = 'smooth') => {
+  const el = chunkRefs.value.get(chunkId)
+  if (el && scrollAreaRef.value) {
+    isScrollingProgrammatically.value = behavior === 'smooth'
+    el.scrollIntoView({ behavior, block: 'center' })
+
+    // Reset flag after scroll animation and sync active chunk once settled.
+    window.setTimeout(
+      () => {
+        isScrollingProgrammatically.value = false
+        updateActiveChunkFromScroll()
+      },
+      behavior === 'smooth' ? 500 : 0
+    )
+  }
+}
+
+// Scroll navigation panel to show the active chunk
+const scrollNavToChunk = (chunkId: string, behavior: ScrollBehavior = 'auto') => {
+  const navItem = window.document.querySelector(`.chunk-nav-item[data-chunk-id="${chunkId}"]`) as HTMLElement
+  if (navItem) {
+    navItem.scrollIntoView({ behavior, block: 'nearest' })
+  }
+}
+
+// Handle scroll in the main content area
+const onScrollAreaScroll = () => {
+  if (scrollRafId !== null) return
+  scrollRafId = window.requestAnimationFrame(() => {
+    scrollRafId = null
+    updateActiveChunkFromScroll()
+  })
+}
+
+const recomputeChunkScrollPositions = async () => {
+  const container = scrollAreaRef.value
+  if (!container) return
+
+  // Allow DOM/layout to settle before measuring.
+  await nextTick()
+
+  const containerRect = container.getBoundingClientRect()
+  const positions: ChunkScrollPosition[] = []
+
+  for (const ch of sortedChunks.value) {
+    const el = chunkRefs.value.get(ch.id)
+    if (!el) continue
+    const rect = el.getBoundingClientRect()
+    const top = rect.top - containerRect.top + container.scrollTop
+    positions.push({ id: ch.id, top, bottom: top + rect.height })
+  }
+
+  positions.sort((a, b) => a.top - b.top)
+  chunkScrollPositions.value = positions
+
+  // After recomputing (e.g., resize / layout changes), ensure selection matches current scroll position.
+  updateActiveChunkFromScroll()
+}
+
+const scheduleRecomputeChunkScrollPositions = () => {
+  if (recomputePositionsTimer !== null) {
+    window.clearTimeout(recomputePositionsTimer)
+  }
+  recomputePositionsTimer = window.setTimeout(() => {
+    recomputeChunkScrollPositions()
+    recomputePositionsTimer = null
+  }, 60)
+}
+
+const updateActiveChunkFromScroll = () => {
+  if (isScrollingProgrammatically.value) return
+  const container = scrollAreaRef.value
+  if (!container) return
+
+  const scrollTop = container.scrollTop
+  const clientHeight = container.clientHeight
+  const scrollHeight = container.scrollHeight
+
+  let nextId: string | null = null
+
+  // Exception: Start of scroll
+  if (scrollTop < 20) {
+    nextId = chunkScrollPositions.value[0]?.id || null
+  }
+  // Exception: End of scroll
+  else if (scrollTop + clientHeight >= scrollHeight - 20) {
+    nextId = chunkScrollPositions.value[chunkScrollPositions.value.length - 1]?.id || null
+  }
+  // Active Area Logic
+  else {
+    const areaTop = scrollTop + (clientHeight - ACTIVE_AREA_HEIGHT_PX) / 2
+    const areaBottom = areaTop + ACTIVE_AREA_HEIGHT_PX
+    const areaCenter = areaTop + ACTIVE_AREA_HEIGHT_PX / 2
+
+    let maxOverlap = -1
+    let minDistToCenter = Number.MAX_VALUE
+
+    for (const pos of chunkScrollPositions.value) {
+      if (pos.top > areaBottom) break // Optimization: chunks sorted by top
+
+      const overlapTop = Math.max(areaTop, pos.top)
+      const overlapBottom = Math.min(areaBottom, pos.bottom)
+      const overlap = overlapBottom - overlapTop
+
+      if (overlap > 0) {
+        if (overlap > maxOverlap) {
+          maxOverlap = overlap
+          nextId = pos.id
+          const chunkCenter = (pos.top + pos.bottom) / 2
+          minDistToCenter = Math.abs(chunkCenter - areaCenter)
+        } else if (Math.abs(overlap - maxOverlap) < 1) {
+          // Tie-breaker: closest to center
+          const chunkCenter = (pos.top + pos.bottom) / 2
+          const dist = Math.abs(chunkCenter - areaCenter)
+          if (dist < minDistToCenter) {
+            minDistToCenter = dist
+            nextId = pos.id
+          }
+        }
+      }
+    }
+  }
+
+  if (!nextId || nextId === activeChunkId.value) return
+
+  const chunk = sortedChunks.value.find((c) => c.id === nextId)
+  if (!chunk) return
+  setChunkSelection(chunk, { source: 'scroll', scrollTo: false, navScrollBehavior: 'auto' })
+}
+
+const onWindowResize = () => scheduleRecomputeChunkScrollPositions()
+
+const openExternalLink = (url?: string) => {
+  const target = (url || '').trim()
+  if (!target) return
+  window.open(target, '_blank', 'noopener')
+}
+
+// Watch for chunks loading and sync scroll positions + initial selection
+watch(
+  sortedChunks,
+  (newChunks) => {
+    if (newChunks.length > 0) {
+      // Select first chunk if none selected
+      // Keep scroll at the top on initial load; don't jump into the middle of the document.
+      if (!selectedChunk.value) {
+        setChunkSelection(newChunks[0], { source: 'init', scrollTo: false, navScrollBehavior: 'auto' })
+      }
+      scheduleRecomputeChunkScrollPositions()
+    }
+  },
+  { immediate: true }
+)
+
+watch(metadataPanelOpen, () => {
+  scheduleRecomputeChunkScrollPositions()
+})
 
 onMounted(async () => {
   await fetchDocument()
   await fetchAllChunks()
+  if (hasToc.value) {
+    activeNavTab.value = 'toc'
+    expandAll()
+  } else {
+    activeNavTab.value = 'chunks'
+  }
+
+  window.addEventListener('resize', onWindowResize)
+
+  // Ensure we start at the top when opening a document (avoids starting mid-scroll if the component is reused).
+  await nextTick()
+  if (scrollAreaRef.value) scrollAreaRef.value.scrollTop = 0
+
+  scheduleRecomputeChunkScrollPositions()
+})
+
+onBeforeUnmount(() => {
+  if (scrollRafId !== null) {
+    window.cancelAnimationFrame(scrollRafId)
+    scrollRafId = null
+  }
+  if (recomputePositionsTimer !== null) {
+    window.clearTimeout(recomputePositionsTimer)
+    recomputePositionsTimer = null
+  }
+  window.removeEventListener('resize', onWindowResize)
+  renderedContentCache.clear()
 })
 </script>
+
+<style scoped>
+/* ============================================
+   Layout
+   ============================================ */
+.doc-details {
+  display: flex;
+  height: 100%;
+  background: #f5f6f8;
+  gap: 16px;
+  padding: 16px;
+}
+
+@media (max-width: 1024px) {
+  .doc-details {
+    position: relative;
+  }
+}
+
+/* ============================================
+   Navigation Panel
+   ============================================ */
+.doc-nav-panel {
+  width: 280px;
+  min-width: 280px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.nav-tabs-wrapper {
+  padding: 14px 12px 0;
+}
+
+.nav-tabs-toggle {
+  width: 100%;
+  border-radius: 4px;
+  background: #f3f4f6;
+}
+
+.nav-tabs-toggle :deep(.q-btn) {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.nav-search {
+  padding: 12px;
+}
+
+.nav-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 12px;
+}
+
+.nav-list-actions {
+  padding: 0 4px 8px;
+}
+
+.nav-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.nav-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+/* Tree Styling */
+.nav-tree {
+  font-size: 13px;
+}
+
+.nav-tree :deep(.q-tree__node-header) {
+  padding: 0;
+}
+
+.tree-node-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.tree-node-item:hover {
+  background: #f3f4f6;
+}
+
+.nav-tree :deep(.q-tree__node--selected .tree-node-item) {
+  background: var(--q-primary-bg);
+}
+
+.nav-tree :deep(.q-tree__node--selected .tree-node-text) {
+  color: var(--q-primary);
+  font-weight: 600;
+}
+
+.nav-tree :deep(.q-tree__node--selected .tree-node-icon) {
+  color: var(--q-primary);
+}
+
+.tree-node-icon {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+.tree-node-item--chunk .tree-node-icon {
+  color: var(--q-primary);
+}
+
+.tree-node-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #374151;
+  font-size: 13px;
+}
+
+/* Chunks Nav List */
+.chunks-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chunk-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.chunk-nav-item:hover {
+  background: #f3f4f6;
+}
+
+.chunk-nav-item--active {
+  background: var(--q-primary-bg);
+}
+
+.chunk-nav-icon {
+  color: var(--q-primary);
+  flex-shrink: 0;
+}
+
+.chunk-nav-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #374151;
+}
+
+.chunk-nav-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.chunk-nav-index {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #9ca3af;
+  background: #f3f4f6;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.chunk-nav-item--active .chunk-nav-index {
+  background: var(--q-primary);
+  color: white;
+}
+
+/* ============================================
+   Main Content
+   ============================================ */
+.doc-main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 16px;
+}
+
+/* Header Card */
+.doc-header-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fafbfd 100%);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.doc-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.doc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.doc-header-info {
+  min-width: 0;
+}
+
+.doc-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.doc-header-title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-header-subtitle {
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.metadata-toggle-btn {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+/* Scroll Area */
+.doc-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 32px;
+  padding-right: 8px;
+}
+
+/* Section Cards */
+.doc-section {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.section-header:hover {
+  background: #fafafa;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Continuous Chunks Container */
+.chunks-continuous-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Chunk Viewer */
+.doc-section--chunk {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  scroll-margin-top: 8px;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  border: 1px solid #9ca3af;
+}
+
+.chunk-index-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 6px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.chunk-page-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.doc-section--chunk-active .chunk-index-badge {
+  background: var(--q-primary);
+  color: white;
+}
+
+.section-header--chunk {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  cursor: default;
+}
+
+.section-header--chunk:hover {
+  background: transparent;
+}
+
+.doc-section--chunk-active .section-header {
+  background: var(--q-primary-bg);
+}
+
+.section-body--chunk {
+  padding: 0;
+  overflow: visible;
+}
+
+.chunk-content-wrapper {
+  padding: 20px;
+  min-height: 100%;
+}
+
+.chunk-content {
+  max-width: 100%;
+}
+
+/* Empty State */
+.doc-section--empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  min-height: 200px;
+}
+
+.empty-placeholder {
+  text-align: center;
+  padding: 32px;
+}
+
+/* ============================================
+   Markdown Content
+   ============================================ */
+.markdown-content {
+  line-height: 1.7;
+  color: #374151;
+  font-size: 14px;
+}
+
+.markdown-content :deep(h1) {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 20px 0 12px 0;
+  color: #111827;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 8px;
+}
+
+.markdown-content :deep(h2) {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 18px 0 10px 0;
+  color: #1f2937;
+}
+
+.markdown-content :deep(h3) {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 14px 0 8px 0;
+  color: #374151;
+}
+
+.markdown-content :deep(h4),
+.markdown-content :deep(h5),
+.markdown-content :deep(h6) {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 12px 0 6px 0;
+  color: #4b5563;
+}
+
+.markdown-content :deep(p) {
+  margin: 0 0 12px 0;
+}
+
+.markdown-content :deep(ul),
+.markdown-content :deep(ol) {
+  margin: 8px 0 12px 0;
+  padding-left: 24px;
+}
+
+.markdown-content :deep(li) {
+  margin-bottom: 4px;
+}
+
+.markdown-content :deep(code) {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 13px;
+  color: #be185d;
+}
+
+.markdown-content :deep(pre) {
+  background: #1f2937;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.markdown-content :deep(pre code) {
+  background: transparent;
+  color: #e5e7eb;
+  padding: 0;
+  font-size: 13px;
+}
+
+.markdown-content :deep(blockquote) {
+  border-left: 3px solid var(--q-primary);
+  padding: 8px 16px;
+  margin: 12px 0;
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+.markdown-content :deep(a) {
+  color: var(--q-primary);
+  text-decoration: none;
+}
+
+.markdown-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.markdown-content :deep(hr) {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 20px 0;
+}
+
+.markdown-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: 13px;
+}
+
+.markdown-content :deep(th) {
+  background: #f9fafb;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  font-weight: 600;
+  text-align: left;
+}
+
+.markdown-content :deep(td) {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.markdown-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+</style>

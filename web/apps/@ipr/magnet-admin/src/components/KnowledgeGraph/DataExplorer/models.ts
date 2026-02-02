@@ -5,6 +5,7 @@ export interface Document {
   content_profile?: string
   description?: string
   title?: string
+  external_link?: string
   chunks_count: number
   status: string
   status_message?: string
@@ -15,6 +16,15 @@ export interface Document {
   toc?: TocNode[]
   summary?: string
   total_pages?: number
+  metadata?: DocumentMetadata | null
+}
+
+export type DocumentMetadataScalar = string | number | boolean
+
+export interface DocumentMetadata {
+  file?: Record<string, DocumentMetadataScalar | null> | null
+  source?: Record<string, DocumentMetadataScalar | null> | null
+  llm?: Record<string, DocumentMetadataScalar | null> | null
 }
 
 export interface Chunk {
@@ -26,7 +36,8 @@ export interface Chunk {
   page?: number
   parent?: string
   chunk_type?: string
-  text?: string
+  content?: string
+  content_format?: string
   created_at?: string
   toc_reference?: string
 }

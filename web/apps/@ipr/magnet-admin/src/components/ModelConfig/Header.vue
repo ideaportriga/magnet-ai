@@ -14,7 +14,7 @@
         .text-secondary-text.km-description {{ modified_at }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-mx-md
-  km-btn(label='Save', icon='far fa-save', color='primary', bg='background', iconSize='16px', @click='save')
+  km-btn(label='Save', icon='far fa-save', color='primary', bg='background', iconSize='16px', @click='save', :loading='loading', :disable='loading')
 .col-auto.text-white.q-mr-md
   q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
     q-menu(anchor='bottom right', self='top right')
@@ -45,6 +45,7 @@ q-inner-loading(:showing='loading')
 
 <script>
 import { useChroma } from '@shared'
+import { validSystemName } from '@shared/utils/validationRules'
 import { ref } from 'vue'
 
 export default {
@@ -128,37 +129,65 @@ export default {
       }
     },
     async save() {
-      this.loading = true
-      if (this.currentModel?.created_at) {
-        const obj = { ...this.currentModel }
-
-        // Удаляем метаданные и audit поля - они управляются на бэкенде
-        delete obj._metadata
-        delete obj.created_at
-        delete obj.updated_at
-        delete obj.created_by
-        delete obj.updated_by
-
-        // Удаляем лишние поля
-        delete obj.name
-        delete obj.category
-
-        await this.update({ id: this.currentModel.id, data: JSON.stringify(obj) })
-      } else {
-        const obj = { ...this.currentModel }
-        delete obj.id
-        delete obj._metadata
-        delete obj.created_at
-        delete obj.updated_at
-        delete obj.created_by
-        delete obj.updated_by
-        delete obj.name
-        delete obj.category
-
-        await this.create(JSON.stringify(obj))
+      // Validate system_name before saving
+      const systemNameValidation = validSystemName()(this.currentModel?.system_name)
+      if (systemNameValidation !== true) {
+        this.$q.notify({
+          position: 'top',
+          color: 'negative',
+          message: systemNameValidation,
+          timeout: 3000,
+        })
+        return
       }
-      this.$store.commit('modelConfig/setInitEntity')
-      this.loading = false
+
+      this.loading = true
+      try {
+        if (this.currentModel?.created_at) {
+          const obj = { ...this.currentModel }
+
+          // Удаляем метаданные и audit поля - они управляются на бэкенде
+          delete obj._metadata
+          delete obj.created_at
+          delete obj.updated_at
+          delete obj.created_by
+          delete obj.updated_by
+
+          // Удаляем лишние поля
+          delete obj.name
+          delete obj.category
+
+          await this.update({ id: this.currentModel.id, data: JSON.stringify(obj) })
+        } else {
+          const obj = { ...this.currentModel }
+          delete obj.id
+          delete obj._metadata
+          delete obj.created_at
+          delete obj.updated_at
+          delete obj.created_by
+          delete obj.updated_by
+          delete obj.name
+          delete obj.category
+
+          await this.create(JSON.stringify(obj))
+        }
+        this.$store.commit('modelConfig/setInitEntity')
+        this.$q.notify({
+          position: 'top',
+          color: 'positive',
+          message: 'Saved successfully',
+          timeout: 2000,
+        })
+      } catch (error) {
+        this.$q.notify({
+          position: 'top',
+          color: 'negative',
+          message: error.message || 'Failed to save',
+          timeout: 3000,
+        })
+      } finally {
+        this.loading = false
+      }
     },
     formatDate(date) {
       const dateObject = new Date(date)

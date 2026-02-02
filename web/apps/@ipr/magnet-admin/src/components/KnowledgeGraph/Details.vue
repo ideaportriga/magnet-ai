@@ -84,24 +84,42 @@
             </div>
           </div>
           <div class="column no-wrap ba-border bg-white border-radius-12 q-pa-16" style="min-width: 300px; height: calc(100vh - 190px)">
-            <q-tabs
-              :model-value="activeTab"
-              class="bb-border full-width"
-              narrow-indicator
-              dense
-              align="left"
-              active-color="primary"
-              indicator-color="primary"
-              active-bg-color="white"
-              no-caps
-              content-class="km-tabs"
-              @update:model-value="onTabAttemptChange"
-            >
-              <q-tab name="sources" label="Sources" />
-              <q-tab name="explorer" label="Data Explorer" />
-              <q-tab name="settings" label="Graph Settings" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
-              <q-tab name="retrieval" label="Retrieval Settings" :alert="retrievalUnsaved" alert-color="orange-9" />
-            </q-tabs>
+            <div class="row items-center bb-border q-pb-sm">
+              <q-tabs
+                :model-value="activeTab"
+                class="col"
+                narrow-indicator
+                dense
+                align="left"
+                active-color="primary"
+                indicator-color="primary"
+                active-bg-color="white"
+                no-caps
+                content-class="km-tabs"
+                @update:model-value="onTabAttemptChange"
+              >
+                <q-tab name="sources" label="Sources" />
+                <q-tab name="explorer" label="Data Explorer" />
+                <q-tab name="retrieval" label="Retrieval Agent" :alert="retrievalUnsaved" alert-color="orange-9" />
+                <q-tab name="metadata" label="Metadata Studio" :alert="metadataUnsaved" alert-color="orange-9" />
+                <q-tab name="contentProfiles" label="Content Profiles" />
+                <q-tab name="settings" label="Settings" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
+              </q-tabs>
+              <div class="col-auto">
+                <km-btn
+                  icon="refresh"
+                  label="Refresh"
+                  icon-color="icon"
+                  hover-color="primary"
+                  label-class="km-title"
+                  flat
+                  icon-size="16px"
+                  hover-bg="primary-bg"
+                  size="sm"
+                  @click="handleRefreshAll"
+                />
+              </div>
+            </div>
 
             <div class="column no-wrap q-gap-16 full-height full-width overflow-auto q-mt-lg">
               <div class="row q-gap-16 full-height full-width no-wrap">
@@ -114,10 +132,17 @@
                         ref="sourcesRef"
                         :graph-id="graphId"
                         :graph-details="graphDetails"
-                        @refresh="fetchGraphDetails"
+                        @refresh="handleSourcesRefresh"
                       />
                       <settings-tab
                         v-show="activeTab === 'settings'"
+                        v-if="graphDetails"
+                        :graph-id="graphId"
+                        :graph-details="graphDetails"
+                        @refresh="fetchGraphDetails"
+                      />
+                      <content-profiles-tab
+                        v-show="activeTab === 'contentProfiles'"
                         v-if="graphDetails"
                         :graph-id="graphId"
                         :graph-details="graphDetails"
@@ -140,6 +165,15 @@
                         @unsaved-change="retrievalUnsaved = $event"
                         @update-graph="updateGraph"
                       />
+                      <metadata-tab
+                        v-show="activeTab === 'metadata'"
+                        v-if="graphDetails"
+                        ref="metadataRef"
+                        :graph-id="graphId"
+                        :graph-details="graphDetails"
+                        @unsaved-change="metadataUnsaved = $event"
+                        @refresh="fetchGraphDetails"
+                      />
                     </div>
                   </div>
                 </div>
@@ -160,7 +194,6 @@
       />
     </div>
   </div>
-  <q-inner-loading :showing="loading" />
 
   <!-- Drag-and-Drop Overlay -->
   <div v-if="isDragging" class="kg-dnd-overlay">
@@ -188,6 +221,22 @@
     <div class="row item-center justify-center km-heading-7 q-mb-md">Unsaved Changes</div>
     <div class="row text-center justify-center">You have unsaved changes in Retrieval. What would you like to do before switching tabs?</div>
   </km-popup-confirm>
+
+  <!-- Leave Metadata Tab Confirmation -->
+  <km-popup-confirm
+    :visible="showMetadataLeaveDialog"
+    confirm-button-label="Save & Switch"
+    confirm-button-label2="Don't save"
+    confirm-button-type2="secondary"
+    cancel-button-label="Stay on Metadata"
+    notification-icon="fas fa-triangle-exclamation"
+    @confirm="handleMetadataSaveAndSwitch"
+    @confirm2="handleMetadataDiscard"
+    @cancel="handleMetadataStay"
+  >
+    <div class="row item-center justify-center km-heading-7 q-mb-md">Unsaved Changes</div>
+    <div class="row text-center justify-center">You have unsaved changes in Metadata Schema. What would you like to do before switching tabs?</div>
+  </km-popup-confirm>
 </template>
 
 <script setup lang="ts">
@@ -198,8 +247,10 @@ import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
 import ChunkDrawer from './DataExplorer/ChunkDrawer.vue'
 import ExplorerTab from './DataExplorer/ExplorerTab.vue'
+import MetadataTab from './Metadata/MetadataTab.vue'
 import RetrievalTab from './Retrieval/RetrievalTab.vue'
 import RetrievalTestDrawer from './Retrieval/RetrievalTestDrawer.vue'
+import ContentProfilesTab from './Settings/ContentProfilesTab.vue'
 import SettingsTab from './Settings/SettingsTab.vue'
 import SourcesTab from './Sources/SourcesTab.vue'
 
@@ -209,7 +260,7 @@ const $q = useQuasar()
 
 const graphId = computed(() => route.params.id as string)
 const graphDetails = ref<any>(null)
-const activeTab = ref<'sources' | 'settings' | 'explorer' | 'retrieval'>('sources')
+const activeTab = ref<'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata'>('sources')
 const loading = ref(false)
 
 // Check if the knowledge graph has an embedding model configured
@@ -231,15 +282,24 @@ const description = ref('')
 const systemName = ref('')
 const showInfo = ref(false)
 const retrievalUnsaved = ref(false)
-const intendedTab = ref<'sources' | 'settings' | 'explorer' | 'retrieval' | null>(null)
+const metadataUnsaved = ref(false)
+const intendedTab = ref<'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata' | null>(null)
 const showRetrievalLeaveDialog = ref(false)
+const showMetadataLeaveDialog = ref(false)
 const retrievalRef = ref<any>(null)
+const metadataRef = ref<any>(null)
 
-const onTabAttemptChange = async (nextTab: 'sources' | 'settings' | 'explorer' | 'retrieval') => {
-  // Only guard when leaving Retrieval tab with unsaved changes
+const onTabAttemptChange = async (nextTab: 'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata') => {
+  // Guard when leaving Retrieval tab with unsaved changes
   if (activeTab.value === 'retrieval' && retrievalUnsaved.value && nextTab !== 'retrieval') {
     intendedTab.value = nextTab
     showRetrievalLeaveDialog.value = true
+    return
+  }
+  // Guard when leaving Metadata tab with unsaved changes
+  if (activeTab.value === 'metadata' && metadataUnsaved.value && nextTab !== 'metadata') {
+    intendedTab.value = nextTab
+    showMetadataLeaveDialog.value = true
     return
   }
   activeTab.value = nextTab
@@ -267,11 +327,45 @@ const handleRetrievalStay = () => {
   showRetrievalLeaveDialog.value = false
 }
 
+// Handlers for metadata unsaved changes dialog
+const handleMetadataSaveAndSwitch = async () => {
+  await metadataRef.value?.save?.()
+  metadataUnsaved.value = false
+  activeTab.value = intendedTab.value || activeTab.value
+  intendedTab.value = null
+  showMetadataLeaveDialog.value = false
+}
+
+const handleMetadataDiscard = () => {
+  metadataRef.value?.discard?.()
+  metadataUnsaved.value = false
+  activeTab.value = intendedTab.value || activeTab.value
+  intendedTab.value = null
+  showMetadataLeaveDialog.value = false
+}
+
+const handleMetadataStay = () => {
+  intendedTab.value = null
+  showMetadataLeaveDialog.value = false
+}
+
 const sourcesRef = ref<any>(null)
 const explorerRef = ref<any>(null)
 const drawerOpen = ref(false)
 const drawerType = ref<'source' | 'chunk' | 'retrieval'>('source')
 const selectedChunk = ref<any>(null)
+
+const handleSourcesRefresh = async () => {
+  await fetchGraphDetails()
+  explorerRef.value?.refresh?.()
+  metadataRef.value?.refresh?.()
+}
+
+const handleRefreshAll = async () => {
+  // Refresh all tabs that might be affected by sync
+  sourcesRef.value?.refresh?.()
+  await handleSourcesRefresh()
+}
 
 // Drag-and-drop upload state
 const isDragging = ref(false)
@@ -309,6 +403,7 @@ watch(kgUploading, (uploading) => {
   if (!uploading) {
     refreshSources()
     explorerRef.value?.refresh?.()
+    metadataRef.value?.refresh?.()
     fetchGraphDetails()
   }
 })
@@ -390,6 +485,8 @@ onMounted(() => {
     activeTab.value = 'explorer'
   } else if (route.query.tab === 'retrieval') {
     activeTab.value = 'retrieval'
+  } else if (route.query.tab === 'metadata') {
+    activeTab.value = 'metadata'
   }
   // Window-level drag and drop listeners to avoid child element churn flicker
   window.addEventListener('dragenter', onDragEnter, { passive: false })

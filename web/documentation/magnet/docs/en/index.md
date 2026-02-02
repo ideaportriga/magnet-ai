@@ -9,6 +9,9 @@ hero:
       text: Quickstarts
       link: /docs/en/quickstarts/introduction/what-is-magnet-ai
     - theme: alt
+      text: Deployment
+      link: /docs/en/devops/deployment/
+    - theme: alt
       text: Admin Guide
       link: /docs/en/admin/connect/models/overview
     - theme: alt
@@ -31,6 +34,10 @@ features:
     title: Developer Guide
     details: Extend and customize Magnet AI with plugins and integrations
     link: /docs/en/developers/overview
+  - icon: 🛠️
+    title: Deployment
+    details: Deploy Magnet AI to your environment
+    link: /docs/en/devops/deployment/
   - icon: 🟦
     title: Deploy to Microsoft Teams
     details: Install Magnet AI agents in Microsoft Teams with step-by-step guidance

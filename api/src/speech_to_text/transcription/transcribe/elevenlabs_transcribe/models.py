@@ -1,15 +1,26 @@
 from __future__ import annotations
-import os
+
 import asyncio
-from io import BytesIO
+import os
 from typing import Any, Dict
+
+import httpx
 from elevenlabs.client import ElevenLabs
 
-from ..base import BaseTranscriber
-from ...storage.postgres_storage import PgDataStorage
 from ...models import TranscriptionCfg
+from ...services.ffmpeg import extract_audio_to_wav
+from ...storage.postgres_storage import PgDataStorage
+from ..base import BaseTranscriber
 
 _ELEVEN_CACHE: dict[str, Dict[str, Any]] = {}
+
+# ────────────────────────────────
+# ElevenLabs / HTTP timeouts (seconds)
+# ────────────────────────────────
+ELEVEN_HTTP_CONNECT_TIMEOUT = 10.0
+ELEVEN_HTTP_READ_TIMEOUT = 3600.0  # 1h
+ELEVEN_HTTP_WRITE_TIMEOUT = 60.0
+ELEVEN_HTTP_POOL_TIMEOUT = 10.0
 
 
 def _to_dict(obj):
@@ -33,14 +44,48 @@ def _to_dict(obj):
     return obj
 
 
+def _sanitize_keyterms(keyterms: list[str]) -> list[str]:
+    if not keyterms:
+        return []
+
+    cleaned = []
+    for term in keyterms:
+        # skip non-string or empty
+        if not isinstance(term, str):
+            continue
+        t = term.strip()
+        # skip too long strings
+        if not t or len(t) > 50:
+            continue
+        # limit to 5 words
+        if len(t.split()) > 5:
+            t = " ".join(t.split()[:5])
+        cleaned.append(t)
+
+    return cleaned[:100]
+
+
 class ElevenLabsTranscriber(BaseTranscriber):
     def __init__(self, storage: PgDataStorage, cfg: TranscriptionCfg):
         super().__init__(storage, cfg)
         api_key = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY")
         if not api_key:
             raise RuntimeError("Set ELEVENLABS_API_KEY")
-        self._client = ElevenLabs(api_key=api_key)
-        self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v1")
+        http_client = httpx.Client(
+            timeout=httpx.Timeout(
+                connect=ELEVEN_HTTP_CONNECT_TIMEOUT,
+                read=ELEVEN_HTTP_READ_TIMEOUT,
+                write=ELEVEN_HTTP_WRITE_TIMEOUT,
+                pool=ELEVEN_HTTP_POOL_TIMEOUT,
+                timeout=ELEVEN_HTTP_READ_TIMEOUT,
+            )
+        )
+
+        self._client = ElevenLabs(
+            api_key=api_key,
+            httpx_client=http_client,
+        )
+        self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v2")
         self._diarize = os.getenv("ELEVEN_DIARIZE", "true").lower() == "true"
         self._language_code = None
         ns = os.getenv("ELEVEN_NUM_SPEAKERS")
@@ -50,22 +95,56 @@ class ElevenLabsTranscriber(BaseTranscriber):
         )
 
     async def _transcribe(self, file_id: str) -> Dict[str, Any]:
-        data = await self._storage.load_audio(file_id)
+        src_url = await self._storage.get_audio_url(file_id)
 
-        def _call():
-            kwargs = dict(
-                file=BytesIO(data),
-                model_id=self._model_id,
-                diarize=self._diarize,
-                tag_audio_events=self._tag_events,
-            )
-            if self._language_code:
-                kwargs["language_code"] = self._language_code
-            return self._client.speech_to_text.convert(**kwargs)
+        tmp_wav = await asyncio.to_thread(
+            extract_audio_to_wav, src_path=src_url, sr=16_000
+        )
 
-        payload = await asyncio.to_thread(_call)
+        raw_payload = None
 
-        payload = _to_dict(payload) or {}
+        try:
+            try:
+                from ...services.ffmpeg import (
+                    get_wav_duration_seconds,
+                )
+
+                duration = await asyncio.to_thread(get_wav_duration_seconds, tmp_wav)
+                await self._storage._update_fields(
+                    file_id, duration_seconds=float(duration)
+                )
+            except Exception:
+                pass
+
+            def _call():
+                with open(tmp_wav, "rb") as f:
+                    kwargs = dict(
+                        file=f,
+                        model_id=self._model_id,
+                        diarize=self._diarize,
+                        tag_audio_events=self._tag_events,
+                    )
+                    if self._language_code:
+                        kwargs["language_code"] = self._language_code
+                    safe_terms = _sanitize_keyterms(self._cfg.keyterms)
+                    if safe_terms:
+                        kwargs["keyterms"] = safe_terms
+                    if self._cfg.entity_detection:
+                        kwargs["entity_detection"] = self._cfg.entity_detection
+                    if self._num_speakers is not None:
+                        kwargs["num_speakers"] = self._num_speakers
+
+                    return self._client.speech_to_text.convert(**kwargs)
+
+            raw_payload = await asyncio.to_thread(_call)
+
+        finally:
+            try:
+                os.remove(tmp_wav)
+            except OSError:
+                pass
+
+        payload = _to_dict(raw_payload) or {}
         words_raw = payload.get("words", []) or []
         words = [_to_dict(w) for w in words_raw]
 

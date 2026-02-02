@@ -47,5 +47,133 @@
                 "expected_result": ""
             }
         ]
+    },
+    {
+        "name": "Language Detection Test Set - Short Messages",
+        "description": "Short multilingual samples for language identification.",
+        "system_name": "LANG_DETECT_SHORT_MESSAGES",
+        "category": null,
+        "type": "prompt_eval",
+        "items": [
+            {"user_input": "Hello there!", "expected_result": "English"},
+            {"user_input": "See you soon.", "expected_result": "English"},
+            {"user_input": "Please help me.", "expected_result": "English"},
+            {"user_input": "Good morning.", "expected_result": "English"},
+            {"user_input": "What time is it?", "expected_result": "English"},
+
+            {"user_input": "Hola, ¿cómo estás?", "expected_result": "Spanish"},
+            {"user_input": "Buenas noches.", "expected_result": "Spanish"},
+            {"user_input": "¿Dónde está la estación?", "expected_result": "Spanish"},
+            {"user_input": "Necesito ayuda, por favor.", "expected_result": "Spanish"},
+            {"user_input": "Gracias por todo.", "expected_result": "Spanish"},
+
+            {"user_input": "Bonjour tout le monde.", "expected_result": "French"},
+            {"user_input": "Je voudrais un café.", "expected_result": "French"},
+            {"user_input": "Où est la gare?", "expected_result": "French"},
+            {"user_input": "Merci beaucoup.", "expected_result": "French"},
+            {"user_input": "Bonne journée!", "expected_result": "French"},
+
+            {"user_input": "Guten Morgen!", "expected_result": "German"},
+            {"user_input": "Ich brauche Hilfe.", "expected_result": "German"},
+            {"user_input": "Wo ist der Bahnhof?", "expected_result": "German"},
+            {"user_input": "Vielen Dank.", "expected_result": "German"},
+            {"user_input": "Bis später.", "expected_result": "German"},
+
+            {"user_input": "Ciao, come stai?", "expected_result": "Italian"},
+            {"user_input": "Buona sera.", "expected_result": "Italian"},
+            {"user_input": "Dov'è la stazione?", "expected_result": "Italian"},
+            {"user_input": "Ho bisogno d'aiuto.", "expected_result": "Italian"},
+            {"user_input": "Grazie mille!", "expected_result": "Italian"},
+
+            {"user_input": "Olá, tudo bem?", "expected_result": "Portuguese"},
+            {"user_input": "Bom dia.", "expected_result": "Portuguese"},
+            {"user_input": "Onde fica o metrô?", "expected_result": "Portuguese"},
+            {"user_input": "Preciso de ajuda.", "expected_result": "Portuguese"},
+            {"user_input": "Muito obrigado.", "expected_result": "Portuguese"},
+
+            {"user_input": "Привет, как дела?", "expected_result": "Russian"},
+            {"user_input": "Доброе утро.", "expected_result": "Russian"},
+            {"user_input": "Где находится станция?", "expected_result": "Russian"},
+            {"user_input": "Мне нужна помощь.", "expected_result": "Russian"},
+            {"user_input": "Спасибо большое.", "expected_result": "Russian"},
+
+            {"user_input": "Привіт, як справи?", "expected_result": "Ukrainian"},
+            {"user_input": "Доброго ранку.", "expected_result": "Ukrainian"},
+            {"user_input": "Де знаходиться станція?", "expected_result": "Ukrainian"},
+            {"user_input": "Мені потрібна допомога.", "expected_result": "Ukrainian"},
+            {"user_input": "Дякую дуже.", "expected_result": "Ukrainian"},
+
+            {"user_input": "Cześć, jak się masz?", "expected_result": "Polish"},
+            {"user_input": "Dzień dobry.", "expected_result": "Polish"},
+            {"user_input": "Gdzie jest stacja?", "expected_result": "Polish"},
+            {"user_input": "Potrzebuję pomocy.", "expected_result": "Polish"},
+            {"user_input": "Dziękuję bardzo.", "expected_result": "Polish"},
+
+            {"user_input": "Ahoj, jak se máš?", "expected_result": "Czech"},
+            {"user_input": "Dobré ráno.", "expected_result": "Czech"},
+            {"user_input": "Kde je nádraží?", "expected_result": "Czech"},
+            {"user_input": "Potřebuji pomoc.", "expected_result": "Czech"},
+            {"user_input": "Děkuji moc.", "expected_result": "Czech"},
+
+            {"user_input": "Ahoj, ako sa máš?", "expected_result": "Slovak"},
+            {"user_input": "Dobré ráno.", "expected_result": "Slovak"},
+            {"user_input": "Kde je stanica?", "expected_result": "Slovak"},
+            {"user_input": "Potrebujem pomoc.", "expected_result": "Slovak"},
+            {"user_input": "Ďakujem pekne.", "expected_result": "Slovak"},
+
+            {"user_input": "Merhaba, nasılsın?", "expected_result": "Turkish"},
+            {"user_input": "Günaydın.", "expected_result": "Turkish"},
+            {"user_input": "İstasyona nasıl giderim?", "expected_result": "Turkish"},
+            {"user_input": "Yardıma ihtiyacım var.", "expected_result": "Turkish"},
+            {"user_input": "Teşekkür ederim.", "expected_result": "Turkish"},
+
+            {"user_input": "مرحبا كيف حالك؟", "expected_result": "Arabic"},
+            {"user_input": "صباح الخير.", "expected_result": "Arabic"},
+            {"user_input": "أين المحطة؟", "expected_result": "Arabic"},
+            {"user_input": "أحتاج إلى مساعدة.", "expected_result": "Arabic"},
+            {"user_input": "شكراً جزيلاً.", "expected_result": "Arabic"},
+
+            {"user_input": "שלום, מה שלומך?", "expected_result": "Hebrew"},
+            {"user_input": "בוקר טוב.", "expected_result": "Hebrew"},
+            {"user_input": "איפה התחנה?", "expected_result": "Hebrew"},
+            {"user_input": "אני צריך עזרה.", "expected_result": "Hebrew"},
+            {"user_input": "תודה רבה.", "expected_result": "Hebrew"},
+
+            {"user_input": "नमस्ते, कैसे हो?", "expected_result": "Hindi"},
+            {"user_input": "सुप्रभात।", "expected_result": "Hindi"},
+            {"user_input": "स्टेशन कहाँ है?", "expected_result": "Hindi"},
+            {"user_input": "मुझे मदद चाहिए।", "expected_result": "Hindi"},
+            {"user_input": "बहुत धन्यवाद।", "expected_result": "Hindi"},
+
+            {"user_input": "হ্যালো, কেমন আছো?", "expected_result": "Bengali"},
+            {"user_input": "সুপ্রভাত।", "expected_result": "Bengali"},
+            {"user_input": "স্টেশন কোথায়?", "expected_result": "Bengali"},
+            {"user_input": "আমার সাহায্য দরকার।", "expected_result": "Bengali"},
+            {"user_input": "অনেক ধন্যবাদ।", "expected_result": "Bengali"},
+
+            {"user_input": "こんにちは！", "expected_result": "Japanese"},
+            {"user_input": "おはようございます。", "expected_result": "Japanese"},
+            {"user_input": "駅はどこですか？", "expected_result": "Japanese"},
+            {"user_input": "助けてください。", "expected_result": "Japanese"},
+            {"user_input": "ありがとうございます。", "expected_result": "Japanese"},
+
+            {"user_input": "안녕하세요?", "expected_result": "Korean"},
+            {"user_input": "좋은 아침입니다.", "expected_result": "Korean"},
+            {"user_input": "역이 어디에 있나요?", "expected_result": "Korean"},
+            {"user_input": "도움이 필요합니다.", "expected_result": "Korean"},
+            {"user_input": "감사합니다.", "expected_result": "Korean"},
+
+            {"user_input": "你好！", "expected_result": "Chinese"},
+            {"user_input": "早上好。", "expected_result": "Chinese"},
+            {"user_input": "车站在哪里？", "expected_result": "Chinese"},
+            {"user_input": "我需要帮助。", "expected_result": "Chinese"},
+            {"user_input": "非常感谢。", "expected_result": "Chinese"},
+
+            {"user_input": "Xin chào, bạn khỏe không?", "expected_result": "Vietnamese"},
+            {"user_input": "Chào buổi sáng.", "expected_result": "Vietnamese"},
+            {"user_input": "Nhà ga ở đâu?", "expected_result": "Vietnamese"},
+            {"user_input": "Tôi cần کمک.", "expected_result": "Vietnamese"},
+            {"user_input": "Cảm ơn nhiều.", "expected_result": "Vietnamese"}
+        ]
     }
 ]

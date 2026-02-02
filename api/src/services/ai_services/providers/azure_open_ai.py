@@ -18,7 +18,7 @@ class AzureProvider(AIProviderInterface):
     def __init__(self, config):
         self.api_key = config["connection"]["api_key"]
         self.endpoint = config["connection"]["endpoint"]
-        self.api_version = config["connection"].get("api_version", "2023-03-15-preview")
+        self.api_version = config["connection"].get("api_version", "2025-01-01-preview")
         self.model_default = config["defaults"].get("model")
         self.temperature_default = config["defaults"].get("temperature")
         self.top_p_default = config["defaults"].get("top_p")
@@ -61,8 +61,9 @@ class AzureProvider(AIProviderInterface):
         max_tokens: int | None = None,
         response_format: dict | None = None,
         tools: list[ChatCompletionToolParam] | None = None,
-        tool_choice: str | None = None,
+        tool_choice: str | dict | None = None,
         model_config: dict | None = None,
+        parallel_tool_calls: bool | None = None,
     ) -> ChatCompletion:
         model = model or self.model_default
         temperature = (

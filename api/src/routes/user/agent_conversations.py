@@ -18,6 +18,7 @@ from services.agents.conversations import (
     set_message_feedback,
     add_assistant_message,
     update_message_processing_status,
+    update_conversation_status,
 )
 from services.agents.conversations.services import get_conversation_by_id
 from services.agents.models import (
@@ -238,6 +239,55 @@ class AgentConversationsController(Controller):
             raise NotFoundException()
 
         return conversation
+
+    @post(
+        "/{conversation_id:str}/close",
+        status_code=HTTP_200_OK,
+        summary="Close a conversation by ID",
+        description=(
+            "Closes an agent conversation by its ID. Once closed, it will no longer be retrieved "
+            "when querying by client_id, allowing a new conversation to be started with the same client_id."
+        ),
+    )
+    async def close_conversation_route(
+        self,
+        conversation_id: Annotated[
+            str,
+            Parameter(
+                description="The unique identifier of the conversation to close.",
+            ),
+        ],
+    ) -> None:
+        conversation = await get_conversation(conversation_id)
+        if not conversation:
+            raise NotFoundException()
+
+        await update_conversation_status(conversation_id, "Closed")
+
+    @post(
+        "/client/{client_id:str}/close",
+        status_code=HTTP_200_OK,
+        summary="Close the last active conversation by client_id",
+        description=(
+            "Closes the most recent active conversation for the given client_id. "
+            "Once closed, the next request with this client_id will create a new conversation."
+        ),
+    )
+    async def close_conversation_by_client_id_route(
+        self,
+        client_id: Annotated[
+            str,
+            Parameter(
+                description="The client identifier whose active conversation should be closed.",
+            ),
+        ],
+    ) -> None:
+        conversation = await get_last_conversation_by_client_id(client_id)
+        if not conversation:
+            raise NotFoundException()
+
+        conversation_id = str(conversation.id)
+        await update_conversation_status(conversation_id, "Closed")
 
     ## Asynchronously
     @post(

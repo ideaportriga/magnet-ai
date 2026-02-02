@@ -31,6 +31,7 @@ async def call_api_server_tool(api_tool_call: ApiToolCall) -> ApiToolCallResult:
             name=api_server_schema.name,
             system_name=api_server_schema.system_name,
             url=api_server_schema.url,
+            custom_headers=api_server_schema.custom_headers,
             security_scheme=api_server_schema.security_scheme,
             security_values=api_server_schema.security_values,
             verify_ssl=api_server_schema.verify_ssl,

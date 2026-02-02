@@ -53,6 +53,8 @@ class TranscriptionCfg:
     number_of_participants: Optional[int] = None
     internal_cfg: Optional[dict] = None
     diarization_cfg: Optional[DiarizationCfg] = None
+    keyterms: list[str] | None = None
+    entity_detection: str | list[str] | None = None
 
 
 @dataclass(slots=True)

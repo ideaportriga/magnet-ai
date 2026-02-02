@@ -8,6 +8,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..base import UUIDAuditSimpleBase
 
 if TYPE_CHECKING:
+    from .knowledge_graph_metadata_discovery import KnowledgeGraphMetadataDiscovery
+    from .knowledge_graph_metadata_extraction import KnowledgeGraphMetadataExtraction
     from .knowledge_graph_source import KnowledgeGraphSource
 
 
@@ -28,4 +30,22 @@ class KnowledgeGraph(UUIDAuditSimpleBase):
         "KnowledgeGraphSource",
         back_populates="graph",
         cascade="all, delete-orphan",
+    )
+
+    # Discovered metadata fields (observed across documents/sources in this graph)
+    discovered_metadata_fields: Mapped[list["KnowledgeGraphMetadataDiscovery"]] = (
+        relationship(
+            "KnowledgeGraphMetadataDiscovery",
+            back_populates="graph",
+            cascade="all, delete-orphan",
+        )
+    )
+
+    # Metadata extraction field definitions (graph-level schema/config)
+    extracted_metadata_fields: Mapped[list["KnowledgeGraphMetadataExtraction"]] = (
+        relationship(
+            "KnowledgeGraphMetadataExtraction",
+            back_populates="graph",
+            cascade="all, delete-orphan",
+        )
     )

@@ -33,53 +33,62 @@
         :rows="displayRows"
         :columns="columns"
         row-key="id"
-        :loading="loading"
         :rows-per-page-options="[10]"
         @row-click="onRowClick"
       >
         <template #body-cell-last_sync_at="slotScope">
           <q-td :props="slotScope">
-            <div class="column items-start justify-center q-gutter-y-xs">
-              <div class="row items-center no-wrap q-gutter-x-sm">
-                <q-chip
-                  :class="['text-uppercase q-ma-none', { 'chip-rotating': effectiveStatus(slotScope.row) === 'syncing' }]"
-                  size="sm"
-                  :color="getSourceStatusColor(effectiveStatus(slotScope.row))"
-                  :text-color="getSourceStatusTextColor(effectiveStatus(slotScope.row))"
-                  :label="formatSourceStatusLabel(effectiveStatus(slotScope.row))"
-                  :icon="getSourceStatusIcon(effectiveStatus(slotScope.row))"
-                />
-              </div>
-              <div class="row items-center no-wrap">
-                <span class="text-caption">
-                  {{ formatRelative(slotScope.row?.last_sync_at) }}
-                </span>
-                <q-tooltip anchor="top middle" self="bottom middle">
-                  {{ formatFull(slotScope.row?.last_sync_at) }}
-                </q-tooltip>
+            <div class="kg-sync-cell row items-center no-wrap">
+              <!-- Status column (fixed width for alignment) -->
+              <div class="column items-start justify-center q-gap-6">
+                <kg-status-badge :status="effectiveStatus(slotScope.row)" />
+                <div class="kg-sync-meta row items-center no-wrap q-gutter-x-xs q-ml-4">
+                  <span class="kg-sync-meta-label">Last sync:</span>
+                  <span class="kg-sync-meta-value">
+                    {{ formatRelative(slotScope.row?.last_sync_at) }}
+                    <q-tooltip anchor="top middle" self="bottom middle">
+                      {{ formatFull(slotScope.row?.last_sync_at) }}
+                    </q-tooltip>
+                  </span>
+                </div>
               </div>
             </div>
+          </q-td>
+        </template>
+        <template #body-cell-schedule="slotScope">
+          <q-td :props="slotScope">
+            <div v-if="hasSchedule(slotScope.row)" class="column items-start justify-center q-gap-6">
+              <div class="row items-center no-wrap q-gutter-x-xs">
+                <q-icon name="schedule" color="primary" size="16px" />
+                <span class="kg-sync-schedule-interval">{{ slotScope.row.schedule?.interval }}</span>
+              </div>
+              <div class="kg-sync-schedule-time">
+                {{ formatScheduleSummary(slotScope.row.schedule) }}
+              </div>
+            </div>
+            <div v-else class="text-grey-5 italic text-caption">Not scheduled</div>
           </q-td>
         </template>
         <template #body-cell-menu="slotScope">
           <q-td :props="slotScope" class="text-right">
             <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
-              <q-menu anchor="bottom right" self="top right" auto-close>
+              <q-menu class="kg-source-menu" anchor="bottom right" self="top right" auto-close>
                 <q-list dense>
-                  <q-item :disable="slotScope.row.type === 'upload' || syncingIds.has(slotScope.row.id)" clickable @click="handleSync(slotScope.row)">
+                  <q-item
+                    v-ripple="false"
+                    :disable="!isSyncable(slotScope.row.type) || syncingIds.has(slotScope.row.id)"
+                    clickable
+                    @click="handleSync(slotScope.row)"
+                  >
                     <q-item-section thumbnail>
                       <q-icon name="sync" color="primary" size="20px" class="q-ml-sm" />
                     </q-item-section>
                     <q-item-section>Sync now</q-item-section>
                   </q-item>
-                  <q-item :disable="slotScope.row.type === 'upload'" clickable @click="configureAutoSync(slotScope.row)">
-                    <q-item-section thumbnail>
-                      <q-icon name="schedule" size="20px" class="q-ml-sm" />
-                    </q-item-section>
-                    <q-item-section>Sync schedule</q-item-section>
-                  </q-item>
+
                   <q-separator />
-                  <q-item clickable @click="confirmDelete(slotScope.row)">
+
+                  <q-item v-ripple="false" clickable @click="confirmDelete(slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                     </q-item-section>
@@ -113,54 +122,21 @@
     />
 
     <!-- Delete Source Dialog -->
-    <q-dialog v-model="showDeleteDialog">
-      <q-card data-test="popup-confirm" class="column" style="width: 676px; height: 370px; padding: 32px">
-        <q-card-section class="card-section-style">
-          <div class="row">
-            <div class="col">
-              <div class="km-heading-7">Delete source</div>
-            </div>
-            <div class="col-auto">
-              <q-btn icon="close" flat dense @click="showDeleteDialog = false" />
-            </div>
-          </div>
-        </q-card-section>
-        <q-card-section class="card-section-style q-mb-md">
-          <div class="km-description text-secondary-text">
-            <span class="text-weight-medium">Choose how you want to delete {{ selectedRow?.name }}.</span>
-          </div>
-        </q-card-section>
-        <q-card-section class="card-section-style">
-          <q-option-group v-model="deleteMode" type="radio" :options="deleteOptions" />
-        </q-card-section>
-        <q-card-section v-if="deleteMode === 'cascade_all'" class="card-section-style">
-          <div
-            class="km-description q-mt-lg row items-center q-gap-8 q-pa-md rounded-borders bg-yellow-1 text-yellow-10"
-            style="border: 1px solid var(--q-warning)"
-          >
-            <q-icon name="warning" color="yellow-8" size="26px" />
-            <div class="col">This will remove the source, its documents, and all chunks. This action cannot be undone.</div>
-          </div>
-        </q-card-section>
-        <q-card-actions class="dialog-actions">
-          <div class="col-auto">
-            <km-btn flat :label="'Cancel'" color="primary" @click="showDeleteDialog = false" />
-          </div>
-          <div class="col" />
-          <div class="col-auto">
-            <km-btn
-              :label="deleteMode === 'cascade_all' ? 'Delete All' : 'Delete Source'"
-              :data-test="deleteMode === 'cascade_all' ? 'Delete All' : 'Delete Source'"
-              bg="error-bg"
-              hover-bg="error-text"
-              color="error-text"
-              @click="performDelete"
-            />
-          </div>
-        </q-card-actions>
-        <q-inner-loading :showing="deleteInProgress" />
-      </q-card>
-    </q-dialog>
+    <kg-confirm-dialog
+      v-model="showDeleteDialog"
+      title="Delete source"
+      :description="`Choose how you want to delete ${selectedRow?.name}.`"
+      :confirm-label="deleteMode === 'cascade_all' ? 'Delete All' : 'Delete Source'"
+      destructive
+      :loading="deleteInProgress"
+      @confirm="performDelete"
+    >
+      <q-option-group v-model="deleteMode" type="radio" :options="deleteOptions" />
+
+      <template v-if="deleteMode === 'cascade_all'" #warning>
+        This will remove the source, its documents, and all chunks. This action cannot be undone.
+      </template>
+    </kg-confirm-dialog>
   </div>
 </template>
 
@@ -170,7 +146,8 @@ import { formatRelative } from '@shared/utils'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
 import { useStore } from 'vuex'
-import { formatAdded, getSourceTypeName, SourceRow } from './models'
+import { KgConfirmDialog, KgStatusBadge } from '../common'
+import { formatAdded, getSourceTypeName, type SourceRow, type SourceSchedule } from './models'
 import SourceTypeDialog from './SourceTypeDialog.vue'
 import { getDialogComponentFor, isSyncable, type SourceTypeKey } from './SourceTypes/registry'
 
@@ -267,11 +244,18 @@ const columns: QTableColumn<SourceRow>[] = [
   },
   {
     name: 'last_sync_at',
-    label: 'Last Sync',
+    label: 'Sync Status',
     field: 'last_sync_at',
     format: formatAdded,
     align: 'left',
     sortable: true,
+  },
+  {
+    name: 'schedule',
+    label: 'Sync Schedule',
+    field: 'schedule',
+    align: 'left',
+    sortable: false,
   },
   {
     name: 'menu',
@@ -286,7 +270,7 @@ const fetchSources = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${props.graphId}/sources`,
+      service: `knowledge_graphs/${props.graphId}/sources`,
       method: 'GET',
       credentials: 'include',
     })
@@ -305,12 +289,6 @@ const fetchSources = async () => {
   }
 }
 
-function formatSourceStatusLabel(status?: string) {
-  const s = (status || '').toLowerCase()
-  if (!s) return 'unknown'
-  return s.split('_').join(' ')
-}
-
 function effectiveStatus(row: SourceRow): string {
   // If manual upload in progress, surface 'syncing' for upload source
   if ((kgUploading?.value && row.type === 'upload') || syncingIds.value.has(row.id)) {
@@ -319,58 +297,60 @@ function effectiveStatus(row: SourceRow): string {
   return (row.status || '').toLowerCase()
 }
 
-function getSourceStatusColor(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'status-ready'
-    case 'syncing':
-      return 'info'
-    case 'partial':
-      return 'warning'
-    case 'failed':
-    case 'error':
-      return 'error-bg'
-    case 'not_synced':
-      return 'gray'
-    default:
-      return 'gray'
-  }
+function hasSchedule(row: SourceRow): boolean {
+  return !!row?.schedule
 }
 
-function getSourceStatusTextColor(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'status-ready-text'
-    case 'syncing':
-      return 'white'
-    case 'partial':
-      return 'black'
-    case 'failed':
-    case 'error':
-      return 'error-text'
-    case 'not_synced':
-      return 'text-gray'
-    default:
-      return 'text-gray'
-  }
+function toInt(value: unknown): number | null {
+  if (value === null || value === undefined) return null
+  const n = typeof value === 'number' ? value : Number.parseInt(String(value), 10)
+  return Number.isFinite(n) ? n : null
 }
 
-function getSourceStatusIcon(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'completed':
-      return 'check_circle'
-    case 'syncing':
-      return 'sync'
-    case 'partial':
-      return 'warning'
-    case 'failed':
-    case 'error':
-      return 'error'
-    case 'not_synced':
-      return 'schedule'
-    default:
-      return 'help_outline'
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+function normalizeDayOfWeek(value: unknown): number | null {
+  const n = toInt(value)
+  if (n !== null && n >= 0 && n <= 6) return n
+
+  const s = String(value || '')
+    .toLowerCase()
+    .trim()
+  const map: Record<string, number> = {
+    mon: 0,
+    tue: 1,
+    wed: 2,
+    thu: 3,
+    fri: 4,
+    sat: 5,
+    sun: 6,
   }
+  return map[s] ?? null
+}
+
+function formatScheduleSummary(schedule?: SourceSchedule): string {
+  if (!schedule) return ''
+  const interval = String(schedule.interval || '').toLowerCase()
+  const cron = schedule.cron || {}
+
+  const cronHourRaw = (cron as any)?.hour
+  if (interval === 'hourly' || String(cronHourRaw) === '*') return 'Every hour'
+
+  const hour = toInt(cronHourRaw) ?? 3
+  const minute = toInt((cron as any)?.minute) ?? 0
+  const time = `${pad2(hour)}:${pad2(minute)}`
+
+  const dayOfWeek = normalizeDayOfWeek((cron as any)?.day_of_week)
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+  if (interval === 'weekly' || dayOfWeek !== null) {
+    const dayLabel = dayOfWeek !== null ? dayNames[dayOfWeek] : ''
+    return dayLabel ? `Every ${dayLabel} at ${time}` : `Every day at ${time}`
+  }
+
+  return `Every day at ${time}`
 }
 
 const handleSourceTypeSelect = (sourceType: 'upload' | 'sharepoint' | 'fluid_topics') => {
@@ -391,39 +371,48 @@ const handleSourceCancelled = () => {
   selectedRow.value = null
 }
 
-const syncSource = async (source: SourceRow) => {
+const syncSource = async (source: SourceRow, showNotification = true): Promise<boolean> => {
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${props.graphId}/sources/${source.id}/sync`,
+      service: `knowledge_graphs/${props.graphId}/sources/${source.id}/sync`,
       method: 'POST',
       credentials: 'include',
     })
 
     if (response.ok) {
-      $q.notify({
-        message: `Source ${source.name} synchronized successfully`,
-        position: 'top',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
-      fetchSources()
+      if (showNotification) {
+        $q.notify({
+          message: `Sync started for ${source.name}. Click Refresh to see progress.`,
+          position: 'top',
+          color: 'info',
+          textColor: 'white',
+          timeout: 2500,
+        })
+      }
+      // Don't auto-refresh - user clicks Refresh button to see updated status
+      return true
     } else {
-      $q.notify({
-        message: `Failed to synchronize source ${source.name}`,
-        position: 'top',
-        color: 'error-text',
-        timeout: 1000,
-      })
+      if (showNotification) {
+        $q.notify({
+          message: `Failed to start sync for ${source.name}`,
+          position: 'top',
+          color: 'error-text',
+          timeout: 1000,
+        })
+      }
+      return false
     }
   } catch (error) {
     console.error('Error syncing source:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Error syncing SharePoint',
-    })
+    if (showNotification) {
+      $q.notify({
+        type: 'negative',
+        message: 'Error starting sync',
+      })
+    }
+    return false
   } finally {
     $q.loading.hide()
   }
@@ -440,12 +429,9 @@ function formatFull(dateStr?: string) {
 }
 
 const handleSync = async (source: SourceRow) => {
-  try {
-    syncingIds.value.add(source.id)
-    await syncSource(source)
-  } finally {
-    syncingIds.value.delete(source.id)
-  }
+  await syncSource(source)
+  // Fetch sources to show the "syncing" status from backend
+  await fetchSources()
 }
 
 const handleSyncAll = async () => {
@@ -460,15 +446,25 @@ const handleSyncAll = async () => {
       $q.notify({ type: 'info', message: 'No syncable sources found', position: 'top', timeout: 1000 })
       return
     }
+    let anySuccess = false
+    let anyFailure = false
     for (const src of syncable) {
-      try {
-        syncingIds.value.add(src.id)
-        await syncSource(src)
-      } finally {
-        syncingIds.value.delete(src.id)
-      }
+      const ok = await syncSource(src, false) // Don't show individual notifications
+      anySuccess = anySuccess || ok
+      anyFailure = anyFailure || !ok
     }
-    $q.notify({ type: 'positive', message: 'Sync complete', position: 'top', textColor: 'black', timeout: 1000 })
+    // Fetch sources once after all syncs to show "syncing" status for all sources
+    if (anySuccess) {
+      await fetchSources()
+    }
+    // Show single notification for Sync All
+    if (anySuccess && !anyFailure) {
+      $q.notify({ type: 'info', message: 'Sync started for all sources. Click Refresh to see progress.', position: 'top', textColor: 'white', timeout: 2500 })
+    } else if (anySuccess && anyFailure) {
+      $q.notify({ type: 'warning', message: 'Sync started with some errors', position: 'top', timeout: 2000 })
+    } else {
+      $q.notify({ type: 'negative', message: 'Failed to start sync', position: 'top', timeout: 2000 })
+    }
   } finally {
     syncAllInProgress.value = false
   }
@@ -477,15 +473,6 @@ const handleSyncAll = async () => {
 const activeDialogComponent = computed(() => {
   return activeSourceType.value ? getDialogComponentFor(activeSourceType.value) : null
 })
-
-const configureAutoSync = (_source: SourceRow) => {
-  $q.notify({
-    type: 'warning',
-    message: 'Sync job configuration is not yet implemented.',
-    position: 'top',
-    timeout: 1500,
-  })
-}
 
 const confirmDelete = (source: SourceRow) => {
   selectedRow.value = source
@@ -503,7 +490,7 @@ const performDelete = async () => {
     const cascade = deleteMode.value === 'cascade_all'
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${props.graphId}/sources/${source.id}?cascade=${cascade ? 'true' : 'false'}`,
+      service: `knowledge_graphs/${props.graphId}/sources/${source.id}?cascade=${cascade ? 'true' : 'false'}`,
       method: 'DELETE',
       credentials: 'include',
     })
@@ -547,6 +534,46 @@ onMounted(() => {
 </script>
 
 <style scoped>
+:deep(.q-table thead th) {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.kg-sync-meta {
+  margin-top: 2px;
+}
+
+.kg-sync-meta-label {
+  font-size: 12px;
+  color: var(--q-secondary-text, rgba(0, 0, 0, 0.5));
+}
+
+.kg-sync-meta-value {
+  font-size: 12px;
+  color: var(--q-secondary-text, rgba(0, 0, 0, 0.75));
+}
+
+.kg-sync-schedule-interval {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--q-primary);
+  text-transform: capitalize;
+}
+
+.kg-sync-schedule-time {
+  font-size: 12px;
+  color: var(--q-secondary-text, rgba(0, 0, 0, 0.6));
+}
+
+/* Row menu: keep compact/default, without hover highlighting */
+:deep(.kg-source-menu .q-focus-helper) {
+  opacity: 0 !important;
+}
+
+:deep(.kg-source-menu .q-item.q-focusable:hover) {
+  background: transparent !important;
+}
+
 @keyframes chip-rotate {
   0% {
     transform: rotate(0deg);
@@ -558,14 +585,5 @@ onMounted(() => {
 
 :deep(.chip-rotating .q-chip__icon) {
   animation: chip-rotate 1s linear infinite;
-}
-
-.card-section-style {
-  padding: 0 !important;
-}
-
-.dialog-actions {
-  margin-top: auto;
-  padding: 30px 0 0 0 !important;
 }
 </style>

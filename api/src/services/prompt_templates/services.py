@@ -20,6 +20,9 @@ async def execute_prompt_template(
     template_values: dict | None = None,
     template_additional_messages: list[ChatCompletionMessageParam] | None = None,
     config_override: PromptTemplateConfig | None = None,
+    tools: list[dict] | None = None,
+    tool_choice: str | dict | None = None,
+    parallel_tool_calls: bool | None = None,
 ) -> PromptTemplateExecutionResponse:
     start_time = datetime.now()
 
@@ -42,16 +45,37 @@ async def execute_prompt_template(
             max_tokens=config_override.max_tokens,
             response_format=config_override.response_format,
             related_prompt_template_config=prompt_template_config,
+            parallel_tool_calls=parallel_tool_calls,
         )
     else:
         chat_completion, _ = await create_chat_completion_from_prompt_template(
             prompt_template_config=prompt_template_config,
             prompt_template_values=template_values,
             additional_messages=template_additional_messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            parallel_tool_calls=parallel_tool_calls,
         )
 
+    message = chat_completion.choices[0].message
+
+    tool_calls_data = None
+    if message.tool_calls:
+        tool_calls_data = [
+            {
+                "id": tc.id,
+                "type": tc.type,
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments,
+                },
+            }
+            for tc in message.tool_calls
+        ]
+
     return PromptTemplateExecutionResponse(
-        content=str(chat_completion.choices[0].message.content),
+        content=str(message.content),
+        tool_calls=tool_calls_data,
         usage={
             "prompt_tokens": chat_completion.usage.prompt_tokens
             if chat_completion.usage
@@ -64,4 +88,7 @@ async def execute_prompt_template(
             else 0,
         },
         latency=(datetime.now() - start_time).total_seconds() * 1000,
+        cost=chat_completion.cost_details.total
+        if hasattr(chat_completion, "cost_details") and chat_completion.cost_details
+        else None,
     )

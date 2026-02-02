@@ -1,15 +1,17 @@
 import type { Component } from 'vue'
+import ApiIngestDialog from './ApiIngestDialog.vue'
 import FluidTopicsDialog from './FluidTopicsDialog.vue'
 import SharePointDialog from './SharePointDialog.vue'
 import UploadDialog from './UploadDialog.vue'
 
-export type SourceTypeKey = 'upload' | 'sharepoint' | 'fluid_topics'
+export type SourceTypeKey = 'upload' | 'sharepoint' | 'fluid_topics' | 'confluence' | 'api_ingest'
 
 export interface SourceTypeConfig {
   key: SourceTypeKey
   label: string
   syncable: boolean
-  dialogComponent: Component
+  dialogComponent?: Component
+  comingSoon?: boolean
 }
 
 export const sourceRegistry: Record<SourceTypeKey, SourceTypeConfig> = {
@@ -28,12 +30,24 @@ export const sourceRegistry: Record<SourceTypeKey, SourceTypeConfig> = {
   fluid_topics: {
     key: 'fluid_topics',
     label: 'Fluid Topics',
-    syncable: false,
+    syncable: true,
     dialogComponent: FluidTopicsDialog,
+  },
+  confluence: {
+    key: 'confluence',
+    label: 'Confluence',
+    syncable: false,
+    comingSoon: true,
+  },
+  api_ingest: {
+    key: 'api_ingest',
+    label: 'API Ingest',
+    syncable: false,
+    dialogComponent: ApiIngestDialog,
   },
 }
 
-export function getDialogComponentFor(type: SourceTypeKey): Component {
+export function getDialogComponentFor(type: SourceTypeKey): Component | undefined {
   return sourceRegistry[type].dialogComponent
 }
 

@@ -591,5 +591,5 @@ jobs:
 ## Next Steps
 
 - [Local Development](/docs/en/developers/setup/local-development) - Development workflow
-- [Deployment](/docs/en/developers/setup/deployment) - Deployment guide
+- [Run with Docker Compose](/docs/en/developers/setup/run-with-docker-compose) - Start the full stack (app + database) in Docker
 - [Backend Architecture](/docs/en/developers/architecture/backend) - Backend details

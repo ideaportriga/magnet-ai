@@ -49,6 +49,12 @@ class RecordingsController(Controller):
             language = form.get("language")
             pipeline_id = form.get("pipeline_id") or DEFAULT_PIPELINE
             number_of_participants = form.get("number_of_participants")
+            keyterms = form.getlist("keyterms") if form.get("keyterms") else None
+            entity_detection = (
+                form.getlist("entity_detection")
+                if form.get("entity_detection")
+                else None
+            )
         else:
             data = await request.json()
             object_key = data.get("object_key")
@@ -57,6 +63,8 @@ class RecordingsController(Controller):
             language = data.get("language")
             pipeline_id = data.get("pipeline_id") or DEFAULT_PIPELINE
             number_of_participants = data.get("number_of_participants")
+            keyterms = data.get("keyterms")
+            entity_detection = data.get("entity_detection")
 
         # Validate
         if not language:
@@ -73,7 +81,7 @@ class RecordingsController(Controller):
                 status_code=400, detail="filename must include extension"
             )
 
-        file_bytes = await upload.read() if upload else None
+        file_bytes = None
 
         # Submit to transcription pipeline
         job_id = await service.submit(
@@ -85,6 +93,8 @@ class RecordingsController(Controller):
             backend=pipeline_id,
             language=language,
             number_of_participants=number_of_participants,
+            keyterms=keyterms,
+            entity_detection=entity_detection,
         )
 
         # Return a lightweight job descriptor (no ORM)
@@ -108,7 +118,7 @@ class RecordingsController(Controller):
             result["error"] = await service.get_error(job_id)
         elif status in {"transcribed", "completed", "diarized"}:
             tx = await service.get_transcription(job_id)
-            result["transcription"] = tx
+            result["transcription_job"] = tx
         return result
 
     # ────────────────────────────────

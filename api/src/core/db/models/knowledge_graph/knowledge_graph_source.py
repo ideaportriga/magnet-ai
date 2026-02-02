@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from .knowledge_graph import KnowledgeGraph
+    from .knowledge_graph_metadata_discovery import KnowledgeGraphMetadataDiscovery
 
 
 class KnowledgeGraphSource(UUIDv7AuditBase):
@@ -29,6 +30,14 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
         ForeignKey("knowledge_graphs.id", ondelete="CASCADE"),
         nullable=False,
         comment="Foreign key to knowledge_graphs",
+    )
+
+    # Foreign key to a scheduled sync job for this source
+    schedule_job_id: Mapped[Optional[UUID]] = mapped_column(
+        GUID(),
+        ForeignKey("jobs.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="Foreign key to jobs (recurring sync schedule for this source)",
     )
 
     # Relationship to graph
@@ -71,4 +80,14 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
         String(100),
         nullable=True,
         comment="Last sync timestamp",
+    )
+
+    # Discovered metadata fields observed for this source
+    discovered_metadata_fields: Mapped[list["KnowledgeGraphMetadataDiscovery"]] = (
+        relationship(
+            "KnowledgeGraphMetadataDiscovery",
+            back_populates="source",
+            cascade="all, delete-orphan",
+            passive_deletes=True,
+        )
     )

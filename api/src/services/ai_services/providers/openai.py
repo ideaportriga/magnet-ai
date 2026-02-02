@@ -1,8 +1,11 @@
+from decimal import Decimal
+
 import openai
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
+from models import DocumentSearchResult
 from services.ai_services.interface import AIProviderInterface
-from services.ai_services.models import EmbeddingResponse, ModelUsage
+from services.ai_services.models import EmbeddingResponse, ModelUsage, RerankResponse
 from utils.common import transform_schema
 
 
@@ -32,8 +35,9 @@ class OpenAIProvider(AIProviderInterface):
         max_tokens: int | None = None,
         response_format: dict | None = None,
         tools: list[dict] | None = None,
-        tool_choice: str | None = None,
+        tool_choice: str | dict | None = None,
         model_config: dict | None = None,
+        parallel_tool_calls: bool | None = None,
     ) -> ChatCompletion:
         model = model or self.model_default
         temperature = (
@@ -60,6 +64,13 @@ class OpenAIProvider(AIProviderInterface):
         params["tools"] = tools or openai.NOT_GIVEN
         params["tool_choice"] = tool_choice or openai.NOT_GIVEN
 
+        if tools:
+            params["parallel_tool_calls"] = (
+                parallel_tool_calls
+                if parallel_tool_calls is not None
+                else openai.NOT_GIVEN
+            )
+
         return await self.client.chat.completions.create(**params)
 
     async def get_embeddings(
@@ -83,3 +94,54 @@ class OpenAIProvider(AIProviderInterface):
                 total=response.usage.total_tokens,
             ),
         )
+
+    async def rerank(
+        self,
+        query: str,
+        documents: DocumentSearchResult,
+        llm: str,
+        top_n: int,
+        truncation: bool | None = None,
+    ) -> RerankResponse:
+        """Call OpenAI rerank endpoint to reorder documents by relevance."""
+
+        response = await self.client.rerank.create(
+            model=llm,
+            query=query,
+            documents=[doc.content or "" for doc in documents],
+            top_n=top_n,
+            truncate=truncation if truncation is not None else openai.NOT_GIVEN,
+        )
+
+        usage = None
+        usage_data = getattr(response, "usage", None)
+        if usage_data:
+            usage_dict = (
+                usage_data.model_dump()
+                if hasattr(usage_data, "model_dump")
+                else dict(usage_data)
+            )
+            prompt_tokens = usage_dict.get("prompt_tokens") or usage_dict.get(
+                "total_tokens", 0
+            )
+            total_tokens = usage_dict.get("total_tokens") or prompt_tokens
+            usage = ModelUsage(
+                input_units="tokens",
+                input=prompt_tokens,
+                total=total_tokens,
+            )
+
+        scores = {
+            item.get("index"): item.get("score") or item.get("relevance_score")
+            for item in response.data
+        }
+
+        reranked_documents: DocumentSearchResult = []
+        for idx, doc in enumerate(documents):
+            new_score = scores.get(idx)
+            if new_score is not None:
+                doc.score = Decimal(str(new_score))
+            doc.original_index = idx
+            reranked_documents.append(doc)
+
+        return RerankResponse(data=reranked_documents, usage=usage)

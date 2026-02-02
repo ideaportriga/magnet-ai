@@ -61,7 +61,30 @@ async def run_job(data) -> dict[str, Any]:
     execution_type = getattr(data, "execution_type", ParallelExecutionType.INNNER)
     # Choose execution mode based on parallel_execution flag
     if execution_type == ParallelExecutionType.INNNER:
-        results = await job_function(job_record)
+        try:
+            results = await job_function(job_record)
+        except Exception as e:
+            error_info = traceback.format_exc()
+            logging.exception(
+                f"Error in evaluation job execution, error: {e}, traceback: {error_info}",
+            )
+            await jobs_collection.update_one(
+                {"_id": job_id},
+                {
+                    "$set": {
+                        "status": JobRunStatus.FAILED,
+                        "finished_at": datetime.utcnow(),
+                        "results": [
+                            {
+                                "error": str(e),
+                                "traceback": error_info,
+                                "status": JobRunStatus.FAILED,
+                            }
+                        ],
+                    },
+                },
+            )
+            return {"job_id": str(job_id), "status": JobRunStatus.FAILED}
     elif execution_type == ParallelExecutionType.THREADS:
         tasks = [
             asyncio.create_task(job_function(job_record, iteration))

@@ -4,6 +4,8 @@ from typing import Any, override
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from core.db.models.knowledge_graph import KnowledgeGraphChunk
+
 from ..models import ChunkerResult, ContentConfig
 from .abstract_chunker import AbstractChunker
 
@@ -22,7 +24,9 @@ class DeterministicRecursiveChunker(AbstractChunker):
         super().__init__(config)
 
     @override
-    async def chunk_text(self, text: str) -> ChunkerResult:
+    async def chunk_text(
+        self, text: str, *, document_title: str | None = None
+    ) -> ChunkerResult:
         if not text or not text.strip():
             logger.info("Empty text provided to DeterministicRecursiveChunker")
             return ChunkerResult(chunks=[], document_metadata=None)
@@ -45,7 +49,7 @@ class DeterministicRecursiveChunker(AbstractChunker):
             f"Split document into {len(text_chunks)} chunks using recursive splitter"
         )
 
-        chunks: list[dict[str, Any]] = []
+        chunks: list[KnowledgeGraphChunk] = []
         for idx, chunk_text in enumerate(text_chunks):
             # Resolve title pattern
             options = self.config.chunker.get("options", {})
@@ -72,14 +76,14 @@ class DeterministicRecursiveChunker(AbstractChunker):
                 else default_title
             )
 
-            chunk = {
-                "id": f"chunk_{idx}",
-                "type": "TEXT",
-                "title": title,
-                "toc_reference": "",
-                "page": -1,
-                "text": chunk_text,
-            }
+            chunk = KnowledgeGraphChunk(
+                generated_id=f"chunk_{idx}",
+                chunk_type="TEXT",
+                title=title,
+                toc_reference="",
+                content=chunk_text,
+                embedded_content=chunk_text,
+            )
             chunks.append(chunk)
 
-        return ChunkerResult(chunks=chunks, document_metadata=None)
+        return ChunkerResult(chunks=chunks)

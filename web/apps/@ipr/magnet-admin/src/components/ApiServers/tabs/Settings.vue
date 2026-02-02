@@ -9,6 +9,23 @@
       q-toggle(v-model='verifySsl')
         .text-secondary-text {{ verifySsl ? 'Yes' : 'No' }}
   q-separator.q-mt-lg.q-mb-lg
+  km-section(title='Custom Headers', subTitle='Add custom HTTP headers to include with every request')
+    km-notification-text(
+      notification='Define custom headers that will be sent with each API request. Use placeholders in curly braces to reference secrets.'
+    )
+    .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in customHeaders', :key='key')
+      .col
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Header Name
+        km-input(label='Header Name', :model-value='key', @update:model-value='updateCustomHeader(key, $event, value)')
+      .col
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Header Value
+        km-input(label='Header Value', :model-value='value', @update:model-value='updateCustomHeader(key, key, $event)')
+      .col-auto
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
+        km-btn(@click='removeCustomHeader(key)', icon='o_delete', size='sm', flat, color='negative')
+    .row.q-pt-16
+      km-btn(label='Add Custom Header', @click='addCustomHeader', size='sm', icon='o_add', flat)
+  q-separator.q-mt-lg.q-mb-lg
   km-section(title='Security schema', subTitle='Authentication and authorization scheme to access the endpoint')
     km-notification-text
       div Supported types: apiKey, basic, oauth2. Check
@@ -116,6 +133,38 @@ const secrets = computed({
     store.dispatch('updateApiServerProperty', { key: 'secrets_encrypted', value })
   },
 })
+
+const customHeaders = computed({
+  get: () => server.value.custom_headers || new Map(),
+  set: (value) => {
+    store.dispatch('updateApiServerProperty', { key: 'custom_headers', value })
+  },
+})
+
+const updateCustomHeader = (oldKey, newKey, newValue) => {
+  const entries = [...customHeaders.value.entries()]
+  const idx = entries.findIndex(([k]) => k === oldKey)
+
+  if (idx !== -1) {
+    entries[idx] = [newKey, newValue]
+  } else {
+    entries.push([newKey, newValue])
+  }
+
+  customHeaders.value = new Map(entries)
+}
+
+const addCustomHeader = () => {
+  const newCustomHeaders = new Map(customHeaders.value)
+  newCustomHeaders.set('', '')
+  customHeaders.value = newCustomHeaders
+}
+
+const removeCustomHeader = (key) => {
+  const newCustomHeaders = new Map(customHeaders.value)
+  newCustomHeaders.delete(key)
+  customHeaders.value = newCustomHeaders
+}
 
 const updateSecurityValue = (oldKey, newKey, newValue) => {
   const currentSecurityValues = securityValues.value

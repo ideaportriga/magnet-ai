@@ -17,9 +17,17 @@ export const jobTypeOptions = [
     value: 'post_processing_conversations',
     label: 'Post processing conversations',
   },
+  {
+    value: 'sync_knowledge_graph_source',
+    label: 'Knowledge graph source sync',
+  }
 ]
 
 export const jobIntervalOptions = [
+  {
+    value: 'every_5_minutes',
+    label: 'Every 5 minutes',
+  },
   {
     value: 'hourly',
     label: 'Hourly',
@@ -35,6 +43,10 @@ export const jobIntervalOptions = [
   {
     value: 'monthly',
     label: 'Monthly',
+  },
+  {
+    value: 'custom',
+    label: 'Custom',
   },
 ]
 

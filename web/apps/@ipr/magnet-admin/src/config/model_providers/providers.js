@@ -2,6 +2,20 @@ import { markRaw } from 'vue'
 import { ChipCopy } from '@ui'
 import { formatDateTime } from '@shared/utils/dateTime'
 
+// Format provider type for display
+const formatProviderType = (type) => {
+  if (!type) return '-'
+  const typeLabels = {
+    openai: 'OpenAI',
+    azure_open_ai: 'Azure OpenAI',
+    azure_ai: 'Azure AI',
+    groq: 'Groq',
+    oci: 'OCI',
+    oci_llama: 'OCI Llama',
+  }
+  return typeLabels[type] || type
+}
+
 const controls = {
   name: {
     name: 'name',
@@ -25,6 +39,7 @@ const controls = {
     field: 'type',
     align: 'left',
     sortable: true,
+    format: formatProviderType,
   },
   created_at: {
     name: 'created_at',

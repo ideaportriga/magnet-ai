@@ -20,6 +20,8 @@ export const formatTraceType = (value: string) => {
       return 'Retrieval Tool'
     case 'knowledge-source':
       return 'Knowledge Source'
+    case 'knowledge-graph':
+      return 'Knowledge Graph'
     case 'agent':
       return 'Agent'
     default:

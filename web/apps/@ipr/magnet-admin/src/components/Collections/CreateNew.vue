@@ -167,6 +167,11 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
                 .row.items-center.q-gap-8
                   .km-field.text-secondary-text at
                   km-select(v-model='form.time', :options='times')
+              //- Custom cron input
+              .q-mt-md.q-pl-8(v-if='form.interval === "custom"')
+                .km-field.text-secondary-text.q-pb-xs Cron expression
+                km-input(height='30px', v-model='form.customCron', placeholder='*/10 * * * *')
+                .km-tiny.text-secondary-text.q-mt-xs Format: minute hour day month day_of_week (e.g., */10 * * * * for every 10 min)
               .row.q-mt-md.items-center
                 km-checkbox(size='40px', v-model='form.enabled')
                 .km-field Send error notifications
@@ -220,9 +225,11 @@ export default defineComponent({
     const { items: providerItems } = useChroma('provider')
 
     const intervals = [
+      { label: 'Every 5 min', value: 'every_5_minutes' },
       { label: 'Hourly', value: 'hourly' },
       { label: 'Daily', value: 'daily' },
       { label: 'Weekly', value: 'weekly' },
+      { label: 'Custom', value: 'custom' },
     ]
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     const times = Array.from({ length: 24 }, (_, i) => ({ label: `${i.toString().padStart(2, '0')}:00`, value: i.toString().padStart(2, '0') }))
@@ -276,6 +283,7 @@ export default defineComponent({
         time: '00:00',
         enabled: true,
         error_email: '',
+        customCron: '*/10 * * * *',
       }),
       promptTemplateItems,
       providerItems,
@@ -549,9 +557,19 @@ export default defineComponent({
         })
       }
 
-      await this.createJob(inserted_id)
+      // Create scheduled job if enabled
+      const job = await this.createJob(inserted_id)
 
-      // Navigate first, then clean up
+      // Set the knowledge state with the created item data including job_id
+      // This ensures the detail page has the correct data on navigation
+      const knowledgeData = {
+        ...merged_metadata,
+        id: inserted_id,
+        job_id: job?.job_id || null,
+      }
+      this.$store.commit('setKnowledge', knowledgeData)
+
+      // Navigate to the detail page
       const targetPath = `/knowledge-sources/${inserted_id}`
       this.$router.push(targetPath)
 
@@ -568,12 +586,27 @@ export default defineComponent({
     async createJob(inserted_id) {
       if (this.scheduleEnabled) {
         const hour = this.form.time.value
-        const cron =
-          this.form.interval === 'hourly'
-            ? { minute: '0', hour: '*', day_of_month: '*' }
-            : this.form.interval === 'daily'
-              ? { minute: '0', hour, day_of_month: '*' }
-              : { minute: '0', hour, day_of_month: '*', day_of_week: this.form.day }
+        let cron
+        if (this.form.interval === 'custom') {
+          // Parse custom cron string: minute hour day month day_of_week
+          const parts = this.form.customCron.trim().split(/\s+/)
+          cron = {
+            minute: parts[0] || '*',
+            hour: parts[1] || '*',
+            day: parts[2] || '*',
+            month: parts[3] || '*',
+            day_of_week: parts[4] || '*',
+          }
+        } else if (this.form.interval === 'every_5_minutes') {
+          cron = { minute: '*/5', hour: '*', day_of_month: '*' }
+        } else if (this.form.interval === 'hourly') {
+          cron = { minute: '0', hour: '*', day_of_month: '*' }
+        } else if (this.form.interval === 'daily') {
+          cron = { minute: '0', hour, day_of_month: '*' }
+        } else {
+          // weekly
+          cron = { minute: '0', hour, day_of_month: '*', day_of_week: this.form.day }
+        }
 
         const job = await this.$store.dispatch('createAndRunJobScheduler', {
           name: this.form.name,
@@ -591,8 +624,9 @@ export default defineComponent({
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         })
         await this.useCollection.update({ id: inserted_id, data: { job_id: job.job_id } })
-        await this.$store.commit('updateKnowledge', { job_id: job.job_id })
+        return job
       }
+      return null
     },
     async createOneTimeJob() {
       let jobData = {

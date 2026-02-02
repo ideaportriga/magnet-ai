@@ -42,6 +42,7 @@ async def create_api_client_session(
                     username=username,
                     password=password,
                     token_url=token_url,
+                    custom_headers=api_server.custom_headers,
                 )
 
                 return client
@@ -60,6 +61,7 @@ async def create_api_client_session(
                     client_id=client_id,
                     client_secret=client_secret,
                     token_url=token_url,
+                    custom_headers=api_server.custom_headers,
                 )
 
                 return client
@@ -74,10 +76,23 @@ async def create_api_client_session(
                 username = security_values.get("username", "")
                 password = security_values.get("password", "")
                 client = await create_basic_auth_client(
-                    username=username, password=password
+                    username=username,
+                    password=password,
+                    custom_headers=api_server.custom_headers,
                 )
 
                 return client
+
+            if scheme == "bearer":
+                token = security_values.get("token", "")
+                session = aiohttp.ClientSession(
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        **(api_server.custom_headers or {}),
+                    },
+                    connector=aiohttp.TCPConnector(verify_ssl=api_server.verify_ssl),
+                )
+                return session
 
             raise NotImplementedError
 
@@ -87,7 +102,9 @@ async def create_api_client_session(
                 header_value = security_values.get("api_key", "")
 
                 client = await create_api_key_client(
-                    header_name=header_name, header_value=header_value
+                    header_name=header_name,
+                    header_value=header_value,
+                    custom_headers=api_server.custom_headers,
                 )
 
                 return client
@@ -99,20 +116,27 @@ async def create_api_client_session(
 
 
 async def create_api_key_client(
-    header_name: str, header_value: str, verify_ssl: bool = True
+    header_name: str,
+    header_value: str,
+    custom_headers: dict[str, str] | None = None,
+    verify_ssl: bool = True,
 ) -> aiohttp.ClientSession:
     session = aiohttp.ClientSession(
-        headers={header_name: header_value},
+        headers={**(custom_headers or {}), header_name: header_value},
         connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
     )
     return session
 
 
 async def create_basic_auth_client(
-    username: str, password: str, verify_ssl: bool = True
+    username: str,
+    password: str,
+    custom_headers: dict[str, str] | None = None,
+    verify_ssl: bool = True,
 ) -> aiohttp.ClientSession:
     session = aiohttp.ClientSession(
         auth=BasicAuth(username, password),
+        headers=custom_headers,
         connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
     )
     return session
@@ -122,6 +146,7 @@ async def create_oauth2_client(
     client_id: str,
     client_secret: str,
     token_url: str,
+    custom_headers: dict[str, str] | None = None,
     verify_ssl: bool = True,
 ) -> aiohttp.ClientSession:
     # https://docs.aiohttp.org/en/stable/client_reference.html#client-session
@@ -145,7 +170,7 @@ async def create_oauth2_client(
             raise RuntimeError(f"Failed to obtain OAuth2 token: {e}")
 
     session = aiohttp.ClientSession(
-        headers={"Authorization": f"Bearer {token}"},
+        headers={**(custom_headers or {}), "Authorization": f"Bearer {token}"},
         connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
     )
     return session
@@ -155,6 +180,7 @@ async def create_oauth2_password_client(
     username: str,
     password: str,
     token_url: str,
+    custom_headers: dict[str, str] | None = None,
     verify_ssl: bool = True,
 ) -> aiohttp.ClientSession:
     connector = aiohttp.TCPConnector(verify_ssl=verify_ssl)
@@ -176,7 +202,7 @@ async def create_oauth2_password_client(
             raise RuntimeError(f"Failed to obtain OAuth2 token: {e}")
 
     session = aiohttp.ClientSession(
-        headers={"Authorization": f"Bearer {token}"},
+        headers={**(custom_headers or {}), "Authorization": f"Bearer {token}"},
         connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
     )
     return session

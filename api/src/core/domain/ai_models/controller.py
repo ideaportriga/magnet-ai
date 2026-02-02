@@ -8,12 +8,14 @@ from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.exceptions import ClientException, NotFoundException
 from litestar.params import Dependency, Parameter
-from litestar.status_codes import HTTP_204_NO_CONTENT
+from litestar.status_codes import HTTP_200_OK, HTTP_204_NO_CONTENT
+from pydantic import BaseModel, Field
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.ai_models.service import (
     AIModelsService,
 )
+from openai_model.utils import clear_model_cache
 
 from .schemas import AIModel, AIModelCreate, AIModelSetDefaultRequest, AIModelUpdate
 
@@ -21,6 +23,17 @@ if TYPE_CHECKING:
     pass
 
 logger = getLogger(__name__)
+
+
+class ModelTestResult(BaseModel):
+    """Result of model test."""
+
+    success: bool = Field(..., description="Whether the test was successful")
+    message: str = Field(..., description="Test result message")
+    error: str | None = Field(None, description="Error details if test failed")
+    response_preview: str | None = Field(
+        None, description="Preview of model response if successful"
+    )
 
 
 class AIModelsController(Controller):
@@ -59,6 +72,7 @@ class AIModelsController(Controller):
     ) -> AIModel:
         """Create a new AI model."""
         obj = await ai_models_service.create(data)
+        clear_model_cache()
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
     @get("/code/{code:str}")
@@ -96,6 +110,7 @@ class AIModelsController(Controller):
         obj = await ai_models_service.update(
             data, item_id=ai_model_id, auto_commit=True
         )
+        clear_model_cache()
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
     @delete("/{ai_model_id:uuid}")
@@ -109,6 +124,7 @@ class AIModelsController(Controller):
     ) -> None:
         """Delete an AI model from the system."""
         _ = await ai_models_service.delete(ai_model_id)
+        clear_model_cache()
 
     @post("/set_default", status_code=HTTP_204_NO_CONTENT)
     async def set_default_handler(
@@ -127,4 +143,146 @@ class AIModelsController(Controller):
             )
             raise ClientException(
                 "Unexpected error occurred while setting default model"
+            )
+
+    @post(
+        "/{ai_model_id:uuid}/test",
+        summary="Test model",
+        status_code=HTTP_200_OK,
+    )
+    async def test_model(
+        self,
+        ai_models_service: AIModelsService,
+        ai_model_id: UUID = Parameter(
+            title="AI Model ID",
+            description="The AI model to test.",
+        ),
+    ) -> ModelTestResult:
+        """
+        Test an AI model by making a simple API call.
+
+        This endpoint verifies that the model configuration is correct
+        by attempting to make a request to the model through its provider.
+        For chat models, it sends a simple greeting.
+        For embedding models, it generates embeddings for test text.
+        """
+        try:
+            # Get the model from database
+            model = await ai_models_service.get(ai_model_id)
+            if not model:
+                return ModelTestResult(
+                    success=False,
+                    message="Model not found",
+                    error=f"Model with ID {ai_model_id} does not exist",
+                )
+
+            # Get the provider system name
+            provider_system_name = model.provider_system_name
+            if not provider_system_name:
+                return ModelTestResult(
+                    success=False,
+                    message="Provider not configured",
+                    error="Model does not have a provider_system_name configured",
+                )
+
+            # Try to get the AI provider instance
+            try:
+                # Import here to avoid circular import
+                from services.ai_services.factory import get_ai_provider
+
+                ai_provider = await get_ai_provider(provider_system_name)
+            except ValueError as e:
+                return ModelTestResult(
+                    success=False,
+                    message="Provider configuration error",
+                    error=str(e),
+                )
+
+            model_type = model.type or "prompts"
+            model_name = model.ai_model
+
+            if model_type == "embeddings":
+                # Test embedding model
+                try:
+                    response = await ai_provider.get_embeddings(
+                        text="Test embedding generation",
+                        llm=model_name,
+                    )
+                    if response and response.data:
+                        vector_length = len(response.data)
+                        return ModelTestResult(
+                            success=True,
+                            message=f"Embedding model '{model.display_name}' is working correctly!",
+                            error=None,
+                            response_preview=f"Generated embedding with {vector_length} dimensions",
+                        )
+                    else:
+                        return ModelTestResult(
+                            success=False,
+                            message="Received empty embedding response",
+                            error="No embedding data returned from provider",
+                        )
+                except NotImplementedError:
+                    return ModelTestResult(
+                        success=False,
+                        message="Provider does not support embeddings",
+                        error="The configured provider does not implement the get_embeddings method",
+                    )
+
+            elif model_type == "re-ranking":
+                # For re-ranking models, we can't easily test without documents
+                # Just verify the provider is accessible
+                return ModelTestResult(
+                    success=True,
+                    message=f"Re-ranking model '{model.display_name}' configuration verified. Full testing requires documents.",
+                    error=None,
+                    response_preview="Configuration validated (re-ranking requires documents for full test)",
+                )
+
+            else:
+                # Test chat/prompt model
+                test_messages = [
+                    {"role": "user", "content": "Say 'OK' if you can hear me."}
+                ]
+
+                try:
+                    response = await ai_provider.create_chat_completion(
+                        messages=test_messages,
+                        model=model_name,
+                        temperature=0,
+                        top_p=1,
+                        max_tokens=10,  # Minimal tokens to save costs
+                    )
+
+                    if response and response.choices:
+                        content = response.choices[0].message.content or ""
+                        # Truncate long responses
+                        preview = (
+                            content[:100] + "..." if len(content) > 100 else content
+                        )
+                        return ModelTestResult(
+                            success=True,
+                            message=f"Model '{model.display_name}' is working correctly!",
+                            error=None,
+                            response_preview=preview,
+                        )
+                    else:
+                        return ModelTestResult(
+                            success=False,
+                            message="Connection established but received unexpected response",
+                            error="No response choices returned from model",
+                        )
+                except NotImplementedError:
+                    return ModelTestResult(
+                        success=False,
+                        message="Provider does not support chat completions",
+                        error="The configured provider does not implement chat completions",
+                    )
+
+        except Exception as e:
+            logger.exception("Error testing model %s", ai_model_id)
+            return ModelTestResult(
+                success=False,
+                message="Model test failed",
+                error=str(e),
             )

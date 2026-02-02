@@ -9,6 +9,15 @@ logger = getLogger(__name__)
 
 
 SCOPE = ["https://api.botframework.com/.default"]
+NOTE_TAKER_GRAPH_SCOPES = [
+    # "Chat.ReadBasic",
+    # "Files.Read.All",
+    "offline_access",
+    "OnlineMeetingRecording.Read.All",
+    "OnlineMeetings.Read",
+    "openid",
+    "profile",
+]
 ISSUER = ["https://api.botframework.com"]
 
 

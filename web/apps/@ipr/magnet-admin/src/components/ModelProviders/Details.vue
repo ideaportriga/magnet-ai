@@ -32,6 +32,7 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
       .column.q-gap-16.overflow-auto.q-pt-lg.q-pb-lg
         model-providers-models(v-if='tab == "models"')
         model-providers-settings(v-if='tab == "settings"')
+
   template(#drawer)
     model-providers-model-drawer(v-if='tab == "models" && validSelectedModel')
     model-providers-drawer(v-else-if='tab == "models" && availableModels.length > 0 && !validSelectedModel')
