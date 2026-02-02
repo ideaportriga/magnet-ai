@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1](https://github.com/ideaportriga/magnet-ai/compare/v0.4.0...v0.4.1) (2026-02-02)
+
+### 🐛 Bug Fixes
+
+* **ci:** sync with remote before running semantic-release ([0ef86c9](https://github.com/ideaportriga/magnet-ai/commit/0ef86c97dc04fba34feca63c63b78bf026d40894))
+
 ## [0.4.0](https://github.com/ideaportriga/magnet-ai/compare/v0.3.0...v0.4.0) (2026-02-02)
 
 ### ✨ Features
