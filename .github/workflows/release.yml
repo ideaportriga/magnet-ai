@@ -7,6 +7,7 @@ on:
       - completed
     branches:
       - main
+      - develop
   workflow_dispatch:
     inputs:
       dry_run:
@@ -27,6 +28,7 @@ jobs:
     outputs:
       version: ${{ steps.get-version.outputs.version }}
       released: ${{ steps.get-version.outputs.released }}
+      is_prerelease: ${{ steps.get-version.outputs.is_prerelease }}
     if: >
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       github.event_name == 'workflow_dispatch'
@@ -81,11 +83,21 @@ jobs:
       - name: Get Release Version
         id: get-version
         run: |
+          BRANCH="${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          
           if [ -f release_version.txt ]; then
             VERSION=$(cat release_version.txt)
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
             echo "released=true" >> $GITHUB_OUTPUT
-            echo "✅ New release created: ${VERSION}"
+            
+            # Check if this is a prerelease (contains -dev, -alpha, -beta, etc.)
+            if [[ "$VERSION" == *"-"* ]]; then
+              echo "is_prerelease=true" >> $GITHUB_OUTPUT
+              echo "✅ New prerelease created: ${VERSION}"
+            else
+              echo "is_prerelease=false" >> $GITHUB_OUTPUT
+              echo "✅ New stable release created: ${VERSION}"
+            fi
           else
             echo "released=false" >> $GITHUB_OUTPUT
             echo "ℹ️ No new release (no releasable commits)"
@@ -98,5 +110,6 @@ jobs:
     uses: ./.github/workflows/docker-publish.yml
     with:
       version: ${{ needs.release.outputs.version }}
+      is_prerelease: ${{ needs.release.outputs.is_prerelease == 'true' }}
     secrets: inherit
 

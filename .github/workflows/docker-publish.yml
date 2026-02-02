@@ -1,21 +1,18 @@
 name: Docker Publish
 
 on:
-  # Triggered after CI passes on develop branch only
-  # For main branch, docker is built via release.yml workflow
-  workflow_run:
-    workflows: ["CI - Linting and Tests"]
-    types:
-      - completed
-    branches:
-      - develop
-  # Called from release workflow with version (for main branch releases)
+  # Called from release workflow with version
   workflow_call:
     inputs:
       version:
-        description: "Version to build (e.g. 1.2.3)"
-        required: false
+        description: "Version to build (e.g. 1.2.3 or 1.2.3-dev.1)"
+        required: true
         type: string
+      is_prerelease:
+        description: "Whether this is a prerelease (dev) version"
+        required: false
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -24,12 +21,6 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    # Only run if:
-    # 1. Called with version from release workflow, OR
-    # 2. Triggered by workflow_run AND CI was successful (for develop)
-    if: >
-      (github.event_name == 'workflow_call') ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     permissions:
       contents: read
       packages: write
@@ -38,8 +29,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # For release builds, checkout the version tag; otherwise use the CI commit
-          ref: ${{ inputs.version != '' && format('v{0}', inputs.version) || github.event.workflow_run.head_sha }}
+          ref: v${{ inputs.version }}
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -51,47 +41,36 @@ jobs:
       - name: Determine tags
         id: determine-tags
         run: |
-          # Initialize tags array
-          TAGS=""
+          VERSION="${{ inputs.version }}"
+          IS_PRERELEASE="${{ inputs.is_prerelease }}"
           
-          # If version is provided (release build from main), add version tags + latest
-          if [[ -n "${{ inputs.version }}" ]]; then
-            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.version }}"
-            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ inputs.version }}"
-            # Also tag as latest for releases from main
-            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-            echo "tags=${TAGS}" >> $GITHUB_OUTPUT
-            echo "Building release version: ${{ inputs.version }}"
-            exit 0
-          fi
+          # Always add version tags
+          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+          TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${VERSION}"
           
-          # For workflow_run events (CI completion on develop)
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
-          echo "Building for branch: ${BRANCH}"
-          
-          if [[ "${BRANCH}" == "develop" ]]; then
-            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            # For prerelease (develop), also tag as 'dev'
+            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
+            echo "📦 Building prerelease: ${VERSION}"
           else
-            echo "Branch ${BRANCH} is handled by release workflow, skipping"
-            echo "skip=true" >> $GITHUB_OUTPUT
-            exit 0
+            # For stable release (main), also tag as 'latest'
+            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+            echo "📦 Building stable release: ${VERSION}"
           fi
           
           echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "Docker tags: ${TAGS}"
 
       - name: Set up Docker Buildx
-        if: steps.determine-tags.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Extract metadata (labels)
-        if: steps.determine-tags.outputs.skip != 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       - name: Build and push Docker image
-        if: steps.determine-tags.outputs.skip != 'true'
         uses: docker/build-push-action@v5
         with:
           context: .

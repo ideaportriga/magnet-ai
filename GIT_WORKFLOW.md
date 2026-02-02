@@ -59,6 +59,8 @@ We use [Conventional Commits](https://www.conventionalcommits.org/) for automati
 | `chore:` | Maintenance tasks | ❌ No release |
 | `ci:` | CI/CD changes | ❌ No release |
 
+> **Note:** Both `main` and `develop` branches use semantic-release. The `develop` branch creates prerelease versions (`X.Y.Z-dev.N`), while `main` creates stable versions (`X.Y.Z`).
+
 ### Breaking Changes
 
 Add `!` after type or include `BREAKING CHANGE:` in footer for major version bump:
@@ -78,7 +80,7 @@ BREAKING CHANGE: The /v1/chat endpoint has been removed. Use /v2/chat instead.
 │                              DEVELOP BRANCH                                  │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   git push develop                                                          │
+│   git push develop (feat/fix commit)                                        │
 │         │                                                                   │
 │         ▼                                                                   │
 │   ┌─────────────────────┐                                                   │
@@ -90,8 +92,15 @@ BREAKING CHANGE: The /v1/chat endpoint has been removed. Use /v2/chat instead.
 │              │ workflow_run (conclusion: success)                           │
 │              ▼                                                              │
 │   ┌─────────────────────┐                                                   │
+│   │   release.yml       │  → Runs semantic-release                          │
+│   │                     │  → Creates prerelease version                     │
+│   └──────────┬──────────┘                                                   │
+│              │                                                              │
+│              │ (if releasable commits)                                      │
+│              ▼                                                              │
+│   ┌─────────────────────┐                                                   │
 │   │  docker-publish.yml │  → Build & Push                                   │
-│   │                     │  → Tag: `dev`                                     │
+│   │                     │  → Tags: `dev`, `1.2.0-dev.1`, `v1.2.0-dev.1`     │
 │   └─────────────────────┘                                                   │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -100,7 +109,7 @@ BREAKING CHANGE: The /v1/chat endpoint has been removed. Use /v2/chat instead.
 │                               MAIN BRANCH                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   git push main (or merge PR)                                               │
+│   git push main (or merge PR from develop)                                  │
 │         │                                                                   │
 │         ▼                                                                   │
 │   ┌─────────────────────┐                                                   │
@@ -113,25 +122,14 @@ BREAKING CHANGE: The /v1/chat endpoint has been removed. Use /v2/chat instead.
 │              ▼                                                              │
 │   ┌─────────────────────┐                                                   │
 │   │   release.yml       │  → Runs semantic-release                          │
-│   │                     │  → Analyzes commits                               │
+│   │                     │  → Creates stable release                         │
 │   └──────────┬──────────┘                                                   │
 │              │                                                              │
-│              ├─────────────────────────────────────────┐                    │
-│              │                                         │                    │
-│              ▼ (releasable commits found)              ▼ (no release)       │
-│   ┌─────────────────────┐                   ┌─────────────────────┐         │
-│   │  semantic-release   │                   │  Workflow ends      │         │
-│   │  creates:           │                   │  Docker NOT built   │         │
-│   │  • Git tag vX.Y.Z   │                   └─────────────────────┘         │
-│   │  • GitHub Release   │                                                   │
-│   │  • CHANGELOG.md     │                                                   │
-│   └──────────┬──────────┘                                                   │
-│              │                                                              │
-│              │ workflow_call (version: X.Y.Z)                               │
+│              │ (if releasable commits)                                      │
 │              ▼                                                              │
 │   ┌─────────────────────┐                                                   │
 │   │  docker-publish.yml │  → Build & Push                                   │
-│   │                     │  → Tags: `latest`, `X.Y.Z`, `vX.Y.Z`              │
+│   │                     │  → Tags: `latest`, `1.2.0`, `v1.2.0`              │
 │   └─────────────────────┘                                                   │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -196,12 +194,37 @@ Images are published to GitHub Container Registry (GHCR):
 ghcr.io/ideaportriga/magnet-ai
 ```
 
-| Tag | Source | Description |
-|-----|--------|-------------|
-| `latest` | `main` (release) | Latest stable release |
-| `X.Y.Z` | `main` (release) | Specific version (e.g., `1.2.3`) |
-| `vX.Y.Z` | `main` (release) | Specific version with prefix (e.g., `v1.2.3`) |
-| `dev` | `develop` | Latest development build |
+### Stable Releases (from main)
+
+| Tag | Example | Description |
+|-----|---------|-------------|
+| `latest` | `latest` | Latest stable release |
+| `X.Y.Z` | `1.2.0` | Specific version |
+| `vX.Y.Z` | `v1.2.0` | Specific version with prefix |
+
+### Prerelease Versions (from develop)
+
+| Tag | Example | Description |
+|-----|---------|-------------|
+| `dev` | `dev` | Latest development build |
+| `X.Y.Z-dev.N` | `1.3.0-dev.1` | Specific dev version |
+| `vX.Y.Z-dev.N` | `v1.3.0-dev.1` | Specific dev version with prefix |
+
+### Version Progression Example
+
+```
+develop: feat: add feature A
+         → v1.3.0-dev.1 (Docker: dev, 1.3.0-dev.1)
+         
+develop: fix: bug fix
+         → v1.3.0-dev.2 (Docker: dev, 1.3.0-dev.2)
+
+main:    merge develop → main
+         → v1.3.0 (Docker: latest, 1.3.0)
+
+develop: feat: new feature B  
+         → v1.4.0-dev.1 (Docker: dev, 1.4.0-dev.1)
+```
 
 ### Usage Examples
 
@@ -209,11 +232,14 @@ ghcr.io/ideaportriga/magnet-ai
 # Always use latest stable
 docker pull ghcr.io/ideaportriga/magnet-ai:latest
 
-# Pin to specific version
-docker pull ghcr.io/ideaportriga/magnet-ai:1.2.3
+# Pin to specific stable version
+docker pull ghcr.io/ideaportriga/magnet-ai:1.2.0
 
-# Use development version
+# Use latest development version
 docker pull ghcr.io/ideaportriga/magnet-ai:dev
+
+# Pin to specific dev version
+docker pull ghcr.io/ideaportriga/magnet-ai:1.3.0-dev.2
 ```
 
 ---
