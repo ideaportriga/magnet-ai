@@ -8,10 +8,14 @@ import re
 from logging import getLogger
 from typing import Any, Awaitable, Callable
 
+import aiohttp
+
 from microsoft_agents.hosting.core import TurnContext
 
-from services.api_servers.services import call_api_server_tool
-from services.api_servers.types import ApiToolCall, ApiToolCallInputParams
+from core.config.app import alchemy
+from core.domain.api_servers.service import ApiServersService
+from services.api_servers.clients import create_api_client_session
+from services.api_servers.types import ApiServerConfigWithSecrets
 from .note_taker_people import get_invited_people, invited_people_to_names
 from .note_taker_utils import (
     keyterms_to_display,
@@ -33,6 +37,7 @@ async def maybe_publish_confluence_notes(
     conversation_time: str | None,
     duration: str | None,
     sections: dict[str, str],
+    transcript: str | None = None,
     keyterms: list[str] | None = None,
     invited_people: list[dict[str, str]] | None = None,
     send_expandable_section: Callable[..., Awaitable[None]] | None = None,
@@ -96,18 +101,6 @@ async def maybe_publish_confluence_notes(
         sections=sections,
     )
 
-    # Confluence REST v2 expects `spaceId` and `body.representation/value`.
-    request_body: dict[str, Any] = _build_confluence_v2_create_page_request(
-        space_id=space_id,
-        title=title,
-        content=markdown_body,
-        parent_id=parent_id or None,
-    )
-    if parent_id:
-        # Keep both styles to maximize compatibility with tool variants.
-        request_body["parent_id"] = parent_id
-        request_body["parentId"] = parent_id
-
     debug_payload = {
         "api_server_system_name": api_server_system_name,
         "api_tool_system_name": api_tool_system_name,
@@ -119,19 +112,232 @@ async def maybe_publish_confluence_notes(
         "meeting_id": str((meeting_context or {}).get("id") or "").strip() or None,
         "meeting_title": _get_meeting_title_part(meeting_context),
         "job_id": str(job_id or "").strip() or None,
+        "attach_transcript": bool(transcript and str(transcript).strip()),
     }
     logger.info("[teams note-taker] confluence publish request: %s", debug_payload)
 
     try:
-        api_call = ApiToolCall(
-            server=api_server_system_name,
-            tool=api_tool_system_name,
-            input_params=ApiToolCallInputParams(requestBody=request_body),
+        wiki_base_url, confluence_session = await _create_confluence_http_session(
+            api_server_system_name
         )
-        result = await call_api_server_tool(api_call)
+        async with confluence_session:
+            existing = None
+            try:
+                existing = await _find_confluence_page_by_title(
+                    confluence_session,
+                    wiki_base_url,
+                    space_id=space_id,
+                    title=title,
+                )
+            except Exception as search_err:
+                logger.warning(
+                    "[teams note-taker] confluence page search failed; continuing with create (space_id=%s title=%s): %s",
+                    space_id,
+                    title,
+                    getattr(search_err, "message", str(search_err)),
+                )
+                await _maybe_send_debug(
+                    send_expandable_section,
+                    context,
+                    title="Confluence search error (non-fatal)",
+                    payload={
+                        "wiki_base_url": wiki_base_url,
+                        "space_id": space_id,
+                        "title": title,
+                        "error": _exception_debug_details(search_err),
+                    },
+                )
+
+            # Confluence REST v2 expects `spaceId` and `body.representation/value`.
+            if existing and existing.get("id"):
+                page_id = str(existing.get("id"))
+                current_version = _extract_confluence_version_number(existing)
+                if current_version is None:
+                    page_payload = await _get_confluence_v2_page(
+                        confluence_session,
+                        wiki_base_url,
+                        page_id=page_id,
+                    )
+                    current_version = _extract_confluence_version_number(page_payload)
+                if current_version is None:
+                    raise RuntimeError(
+                        "Confluence page update failed: could not resolve current page version."
+                    )
+                request_body = _build_confluence_v2_update_page_request(
+                    page_id=page_id,
+                    space_id=space_id,
+                    title=title,
+                    content=markdown_body,
+                    parent_id=parent_id or None,
+                    next_version=current_version + 1,
+                )
+                try:
+                    result_payload = await _update_confluence_v2_page(
+                        confluence_session,
+                        wiki_base_url,
+                        page_id=page_id,
+                        request_body=request_body,
+                    )
+                except Exception as update_err:
+                    # If version conflicts / required version issues happen,
+                    # re-fetch the current version and retry once.
+                    page_payload = await _get_confluence_v2_page(
+                        confluence_session,
+                        wiki_base_url,
+                        page_id=page_id,
+                    )
+                    retry_version = _extract_confluence_version_number(page_payload)
+                    if retry_version is None:
+                        raise update_err
+                    retry_body = _build_confluence_v2_update_page_request(
+                        page_id=page_id,
+                        space_id=space_id,
+                        title=title,
+                        content=markdown_body,
+                        parent_id=parent_id or None,
+                        next_version=retry_version + 1,
+                    )
+                    result_payload = await _update_confluence_v2_page(
+                        confluence_session,
+                        wiki_base_url,
+                        page_id=page_id,
+                        request_body=retry_body,
+                    )
+                published_action = "Updated"
+            else:
+                request_body = _build_confluence_v2_create_page_request(
+                    space_id=space_id,
+                    title=title,
+                    content=markdown_body,
+                    parent_id=parent_id or None,
+                )
+                try:
+                    result_payload = await _create_confluence_v2_page(
+                        confluence_session,
+                        wiki_base_url,
+                        request_body=request_body,
+                    )
+                    published_action = "Published"
+                except Exception as create_err:
+                    # Race / eventual consistency safety: if the create failed because
+                    # the title already exists, re-search and update instead.
+                    create_err_text = getattr(create_err, "message", None) or str(
+                        create_err
+                    )
+                    if "status=409" not in create_err_text and "already exists" not in (
+                        create_err_text.lower()
+                    ):
+                        raise create_err
+                    try:
+                        existing_after = await _find_confluence_page_by_title(
+                            confluence_session,
+                            wiki_base_url,
+                            space_id=space_id,
+                            title=title,
+                        )
+                    except Exception:
+                        existing_after = None
+                    if existing_after and existing_after.get("id"):
+                        page_id = str(existing_after.get("id"))
+                        current_version = _extract_confluence_version_number(
+                            existing_after
+                        )
+                        if current_version is None:
+                            page_payload = await _get_confluence_v2_page(
+                                confluence_session,
+                                wiki_base_url,
+                                page_id=page_id,
+                            )
+                            current_version = _extract_confluence_version_number(
+                                page_payload
+                            )
+                        if current_version is None:
+                            raise RuntimeError(
+                                "Confluence page update failed: could not resolve current page version."
+                            )
+                        update_body = _build_confluence_v2_update_page_request(
+                            page_id=page_id,
+                            space_id=space_id,
+                            title=title,
+                            content=markdown_body,
+                            parent_id=parent_id or None,
+                            next_version=current_version + 1,
+                        )
+                        try:
+                            result_payload = await _update_confluence_v2_page(
+                                confluence_session,
+                                wiki_base_url,
+                                page_id=page_id,
+                                request_body=update_body,
+                            )
+                        except Exception as update_err:
+                            # If version conflicts / required version issues happen,
+                            # re-fetch the current version and retry once.
+                            page_payload = await _get_confluence_v2_page(
+                                confluence_session,
+                                wiki_base_url,
+                                page_id=page_id,
+                            )
+                            retry_version = _extract_confluence_version_number(
+                                page_payload
+                            )
+                            if retry_version is None:
+                                raise update_err
+                            retry_body = _build_confluence_v2_update_page_request(
+                                page_id=page_id,
+                                space_id=space_id,
+                                title=title,
+                                content=markdown_body,
+                                parent_id=parent_id or None,
+                                next_version=retry_version + 1,
+                            )
+                            result_payload = await _update_confluence_v2_page(
+                                confluence_session,
+                                wiki_base_url,
+                                page_id=page_id,
+                                request_body=retry_body,
+                            )
+                        existing = existing_after
+                        published_action = "Updated"
+                    else:
+                        raise create_err
+
+            page_id = str(
+                (result_payload or {}).get("id") or (existing or {}).get("id") or ""
+            ).strip()
+            page_url = _extract_confluence_page_url(result_payload or {})
+
+            if page_url:
+                await context.send_activity(
+                    f"{published_action} meeting notes to Confluence: {page_url}"
+                )
+            else:
+                await context.send_activity(
+                    f"{published_action} meeting notes to Confluence."
+                )
+
+            if transcript and str(transcript).strip() and page_id:
+                try:
+                    await _attach_confluence_transcript(
+                        confluence_session,
+                        wiki_base_url,
+                        page_id=page_id,
+                        title=title,
+                        transcript=str(transcript),
+                        job_id=job_id,
+                    )
+                except Exception as err:
+                    logger.exception(
+                        "[teams note-taker] failed to attach transcript to Confluence page_id=%s",
+                        page_id,
+                    )
+                    await context.send_activity(
+                        "Meeting notes were published to Confluence, but attaching the transcript failed: "
+                        f"{getattr(err, 'message', str(err))}"
+                    )
     except Exception as err:
         logger.exception(
-            "[teams note-taker] failed to publish Confluence page via API tool=%s server=%s",
+            "[teams note-taker] failed to publish Confluence page (server=%s tool=%s)",
             api_tool_system_name,
             api_server_system_name,
         )
@@ -151,30 +357,6 @@ async def maybe_publish_confluence_notes(
             f"Failed to publish meeting notes to Confluence: {getattr(err, 'message', str(err))}"
         )
         return
-
-    if getattr(result, "status_code", 0) >= 400:
-        status = getattr(result, "status_code", None)
-        error_summary = _api_tool_error_summary(result)
-        await _maybe_send_debug(
-            send_expandable_section,
-            context,
-            title="Confluence response details",
-            payload=_api_tool_result_debug_details(result),
-        )
-        await context.send_activity(
-            "Failed to publish meeting notes to Confluence: "
-            f"API tool returned status {status if status is not None else 'n/a'}"
-            + (f" ({error_summary})." if error_summary else ".")
-        )
-        return
-
-    page_url = _extract_confluence_page_url(getattr(result, "content", "") or "")
-    if page_url:
-        await context.send_activity(
-            f"Published meeting notes to Confluence: {page_url}"
-        )
-    else:
-        await context.send_activity("Published meeting notes to Confluence.")
 
 
 async def _maybe_send_debug(
@@ -445,6 +627,26 @@ def _build_confluence_v2_create_page_request(
     return body
 
 
+def _build_confluence_v2_update_page_request(
+    *,
+    page_id: str,
+    space_id: str,
+    title: str,
+    content: str,
+    parent_id: str | None,
+    next_version: int,
+) -> dict[str, Any]:
+    body = _build_confluence_v2_create_page_request(
+        space_id=space_id,
+        title=title,
+        content=content,
+        parent_id=parent_id,
+    )
+    body["id"] = str(page_id)
+    body["version"] = {"number": int(next_version)}
+    return body
+
+
 def _hash_text_sha256(text: str) -> str:
     try:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -566,3 +768,304 @@ def _api_tool_error_summary(result: Any, *, limit: int = 220) -> str | None:
         return _clean(json.dumps(payload, ensure_ascii=False))
 
     return _clean(content)
+
+
+async def _create_confluence_http_session(
+    api_server_system_name: str,
+) -> tuple[str, aiohttp.ClientSession]:
+    async with alchemy.get_session() as session:
+        api_servers_service = ApiServersService(session=session)
+        api_server_schema = await api_servers_service.get_with_secrets_by_system_name(
+            api_server_system_name
+        )
+
+    base_url = str(getattr(api_server_schema, "url", "") or "").strip()
+    if not base_url:
+        raise ValueError(
+            f"Confluence API server url is empty ({api_server_system_name})."
+        )
+
+    wiki_base_url = _normalize_confluence_wiki_base_url(base_url)
+
+    server_config = ApiServerConfigWithSecrets(
+        name=api_server_schema.name,
+        system_name=api_server_schema.system_name,
+        url=api_server_schema.url,
+        custom_headers=api_server_schema.custom_headers,
+        security_scheme=api_server_schema.security_scheme,
+        security_values=api_server_schema.security_values,
+        verify_ssl=api_server_schema.verify_ssl,
+        tools=None,
+        secrets=api_server_schema.secrets_encrypted,
+    )
+    client_session = await create_api_client_session(server_config)
+    return wiki_base_url, client_session
+
+
+def _normalize_confluence_wiki_base_url(url: str) -> str:
+    """
+    Normalize Confluence base URL to the `/wiki` root.
+
+    The stored API server URL may be configured as:
+    - https://<site>.atlassian.net
+    - https://<site>.atlassian.net/wiki
+    - https://<site>.atlassian.net/wiki/api/v2
+    - https://<site>.atlassian.net/wiki/rest/api
+    This helper normalizes all of the above to https://<site>.atlassian.net/wiki
+    so we can reliably build `/api/v2/...` and `/rest/api/...` paths.
+    """
+    base = str(url or "").strip()
+    if not base:
+        return ""
+    base = base.rstrip("/")
+    marker = "/wiki"
+    idx = base.find(marker)
+    if idx >= 0:
+        return base[: idx + len(marker)]
+    return f"{base}{marker}"
+
+
+def _safe_parse_json(text: str) -> dict[str, Any] | list[Any] | None:
+    if not isinstance(text, str) or not text.strip():
+        return None
+    try:
+        return json.loads(text)
+    except Exception:
+        return None
+
+
+async def _find_confluence_page_by_title(
+    session: aiohttp.ClientSession,
+    wiki_base_url: str,
+    *,
+    space_id: str,
+    title: str,
+) -> dict[str, Any] | None:
+    url = f"{wiki_base_url}/api/v2/pages"
+    params = {
+        "space-id": str(space_id),
+        "title": title,
+        "status": "current",
+        "limit": "5",
+    }
+    async with session.get(url, params=params) as resp:
+        body_text = await resp.text()
+        if resp.status == 404:
+            # Some Confluence setups / proxies may not expose the search endpoint.
+            # Treat as "not found" and let the caller proceed with create.
+            return None
+        if resp.status >= 400:
+            raise RuntimeError(
+                f"Confluence page search failed (status={resp.status}): {_safe_truncate(body_text, 400)}"
+            )
+
+    payload = _safe_parse_json(body_text)
+    if not isinstance(payload, dict):
+        return None
+
+    results = payload.get("results")
+    if not isinstance(results, list) or not results:
+        return None
+
+    # Confluence should enforce title uniqueness within a space. If it doesn't,
+    # take the first exact title match, otherwise the first result.
+    for item in results:
+        if isinstance(item, dict) and str(item.get("title") or "") == title:
+            return item
+    return results[0] if isinstance(results[0], dict) else None
+
+
+async def _get_confluence_v2_page(
+    session: aiohttp.ClientSession,
+    wiki_base_url: str,
+    *,
+    page_id: str,
+) -> dict[str, Any]:
+    url = f"{wiki_base_url}/api/v2/pages/{page_id}"
+    async with session.get(url) as resp:
+        body_text = await resp.text()
+        if resp.status >= 400:
+            raise RuntimeError(
+                f"Confluence page get failed (status={resp.status}): {_safe_truncate(body_text, 400)}"
+            )
+    payload = _safe_parse_json(body_text)
+    return payload if isinstance(payload, dict) else {}
+
+
+def _extract_confluence_version_number(payload: dict[str, Any] | None) -> int | None:
+    if not isinstance(payload, dict):
+        return None
+    version = payload.get("version")
+    if isinstance(version, dict):
+        raw = version.get("number") or version.get("Number")
+        try:
+            num = int(raw)
+            return num if num > 0 else None
+        except Exception:
+            return None
+    return None
+
+
+async def _create_confluence_v2_page(
+    session: aiohttp.ClientSession,
+    wiki_base_url: str,
+    *,
+    request_body: dict[str, Any],
+) -> dict[str, Any]:
+    url = f"{wiki_base_url}/api/v2/pages"
+    async with session.post(url, json=request_body) as resp:
+        body_text = await resp.text()
+        if resp.status == 409:
+            raise RuntimeError(
+                f"Confluence page already exists (status=409): {_safe_truncate(body_text, 400)}"
+            )
+        if resp.status >= 400:
+            raise RuntimeError(
+                f"Confluence page create failed (status={resp.status}): {_safe_truncate(body_text, 400)}"
+            )
+    payload = _safe_parse_json(body_text)
+    if isinstance(payload, dict):
+        return payload
+    return {}
+
+
+async def _update_confluence_v2_page(
+    session: aiohttp.ClientSession,
+    wiki_base_url: str,
+    *,
+    page_id: str,
+    request_body: dict[str, Any],
+) -> dict[str, Any]:
+    url = f"{wiki_base_url}/api/v2/pages/{page_id}"
+    async with session.put(url, json=request_body) as resp:
+        body_text = await resp.text()
+        if resp.status >= 400:
+            raise RuntimeError(
+                f"Confluence page update failed (status={resp.status}): {_safe_truncate(body_text, 400)}"
+            )
+    payload = _safe_parse_json(body_text)
+    if isinstance(payload, dict):
+        return payload
+    return {}
+
+
+async def _attach_confluence_transcript(
+    session: aiohttp.ClientSession,
+    wiki_base_url: str,
+    *,
+    page_id: str,
+    title: str,
+    transcript: str,
+    job_id: str | None,
+) -> None:
+    url = f"{wiki_base_url}/rest/api/content/{page_id}/child/attachment"
+    safe_job_id = str(job_id or "").strip() or "n-a"
+    page_version = None
+    try:
+        page_payload = await _get_confluence_v2_page(
+            session, wiki_base_url, page_id=str(page_id)
+        )
+        page_version = _extract_confluence_version_number(page_payload)
+    except Exception:
+        page_version = None
+
+    version_part = f"v{page_version}" if isinstance(page_version, int) else "vna"
+    filename = f"transcript-{version_part}-{safe_job_id}.txt"
+    transcript_text = transcript.rstrip() + "\n"
+    payload_bytes = transcript_text.encode("utf-8", errors="replace")
+
+    comment = f"Transcript uploaded by Teams Note Taker (job={job_id or 'n/a'}, title={title})."
+
+    async def _post_form(
+        form: aiohttp.FormData,
+        *,
+        query_params: dict[str, str] | None = None,
+    ) -> None:
+        # Some API server configs include a default `Content-Type` header (e.g. application/json).
+        # That breaks multipart parsing on Confluence side. Explicitly set boundary content type.
+        multipart = form()
+        headers = {
+            "X-Atlassian-Token": "no-check",
+            "Content-Type": getattr(multipart, "content_type", "multipart/form-data"),
+        }
+        async with session.post(
+            url, data=multipart, headers=headers, params=query_params
+        ) as resp:
+            body_text = await resp.text()
+            if resp.status >= 400:
+                raise RuntimeError(
+                    f"Confluence attachment upload failed (status={resp.status}): {_safe_truncate(body_text, 400)}"
+                )
+
+    # Attempt 1: standard Confluence multipart (file + comment).
+    try:
+        form = aiohttp.FormData()
+        form.add_field(
+            "file",
+            payload_bytes,
+            filename=filename,
+            content_type="text/plain; charset=utf-8",
+        )
+        form.add_field("comment", comment)
+        await _post_form(form)
+        return
+    except Exception as err:
+        message = getattr(err, "message", None) or str(err)
+        if (
+            "Cannot add a new attachment with same file name as an existing attachment"
+            in message
+        ):
+            # Should be unlikely with job_id-based filenames, but handle gracefully.
+            alt_filename = f"{filename.rsplit('.', 1)[0]}-{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d-%H%M%S')}.txt"
+            form = aiohttp.FormData()
+            form.add_field(
+                "file",
+                payload_bytes,
+                filename=alt_filename,
+                content_type="text/plain; charset=utf-8",
+            )
+            form.add_field("comment", comment)
+            await _post_form(form)
+            return
+        if "Must be same number of attachment files and comments" not in message:
+            raise
+
+    # Attempt 2: omit comment (some Confluence variants/proxies are picky about comment parsing).
+    try:
+        form = aiohttp.FormData()
+        form.add_field(
+            "file",
+            payload_bytes,
+            filename=filename,
+            content_type="text/plain; charset=utf-8",
+        )
+        await _post_form(form)
+        return
+    except Exception as err:
+        message = getattr(err, "message", None) or str(err)
+        if (
+            "Cannot add a new attachment with same file name as an existing attachment"
+            in message
+        ):
+            alt_filename = f"{filename.rsplit('.', 1)[0]}-{dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d-%H%M%S')}.txt"
+            form = aiohttp.FormData()
+            form.add_field(
+                "file",
+                payload_bytes,
+                filename=alt_filename,
+                content_type="text/plain; charset=utf-8",
+            )
+            await _post_form(form)
+            return
+        if "Must be same number of attachment files and comments" not in message:
+            raise
+
+    # Attempt 3: send comment via query string instead of multipart field.
+    form = aiohttp.FormData()
+    form.add_field(
+        "file",
+        payload_bytes,
+        filename=filename,
+        content_type="text/plain; charset=utf-8",
+    )
+    await _post_form(form, query_params={"comment": comment})
