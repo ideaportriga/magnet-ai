@@ -220,6 +220,31 @@ async def _execute_transcription_prompt_templates(
     )
 
 
+@observe(
+    name="Post-process transcription",
+    channel="production",
+    source="Runtime API",
+)
+async def _post_process_transcription(
+    *,
+    template_system_name: str,
+    transcription: str,
+    participants: list[str],
+    invited_people: list[dict[str, str]] | None,
+    conversation_date: str | None,
+) -> Any:
+    return await execute_prompt_template(
+        system_name_or_config=template_system_name,
+        template_values={
+            "transcription": transcription,
+            "participants": participants,
+            "invited_people": invited_people or [],
+            "language": "the same as the transcription",
+            "conversation_date": conversation_date or "",
+        },
+    )
+
+
 async def _send_transcription_summary(
     context: TurnContext,
     *,
@@ -287,123 +312,161 @@ async def _send_transcription_summary(
             f"Transcription completed (job={job_id or 'n/a'}, segments={segs_count}{duration_part})."
         )
 
-        if full_text:
-            max_chars = 4000
-            snippet = full_text[:max_chars]
-            suffix = "..." if len(full_text) > len(snippet) else ""
-            await send_expandable_section(
-                context,
-                title="Transcript",
-                content=f"{snippet}{suffix}",
-                preserve_newlines=True,
-            )
-        elif segs_count == 0:
+        if not full_text and segs_count == 0:
             await context.send_activity("No speech was detected in this recording.")
 
-        if full_text:
+        if not full_text:
+            return
+
+        try:
+            settings = (
+                await load_settings_by_system_name(settings_system_name)
+                if settings_system_name
+                else await load_settings_for_context(context)
+            )
+        except Exception as err:
+            logger.warning(
+                "Skipping summaries/embedding: cannot load note taker settings: %s",
+                getattr(err, "message", str(err)),
+            )
+            settings = None
+
+        if invited_people is None:
             try:
-                settings = (
-                    await load_settings_by_system_name(settings_system_name)
-                    if settings_system_name
-                    else await load_settings_for_context(context)
-                )
+                invited_people = await get_invited_people(context)
             except Exception as err:
-                logger.warning(
-                    "Skipping summaries/embedding: cannot load note taker settings: %s",
+                logger.debug(
+                    "Failed to load invited people: %s",
                     getattr(err, "message", str(err)),
                 )
-                return
+                invited_people = []
 
-            if keyterms is None:
-                base_keyterms = (
-                    parse_keyterms_list(settings.get("keyterms"))
-                    if isinstance(settings, dict)
-                    else []
-                )
-                if invited_people is None:
-                    try:
-                        invited_people = await get_invited_people(context)
-                    except Exception as err:
-                        logger.debug(
-                            "Failed to load invited people for keyterms: %s",
-                            getattr(err, "message", str(err)),
+        post_cfg = (
+            settings.get("post_transcription") if isinstance(settings, dict) else None
+        )
+        if isinstance(post_cfg, dict) and post_cfg.get("enabled"):
+            template_system_name = str(post_cfg.get("prompt_template") or "").strip()
+            if template_system_name:
+                try:
+                    result = await _post_process_transcription(
+                        template_system_name=template_system_name,
+                        transcription=full_text,
+                        participants=participants,
+                        invited_people=invited_people,
+                        conversation_date=conversation_date,
+                    )
+                    content = getattr(result, "content", None)
+                    if content is None:
+                        content = str(result)
+                    processed = str(content or "").strip()
+                    if processed:
+                        full_text = processed
+                        await context.send_activity(
+                            "Post-transcription processing applied."
                         )
-                        invited_people = []
-                keyterms = merge_unique_strings(
-                    base_keyterms,
-                    invited_people_to_names(invited_people),
-                )
-
-            # keyterms_display = keyterms_to_display(keyterms) or None
-
-            templates: list[tuple[str, str, str]] = []
-            for key, title in (
-                ("summary", "Summary"),
-                ("chapters", "Chapters"),
-                ("insights", "Insights"),
-            ):
-                section = settings.get(key) if isinstance(settings, dict) else None
-                if not isinstance(section, dict):
-                    continue
-                if not section.get("enabled"):
-                    continue
-                template_name = str(section.get("prompt_template") or "").strip()
-                if template_name:
-                    templates.append((template_name, title, key))
-
-            if not templates:
-                return
-
-            results = await _execute_transcription_prompt_templates(
-                [system_name for system_name, _, _ in templates],
-                transcription=full_text,
-                participants=participants,
-                conversation_date=conversation_date,
-            )
-
-            knowledge_graph_sections: dict[str, str] = {}
-            for (system_name, title, key), result in zip(templates, results):
-                if isinstance(result, Exception):
-                    err_msg = _format_prompt_template_error(result)
+                except Exception as err:
+                    err_msg = _format_prompt_template_error(err)
                     logger.warning(
-                        "Prompt template %s failed for transcription job %s: %s",
-                        system_name,
+                        "Post-transcription template %s failed for job %s: %s",
+                        template_system_name,
                         job_id,
                         err_msg,
                     )
-                    await context.send_activity(f"{title} generation failed: {err_msg}")
-                    continue
+                    await context.send_activity(
+                        f"Post-transcription processing failed: {err_msg}"
+                    )
 
-                content = getattr(result, "content", None)
-                if content is None:
-                    content = str(result)
-                knowledge_graph_sections[key] = str(content)
-                await send_expandable_section(
-                    context,
-                    title=f"Meeting {title.lower()}",
-                    content=str(content),
-                )
+        max_chars = 4000
+        snippet = full_text[:max_chars]
+        suffix = "..." if len(full_text) > len(snippet) else ""
+        await send_expandable_section(
+            context,
+            title="Transcript",
+            content=f"{snippet}{suffix}",
+            preserve_newlines=True,
+        )
 
-            confluence_sections = {
-                key: knowledge_graph_sections[key]
-                for key in ("summary", "chapters")
-                if key in knowledge_graph_sections
-            }
-            if confluence_sections:
-                await maybe_publish_confluence_notes(
-                    context,
-                    settings=settings,
-                    job_id=job_id,
-                    meeting_context=meeting_context or resolve_meeting_details(context),
-                    participants=participants,
-                    conversation_date=conversation_date,
-                    conversation_time=conversation_time,
-                    duration=duration_str,
-                    sections=confluence_sections,
-                    keyterms=keyterms,
-                    invited_people=invited_people,
-                    send_expandable_section=send_expandable_section,
+        if not isinstance(settings, dict):
+            return
+
+        if keyterms is None:
+            base_keyterms = parse_keyterms_list(settings.get("keyterms"))
+            keyterms = merge_unique_strings(
+                base_keyterms,
+                invited_people_to_names(invited_people),
+            )
+
+        # keyterms_display = keyterms_to_display(keyterms) or None
+
+        templates: list[tuple[str, str, str]] = []
+        for key, title in (
+            ("summary", "Summary"),
+            ("chapters", "Chapters"),
+            ("insights", "Insights"),
+        ):
+            section = settings.get(key)
+            if not isinstance(section, dict):
+                continue
+            if not section.get("enabled"):
+                continue
+            template_name = str(section.get("prompt_template") or "").strip()
+            if template_name:
+                templates.append((template_name, title, key))
+
+        if not templates:
+            return
+
+        results = await _execute_transcription_prompt_templates(
+            [system_name for system_name, _, _ in templates],
+            transcription=full_text,
+            participants=participants,
+            conversation_date=conversation_date,
+        )
+
+        knowledge_graph_sections: dict[str, str] = {}
+        for (system_name, title, key), result in zip(templates, results):
+            if isinstance(result, Exception):
+                err_msg = _format_prompt_template_error(result)
+                logger.warning(
+                    "Prompt template %s failed for transcription job %s: %s",
+                    system_name,
+                    job_id,
+                    err_msg,
                 )
+                await context.send_activity(f"{title} generation failed: {err_msg}")
+                continue
+
+            content = getattr(result, "content", None)
+            if content is None:
+                content = str(result)
+            knowledge_graph_sections[key] = str(content)
+            await send_expandable_section(
+                context,
+                title=f"Meeting {title.lower()}",
+                content=str(content),
+            )
+
+        confluence_sections = {
+            key: knowledge_graph_sections[key]
+            for key in ("summary", "chapters")
+            if key in knowledge_graph_sections
+        }
+        if confluence_sections:
+            await maybe_publish_confluence_notes(
+                context,
+                settings=settings,
+                job_id=job_id,
+                meeting_context=meeting_context or resolve_meeting_details(context),
+                participants=participants,
+                conversation_date=conversation_date,
+                conversation_time=conversation_time,
+                duration=duration_str,
+                sections=confluence_sections,
+                transcript=full_text,
+                keyterms=keyterms,
+                invited_people=invited_people,
+                send_expandable_section=send_expandable_section,
+            )
 
             knowledge_graph_name = str(
                 settings.get("knowledge_graph_system_name") or ""
