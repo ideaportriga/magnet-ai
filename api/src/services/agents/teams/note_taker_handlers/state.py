@@ -5,8 +5,10 @@ from dataclasses import dataclass
 from logging import getLogger
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
+from sqlalchemy import select, update, func
+import json
 
-from microsoft_agents.activity import Activity, Attachment
+from microsoft_agents.activity import Activity, Attachment, ConversationReference
 from microsoft_agents.hosting.aiohttp import CloudAdapter
 from microsoft_agents.hosting.core import AgentApplication, TurnContext, TurnState
 from microsoft_agents.hosting.teams import TeamsInfo
@@ -14,6 +16,45 @@ from microsoft_agents.hosting.teams import TeamsInfo
 from .. import note_taker_store
 from ..note_taker_meeting import ensure_meeting_title
 from ..teams_user_store import normalize_bot_id
+
+from core.db.session import async_session_maker
+from core.db.models.teams import TeamsMeeting
+from core.db.models.teams.note_taker_settings import (
+    NoteTakerSettings as NoteTakerSettingsModel,
+)
+from ..note_taker_salesforce import (
+    config_requires_salesforce as sf_config_requires_salesforce,
+    account_lookup,
+    get_salesforce_api_server,
+    pick_first_account_id_and_name,
+    update_meeting_salesforce_account,
+)
+from ..note_taker_files import _download_file_from_link
+from ..note_taker_cards import (
+    create_note_taker_welcome_card,
+    create_note_taker_config_picker_card,
+)
+from ..graph import (
+    create_graph_client_with_token,
+    get_meeting_recordings,
+    get_recording_by_id,
+    get_recording_file_size,
+    list_subscriptions,
+    pick_recordings_ready_subscription,
+    create_and_persist_recordings_ready_subscription,
+    resolve_recordings_lifecycle_webhook_url,
+    resolve_recordings_ready_webhook_url,
+)
+from ..note_taker_utils import (
+    _format_recording_date_iso,
+    _format_recording_datetime_utc_label,
+    _build_recording_filename,
+    _format_duration,
+    _format_file_size,
+    _format_recording_datetime,
+    _format_iso_datetime,
+)
+from ..note_taker_transcription import run_transcription_pipeline
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +86,28 @@ class NoteTakerHandlerState:
     def __init__(self, deps: NoteTakerHandlerDeps) -> None:
         self.deps = deps
         self._logger = getLogger(__name__)
+
+    async def _load_config_picker_metadata(
+        self, config_system_name: str | None
+    ) -> tuple[bool, str]:
+        """
+        Resolve optional flags for the /config card (salesforce-enabled + keyterms).
+        """
+        system_name = str(config_system_name or "").strip()
+        if not system_name:
+            return False, ""
+        try:
+            settings = await self.deps.load_settings_by_system_name(system_name)
+            salesforce_enabled = sf_config_requires_salesforce(settings)
+            keyterms = str(settings.get("keyterms") or "")
+            return salesforce_enabled, keyterms
+        except Exception:
+            return False, ""
+
+    async def _maybe_send_typing(self, context: TurnContext, enabled: bool) -> None:
+        if not enabled:
+            return
+        await self.deps.send_typing(context)
 
     async def on_sign_in_success(
         self,
@@ -95,8 +158,6 @@ class NoteTakerHandlerState:
         await self._handle_event(context, turn_state)
 
     async def _send_welcome_card(self, context: TurnContext) -> None:
-        from ..note_taker_cards import create_note_taker_welcome_card
-
         bot_name = getattr(
             getattr(getattr(context, "activity", None), "recipient", None),
             "name",
@@ -130,12 +191,6 @@ class NoteTakerHandlerState:
         recordings: list,
         token: str,
     ) -> None:
-        from ..note_taker_utils import (
-            _format_duration,
-            _format_file_size,
-            _format_recording_datetime,
-        )
-
         if not recordings:
             await context.send_activity("No recordings found.")
             return
@@ -377,8 +432,6 @@ class NoteTakerHandlerState:
         job_id: str,
         conversation_date: str | None = None,
     ) -> None:
-        from ..note_taker_transcription import run_transcription_pipeline
-
         await run_transcription_pipeline(
             context,
             kind="job",
@@ -393,16 +446,6 @@ class NoteTakerHandlerState:
         )
 
     async def _handle_note_taker_config_set_picker(self, context: TurnContext) -> None:
-        from sqlalchemy import select
-        from core.db.session import async_session_maker
-        from core.db.models.teams.note_taker_settings import (
-            NoteTakerSettings as NoteTakerSettingsModel,
-        )
-        from ..note_taker_cards import create_note_taker_config_picker_card
-        from ..note_taker_salesforce import (
-            config_requires_salesforce as sf_config_requires_salesforce,
-        )
-
         if not self.deps.is_meeting_conversation(context):
             await context.send_activity("This command works only in meeting chats.")
             return
@@ -417,15 +460,9 @@ class NoteTakerHandlerState:
             current_system_name,
         ) = await note_taker_store.get_meeting_account_info(context, meeting_id)
 
-        salesforce_enabled = False
-        if current_system_name:
-            try:
-                settings = await self.deps.load_settings_by_system_name(
-                    current_system_name
-                )
-                salesforce_enabled = sf_config_requires_salesforce(settings)
-            except Exception:
-                salesforce_enabled = False
+        salesforce_enabled, current_keyterms = await self._load_config_picker_metadata(
+            current_system_name
+        )
 
         try:
             async with async_session_maker() as session:
@@ -454,6 +491,7 @@ class NoteTakerHandlerState:
             rows,
             current_system_name=current_system_name,
             current_account_name=current_account_name,
+            current_keyterms=current_keyterms,
             salesforce_enabled=salesforce_enabled,
         )
         attachment = Attachment(
@@ -469,16 +507,6 @@ class NoteTakerHandlerState:
         *,
         selected_system_name: str,
     ) -> None:
-        from sqlalchemy import select
-        from core.db.session import async_session_maker
-        from core.db.models.teams.note_taker_settings import (
-            NoteTakerSettings as NoteTakerSettingsModel,
-        )
-        from ..note_taker_cards import create_note_taker_config_picker_card
-        from ..note_taker_salesforce import (
-            config_requires_salesforce as sf_config_requires_salesforce,
-        )
-
         try:
             async with async_session_maker() as session:
                 stmt = select(
@@ -506,19 +534,15 @@ class NoteTakerHandlerState:
             _current_system_name,
         ) = await note_taker_store.get_meeting_account_info(context, meeting_id)
 
-        salesforce_enabled = False
-        try:
-            settings = await self.deps.load_settings_by_system_name(
-                selected_system_name
-            )
-            salesforce_enabled = sf_config_requires_salesforce(settings)
-        except Exception:
-            salesforce_enabled = False
+        salesforce_enabled, current_keyterms = await self._load_config_picker_metadata(
+            selected_system_name
+        )
 
         card = create_note_taker_config_picker_card(
             rows,
             current_system_name=selected_system_name,
             current_account_name=current_account_name,
+            current_keyterms=current_keyterms,
             salesforce_enabled=salesforce_enabled,
         )
         attachment = Attachment(
@@ -549,16 +573,9 @@ class NoteTakerHandlerState:
             self._logger.debug("Failed to send refreshed config picker card: %s", err)
 
     async def _handle_note_taker_config_set(
-        self, context: TurnContext, config_system_name: str
-    ) -> None:
-        from sqlalchemy import select, update, func
-        from core.db.session import async_session_maker
-        from core.db.models.teams import TeamsMeeting
-        from core.db.models.teams.note_taker_settings import (
-            NoteTakerSettings as NoteTakerSettingsModel,
-        )
-
-        await self.deps.send_typing(context)
+        self, context: TurnContext, config_system_name: str, *, show_typing: bool = True
+    ) -> bool:
+        await self._maybe_send_typing(context, show_typing)
 
         try:
             async with async_session_maker() as session:
@@ -573,11 +590,11 @@ class NoteTakerHandlerState:
             await context.send_activity(
                 f"Failed to resolve note taker config: {getattr(err, 'message', str(err))}"
             )
-            return
+            return False
 
         if config_row is None:
             await context.send_activity("Note taker config not found.")
-            return
+            return False
 
         meeting_context = self.deps.resolve_meeting_details(context)
         chat_id = meeting_context.get("conversationId")
@@ -587,7 +604,7 @@ class NoteTakerHandlerState:
             await context.send_activity(
                 "Could not resolve chat or bot id for this conversation."
             )
-            return
+            return False
 
         now = dt.datetime.now(dt.timezone.utc)
         stmt = (
@@ -617,22 +634,67 @@ class NoteTakerHandlerState:
             await context.send_activity(
                 f"Failed to save note taker config for this meeting: {getattr(err, 'message', str(err))}"
             )
-            return
+            return False
 
         if getattr(result, "rowcount", 0) == 0:
             await context.send_activity("I couldn't find a meeting record to update.")
+            return False
+
+        return True
+
+    async def _handle_note_taker_keyterms_set(
+        self,
+        context: TurnContext,
+        *,
+        config_system_name: str,
+        keyterms: str,
+        show_typing: bool = True,
+        notify_user: bool = True,
+    ) -> None:
+        config_system_name = str(config_system_name or "").strip()
+        if not config_system_name:
+            await context.send_activity("Please pick a valid config.")
             return
 
-    async def _handle_sf_account_set(
-        self, context: TurnContext, account_name: str
-    ) -> None:
-        from ..note_taker_salesforce import (
-            account_lookup,
-            get_salesforce_api_server,
-            pick_first_account_id_and_name,
-            update_meeting_salesforce_account,
-        )
+        await self._maybe_send_typing(context, show_typing)
 
+        try:
+            async with async_session_maker() as session:
+                stmt = select(NoteTakerSettingsModel).where(
+                    NoteTakerSettingsModel.system_name == config_system_name
+                )
+                config_row = (await session.execute(stmt)).scalars().first()
+                if config_row is None:
+                    await context.send_activity("Note taker config not found.")
+                    return
+
+                raw_config = config_row.config
+                if isinstance(raw_config, str):
+                    try:
+                        raw_config = json.loads(raw_config)
+                    except Exception:
+                        raw_config = None
+
+                config = dict(raw_config) if isinstance(raw_config, dict) else {}
+                config["keyterms"] = str(keyterms or "").strip()
+                config_row.config = config
+                await session.commit()
+        except Exception as err:
+            self._logger.exception(
+                "Failed to update keyterms for note taker config %s",
+                config_system_name,
+            )
+            await context.send_activity(
+                f"Failed to save keyterms: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if notify_user:
+            await context.send_activity("Keyterms saved.")
+
+    async def _handle_sf_account_set(
+        self, context: TurnContext, account_name: str, *, show_typing: bool = True
+    ) -> None:
         if not account_name:
             await context.send_activity("Usage: /sf-account-set ACCOUNT_NAME")
             return
@@ -641,7 +703,7 @@ class NoteTakerHandlerState:
             await context.send_activity("This command works only in meeting chats.")
             return
 
-        await self.deps.send_typing(context)
+        await self._maybe_send_typing(context, show_typing)
 
         try:
             settings = await self.deps.load_settings_for_context(context)
@@ -711,17 +773,6 @@ class NoteTakerHandlerState:
         delegated_token: str | None = None,
         transcribe_latest: bool = False,
     ) -> None:
-        from ..graph import (
-            create_graph_client_with_token,
-            get_meeting_recordings,
-            get_recording_file_size,
-        )
-        from ..note_taker_utils import (
-            _format_recording_date_iso,
-            _format_recording_datetime_utc_label,
-        )
-        from ..note_taker_utils import _build_recording_filename
-
         meeting = meeting or self.deps.resolve_meeting_details(context)
         online_meeting_id: str | None = None
         if recordings is None:
@@ -839,17 +890,6 @@ class NoteTakerHandlerState:
         turn_state: Optional[TurnState],
         recording_id: str,
     ) -> None:
-        from ..graph import (
-            create_graph_client_with_token,
-            get_recording_by_id,
-            get_recording_file_size,
-        )
-        from ..note_taker_utils import (
-            _format_recording_date_iso,
-            _format_recording_datetime_utc_label,
-        )
-        from ..note_taker_utils import _build_recording_filename
-
         meeting = self.deps.resolve_meeting_details(context)
         if not (meeting.get("id") or meeting.get("conversationId")):
             self._logger.warning("No meeting id found for process-recording command.")
@@ -944,8 +984,6 @@ class NoteTakerHandlerState:
         turn_state: Optional[TurnState],
         link: str,
     ) -> None:
-        from ..note_taker_files import _download_file_from_link
-
         meeting = self.deps.resolve_meeting_details(context)
         token = None
         if self.deps.is_meeting_conversation(context):
@@ -1033,13 +1071,6 @@ class NoteTakerHandlerState:
     async def _get_recordings_ready_subscription_status(
         self, context: TurnContext, online_meeting_id: str | None
     ) -> str:
-        from ..graph import (
-            create_graph_client_with_token,
-            list_subscriptions,
-            pick_recordings_ready_subscription,
-        )
-        from ..note_taker_utils import _format_iso_datetime
-
         if not online_meeting_id:
             return "unknown (missing online meeting id)"
 
@@ -1084,8 +1115,6 @@ class NoteTakerHandlerState:
         context: TurnContext,
         state: Optional[TurnState],
     ) -> None:
-        from ..note_taker_utils import _format_iso_datetime
-
         meeting_context = self.deps.resolve_meeting_details(context)
         meeting_id = meeting_context.get("id")
         if not meeting_id:
@@ -1217,27 +1246,58 @@ class NoteTakerHandlerState:
                     if not allowed:
                         return
                 account_name = (submit_value.get("account_name") or "").strip()
-                salesforce_enabled = False
-                try:
-                    from ..note_taker_salesforce import (
-                        config_requires_salesforce as sf_config_requires_salesforce,
-                    )
+                salesforce_enabled, _ = await self._load_config_picker_metadata(
+                    config_system_name
+                )
 
-                    settings = await self.deps.load_settings_by_system_name(
-                        config_system_name
-                    )
-                    salesforce_enabled = sf_config_requires_salesforce(settings)
-                except Exception:
-                    salesforce_enabled = False
-
-                await self._handle_note_taker_config_set(context, config_system_name)
+                ok = await self._handle_note_taker_config_set(
+                    context, config_system_name, show_typing=False
+                )
+                if not ok:
+                    return
                 if salesforce_enabled and account_name:
                     try:
-                        await self._handle_sf_account_set(context, account_name)
+                        await self._handle_sf_account_set(
+                            context, account_name, show_typing=False
+                        )
                     except Exception:
                         self._logger.exception(
                             "Failed to save Salesforce account from config picker."
                         )
+                keyterms = str(submit_value.get("keyterms") or "")
+                await self._handle_note_taker_keyterms_set(
+                    context,
+                    config_system_name=config_system_name,
+                    keyterms=keyterms,
+                    show_typing=False,
+                    notify_user=False,
+                )
+                await self._refresh_note_taker_config_picker_card(
+                    context, selected_system_name=config_system_name
+                )
+                return
+
+            if magnet_action == "note_taker_keyterms_set":
+                config_system_name = (
+                    submit_value.get("config_system_name") or ""
+                ).strip()
+                if not config_system_name:
+                    await context.send_activity("Please pick a valid config.")
+                    return
+                if self.deps.is_meeting_conversation(context):
+                    allowed = await self._ensure_meeting_organizer_and_signed_in(
+                        context, self.deps.auth_handler_id
+                    )
+                    if not allowed:
+                        return
+                keyterms = str(submit_value.get("keyterms") or "")
+                await self._handle_note_taker_keyterms_set(
+                    context,
+                    config_system_name=config_system_name,
+                    keyterms=keyterms,
+                    show_typing=False,
+                    notify_user=True,
+                )
                 await self._refresh_note_taker_config_picker_card(
                     context, selected_system_name=config_system_name
                 )
@@ -1376,8 +1436,6 @@ class NoteTakerHandlerState:
         context: TurnContext,
         turn_state: Optional[TurnState],
     ) -> None:
-        from ..graph import create_graph_client_with_token, get_meeting_recordings
-
         meeting = self.deps.resolve_meeting_details(context)
         if not (meeting.get("id") or meeting.get("conversationId")):
             self._logger.warning("No meeting id found for recordings-find command.")
@@ -1434,8 +1492,6 @@ class NoteTakerHandlerState:
         tenant_id: str | None = None,
         notify_if_missing: bool = True,
     ) -> str | None:
-        from microsoft_agents.activity import ConversationReference
-
         continuation = Activity.create_event_activity()
         continuation.name = "proactiveTokenCheck"
 
@@ -1548,15 +1604,6 @@ class NoteTakerHandlerState:
         )
 
     async def _subscribe_to_recording_notifications(self, context: TurnContext) -> None:
-        from ..graph import (
-            create_and_persist_recordings_ready_subscription,
-            resolve_recordings_lifecycle_webhook_url,
-            resolve_recordings_ready_webhook_url,
-        )
-        from microsoft_agents.activity import ConversationReference
-        from ..note_taker_utils import _format_duration
-        from ..teams_user_store import normalize_bot_id
-
         webhook_url = resolve_recordings_ready_webhook_url()
         if not webhook_url:
             self._logger.warning(
@@ -1580,6 +1627,9 @@ class NoteTakerHandlerState:
         if not delegated_token:
             self._logger.info(
                 "[teams note-taker] organizer delegated token unavailable; cannot create recording subscription."
+            )
+            await context.send_activity(
+                "Cannot create recording subscription because the organizer's authentication token is not available."
             )
             return
 

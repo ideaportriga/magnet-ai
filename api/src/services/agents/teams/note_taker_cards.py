@@ -74,6 +74,7 @@ def create_note_taker_config_picker_card(
     *,
     current_system_name: str | None = None,
     current_account_name: str | None = None,
+    current_keyterms: str | None = None,
     salesforce_enabled: bool = False,
     limit: int = 15,
 ) -> dict[str, Any]:
@@ -148,6 +149,32 @@ def create_note_taker_config_picker_card(
     body.extend(
         [
             {
+                "type": "TextBlock",
+                "text": "Keyterms",
+                "weight": "Bolder",
+                "spacing": "Medium",
+            },
+            {
+                "type": "TextBlock",
+                "text": "Comma / semicolon / newline separated.",
+                "wrap": True,
+                "spacing": "Small",
+                "isSubtle": True,
+            },
+            {
+                "type": "Input.Text",
+                "id": "keyterms",
+                "value": (current_keyterms or "").strip(),
+                "placeholder": "e.g. pricing, renewal, roadmap",
+                "isMultiline": True,
+                "spacing": "Small",
+            },
+        ]
+    )
+
+    body.extend(
+        [
+            {
                 "type": "Input.ChoiceSet",
                 "id": "config_system_name",
                 "style": "expanded",
@@ -163,7 +190,12 @@ def create_note_taker_config_picker_card(
                         "type": "Action.Submit",
                         "title": "Apply",
                         "data": {"magnet_action": "note_taker_config_set"},
-                    }
+                    },
+                    {
+                        "type": "Action.Submit",
+                        "title": "Save keyterms",
+                        "data": {"magnet_action": "note_taker_keyterms_set"},
+                    },
                 ],
             },
         ]
