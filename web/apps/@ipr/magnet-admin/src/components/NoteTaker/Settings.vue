@@ -59,6 +59,33 @@
                 .q-gutter-md
                   .km-field
                     .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-title Post-transcription processing
+                      q-toggle(v-model='postTranscriptionEnabled', color='primary')
+                    .q-gutter-sm(v-if='postTranscriptionEnabled')
+                      .row.items-center.q-gutter-sm
+                        .col
+                          km-select(
+                            v-model='postTranscriptionPromptTemplate',
+                            :options='promptTemplates',
+                            option-label='name',
+                            option-value='system_name',
+                            emit-value,
+                            map-options,
+                            hasDropdownSearch,
+                            height='30px'
+                          )
+                        .col-auto(v-if='postTranscriptionPromptTemplate')
+                          km-btn(
+                            icon='open_in_new',
+                            flat,
+                            dense,
+                            @click='navigateToPrompt(postTranscriptionPromptTemplate)'
+                          )
+                    .km-description.text-secondary-text.q-pt-2(v-if='postTranscriptionEnabled')
+                      Prompt template that post-processes the transcript (e.g. improve quality, map speakers to names).
+
+                  .km-field
+                    .row.items-center.justify-between
                       .text-secondary-text.q-pb-xs.km-title Create Chapters
                       q-toggle(v-model='createChaptersEnabled', color='primary')
                     .q-gutter-sm(v-if='createChaptersEnabled')
@@ -442,6 +469,20 @@ const createInsightsPromptTemplate = computed({
   get: () => store.getters.noteTakerSettings?.insights?.prompt_template || '',
   set: (value: string) => {
     store.dispatch('updateNoteTakerSetting', { path: 'insights.prompt_template', value })
+  },
+})
+
+const postTranscriptionEnabled = computed({
+  get: () => store.getters.noteTakerSettings?.post_transcription?.enabled ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'post_transcription.enabled', value })
+  },
+})
+
+const postTranscriptionPromptTemplate = computed({
+  get: () => store.getters.noteTakerSettings?.post_transcription?.prompt_template || '',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'post_transcription.prompt_template', value })
   },
 })
 

@@ -33,6 +33,7 @@ interface NoteTakerSettings {
   chapters: PromptSetting
   summary: PromptSetting
   insights: PromptSetting
+  post_transcription: PromptSetting
 }
 
 interface NoteTakerSettingsRecord {
@@ -87,6 +88,10 @@ const defaultSettings = (): NoteTakerSettings => ({
     enabled: false,
     prompt_template: '',
   },
+  post_transcription: {
+    enabled: false,
+    prompt_template: '',
+  },
 })
 
 const mergeSettings = (settings?: Partial<NoteTakerSettings> | null): NoteTakerSettings => {
@@ -120,6 +125,10 @@ const mergeSettings = (settings?: Partial<NoteTakerSettings> | null): NoteTakerS
     insights: {
       ...defaults.insights,
       ...(settings?.insights || {}),
+    },
+    post_transcription: {
+      ...defaults.post_transcription,
+      ...(settings?.post_transcription || {}),
     },
   }
 }

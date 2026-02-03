@@ -47,6 +47,7 @@ class NoteTakerSettingsSchema(BaseModel):
     chapters: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
     summary: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
     insights: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
+    post_transcription: PromptSettingSchema = Field(default_factory=PromptSettingSchema)
 
 
 class NoteTakerSettingsRecordCreateSchema(BaseModel):
@@ -116,6 +117,16 @@ def _validate_confluence_settings(data: NoteTakerSettingsSchema) -> None:
         )
 
 
+def _validate_post_transcription_settings(data: NoteTakerSettingsSchema) -> None:
+    section = data.post_transcription
+    if not section.enabled:
+        return
+    if not str(section.prompt_template or "").strip():
+        raise ValueError(
+            "Prompt template is required when post-transcription processing is enabled."
+        )
+
+
 async def _get_settings_by_id_or_system_name(
     session, settings_id: str
 ) -> NoteTakerSettings | None:
@@ -163,6 +174,7 @@ class NoteTakerSettingsController(Controller):
     ) -> dict[str, Any]:
         _validate_salesforce_settings(data.config)
         _validate_confluence_settings(data.config)
+        _validate_post_transcription_settings(data.config)
         async with async_session_maker() as session:
             settings = NoteTakerSettings(
                 name=data.name,
@@ -182,6 +194,7 @@ class NoteTakerSettingsController(Controller):
     ) -> dict[str, Any]:
         _validate_salesforce_settings(data)
         _validate_confluence_settings(data)
+        _validate_post_transcription_settings(data)
         async with async_session_maker() as session:
             stmt = select(NoteTakerSettings).where(
                 NoteTakerSettings.system_name == NOTE_TAKER_SETTINGS_SYSTEM_NAME
@@ -217,6 +230,7 @@ class NoteTakerSettingsController(Controller):
             if data.config is not None:
                 _validate_salesforce_settings(data.config)
                 _validate_confluence_settings(data.config)
+                _validate_post_transcription_settings(data.config)
                 settings.config = data.config.model_dump()
             if data.name is not None:
                 settings.name = data.name

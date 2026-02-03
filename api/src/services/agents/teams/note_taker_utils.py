@@ -87,6 +87,7 @@ _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
     "chapters": {"enabled": False, "prompt_template": ""},
     "summary": {"enabled": False, "prompt_template": ""},
     "insights": {"enabled": False, "prompt_template": ""},
+    "post_transcription": {"enabled": False, "prompt_template": ""},
 }
 
 
@@ -122,7 +123,7 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
     else:
         settings["integration"] = default_integration
 
-    for section in ("chapters", "summary", "insights"):
+    for section in ("chapters", "summary", "insights", "post_transcription"):
         base_section = dict(settings[section])
         section_raw = raw.get(section)
         if isinstance(section_raw, dict):
