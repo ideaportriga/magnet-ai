@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.2](https://github.com/ideaportriga/magnet-ai/compare/v0.4.1...v0.4.2) (2026-02-05)
+
+### 🐛 Bug Fixes
+
+* **ci:** add packages write permission for docker publish ([0ac2d57](https://github.com/ideaportriga/magnet-ai/commit/0ac2d57445727ed1316c028b4a17803ee9063bbe))
+* **ci:** fetch all branches for semantic-release ([e9707e8](https://github.com/ideaportriga/magnet-ai/commit/e9707e83e052dc6f2f6a22c1ae2e6262515679d9))
+
 ## [0.4.1](https://github.com/ideaportriga/magnet-ai/compare/v0.4.0...v0.4.1) (2026-02-02)
 
 ### 🐛 Bug Fixes
