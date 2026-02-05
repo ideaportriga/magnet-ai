@@ -396,6 +396,101 @@ async def execute_sync_knowledge_graph_source(**kwargs):
         raise e
 
 
+@with_progress_status
+@observe(name="Cleanup logs", channel="Job")
+async def execute_cleanup_logs(**kwargs):
+    """Execute a cleanup job to delete old traces and metrics.
+    
+    Params:
+        retention_days: Number of days to retain logs. Logs older than this will be deleted.
+        cleanup_traces: Whether to cleanup traces table (default: True)
+        cleanup_metrics: Whether to cleanup metrics table (default: True)
+    """
+    job_id = kwargs.get("job_id")
+
+    try:
+        job_definition = kwargs.get("job_definition")
+        params = kwargs.get("params", {})
+
+        observability_context.update_current_trace(
+            type="cleanup_logs",
+            extra_data={
+                "job_id": job_id,
+                "job_definition": job_definition,
+                "params": params,
+            },
+        )
+
+        retention_days = params.get("retention_days", 30)
+        cleanup_traces = params.get("cleanup_traces", True)
+        cleanup_metrics = params.get("cleanup_metrics", True)
+
+        if retention_days < 1:
+            logger.error(f"Invalid retention_days value: {retention_days}")
+            return False
+
+        cutoff_date = datetime.now(UTC) - timedelta(days=retention_days)
+        
+        deleted_traces = 0
+        deleted_metrics = 0
+
+        from sqlalchemy import delete
+
+        from core.config.app import alchemy
+        from core.db.models.metric.metric import Metric
+        from core.db.models.trace.trace import Trace
+
+        async with alchemy.get_session() as session:
+            if cleanup_traces:
+                # Delete old traces
+                result = await session.execute(
+                    delete(Trace).where(Trace.created_at < cutoff_date)
+                )
+                deleted_traces = result.rowcount
+                logger.info(f"Deleted {deleted_traces} traces older than {retention_days} days")
+
+            if cleanup_metrics:
+                # Delete old metrics
+                result = await session.execute(
+                    delete(Metric).where(Metric.created_at < cutoff_date)
+                )
+                deleted_metrics = result.rowcount
+                logger.info(f"Deleted {deleted_metrics} metrics older than {retention_days} days")
+
+            await session.commit()
+
+        observability_context.update_current_trace(
+            extra_data={
+                "deleted_traces": deleted_traces,
+                "deleted_metrics": deleted_metrics,
+                "retention_days": retention_days,
+                "cutoff_date": cutoff_date.isoformat(),
+            },
+        )
+
+        logger.info(
+            f"Successfully completed cleanup logs job {job_id}: "
+            f"deleted {deleted_traces} traces and {deleted_metrics} metrics"
+        )
+        return True
+
+    except Exception as e:
+        logger.error(f"Error in execute_cleanup_logs for job {job_id}: {str(e)}")
+        traceback.print_exc()
+
+        observability_context.update_current_trace(
+            extra_data={
+                "job_id": job_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "params": params,
+            },
+        )
+
+        # Error status will be set by with_progress_status decorator
+        raise e
+
+
 # Mapping of run configuration types to execution functions directly
 RUN_CONFIG_HANDLERS = {
     RunConfigurationType.CUSTOM: execute_custom_function,
@@ -403,4 +498,5 @@ RUN_CONFIG_HANDLERS = {
     RunConfigurationType.POST_PROCESS_CONVERSATION: execute_post_process_configuration,
     RunConfigurationType.EVALUATION: execute_evaluation,
     RunConfigurationType.SYNC_KNOWLEDGE_GRAPH_SOURCE: execute_sync_knowledge_graph_source,
+    RunConfigurationType.CLEANUP_LOGS: execute_cleanup_logs,
 }

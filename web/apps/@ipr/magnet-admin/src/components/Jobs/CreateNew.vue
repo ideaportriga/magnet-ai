@@ -51,6 +51,15 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
             option-label='name'
           )
 
+        template(v-if='form.jobType === "cleanup_logs"')
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Retention period (days)
+          .full-width
+            km-input(type='number', height='30px', v-model.number='form.retention_days', placeholder='30', :min='1')
+          .km-tiny.text-secondary-text.q-pl-8.q-pt-xs Logs older than this will be deleted
+          .row.items-center.q-mt-md.q-pl-8.q-gap-16
+            km-checkbox(v-model='form.cleanup_traces', label='Delete traces')
+            km-checkbox(v-model='form.cleanup_metrics', label='Delete metrics')
+
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md(v-if='form.executionType === "recurring"') Job interval
       .full-width(v-if='form.executionType === "recurring"')
         q-btn-toggle(
@@ -117,6 +126,7 @@ const jobTypes = [
   { label: 'Custom', value: 'custom' },
   { label: 'Sync knowledge source', value: 'sync_collection' },
   { label: 'Post-processing conversations', value: 'post_processing_conversations' },
+  { label: 'Cleanup logs (traces & metrics)', value: 'cleanup_logs' },
 ]
 const executionTypes = [
   { label: 'Run Once Immediately', value: 'one_time_immediate' },
@@ -164,6 +174,10 @@ export default {
         agents: [],
         is_system: false, // new param
         customCron: '*/10 * * * *', // default custom cron
+        // Cleanup logs params
+        retention_days: 30,
+        cleanup_traces: true,
+        cleanup_metrics: true,
       },
       ...props.formDefault,
       ...(!_.isEmpty(job)
@@ -174,6 +188,10 @@ export default {
             jobType: job.definition?.run_configuration?.type,
             system_name: job.definition?.run_configuration?.params?.system_name,
             is_system: job.definition?.is_system || false,
+            // Cleanup logs params from existing job
+            retention_days: job.definition?.run_configuration?.params?.retention_days || 30,
+            cleanup_traces: job.definition?.run_configuration?.params?.cleanup_traces !== false,
+            cleanup_metrics: job.definition?.run_configuration?.params?.cleanup_metrics !== false,
           }
         : {}),
     })
@@ -217,6 +235,12 @@ export default {
         } else if (this.form.jobType === 'sync_collection') {
           params = {
             system_name: this.form.system_name,
+          }
+        } else if (this.form.jobType === 'cleanup_logs') {
+          params = {
+            retention_days: this.form.retention_days,
+            cleanup_traces: this.form.cleanup_traces,
+            cleanup_metrics: this.form.cleanup_metrics,
           }
         }
       }
