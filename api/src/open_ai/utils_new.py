@@ -20,11 +20,11 @@ def _get_observability_level_from_config(config: dict | None) -> ObservabilityLe
     """Extract observability level from prompt template config."""
     if not config:
         return ObservabilityLevel.FULL
-    
+
     level_value = config.get("observability_level")
     if level_value is None:
         return ObservabilityLevel.FULL
-    
+
     try:
         return ObservabilityLevel(level_value)
     except ValueError:
@@ -53,7 +53,7 @@ async def create_chat_completion(
         observability_level = _get_observability_level_from_config(
             related_prompt_template_config
         )
-        
+
         observed_feature = ObservedFeature(
             type=FeatureType.PROMPT_TEMPLATE,
             id=related_prompt_template_config.get("id"),

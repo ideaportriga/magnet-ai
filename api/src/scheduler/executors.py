@@ -400,7 +400,7 @@ async def execute_sync_knowledge_graph_source(**kwargs):
 @observe(name="Cleanup logs", channel="Job")
 async def execute_cleanup_logs(**kwargs):
     """Execute a cleanup job to delete old traces and metrics.
-    
+
     Params:
         retention_days: Number of days to retain logs. Logs older than this will be deleted.
         cleanup_traces: Whether to cleanup traces table (default: True)
@@ -430,7 +430,7 @@ async def execute_cleanup_logs(**kwargs):
             return False
 
         cutoff_date = datetime.now(UTC) - timedelta(days=retention_days)
-        
+
         deleted_traces = 0
         deleted_metrics = 0
 
@@ -447,7 +447,9 @@ async def execute_cleanup_logs(**kwargs):
                     delete(Trace).where(Trace.created_at < cutoff_date)
                 )
                 deleted_traces = result.rowcount
-                logger.info(f"Deleted {deleted_traces} traces older than {retention_days} days")
+                logger.info(
+                    f"Deleted {deleted_traces} traces older than {retention_days} days"
+                )
 
             if cleanup_metrics:
                 # Delete old metrics
@@ -455,7 +457,9 @@ async def execute_cleanup_logs(**kwargs):
                     delete(Metric).where(Metric.created_at < cutoff_date)
                 )
                 deleted_metrics = result.rowcount
-                logger.info(f"Deleted {deleted_metrics} metrics older than {retention_days} days")
+                logger.info(
+                    f"Deleted {deleted_metrics} metrics older than {retention_days} days"
+                )
 
             await session.commit()
 

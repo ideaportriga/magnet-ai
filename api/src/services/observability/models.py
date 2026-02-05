@@ -25,11 +25,12 @@ class TracesExporterType(StrEnum):
 class ObservabilityLevel(StrEnum):
     """
     Defines the level of observability logging for features like Prompt Templates.
-    
+
     - NONE: No logging at all - the span and metrics are completely skipped
     - METADATA_ONLY: Logs metadata (tokens, cost, latency, model info) but excludes input/output content
     - FULL: Full logging including input and output content (default behavior)
     """
+
     NONE = "none"
     METADATA_ONLY = "metadata-only"
     FULL = "full"

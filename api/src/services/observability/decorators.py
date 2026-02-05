@@ -341,7 +341,9 @@ class ObservabilityContext:
 
         # Update baggage with the newly added feature and its observability level
         ctx = baggage.set_baggage(f"feature.{feature.type.otel_name}", feature_instance)
-        ctx = baggage.set_baggage("feature.observability_level", feature.observability_level, ctx)
+        ctx = baggage.set_baggage(
+            "feature.observability_level", feature.observability_level, ctx
+        )
         context.attach(ctx)
 
         # Execute code block and catch errors if any
@@ -703,7 +705,7 @@ class ObservabilityContext:
         if observability_level == ObservabilityLevel.NONE:
             # Skip update entirely if logging is disabled
             return
-        
+
         if observability_level == ObservabilityLevel.METADATA_ONLY:
             # Clear input/output to only log metadata
             fields.input = None

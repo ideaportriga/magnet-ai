@@ -20,11 +20,12 @@ from core.domain.base.schemas import (
 class PromptObservabilityLevel(StrEnum):
     """
     Defines the level of observability logging for a prompt variant.
-    
+
     - NONE: No logging at all - the span and metrics are completely skipped
     - METADATA_ONLY: Logs metadata (tokens, cost, latency, model info) but excludes input/output content
     - FULL: Full logging including input and output content (default behavior)
     """
+
     NONE = "none"
     METADATA_ONLY = "metadata-only"
     FULL = "full"
@@ -63,7 +64,7 @@ class PromptVariantSchema(BaseModel):
     )
     observability_level: Optional[PromptObservabilityLevel] = Field(
         default=PromptObservabilityLevel.FULL,
-        description="Level of observability logging: 'none' (no logging), 'metadata-only' (tokens/cost/latency only), 'full' (includes input/output)"
+        description="Level of observability logging: 'none' (no logging), 'metadata-only' (tokens/cost/latency only), 'full' (includes input/output)",
     )
 
 
