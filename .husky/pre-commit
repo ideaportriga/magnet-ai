@@ -9,6 +9,8 @@ WEB_FILES=$(echo "$STAGED_FILES" | grep "^web/.*\.\(js\|ts\|vue\)$" || true)
 
 # Run ruff for API changes
 if [ -n "$API_FILES" ]; then
+  echo "🔍 Running format check for API..."
+  npm run format:api || exit 1
   echo "🔍 Running lint for API..."
   npm run lint:api || exit 1
   # Re-add fixed files to staging

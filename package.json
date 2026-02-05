@@ -32,6 +32,8 @@
     "fixtures:load:entity": "cd api && cross-env PYTHONPATH=src poetry run python manage_fixtures.py fixtures load --entity $npm_config_entity",
     "static:download": "cd api && poetry run python scripts/download_static_files.py",
     "lint:api": "cd api && poetry run ruff check . --fix",
+    "format:api": "cd api && poetry run ruff format .",
+    "format:api:check": "cd api && poetry run ruff format --check .",
     "lint:web": "cd web && yarn nx run-many --target=lint --all --fix",
     "lint": "npm run lint:api && npm run lint:web"
   },
