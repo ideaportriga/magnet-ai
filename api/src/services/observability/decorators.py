@@ -22,6 +22,7 @@ from services.observability.models import (
     DecoratorParams,
     LLMType,
     ObservabilityConfig,
+    ObservabilityLevel,
     ObservationModelDetails,
     ObservedConversation,
     ObservedFeature,
@@ -308,6 +309,12 @@ class ObservabilityContext:
 
     @contextmanager
     def observe_feature(self, feature: ObservedFeature, instance_id: str | None = None):
+        # Check if observability is disabled for this feature
+        if feature.observability_level == ObservabilityLevel.NONE:
+            # Skip all observability - just yield and return
+            yield None
+            return
+
         # TODO: make this cleaner
         _, _, prepared_decor_params, _ = self._prepare_params("monitor_feature_usage")
         prepared_decor_params["type"] = feature.type.value.span_type
@@ -332,8 +339,9 @@ class ObservabilityContext:
                 )
             )
 
-        # Update baggage with the newly added feature
+        # Update baggage with the newly added feature and its observability level
         ctx = baggage.set_baggage(f"feature.{feature.type.otel_name}", feature_instance)
+        ctx = baggage.set_baggage("feature.observability_level", feature.observability_level, ctx)
         context.attach(ctx)
 
         # Execute code block and catch errors if any
@@ -689,6 +697,17 @@ class ObservabilityContext:
         if current_otel_span_id == 0:
             logger.warning("No span found in the current context, skipping span update")
             return
+
+        # Check observability level from baggage
+        observability_level = baggage.get_baggage("feature.observability_level")
+        if observability_level == ObservabilityLevel.NONE:
+            # Skip update entirely if logging is disabled
+            return
+        
+        if observability_level == ObservabilityLevel.METADATA_ONLY:
+            # Clear input/output to only log metadata
+            fields.input = None
+            fields.output = None
 
         readable_span = cast(ReadableSpan, current_otel_span)
         if readable_span.attributes:

@@ -53,6 +53,24 @@ div
       div(style='max-width: 200px')
         km-input(type='number', height='30px', placeholder='Max tokens', v-model='maxTokens')
       .km-description.text-secondary-text.q-pb-4 1 token = approx. 4 characters in English
+  q-separator.q-my-lg
+  km-section(
+    title='Observability',
+    subTitle='Control what data is logged for this prompt template. This affects traces and metrics collection.'
+  )
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Logging Level
+    km-select(
+      height='auto',
+      minHeight='36px',
+      placeholder='Select logging level',
+      v-model='observabilityLevel',
+      :options='observabilityLevelOptions',
+      optionLabel='label',
+      optionValue='value',
+      emit-value,
+      map-options
+    )
+    .km-description.text-secondary-text.q-pt-xs.q-pl-8 {{ observabilityLevelDescription }}
 </template>
 
 <script>
@@ -86,9 +104,30 @@ export default {
       cacheCollection: ref('Helpdesk Cache'),
       allowBypassCache: ref(false),
       collections: publicItems,
+      observabilityLevelOptions: ref([
+        { label: 'Full (input/output included)', value: 'full' },
+        { label: 'Metadata only (tokens, cost, latency)', value: 'metadata-only' },
+        { label: 'None (no logging)', value: 'none' },
+      ]),
     }
   },
   computed: {
+    observabilityLevel: {
+      get() {
+        return this.$store.getters.promptTemplateVariant?.observability_level || 'full'
+      },
+      set(value) {
+        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'observability_level', value })
+      },
+    },
+    observabilityLevelDescription() {
+      const descriptions = {
+        'full': 'Logs everything including input messages and output responses. Best for debugging and analysis.',
+        'metadata-only': 'Logs only metadata like token count, cost, and latency. Input/output content is not stored.',
+        'none': 'Disables all logging for this prompt template. No traces or metrics will be recorded.',
+      }
+      return descriptions[this.observabilityLevel] || descriptions['full']
+    },
     temperature: {
       get() {
         return this.$store.getters.promptTemplateVariant?.temperature

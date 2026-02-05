@@ -5,6 +5,7 @@ Pydantic schemas for prompt variants validation.
 from __future__ import annotations
 
 import json
+from enum import StrEnum
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -14,6 +15,19 @@ from core.domain.base.schemas import (
     BaseEntitySchema,
     BaseEntityUpdateSchema,
 )
+
+
+class PromptObservabilityLevel(StrEnum):
+    """
+    Defines the level of observability logging for a prompt variant.
+    
+    - NONE: No logging at all - the span and metrics are completely skipped
+    - METADATA_ONLY: Logs metadata (tokens, cost, latency, model info) but excludes input/output content
+    - FULL: Full logging including input and output content (default behavior)
+    """
+    NONE = "none"
+    METADATA_ONLY = "metadata-only"
+    FULL = "full"
 
 
 class RetrieveSchema(BaseModel):
@@ -46,6 +60,10 @@ class PromptVariantSchema(BaseModel):
     response_format: Optional[dict] = Field(None, description="Response format")
     sample_test_set: Optional[str] = Field(
         None, description="Sample test set for evaluation"
+    )
+    observability_level: Optional[PromptObservabilityLevel] = Field(
+        default=PromptObservabilityLevel.FULL,
+        description="Level of observability logging: 'none' (no logging), 'metadata-only' (tokens/cost/latency only), 'full' (includes input/output)"
     )
 
 

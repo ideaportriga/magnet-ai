@@ -9,10 +9,26 @@ from services.observability import observability_context
 from services.observability.models import (
     FeatureType,
     LLMType,
+    ObservabilityLevel,
     ObservationModelDetails,
     ObservedFeature,
 )
 from services.observability.utils import get_usage_and_cost_details
+
+
+def _get_observability_level_from_config(config: dict | None) -> ObservabilityLevel:
+    """Extract observability level from prompt template config."""
+    if not config:
+        return ObservabilityLevel.FULL
+    
+    level_value = config.get("observability_level")
+    if level_value is None:
+        return ObservabilityLevel.FULL
+    
+    try:
+        return ObservabilityLevel(level_value)
+    except ValueError:
+        return ObservabilityLevel.FULL
 
 
 async def create_chat_completion(
@@ -33,12 +49,18 @@ async def create_chat_completion(
 
     # Prepare prompt template for traces and metrics
     if related_prompt_template_config:
+        # Get observability level from prompt template config
+        observability_level = _get_observability_level_from_config(
+            related_prompt_template_config
+        )
+        
         observed_feature = ObservedFeature(
             type=FeatureType.PROMPT_TEMPLATE,
             id=related_prompt_template_config.get("id"),
             system_name=related_prompt_template_config.get("system_name"),
             display_name=related_prompt_template_config.get("name"),
             variant=related_prompt_template_config.get("variant"),
+            observability_level=observability_level,
         )
 
         if not model_system_name:

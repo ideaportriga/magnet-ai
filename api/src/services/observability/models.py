@@ -22,6 +22,19 @@ class TracesExporterType(StrEnum):
     AZURE = "azure"
 
 
+class ObservabilityLevel(StrEnum):
+    """
+    Defines the level of observability logging for features like Prompt Templates.
+    
+    - NONE: No logging at all - the span and metrics are completely skipped
+    - METADATA_ONLY: Logs metadata (tokens, cost, latency, model info) but excludes input/output content
+    - FULL: Full logging including input and output content (default behavior)
+    """
+    NONE = "none"
+    METADATA_ONLY = "metadata-only"
+    FULL = "full"
+
+
 class SpanType(StrEnum):
     SPAN = "span"
     CHAT_COMPLETION = "chat"
@@ -452,12 +465,18 @@ class ObservedFeature(ObservabilityFields):
         system_name: str | None = None,
         display_name: str | None = None,
         variant: str | None = None,
+        observability_level: ObservabilityLevel | None = None,
     ):
         self.type = ObservabilityField[FeatureType](self.__type_otel_attr_name, type)
         self.id = ObservabilityField[str | None]("id", id)
         self.system_name = ObservabilityField[str | None]("system_name", system_name)
         self.display_name = ObservabilityField[str | None]("display_name", display_name)
         self.variant = ObservabilityField[str | None]("variant", variant)
+        # Observability level determines what gets logged:
+        # - NONE: skip all logging
+        # - METADATA_ONLY: log metadata (tokens, cost, latency) but not input/output
+        # - FULL: log everything including input/output (default)
+        self.observability_level = observability_level or ObservabilityLevel.FULL
 
     @override
     def get_prefix(self) -> str:
