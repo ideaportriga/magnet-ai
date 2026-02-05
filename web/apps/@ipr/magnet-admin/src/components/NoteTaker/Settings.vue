@@ -81,8 +81,7 @@
                             dense,
                             @click='navigateToPrompt(postTranscriptionPromptTemplate)'
                           )
-                    .km-description.text-secondary-text.q-pt-2(v-if='postTranscriptionEnabled')
-                      Prompt template that post-processes the transcript (e.g. improve quality, map speakers to names).
+                    .km-description.text-secondary-text.q-pt-2(v-if='postTranscriptionEnabled') Prompt template to post-processes the transcript (map speakers to names).
 
                   .km-field
                     .row.items-center.justify-between

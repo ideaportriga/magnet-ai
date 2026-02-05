@@ -37,6 +37,10 @@ from .note_taker_utils import (
 )
 from .note_taker_confluence import maybe_publish_confluence_notes
 from .note_taker_people import get_invited_people, invited_people_to_names
+from .transcript_postprocess import (
+    annotate_transcript_speakers,
+    parse_speaker_mapping_output,
+)
 
 logger = getLogger(__name__)
 
@@ -230,7 +234,6 @@ async def _post_process_transcription(
     template_system_name: str,
     transcription: str,
     participants: list[str],
-    invited_people: list[dict[str, str]] | None,
     conversation_date: str | None,
 ) -> Any:
     return await execute_prompt_template(
@@ -238,7 +241,6 @@ async def _post_process_transcription(
         template_values={
             "transcription": transcription,
             "participants": participants,
-            "invited_people": invited_people or [],
             "language": "the same as the transcription",
             "conversation_date": conversation_date or "",
         },
@@ -278,7 +280,6 @@ async def _send_transcription_summary(
     if status in {"completed", "transcribed", "diarized"}:
         segs_count = 0
         full_text = None
-        participants: list[str] = []
         if isinstance(transcript_payload, dict):
             segs = transcript_payload.get("segments") or []
             segs_count = len(segs)
@@ -292,7 +293,6 @@ async def _send_transcription_summary(
                     speaker = s.get("speaker") or "speaker_0"
                     if speaker not in seen_participants:
                         seen_participants.add(speaker)
-                        participants.append(speaker)
                     text = (s.get("text") or "").strip()
                     if not text:
                         continue
@@ -341,6 +341,8 @@ async def _send_transcription_summary(
                 )
                 invited_people = []
 
+        participant_names = invited_people_to_names(invited_people)
+
         post_cfg = (
             settings.get("post_transcription") if isinstance(settings, dict) else None
         )
@@ -351,8 +353,7 @@ async def _send_transcription_summary(
                     result = await _post_process_transcription(
                         template_system_name=template_system_name,
                         transcription=full_text,
-                        participants=participants,
-                        invited_people=invited_people,
+                        participants=participant_names,
                         conversation_date=conversation_date,
                     )
                     content = getattr(result, "content", None)
@@ -360,10 +361,24 @@ async def _send_transcription_summary(
                         content = str(result)
                     processed = str(content or "").strip()
                     if processed:
-                        full_text = processed
-                        await context.send_activity(
-                            "Post-transcription processing applied."
-                        )
+                        speaker_mapping = parse_speaker_mapping_output(processed)
+                        if speaker_mapping:
+                            full_text = annotate_transcript_speakers(
+                                full_text, speaker_mapping
+                            )
+                            max_chars = 4000
+                            snippet = processed[:max_chars]
+                            suffix = "..." if len(processed) > len(snippet) else ""
+                            await send_expandable_section(
+                                context,
+                                title="Post-transcription output",
+                                content=f"{snippet}{suffix}",
+                                preserve_newlines=True,
+                            )
+                        else:
+                            await context.send_activity(
+                                "Post-transcription output ignored (expected speaker_mapping JSON)."
+                            )
                 except Exception as err:
                     err_msg = _format_prompt_template_error(err)
                     logger.warning(
@@ -393,7 +408,7 @@ async def _send_transcription_summary(
             base_keyterms = parse_keyterms_list(settings.get("keyterms"))
             keyterms = merge_unique_strings(
                 base_keyterms,
-                invited_people_to_names(invited_people),
+                participant_names,
             )
 
         # keyterms_display = keyterms_to_display(keyterms) or None
@@ -419,7 +434,7 @@ async def _send_transcription_summary(
         results = await _execute_transcription_prompt_templates(
             [system_name for system_name, _, _ in templates],
             transcription=full_text,
-            participants=participants,
+            participants=participant_names,
             conversation_date=conversation_date,
         )
 
@@ -457,7 +472,7 @@ async def _send_transcription_summary(
                 settings=settings,
                 job_id=job_id,
                 meeting_context=meeting_context or resolve_meeting_details(context),
-                participants=participants,
+                participants=participant_names,
                 conversation_date=conversation_date,
                 conversation_time=conversation_time,
                 duration=duration_str,
