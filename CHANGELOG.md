@@ -2,18 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.4.0-dev.2](https://github.com/ideaportriga/magnet-ai/compare/v0.4.0-dev.1...v0.4.0-dev.2) (2026-02-05)
+## [0.4.3](https://github.com/ideaportriga/magnet-ai/compare/v0.4.2...v0.4.3) (2026-02-05)
 
 ### 🐛 Bug Fixes
 
-* **ci:** force fetch branches for semantic-release ([d3bc7b6](https://github.com/ideaportriga/magnet-ai/commit/d3bc7b6662fa30c51164cd9a2687ff4d25a95bef))
+* **ci:** force fetch branches for semantic-release ([0be13ce](https://github.com/ideaportriga/magnet-ai/commit/0be13ce40982d5c485a5901a54a35422bcb08296))
 
-## [0.4.0-dev.1](https://github.com/ideaportriga/magnet-ai/compare/v0.3.0...v0.4.0-dev.1) (2026-02-05)
+## [0.4.2](https://github.com/ideaportriga/magnet-ai/compare/v0.4.1...v0.4.2) (2026-02-05)
+
+### 🐛 Bug Fixes
+
+* **ci:** add packages write permission for docker publish ([0ac2d57](https://github.com/ideaportriga/magnet-ai/commit/0ac2d57445727ed1316c028b4a17803ee9063bbe))
+* **ci:** fetch all branches for semantic-release ([e9707e8](https://github.com/ideaportriga/magnet-ai/commit/e9707e83e052dc6f2f6a22c1ae2e6262515679d9))
+
+## [0.4.1](https://github.com/ideaportriga/magnet-ai/compare/v0.4.0...v0.4.1) (2026-02-02)
+
+### 🐛 Bug Fixes
+
+* **ci:** sync with remote before running semantic-release ([0ef86c9](https://github.com/ideaportriga/magnet-ai/commit/0ef86c97dc04fba34feca63c63b78bf026d40894))
+
+## [0.4.0](https://github.com/ideaportriga/magnet-ai/compare/v0.3.0...v0.4.0) (2026-02-02)
 
 ### ✨ Features
 
 * add bearer token support for API tools ([297f3e7](https://github.com/ideaportriga/magnet-ai/commit/297f3e7ed78e269ce6cf075c1707eeeb14029e12))
-* add observability level to prompt templates ([5becf4f](https://github.com/ideaportriga/magnet-ai/commit/5becf4f8d45cfd053e7915bfb0837d4778acfa79))
 * added document title for retrieval preview ([4e46609](https://github.com/ideaportriga/magnet-ai/commit/4e466094e217423f79256125f95bf58e7ac9f4c8))
 * added keyterm support to elevenlabs ([daa9384](https://github.com/ideaportriga/magnet-ai/commit/daa938440e8819aec9bfbe2baff9deeb84da8ddf))
 * added meeting info for note taker ([3ac5e06](https://github.com/ideaportriga/magnet-ai/commit/3ac5e06aa0c69f72f5e61bc37ee207ea0c98472c))
@@ -36,7 +48,6 @@ All notable changes to this project will be documented in this file.
 * migration file ([f2a4ed0](https://github.com/ideaportriga/magnet-ai/commit/f2a4ed01ddb9d99d8ba2d877e433738ce084e664))
 * model and provider test functionality ([ab51a73](https://github.com/ideaportriga/magnet-ai/commit/ab51a737ee23c712bff07a5d375ebc176c9c2638))
 * note taker accepts only messages from the meeting organizer ([405b37a](https://github.com/ideaportriga/magnet-ai/commit/405b37a5c0e0eca7a6e1d8b16fc6cc23c8feb81a))
-* **scheduler:** add cleanup logs job for traces and metrics ([e0b0f75](https://github.com/ideaportriga/magnet-ai/commit/e0b0f75e7dde6bd3525786898a29042ff5f02894))
 * **stt:** changed elevenlabs model to scribe_v2 ([c91c6ce](https://github.com/ideaportriga/magnet-ai/commit/c91c6cec9009aabd0933a9c02aba86ff73d54819))
 * ui implementation for metadata management ([7d86904](https://github.com/ideaportriga/magnet-ai/commit/7d8690484492ac4f32ab49ac389ac531dda8d3d0))
 * update UI for the metadata ([403c016](https://github.com/ideaportriga/magnet-ai/commit/403c016ba961d7968074e01f2a65c533278a024b))
@@ -45,7 +56,6 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 * add rerank to openapi and add model refresh to ai_model updates/creates ([2b5c7ea](https://github.com/ideaportriga/magnet-ai/commit/2b5c7ea037b1158ca6018e784da9e6e80ad11426))
-* add ruff format to pre-commit hook ([31da5d9](https://github.com/ideaportriga/magnet-ai/commit/31da5d9b30b3473c803cce875c4d39953cd1b9bb))
 * added custom headers to handle  special APIs, fixed metadata sanitazing for oracle store ([41fae38](https://github.com/ideaportriga/magnet-ai/commit/41fae38c7c1debe23d2bb677d2b2ede9431ad89c))
 * added missing entry_type for fluid topics ([4780c03](https://github.com/ideaportriga/magnet-ai/commit/4780c0327d96f9f17f850ea633e1dd2bde874348))
 * **api:** configure custom httpx timeouts ([6f6d01e](https://github.com/ideaportriga/magnet-ai/commit/6f6d01ed148aa6528a6870f3e5889e093a9e5562))
@@ -53,7 +63,7 @@ All notable changes to this project will be documented in this file.
 * **api:** Increased read timeout for elevenlabs ([6155d96](https://github.com/ideaportriga/magnet-ai/commit/6155d964fcb61f7fd10ac12aa2589acd5117f33c))
 * **api:** use httpx_client when configuring ElevenLabs timeouts ([ef8a1be](https://github.com/ideaportriga/magnet-ai/commit/ef8a1bebee2d41d3991f5a6fe06f86f0972b3a8c))
 * changed duplicate name ([852710c](https://github.com/ideaportriga/magnet-ai/commit/852710c4ca34d2691ea1d5bf118b45f22b9a20cf))
-* **ci:** sync release workflow with main ([11527af](https://github.com/ideaportriga/magnet-ai/commit/11527afa84af4c7ec5efeb9bcdfadf99d6af5f9a))
+* **ci:** add packages write permission for Docker publish job ([278870a](https://github.com/ideaportriga/magnet-ai/commit/278870a7ada96825dae7debf73dad433c6adf731))
 * **deep-research:** fix and standardize UI ([0304514](https://github.com/ideaportriga/magnet-ai/commit/03045148784a841c29ff3564a87312322e22784a))
 * **deep-research:** fix UI issues ([1402ba9](https://github.com/ideaportriga/magnet-ai/commit/1402ba939fb567805b6ed9939f4342110fca3d1c))
 * error handling for rerank ([675829a](https://github.com/ideaportriga/magnet-ai/commit/675829a70844b768867ee5ca00d089af1973ea30))
