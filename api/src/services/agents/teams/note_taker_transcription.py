@@ -36,12 +36,30 @@ from .note_taker_utils import (
     _get_meeting_title_part,
 )
 from .note_taker_confluence import maybe_publish_confluence_notes
-from .note_taker_people import get_invited_people, invited_people_to_names
+from .note_taker_people import (
+    get_invited_people,
+    invited_people_to_first_names,
+    invited_people_to_names,
+)
+from .transcript_postprocess import (
+    annotate_transcript_speakers,
+    parse_speaker_mapping_output,
+)
 
 logger = getLogger(__name__)
 
 _TRANSCRIPTION_TIMEOUT_SECONDS = 900
 _TRANSCRIPTION_POLL_SECONDS = 5
+
+
+def _build_transcription_keyterms(
+    *,
+    settings: dict[str, Any] | None,
+    invited_people: list[dict[str, Any]] | None,
+) -> list[str]:
+    base_keyterms = parse_keyterms_list(settings.get("keyterms")) if settings else []
+    participant_keyterms = invited_people_to_first_names(invited_people)
+    return merge_unique_strings(base_keyterms, participant_keyterms)
 
 
 def _format_prompt_template_error(err: Exception, *, limit: int = 300) -> str:
@@ -230,7 +248,6 @@ async def _post_process_transcription(
     template_system_name: str,
     transcription: str,
     participants: list[str],
-    invited_people: list[dict[str, str]] | None,
     conversation_date: str | None,
 ) -> Any:
     return await execute_prompt_template(
@@ -238,7 +255,6 @@ async def _post_process_transcription(
         template_values={
             "transcription": transcription,
             "participants": participants,
-            "invited_people": invited_people or [],
             "language": "the same as the transcription",
             "conversation_date": conversation_date or "",
         },
@@ -255,6 +271,7 @@ async def _send_transcription_summary(
     conversation_time: str | None,
     settings_system_name: str | None,
     meeting_context: dict[str, Any] | None,
+    settings: dict[str, Any] | None = None,
     keyterms: list[str] | None = None,
     invited_people: list[dict[str, str]] | None = None,
     send_expandable_section: Callable[..., Awaitable[None]],
@@ -278,7 +295,6 @@ async def _send_transcription_summary(
     if status in {"completed", "transcribed", "diarized"}:
         segs_count = 0
         full_text = None
-        participants: list[str] = []
         if isinstance(transcript_payload, dict):
             segs = transcript_payload.get("segments") or []
             segs_count = len(segs)
@@ -292,7 +308,6 @@ async def _send_transcription_summary(
                     speaker = s.get("speaker") or "speaker_0"
                     if speaker not in seen_participants:
                         seen_participants.add(speaker)
-                        participants.append(speaker)
                     text = (s.get("text") or "").strip()
                     if not text:
                         continue
@@ -318,18 +333,19 @@ async def _send_transcription_summary(
         if not full_text:
             return
 
-        try:
-            settings = (
-                await load_settings_by_system_name(settings_system_name)
-                if settings_system_name
-                else await load_settings_for_context(context)
-            )
-        except Exception as err:
-            logger.warning(
-                "Skipping summaries/embedding: cannot load note taker settings: %s",
-                getattr(err, "message", str(err)),
-            )
-            settings = None
+        if settings is None:
+            try:
+                settings = (
+                    await load_settings_by_system_name(settings_system_name)
+                    if settings_system_name
+                    else await load_settings_for_context(context)
+                )
+            except Exception as err:
+                logger.warning(
+                    "Skipping summaries/embedding: cannot load note taker settings: %s",
+                    getattr(err, "message", str(err)),
+                )
+                settings = None
 
         if invited_people is None:
             try:
@@ -341,6 +357,8 @@ async def _send_transcription_summary(
                 )
                 invited_people = []
 
+        participant_names = invited_people_to_names(invited_people)
+
         post_cfg = (
             settings.get("post_transcription") if isinstance(settings, dict) else None
         )
@@ -351,8 +369,7 @@ async def _send_transcription_summary(
                     result = await _post_process_transcription(
                         template_system_name=template_system_name,
                         transcription=full_text,
-                        participants=participants,
-                        invited_people=invited_people,
+                        participants=participant_names,
                         conversation_date=conversation_date,
                     )
                     content = getattr(result, "content", None)
@@ -360,10 +377,24 @@ async def _send_transcription_summary(
                         content = str(result)
                     processed = str(content or "").strip()
                     if processed:
-                        full_text = processed
-                        await context.send_activity(
-                            "Post-transcription processing applied."
-                        )
+                        speaker_mapping = parse_speaker_mapping_output(processed)
+                        if speaker_mapping:
+                            full_text = annotate_transcript_speakers(
+                                full_text, speaker_mapping
+                            )
+                            max_chars = 4000
+                            snippet = processed[:max_chars]
+                            suffix = "..." if len(processed) > len(snippet) else ""
+                            await send_expandable_section(
+                                context,
+                                title="Post-transcription output",
+                                content=f"{snippet}{suffix}",
+                                preserve_newlines=True,
+                            )
+                        else:
+                            await context.send_activity(
+                                "Post-transcription output ignored (expected speaker_mapping JSON)."
+                            )
                 except Exception as err:
                     err_msg = _format_prompt_template_error(err)
                     logger.warning(
@@ -390,10 +421,13 @@ async def _send_transcription_summary(
             return
 
         if keyterms is None:
-            base_keyterms = parse_keyterms_list(settings.get("keyterms"))
-            keyterms = merge_unique_strings(
-                base_keyterms,
-                invited_people_to_names(invited_people),
+            # Normally `keyterms` are computed upstream and passed into this function
+            # (stream pipeline, and job pipeline when settings were preloaded). Keep
+            # this as a defensive fallback for job-mode cases where settings couldn't
+            # be loaded upstream, or for any future call sites that don't provide it.
+            keyterms = _build_transcription_keyterms(
+                settings=settings,
+                invited_people=invited_people,
             )
 
         # keyterms_display = keyterms_to_display(keyterms) or None
@@ -419,7 +453,7 @@ async def _send_transcription_summary(
         results = await _execute_transcription_prompt_templates(
             [system_name for system_name, _, _ in templates],
             transcription=full_text,
-            participants=participants,
+            participants=participant_names,
             conversation_date=conversation_date,
         )
 
@@ -457,7 +491,7 @@ async def _send_transcription_summary(
                 settings=settings,
                 job_id=job_id,
                 meeting_context=meeting_context or resolve_meeting_details(context),
-                participants=participants,
+                participants=participant_names,
                 conversation_date=conversation_date,
                 conversation_time=conversation_time,
                 duration=duration_str,
@@ -548,16 +582,16 @@ async def run_transcription_pipeline(
     if kind == "stream":
         assert download_url and headers is not None and name_resolver is not None
         await send_typing(context)
-        keyterms: list[str] = []
+        settings: dict[str, Any] | None = None
         invited_people: list[dict[str, str]] = []
         try:
-            settings = (
+            loaded = (
                 await load_settings_by_system_name(settings_system_name)
                 if settings_system_name
                 else await load_settings_for_context(context)
             )
-            if isinstance(settings, dict):
-                keyterms = parse_keyterms_list(settings.get("keyterms"))
+            if isinstance(loaded, dict):
+                settings = loaded
         except Exception as err:
             logger.debug(
                 "Failed to load keyterms for transcription: %s",
@@ -570,8 +604,9 @@ async def run_transcription_pipeline(
                 "Failed to load invited people for keyterms: %s",
                 getattr(err, "message", str(err)),
             )
-        keyterms = merge_unique_strings(
-            keyterms, invited_people_to_names(invited_people)
+        keyterms = _build_transcription_keyterms(
+            settings=settings,
+            invited_people=invited_people,
         )
         timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
@@ -671,6 +706,7 @@ async def run_transcription_pipeline(
             conversation_time=conversation_time,
             settings_system_name=settings_system_name,
             meeting_context=meeting_context,
+            settings=settings,
             keyterms=keyterms,
             invited_people=invited_people,
             send_expandable_section=send_expandable_section,
@@ -686,6 +722,36 @@ async def run_transcription_pipeline(
         await send_typing(context)
         meeting = resolve_meeting_details(context)
         meeting_part = _get_meeting_id_part(meeting)
+        settings: dict[str, Any] | None = None
+        invited_people: list[dict[str, str]] = []
+        try:
+            loaded = (
+                await load_settings_by_system_name(settings_system_name)
+                if settings_system_name
+                else await load_settings_for_context(context)
+            )
+            if isinstance(loaded, dict):
+                settings = loaded
+        except Exception as err:
+            logger.debug(
+                "Failed to load keyterms for transcription job mode: %s",
+                getattr(err, "message", str(err)),
+            )
+        try:
+            invited_people = await get_invited_people(context)
+        except Exception as err:
+            logger.debug(
+                "Failed to load invited people for keyterms in job mode: %s",
+                getattr(err, "message", str(err)),
+            )
+        keyterms: list[str] | None = (
+            _build_transcription_keyterms(
+                settings=settings,
+                invited_people=invited_people,
+            )
+            if settings is not None
+            else None
+        )
         source_file_type = "application/json"
         try:
             meta = await transcription_service.get_transcription(job_id)
@@ -761,6 +827,9 @@ async def run_transcription_pipeline(
             conversation_time=conversation_time,
             settings_system_name=settings_system_name,
             meeting_context=meeting_context,
+            settings=settings,
+            keyterms=keyterms,
+            invited_people=invited_people,
             send_expandable_section=send_expandable_section,
             load_settings_by_system_name=load_settings_by_system_name,
             load_settings_for_context=load_settings_for_context,
