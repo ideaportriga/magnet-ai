@@ -41,11 +41,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
       
-      - name: Fix detached HEAD and sync with remote
+      - name: Fix detached HEAD
         if: github.event_name == 'workflow_run'
-        run: |
-          git checkout -B ${{ github.event.workflow_run.head_branch }}
-          git pull origin ${{ github.event.workflow_run.head_branch }}
+        run: git checkout -B ${{ github.event.workflow_run.head_branch }}
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -109,9 +107,6 @@ jobs:
   publish-docker:
     needs: release
     if: needs.release.outputs.released == 'true' && needs.release.outputs.version != ''
-    permissions:
-      contents: read
-      packages: write
     uses: ./.github/workflows/docker-publish.yml
     with:
       version: ${{ needs.release.outputs.version }}
