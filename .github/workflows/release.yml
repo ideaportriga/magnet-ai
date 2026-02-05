@@ -44,8 +44,8 @@ jobs:
       
       - name: Fetch all branches for semantic-release
         run: |
-          git fetch origin main:main || echo "Branch main does not exist yet, skipping"
-          git fetch origin develop:develop || echo "Branch develop does not exist yet, skipping"
+          git fetch origin --force main:main || echo "Branch main does not exist yet, skipping"
+          git fetch origin --force develop:develop || echo "Branch develop does not exist yet, skipping"
       
       - name: Fix detached HEAD
         if: github.event_name == 'workflow_run'
