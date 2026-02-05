@@ -84,3 +84,17 @@ def invited_people_to_names(invited_people: list[dict[str, Any]] | None) -> list
         if display_name:
             names.append(display_name)
     return names
+
+
+def invited_people_to_first_names(invited_people: list[dict[str, Any]] | None) -> list[str]:
+    names: list[str] = []
+    for person in invited_people or []:
+        first_name = str(person.get("first_name") or "").strip()
+        if first_name:
+            names.append(first_name)
+            continue
+
+        last_name = str(person.get("last_name") or "").strip()
+        if last_name:
+            names.append(last_name)
+    return names

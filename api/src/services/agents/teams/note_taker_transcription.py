@@ -36,7 +36,11 @@ from .note_taker_utils import (
     _get_meeting_title_part,
 )
 from .note_taker_confluence import maybe_publish_confluence_notes
-from .note_taker_people import get_invited_people, invited_people_to_names
+from .note_taker_people import (
+    get_invited_people,
+    invited_people_to_first_names,
+    invited_people_to_names,
+)
 from .transcript_postprocess import (
     annotate_transcript_speakers,
     parse_speaker_mapping_output,
@@ -342,6 +346,7 @@ async def _send_transcription_summary(
                 invited_people = []
 
         participant_names = invited_people_to_names(invited_people)
+        participant_keyterms = invited_people_to_first_names(invited_people)
 
         post_cfg = (
             settings.get("post_transcription") if isinstance(settings, dict) else None
@@ -408,7 +413,7 @@ async def _send_transcription_summary(
             base_keyterms = parse_keyterms_list(settings.get("keyterms"))
             keyterms = merge_unique_strings(
                 base_keyterms,
-                participant_names,
+                participant_keyterms,
             )
 
         # keyterms_display = keyterms_to_display(keyterms) or None
@@ -585,9 +590,7 @@ async def run_transcription_pipeline(
                 "Failed to load invited people for keyterms: %s",
                 getattr(err, "message", str(err)),
             )
-        keyterms = merge_unique_strings(
-            keyterms, invited_people_to_names(invited_people)
-        )
+        keyterms = merge_unique_strings(keyterms, invited_people_to_first_names(invited_people))
         timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             (
