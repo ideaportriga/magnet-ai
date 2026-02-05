@@ -86,7 +86,9 @@ def invited_people_to_names(invited_people: list[dict[str, Any]] | None) -> list
     return names
 
 
-def invited_people_to_first_names(invited_people: list[dict[str, Any]] | None) -> list[str]:
+def invited_people_to_first_names(
+    invited_people: list[dict[str, Any]] | None,
+) -> list[str]:
     names: list[str] = []
     for person in invited_people or []:
         first_name = str(person.get("first_name") or "").strip()
