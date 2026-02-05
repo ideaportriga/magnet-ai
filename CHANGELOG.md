@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.3](https://github.com/ideaportriga/magnet-ai/compare/v0.4.2...v0.4.3) (2026-02-05)
+
+### 🐛 Bug Fixes
+
+* **ci:** force fetch branches for semantic-release ([0be13ce](https://github.com/ideaportriga/magnet-ai/commit/0be13ce40982d5c485a5901a54a35422bcb08296))
+
 ## [0.4.2](https://github.com/ideaportriga/magnet-ai/compare/v0.4.1...v0.4.2) (2026-02-05)
 
 ### 🐛 Bug Fixes
