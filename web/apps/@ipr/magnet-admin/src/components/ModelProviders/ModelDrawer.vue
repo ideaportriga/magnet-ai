@@ -184,8 +184,12 @@
       .km-title Reliability
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Number of Retries
-        km-input(height='32px', type='number', placeholder='3', :model-value='numRetries', @update:model-value='numRetries = $event')
-        .km-description.text-secondary-text.q-pl-8.q-pt-xs How many times to retry failed requests
+        km-input(height='32px', type='number', placeholder='0', :model-value='numRetries', @update:model-value='numRetries = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs How many times to retry failed requests before fallback
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Retry After (seconds)
+        km-input(height='32px', type='number', placeholder='0', :model-value='retryAfter', @update:model-value='retryAfter = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs Delay in seconds before retrying a failed request
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Timeout (seconds)
         km-input(height='32px', type='number', placeholder='60', :model-value='timeout', @update:model-value='timeout = $event')
@@ -634,10 +638,18 @@ export default {
     },
     numRetries: {
       get() {
-        return this.routingConfig?.num_retries || ''
+        return this.routingConfig?.num_retries ?? ''
       },
       set(value) {
-        this.updateRoutingConfigProperty('num_retries', value ? parseInt(value) : null)
+        this.updateRoutingConfigProperty('num_retries', value !== '' ? parseInt(value) : null)
+      },
+    },
+    retryAfter: {
+      get() {
+        return this.routingConfig?.retry_after ?? ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('retry_after', value !== '' ? parseInt(value) : null)
       },
     },
     timeout: {

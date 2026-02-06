@@ -212,12 +212,15 @@ async def get_router() -> Router:
         return _router
 
     # Configure router settings
+    # NOTE: num_retries / timeout here are Router-level defaults.
+    # Per-model values from routing_config are passed as kwargs to
+    # router.acompletion() and override these defaults.
     router_settings = {
         "model_list": model_list,
         "routing_strategy": "simple-shuffle",  # Default strategy
-        "num_retries": 3,
-        "timeout": 60,
-        "retry_after": 5,
+        "num_retries": 0,  # Default: no retries, fallback immediately
+        "timeout": 30,
+        "retry_after": 0,  # No artificial delay between retries
         "enable_pre_call_checks": True,
     }
 

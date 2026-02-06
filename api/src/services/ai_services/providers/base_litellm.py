@@ -276,8 +276,13 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if routing_config.get("timeout"):
             params["timeout"] = routing_config["timeout"]
 
-        if routing_config.get("num_retries"):
+        # Use 'is not None' so that num_retries=0 is properly passed
+        # (0 means no retries — try once, then fallback immediately)
+        if routing_config.get("num_retries") is not None:
             params["num_retries"] = routing_config["num_retries"]
+
+        if routing_config.get("retry_after") is not None:
+            params["retry_after"] = routing_config["retry_after"]
 
         # Handle fallback models — use Router if fallbacks are configured,
         # because fallback_models contains system_names that only the Router
