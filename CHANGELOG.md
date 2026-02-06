@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1](https://github.com/ideaportriga/magnet-ai/compare/v0.5.0...v0.5.1) (2026-02-06)
+
+### 🐛 Bug Fixes
+
+* **ci:** override GITHUB_REF for semantic-release in workflow_run trigger ([236217a](https://github.com/ideaportriga/magnet-ai/commit/236217a133ec835f2dbf826f1d83375cd979ca9f))
+
 ## [0.5.0](https://github.com/ideaportriga/magnet-ai/compare/v0.4.3...v0.5.0) (2026-02-05)
 
 ### ✨ Features
