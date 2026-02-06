@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.3](https://github.com/ideaportriga/magnet-ai/compare/v0.5.2...v0.5.3) (2026-02-06)
+
+### ♻️ Code Refactoring
+
+* **ci:** integrate release and docker publish into CI workflow ([f508fa0](https://github.com/ideaportriga/magnet-ai/commit/f508fa0d4a1d118985d9ed8edb9b3d748377ab71))
+
 ## [0.5.2](https://github.com/ideaportriga/magnet-ai/compare/v0.5.1...v0.5.2) (2026-02-06)
 
 ### 🐛 Bug Fixes
