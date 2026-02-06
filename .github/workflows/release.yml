@@ -79,7 +79,10 @@ jobs:
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Override GITHUB_REF for workflow_run trigger - semantic-release uses this to determine branch
+          GITHUB_REF: refs/heads/${{ github.event.workflow_run.head_branch || github.ref_name }}
         run: |
+          echo "Running semantic-release on branch: ${{ github.event.workflow_run.head_branch || github.ref_name }}"
           if [[ "${{ inputs.dry_run }}" == "true" ]]; then
             npx semantic-release --dry-run
           else
