@@ -358,3 +358,30 @@ def is_model_in_router(model_system_name: str) -> bool:
             return True
 
     return False
+
+
+def get_model_system_name_by_deployment_id(model_id: str) -> str | None:
+    """
+    Look up the model system_name by its LiteLLM deployment model_id.
+
+    When the Router processes a request (including fallbacks), the response
+    contains _hidden_params["model_id"] identifying which deployment handled it.
+    This function maps that back to our system_name.
+
+    Args:
+        model_id: The deployment model_id from _hidden_params
+
+    Returns:
+        The model system_name, or None if not found
+    """
+    global _router
+
+    if _router is None or not model_id:
+        return None
+
+    for model_entry in _router.model_list:
+        model_info = model_entry.get("model_info", {})
+        if model_info and model_info.get("id") == model_id:
+            return model_entry.get("model_name")
+
+    return None

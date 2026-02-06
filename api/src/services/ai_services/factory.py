@@ -17,6 +17,7 @@ from services.ai_services.providers.groq import GroqProvider
 from services.ai_services.providers.tmp_local import TmpLocalProvider
 from services.ai_services.providers.litellm_provider import LiteLLMProvider
 from services.ai_services.router import (
+    get_model_system_name_by_deployment_id,
     get_router,
     refresh_router,
     router_completion,
@@ -29,6 +30,7 @@ from utils.secrets import replace_placeholders_in_dict
 __all__ = [
     "get_ai_provider",
     "invalidate_provider_cache",
+    "get_model_system_name_by_deployment_id",
     "get_router",
     "refresh_router",
     "router_completion",
