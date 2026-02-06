@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.0](https://github.com/ideaportriga/magnet-ai/compare/v0.4.3...v0.5.0) (2026-02-05)
+
+### ✨ Features
+
+* add observability level to prompt templates ([5becf4f](https://github.com/ideaportriga/magnet-ai/commit/5becf4f8d45cfd053e7915bfb0837d4778acfa79))
+* **scheduler:** add cleanup logs job for traces and metrics ([e0b0f75](https://github.com/ideaportriga/magnet-ai/commit/e0b0f75e7dde6bd3525786898a29042ff5f02894))
+
+### 🐛 Bug Fixes
+
+* add ruff format to pre-commit hook ([31da5d9](https://github.com/ideaportriga/magnet-ai/commit/31da5d9b30b3473c803cce875c4d39953cd1b9bb))
+* **ci:** force fetch branches for semantic-release ([d3bc7b6](https://github.com/ideaportriga/magnet-ai/commit/d3bc7b6662fa30c51164cd9a2687ff4d25a95bef))
+* **ci:** sync release workflow with main ([11527af](https://github.com/ideaportriga/magnet-ai/commit/11527afa84af4c7ec5efeb9bcdfadf99d6af5f9a))
+
 ## [0.4.3](https://github.com/ideaportriga/magnet-ai/compare/v0.4.2...v0.4.3) (2026-02-05)
 
 ### 🐛 Bug Fixes
