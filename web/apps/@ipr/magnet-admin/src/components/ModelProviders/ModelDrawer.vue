@@ -1,22 +1,22 @@
 <template lang="pug">
 .column.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
-  .col.q-pt-16
-    .row.no-wrap.full-width.q-px-16
-      q-tabs.bb-border.full-width(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        template(v-for='t in tabs')
-          q-tab(:name='t.name', :label='t.label')
-        .fit
-    .column.fit.q-gap-16.overflow-auto.q-pa-16(v-if='tab == "parameters"')
+  .col-auto.q-pt-16.q-px-16
+    q-tabs.bb-border.full-width(
+      v-model='tab',
+      narrow-indicator,
+      dense,
+      align='left',
+      active-color='primary',
+      indicator-color='primary',
+      active-bg-color='white',
+      no-caps,
+      content-class='km-tabs'
+    )
+      template(v-for='t in tabs')
+        q-tab(:name='t.name', :label='t.label')
+      .fit
+  .col.overflow-auto
+    .column.q-gap-16.q-pa-16(v-if='tab == "parameters"')
       .km-title General settings
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
@@ -61,7 +61,7 @@
           km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
           .km-description.text-secondary-text.q-pl-8.q-pt-xs Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
 
-    .column.fit.q-gap-16.overflow-auto.q-pa-16(v-if='tab == "pricing"')
+    .column.q-gap-16.q-pa-16(v-if='tab == "pricing"')
       .km-title Inputs
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Input units
@@ -157,6 +157,135 @@
             style='max-width: 120px'
           )
           .text-secondary-text {{ price_output_unit_name }}
+
+    //- Routing Config Tab
+    .column.q-gap-16.q-pa-16(v-if='tab == "routing"')
+      .km-title Caching
+      km-checkbox(label='Enable Response Caching', :model-value='cacheEnabled', @update:model-value='cacheEnabled = $event')
+      div(v-if='cacheEnabled')
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Cache TTL (seconds)
+        km-input(height='32px', type='number', placeholder='3600', :model-value='cacheTtl', @update:model-value='cacheTtl = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs How long to cache responses (default: 3600 seconds = 1 hour)
+
+      q-separator.q-my-16
+
+      .km-title Rate Limiting
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Requests per Minute (RPM)
+        km-input(height='32px', type='number', placeholder='60', :model-value='rpm', @update:model-value='rpm = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs Maximum requests per minute for this model
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Tokens per Minute (TPM)
+        km-input(height='32px', type='number', placeholder='100000', :model-value='tpm', @update:model-value='tpm = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs Maximum tokens per minute for this model
+
+      q-separator.q-my-16
+
+      .km-title Reliability
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Number of Retries
+        km-input(height='32px', type='number', placeholder='3', :model-value='numRetries', @update:model-value='numRetries = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs How many times to retry failed requests
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Timeout (seconds)
+        km-input(height='32px', type='number', placeholder='60', :model-value='timeout', @update:model-value='timeout = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs Request timeout in seconds
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Fallback Models
+        km-select(
+          height='auto',
+          minHeight='32px',
+          multiple,
+          use-chips,
+          placeholder='Select fallback models',
+          :options='availableFallbackModels',
+          :model-value='fallbackModels',
+          @update:model-value='fallbackModels = $event',
+          emit-value,
+          map-options
+        )
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs Models to use as fallbacks when this model fails (can be from any provider)
+
+      q-separator.q-my-16
+
+      .km-title Load Balancing
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Priority
+        km-input(height='32px', type='number', placeholder='1', :model-value='priority', @update:model-value='priority = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs Lower priority values are preferred (default: 1)
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Weight
+        km-input(height='32px', type='number', placeholder='1', :model-value='weight', @update:model-value='weight = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs Weight for load balancing distribution (default: 1)
+
+    //- Info Tab - Model capabilities from LiteLLM
+    .column.q-gap-16.q-pa-16(v-if='tab == "info"')
+      template(v-if='capabilities')
+        .km-title Token Limits
+        .row.q-gap-16(v-if='capabilities.max_tokens || capabilities.max_input_tokens || capabilities.max_output_tokens')
+          .col(v-if='capabilities.max_input_tokens')
+            .km-field.text-secondary-text Max Input Tokens
+            .text-body2 {{ capabilities.max_input_tokens?.toLocaleString() }}
+          .col(v-if='capabilities.max_output_tokens')
+            .km-field.text-secondary-text Max Output Tokens
+            .text-body2 {{ capabilities.max_output_tokens?.toLocaleString() }}
+          .col(v-if='capabilities.max_tokens && !capabilities.max_input_tokens')
+            .km-field.text-secondary-text Max Tokens
+            .text-body2 {{ capabilities.max_tokens?.toLocaleString() }}
+        .text-secondary-text.km-description(v-else) No token limit information available
+
+        q-separator.q-my-16
+
+        .km-title Capabilities
+        .row.q-gap-8.flex-wrap(v-if='hasAnyCapability')
+          q-chip(v-if='capabilities.supports_vision', color='primary-light', text-color='primary', size='sm')
+            q-icon.q-mr-xs(name='o_visibility', size='14px')
+            | Vision
+          q-chip(v-if='capabilities.supports_function_calling', color='primary-light', text-color='primary', size='sm')
+            q-icon.q-mr-xs(name='o_code', size='14px')
+            | Function Calling
+          q-chip(v-if='capabilities.supports_response_schema', color='primary-light', text-color='primary', size='sm')
+            q-icon.q-mr-xs(name='o_data_object', size='14px')
+            | Response Schema
+          q-chip(v-if='capabilities.supports_audio_input', color='primary-light', text-color='primary', size='sm')
+            q-icon.q-mr-xs(name='o_mic', size='14px')
+            | Audio Input
+          q-chip(v-if='capabilities.supports_audio_output', color='primary-light', text-color='primary', size='sm')
+            q-icon.q-mr-xs(name='o_volume_up', size='14px')
+            | Audio Output
+        .text-secondary-text.km-description(v-else) No special capabilities detected
+
+        q-separator.q-my-16
+
+        .km-title Provider Pricing
+        .row.q-gap-16(v-if='capabilities.input_cost_per_token || capabilities.output_cost_per_token')
+          .col(v-if='capabilities.input_cost_per_token')
+            .km-field.text-secondary-text Input Cost
+            .text-body2 ${{ (capabilities.input_cost_per_token * 1000000).toFixed(4) }} / 1M tokens
+          .col(v-if='capabilities.output_cost_per_token')
+            .km-field.text-secondary-text Output Cost
+            .text-body2 ${{ (capabilities.output_cost_per_token * 1000000).toFixed(4) }} / 1M tokens
+        .text-secondary-text.km-description(v-else) No pricing information available from provider
+
+        q-separator.q-my-16
+
+        .km-title Supported Parameters
+        .row.q-gap-4.flex-wrap(v-if='capabilities.supported_params?.length')
+          q-chip(
+            v-for='param in capabilities.supported_params',
+            :key='param',
+            color='grey-3',
+            text-color='grey-8',
+            size='sm'
+          ) {{ param }}
+        .text-secondary-text.km-description(v-else) No supported parameters information available
+
+      template(v-else)
+        .text-center.q-pa-lg
+          q-icon(name='o_info', size='48px', color='grey-5')
+          .text-secondary-text.q-mt-md Model information is not available
+          .km-description.text-secondary-text.q-mt-xs Save the model first to load capabilities
+
   .col-auto.q-pa-16
     .row.items-center.q-gap-8
       km-btn(
@@ -201,19 +330,21 @@ q-dialog(v-model='showTestDialog')
 q-inner-loading(:showing='loading')
 </template>
 <script>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useChroma } from '@shared'
 import { categoryOptions } from '../../config/model/model.js'
 
 export default {
   setup() {
-    const { items, update, create, selectedRow, test, ...useCollection } = useChroma('model')
+    const { items, update, create, selectedRow, test, capabilities: capabilitiesAction, ...useCollection } = useChroma('model')
 
     return {
       tab: ref('parameters'),
       tabs: ref([
         { name: 'parameters', label: 'Parameters' },
         { name: 'pricing', label: 'Pricing' },
+        { name: 'routing', label: 'Routing' },
+        { name: 'info', label: 'Info' },
       ]),
       priceUnitOptions: ref([
         { label: 'Tokens', value: 'tokens' },
@@ -225,20 +356,50 @@ export default {
       testingModel: ref(false),
       testResult: ref(null),
       showTestDialog: ref(false),
+      capabilities: ref(null),
       items,
       update,
       create,
       selectedRow,
       useCollection,
       testModelAction: test,
+      capabilitiesAction,
     }
   },
   computed: {
     modelConfig() {
       return this.$store.getters['modelConfig/entity']
     },
+    modelId() {
+      return this.modelConfig?.id
+    },
     isEntityChanged() {
       return this.$store.getters['modelConfig/isEntityChanged']
+    },
+    // Get all models from store for fallback selection
+    allModels() {
+      return this.items || []
+    },
+    // Available models for fallback selection (excluding current model)
+    availableFallbackModels() {
+      const currentSystemName = this.modelConfig?.system_name
+      return this.allModels
+        .filter(m => m.system_name !== currentSystemName)
+        .map(m => ({
+          label: `${m.display_name} (${m.provider_system_name || m.provider_name})`,
+          value: m.system_name,
+        }))
+    },
+    // Check if model has any special capabilities
+    hasAnyCapability() {
+      if (!this.capabilities) return false
+      return (
+        this.capabilities.supports_vision ||
+        this.capabilities.supports_function_calling ||
+        this.capabilities.supports_response_schema ||
+        this.capabilities.supports_audio_input ||
+        this.capabilities.supports_audio_output
+      )
     },
     display_name: {
       get() {
@@ -435,8 +596,110 @@ export default {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'configs', value: newConfigs })
       },
     },
+    // Routing Config computed properties
+    routingConfig() {
+      return this.modelConfig?.routing_config || {}
+    },
+    cacheEnabled: {
+      get() {
+        return this.routingConfig?.cache_enabled || false
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('cache_enabled', value)
+      },
+    },
+    cacheTtl: {
+      get() {
+        return this.routingConfig?.cache_ttl || ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('cache_ttl', value ? parseInt(value) : null)
+      },
+    },
+    rpm: {
+      get() {
+        return this.routingConfig?.rpm || ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('rpm', value ? parseInt(value) : null)
+      },
+    },
+    tpm: {
+      get() {
+        return this.routingConfig?.tpm || ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('tpm', value ? parseInt(value) : null)
+      },
+    },
+    numRetries: {
+      get() {
+        return this.routingConfig?.num_retries || ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('num_retries', value ? parseInt(value) : null)
+      },
+    },
+    timeout: {
+      get() {
+        return this.routingConfig?.timeout || ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('timeout', value ? parseInt(value) : null)
+      },
+    },
+    priority: {
+      get() {
+        return this.routingConfig?.priority || ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('priority', value ? parseInt(value) : null)
+      },
+    },
+    weight: {
+      get() {
+        return this.routingConfig?.weight || ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('weight', value ? parseFloat(value) : null)
+      },
+    },
+    fallbackModels: {
+      get() {
+        const models = this.routingConfig?.fallback_models
+        return Array.isArray(models) ? models : []
+      },
+      set(value) {
+        const models = Array.isArray(value) && value.length > 0 ? value : null
+        this.updateRoutingConfigProperty('fallback_models', models)
+      },
+    },
+  },
+  watch: {
+    modelId: {
+      immediate: true,
+      handler(newId) {
+        if (newId) {
+          this.fetchCapabilities()
+        } else {
+          this.capabilities = null
+        }
+      },
+    },
   },
   methods: {
+    updateRoutingConfigProperty(key, value) {
+      const currentConfig = this.modelConfig?.routing_config || {}
+      const newConfig = { ...currentConfig }
+      if (value === null || value === undefined || value === '') {
+        delete newConfig[key]
+      } else {
+        newConfig[key] = value
+      }
+      // If config is empty, set it to null
+      const finalConfig = Object.keys(newConfig).length > 0 ? newConfig : null
+      this.$store.commit('modelConfig/updateEntityProperty', { key: 'routing_config', value: finalConfig })
+    },
     async save() {
       this.loading = true
       try {
@@ -504,6 +767,26 @@ export default {
     },
     goToDefaultModels() {
       this.$router.push({ name: 'ModelProviders', query: { tab: 'DefaultModels' } })
+    },
+    async fetchCapabilities() {
+      const modelId = this.modelId
+      if (!modelId) {
+        this.capabilities = null
+        return
+      }
+
+      try {
+        let result
+        if (this.capabilitiesAction) {
+          result = await this.capabilitiesAction(modelId)
+        } else {
+          result = await this.$store.dispatch('chroma/capabilities', { payload: modelId, entity: 'model' })
+        }
+        this.capabilities = result
+      } catch (error) {
+        console.error('Error fetching model capabilities:', error)
+        this.capabilities = null
+      }
     },
   },
 }

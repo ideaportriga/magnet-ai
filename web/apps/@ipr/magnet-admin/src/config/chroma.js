@@ -649,6 +649,26 @@ const apiModelConfig = {
         }
       })
   },
+  capabilities: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'GET',
+      endpoint,
+      credentials: 'include',
+      service: `models/${id}/capabilities`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+        return null
+      })
+      .catch(() => {
+        // Return null if capabilities not available (e.g., model not in LiteLLM registry)
+        return null
+      })
+  },
 }
 const modelProviders = {
   get: async (service, endpoint) => {
@@ -789,6 +809,26 @@ const modelProviders = {
           technicalError: response?.error,
           text: `Error testing model provider connection`,
         }
+      })
+  },
+  availableModels: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'GET',
+      endpoint,
+      credentials: 'include',
+      service: `providers/${id}/available-models`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+        return { models: [], source: 'error', error: 'Failed to fetch' }
+      })
+      .catch((response) => {
+        console.error('Error fetching available models:', response)
+        return { models: [], source: 'error', error: response?.error || 'Unknown error' }
       })
   },
 }

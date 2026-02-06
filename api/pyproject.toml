@@ -66,6 +66,7 @@ slack-bolt = "^1.26.0"
 microsoft-agents-hosting-core = "0.6.1"
 microsoft-agents-hosting-teams = "^0.6.1"
 azure-storage-blob = "^12.27.1"
+litellm = "^1.55.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.9.10"

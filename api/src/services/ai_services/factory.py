@@ -8,17 +8,33 @@ from services.ai_services.cache import (
     invalidate_provider_cache,
 )
 from services.ai_services.interface import AIProviderInterface
-from services.ai_services.providers.azure_ai import AzureAIProvider
-from services.ai_services.providers.azure_open_ai import AzureProvider
-from services.ai_services.providers.groq import GroqProvider
-from services.ai_services.providers.tmp_local import TmpLocalProvider
 from services.ai_services.providers.oci import OCIProvider
 from services.ai_services.providers.oci_llama import OCILlamaProvider
 from services.ai_services.providers.openai import OpenAIProvider
+from services.ai_services.providers.azure_open_ai import AzureProvider
+from services.ai_services.providers.azure_ai import AzureAIProvider
+from services.ai_services.providers.groq import GroqProvider
+from services.ai_services.providers.tmp_local import TmpLocalProvider
+from services.ai_services.providers.litellm_provider import LiteLLMProvider
+from services.ai_services.router import (
+    get_router,
+    refresh_router,
+    router_completion,
+    router_embedding,
+    is_model_in_router,
+)
 from utils.secrets import replace_placeholders_in_dict
 
 # Re-export for backward compatibility
-__all__ = ["get_ai_provider", "invalidate_provider_cache"]
+__all__ = [
+    "get_ai_provider",
+    "invalidate_provider_cache",
+    "get_router",
+    "refresh_router",
+    "router_completion",
+    "router_embedding",
+    "is_model_in_router",
+]
 
 
 def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
@@ -51,9 +67,24 @@ def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
     metadata_info = provider_data.get("metadata_info") or {}
     defaults = metadata_info.get("defaults", {})
 
+    # Extract router_config for LiteLLM provider (with secrets resolved)
+    router_config = metadata_info.get("router_config", {})
+    if router_config and router_config.get("model_list"):
+        # Resolve placeholders in each model's litellm_params
+        resolved_model_list = []
+        for model_entry in router_config["model_list"]:
+            resolved_entry = model_entry.copy()
+            if "litellm_params" in resolved_entry:
+                resolved_entry["litellm_params"] = replace_placeholders_in_dict(
+                    resolved_entry["litellm_params"], secrets
+                )
+            resolved_model_list.append(resolved_entry)
+        router_config = {**router_config, "model_list": resolved_model_list}
+
     return {
         "connection": connection,
         "defaults": defaults,
+        "router_config": router_config,
         "type": provider_data.get("type"),
         "label": provider_data.get("name"),
         "otel_gen_ai_system": metadata_info.get("otel_gen_ai_system"),
@@ -116,6 +147,7 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
         "oci_llama": OCILlamaProvider,
         "groq": GroqProvider,
         "datakom": TmpLocalProvider,
+        "litellm": LiteLLMProvider,
     }
 
     provider_class = provider_classes.get(str(provider_type))

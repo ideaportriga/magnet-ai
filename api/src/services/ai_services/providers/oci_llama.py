@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 
 import oci
@@ -7,6 +8,9 @@ from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_message import ChatCompletionMessage
 
 from services.ai_services.interface import AIProviderInterface
+from services.ai_services.providers.base_litellm import _response_cache
+
+logger = logging.getLogger(__name__)
 
 
 class OCILlamaProvider(AIProviderInterface):
@@ -55,6 +59,11 @@ class OCILlamaProvider(AIProviderInterface):
         top_p = top_p or self.top_p_default
         max_tokens = max_tokens or self.max_tokens
 
+        # Get routing config for caching
+        routing_config = (model_config or {}).get("routing_config") or {}
+        cache_enabled = routing_config.get("cache_enabled", False)
+        cache_key = None
+
         message_content = next(
             (msg["content"] for msg in messages if msg["role"] == "user"),
             None,
@@ -82,6 +91,27 @@ class OCILlamaProvider(AIProviderInterface):
             content=[user_content],
         )
         oci_messages.append(user_message)
+
+        # Check cache if enabled
+        if cache_enabled:
+            cache_key = _response_cache.make_key(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            cached = _response_cache.get(cache_key)
+            if cached:
+                logger.debug(f"Cache hit for model {model}")
+                # Return copy with zeroed usage to avoid double billing
+                from copy import deepcopy
+
+                cached_copy = deepcopy(cached)
+                if hasattr(cached_copy, "usage") and cached_copy.usage:
+                    cached_copy.usage.prompt_tokens = 0
+                    cached_copy.usage.completion_tokens = 0
+                    cached_copy.usage.total_tokens = 0
+                return cached_copy
 
         chat_request = oci.generative_ai_inference.models.GenericChatRequest(
             api_format=oci.generative_ai_inference.models.BaseChatRequest.API_FORMAT_GENERIC,
@@ -113,7 +143,7 @@ class OCILlamaProvider(AIProviderInterface):
             response_content = data.chat_response.choices[0].message.content[0].text
             model_id = data.model_id
 
-            return ChatCompletion(
+            result = ChatCompletion(
                 id="oci_completion",
                 object="chat.completion",
                 created=int(time.time()),
@@ -129,6 +159,13 @@ class OCILlamaProvider(AIProviderInterface):
                     ),
                 ],
             )
+
+            # Cache the result if caching is enabled
+            if cache_key:
+                cache_ttl = routing_config.get("cache_ttl", 3600)
+                _response_cache.set(cache_key, result, ttl=cache_ttl)
+
+            return result
         except oci.exceptions.ServiceError as e:
             # Handle error logging and return a safe response or re-raise
             print(f"OCI service error: {e}")

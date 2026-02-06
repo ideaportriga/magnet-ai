@@ -36,6 +36,36 @@ class ModelTestResult(BaseModel):
     )
 
 
+class ModelCapabilities(BaseModel):
+    """Model capabilities and supported parameters from LiteLLM."""
+
+    supported_params: list[str] = Field(
+        default_factory=list, description="Supported OpenAI parameters"
+    )
+    max_tokens: int | None = Field(None, description="Maximum total tokens")
+    max_input_tokens: int | None = Field(None, description="Maximum input tokens")
+    max_output_tokens: int | None = Field(None, description="Maximum output tokens")
+    supports_vision: bool = Field(
+        False, description="Whether model supports vision/images"
+    )
+    supports_function_calling: bool = Field(
+        False, description="Whether model supports function calling"
+    )
+    supports_response_schema: bool = Field(
+        False, description="Whether model supports response schema"
+    )
+    supports_audio_input: bool = Field(
+        False, description="Whether model supports audio input"
+    )
+    supports_audio_output: bool = Field(
+        False, description="Whether model supports audio output"
+    )
+    input_cost_per_token: float | None = Field(None, description="Input cost per token")
+    output_cost_per_token: float | None = Field(
+        None, description="Output cost per token"
+    )
+
+
 class AIModelsController(Controller):
     """AI Models CRUD"""
 
@@ -71,8 +101,11 @@ class AIModelsController(Controller):
         self, ai_models_service: AIModelsService, data: AIModelCreate
     ) -> AIModel:
         """Create a new AI model."""
+        from services.ai_services.router import refresh_router
+
         obj = await ai_models_service.create(data)
         clear_model_cache()
+        await refresh_router()  # Refresh LiteLLM router with new model
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
     @get("/code/{code:str}")
@@ -107,10 +140,13 @@ class AIModelsController(Controller):
         ),
     ) -> AIModel:
         """Update an AI model."""
+        from services.ai_services.router import refresh_router
+
         obj = await ai_models_service.update(
             data, item_id=ai_model_id, auto_commit=True
         )
         clear_model_cache()
+        await refresh_router()  # Refresh LiteLLM router with updated model
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
     @delete("/{ai_model_id:uuid}")
@@ -123,8 +159,11 @@ class AIModelsController(Controller):
         ),
     ) -> None:
         """Delete an AI model from the system."""
+        from services.ai_services.router import refresh_router
+
         _ = await ai_models_service.delete(ai_model_id)
         clear_model_cache()
+        await refresh_router()  # Refresh LiteLLM router after model deletion
 
     @post("/set_default", status_code=HTTP_204_NO_CONTENT)
     async def set_default_handler(
@@ -286,3 +325,56 @@ class AIModelsController(Controller):
                 message="Model test failed",
                 error=str(e),
             )
+
+    @get(
+        "/{ai_model_id:uuid}/capabilities",
+        summary="Get model capabilities",
+        status_code=HTTP_200_OK,
+    )
+    async def get_model_capabilities(
+        self,
+        ai_models_service: AIModelsService,
+        ai_model_id: UUID = Parameter(
+            title="AI Model ID",
+            description="The AI model to get capabilities for.",
+        ),
+    ) -> ModelCapabilities:
+        """
+        Get model capabilities and supported parameters from LiteLLM.
+
+        Returns information about what parameters the model supports,
+        token limits, and special capabilities like vision or function calling.
+        """
+        import litellm
+
+        model = await ai_models_service.get(ai_model_id)
+        if not model:
+            raise NotFoundException(f"Model with ID {ai_model_id} not found")
+
+        model_name = model.ai_model
+
+        # Get supported parameters
+        try:
+            supported_params = litellm.get_supported_openai_params(model_name) or []
+        except Exception:
+            supported_params = []
+
+        # Get model info
+        try:
+            info = litellm.get_model_info(model_name)
+        except Exception:
+            info = {}
+
+        return ModelCapabilities(
+            supported_params=supported_params,
+            max_tokens=info.get("max_tokens"),
+            max_input_tokens=info.get("max_input_tokens"),
+            max_output_tokens=info.get("max_output_tokens"),
+            supports_vision=info.get("supports_vision", False),
+            supports_function_calling=info.get("supports_function_calling", False),
+            supports_response_schema=info.get("supports_response_schema", False),
+            supports_audio_input=info.get("supports_audio_input", False),
+            supports_audio_output=info.get("supports_audio_output", False),
+            input_cost_per_token=info.get("input_cost_per_token"),
+            output_cost_per_token=info.get("output_cost_per_token"),
+        )

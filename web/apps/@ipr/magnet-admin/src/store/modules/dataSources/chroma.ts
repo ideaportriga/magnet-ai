@@ -326,6 +326,38 @@ const actions = {
     }
   },
 
+  async capabilities({ rootGetters, state }: ActionContext<ChromaState, any>, { payload, entity }: { payload: any; entity: string }) {
+    const endpoint = rootGetters.config?.collections?.endpoint
+    const service = rootGetters.config?.collections?.service || ''
+    const req = state[entity].api
+
+    try {
+      if (!req.capabilities) {
+        return null
+      }
+      const result = await req.capabilities(service, endpoint, { id: payload })
+      return result
+    } catch {
+      return null
+    }
+  },
+
+  async availableModels({ rootGetters, state }: ActionContext<ChromaState, any>, { payload, entity }: { payload: any; entity: string }) {
+    const endpoint = rootGetters.config?.collections?.endpoint
+    const service = rootGetters.config?.collections?.service || ''
+    const req = state[entity].api
+
+    try {
+      if (!req.availableModels) {
+        return { models: [], source: 'error', error: 'Method not available' }
+      }
+      const result = await req.availableModels(service, endpoint, { id: payload })
+      return result
+    } catch {
+      return { models: [], source: 'error', error: 'Failed to fetch available models' }
+    }
+  },
+
   selectFromRouter(
     { state, commit, dispatch }: ActionContext<ChromaState, any>,
     { payload, entity, detail }: { payload: any; entity: string; detail: boolean }
