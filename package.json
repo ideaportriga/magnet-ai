@@ -11,7 +11,7 @@
     "dev": "concurrently \"npm run dev:api:reload\" \"npm run dev:web\"",
     "dev:docker": "npm run docker:up && npm run dev",
     "dev:api": "cd api && poetry run python run.py",
-    "dev:api:reload": "cd api && cross-env UVICORN_RELOAD=true poetry run python run.py",
+    "dev:api:reload": "cd api && cross-env UVICORN_RELOAD=true LOG_FORMAT=console poetry run python run.py",
     "dev:web": "cd web && yarn dev",
     "docs:dev": "cd web && yarn docs:dev",
     "docs:build": "cd web && yarn docs:build",

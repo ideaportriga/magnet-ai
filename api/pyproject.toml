@@ -32,8 +32,7 @@ azure-ai-inference = "1.0.0b9"
 groq = "0.12.0"
 litestar = "^2.16.0"
 uvicorn = "0.32.0"
-litestar-saq = "^0.7.0"
-saq = {extras = ["postgres"], version = "^0.26.0"}
+asyncmq = {extras = ["postgres"], version = "^0.6.2"}
 psycopg = {extras = ["pool", "binary"], version = "^3.2.0"}
 croniter = "^6.0.0"
 aiodebug = "2.3.0"

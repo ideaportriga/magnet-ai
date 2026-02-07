@@ -425,7 +425,7 @@ async def evaluate(job_data) -> dict:
     job_id = str(job_data.get("_id"))
     job_type = job_data.get("type")
     config = job_data.get("config")
-    iteration_count = job_data.get("iteration_count")
+    iteration_count = int(job_data.get("iteration_count", 1))
 
     async def start_new_thread(system_name: str, test_set_system_names, variants):
         try:

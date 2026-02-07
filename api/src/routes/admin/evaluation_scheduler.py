@@ -2,7 +2,6 @@ import logging
 from typing import Any, Dict, List
 
 from litestar import Controller, post
-from litestar_saq.config import TaskQueues
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,7 +40,6 @@ class EvaluationSchedulerController(Controller):
     @post("/create-evaluation-job")
     async def create_evaluation_job(
         self,
-        task_queues: TaskQueues,
         data: EvaluationJobRequest,
         db_session: AsyncSession,
     ) -> Dict[str, Any]:
@@ -89,7 +87,7 @@ class EvaluationSchedulerController(Controller):
             )
 
             # Create and schedule the job
-            result = await create_job(task_queues, job_definition, db_session)
+            result = await create_job(job_definition, db_session)
 
             logger.info(f"Successfully created evaluation job: {result}")
             return {

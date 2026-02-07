@@ -15,7 +15,6 @@ from core.server.plugin_registry import (
     openapi_plugin,
     oracle_monitoring_plugin,
     problem_details,
-    saq_plugin,
     shutdown_plugin,
     startup_plugin,
     structlog,
@@ -59,8 +58,6 @@ def create_app() -> Litestar:
             alchemy,
             problem_details,
             structlog,
-            # SAQ scheduler plugin
-            saq_plugin,
             # Custom plugins
             cors_plugin,
             dependencies_plugin,

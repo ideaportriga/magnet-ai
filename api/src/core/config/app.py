@@ -47,7 +47,18 @@ def _is_tty() -> bool:
     return bool(sys.stderr.isatty() or sys.stdout.isatty())
 
 
-_render_as_json = not _is_tty()
+def _should_render_json() -> bool:
+    """Determine log format: env LOG_FORMAT overrides TTY auto-detection."""
+    fmt = settings.log.FORMAT.lower()
+    if fmt == "console":
+        return False
+    if fmt == "json":
+        return True
+    # "auto" — fallback to TTY detection
+    return not _is_tty()
+
+
+_render_as_json = _should_render_json()
 
 # Console processors (human-readable or JSON based on TTY)
 _structlog_default_processors = default_structlog_processors(as_json=_render_as_json)

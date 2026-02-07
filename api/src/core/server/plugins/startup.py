@@ -32,7 +32,8 @@ class StartupPlugin(InitPluginProtocol):
         """Application startup handler."""
         logger.info("Starting application...")
 
-        # SAQ scheduler is managed by SAQPlugin (litestar-saq)
+        # Start AsyncMQ scheduler
+        await self._start_scheduler()
 
         # Refresh API keys cache if auth is enabled
         if self.auth_enabled:
@@ -58,6 +59,17 @@ class StartupPlugin(InitPluginProtocol):
             logger.info("API keys cache refreshed successfully")
         except Exception as e:
             logger.error(f"Failed to refresh API keys cache: {e}")
+
+    async def _start_scheduler(self) -> None:
+        """Initialize the AsyncMQ-based scheduler."""
+        try:
+            from scheduler.manager import startup
+
+            await startup()
+            logger.info("AsyncMQ scheduler started successfully")
+        except Exception as e:
+            logger.error(f"Failed to start AsyncMQ scheduler: {e}")
+            raise
 
     async def _initialize_database_connections(self) -> None:
         """Initialize database connection pools based on VECTOR_DB_TYPE."""

@@ -33,13 +33,24 @@ class ShutdownPlugin(InitPluginProtocol):
         """Application shutdown handler."""
         logger.info("Shutting down application...")
 
-        # SAQ scheduler shutdown is managed by SAQPlugin (litestar-saq)
+        # Shutdown AsyncMQ scheduler
+        await self._stop_scheduler()
 
         # Give a brief moment for any ongoing operations to complete
         await asyncio.sleep(0.5)
 
         # Close database connection pools
         await self._close_database_connections()
+
+    async def _stop_scheduler(self) -> None:
+        """Shutdown the AsyncMQ-based scheduler."""
+        try:
+            from scheduler.manager import shutdown
+
+            await shutdown()
+            logger.info("AsyncMQ scheduler stopped successfully")
+        except Exception as e:
+            logger.error(f"Failed to stop AsyncMQ scheduler: {e}")
 
     async def _close_database_connections(self) -> None:
         """Close database connection pools based on VECTOR_DB_TYPE."""

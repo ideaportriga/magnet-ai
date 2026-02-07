@@ -277,16 +277,20 @@ class DatabaseSettings:
 
 @dataclass
 class SchedulerSettings:
-    """SAQ scheduler settings."""
+    """AsyncMQ scheduler settings."""
 
     SCHEDULER_CONCURRENCY: int = field(
         default_factory=get_env("SCHEDULER_CONCURRENCY", 10)
     )
-    """Number of concurrent jobs the SAQ worker processes."""
+    """Number of concurrent jobs the AsyncMQ worker processes."""
     SCHEDULER_QUEUE_NAME: str = field(
         default_factory=get_env("SCHEDULER_QUEUE_NAME", "scheduler")
     )
-    """Name of the SAQ queue."""
+    """Name of the AsyncMQ queue."""
+    SCHEDULER_JOB_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_JOB_TIMEOUT", 3600)
+    )
+    """Default timeout in seconds for AsyncMQ jobs (default: 1 hour)."""
 
 
 ### LOGGING SETTINGS ###
@@ -296,6 +300,8 @@ class LogSettings:
 
     """Enable debug mode and event loop debugging."""
     DEBUG_MODE: bool = field(default_factory=get_env("DEBUG_MODE", False))
+    """Log output format: 'auto' (detect TTY), 'console' (human-readable), 'json'."""
+    FORMAT: str = field(default_factory=get_env("LOG_FORMAT", "auto"))
 
     # https://stackoverflow.com/a/1845097/6560549
     """Regex to exclude paths from logging."""
@@ -361,9 +367,9 @@ class LogSettings:
             ),
         )
     )
-    """Log event name for logs from SAQ worker."""
+    """Log event name for logs from scheduler worker."""
     WORKER_EVENT: str = "Worker"  # Not used
-    """Level to log SAQ logs."""
+    """Level to log scheduler logs."""
     SAQ_LEVEL: int = field(default_factory=get_env("SAQ_LOG_LEVEL", 50))  # Not used
     """Level to log SQLAlchemy logs."""
     SQLALCHEMY_LEVEL: int = field(default_factory=get_env("SQLALCHEMY_LOG_LEVEL", 10))

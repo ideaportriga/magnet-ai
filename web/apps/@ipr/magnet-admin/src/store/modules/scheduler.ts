@@ -12,6 +12,25 @@ const mutations = {}
 
 // actions
 const actions = {
+  async getQueueStatus({ getters, commit }) {
+    const endpoint = getters.config?.scheduler?.endpoint
+    const service = getters.config?.scheduler?.service
+    const credentials = getters.config?.scheduler?.credentials
+
+    const response = await fetchData({
+      method: 'GET',
+      endpoint,
+      service: service + '/queue-status',
+      credentials,
+    })
+
+    if (response?.error) {
+      throw new Error(response.error)
+    }
+
+    return await response.json()
+  },
+
   async createAndRunJobScheduler({ getters, rootGetters, commit, state }, payload) {
     const endpoint = getters.config?.scheduler?.endpoint
     const service = getters.config?.scheduler?.service

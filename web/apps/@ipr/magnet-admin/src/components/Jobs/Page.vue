@@ -2,39 +2,60 @@
 layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
   template(#content)
     .column.full-width.overflow-auto
-      .row.items-center
-        km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject')
-        q-space
-        km-btn.q-mr-12(
-          icon='refresh',
-          label='Refresh list',
-          @click='refreshTable',
-          iconColor='icon',
-          hoverColor='primary',
-          labelClass='km-title',
-          flat,
-          iconSize='16px',
-          hoverBg='primary-bg'
-        )
-        km-btn(data-test='new-btn', label='New', @click='showNewDialog = true')
-      .row.q-pt-16
-        km-table(
-          ref='tableJobsRef',
-          @selectRow='openDetails',
-          selection='single',
-          row-key='id',
-          :selected='selectedJob ? [selectedJob] : []',
-          :columns='columns',
-          :visibleColumns='visibleColumns',
-          :rows='visibleRows',
-          style='min-width: 1100px',
-          binary-state-sort,
-          :loading='loading',
-          dense,
-          @request='getPaginated',
-          v-model:pagination='pagination',
-          :filter='filterObject'
-        )
+      q-tabs.bb-border.full-width.q-mb-lg(
+        v-model='tab',
+        narrow-indicator,
+        dense,
+        align='left',
+        active-color='primary',
+        indicator-color='primary',
+        active-bg-color='white',
+        no-caps,
+        content-class='km-tabs'
+      )
+        q-tab(name='jobs', label='Jobs')
+        q-tab(name='queue', label='Queue Status')
+
+      //- Jobs tab
+      template(v-if='tab === "jobs"')
+        .row.items-center
+          km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject')
+          q-space
+          km-btn.q-mr-12(
+            icon='refresh',
+            label='Refresh list',
+            @click='refreshTable',
+            iconColor='icon',
+            hoverColor='primary',
+            labelClass='km-title',
+            flat,
+            iconSize='16px',
+            hoverBg='primary-bg'
+          )
+          km-btn(data-test='new-btn', label='New', @click='showNewDialog = true')
+        .row.q-pt-16
+          km-table(
+            ref='tableJobsRef',
+            @selectRow='openDetails',
+            selection='single',
+            row-key='id',
+            :selected='selectedJob ? [selectedJob] : []',
+            :columns='columns',
+            :visibleColumns='visibleColumns',
+            :rows='visibleRows',
+            style='min-width: 1100px',
+            binary-state-sort,
+            :loading='loading',
+            dense,
+            @request='getPaginated',
+            v-model:pagination='pagination',
+            :filter='filterObject'
+          )
+
+      //- SAQ Queue tab
+      template(v-if='tab === "queue"')
+        jobs-queue-status
+
   template(#drawer)
     jobs-drawer(:show-drawer='showDrawer', :job='selectedJob', @cancel='showDrawer = false')
 jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false')
@@ -54,6 +75,7 @@ export default {
     return {
       loading,
       searchString: ref(''),
+      tab: ref('jobs'),
       pagination,
       visibleColumns,
       columns,
@@ -69,7 +91,6 @@ export default {
             { label: 'One time immmidiate', value: 'one_time_immediate' },
             { label: 'Recurring', value: 'recurring' },
           ],
-          // default: ['recurring'],
           multiple: true,
         },
         status: {
@@ -119,12 +140,10 @@ export default {
     if (this.$route.query.job_id) {
       const routeJobId = this.$route.query.job_id
       const newFilterConfig = {}
-      // Remove default from all existing fields
       for (let key in this.filterConfig) {
         newFilterConfig[key] = { ...this.filterConfig[key] }
         delete newFilterConfig[key].default
       }
-      // Add id field with value from query (Jobs API uses 'id', not '_id')
       newFilterConfig.id = {
         label: 'ID',
         key: 'id',
@@ -132,7 +151,6 @@ export default {
         default: routeJobId,
       }
       this.filterConfig = newFilterConfig
-      // Also set filterObject to apply the filter immediately
       this.filterObject = { id: routeJobId }
     }
   },

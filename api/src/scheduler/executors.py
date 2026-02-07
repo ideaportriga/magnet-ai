@@ -1,16 +1,19 @@
-"""Job executor functions for the SAQ-based scheduler.
+"""Job executor functions for the AsyncMQ-based scheduler.
 
-Each task function follows SAQ's signature: ``async def task(ctx, **kwargs)``.
-The first positional argument ``ctx`` is the SAQ context dict.
+Each task function is decorated with ``@task(queue="scheduler")`` which
+registers it in the global ``TASK_REGISTRY``.  Functions receive only
+``**kwargs`` – there is no ``ctx`` parameter as there was with SAQ.
 
-Recurring jobs re-enqueue themselves after completion using
-``_reschedule_if_recurring``.
+Recurring jobs are handled natively by AsyncMQ's repeatable scheduler,
+so there is no need for manual rescheduling.
 """
 
 import traceback
 from datetime import UTC, datetime, timedelta
 from functools import wraps
 from logging import getLogger
+
+from asyncmq.tasks import task
 
 from scheduler.types import JobDefinition, JobStatus, JobType, RunConfigurationType
 from scheduler.utils import update_job_status
@@ -40,89 +43,35 @@ def get_interval_days(interval):
     raise ValueError("Invalid interval value")
 
 
-async def _reschedule_if_recurring(ctx, *, job_id: str, job_definition: dict):
-    """If the job is recurring, enqueue the next execution in SAQ."""
-    jd = JobDefinition.model_validate(job_definition)
-    if jd.job_type != JobType.RECURRING or not jd.cron:
-        return
-
-    try:
-        from croniter import croniter
-
-        cron_params = {k: v for k, v in jd.cron.model_dump().items() if v is not None}
-        minute = str(cron_params.get("minute", "*"))
-        hour = str(cron_params.get("hour", "*"))
-        day = str(cron_params.get("day", "*"))
-        month = str(cron_params.get("month", "*"))
-        day_of_week = str(cron_params.get("day_of_week", "*"))
-
-        cron_expr = f"{minute} {hour} {day} {month} {day_of_week}"
-        now = datetime.now(UTC)
-        cron_iter = croniter(cron_expr, now)
-        next_dt = cron_iter.get_next(datetime)
-        next_epoch = next_dt.timestamp()
-
-        # Get the queue from SAQ context
-        queue = ctx.get("queue")
-        if queue is None:
-            logger.error(
-                f"No queue in SAQ context; cannot reschedule recurring job {job_id}"
-            )
-            return
-
-        # Determine the task name from the run_configuration type
-        handler = RUN_CONFIG_HANDLERS.get(jd.run_configuration.type)
-        if handler is None:
-            logger.error(
-                f"No handler for {jd.run_configuration.type}; cannot reschedule"
-            )
-            return
-
-        await queue.enqueue(
-            handler.__qualname__,
-            key=f"job:{job_id}",
-            scheduled=next_epoch,
-            job_id=job_id,
-            job_definition=job_definition,
-            params=jd.run_configuration.params,
-        )
-
-        next_run_iso = next_dt.isoformat()
-        await update_job_status(job_id, JobStatus.WAITING, {"next_run": next_run_iso})
-        logger.info(f"Rescheduled recurring job {job_id} for {next_run_iso}")
-
-    except Exception as e:
-        logger.error(f"Failed to reschedule recurring job {job_id}: {e}")
-
-
 # ---------------------------------------------------------------------------
 # Decorator – wraps each task to track PROCESSING / ERROR status
 # ---------------------------------------------------------------------------
 
 
 def with_progress_status(func):
-    """Set status to PROCESSING before execution; ERROR on exception."""
+    """Set status to PROCESSING before execution; ERROR on exception.
+
+    For recurring jobs the status is set back to WAITING on completion
+    (AsyncMQ's repeatable scheduler handles the next enqueue automatically).
+    For one-time jobs the status is set to COMPLETED.
+    """
 
     @wraps(func)
-    async def wrapper(ctx, **kwargs):
+    async def wrapper(**kwargs):
         job_id = kwargs.get("job_id")
         try:
             if job_id:
                 await update_job_status(job_id, JobStatus.PROCESSING)
-            result = await func(ctx, **kwargs)
-            # On success, update status and reschedule if recurring
+            result = await func(**kwargs)
+            # On success, update status
             if job_id:
-                job_definition = kwargs.get("job_definition")
                 current_time = datetime.now(UTC).isoformat()
+                job_definition = kwargs.get("job_definition")
                 if job_definition:
                     jd = JobDefinition.model_validate(job_definition)
                     if jd.job_type == JobType.RECURRING:
-                        # Status will be set to WAITING by _reschedule_if_recurring
                         await update_job_status(
                             job_id, JobStatus.WAITING, {"last_run": current_time}
-                        )
-                        await _reschedule_if_recurring(
-                            ctx, job_id=job_id, job_definition=job_definition
                         )
                     else:
                         await update_job_status(
@@ -138,7 +87,6 @@ def with_progress_status(func):
                 try:
                     current_time = datetime.now(UTC).isoformat()
                     job_definition = kwargs.get("job_definition")
-                    # Even on error, reschedule recurring jobs
                     if job_definition:
                         jd = JobDefinition.model_validate(job_definition)
                         if jd.job_type == JobType.RECURRING:
@@ -146,9 +94,6 @@ def with_progress_status(func):
                                 job_id,
                                 JobStatus.WAITING,
                                 {"last_run": current_time, "error": str(e)},
-                            )
-                            await _reschedule_if_recurring(
-                                ctx, job_id=job_id, job_definition=job_definition
                             )
                         else:
                             await update_job_status(
@@ -172,9 +117,10 @@ def with_progress_status(func):
 # ---------------------------------------------------------------------------
 
 
+@task(queue="scheduler")
 @with_progress_status
 @observe(name="Custom job", channel="Job")
-async def execute_custom_function(ctx, **kwargs):
+async def execute_custom_function(**kwargs):
     """Execute a custom function with the given parameters."""
     job_id = kwargs.get("job_id")
 
@@ -204,9 +150,10 @@ async def execute_custom_function(ctx, **kwargs):
         raise
 
 
+@task(queue="scheduler")
 @with_progress_status
 @observe(name="Sync knowledge source", channel="Job")
-async def execute_sync_collection(ctx, **kwargs):
+async def execute_sync_collection(**kwargs):
     """Execute a sync collection job with the given parameters."""
     job_id = kwargs.get("job_id")
 
@@ -277,8 +224,9 @@ async def execute_sync_collection(ctx, **kwargs):
         raise
 
 
+@task(queue="scheduler")
 @with_progress_status
-async def execute_post_process_configuration(ctx, **kwargs):
+async def execute_post_process_configuration(**kwargs):
     """Execute a post-process configuration job with the given parameters."""
     job_id = kwargs.get("job_id")
 
@@ -380,9 +328,10 @@ async def execute_post_process_configuration(ctx, **kwargs):
         raise
 
 
+@task(queue="scheduler")
 @with_progress_status
 @observe(name="Evaluation job", channel="Job")
-async def execute_evaluation(ctx, **kwargs):
+async def execute_evaluation(**kwargs):
     """Execute an evaluation job with the given parameters."""
     job_id = kwargs.get("job_id")
 
@@ -429,9 +378,10 @@ async def execute_evaluation(ctx, **kwargs):
         raise
 
 
+@task(queue="scheduler")
 @with_progress_status
 @observe(name="Sync knowledge graph source", channel="Job")
-async def execute_sync_knowledge_graph_source(ctx, **kwargs):
+async def execute_sync_knowledge_graph_source(**kwargs):
     """Execute a knowledge graph source sync job."""
     job_id = kwargs.get("job_id")
 
@@ -488,9 +438,10 @@ async def execute_sync_knowledge_graph_source(ctx, **kwargs):
         raise
 
 
+@task(queue="scheduler")
 @with_progress_status
 @observe(name="Cleanup logs", channel="Job")
-async def execute_cleanup_logs(ctx, **kwargs):
+async def execute_cleanup_logs(**kwargs):
     """Execute a cleanup job to delete old traces and metrics.
 
     Params:

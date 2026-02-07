@@ -1,12 +1,9 @@
-"""Job executor – enqueue / cancel jobs via SAQ.
+"""Job executor – enqueue / cancel jobs via AsyncMQ.
 
-This module bridges the application's ``JobDefinition`` model with the SAQ
-queue.  Instead of directly scheduling functions through APScheduler, jobs are
-*enqueued* into the SAQ queue (optionally with a ``scheduled`` timestamp for
-deferred execution).
-
-Recurring jobs re-enqueue themselves after successful execution (handled
-inside the executor functions in ``executors.py``).
+This module bridges the application's ``JobDefinition`` model with the
+AsyncMQ queue.  Jobs are enqueued via ``queue.add()`` for one-time
+execution and ``manager.add_repeatable()`` for recurring (cron) jobs
+(using our custom repeatable scheduler).
 """
 
 import logging
@@ -14,13 +11,17 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from croniter import croniter
-from litestar_saq.config import TaskQueues
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.domain.jobs.schemas import JobCreate, JobUpdate
 from core.domain.jobs.service import JobsService
 from scheduler.executors import RUN_CONFIG_HANDLERS
-from scheduler.manager import get_queue
+from scheduler.manager import (
+    _build_cron_expr,
+    add_repeatable,
+    get_queue,
+    remove_repeatable_by_job_id,
+)
 from scheduler.types import JobDefinition, JobStatus, JobType
 from scheduler.utils import update_job_status
 
@@ -29,37 +30,28 @@ logger = logging.getLogger(__name__)
 
 def _cron_to_next_epoch(cron_config, timezone_str: str = "UTC") -> float:
     """Calculate the next run time (epoch seconds) from a ``CronConfig``."""
-    cron_params = {k: v for k, v in cron_config.model_dump().items() if v is not None}
-    # Build a standard cron expression from the params (minute hour day month day_of_week)
-    minute = str(cron_params.get("minute", "*"))
-    hour = str(cron_params.get("hour", "*"))
-    day = str(cron_params.get("day", "*"))
-    month = str(cron_params.get("month", "*"))
-    day_of_week = str(cron_params.get("day_of_week", "*"))
-
-    cron_expr = f"{minute} {hour} {day} {month} {day_of_week}"
+    cron_expr = _build_cron_expr(cron_config)
     now = datetime.now(UTC)
     cron_iter = croniter(cron_expr, now)
     next_dt = cron_iter.get_next(datetime)
     return next_dt.timestamp()
 
 
-def _get_task_function_name(run_config_type) -> str:
-    """Map a ``RunConfigurationType`` to the task function's ``__qualname__``."""
+def _get_task_id(run_config_type) -> str:
+    """Map a ``RunConfigurationType`` to the AsyncMQ task_id string."""
     handler = RUN_CONFIG_HANDLERS.get(run_config_type)
     if handler is None:
         raise ValueError(f"Unsupported run configuration type: {run_config_type}")
-    return handler.__qualname__
+    return handler.task_id
 
 
 async def create_job(
-    task_queues: TaskQueues,
     data: JobDefinition,
     db_session: AsyncSession,
 ) -> dict:
-    """Create (or update) a job record in the DB and enqueue it in SAQ."""
+    """Create (or update) a job record in the DB and enqueue it in AsyncMQ."""
 
-    queue = get_queue(task_queues)
+    queue = get_queue()
 
     async with db_session as session:
         service = JobsService(session=session)
@@ -134,9 +126,9 @@ async def create_job(
                 "Invalid input: expected JobDefinition or dictionary with job_id",
             )
 
-    # Resolve the task function name for SAQ
+    # Resolve the AsyncMQ task_id
     run_config_type = job_definition.run_configuration.type
-    task_name = _get_task_function_name(run_config_type)
+    task_id = _get_task_id(run_config_type)
 
     # Update job status in database
     await update_job_status(job_id, JobStatus.WAITING)
@@ -144,16 +136,14 @@ async def create_job(
     # Build kwargs passed to the task function
     job_kwargs = {
         "job_id": job_id,
-        "job_definition": job_definition.model_dump(),
+        "job_definition": job_definition.model_dump(mode="json"),
         "params": job_definition.run_configuration.params,
     }
 
-    # Determine scheduled execution time (epoch seconds)
-    scheduled: float | None = None
-
     if job_definition.job_type == JobType.ONE_TIME_IMMEDIATE:
-        scheduled = None  # run immediately
-        logger.info(f"Enqueuing immediate job {job_id}")
+        # Run immediately
+        await queue.add(task_id, kwargs=job_kwargs)
+        logger.info(f"Enqueued immediate job {job_id}")
 
     elif job_definition.job_type == JobType.ONE_TIME_SCHEDULED:
         scheduled_time = job_definition.scheduled_start_time
@@ -169,10 +159,11 @@ async def create_job(
         if scheduled_time <= datetime.now(UTC):
             raise ValueError("Scheduled start time must be in the future")
 
-        scheduled = scheduled_time.timestamp()
-        logger.info(f"Enqueuing scheduled job {job_id} for {scheduled_time}")
+        # AsyncMQ uses ``delay`` in seconds from now
+        delay_seconds = (scheduled_time - datetime.now(UTC)).total_seconds()
+        await queue.add(task_id, kwargs=job_kwargs, delay=delay_seconds)
+        logger.info(f"Enqueued scheduled job {job_id} for {scheduled_time}")
 
-        # Record next_run
         await update_job_status(
             job_id, JobStatus.WAITING, {"next_run": scheduled_time.isoformat()}
         )
@@ -181,24 +172,23 @@ async def create_job(
         if not job_definition.cron:
             raise ValueError("Cron configuration is required for recurring jobs")
 
+        cron_expr = _build_cron_expr(job_definition.cron)
+
+        # Register with our custom repeatable scheduler (not the built-in
+        # AsyncMQ one which cannot handle dynamic additions).
+        add_repeatable(
+            task_id,
+            cron=cron_expr,
+            kwargs=job_kwargs,
+        )
+
+        # Calculate next run for display
         next_run_epoch = _cron_to_next_epoch(
             job_definition.cron, job_definition.timezone or "UTC"
         )
-        scheduled = next_run_epoch
-
         next_run_iso = datetime.fromtimestamp(next_run_epoch, tz=UTC).isoformat()
         await update_job_status(job_id, JobStatus.WAITING, {"next_run": next_run_iso})
-        logger.info(f"Enqueuing recurring job {job_id}, next run at {next_run_iso}")
-
-    # Enqueue in SAQ
-    enqueue_kwargs: dict = {
-        "key": f"job:{job_id}",
-        **job_kwargs,
-    }
-    if scheduled is not None:
-        enqueue_kwargs["scheduled"] = scheduled
-
-    await queue.enqueue(task_name, **enqueue_kwargs)
+        logger.info(f"Registered recurring job {job_id}, next run at {next_run_iso}")
 
     return {
         "job_id": job_id,
@@ -208,11 +198,10 @@ async def create_job(
 
 
 async def cancel_job(
-    task_queues: TaskQueues,
     job_id: str,
     db_session: AsyncSession,
 ) -> dict:
-    """Cancel a job – abort it in SAQ if running and update DB status."""
+    """Cancel a job – remove it from AsyncMQ and update DB status."""
 
     async with db_session as session:
         service = JobsService(session=session)
@@ -220,16 +209,28 @@ async def cancel_job(
         if not job:
             raise ValueError(f"Job with ID {job_id} not found")
 
-    queue = get_queue(task_queues)
+    queue = get_queue()
 
-    # Attempt to abort in SAQ (best-effort)
+    # For recurring jobs, remove from our custom repeatable scheduler
     try:
-        saq_job = await queue.job(f"job:{job_id}")
-        if saq_job:
-            await saq_job.abort("Canceled by user")
-            logger.info(f"Aborted SAQ job for {job_id}")
+        job_definition = job.definition
+        if isinstance(job_definition, dict):
+            jd = JobDefinition.model_validate(job_definition)
+            if jd.job_type == JobType.RECURRING:
+                removed = remove_repeatable_by_job_id(job_id)
+                if removed:
+                    logger.info(f"Removed repeatable for job {job_id}")
+                else:
+                    logger.warning(f"No repeatable found for job {job_id}")
     except Exception as e:
-        logger.warning(f"Could not abort SAQ job {job_id}: {e}")
+        logger.warning(f"Could not remove repeatable for job {job_id}: {e}")
+
+    # Cancel any pending one-time job in AsyncMQ (best-effort)
+    try:
+        await queue.cancel_job(f"job:{job_id}")
+        logger.info(f"Cancelled AsyncMQ job for {job_id}")
+    except Exception as e:
+        logger.warning(f"Could not cancel AsyncMQ job {job_id}: {e}")
 
     await update_job_status(job_id, JobStatus.CANCELED)
     return {"job_id": job_id, "status": JobStatus.CANCELED}

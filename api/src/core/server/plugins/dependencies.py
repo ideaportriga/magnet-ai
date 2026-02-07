@@ -18,7 +18,7 @@ class DependenciesPlugin(InitPluginProtocol):
         """Configure dependencies."""
         dependencies = dict(app_config.dependencies or {})
 
-        # SAQ task_queues dependency is automatically registered by SAQPlugin
+        # AsyncMQ scheduler is managed via startup/shutdown hooks
 
         # Add user_id dependency
         dependencies["user_id"] = Provide(self._get_user_id)
