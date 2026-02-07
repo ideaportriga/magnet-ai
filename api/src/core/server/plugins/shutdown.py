@@ -33,32 +33,13 @@ class ShutdownPlugin(InitPluginProtocol):
         """Application shutdown handler."""
         logger.info("Shutting down application...")
 
-        # Shutdown scheduler
-        await self._shutdown_scheduler(app)
+        # SAQ scheduler shutdown is managed by SAQPlugin (litestar-saq)
 
         # Give a brief moment for any ongoing operations to complete
         await asyncio.sleep(0.5)
 
         # Close database connection pools
         await self._close_database_connections()
-
-    async def _shutdown_scheduler(self, app: Litestar) -> None:
-        """Shutdown the scheduler."""
-        scheduler = getattr(app.state, "scheduler", None)
-        if scheduler is not None:
-            try:
-                logger.info("Shutting down scheduler...")
-                # Try with wait parameter first, fallback to basic shutdown if not supported
-                try:
-                    scheduler.shutdown(wait=True)  # Wait for current jobs to complete
-                except TypeError:
-                    # Fallback for schedulers that don't support wait parameter
-                    scheduler.shutdown()
-                logger.info("Scheduler shut down successfully")
-            except Exception as e:
-                logger.error(f"Error shutting down scheduler: {e}")
-        else:
-            logger.info("No scheduler to shut down")
 
     async def _close_database_connections(self) -> None:
         """Close database connection pools based on VECTOR_DB_TYPE."""

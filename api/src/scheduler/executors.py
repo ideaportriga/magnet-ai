@@ -1,5 +1,10 @@
-"""Job executor functions for the scheduler.
-These functions handle the actual execution of scheduled jobs.
+"""Job executor functions for the SAQ-based scheduler.
+
+Each task function follows SAQ's signature: ``async def task(ctx, **kwargs)``.
+The first positional argument ``ctx`` is the SAQ context dict.
+
+Recurring jobs re-enqueue themselves after completion using
+``_reschedule_if_recurring``.
 """
 
 import traceback
@@ -7,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from functools import wraps
 from logging import getLogger
 
-from scheduler.types import JobStatus, RunConfigurationType
+from scheduler.types import JobDefinition, JobStatus, JobType, RunConfigurationType
 from scheduler.utils import update_job_status
 from services.agents.conversations.services import get_conversation_by_id
 from services.agents.models import AgentConversationDataWithMessages
@@ -17,6 +22,11 @@ from services.observability.models import FeatureType
 from services.observability.utils import observability_overrides
 
 logger = getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 
 def get_interval_days(interval):
@@ -30,39 +40,145 @@ def get_interval_days(interval):
     raise ValueError("Invalid interval value")
 
 
-# Decorator to set status to PROGRESS before execution (async version)
-def with_progress_status(func):
-    @wraps(func)
-    async def wrapper(**kwargs):
-        job_id = kwargs.get("job_id")
+async def _reschedule_if_recurring(ctx, *, job_id: str, job_definition: dict):
+    """If the job is recurring, enqueue the next execution in SAQ."""
+    jd = JobDefinition.model_validate(job_definition)
+    if jd.job_type != JobType.RECURRING or not jd.cron:
+        return
 
+    try:
+        from croniter import croniter
+
+        cron_params = {k: v for k, v in jd.cron.model_dump().items() if v is not None}
+        minute = str(cron_params.get("minute", "*"))
+        hour = str(cron_params.get("hour", "*"))
+        day = str(cron_params.get("day", "*"))
+        month = str(cron_params.get("month", "*"))
+        day_of_week = str(cron_params.get("day_of_week", "*"))
+
+        cron_expr = f"{minute} {hour} {day} {month} {day_of_week}"
+        now = datetime.now(UTC)
+        cron_iter = croniter(cron_expr, now)
+        next_dt = cron_iter.get_next(datetime)
+        next_epoch = next_dt.timestamp()
+
+        # Get the queue from SAQ context
+        queue = ctx.get("queue")
+        if queue is None:
+            logger.error(
+                f"No queue in SAQ context; cannot reschedule recurring job {job_id}"
+            )
+            return
+
+        # Determine the task name from the run_configuration type
+        handler = RUN_CONFIG_HANDLERS.get(jd.run_configuration.type)
+        if handler is None:
+            logger.error(
+                f"No handler for {jd.run_configuration.type}; cannot reschedule"
+            )
+            return
+
+        await queue.enqueue(
+            handler.__qualname__,
+            key=f"job:{job_id}",
+            scheduled=next_epoch,
+            job_id=job_id,
+            job_definition=job_definition,
+            params=jd.run_configuration.params,
+        )
+
+        next_run_iso = next_dt.isoformat()
+        await update_job_status(job_id, JobStatus.WAITING, {"next_run": next_run_iso})
+        logger.info(f"Rescheduled recurring job {job_id} for {next_run_iso}")
+
+    except Exception as e:
+        logger.error(f"Failed to reschedule recurring job {job_id}: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Decorator – wraps each task to track PROCESSING / ERROR status
+# ---------------------------------------------------------------------------
+
+
+def with_progress_status(func):
+    """Set status to PROCESSING before execution; ERROR on exception."""
+
+    @wraps(func)
+    async def wrapper(ctx, **kwargs):
+        job_id = kwargs.get("job_id")
         try:
             if job_id:
                 await update_job_status(job_id, JobStatus.PROCESSING)
-            return await func(**kwargs)
+            result = await func(ctx, **kwargs)
+            # On success, update status and reschedule if recurring
+            if job_id:
+                job_definition = kwargs.get("job_definition")
+                current_time = datetime.now(UTC).isoformat()
+                if job_definition:
+                    jd = JobDefinition.model_validate(job_definition)
+                    if jd.job_type == JobType.RECURRING:
+                        # Status will be set to WAITING by _reschedule_if_recurring
+                        await update_job_status(
+                            job_id, JobStatus.WAITING, {"last_run": current_time}
+                        )
+                        await _reschedule_if_recurring(
+                            ctx, job_id=job_id, job_definition=job_definition
+                        )
+                    else:
+                        await update_job_status(
+                            job_id, JobStatus.COMPLETED, {"last_run": current_time}
+                        )
+                else:
+                    await update_job_status(
+                        job_id, JobStatus.COMPLETED, {"last_run": current_time}
+                    )
+            return result
         except Exception as e:
-            # If there's an error and job_id exists, update status to ERROR
             if job_id:
                 try:
-                    await update_job_status(job_id, JobStatus.ERROR)
+                    current_time = datetime.now(UTC).isoformat()
+                    job_definition = kwargs.get("job_definition")
+                    # Even on error, reschedule recurring jobs
+                    if job_definition:
+                        jd = JobDefinition.model_validate(job_definition)
+                        if jd.job_type == JobType.RECURRING:
+                            await update_job_status(
+                                job_id,
+                                JobStatus.WAITING,
+                                {"last_run": current_time, "error": str(e)},
+                            )
+                            await _reschedule_if_recurring(
+                                ctx, job_id=job_id, job_definition=job_definition
+                            )
+                        else:
+                            await update_job_status(
+                                job_id,
+                                JobStatus.ERROR,
+                                {"last_run": current_time, "error": str(e)},
+                            )
+                    else:
+                        await update_job_status(job_id, JobStatus.ERROR)
                 except Exception as update_error:
                     logger.error(
                         f"Failed to update job status for job {job_id}: {str(update_error)}"
                     )
-            # Re-raise the original exception
-            raise e
+            raise
 
     return wrapper
 
 
+# ---------------------------------------------------------------------------
+# Task functions
+# ---------------------------------------------------------------------------
+
+
 @with_progress_status
 @observe(name="Custom job", channel="Job")
-async def execute_custom_function(**kwargs):
+async def execute_custom_function(ctx, **kwargs):
     """Execute a custom function with the given parameters."""
     job_id = kwargs.get("job_id")
 
     try:
-        # Extract job information and parameters
         job_definition = kwargs.get("job_definition")
         params = kwargs.get("params", {})
 
@@ -85,19 +201,16 @@ async def execute_custom_function(**kwargs):
                 "error_type": type(e).__name__,
             },
         )
-
-        # Error status will be set by with_progress_status decorator
-        raise e
+        raise
 
 
 @with_progress_status
 @observe(name="Sync knowledge source", channel="Job")
-async def execute_sync_collection(**kwargs):
+async def execute_sync_collection(ctx, **kwargs):
     """Execute a sync collection job with the given parameters."""
     job_id = kwargs.get("job_id")
 
     try:
-        # Extract job information and parameters
         job_definition = kwargs.get("job_definition")
         params = kwargs.get("params", {})
 
@@ -110,17 +223,14 @@ async def execute_sync_collection(**kwargs):
             },
         )
 
-        # Extract system_name from params
         system_name = params.get("system_name")
 
         if not system_name:
             logger.error(f"Missing system_name parameter for job {job_id}")
             return False
 
-        # Get collection_id from system_name
         collection_id = system_name
 
-        # This is a system name, not an ID
         from services.utils.get_ids_by_system_names import get_ids_by_system_names
 
         collection_id = await get_ids_by_system_names(system_name, "collections")
@@ -130,18 +240,15 @@ async def execute_sync_collection(**kwargs):
             )
             return False
 
-        # Handle case where collection_id is a list
         if isinstance(collection_id, list):
             if collection_id:
-                collection_id = collection_id[0]  # Take the first ID
+                collection_id = collection_id[0]
             else:
                 logger.error(
                     f"Empty collection_id list for system_name '{system_name}' in job {job_id}"
                 )
                 return False
 
-        # Create event loop and run the async sync_collection method
-        # Import here to avoid circular imports
         from routes.admin.knowledge_sources import sync_collection_standalone
 
         result = await sync_collection_standalone(collection_id)
@@ -167,18 +274,15 @@ async def execute_sync_collection(**kwargs):
                 "params": params,
             },
         )
-
-        # Error status will be set by with_progress_status decorator
-        raise e
+        raise
 
 
 @with_progress_status
-async def execute_post_process_configuration(**kwargs):
+async def execute_post_process_configuration(ctx, **kwargs):
     """Execute a post-process configuration job with the given parameters."""
     job_id = kwargs.get("job_id")
 
     try:
-        # job_definition = kwargs.get("job_definition")
         params = kwargs.get("params", {})
 
         agents_system_names = params.get("agent_system_names")
@@ -216,11 +320,9 @@ async def execute_post_process_configuration(**kwargs):
                 now = datetime.now(UTC)
                 time_boundary = now - timedelta(days=days)
 
-                # Use SQLAlchemy to find conversations
                 async with alchemy.get_session() as session:
                     service = AgentConversationService(session=session)
 
-                    # Find conversations that match criteria
                     conversations = await service.list(
                         AgentConversation.status != "closed",
                         AgentConversation.agent == agent_system_name,
@@ -275,19 +377,16 @@ async def execute_post_process_configuration(**kwargs):
             f"Error in execute_post_process_configuration for job {job_id}: {str(e)}"
         )
         traceback.print_exc()
-
-        # Error status will be set by with_progress_status decorator
-        raise e
+        raise
 
 
 @with_progress_status
 @observe(name="Evaluation job", channel="Job")
-async def execute_evaluation(**kwargs):
+async def execute_evaluation(ctx, **kwargs):
     """Execute an evaluation job with the given parameters."""
     job_id = kwargs.get("job_id")
 
     try:
-        # Extract job information and parameters
         job_definition = kwargs.get("job_definition")
         params = kwargs.get("params", {})
 
@@ -300,19 +399,16 @@ async def execute_evaluation(**kwargs):
             },
         )
 
-        # Import here to avoid circular imports
         from services.jobs.jobs_types.evaluate import evaluate
 
-        # Transform scheduler params to run_job format
         job_record = {
             "_id": job_id,
-            "type": params.get("type"),  # "rag_eval" or "prompt_eval"
+            "type": params.get("type"),
             "iteration_count": params.get("iteration_count", 1),
             "config": params.get("config", []),
             "result_entity": params.get("result_entity"),
         }
 
-        # Execute the evaluation
         result = await evaluate(job_record)
 
         logger.info(f"Successfully completed evaluation for job {job_id}")
@@ -330,14 +426,12 @@ async def execute_evaluation(**kwargs):
                 "params": params,
             },
         )
-
-        # Error status will be set by with_progress_status decorator
-        raise e
+        raise
 
 
 @with_progress_status
 @observe(name="Sync knowledge graph source", channel="Job")
-async def execute_sync_knowledge_graph_source(**kwargs):
+async def execute_sync_knowledge_graph_source(ctx, **kwargs):
     """Execute a knowledge graph source sync job."""
     job_id = kwargs.get("job_id")
 
@@ -391,14 +485,12 @@ async def execute_sync_knowledge_graph_source(**kwargs):
                 "params": params,
             },
         )
-
-        # Error status will be set by with_progress_status decorator
-        raise e
+        raise
 
 
 @with_progress_status
 @observe(name="Cleanup logs", channel="Job")
-async def execute_cleanup_logs(**kwargs):
+async def execute_cleanup_logs(ctx, **kwargs):
     """Execute a cleanup job to delete old traces and metrics.
 
     Params:
@@ -442,7 +534,6 @@ async def execute_cleanup_logs(**kwargs):
 
         async with alchemy.get_session() as session:
             if cleanup_traces:
-                # Delete old traces
                 result = await session.execute(
                     delete(Trace).where(Trace.created_at < cutoff_date)
                 )
@@ -452,7 +543,6 @@ async def execute_cleanup_logs(**kwargs):
                 )
 
             if cleanup_metrics:
-                # Delete old metrics
                 result = await session.execute(
                     delete(Metric).where(Metric.created_at < cutoff_date)
                 )
@@ -490,9 +580,7 @@ async def execute_cleanup_logs(**kwargs):
                 "params": params,
             },
         )
-
-        # Error status will be set by with_progress_status decorator
-        raise e
+        raise
 
 
 # Mapping of run configuration types to execution functions directly

@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -61,7 +61,6 @@ async def update_job_status(
                         update_data["last_run"] = last_run_value
 
             # Validate and prepare update data
-            # exclude_unset=True ensures only fields present in update_data are included
             job_update = JobUpdate.model_validate(update_data).model_dump(
                 exclude_unset=True
             )
@@ -71,20 +70,3 @@ async def update_job_status(
         logger.debug(f"Updated job {job_id} status to {status}")
     except Exception as e:
         logger.error(f"Error updating job {job_id} status: {e!s}")
-
-
-def format_next_run_time(job) -> str | None:
-    """Format job's next run time to ISO format in UTC timezone.
-
-    Args:
-        job: The scheduler job object
-
-    Returns:
-        Formatted datetime string or None if no next run time
-
-    """
-    if not job or not job.next_run_time:
-        return None
-
-    utc_time = job.next_run_time.astimezone(UTC)
-    return utc_time.isoformat()

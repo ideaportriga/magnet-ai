@@ -32,8 +32,7 @@ class StartupPlugin(InitPluginProtocol):
         """Application startup handler."""
         logger.info("Starting application...")
 
-        # Initialize scheduler
-        await self._initialize_scheduler(app)
+        # SAQ scheduler is managed by SAQPlugin (litestar-saq)
 
         # Refresh API keys cache if auth is enabled
         if self.auth_enabled:
@@ -49,20 +48,6 @@ class StartupPlugin(InitPluginProtocol):
 
         # Preload Teams note-taker bot if configured via environment
         await self._initialize_teams_note_taker_runtime(app)
-
-    async def _initialize_scheduler(self, app: Litestar) -> None:
-        """Initialize the scheduler."""
-        try:
-            from scheduler import create_scheduler
-
-            scheduler = await create_scheduler()
-            app.state.scheduler = scheduler
-            logger.info("Scheduler started successfully")
-        except Exception as e:
-            logger.error(f"Failed to start scheduler: {e}")
-            # Set scheduler to None so we can handle it in shutdown
-            app.state.scheduler = None
-            # Don't raise the exception to allow the app to start without scheduler
 
     async def _refresh_api_keys(self) -> None:
         """Refresh API keys cache."""

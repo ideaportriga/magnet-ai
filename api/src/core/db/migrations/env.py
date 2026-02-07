@@ -105,8 +105,8 @@ def run_migrations_offline() -> None:
             # Ignore dynamically created document tables (vector store)
             if name.startswith("documents_"):
                 return False
-            # Ignore APScheduler tables
-            if name == "apscheduler_jobs":
+            # Ignore SAQ (task queue) tables
+            if name.startswith("saq_"):
                 return False
             # Ignore knowledge graph tables
             if re.match(r"knowledge_graph_.*_(chunks|docs|documents)$", name):
@@ -156,8 +156,8 @@ def do_run_migrations(connection: Connection) -> None:
             # Ignore dynamically created document tables (vector store)
             if name.startswith("documents_"):
                 return False
-            # Ignore APScheduler tables
-            if name == "apscheduler_jobs":
+            # Ignore SAQ (task queue) tables
+            if name.startswith("saq_"):
                 return False
             # Ignore knowledge graph tables
             if re.match(r"knowledge_graph_.*_(chunks|docs|documents)$", name):

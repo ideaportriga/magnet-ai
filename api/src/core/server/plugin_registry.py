@@ -3,6 +3,7 @@ from litestar.plugins.problem_details import ProblemDetailsPlugin
 from litestar.plugins.structlog import StructlogPlugin
 
 from core.config import app as config
+from scheduler.manager import get_saq_plugin_config
 
 from .plugins import (
     CORSPlugin,
@@ -19,6 +20,9 @@ from .plugins import (
 structlog = StructlogPlugin(config=config.log)
 alchemy = SQLAlchemyPlugin(config=config.alchemy)
 problem_details = ProblemDetailsPlugin(config=config.problem_details)
+
+# SAQ plugin (replaces APScheduler)
+saq_plugin = get_saq_plugin_config()
 
 # Initialize custom plugins
 cors_plugin = CORSPlugin()

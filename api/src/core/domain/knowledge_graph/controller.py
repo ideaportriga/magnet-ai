@@ -8,7 +8,7 @@ from uuid import UUID
 
 import httpx
 from advanced_alchemy.extensions.litestar import providers
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from litestar_saq.config import TaskQueues
 from litestar import Controller, delete, get, patch, post
 from litestar.datastructures import UploadFile
 from litestar.di import Provide
@@ -392,11 +392,11 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        scheduler: AsyncIOScheduler,
+        task_queues: TaskQueues,
         data: Annotated[KnowledgeGraphSourceScheduleSyncRequest | None, Body()] = None,
     ) -> dict[str, Any]:
         return await source_service.schedule_source_sync(
-            db_session, graph_id, source_id, scheduler, data
+            db_session, graph_id, source_id, task_queues, data
         )
 
     @observe(
@@ -414,10 +414,10 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        scheduler: AsyncIOScheduler,
+        task_queues: TaskQueues,
     ) -> None:
         await source_service.unschedule_source_sync(
-            db_session, graph_id, source_id, scheduler
+            db_session, graph_id, source_id, task_queues
         )
 
     ###########################################################################

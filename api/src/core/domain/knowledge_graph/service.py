@@ -4,7 +4,7 @@ from typing import Any
 from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import repository, service
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from litestar_saq.config import TaskQueues
 from litestar.exceptions import ClientException, NotFoundException
 from sqlalchemy import (
     Float,
@@ -529,7 +529,7 @@ class KnowledgeGraphSourceService(
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        scheduler: AsyncIOScheduler,
+        task_queues: TaskQueues,
         data: KnowledgeGraphSourceScheduleSyncRequest | None = None,
     ) -> dict[str, Any]:
         result = await db_session.execute(
@@ -549,7 +549,7 @@ class KnowledgeGraphSourceService(
             if source.schedule_job_id:
                 job_id = str(source.schedule_job_id)
                 try:
-                    await cancel_job(scheduler, job_id, db_session)
+                    await cancel_job(task_queues, job_id, db_session)
                 except Exception:  # noqa: BLE001
                     pass
 
@@ -595,7 +595,7 @@ class KnowledgeGraphSourceService(
                 update={"job_id": str(source.schedule_job_id)}
             )
 
-        job_result = await create_job(scheduler, job_definition, db_session)
+        job_result = await create_job(task_queues, job_definition, db_session)
 
         # Persist schedule_job_id for stable joins in list_sources().
         job_id = job_result.get("job_id")
@@ -614,7 +614,7 @@ class KnowledgeGraphSourceService(
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        scheduler: AsyncIOScheduler,
+        task_queues: TaskQueues,
     ) -> None:
         result = await db_session.execute(
             select(KnowledgeGraphSource).where(
@@ -634,7 +634,7 @@ class KnowledgeGraphSourceService(
 
         # Best-effort cancel: even if the job is missing, still clear the link on the source.
         try:
-            await cancel_job(scheduler, job_id, db_session)
+            await cancel_job(task_queues, job_id, db_session)
         except Exception:  # noqa: BLE001
             pass
 

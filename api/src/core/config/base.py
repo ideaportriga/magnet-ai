@@ -181,10 +181,10 @@ class DatabaseSettings:
 
     @property
     def sync_url(self) -> str:
-        """Get synchronous database URL for APScheduler (converts async drivers to sync)."""
+        """Get synchronous database URL (converts async drivers to sync)."""
         async_url = self.effective_url
 
-        # Convert async drivers to sync for APScheduler
+        # Convert async drivers to sync
         if "postgresql+asyncpg://" in async_url:
             return async_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
         elif "mysql+aiomysql://" in async_url:
@@ -277,43 +277,16 @@ class DatabaseSettings:
 
 @dataclass
 class SchedulerSettings:
-    """Scheduler pool settings"""
+    """SAQ scheduler settings."""
 
-    SCHEDULER_POOL_SIZE: int = field(default_factory=get_env("SCHEDULER_POOL_SIZE", 10))
-    """Scheduler connection pool size."""
-    SCHEDULER_MAX_POOL_OVERFLOW: int = field(
-        default_factory=get_env("SCHEDULER_MAX_POOL_OVERFLOW", 20)
+    SCHEDULER_CONCURRENCY: int = field(
+        default_factory=get_env("SCHEDULER_CONCURRENCY", 10)
     )
-    """Scheduler connection pool max overflow."""
-    SCHEDULER_POOL_TIMEOUT: int = field(
-        default_factory=get_env("SCHEDULER_POOL_TIMEOUT", 30)
+    """Number of concurrent jobs the SAQ worker processes."""
+    SCHEDULER_QUEUE_NAME: str = field(
+        default_factory=get_env("SCHEDULER_QUEUE_NAME", "scheduler")
     )
-    """Scheduler connection pool timeout."""
-    SCHEDULER_POOL_RECYCLE: int = field(
-        default_factory=get_env("SCHEDULER_POOL_RECYCLE", 3600)
-    )
-    """Scheduler connection pool recycle time."""
-    SCHEDULER_POOL_PRE_PING: bool = field(
-        default_factory=get_env("SCHEDULER_POOL_PRE_PING", True)
-    )
-    """Scheduler connection pool pre-ping."""
-
-    def get_scheduler_database_url(self, db_settings: DatabaseSettings) -> str:
-        """Get synchronous database URL for APScheduler jobstore."""
-        return db_settings.sync_url
-
-    def get_engine_options(self) -> dict:
-        """Get SQLAlchemy engine options for APScheduler jobstore."""
-        return {
-            "pool_size": self.SCHEDULER_POOL_SIZE,
-            "max_overflow": self.SCHEDULER_MAX_POOL_OVERFLOW,
-            "pool_timeout": self.SCHEDULER_POOL_TIMEOUT,
-            "pool_recycle": self.SCHEDULER_POOL_RECYCLE,
-            "pool_pre_ping": self.SCHEDULER_POOL_PRE_PING,
-            "echo": get_env("DATABASE_ECHO", False)(),
-            "echo_pool": get_env("DATABASE_ECHO_POOL", False)(),
-            "pool_reset_on_return": "commit",
-        }
+    """Name of the SAQ queue."""
 
 
 ### LOGGING SETTINGS ###
