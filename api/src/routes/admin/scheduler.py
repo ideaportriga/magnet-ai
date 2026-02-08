@@ -1,15 +1,65 @@
 import logging
 import time
+from typing import Any
 
 from litestar import Controller, get, post
 from litestar.params import Parameter
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from scheduler.flows import (
+    run_flow,
+    run_full_sync_pipeline,
+    run_sync_then_evaluate,
+    run_sync_then_postprocess,
+)
 from scheduler.job_executor import cancel_job, create_job
 from scheduler.manager import get_backend, get_queue
+from scheduler.settings import ALL_QUEUES, QUEUE_DEFAULT
 from scheduler.types import JobDefinition, JobIdInput
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Request models
+# ---------------------------------------------------------------------------
+
+
+class FlowJobStep(BaseModel):
+    """A single step in an ad-hoc flow."""
+
+    task_id: str = Field(
+        ...,
+        description="Fully-qualified task id, e.g. scheduler.executors.execute_sync_collection",
+    )
+    args: list[Any] = Field(default_factory=list)
+    kwargs: dict[str, Any] = Field(default_factory=dict)
+    depends_on_indices: list[int] = Field(
+        default_factory=list,
+        description="0-based indices of steps this step depends on",
+    )
+
+
+class CreateFlowRequest(BaseModel):
+    """Request body for ``POST /scheduler/create-flow``."""
+
+    queue: str = Field(default=QUEUE_DEFAULT, description="Target queue for all steps")
+    steps: list[FlowJobStep] = Field(..., min_length=1)
+
+
+class CreatePipelineRequest(BaseModel):
+    """Request body for named pipeline shortcuts."""
+
+    pipeline: str = Field(
+        ...,
+        description="Pipeline name: sync_postprocess | sync_evaluate | full_sync",
+    )
+    source_id: str = Field(..., description="Data-source or collection ID")
+    job_definition: dict[str, Any] | None = None
+    sync_params: dict[str, Any] | None = None
+    postprocess_params: dict[str, Any] | None = None
+    eval_params: dict[str, Any] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -59,23 +109,6 @@ async def _get_status_counts(jobs: list[dict]) -> dict[str, int]:
     return counts
 
 
-async def _get_workers(backend, queue_name: str) -> list[dict]:
-    workers: list[dict] = []
-    try:
-        for w in await backend.list_workers(queue_name):
-            workers.append(
-                {
-                    "id": w.id,
-                    "queue": w.queue,
-                    "concurrency": w.concurrency,
-                    "heartbeat": w.heartbeat,
-                }
-            )
-    except Exception:
-        pass
-    return workers
-
-
 async def _get_repeatables(queue) -> list[dict]:
     repeatables: list[dict] = []
     try:
@@ -93,6 +126,13 @@ async def _get_repeatables(queue) -> list[dict]:
 
 
 class SchedulerController(Controller):
+    """Scheduler management endpoints.
+
+    Job CRUD and multi-queue status API.  The full web-based dashboard
+    is served by the built-in ``AsyncMQAdmin`` ASGI app mounted at
+    ``/scheduler/dashboard``.
+    """
+
     path = "/scheduler"
     tags = ["Admin / Scheduler"]
 
@@ -113,240 +153,232 @@ class SchedulerController(Controller):
         return await cancel_job(data.job_id, db_session)
 
     # ------------------------------------------------------------------
-    # Queue status  (legacy — returns everything in one call)
+    # Flow / Pipeline management
+    # ------------------------------------------------------------------
+
+    @post("/create-flow")
+    async def create_flow(self, data: CreateFlowRequest) -> dict:
+        """Enqueue an ad-hoc DAG of job steps via ``FlowProducer``.
+
+        Each step references dependencies by their 0-based index in the
+        ``steps`` list.  Returns the list of generated job IDs.
+        """
+        from asyncmq.jobs import Job
+
+        jobs: list[Job] = []
+        for idx, step in enumerate(data.steps):
+            depends_on = [jobs[i].id for i in step.depends_on_indices if i < idx]
+            job = Job(
+                task_id=step.task_id,
+                args=step.args,
+                kwargs=step.kwargs,
+                depends_on=depends_on or None,
+            )
+            jobs.append(job)
+
+        job_ids = await run_flow(data.queue, jobs)
+        return {"ok": True, "job_ids": job_ids}
+
+    @post("/create-pipeline")
+    async def create_pipeline(self, data: CreatePipelineRequest) -> dict:
+        """Run a named pipeline shortcut (sync_postprocess, sync_evaluate,
+        full_sync).  Builds the DAG internally and returns the job IDs."""
+
+        common = dict(
+            source_id=data.source_id,
+            job_definition=data.job_definition,
+            sync_params=data.sync_params,
+        )
+
+        match data.pipeline:
+            case "sync_postprocess":
+                ids = await run_sync_then_postprocess(
+                    **common,
+                    postprocess_params=data.postprocess_params,
+                )
+            case "sync_evaluate":
+                ids = await run_sync_then_evaluate(
+                    **common,
+                    eval_params=data.eval_params,
+                )
+            case "full_sync":
+                ids = await run_full_sync_pipeline(
+                    **common,
+                    postprocess_params=data.postprocess_params,
+                    eval_params=data.eval_params,
+                )
+            case _:
+                return {
+                    "ok": False,
+                    "error": f"Unknown pipeline '{data.pipeline}'. "
+                    "Choose: sync_postprocess | sync_evaluate | full_sync",
+                }
+
+        return {"ok": True, "pipeline": data.pipeline, "job_ids": ids}
+
+    # ------------------------------------------------------------------
+    # Multi-queue status
     # ------------------------------------------------------------------
 
     @get("/queue-status")
-    async def get_queue_status(self) -> dict:
-        """Get current AsyncMQ queue information including stats, jobs, repeatables and workers."""
-        queue = get_queue()
-        backend = get_backend()
-        now = time.time()
-
-        stats = await queue.queue_stats()
-
-        is_paused = False
-        try:
-            is_paused = await backend.is_queue_paused(queue.name)
-        except Exception:
-            pass
-
-        jobs = await _list_all_jobs(queue)
-        repeatables = await _get_repeatables(queue)
-        workers = await _get_workers(backend, queue.name)
-
-        # Delayed jobs detail
-        delayed_jobs: list[dict] = []
-        try:
-            for d in await backend.list_delayed(queue.name):
-                delayed_jobs.append(
-                    {"job_id": d.job_id, "run_at": d.run_at, "payload": d.payload}
-                )
-        except Exception:
-            pass
-
-        # Stalled jobs (heartbeat older than 60s)
-        stalled_jobs: list[dict] = []
-        try:
-            for s in await backend.fetch_stalled_jobs(older_than=60.0):
-                stalled_jobs.append(
-                    {"queue": s.get("queue"), "job_data": s.get("job_data")}
-                )
-        except Exception:
-            pass
-
-        status_counts = await _get_status_counts(jobs)
-
-        return {
-            "queue": queue.name,
-            "is_paused": is_paused,
-            "server_time": now,
-            "stats": stats,
-            "jobs": jobs,
-            "repeatables": repeatables,
-            "workers": workers,
-            "delayed_jobs": delayed_jobs,
-            "stalled_jobs": stalled_jobs,
-            "status_counts": status_counts,
-        }
-
-    # ------------------------------------------------------------------
-    # Dashboard overview
-    # ------------------------------------------------------------------
-
-    @get("/dashboard/overview")
-    async def get_dashboard_overview(self) -> dict:
-        """Overview metrics: total queues, jobs, workers, job distribution."""
-        queue = get_queue()
-        backend = get_backend()
-        now = time.time()
-
-        is_paused = False
-        try:
-            is_paused = await backend.is_queue_paused(queue.name)
-        except Exception:
-            pass
-
-        jobs = await _list_all_jobs(queue)
-        status_counts = await _get_status_counts(jobs)
-        workers = await _get_workers(backend, queue.name)
-        repeatables = await _get_repeatables(queue)
-
-        # Stalled jobs
-        stalled_jobs: list[dict] = []
-        try:
-            for s in await backend.fetch_stalled_jobs(older_than=60.0):
-                stalled_jobs.append(
-                    {"queue": s.get("queue"), "job_data": s.get("job_data")}
-                )
-        except Exception:
-            pass
-
-        return {
-            "queue": queue.name,
-            "is_paused": is_paused,
-            "server_time": now,
-            "total_jobs": len(jobs),
-            "total_workers": len(workers),
-            "total_repeatables": len(repeatables),
-            "total_stalled": len(stalled_jobs),
-            "status_counts": status_counts,
-            "workers": workers,
-            "stalled_jobs": stalled_jobs,
-        }
-
-    # ------------------------------------------------------------------
-    # Jobs (paginated, filtered by state)
-    # ------------------------------------------------------------------
-
-    @get("/dashboard/jobs")
-    async def get_dashboard_jobs(
+    async def get_queue_status(
         self,
-        job_state: str = Parameter(query="state", default="all"),
-        page: int = Parameter(query="page", default=1),
-        size: int = Parameter(query="size", default=50),
+        queue_name: str | None = Parameter(query="queue", default=None),
     ) -> dict:
-        """Paginated job list with state filter."""
-        queue = get_queue()
+        """Get AsyncMQ queue information across all queues (or a specific one)."""
 
-        if job_state == "all":
-            jobs = await _list_all_jobs(queue)
-        else:
-            jobs = []
+        backend = get_backend()
+        now = time.time()
+        queue_names = [queue_name] if queue_name else list(ALL_QUEUES)
+
+        queues_data: list[dict] = []
+        for qname in queue_names:
             try:
-                for j in await queue.list_jobs(job_state):
-                    jobs.append(_format_job(j, job_state))
+                q = get_queue(qname)
+            except RuntimeError:
+                continue
+
+            stats = await q.queue_stats()
+            is_paused = False
+            try:
+                is_paused = await backend.is_queue_paused(q.name)
             except Exception:
                 pass
 
-        total = len(jobs)
-        start = (page - 1) * size
-        end = start + size
-        page_jobs = jobs[start:end]
-        total_pages = max(1, (total + size - 1) // size)
+            jobs = await _list_all_jobs(q)
+            repeatables = await _get_repeatables(q)
+            status_counts = await _get_status_counts(jobs)
+
+            queues_data.append(
+                {
+                    "queue": q.name,
+                    "is_paused": is_paused,
+                    "stats": stats,
+                    "total_jobs": len(jobs),
+                    "total_repeatables": len(repeatables),
+                    "status_counts": status_counts,
+                    "repeatables": repeatables,
+                }
+            )
 
         return {
-            "jobs": page_jobs,
-            "total": total,
-            "page": page,
-            "size": size,
-            "total_pages": total_pages,
-            "state": job_state,
+            "server_time": now,
+            "queues": queues_data,
         }
 
     # ------------------------------------------------------------------
-    # Repeatables
+    # Dashboard API – overview
     # ------------------------------------------------------------------
 
-    @get("/dashboard/repeatables")
-    async def get_dashboard_repeatables(self) -> dict:
-        """List all repeatable job definitions."""
-        queue = get_queue()
-        repeatables = await _get_repeatables(queue)
-        return {"repeatables": repeatables, "total": len(repeatables)}
+    @get("/overview")
+    async def get_overview(
+        self,
+        queue_name: str | None = Parameter(query="queue", default=None),
+    ) -> dict:
+        """Aggregate overview for the dashboard header.
 
-    # ------------------------------------------------------------------
-    # Workers
-    # ------------------------------------------------------------------
-
-    @get("/dashboard/workers")
-    async def get_dashboard_workers(self) -> dict:
-        """List active workers and heartbeats."""
-        queue = get_queue()
+        When ``queue`` is omitted the response covers **all** queues.
+        """
         backend = get_backend()
-        workers = await _get_workers(backend, queue.name)
         now = time.time()
+        queue_names = [queue_name] if queue_name else list(ALL_QUEUES)
 
-        # Enrich with staleness info
-        for w in workers:
-            hb = w.get("heartbeat", 0)
-            w["seconds_since_heartbeat"] = round(now - hb, 1) if hb else None
-            w["is_stale"] = (now - hb) > 60.0 if hb else True
+        total_jobs = 0
+        total_repeatables = 0
+        status_counts: dict[str, int] = {}
+        queue_summaries: list[dict] = []
 
-        return {"workers": workers, "total": len(workers)}
+        for qname in queue_names:
+            try:
+                q = get_queue(qname)
+            except RuntimeError:
+                continue
+
+            jobs = await _list_all_jobs(q)
+            repeatables = await _get_repeatables(q)
+            counts = await _get_status_counts(jobs)
+
+            is_paused = False
+            try:
+                is_paused = await backend.is_queue_paused(q.name)
+            except Exception:
+                pass
+
+            for k, v in counts.items():
+                status_counts[k] = status_counts.get(k, 0) + v
+
+            total_jobs += len(jobs)
+            total_repeatables += len(repeatables)
+
+            queue_summaries.append(
+                {
+                    "queue": qname,
+                    "is_paused": is_paused,
+                    "total_jobs": len(jobs),
+                    "total_repeatables": len(repeatables),
+                    "status_counts": counts,
+                }
+            )
+
+        return {
+            "server_time": now,
+            "queue": queue_name,
+            "is_paused": queue_summaries[0]["is_paused"]
+            if len(queue_summaries) == 1
+            else False,
+            "total_jobs": total_jobs,
+            "total_repeatables": total_repeatables,
+            "status_counts": status_counts,
+            "queues": queue_summaries,
+        }
 
     # ------------------------------------------------------------------
-    # Metrics
+    # Dashboard API – jobs (paginated, filterable)
     # ------------------------------------------------------------------
 
-    @get("/dashboard/metrics")
-    async def get_dashboard_metrics(self) -> dict:
-        """Throughput, failure, and duration metrics."""
-        queue = get_queue()
+    @get("/jobs")
+    async def get_jobs(
+        self,
+        queue_name: str | None = Parameter(query="queue", default=None),
+        job_state: str = Parameter(query="state", default="all"),
+        page: int = Parameter(query="page", default=1, ge=1),
+        size: int = Parameter(query="size", default=50, ge=1, le=200),
+    ) -> dict:
+        """Return paginated jobs, optionally filtered by state and queue."""
+        queue_names = [queue_name] if queue_name else list(ALL_QUEUES)
+        all_jobs: list[dict] = []
 
-        jobs = await _list_all_jobs(queue)
-        status_counts = await _get_status_counts(jobs)
+        for qname in queue_names:
+            try:
+                q = get_queue(qname)
+            except RuntimeError:
+                continue
 
-        # Compute average duration for completed jobs
-        durations: list[float] = []
-        for j in jobs:
-            if (
-                j["status"] == "completed"
-                and j.get("created_at")
-                and j.get("last_attempt")
-            ):
+            if job_state == "all":
+                jobs = await _list_all_jobs(q)
+            else:
+                jobs = []
                 try:
-                    durations.append(j["last_attempt"] - j["created_at"])
+                    for j in await q.list_jobs(job_state):
+                        jobs.append(_format_job(j, job_state))
                 except Exception:
                     pass
 
-        avg_duration = round(sum(durations) / len(durations), 2) if durations else None
+            # Tag each job with its queue name
+            for j in jobs:
+                j["queue"] = qname
+            all_jobs.extend(jobs)
 
-        return {
-            "throughput": status_counts.get("completed", 0),
-            "failures": status_counts.get("failed", 0),
-            "retries": sum(j.get("retries", 0) for j in jobs),
-            "avg_duration": avg_duration,
-            "status_counts": status_counts,
-        }
+        # Sort newest first
+        all_jobs.sort(key=lambda j: j.get("created_at") or 0, reverse=True)
 
-    # ------------------------------------------------------------------
-    # DLQ (Dead Letter Queue) — failed jobs
-    # ------------------------------------------------------------------
-
-    @get("/dashboard/dlq")
-    async def get_dashboard_dlq(
-        self,
-        page: int = Parameter(query="page", default=1),
-        size: int = Parameter(query="size", default=50),
-    ) -> dict:
-        """Dead letter queue: list failed jobs."""
-        queue = get_queue()
-        failed_jobs: list[dict] = []
-        try:
-            for j in await queue.list_jobs("failed"):
-                failed_jobs.append(_format_job(j, "failed"))
-        except Exception:
-            pass
-
-        total = len(failed_jobs)
-        start = (page - 1) * size
-        end = start + size
-        page_jobs = failed_jobs[start:end]
+        total = len(all_jobs)
         total_pages = max(1, (total + size - 1) // size)
+        start = (page - 1) * size
+        paged = all_jobs[start : start + size]
 
         return {
-            "jobs": page_jobs,
+            "jobs": paged,
             "total": total,
             "page": page,
             "size": size,
@@ -354,87 +386,211 @@ class SchedulerController(Controller):
         }
 
     # ------------------------------------------------------------------
-    # Job actions: retry / remove / cancel
+    # Dashboard API – repeatables
     # ------------------------------------------------------------------
 
-    @post("/dashboard/jobs/{job_id:str}/retry")
-    async def retry_job(self, job_id: str) -> dict:
+    @get("/repeatables")
+    async def get_repeatables(
+        self,
+        queue_name: str | None = Parameter(query="queue", default=None),
+    ) -> dict:
+        """Return repeatable jobs across queues."""
+        queue_names = [queue_name] if queue_name else list(ALL_QUEUES)
+        all_repeatables: list[dict] = []
+
+        for qname in queue_names:
+            try:
+                q = get_queue(qname)
+            except RuntimeError:
+                continue
+            reps = await _get_repeatables(q)
+            for r in reps:
+                r["queue"] = qname
+            all_repeatables.extend(reps)
+
+        return {"repeatables": all_repeatables, "total": len(all_repeatables)}
+
+    # ------------------------------------------------------------------
+    # Dashboard API – metrics
+    # ------------------------------------------------------------------
+
+    @get("/metrics")
+    async def get_metrics(
+        self,
+        queue_name: str | None = Parameter(query="queue", default=None),
+    ) -> dict:
+        """Aggregate metrics (throughput, failures, retries)."""
+        queue_names = [queue_name] if queue_name else list(ALL_QUEUES)
+        counts: dict[str, int] = {
+            "waiting": 0,
+            "active": 0,
+            "completed": 0,
+            "failed": 0,
+            "delayed": 0,
+        }
+        for qname in queue_names:
+            try:
+                q = get_queue(qname)
+            except RuntimeError:
+                continue
+            for s in counts:
+                try:
+                    jobs = await q.list_jobs(s)
+                    counts[s] += len(jobs)
+                except Exception:
+                    pass
+
+        return {
+            "throughput": counts["completed"],
+            "failures": counts["failed"],
+            "retries": counts["failed"],
+            "avg_duration": None,
+        }
+
+    # ------------------------------------------------------------------
+    # Dashboard API – DLQ (failed jobs)
+    # ------------------------------------------------------------------
+
+    @get("/dlq")
+    async def get_dlq(
+        self,
+        queue_name: str | None = Parameter(query="queue", default=None),
+        page: int = Parameter(query="page", default=1, ge=1),
+        size: int = Parameter(query="size", default=50, ge=1, le=200),
+    ) -> dict:
+        """Return paginated failed (dead-letter) jobs."""
+        queue_names = [queue_name] if queue_name else list(ALL_QUEUES)
+        all_failed: list[dict] = []
+
+        for qname in queue_names:
+            try:
+                q = get_queue(qname)
+            except RuntimeError:
+                continue
+            try:
+                for j in await q.list_jobs("failed"):
+                    job = _format_job(j, "failed")
+                    job["queue"] = qname
+                    all_failed.append(job)
+            except Exception:
+                pass
+
+        all_failed.sort(key=lambda j: j.get("created_at") or 0, reverse=True)
+        total = len(all_failed)
+        total_pages = max(1, (total + size - 1) // size)
+        start = (page - 1) * size
+        paged = all_failed[start : start + size]
+
+        return {
+            "jobs": paged,
+            "total": total,
+            "page": page,
+            "size": size,
+            "total_pages": total_pages,
+        }
+
+    # ------------------------------------------------------------------
+    # Queue control (per-queue)
+    # ------------------------------------------------------------------
+
+    @post("/queue/pause")
+    async def pause_queue(
+        self,
+        queue_name: str = Parameter(query="queue", default="default"),
+    ) -> dict:
+        """Pause a queue – workers stop picking new jobs."""
+        q = get_queue(queue_name)
+        try:
+            await q.pause()
+            return {"ok": True, "action": "pause", "queue": queue_name}
+        except Exception as e:
+            logger.exception("Failed to pause queue %s", queue_name)
+            return {"ok": False, "error": str(e)}
+
+    @post("/queue/resume")
+    async def resume_queue(
+        self,
+        queue_name: str = Parameter(query="queue", default="default"),
+    ) -> dict:
+        """Resume a paused queue."""
+        q = get_queue(queue_name)
+        try:
+            await q.resume()
+            return {"ok": True, "action": "resume", "queue": queue_name}
+        except Exception as e:
+            logger.exception("Failed to resume queue %s", queue_name)
+            return {"ok": False, "error": str(e)}
+
+    @post("/queue/clean")
+    async def clean_queue(
+        self,
+        queue_name: str = Parameter(query="queue", default="default"),
+        job_state: str = Parameter(query="state", default="completed"),
+        older_than_hours: int = Parameter(query="older_than_hours", default=24),
+    ) -> dict:
+        """Purge jobs by state and age."""
+        q = get_queue(queue_name)
+        try:
+            threshold = time.time() - (older_than_hours * 3600)
+            await q.clean(job_state, older_than=threshold)
+            return {
+                "ok": True,
+                "action": "clean",
+                "queue": queue_name,
+                "state": job_state,
+                "older_than_hours": older_than_hours,
+            }
+        except Exception as e:
+            logger.exception("Failed to clean queue %s", queue_name)
+            return {"ok": False, "error": str(e)}
+
+    # ------------------------------------------------------------------
+    # Job actions (per-queue)
+    # ------------------------------------------------------------------
+
+    @post("/jobs/{job_id:str}/retry")
+    async def retry_job(
+        self,
+        job_id: str,
+        queue_name: str = Parameter(query="queue", default="default"),
+    ) -> dict:
         """Retry a failed job."""
-        queue = get_queue()
+        q = get_queue(queue_name)
         backend = get_backend()
         try:
-            await backend.retry_job(queue.name, job_id)
+            await backend.retry_job(q.name, job_id)
             return {"ok": True, "action": "retry", "job_id": job_id}
         except Exception as e:
             logger.exception("Failed to retry job %s", job_id)
             return {"ok": False, "error": str(e)}
 
-    @post("/dashboard/jobs/{job_id:str}/remove")
-    async def remove_job(self, job_id: str) -> dict:
-        """Remove a job from the queue."""
-        queue = get_queue()
+    @post("/jobs/{job_id:str}/remove")
+    async def remove_job(
+        self,
+        job_id: str,
+        queue_name: str = Parameter(query="queue", default="default"),
+    ) -> dict:
+        """Remove a job from a queue."""
+        q = get_queue(queue_name)
         backend = get_backend()
         try:
-            await backend.remove_job(queue.name, job_id)
+            await backend.remove_job(q.name, job_id)
             return {"ok": True, "action": "remove", "job_id": job_id}
         except Exception as e:
             logger.exception("Failed to remove job %s", job_id)
             return {"ok": False, "error": str(e)}
 
-    @post("/dashboard/jobs/{job_id:str}/cancel")
-    async def cancel_queue_job(self, job_id: str) -> dict:
-        """Cancel a job."""
-        queue = get_queue()
+    @post("/jobs/{job_id:str}/cancel")
+    async def cancel_queue_job(
+        self,
+        job_id: str,
+        queue_name: str = Parameter(query="queue", default="default"),
+    ) -> dict:
+        """Cancel a job in a specific queue."""
+        q = get_queue(queue_name)
         try:
-            await queue.cancel_job(job_id)
+            await q.cancel_job(job_id)
             return {"ok": True, "action": "cancel", "job_id": job_id}
         except Exception as e:
             logger.exception("Failed to cancel job %s", job_id)
-            return {"ok": False, "error": str(e)}
-
-    # ------------------------------------------------------------------
-    # Queue control: pause / resume / clean
-    # ------------------------------------------------------------------
-
-    @post("/dashboard/queue/pause")
-    async def pause_queue(self) -> dict:
-        """Pause the queue — workers stop picking new jobs."""
-        queue = get_queue()
-        try:
-            await queue.pause()
-            return {"ok": True, "action": "pause"}
-        except Exception as e:
-            logger.exception("Failed to pause queue")
-            return {"ok": False, "error": str(e)}
-
-    @post("/dashboard/queue/resume")
-    async def resume_queue(self) -> dict:
-        """Resume a paused queue."""
-        queue = get_queue()
-        try:
-            await queue.resume()
-            return {"ok": True, "action": "resume"}
-        except Exception as e:
-            logger.exception("Failed to resume queue")
-            return {"ok": False, "error": str(e)}
-
-    @post("/dashboard/queue/clean")
-    async def clean_queue(
-        self,
-        job_state: str = Parameter(query="state", default="completed"),
-        older_than_hours: int = Parameter(query="older_than_hours", default=24),
-    ) -> dict:
-        """Purge jobs by state and age."""
-        queue = get_queue()
-        try:
-            threshold = time.time() - (older_than_hours * 3600)
-            await queue.clean(job_state, older_than=threshold)
-            return {
-                "ok": True,
-                "action": "clean",
-                "state": job_state,
-                "older_than_hours": older_than_hours,
-            }
-        except Exception as e:
-            logger.exception("Failed to clean queue")
             return {"ok": False, "error": str(e)}

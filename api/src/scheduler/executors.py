@@ -1,11 +1,12 @@
 """Job executor functions for the AsyncMQ-based scheduler.
 
-Each task function is decorated with ``@task(queue="scheduler")`` which
-registers it in the global ``TASK_REGISTRY``.  Functions receive only
-``**kwargs`` – there is no ``ctx`` parameter as there was with SAQ.
+Each task function is decorated with ``@task(queue=<QUEUE>)`` which
+registers it in the global ``TASK_REGISTRY``.  The queue is chosen per
+workload type so that heavyweight sync tasks don't starve lightweight
+evaluations or maintenance work.
 
-Recurring jobs are handled natively by AsyncMQ's repeatable scheduler,
-so there is no need for manual rescheduling.
+Functions receive only ``**kwargs`` – there is no ``ctx`` parameter.
+Recurring jobs are handled by AsyncMQ's built-in repeatable scheduler.
 """
 
 import traceback
@@ -15,6 +16,12 @@ from logging import getLogger
 
 from asyncmq.tasks import task
 
+from scheduler.settings import (
+    QUEUE_DEFAULT,
+    QUEUE_EVALUATION,
+    QUEUE_MAINTENANCE,
+    QUEUE_SYNC,
+)
 from scheduler.types import JobDefinition, JobStatus, JobType, RunConfigurationType
 from scheduler.utils import update_job_status
 from services.agents.conversations.services import get_conversation_by_id
@@ -117,7 +124,7 @@ def with_progress_status(func):
 # ---------------------------------------------------------------------------
 
 
-@task(queue="scheduler")
+@task(queue=QUEUE_DEFAULT)
 @with_progress_status
 @observe(name="Custom job", channel="Job")
 async def execute_custom_function(**kwargs):
@@ -150,7 +157,7 @@ async def execute_custom_function(**kwargs):
         raise
 
 
-@task(queue="scheduler")
+@task(queue=QUEUE_SYNC)
 @with_progress_status
 @observe(name="Sync knowledge source", channel="Job")
 async def execute_sync_collection(**kwargs):
@@ -224,7 +231,7 @@ async def execute_sync_collection(**kwargs):
         raise
 
 
-@task(queue="scheduler")
+@task(queue=QUEUE_MAINTENANCE)
 @with_progress_status
 async def execute_post_process_configuration(**kwargs):
     """Execute a post-process configuration job with the given parameters."""
@@ -328,7 +335,7 @@ async def execute_post_process_configuration(**kwargs):
         raise
 
 
-@task(queue="scheduler")
+@task(queue=QUEUE_EVALUATION)
 @with_progress_status
 @observe(name="Evaluation job", channel="Job")
 async def execute_evaluation(**kwargs):
@@ -378,7 +385,7 @@ async def execute_evaluation(**kwargs):
         raise
 
 
-@task(queue="scheduler")
+@task(queue=QUEUE_SYNC)
 @with_progress_status
 @observe(name="Sync knowledge graph source", channel="Job")
 async def execute_sync_knowledge_graph_source(**kwargs):
@@ -438,7 +445,7 @@ async def execute_sync_knowledge_graph_source(**kwargs):
         raise
 
 
-@task(queue="scheduler")
+@task(queue=QUEUE_MAINTENANCE)
 @with_progress_status
 @observe(name="Cleanup logs", channel="Job")
 async def execute_cleanup_logs(**kwargs):
@@ -543,3 +550,27 @@ RUN_CONFIG_HANDLERS = {
     RunConfigurationType.SYNC_KNOWLEDGE_GRAPH_SOURCE: execute_sync_knowledge_graph_source,
     RunConfigurationType.CLEANUP_LOGS: execute_cleanup_logs,
 }
+
+
+# ---------------------------------------------------------------------------
+# Populate _TASK_QUEUE_MAP in manager for runtime lookups
+# ---------------------------------------------------------------------------
+
+
+def _register_task_queue_mapping() -> None:
+    """Register RunConfigurationType → queue-name map in the manager."""
+    from scheduler.manager import _TASK_QUEUE_MAP
+
+    _TASK_QUEUE_MAP.update(
+        {
+            RunConfigurationType.CUSTOM.value: QUEUE_DEFAULT,
+            RunConfigurationType.SYNC_COLLECTION.value: QUEUE_SYNC,
+            RunConfigurationType.POST_PROCESS_CONVERSATION.value: QUEUE_MAINTENANCE,
+            RunConfigurationType.EVALUATION.value: QUEUE_EVALUATION,
+            RunConfigurationType.SYNC_KNOWLEDGE_GRAPH_SOURCE.value: QUEUE_SYNC,
+            RunConfigurationType.CLEANUP_LOGS.value: QUEUE_MAINTENANCE,
+        }
+    )
+
+
+_register_task_queue_mapping()

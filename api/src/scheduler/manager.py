@@ -1,54 +1,41 @@
 """AsyncMQ-based scheduler manager.
 
-Provides queue setup, startup/shutdown lifecycle hooks, a custom
-repeatable-job scheduler, and helpers to retrieve the AsyncMQ queue /
-backend singletons at runtime.
+Provides multi-queue setup, startup/shutdown lifecycle hooks, and
+helpers to retrieve AsyncMQ queue / backend singletons at runtime.
 
-The built-in ``repeatable_scheduler`` shipped with AsyncMQ has two
-limitations that make it unsuitable for our use-case:
-
-1. It is only started inside ``run_worker()`` when the ``repeatables``
-   list is **non-empty** at startup time.  If no recurring jobs exist in
-   the DB when the server starts, the scheduler coroutine is never
-   created, and any repeatables added later at runtime are never
-   processed.
-
-2. It initialises ``cron_trackers`` / ``next_runs`` dicts **once** during
-   startup.  Cron entries appended to the list after that point cause a
-   ``KeyError`` because no tracker exists for them.
-
-We therefore maintain our own repeatable list (``_repeatables``) and run
-a custom ``_repeatable_scheduler_loop`` as a separate ``asyncio.Task``.
-``queue._repeatables`` is deliberately left empty so that
-``queue.run()`` never starts the built-in scheduler (avoiding
-duplicates).
+Architecture
+~~~~~~~~~~~~
+*  A centralised ``SchedulerManager`` owns one ``Queue`` per workload
+   type (sync, evaluation, maintenance, default) – each with its own
+   concurrency and rate-limit profile.
+*  The built-in AsyncMQ ``repeatable_scheduler`` is used for cron jobs
+   (via ``queue.add_repeatable``).
+*  ``ASYNCMQ_SETTINGS_MODULE`` points to ``scheduler.settings`` so that
+   backend, table names, stalled-job detection, and JSON serialisation
+   are configured in one place.
 """
 
 from __future__ import annotations
 
 import asyncio
-import time as _time
+import os
 from logging import getLogger
 from typing import Any
 
 import asyncpg
 from asyncmq.backends.postgres import PostgresBackend
-from asyncmq.jobs import Job
+from asyncmq.core.event import event_emitter
 from asyncmq.queues import Queue
-from croniter import croniter
 
 from core.config.base import get_database_settings, get_scheduler_settings
+from scheduler.settings import (
+    QUEUE_DEFAULT,
+    QUEUE_EVALUATION,
+    QUEUE_MAINTENANCE,
+    QUEUE_SYNC,
+)
 
 logger = getLogger(__name__)
-
-QUEUE_NAME = "scheduler"
-
-# Module-level singletons
-_queue: Queue | None = None
-_backend: PostgresBackend | None = None
-_worker_task: asyncio.Task | None = None
-_scheduler_task: asyncio.Task | None = None
-_repeatables: list[dict[str, Any]] = []
 
 # ---------------------------------------------------------------------------
 # DDL – non-destructive (CREATE TABLE IF NOT EXISTS)
@@ -131,314 +118,429 @@ async def _ensure_tables(dsn: str) -> None:
 
 
 def _build_cron_expr(cron_config) -> str:
-    """Build a standard 5-field cron expression from a ``CronConfig`` model."""
-    cron_params = {k: v for k, v in cron_config.model_dump().items() if v is not None}
-    minute = str(cron_params.get("minute", "*"))
-    hour = str(cron_params.get("hour", "*"))
-    day = str(cron_params.get("day", "*"))
-    month = str(cron_params.get("month", "*"))
-    day_of_week = str(cron_params.get("day_of_week", "*"))
+    """Build a standard 5-field cron expression.
+
+    Accepts either:
+    * A ``CronConfig`` pydantic model (with individual fields).
+    * A plain dict with the same keys.
+    * A string already containing a cron expression (returned as-is).
+    """
+    if isinstance(cron_config, str):
+        return cron_config
+
+    if hasattr(cron_config, "cron_expression") and cron_config.cron_expression:
+        return cron_config.cron_expression
+
+    data = (
+        cron_config.model_dump()
+        if hasattr(cron_config, "model_dump")
+        else dict(cron_config)
+    )
+    minute = str(data.get("minute") if data.get("minute") is not None else "*")
+    hour = str(data.get("hour") if data.get("hour") is not None else "*")
+    day = str(data.get("day") if data.get("day") is not None else "*")
+    month = str(data.get("month") if data.get("month") is not None else "*")
+    day_of_week = str(
+        data.get("day_of_week") if data.get("day_of_week") is not None else "*"
+    )
     return f"{minute} {hour} {day} {month} {day_of_week}"
 
 
 # ---------------------------------------------------------------------------
-# Custom repeatable scheduler
+# Queue ↔ task-type mapping
 # ---------------------------------------------------------------------------
 
+# Populated during task registration in executors.py
+_TASK_QUEUE_MAP: dict[str, str] = {}
+"""Maps ``RunConfigurationType`` value → queue name."""
 
-async def _repeatable_scheduler_loop() -> None:
-    """Custom repeatable scheduler that handles dynamically added cron jobs.
 
-    Unlike AsyncMQ's built-in ``repeatable_scheduler``, this coroutine:
-    * Runs unconditionally (even when ``_repeatables`` starts empty).
-    * Lazily initialises ``cron_trackers`` for entries added at runtime.
-    * Uses a **per-job unique key** (``kwargs.job_id``) so that two
-      recurring jobs sharing the same task function are tracked
-      independently.
-    * Cleans up stale trackers when entries are removed.
-    """
-    cron_trackers: dict[str, croniter] = {}
-    next_runs: dict[str, float] = {}
-    check_interval = 30.0
-
-    while True:
-        try:
-            now = _time.time()
-
-            # Iterate over a snapshot so mutations during iteration are safe
-            for job_def in list(_repeatables):
-                # Unique key per recurring job (our jobs always carry job_id)
-                jkwargs = job_def.get("kwargs", {})
-                tracker_key = jkwargs.get("job_id") or job_def["task_id"]
-                task_id = job_def["task_id"]
-
-                job_data: dict[str, Any] = {
-                    "task_id": task_id,
-                    "args": job_def.get("args", []),
-                    "kwargs": jkwargs,
-                    "retries": job_def.get("retries", 0),
-                    "max_retries": job_def.get("max_retries", 3),
-                    "ttl": job_def.get("ttl"),
-                    "priority": job_def.get("priority", 5),
-                }
-
-                if "cron" in job_def:
-                    # Lazily initialise tracker for NEW entries
-                    if tracker_key not in cron_trackers:
-                        itr = croniter(job_def["cron"], now)
-                        cron_trackers[tracker_key] = itr
-                        next_runs[tracker_key] = itr.get_next(float)
-                        logger.debug(
-                            "Initialised cron tracker for %s, next run at %s",
-                            tracker_key,
-                            next_runs[tracker_key],
-                        )
-
-                    if now >= next_runs[tracker_key]:
-                        job = Job(**job_data)  # type: ignore[arg-type]
-                        await _backend.enqueue(_queue.name, job.to_dict())  # type: ignore[union-attr]
-                        next_runs[tracker_key] = cron_trackers[tracker_key].get_next(
-                            float
-                        )
-                        logger.info(
-                            "Enqueued repeatable %s, next at %s",
-                            tracker_key,
-                            next_runs[tracker_key],
-                        )
-
-                elif "every" in job_def:
-                    if "_last_run" not in job_def:
-                        job_def["_last_run"] = now
-                    if now - job_def["_last_run"] >= job_def["every"]:
-                        job = Job(**job_data)  # type: ignore[arg-type]
-                        await _backend.enqueue(_queue.name, job.to_dict())  # type: ignore[union-attr]
-                        job_def["_last_run"] = now
-
-            # Clean up trackers for removed entries
-            active_keys = {
-                jd.get("kwargs", {}).get("job_id") or jd["task_id"]
-                for jd in _repeatables
-            }
-            for stale in set(cron_trackers) - active_keys:
-                del cron_trackers[stale]
-                next_runs.pop(stale, None)
-
-            # Dynamic sleep – wake up earliest when next cron fires
-            sleep_time = check_interval
-            if next_runs:
-                earliest = min(next_runs.values())
-                sleep_time = max(0.5, min(check_interval, earliest - _time.time()))
-
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.exception("Error in repeatable scheduler loop")
-            sleep_time = 5.0
-
-        await asyncio.sleep(sleep_time)
+def get_queue_for_task_type(run_config_type: str) -> str:
+    """Return the queue name for a given ``RunConfigurationType``."""
+    return _TASK_QUEUE_MAP.get(run_config_type, QUEUE_DEFAULT)
 
 
 # ---------------------------------------------------------------------------
-# Public helpers for managing repeatables
+# SchedulerManager – multi-queue lifecycle
 # ---------------------------------------------------------------------------
 
 
-def add_repeatable(
-    task_id: str,
-    cron: str,
-    kwargs: dict[str, Any],
-    *,
-    every: float | None = None,
-) -> None:
-    """Register a repeatable job.  The custom scheduler will pick it up."""
-    entry: dict[str, Any] = {
-        "task_id": task_id,
-        "args": [],
-        "kwargs": kwargs,
-        "retries": 0,
-        "ttl": None,
-        "priority": 5,
-    }
-    if cron:
-        entry["cron"] = cron
-    if every is not None:
-        entry["every"] = every
-    _repeatables.append(entry)
-    logger.info(
-        "Added repeatable: task_id=%s, cron=%s, job_id=%s",
-        task_id,
-        cron,
-        kwargs.get("job_id"),
-    )
+class SchedulerManager:
+    """Manages multiple AsyncMQ queues, their workers, and the backend."""
 
+    def __init__(self) -> None:
+        self._backend: PostgresBackend | None = None
+        self._queues: dict[str, Queue] = {}
+        self._worker_tasks: dict[str, asyncio.Task] = {}
 
-def remove_repeatable_by_job_id(job_id: str) -> bool:
-    """Remove a repeatable entry by its ``job_id`` (stored in kwargs).
+    # -- public accessors ---------------------------------------------------
 
-    Returns ``True`` if an entry was removed.
-    """
-    global _repeatables
-    before = len(_repeatables)
-    _repeatables = [
-        r for r in _repeatables if r.get("kwargs", {}).get("job_id") != job_id
-    ]
-    removed = len(_repeatables) < before
-    if removed:
-        logger.info("Removed repeatable for job_id=%s", job_id)
-    return removed
+    @property
+    def backend(self) -> PostgresBackend:
+        if self._backend is None:
+            raise RuntimeError("AsyncMQ backend not initialised. Call startup() first.")
+        return self._backend
 
-
-async def _load_recurring_jobs(queue: Queue) -> None:
-    """Reload recurring jobs from the application's ``jobs`` table and
-    register them with our custom scheduler so they are re-enqueued."""
-    try:
-        from sqlalchemy import text
-
-        from core.config.app import alchemy
-        from scheduler.executors import RUN_CONFIG_HANDLERS
-        from scheduler.types import JobDefinition, JobType
-
-        async with alchemy.get_session() as session:
-            result = await session.execute(
-                text("""
-                    SELECT id, definition FROM jobs
-                    WHERE status IN ('waiting', 'processing')
-                    AND definition->>'job_type' = 'recurring'
-                """)
+    def get_queue(self, name: str | None = None) -> Queue:
+        """Retrieve a queue by name.  Defaults to ``QUEUE_DEFAULT``."""
+        name = name or QUEUE_DEFAULT
+        q = self._queues.get(name)
+        if q is None:
+            raise RuntimeError(
+                f"AsyncMQ queue '{name}' not initialised. "
+                f"Available: {list(self._queues)}. Call startup() first."
             )
-            rows = result.fetchall()
+        return q
 
-        count = 0
-        for row in rows:
-            job_id = str(row[0])
-            try:
-                jd = JobDefinition.model_validate(row[1])
-                if jd.job_type != JobType.RECURRING or not jd.cron:
-                    continue
+    @property
+    def all_queues(self) -> dict[str, Queue]:
+        return dict(self._queues)
 
-                handler = RUN_CONFIG_HANDLERS.get(jd.run_configuration.type)
-                if handler is None:
-                    logger.warning(
-                        f"No handler for {jd.run_configuration.type}, "
-                        f"skipping recurring job {job_id}"
-                    )
-                    continue
+    # -- lifecycle ----------------------------------------------------------
 
-                cron_expr = _build_cron_expr(jd.cron)
-                task_id = handler.task_id
+    async def startup(self) -> None:
+        """Initialise backend, create queues, load recurring jobs, start workers."""
 
-                add_repeatable(
-                    task_id,
-                    cron=cron_expr,
-                    kwargs={
-                        "job_id": job_id,
-                        "job_definition": jd.model_dump(mode="json"),
-                        "params": jd.run_configuration.params,
-                    },
+        # Ensure env var is set so AsyncMQ picks up our Settings
+        os.environ.setdefault("ASYNCMQ_SETTINGS_MODULE", "scheduler.settings.Settings")
+
+        dsn = _get_postgres_dsn()
+        await _ensure_tables(dsn)
+
+        settings = get_scheduler_settings()
+
+        self._backend = PostgresBackend(dsn=dsn)
+        await self._backend.connect()
+
+        # Create queues with per-workload concurrency & rate limits
+        queue_configs: list[dict[str, Any]] = [
+            {
+                "name": QUEUE_DEFAULT,
+                "concurrency": settings.SCHEDULER_DEFAULT_CONCURRENCY,
+            },
+            {
+                "name": QUEUE_SYNC,
+                "concurrency": settings.SCHEDULER_SYNC_CONCURRENCY,
+                "rate_limit": settings.SCHEDULER_SYNC_RATE_LIMIT or None,
+            },
+            {
+                "name": QUEUE_EVALUATION,
+                "concurrency": settings.SCHEDULER_EVAL_CONCURRENCY,
+            },
+            {
+                "name": QUEUE_MAINTENANCE,
+                "concurrency": settings.SCHEDULER_MAINTENANCE_CONCURRENCY,
+                "rate_limit": settings.SCHEDULER_MAINTENANCE_RATE_LIMIT or None,
+            },
+        ]
+
+        for cfg in queue_configs:
+            q = Queue(
+                name=cfg["name"],
+                backend=self._backend,
+                concurrency=cfg.get("concurrency", 3),
+                rate_limit=cfg.get("rate_limit"),
+            )
+            self._queues[cfg["name"]] = q
+
+        # Import executors so @task decorators register in TASK_REGISTRY
+        import scheduler.executors  # noqa: F401
+
+        # Reload recurring jobs from the application database
+        await self._load_recurring_jobs()
+
+        # Register event hooks for observability
+        self._register_event_hooks()
+
+        # Start a worker for each queue
+        for name, q in self._queues.items():
+            task = asyncio.create_task(q.run(), name=f"asyncmq-worker-{name}")
+            self._worker_tasks[name] = task
+            logger.info(
+                "AsyncMQ worker started for queue '%s' (concurrency=%s)",
+                name,
+                q.concurrency,
+            )
+
+    async def shutdown(self) -> None:
+        """Cancel all workers and disconnect the backend."""
+
+        for name, task in self._worker_tasks.items():
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                logger.info("AsyncMQ worker stopped for queue '%s'", name)
+        self._worker_tasks.clear()
+
+        if self._backend:
+            await self._backend.close()
+            logger.info("AsyncMQ backend disconnected")
+
+        self._queues.clear()
+        self._backend = None
+
+    # -- repeatable management ----------------------------------------------
+
+    async def add_repeatable(
+        self,
+        task_id: str,
+        cron: str,
+        kwargs: dict[str, Any],
+        *,
+        queue_name: str | None = None,
+        every: float | None = None,
+    ) -> None:
+        """Register a repeatable job on the appropriate queue.
+
+        After the entry is added the queue's worker is restarted so the
+        built-in ``repeatable_scheduler`` re-initialises its cron
+        trackers with the updated list.
+        """
+        qname = queue_name or QUEUE_DEFAULT
+        q = self.get_queue(qname)
+
+        entry: dict[str, Any] = {"task_id": task_id, "kwargs": kwargs}
+        if cron:
+            entry["cron"] = cron
+        if every is not None:
+            entry["every"] = every
+
+        q.add_repeatable(**entry)
+        logger.info(
+            "Added repeatable: task_id=%s, cron=%s, queue=%s, job_id=%s",
+            task_id,
+            cron,
+            qname,
+            kwargs.get("job_id"),
+        )
+
+        # Restart the worker so the repeatable scheduler picks up the
+        # new entry (it only reads _repeatables at startup).
+        await self._restart_queue_worker(qname)
+
+    async def remove_repeatable_by_job_id(self, job_id: str) -> bool:
+        """Remove a repeatable entry across all queues by ``job_id``."""
+        removed = False
+        affected_queues: list[str] = []
+        for name, q in self._queues.items():
+            before = len(q._repeatables)
+            q._repeatables = [
+                r for r in q._repeatables if r.get("kwargs", {}).get("job_id") != job_id
+            ]
+            if len(q._repeatables) < before:
+                removed = True
+                affected_queues.append(name)
+        if removed:
+            logger.info("Removed repeatable for job_id=%s", job_id)
+            for qname in affected_queues:
+                await self._restart_queue_worker(qname)
+        return removed
+
+    async def _restart_queue_worker(self, queue_name: str) -> None:
+        """Restart the worker task for *queue_name*.
+
+        This is a no-op when called before workers have been started
+        (e.g. during ``_load_recurring_jobs`` at startup).
+        """
+        task = self._worker_tasks.get(queue_name)
+        if task is None or task.done():
+            return
+
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        q = self._queues[queue_name]
+        new_task = asyncio.create_task(q.run(), name=f"asyncmq-worker-{queue_name}")
+        self._worker_tasks[queue_name] = new_task
+        logger.info(
+            "Restarted worker for queue '%s' to apply repeatable changes",
+            queue_name,
+        )
+
+    # -- recurring job loader -----------------------------------------------
+
+    async def _load_recurring_jobs(self) -> None:
+        """Read recurring jobs from the application DB and register them
+        as repeatables so the built-in scheduler re-enqueues them."""
+        try:
+            from sqlalchemy import text
+
+            from core.config.app import alchemy
+            from scheduler.executors import RUN_CONFIG_HANDLERS
+            from scheduler.types import JobDefinition, JobType
+
+            async with alchemy.get_session() as session:
+                result = await session.execute(
+                    text("""
+                        SELECT id, definition FROM jobs
+                        WHERE status IN ('waiting', 'processing')
+                        AND definition->>'job_type' = 'recurring'
+                    """)
                 )
-                count += 1
-                logger.info(f"Restored recurring job {job_id} with cron '{cron_expr}'")
-            except Exception as e:
-                logger.error(f"Failed to restore recurring job {job_id}: {e}")
+                rows = result.fetchall()
 
-        logger.info(f"Loaded {count} recurring job(s) from database")
-    except Exception as e:
-        logger.error(f"Failed to load recurring jobs: {e}")
+            count = 0
+            for row in rows:
+                job_id = str(row[0])
+                try:
+                    jd = JobDefinition.model_validate(row[1])
+                    if jd.job_type != JobType.RECURRING or not jd.cron:
+                        continue
+
+                    handler = RUN_CONFIG_HANDLERS.get(jd.run_configuration.type)
+                    if handler is None:
+                        logger.warning(
+                            "No handler for %s, skipping recurring job %s",
+                            jd.run_configuration.type,
+                            job_id,
+                        )
+                        continue
+
+                    cron_expr = _build_cron_expr(jd.cron)
+                    task_id = handler.task_id
+
+                    # Determine which queue this task belongs to
+                    queue_name = get_queue_for_task_type(
+                        jd.run_configuration.type.value
+                    )
+
+                    await self.add_repeatable(
+                        task_id,
+                        cron=cron_expr,
+                        kwargs={
+                            "job_id": job_id,
+                            "job_definition": jd.model_dump(mode="json"),
+                            "params": jd.run_configuration.params,
+                        },
+                        queue_name=queue_name,
+                    )
+                    count += 1
+                    logger.info(
+                        "Restored recurring job %s with cron '%s' → queue '%s'",
+                        job_id,
+                        cron_expr,
+                        queue_name,
+                    )
+                except Exception as e:
+                    logger.error("Failed to restore recurring job %s: %s", job_id, e)
+
+            logger.info("Loaded %d recurring job(s) from database", count)
+        except Exception as e:
+            logger.error("Failed to load recurring jobs: %s", e)
+
+    # -- event hooks --------------------------------------------------------
+
+    def _register_event_hooks(self) -> None:
+        """Subscribe to AsyncMQ lifecycle events for observability."""
+
+        def _on_started(payload: dict) -> None:
+            logger.debug(
+                "job:started – id=%s task=%s",
+                payload.get("id"),
+                payload.get("task_id"),
+            )
+
+        def _on_completed(payload: dict) -> None:
+            ts = payload.get("timestamps", {})
+            duration = None
+            if ts.get("finished_at") and ts.get("created_at"):
+                try:
+                    duration = round(ts["finished_at"] - ts["created_at"], 3)
+                except Exception:
+                    pass
+            logger.info(
+                "job:completed – id=%s task=%s duration=%ss",
+                payload.get("id"),
+                payload.get("task_id"),
+                duration,
+            )
+
+        def _on_failed(payload: dict) -> None:
+            logger.warning(
+                "job:failed – id=%s task=%s error=%s",
+                payload.get("id"),
+                payload.get("task_id"),
+                payload.get("error"),
+            )
+
+        def _on_progress(payload: dict) -> None:
+            logger.debug(
+                "job:progress – id=%s progress=%s",
+                payload.get("id"),
+                payload.get("progress"),
+            )
+
+        event_emitter.on("job:started", _on_started)
+        event_emitter.on("job:completed", _on_completed)
+        event_emitter.on("job:failed", _on_failed)
+        event_emitter.on("job:progress", _on_progress)
+
+        logger.info("AsyncMQ event hooks registered for observability")
 
 
 # ---------------------------------------------------------------------------
-# Lifecycle hooks
+# Module-level singleton
+# ---------------------------------------------------------------------------
+
+_manager: SchedulerManager | None = None
+
+
+def _get_manager() -> SchedulerManager:
+    if _manager is None:
+        raise RuntimeError("SchedulerManager not initialised. Call startup() first.")
+    return _manager
+
+
+# ---------------------------------------------------------------------------
+# Public API (backward-compatible function signatures)
 # ---------------------------------------------------------------------------
 
 
 async def startup() -> None:
-    """Initialize AsyncMQ backend, queue, and worker.
-
-    Called from the Litestar ``on_startup`` hook.
-    """
-    global _queue, _backend, _worker_task, _scheduler_task
-
-    dsn = _get_postgres_dsn()
-    await _ensure_tables(dsn)
-
-    settings = get_scheduler_settings()
-
-    _backend = PostgresBackend(dsn=dsn)
-    await _backend.connect()
-
-    _queue = Queue(
-        name=settings.SCHEDULER_QUEUE_NAME,
-        backend=_backend,
-        concurrency=settings.SCHEDULER_CONCURRENCY,
-    )
-
-    # Import executors so @task decorators register in TASK_REGISTRY
-    import scheduler.executors  # noqa: F401
-
-    # Reload recurring jobs from our application database into _repeatables
-    await _load_recurring_jobs(_queue)
-
-    # Start our custom repeatable scheduler (always runs, handles dynamic adds)
-    _scheduler_task = asyncio.create_task(_repeatable_scheduler_loop())
-    logger.info("Custom repeatable scheduler started")
-
-    # Start the worker as a background task.
-    # queue._repeatables is empty ⇒ run_worker will NOT start its own
-    # repeatable_scheduler, avoiding duplicates with ours.
-    _worker_task = asyncio.create_task(_queue.run())
-    logger.info(
-        f"AsyncMQ worker started for queue '{settings.SCHEDULER_QUEUE_NAME}' "
-        f"(concurrency={settings.SCHEDULER_CONCURRENCY})"
-    )
+    """Initialise the scheduler manager (called from Litestar on_startup)."""
+    global _manager
+    _manager = SchedulerManager()
+    await _manager.startup()
 
 
 async def shutdown() -> None:
-    """Shutdown AsyncMQ worker and backend.
-
-    Called from the Litestar ``on_shutdown`` hook.
-    """
-    global _queue, _backend, _worker_task, _scheduler_task
-
-    if _scheduler_task and not _scheduler_task.done():
-        _scheduler_task.cancel()
-        try:
-            await _scheduler_task
-        except asyncio.CancelledError:
-            pass
-        logger.info("Custom repeatable scheduler stopped")
-    _scheduler_task = None
-
-    if _worker_task and not _worker_task.done():
-        _worker_task.cancel()
-        try:
-            await _worker_task
-        except asyncio.CancelledError:
-            pass
-        logger.info("AsyncMQ worker stopped")
-
-    if _backend:
-        await _backend.close()
-        logger.info("AsyncMQ backend disconnected")
-
-    _queue = None
-    _backend = None
-    _worker_task = None
+    """Shutdown the scheduler manager (called from Litestar on_shutdown)."""
+    global _manager
+    if _manager:
+        await _manager.shutdown()
+    _manager = None
 
 
-# ---------------------------------------------------------------------------
-# Public accessors
-# ---------------------------------------------------------------------------
-
-
-def get_queue() -> Queue:
-    """Retrieve the scheduler queue singleton."""
-    if _queue is None:
-        raise RuntimeError("AsyncMQ queue not initialized. Call startup() first.")
-    return _queue
+def get_queue(name: str | None = None) -> Queue:
+    """Retrieve a queue by name.  Defaults to ``QUEUE_DEFAULT``."""
+    return _get_manager().get_queue(name)
 
 
 def get_backend() -> PostgresBackend:
     """Retrieve the AsyncMQ backend singleton."""
-    if _backend is None:
-        raise RuntimeError("AsyncMQ backend not initialized. Call startup() first.")
-    return _backend
+    return _get_manager().backend
+
+
+async def add_repeatable(
+    task_id: str,
+    cron: str,
+    kwargs: dict[str, Any],
+    *,
+    queue_name: str | None = None,
+    every: float | None = None,
+) -> None:
+    """Register a repeatable job.  Delegates to the manager."""
+    await _get_manager().add_repeatable(
+        task_id, cron=cron, kwargs=kwargs, queue_name=queue_name, every=every
+    )
+
+
+async def remove_repeatable_by_job_id(job_id: str) -> bool:
+    """Remove a repeatable entry by its ``job_id``."""
+    return await _get_manager().remove_repeatable_by_job_id(job_id)

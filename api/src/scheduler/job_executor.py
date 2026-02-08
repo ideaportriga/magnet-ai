@@ -1,9 +1,9 @@
 """Job executor – enqueue / cancel jobs via AsyncMQ.
 
 This module bridges the application's ``JobDefinition`` model with the
-AsyncMQ queue.  Jobs are enqueued via ``queue.add()`` for one-time
-execution and ``manager.add_repeatable()`` for recurring (cron) jobs
-(using our custom repeatable scheduler).
+Async MQ multi-queue system.  Jobs are enqueued via ``queue.add()`` for
+one-time execution and ``manager.add_repeatable()`` for recurring (cron)
+jobs, using AsyncMQ's built-in repeatable scheduler.
 """
 
 import logging
@@ -20,6 +20,7 @@ from scheduler.manager import (
     _build_cron_expr,
     add_repeatable,
     get_queue,
+    get_queue_for_task_type,
     remove_repeatable_by_job_id,
 )
 from scheduler.types import JobDefinition, JobStatus, JobType
@@ -130,6 +131,10 @@ async def create_job(
     run_config_type = job_definition.run_configuration.type
     task_id = _get_task_id(run_config_type)
 
+    # Determine target queue based on workload type
+    queue_name = get_queue_for_task_type(run_config_type.value)
+    queue = get_queue(queue_name)
+
     # Update job status in database
     await update_job_status(job_id, JobStatus.WAITING)
 
@@ -174,12 +179,13 @@ async def create_job(
 
         cron_expr = _build_cron_expr(job_definition.cron)
 
-        # Register with our custom repeatable scheduler (not the built-in
-        # AsyncMQ one which cannot handle dynamic additions).
-        add_repeatable(
+        # Register with AsyncMQ's built-in repeatable scheduler on the
+        # appropriate per-workload queue.
+        await add_repeatable(
             task_id,
             cron=cron_expr,
             kwargs=job_kwargs,
+            queue_name=queue_name,
         )
 
         # Calculate next run for display
@@ -217,7 +223,7 @@ async def cancel_job(
         if isinstance(job_definition, dict):
             jd = JobDefinition.model_validate(job_definition)
             if jd.job_type == JobType.RECURRING:
-                removed = remove_repeatable_by_job_id(job_id)
+                removed = await remove_repeatable_by_job_id(job_id)
                 if removed:
                     logger.info(f"Removed repeatable for job {job_id}")
                 else:

@@ -3,18 +3,22 @@
   //- ═══════════════════════ HEADER ═══════════════════════════════
   .row.items-center.q-mb-16
     .row.items-center.q-gap-8
-      .km-heading-4 {{ overview?.queue || 'Queue Dashboard' }}
-      km-chip.text-capitalize(
-        v-if='overview',
-        :label='overview.is_paused ? "Paused" : "Running"',
-        :color='overview.is_paused ? "warning" : "positive"',
-        round
+      .km-heading-4 Queue Dashboard
+      km-select(
+        v-model='selectedQueue',
+        :options='queueOptions',
+        emit-value,
+        map-options,
+        placeholder='All Queues',
+        @update:model-value='onQueueChange'
       )
+      .status-dot(:class='overview && overview.is_paused ? "paused" : "online"', v-if='overview')
+        km-tooltip(:label='overview.is_paused ? "Queue paused" : "Queue running"')
     q-space
     .row.items-center.q-gap-8
       //- Queue control
       km-btn(
-        v-if='overview && !overview.is_paused',
+        v-if='overview && !overview.is_paused && selectedQueue',
         icon='pause',
         label='Pause',
         flat,
@@ -26,7 +30,7 @@
         @click='handlePauseQueue'
       )
       km-btn(
-        v-if='overview && overview.is_paused',
+        v-if='overview && overview.is_paused && selectedQueue',
         icon='play_arrow',
         label='Resume',
         flat,
@@ -49,90 +53,98 @@
         hoverBg='primary-bg',
         :loading='loading'
       )
-      q-toggle(
-        v-model='autoRefresh',
-        label='Auto-refresh (5s)',
-        dense,
-        size='sm',
-        @update:model-value='toggleAutoRefresh'
-      )
+      .row.items-center.no-wrap.q-gap-4
+        .km-title Auto-refresh (5s)
+        km-toggle(v-model='autoRefresh', @update:model-value='toggleAutoRefresh')
 
   //- ═══════════════════════ OVERVIEW CARDS ═══════════════════════
-  .row.q-gap-12.q-mb-16(v-if='overview')
+  .row.q-gap-16.q-mb-20(v-if='overview')
     .col
       .stat-card
-        .row.items-center.q-gap-4
-          q-icon(name='hourglass_top', size='16px', color='primary')
+        .row.items-center.q-gap-6
+          q-icon(name='hourglass_top', size='20px', color='primary')
           .stat-label Waiting
         .stat-value.text-primary {{ statusCounts.waiting || 0 }}
     .col
       .stat-card
-        .row.items-center.q-gap-4
-          q-icon(name='play_circle', size='16px', color='positive')
+        .row.items-center.q-gap-6
+          q-icon(name='play_circle', size='20px', color='positive')
           .stat-label Active
         .stat-value.text-positive {{ statusCounts.active || 0 }}
     .col
       .stat-card
-        .row.items-center.q-gap-4
-          q-icon(name='check_circle', size='16px', color='grey-6')
+        .row.items-center.q-gap-6
+          q-icon(name='check_circle', size='20px', color='grey-6')
           .stat-label Completed
         .stat-value.text-grey-7 {{ statusCounts.completed || 0 }}
     .col
       .stat-card
-        .row.items-center.q-gap-4
-          q-icon(name='error', size='16px', color='negative')
+        .row.items-center.q-gap-6
+          q-icon(name='error', size='20px', color='negative')
           .stat-label Failed
         .stat-value.text-negative {{ statusCounts.failed || 0 }}
     .col
       .stat-card
-        .row.items-center.q-gap-4
-          q-icon(name='schedule', size='16px', color='warning')
+        .row.items-center.q-gap-6
+          q-icon(name='schedule', size='20px', color='warning')
           .stat-label Delayed
         .stat-value.text-warning {{ statusCounts.delayed || 0 }}
     .col
       .stat-card
-        .row.items-center.q-gap-4
-          q-icon(name='memory', size='16px', color='info')
-          .stat-label Workers
-        .stat-value.text-info {{ overview.total_workers || 0 }}
+        .row.items-center.q-gap-6
+          q-icon(name='repeat', size='20px', color='info')
+          .stat-label Repeatables
+        .stat-value.text-info {{ overview.total_repeatables || 0 }}
+
+  //- ═══════════════ PER-QUEUE BREAKDOWN (All Queues) ═════════════
+  template(v-if='!selectedQueue && overview && overview.queues && overview.queues.length')
+    .km-description.text-secondary-text.text-weight-medium.q-mb-12 Per-Queue Breakdown
+    .row.q-gap-16.q-mb-20
+      .col(v-for='q in overview.queues', :key='q.queue')
+        .queue-breakdown-card
+          .row.items-center.q-gap-8.q-mb-12
+            .status-dot.status-dot--sm(:class='q.is_paused ? "paused" : "online"')
+            .km-title.text-capitalize {{ q.queue }}
+          .row.q-gap-16
+            .column.items-center.col
+              .breakdown-count.text-primary {{ q.status_counts?.waiting || 0 }}
+              .breakdown-label Waiting
+            .column.items-center.col
+              .breakdown-count.text-positive {{ q.status_counts?.active || 0 }}
+              .breakdown-label Active
+            .column.items-center.col
+              .breakdown-count.text-negative {{ q.status_counts?.failed || 0 }}
+              .breakdown-label Failed
+            .column.items-center.col
+              .breakdown-count.text-info {{ q.total_repeatables || 0 }}
+              .breakdown-label Repeatables
 
   //- ═══════════════════════ METRICS BAR ═══════════════════════════
-  .row.q-gap-12.q-mb-16(v-if='metrics')
+  .row.q-gap-16.q-my-md(v-if='metrics')
     .col
       .metrics-card
-        .row.items-center.q-gap-4
-          q-icon(name='trending_up', size='14px', color='positive')
+        .row.items-center.q-gap-6
+          q-icon(name='trending_up', size='18px', color='positive')
           .metrics-label Throughput
         .metrics-value {{ metrics.throughput ?? 0 }} completed
     .col
       .metrics-card
-        .row.items-center.q-gap-4
-          q-icon(name='warning_amber', size='14px', color='negative')
+        .row.items-center.q-gap-6
+          q-icon(name='warning_amber', size='18px', color='negative')
           .metrics-label Failures
         .metrics-value {{ metrics.failures ?? 0 }} failed
     .col
       .metrics-card
-        .row.items-center.q-gap-4
-          q-icon(name='replay', size='14px', color='warning')
+        .row.items-center.q-gap-6
+          q-icon(name='replay', size='18px', color='warning')
           .metrics-label Total Retries
         .metrics-value {{ metrics.retries ?? 0 }}
     .col
       .metrics-card
-        .row.items-center.q-gap-4
-          q-icon(name='timer', size='14px', color='info')
+        .row.items-center.q-gap-6
+          q-icon(name='timer', size='18px', color='info')
           .metrics-label Avg Duration
         .metrics-value {{ metrics.avg_duration != null ? metrics.avg_duration + 's' : '—' }}
-
-  //- ═══════════════════════ WARNINGS ═════════════════════════════
-  q-banner.bg-orange-1.text-orange-8.q-mb-12(v-if='overview && overview.total_workers === 0', rounded, dense)
-    template(#avatar)
-      q-icon(name='warning', color='orange')
-    | No active workers detected. Jobs will not be processed.
-
-  q-banner.bg-red-1.text-red-8.q-mb-12(v-if='overview && overview.total_stalled > 0', rounded, dense)
-    template(#avatar)
-      q-icon(name='report_problem', color='red')
-    | {{ overview.total_stalled }} stalled job(s) detected &mdash; jobs running without a worker heartbeat for over 60 seconds.
 
   //- ═══════════════════════ SECTION TABS ═════════════════════════
   q-tabs.bb-border.full-width.q-mb-md(
@@ -146,7 +158,6 @@
     content-class='km-tabs'
   )
     q-tab(name='jobs', :label='`Jobs (${jobsData.total || 0})`')
-    q-tab(name='workers', :label='`Workers (${workersData.total || 0})`')
     q-tab(name='repeatables', :label='`Repeatables (${repeatablesData.total || 0})`')
     q-tab(name='dlq', :label='`DLQ (${dlqData.total || 0})`')
 
@@ -192,14 +203,18 @@
         template(#body-cell-status='props')
           q-td(:props='props')
             km-chip(:label='props.value', :color='statusColor(props.value)', round)
+        template(#body-cell-queue='props')
+          q-td(:props='props')
+            km-chip.text-capitalize(v-if='props.value', :label='props.value', color='light', round)
+            .km-description(v-else) —
         template(#body-cell-task='props')
           q-td(:props='props')
             .km-description.text-weight-medium {{ shortTask(props.value) }}
-            q-tooltip(v-if='props.value && props.value.length > 40') {{ props.value }}
+            km-tooltip(v-if='props.value && props.value.length > 40', :label='props.value')
         template(#body-cell-id='props')
           q-td(:props='props')
             .km-description.text-mono {{ truncateId(props.value) }}
-            q-tooltip {{ props.value }}
+            km-tooltip(:label='props.value')
         template(#body-cell-created_at='props')
           q-td(:props='props')
             template(v-if='props.value')
@@ -228,6 +243,7 @@
                 iconSize='14px',
                 size='sm',
                 round,
+                tooltip='Details',
                 @click='openJobDetail(props.row)'
               )
               km-btn(
@@ -240,10 +256,10 @@
                 iconSize='14px',
                 size='sm',
                 round,
-                @click='handleRetryJob(props.row.id)',
+                tooltip='Retry',
+                @click='handleRetryJob(props.row.id, props.row.queue)',
                 :loading='actionLoading === props.row.id'
               )
-                q-tooltip Retry
               km-btn(
                 v-if='props.row.status === "waiting" || props.row.status === "delayed"',
                 icon='cancel',
@@ -254,10 +270,10 @@
                 iconSize='14px',
                 size='sm',
                 round,
-                @click='handleCancelJob(props.row.id)',
+                tooltip='Cancel',
+                @click='handleCancelJob(props.row.id, props.row.queue)',
                 :loading='actionLoading === props.row.id'
               )
-                q-tooltip Cancel
               km-btn(
                 v-if='props.row.status === "completed" || props.row.status === "failed"',
                 icon='delete_outline',
@@ -268,10 +284,10 @@
                 iconSize='14px',
                 size='sm',
                 round,
-                @click='handleRemoveJob(props.row.id)',
+                tooltip='Remove',
+                @click='handleRemoveJob(props.row.id, props.row.queue)',
                 :loading='actionLoading === props.row.id'
               )
-                q-tooltip Remove
 
       //- Pagination
       .row.items-center.justify-center.q-mt-md(v-if='jobsData.total_pages > 1')
@@ -291,46 +307,6 @@
       .text-center.q-pa-xl.text-secondary-text
         q-icon(name='hourglass_empty', size='48px', color='grey-4')
         .q-mt-8.km-description No {{ jobFilter === 'all' ? '' : jobFilter }} jobs
-
-  //- ═══════════════════════ WORKERS TAB ══════════════════════════
-  template(v-if='section === "workers"')
-    template(v-if='workersData.workers && workersData.workers.length')
-      km-table(
-        :rows='workersData.workers',
-        row-key='id',
-        :columns='workerColumns',
-        dense,
-        flat,
-        hide-pagination,
-        :rows-per-page-options='[0]'
-      )
-        template(#body-cell-status='props')
-          q-td(:props='props')
-            .row.items-center.no-wrap
-              template(v-if='props.row.is_stale')
-                q-icon(name='fiber_manual_record', color='negative', size='10px')
-                .q-ml-4.km-description.text-negative Stale
-              template(v-else)
-                q-icon(name='fiber_manual_record', color='positive', size='10px')
-                .q-ml-4.km-description Online
-        template(#body-cell-id='props')
-          q-td(:props='props')
-            .km-description.text-mono {{ truncateId(props.value) }}
-            q-tooltip {{ props.value }}
-        template(#body-cell-heartbeat='props')
-          q-td(:props='props')
-            .column
-              .km-description {{ formatEpoch(props.value) }}
-              .km-tiny.text-secondary-text {{ relativeTime(props.value) }}
-        template(#body-cell-staleness='props')
-          q-td(:props='props')
-            .km-description(v-if='props.row.seconds_since_heartbeat != null')
-              | {{ props.row.seconds_since_heartbeat }}s ago
-            .km-description(v-else) &mdash;
-    template(v-else)
-      .text-center.q-pa-xl.text-secondary-text
-        q-icon(name='dns', size='48px', color='grey-4')
-        .q-mt-8.km-description No active workers
 
   //- ═══════════════════════ REPEATABLES TAB ══════════════════════
   template(v-if='section === "repeatables"')
@@ -388,11 +364,15 @@
         template(#body-cell-task='props')
           q-td(:props='props')
             .km-description.text-weight-medium {{ shortTask(props.value) }}
-            q-tooltip(v-if='props.value && props.value.length > 40') {{ props.value }}
+            km-tooltip(v-if='props.value && props.value.length > 40', :label='props.value')
+        template(#body-cell-queue='props')
+          q-td(:props='props')
+            km-chip.text-capitalize(v-if='props.value', :label='props.value', color='light', round)
+            .km-description(v-else) —
         template(#body-cell-id='props')
           q-td(:props='props')
             .km-description.text-mono {{ truncateId(props.value) }}
-            q-tooltip {{ props.value }}
+            km-tooltip(:label='props.value')
         template(#body-cell-created_at='props')
           q-td(:props='props')
             template(v-if='props.value')
@@ -414,10 +394,10 @@
                 iconSize='14px',
                 size='sm',
                 round,
-                @click='handleRetryJob(props.row.id)',
+                tooltip='Retry',
+                @click='handleRetryJob(props.row.id, props.row.queue)',
                 :loading='actionLoading === props.row.id'
               )
-                q-tooltip Retry
               km-btn(
                 icon='delete_outline',
                 flat,
@@ -427,10 +407,10 @@
                 iconSize='14px',
                 size='sm',
                 round,
-                @click='handleRemoveJob(props.row.id)',
+                tooltip='Remove',
+                @click='handleRemoveJob(props.row.id, props.row.queue)',
                 :loading='actionLoading === props.row.id'
               )
-                q-tooltip Remove
               km-btn(
                 icon='visibility',
                 flat,
@@ -440,9 +420,9 @@
                 iconSize='14px',
                 size='sm',
                 round,
+                tooltip='Details',
                 @click='openJobDetail(props.row)'
               )
-                q-tooltip Details
 
       //- DLQ Pagination
       .row.items-center.justify-center.q-mt-md(v-if='dlqData.total_pages > 1')
@@ -470,7 +450,7 @@
     | {{ error }}
 
   //- Loading overlay
-  q-inner-loading(:showing='loading && !overview')
+  km-inner-loading(:showing='loading && !overview')
 
   //- ═══════════════════════ JOB DETAIL DIALOG ═══════════════════
   q-dialog(v-model='jobDetailOpen', position='right')
@@ -491,7 +471,7 @@
             iconSize='14px',
             size='sm',
             hoverBg='warning-bg',
-            @click='handleRetryJob(jobDetail.id); jobDetailOpen = false',
+            @click='handleRetryJob(jobDetail.id, jobDetail.queue); jobDetailOpen = false',
             :loading='actionLoading === jobDetail.id'
           )
           km-btn(
@@ -505,7 +485,7 @@
             iconSize='14px',
             size='sm',
             hoverBg='negative-bg',
-            @click='handleCancelJob(jobDetail.id); jobDetailOpen = false',
+            @click='handleCancelJob(jobDetail.id, jobDetail.queue); jobDetailOpen = false',
             :loading='actionLoading === jobDetail.id'
           )
           km-btn(
@@ -519,10 +499,10 @@
             iconSize='14px',
             size='sm',
             hoverBg='negative-bg',
-            @click='handleRemoveJob(jobDetail.id); jobDetailOpen = false',
+            @click='handleRemoveJob(jobDetail.id, jobDetail.queue); jobDetailOpen = false',
             :loading='actionLoading === jobDetail.id'
           )
-        q-btn.q-ml-8(flat, round, dense, icon='close', @click='jobDetailOpen = false')
+        km-btn.q-ml-8(icon='close', flat, round, iconSize='14px', iconColor='icon', hoverColor='primary', hoverBg='primary-bg', @click='jobDetailOpen = false')
 
       q-card-section.q-pt-md(v-if='jobDetail')
         .column.q-gap-12
@@ -540,6 +520,11 @@
           .column.q-gap-2
             .km-label.text-secondary-text Job ID
             .km-description.text-mono {{ jobDetail.id }}
+
+          //- Queue
+          .column.q-gap-2(v-if='jobDetail.queue')
+            .km-label.text-secondary-text Queue
+            km-chip.text-capitalize(:label='jobDetail.queue', color='light', round)
 
           //- Priority
           .column.q-gap-2
@@ -621,39 +606,44 @@
                 pre.q-ma-none.text-mono(style='white-space: pre-wrap; word-wrap: break-word; font-size: 11px') {{ formatResult(jobDetail.result) }}
 
   //- ═══════════════════════ CLEAN DIALOG ═════════════════════════
-  q-dialog(v-model='cleanDialogOpen')
-    q-card(style='min-width: 350px')
-      q-card-section
-        .km-heading-7 Clean Queue
-      q-card-section
-        .km-description Clean completed jobs older than:
-        q-select.q-mt-sm(
-          v-model='cleanHours',
-          :options='cleanHoursOptions',
-          dense,
-          outlined,
-          emit-value,
-          map-options
-        )
-      q-card-actions(align='right')
-        km-btn(label='Cancel', flat, @click='cleanDialogOpen = false')
-        km-btn(
-          label='Clean',
-          color='primary',
-          @click='confirmClean',
-          :loading='cleanLoading'
-        )
+  km-popup-confirm(
+    :visible='cleanDialogOpen',
+    title='Clean Queue',
+    confirmButtonLabel='Clean',
+    cancelButtonLabel='Cancel',
+    :loading='cleanLoading',
+    @confirm='confirmClean',
+    @cancel='cleanDialogOpen = false'
+  )
+    .km-description.q-mb-sm Clean completed jobs older than:
+    km-select(
+      v-model='cleanHours',
+      :options='cleanHoursOptions',
+      emit-value,
+      map-options
+    )
 </template>
 
 <script>
+const QUEUE_OPTIONS = [
+  { label: 'All Queues', value: null },
+  { label: 'default', value: 'default' },
+  { label: 'sync', value: 'sync' },
+  { label: 'evaluation', value: 'evaluation' },
+  { label: 'maintenance', value: 'maintenance' },
+]
+
 export default {
   data() {
     return {
+      // Queue selector
+      selectedQueue: null, // null = all queues
+      queueOptions: QUEUE_OPTIONS,
+
       // Data from endpoints
       overview: null,
       metrics: null,
       jobsData: { jobs: [], total: 0, total_pages: 1 },
-      workersData: { workers: [], total: 0 },
       repeatablesData: { repeatables: [], total: 0 },
       dlqData: { jobs: [], total: 0, total_pages: 1 },
 
@@ -684,16 +674,9 @@ export default {
       ],
 
       // Column definitions
-      workerColumns: [
-        { name: 'id', field: 'id', label: 'Worker ID', align: 'left' },
-        { name: 'status', field: 'id', label: 'Status', align: 'left', style: 'width: 100px' },
-        { name: 'queue', field: 'queue', label: 'Queue', align: 'left' },
-        { name: 'concurrency', field: 'concurrency', label: 'Concurrency', align: 'center', style: 'width: 100px' },
-        { name: 'heartbeat', field: 'heartbeat', label: 'Last Heartbeat', align: 'left' },
-        { name: 'staleness', field: 'seconds_since_heartbeat', label: 'Staleness', align: 'center', style: 'width: 100px' },
-      ],
       repeatableColumns: [
         { name: 'task', field: (row) => row.job_def?.task_id || row.job_def?.task || '—', label: 'Task', align: 'left' },
+        { name: 'queue', field: 'queue', label: 'Queue', align: 'left', style: 'width: 100px' },
         { name: 'schedule', field: (row) => row.job_def?.cron || (row.job_def?.every ? `every ${row.job_def.every}s` : '—'), label: 'Schedule', align: 'left' },
         { name: 'job_id', field: (row) => row.job_def?.kwargs?.job_id || '—', label: 'Job ID', align: 'left' },
         { name: 'kwargs', field: (row) => row.job_def?.kwargs || {}, label: 'Kwargs', align: 'left' },
@@ -703,6 +686,7 @@ export default {
       jobColumns: [
         { name: 'task', field: 'task', label: 'Task', align: 'left' },
         { name: 'id', field: 'id', label: 'Job ID', align: 'left', style: 'width: 120px' },
+        { name: 'queue', field: 'queue', label: 'Queue', align: 'left', style: 'width: 100px' },
         { name: 'status', field: 'status', label: 'Status', align: 'center', style: 'width: 100px' },
         { name: 'retries', field: 'retries', label: 'Retries', align: 'center', style: 'width: 80px' },
         { name: 'created_at', field: 'created_at', label: 'Created', align: 'left' },
@@ -712,6 +696,7 @@ export default {
       dlqColumns: [
         { name: 'task', field: 'task', label: 'Task', align: 'left' },
         { name: 'id', field: 'id', label: 'Job ID', align: 'left', style: 'width: 120px' },
+        { name: 'queue', field: 'queue', label: 'Queue', align: 'left', style: 'width: 100px' },
         { name: 'retries', field: 'retries', label: 'Retries', align: 'center', style: 'width: 80px' },
         { name: 'created_at', field: 'created_at', label: 'Created', align: 'left' },
         { name: 'last_attempt', field: 'last_attempt', label: 'Last Attempt', align: 'left' },
@@ -746,6 +731,13 @@ export default {
     this.stopAutoRefresh()
   },
   methods: {
+    // ── Queue switch ────────────────────────────────────────────
+    onQueueChange() {
+      this.jobPage = 1
+      this.dlqPage = 1
+      this.refreshAll()
+    },
+
     // ── Fetchers ────────────────────────────────────────────────
     async refreshAll() {
       this.loading = true
@@ -755,7 +747,6 @@ export default {
           this.fetchOverview(),
           this.fetchMetrics(),
           this.fetchJobs(),
-          this.fetchWorkers(),
           this.fetchRepeatables(),
           this.fetchDLQ(),
         ])
@@ -769,7 +760,7 @@ export default {
 
     async fetchOverview() {
       try {
-        this.overview = await this.$store.dispatch('getDashboardOverview')
+        this.overview = await this.$store.dispatch('getDashboardOverview', { queue: this.selectedQueue })
       } catch (e) {
         console.error('Overview fetch error:', e)
       }
@@ -777,7 +768,7 @@ export default {
 
     async fetchMetrics() {
       try {
-        this.metrics = await this.$store.dispatch('getDashboardMetrics')
+        this.metrics = await this.$store.dispatch('getDashboardMetrics', { queue: this.selectedQueue })
       } catch (e) {
         console.error('Metrics fetch error:', e)
       }
@@ -786,6 +777,7 @@ export default {
     async fetchJobs() {
       try {
         this.jobsData = await this.$store.dispatch('getDashboardJobs', {
+          queue: this.selectedQueue,
           state: this.jobFilter,
           page: this.jobPage,
           size: 50,
@@ -795,17 +787,9 @@ export default {
       }
     },
 
-    async fetchWorkers() {
-      try {
-        this.workersData = await this.$store.dispatch('getDashboardWorkers')
-      } catch (e) {
-        console.error('Workers fetch error:', e)
-      }
-    },
-
     async fetchRepeatables() {
       try {
-        const data = await this.$store.dispatch('getDashboardRepeatables')
+        const data = await this.$store.dispatch('getDashboardRepeatables', { queue: this.selectedQueue })
         this.repeatablesData = {
           ...data,
           repeatables: (data.repeatables || []).map((r, i) => ({
@@ -821,6 +805,7 @@ export default {
     async fetchDLQ() {
       try {
         this.dlqData = await this.$store.dispatch('getDashboardDLQ', {
+          queue: this.selectedQueue,
           page: this.dlqPage,
           size: 50,
         })
@@ -830,10 +815,11 @@ export default {
     },
 
     // ── Job actions ─────────────────────────────────────────────
-    async handleRetryJob(jobId) {
+    async handleRetryJob(jobId, queue) {
+      const jobQueue = queue || this.selectedQueue || 'default'
       this.actionLoading = jobId
       try {
-        const res = await this.$store.dispatch('retryJob', jobId)
+        const res = await this.$store.dispatch('retryJob', { jobId, queue: jobQueue })
         if (res?.ok) {
           this.$q?.notify?.({ type: 'positive', message: 'Job queued for retry' })
           await this.refreshAll()
@@ -847,10 +833,11 @@ export default {
       }
     },
 
-    async handleRemoveJob(jobId) {
+    async handleRemoveJob(jobId, queue) {
+      const jobQueue = queue || this.selectedQueue || 'default'
       this.actionLoading = jobId
       try {
-        const res = await this.$store.dispatch('removeJob', jobId)
+        const res = await this.$store.dispatch('removeJob', { jobId, queue: jobQueue })
         if (res?.ok) {
           this.$q?.notify?.({ type: 'positive', message: 'Job removed' })
           await this.refreshAll()
@@ -864,10 +851,11 @@ export default {
       }
     },
 
-    async handleCancelJob(jobId) {
+    async handleCancelJob(jobId, queue) {
+      const jobQueue = queue || this.selectedQueue || 'default'
       this.actionLoading = jobId
       try {
-        const res = await this.$store.dispatch('cancelQueueJob', jobId)
+        const res = await this.$store.dispatch('cancelQueueJob', { jobId, queue: jobQueue })
         if (res?.ok) {
           this.$q?.notify?.({ type: 'positive', message: 'Job cancelled' })
           await this.refreshAll()
@@ -883,8 +871,9 @@ export default {
 
     // ── Queue control ───────────────────────────────────────────
     async handlePauseQueue() {
+      if (!this.selectedQueue) return
       try {
-        const res = await this.$store.dispatch('pauseQueue')
+        const res = await this.$store.dispatch('pauseQueue', this.selectedQueue)
         if (res?.ok) {
           this.$q?.notify?.({ type: 'warning', message: 'Queue paused' })
           await this.fetchOverview()
@@ -895,8 +884,9 @@ export default {
     },
 
     async handleResumeQueue() {
+      if (!this.selectedQueue) return
       try {
-        const res = await this.$store.dispatch('resumeQueue')
+        const res = await this.$store.dispatch('resumeQueue', this.selectedQueue)
         if (res?.ok) {
           this.$q?.notify?.({ type: 'positive', message: 'Queue resumed' })
           await this.fetchOverview()
@@ -914,6 +904,7 @@ export default {
       this.cleanLoading = true
       try {
         const res = await this.$store.dispatch('cleanQueue', {
+          queue: this.selectedQueue || 'default',
           state: 'completed',
           older_than_hours: this.cleanHours,
         })
@@ -1022,39 +1013,81 @@ export default {
 </script>
 
 <style lang="stylus" scoped>
+// ── Status dot ────────────────────────────────────────────
+.status-dot
+  width 12px
+  height 12px
+  border-radius 50%
+  flex-shrink 0
+
+  &.online
+    background #22c55e
+    box-shadow 0 0 6px 2px rgba(34, 197, 94, 0.45)
+
+  &.paused
+    background #f59e0b
+    box-shadow 0 0 6px 2px rgba(245, 158, 11, 0.40)
+
+  &.status-dot--sm
+    width 8px
+    height 8px
+
+// ── Overview stat cards ───────────────────────────────────
 .stat-card
-  padding 12px 16px
-  background #f8f9fa
-  border-radius 8px
-  border 1px solid #eee
+  padding 16px 20px
+  background var(--km-bg-secondary, #f8f9fa)
+  border-radius 12px
+  border 1px solid var(--km-border, #eee)
 
 .stat-value
-  font-size 22px
+  font-size 28px
+  font-weight 700
+  line-height 1.3
+  margin-top 6px
+
+.stat-label
+  font-size 13px
+  font-weight 500
+  color var(--km-text-secondary, #666)
+
+// ── Per-Queue breakdown cards ─────────────────────────────
+.queue-breakdown-card
+  padding 16px 20px
+  background var(--km-bg-secondary, #f8f9fa)
+  border-radius 12px
+  border 1px solid var(--km-border, #eee)
+
+.breakdown-count
+  font-size 20px
+  font-weight 700
+  line-height 1.3
+
+.breakdown-label
+  font-size 11px
+  font-weight 500
+  color var(--km-text-secondary, #888)
+  margin-top 2px
+
+// ── Metrics cards ─────────────────────────────────────────
+.metrics-card
+  padding 14px 18px
+  background var(--km-bg-secondary, #f0f4ff)
+  border-radius 12px
+  border 1px solid var(--km-border, #e0e7ff)
+
+.metrics-value
+  font-size 17px
   font-weight 600
   line-height 1.4
   margin-top 4px
-
-.stat-label
-  font-size 12px
-  color #666
-
-.metrics-card
-  padding 10px 14px
-  background #f0f4ff
-  border-radius 8px
-  border 1px solid #e0e7ff
-
-.metrics-value
-  font-size 15px
-  font-weight 600
-  line-height 1.4
-  margin-top 2px
-  color #333
+  color var(--km-text-primary, #333)
 
 .metrics-label
-  font-size 11px
-  color #888
+  font-size 12px
+  font-weight 500
+  color var(--km-text-secondary, #888)
 
+// ── Misc ──────────────────────────────────────────────────
 .text-mono
   font-family 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace
 

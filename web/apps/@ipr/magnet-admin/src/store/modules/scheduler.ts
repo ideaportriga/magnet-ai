@@ -30,99 +30,110 @@ async function jsonOrThrow(response) {
   return await response.json()
 }
 
+/** Build ?queue=xxx query-string fragment */
+function queueQP(queue?: string | null): string {
+  return queue ? `queue=${encodeURIComponent(queue)}` : ''
+}
+
+/** Append extra query-string fragment to a path */
+function appendQP(path: string, qp: string): string {
+  if (!qp) return path
+  return path.includes('?') ? `${path}&${qp}` : `${path}?${qp}`
+}
+
 // actions
 const actions = {
-  // ── Legacy queue-status (full payload) ──────────────────────────
-  async getQueueStatus({ getters }) {
-    const r = await schedulerFetch(getters, { path: '/queue-status' })
+  // ── Overview ────────────────────────────────────────────────
+  async getDashboardOverview({ getters }, { queue = null } = {}) {
+    const r = await schedulerFetch(getters, { path: appendQP('/overview', queueQP(queue)) })
     return jsonOrThrow(r)
   },
 
-  // ── Dashboard: overview ─────────────────────────────────────────
-  async getDashboardOverview({ getters }) {
-    const r = await schedulerFetch(getters, { path: '/dashboard/overview' })
-    return jsonOrThrow(r)
-  },
-
-  // ── Dashboard: jobs (paginated, filterable) ─────────────────────
-  async getDashboardJobs({ getters }, { state = 'all', page = 1, size = 50 } = {}) {
+  // ── Jobs (paginated, filterable) ────────────────────────────
+  async getDashboardJobs({ getters }, { queue = null, state = 'all', page = 1, size = 50 } = {}) {
     const r = await schedulerFetch(getters, {
-      path: `/dashboard/jobs?state=${state}&page=${page}&size=${size}`,
+      path: appendQP(`/jobs?state=${state}&page=${page}&size=${size}`, queueQP(queue)),
     })
     return jsonOrThrow(r)
   },
 
-  // ── Dashboard: repeatables ──────────────────────────────────────
-  async getDashboardRepeatables({ getters }) {
-    const r = await schedulerFetch(getters, { path: '/dashboard/repeatables' })
+  // ── Repeatables ─────────────────────────────────────────────
+  async getDashboardRepeatables({ getters }, { queue = null } = {}) {
+    const r = await schedulerFetch(getters, { path: appendQP('/repeatables', queueQP(queue)) })
     return jsonOrThrow(r)
   },
 
-  // ── Dashboard: workers ──────────────────────────────────────────
-  async getDashboardWorkers({ getters }) {
-    const r = await schedulerFetch(getters, { path: '/dashboard/workers' })
+  // ── Metrics ─────────────────────────────────────────────────
+  async getDashboardMetrics({ getters }, { queue = null } = {}) {
+    const r = await schedulerFetch(getters, { path: appendQP('/metrics', queueQP(queue)) })
     return jsonOrThrow(r)
   },
 
-  // ── Dashboard: metrics ──────────────────────────────────────────
-  async getDashboardMetrics({ getters }) {
-    const r = await schedulerFetch(getters, { path: '/dashboard/metrics' })
-    return jsonOrThrow(r)
-  },
-
-  // ── Dashboard: DLQ (failed jobs) ───────────────────────────────
-  async getDashboardDLQ({ getters }, { page = 1, size = 50 } = {}) {
+  // ── DLQ (failed jobs) ──────────────────────────────────────
+  async getDashboardDLQ({ getters }, { queue = null, page = 1, size = 50 } = {}) {
     const r = await schedulerFetch(getters, {
-      path: `/dashboard/dlq?page=${page}&size=${size}`,
+      path: appendQP(`/dlq?page=${page}&size=${size}`, queueQP(queue)),
     })
     return jsonOrThrow(r)
   },
 
-  // ── Job actions ─────────────────────────────────────────────────
-  async retryJob({ getters }, jobId) {
+  // ── Queue status (legacy/full) ─────────────────────────────
+  async getQueueStatus({ getters }, { queue = null } = {}) {
+    const r = await schedulerFetch(getters, { path: appendQP('/queue-status', queueQP(queue)) })
+    return jsonOrThrow(r)
+  },
+
+  // ── Job actions ─────────────────────────────────────────────
+  async retryJob({ getters }, { jobId, queue = 'default' }) {
     const r = await schedulerFetch(getters, {
       method: 'POST',
-      path: `/dashboard/jobs/${jobId}/retry`,
+      path: `/jobs/${jobId}/retry?queue=${encodeURIComponent(queue)}`,
     })
     return jsonOrThrow(r)
   },
 
-  async removeJob({ getters }, jobId) {
+  async removeJob({ getters }, { jobId, queue = 'default' }) {
     const r = await schedulerFetch(getters, {
       method: 'POST',
-      path: `/dashboard/jobs/${jobId}/remove`,
+      path: `/jobs/${jobId}/remove?queue=${encodeURIComponent(queue)}`,
     })
     return jsonOrThrow(r)
   },
 
-  async cancelQueueJob({ getters }, jobId) {
+  async cancelQueueJob({ getters }, { jobId, queue = 'default' }) {
     const r = await schedulerFetch(getters, {
       method: 'POST',
-      path: `/dashboard/jobs/${jobId}/cancel`,
+      path: `/jobs/${jobId}/cancel?queue=${encodeURIComponent(queue)}`,
     })
     return jsonOrThrow(r)
   },
 
-  // ── Queue control ───────────────────────────────────────────────
-  async pauseQueue({ getters }) {
-    const r = await schedulerFetch(getters, { method: 'POST', path: '/dashboard/queue/pause' })
-    return jsonOrThrow(r)
-  },
-
-  async resumeQueue({ getters }) {
-    const r = await schedulerFetch(getters, { method: 'POST', path: '/dashboard/queue/resume' })
-    return jsonOrThrow(r)
-  },
-
-  async cleanQueue({ getters }, { state = 'completed', older_than_hours = 24 } = {}) {
+  // ── Queue control ───────────────────────────────────────────
+  async pauseQueue({ getters }, queue = 'default') {
     const r = await schedulerFetch(getters, {
       method: 'POST',
-      path: `/dashboard/queue/clean?state=${state}&older_than_hours=${older_than_hours}`,
+      path: `/queue/pause?queue=${encodeURIComponent(queue)}`,
     })
     return jsonOrThrow(r)
   },
 
-  // ── Create / cancel job ─────────────────────────────────────────
+  async resumeQueue({ getters }, queue = 'default') {
+    const r = await schedulerFetch(getters, {
+      method: 'POST',
+      path: `/queue/resume?queue=${encodeURIComponent(queue)}`,
+    })
+    return jsonOrThrow(r)
+  },
+
+  async cleanQueue({ getters }, { queue = 'default', state = 'completed', older_than_hours = 24 } = {}) {
+    const r = await schedulerFetch(getters, {
+      method: 'POST',
+      path: `/queue/clean?queue=${encodeURIComponent(queue)}&state=${state}&older_than_hours=${older_than_hours}`,
+    })
+    return jsonOrThrow(r)
+  },
+
+  // ── Create / cancel job ─────────────────────────────────────
   async createAndRunJobScheduler({ getters, commit }, payload) {
     commit('set', { loading: true })
     const r = await schedulerFetch(getters, {

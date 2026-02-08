@@ -277,20 +277,53 @@ class DatabaseSettings:
 
 @dataclass
 class SchedulerSettings:
-    """AsyncMQ scheduler settings."""
+    """AsyncMQ scheduler settings.
 
+    Each workload type has its own queue with independent concurrency
+    and rate-limit controls.
+    """
+
+    # -- Global defaults ---------------------------------------------------
     SCHEDULER_CONCURRENCY: int = field(
         default_factory=get_env("SCHEDULER_CONCURRENCY", 10)
     )
-    """Number of concurrent jobs the AsyncMQ worker processes."""
+    """Default concurrency if a per-queue value is not set."""
     SCHEDULER_QUEUE_NAME: str = field(
-        default_factory=get_env("SCHEDULER_QUEUE_NAME", "scheduler")
+        default_factory=get_env("SCHEDULER_QUEUE_NAME", "default")
     )
-    """Name of the AsyncMQ queue."""
+    """Default queue name (kept for backward compatibility)."""
     SCHEDULER_JOB_TIMEOUT: int = field(
         default_factory=get_env("SCHEDULER_JOB_TIMEOUT", 3600)
     )
     """Default timeout in seconds for AsyncMQ jobs (default: 1 hour)."""
+
+    # -- Per-queue concurrency ---------------------------------------------
+    SCHEDULER_DEFAULT_CONCURRENCY: int = field(
+        default_factory=get_env("SCHEDULER_DEFAULT_CONCURRENCY", 10)
+    )
+    """Concurrency for the 'default' queue (general purpose tasks)."""
+    SCHEDULER_SYNC_CONCURRENCY: int = field(
+        default_factory=get_env("SCHEDULER_SYNC_CONCURRENCY", 3)
+    )
+    """Concurrency for the 'sync' queue (heavy data sync operations)."""
+    SCHEDULER_EVAL_CONCURRENCY: int = field(
+        default_factory=get_env("SCHEDULER_EVAL_CONCURRENCY", 2)
+    )
+    """Concurrency for the 'evaluation' queue."""
+    SCHEDULER_MAINTENANCE_CONCURRENCY: int = field(
+        default_factory=get_env("SCHEDULER_MAINTENANCE_CONCURRENCY", 5)
+    )
+    """Concurrency for the 'maintenance' queue (cleanup, post-processing)."""
+
+    # -- Per-queue rate limiting (0 = no limit) ----------------------------
+    SCHEDULER_SYNC_RATE_LIMIT: int = field(
+        default_factory=get_env("SCHEDULER_SYNC_RATE_LIMIT", 5)
+    )
+    """Max sync jobs per rate interval."""
+    SCHEDULER_MAINTENANCE_RATE_LIMIT: int = field(
+        default_factory=get_env("SCHEDULER_MAINTENANCE_RATE_LIMIT", 10)
+    )
+    """Max maintenance jobs per rate interval."""
 
 
 ### LOGGING SETTINGS ###

@@ -39,29 +39,46 @@ class RunConfiguration(BaseModel):
 
 
 class CronConfig(BaseModel):
-    year: int | str | None = Field(None, description="4-digit year")
+    """Cron schedule configuration.
+
+    Supports two modes:
+
+    1. **Individual fields** – ``minute``, ``hour``, ``day``, ``month``,
+       ``day_of_week``  (each defaults to ``*``).
+    2. **Raw cron expression** – ``cron_expression`` as a single 5-field
+       string (e.g. ``"0 */2 * * 1-5"``).
+
+    If ``cron_expression`` is provided it takes precedence over the
+    individual fields.
+    """
+
+    cron_expression: str | None = Field(
+        None,
+        description="Full 5-field cron expression (e.g. '0 */2 * * 1-5'). "
+        "Takes precedence over individual fields when set.",
+    )
     month: int | str | None = Field(None, description="month (1-12)")
     day: int | str | None = Field(None, description="day of month (1-31)")
-    week: int | str | None = Field(None, description="ISO week (1-53)")
     day_of_week: int | str | None = Field(
         None,
         description="number or name of weekday (0-6 or mon,tue,wed,thu,fri,sat,sun)",
     )
     hour: int | str | None = Field(None, description="hour (0-23)")
     minute: int | str | None = Field(None, description="minute (0-59)")
-    second: int | str | None = Field(None, description="second (0-59)")
-    start_date: datetime | str | None = Field(
-        None,
-        description="earliest possible date/time to trigger on (inclusive)",
-    )
-    end_date: datetime | str | None = Field(
-        None,
-        description="latest possible date/time to trigger on (inclusive)",
-    )
-    jitter: int | None = Field(
-        None,
-        description="delay the job execution by jitter seconds at most",
-    )
+
+    @model_validator(mode="after")
+    def validate_cron_config(self) -> "CronConfig":
+        """Validate that at least one scheduling field is provided."""
+        has_individual = any(
+            v is not None
+            for v in (self.minute, self.hour, self.day, self.month, self.day_of_week)
+        )
+        if not self.cron_expression and not has_individual:
+            raise ValueError(
+                "Either 'cron_expression' or at least one of "
+                "'minute', 'hour', 'day', 'month', 'day_of_week' must be provided."
+            )
+        return self
 
 
 class JobDefinition(BaseModel):
