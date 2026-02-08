@@ -379,7 +379,7 @@ class SchedulerManager:
                 result = await session.execute(
                     text("""
                         SELECT id, definition FROM jobs
-                        WHERE status IN ('waiting', 'processing')
+                        WHERE status IN ('Waiting', 'Processing')
                         AND definition->>'job_type' = 'recurring'
                     """)
                 )
