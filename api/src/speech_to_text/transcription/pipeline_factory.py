@@ -13,6 +13,8 @@ from .diarize.elevenlabs_diarize.models import ElevenLabsDiarization
 from .diarize.azure_conversation.models import AzureFastDiarizer
 from .transcribe.oci_whisper.models import OciWhisperTranscriber
 from .diarize.oci_speech.models import OciSpeechDiarizer
+from .transcribe.mistral_transcribe.models import MistralVoxtralTranscriber
+from .diarize.mistral_diarize.models import MistralVoxtralDiarization
 import os
 
 HF_KEY = os.getenv("HF_KEY", "")
@@ -67,6 +69,17 @@ def build_pipeline(
         )
         stt = ElevenLabsTranscriber(storage, cfg)
         dr = ElevenLabsDiarization(storage, DiarizationCfg(model="elevenlabs"))
+        return TranscriptionPipeline(stt, dr, storage)
+    elif kind == "mistral":
+        cfg = TranscriptionCfg(
+            model="mistral-voxtral",
+            language=language,
+            internal_cfg={"granularity": "word"},
+            keyterms=keyterms,
+            entity_detection=entity_detection,
+        )
+        stt = MistralVoxtralTranscriber(storage, cfg)
+        dr = MistralVoxtralDiarization(storage, DiarizationCfg(model="mistral-voxtral"))
         return TranscriptionPipeline(stt, dr, storage)
     elif kind == "whisper-http-pyannote":
         stt = WhisperHttpTranscriber(
