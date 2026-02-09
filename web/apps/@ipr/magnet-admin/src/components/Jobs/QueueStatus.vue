@@ -1,5 +1,5 @@
 <template lang="pug">
-.column.full-width
+.column.full-width.no-wrap
   //- ═══════════════════════ HEADER ═══════════════════════════════
   .row.items-center.q-mb-16
     .row.items-center.q-gap-8

@@ -22,99 +22,25 @@ import os
 from logging import getLogger
 from typing import Any
 
-import asyncpg
 from asyncmq.backends.postgres import PostgresBackend
 from asyncmq.core.event import event_emitter
 from asyncmq.queues import Queue
 
-from core.config.base import get_database_settings, get_scheduler_settings
+from core.config.base import get_scheduler_settings
 from scheduler.settings import (
     QUEUE_DEFAULT,
     QUEUE_EVALUATION,
     QUEUE_MAINTENANCE,
     QUEUE_SYNC,
+    Settings,
 )
 
 logger = getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# DDL – non-destructive (CREATE TABLE IF NOT EXISTS)
-# ---------------------------------------------------------------------------
-
-_DDL = """
-CREATE TABLE IF NOT EXISTS asyncmq_jobs (
-    id SERIAL PRIMARY KEY,
-    queue_name TEXT NOT NULL,
-    job_id TEXT NOT NULL UNIQUE,
-    data JSONB NOT NULL,
-    status TEXT,
-    delay_until DOUBLE PRECISION,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS asyncmq_repeatables (
-    queue_name TEXT NOT NULL,
-    job_def    JSONB NOT NULL,
-    next_run   TIMESTAMPTZ NOT NULL,
-    paused     BOOLEAN     NOT NULL DEFAULT FALSE,
-    PRIMARY KEY(queue_name, job_def)
-);
-
-CREATE TABLE IF NOT EXISTS asyncmq_cancelled_jobs (
-    queue_name TEXT NOT NULL,
-    job_id     TEXT NOT NULL,
-    PRIMARY KEY(queue_name, job_id)
-);
-
-CREATE TABLE IF NOT EXISTS asyncmq_workers_heartbeat (
-    worker_id   TEXT PRIMARY KEY,
-    queues      TEXT[],
-    concurrency INT,
-    heartbeat   DOUBLE PRECISION
-);
-
-CREATE INDEX IF NOT EXISTS idx_asyncmq_jobs_queue_name  ON asyncmq_jobs(queue_name);
-CREATE INDEX IF NOT EXISTS idx_asyncmq_jobs_status      ON asyncmq_jobs(status);
-CREATE INDEX IF NOT EXISTS idx_asyncmq_jobs_delay_until ON asyncmq_jobs(delay_until);
-"""
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _get_postgres_dsn() -> str:
-    """Build a ``postgresql://`` DSN suitable for asyncpg from settings."""
-    db_settings = get_database_settings()
-    url = db_settings.effective_url
-
-    for prefix in (
-        "postgresql+asyncpg://",
-        "postgresql+psycopg2://",
-        "postgresql+psycopg://",
-    ):
-        if url.startswith(prefix):
-            return url.replace(prefix, "postgresql://")
-
-    if url.startswith("postgresql://"):
-        return url
-
-    raise RuntimeError(
-        f"Cannot derive a PostgreSQL DSN for AsyncMQ from DATABASE_URL={url!r}. "
-        "Ensure DATABASE_URL points to a PostgreSQL database."
-    )
-
-
-async def _ensure_tables(dsn: str) -> None:
-    """Create AsyncMQ tables if they do not already exist (non-destructive)."""
-    conn = await asyncpg.connect(dsn)
-    try:
-        await conn.execute(_DDL)
-        logger.info("AsyncMQ database tables ensured")
-    finally:
-        await conn.close()
 
 
 def _build_cron_expr(cron_config) -> str:
@@ -169,14 +95,14 @@ class SchedulerManager:
     """Manages multiple AsyncMQ queues, their workers, and the backend."""
 
     def __init__(self) -> None:
-        self._backend: PostgresBackend | None = None
+        self._backend = None
         self._queues: dict[str, Queue] = {}
         self._worker_tasks: dict[str, asyncio.Task] = {}
 
     # -- public accessors ---------------------------------------------------
 
     @property
-    def backend(self) -> PostgresBackend:
+    def backend(self):
         if self._backend is None:
             raise RuntimeError("AsyncMQ backend not initialised. Call startup() first.")
         return self._backend
@@ -204,13 +130,11 @@ class SchedulerManager:
         # Ensure env var is set so AsyncMQ picks up our Settings
         os.environ.setdefault("ASYNCMQ_SETTINGS_MODULE", "scheduler.settings.Settings")
 
-        dsn = _get_postgres_dsn()
-        await _ensure_tables(dsn)
+        # Reuse the backend configured in Settings (shares the connection params)
+        self._backend = Settings.backend
+        await self._backend.connect()
 
         settings = get_scheduler_settings()
-
-        self._backend = PostgresBackend(dsn=dsn)
-        await self._backend.connect()
 
         # Create queues with per-workload concurrency & rate limits
         queue_configs: list[dict[str, Any]] = [

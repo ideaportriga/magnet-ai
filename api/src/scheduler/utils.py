@@ -70,3 +70,14 @@ async def update_job_status(
         logger.debug(f"Updated job {job_id} status to {status}")
     except Exception as e:
         logger.error(f"Error updating job {job_id} status: {e!s}")
+
+
+def get_interval_days(interval: str) -> int:
+    """Convert an interval string (e.g. '1D', '7D') to number of days."""
+    if interval == "1D":
+        return 1
+    if interval == "3D":
+        return 3
+    if interval == "7D":
+        return 7
+    raise ValueError(f"Invalid interval value: {interval}")

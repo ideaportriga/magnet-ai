@@ -1,23 +1,24 @@
 <template lang="pug">
-layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
+layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto", height: "100%", display: "flex", flexDirection: "column" }')
   template(#content)
-    .column.full-width.overflow-auto
-      q-tabs.bb-border.full-width.q-mb-lg(
-        v-model='tab',
-        narrow-indicator,
-        dense,
-        align='left',
-        active-color='primary',
-        indicator-color='primary',
-        active-bg-color='white',
-        no-caps,
-        content-class='km-tabs'
-      )
-        q-tab(name='jobs', label='Jobs')
-        q-tab(name='queue', label='Queue Status')
+    .column.full-height.no-wrap
+      div
+        q-tabs.bb-border.full-width.q-mb-lg(
+          v-model='tab',
+          narrow-indicator,
+          dense,
+          align='left',
+          active-color='primary',
+          indicator-color='primary',
+          active-bg-color='white',
+          no-caps,
+          content-class='km-tabs'
+        )
+          q-tab(name='jobs', label='Jobs')
+          q-tab(name='queue', label='Queue Status')
 
       //- Jobs tab
-      template(v-if='tab === "jobs"')
+      .col.column.no-wrap(v-if='tab === "jobs"')
         .row.items-center
           km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject')
           q-space
@@ -33,27 +34,29 @@ layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", m
             hoverBg='primary-bg'
           )
           km-btn(data-test='new-btn', label='New', @click='showNewDialog = true')
-        .row.q-pt-16
-          km-table(
-            ref='tableJobsRef',
-            @selectRow='openDetails',
-            selection='single',
-            row-key='id',
-            :selected='selectedJob ? [selectedJob] : []',
-            :columns='columns',
-            :visibleColumns='visibleColumns',
-            :rows='visibleRows',
-            style='min-width: 1100px',
-            binary-state-sort,
-            :loading='loading',
-            dense,
-            @request='getPaginated',
-            v-model:pagination='pagination',
-            :filter='filterObject'
-          )
+        .col.relative-position.q-mt-md
+          .absolute-full.overflow-hidden
+            km-table.my-sticky-header-table(
+              ref='tableJobsRef',
+              @selectRow='openDetails',
+              selection='single',
+              row-key='id',
+              :selected='selectedJob ? [selectedJob] : []',
+              :columns='columns',
+              :visibleColumns='visibleColumns',
+              :rows='visibleRows',
+              style='height: 100%',
+              :rows-per-page-options="[20, 50, 100]",
+              binary-state-sort,
+              :loading='loading',
+              dense,
+              @request='getPaginated',
+              v-model:pagination='pagination',
+              :filter='filterObject'
+            )
 
       //- SAQ Queue tab
-      template(v-if='tab === "queue"')
+      .col.column.no-wrap.scroll(v-if='tab === "queue"')
         jobs-queue-status
 
   template(#drawer)
@@ -175,6 +178,30 @@ export default {
   },
 }
 </script>
+
+<style lang="sass">
+.my-sticky-header-table
+  /* height or max-height is important */
+  height: 100%
+  display: flex
+  flex-direction: column
+
+  .q-table__middle
+    flex: 1
+    overflow: auto
+
+  .q-table__top,
+  .q-table__bottom,
+  thead tr:first-child th
+    /* bg color is important for th; just specify one */
+    background-color: #fff
+
+  thead tr:first-child th
+    position: sticky
+    top: 0
+    opacity: 1
+    z-index: 1
+</style>
 
 <style lang="stylus">
 .collection-container {

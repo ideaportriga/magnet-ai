@@ -53,6 +53,18 @@ class CollectionsController(Controller):
         self, collections_service: CollectionsService, data: CollectionCreate
     ) -> Collection:
         """Create a new Collection."""
+        # Check if collection with system_name already exists to ensure idempotency
+        existing = await collections_service.get_one_or_none(
+            system_name=data.system_name
+        )
+        if existing:
+            # If it exists, update it instead of failing with duplicate key error
+            update_data = data.model_dump(exclude_unset=True)
+            obj = await collections_service.update(
+                update_data, item_id=existing.id, auto_commit=True
+            )
+            return collections_service.to_schema(obj, schema_type=Collection)
+
         obj = await collections_service.create(data)
         return collections_service.to_schema(obj, schema_type=Collection)
 
