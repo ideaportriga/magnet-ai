@@ -25,6 +25,7 @@ PipelineKind = Literal[
     "whisper-http",
     "whisper-http-pyannote",
     "elevenlabs",
+    "mistral",
     "azure-whisper-azure-diar",
     # removed: "oci-whisper-oci-diar" (Azure-only)
 ]
