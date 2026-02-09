@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.3](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.2...v0.6.0-dev.3) (2026-02-09)
+
+### ✨ Features
+
+* **api:** added mistral stt model ([f930fa8](https://github.com/ideaportriga/magnet-ai/commit/f930fa8407162b9c4a8581315f28416fedf4c4c8))
+
 ## [0.6.0-dev.2](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.1...v0.6.0-dev.2) (2026-02-09)
 
 ### 🐛 Bug Fixes
