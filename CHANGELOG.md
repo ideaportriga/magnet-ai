@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.2](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.1...v0.6.0-dev.2) (2026-02-09)
+
+### 🐛 Bug Fixes
+
+* **api-tools:** added missing field custom_headers to the request, reponse and api server table ([d0db4e0](https://github.com/ideaportriga/magnet-ai/commit/d0db4e0db4940efca9e1e33a71c271ce84bd48d9))
+
 ## [0.6.0-dev.1](https://github.com/ideaportriga/magnet-ai/compare/v0.5.2...v0.6.0-dev.1) (2026-02-06)
 
 ### ✨ Features
