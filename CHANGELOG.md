@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.4](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.3...v0.6.0-dev.4) (2026-02-10)
+
+### ✨ Features
+
+* select the model in note taker config set ([c0e5bbb](https://github.com/ideaportriga/magnet-ai/commit/c0e5bbbcda3f04c38c5905aa8bf80ca55b25aa23))
+
 ## [0.6.0-dev.3](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.2...v0.6.0-dev.3) (2026-02-09)
 
 ### ✨ Features
