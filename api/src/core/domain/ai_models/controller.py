@@ -370,11 +370,15 @@ class AIModelsController(Controller):
             max_tokens=info.get("max_tokens"),
             max_input_tokens=info.get("max_input_tokens"),
             max_output_tokens=info.get("max_output_tokens"),
-            supports_vision=info.get("supports_vision", False),
-            supports_function_calling=info.get("supports_function_calling", False),
-            supports_response_schema=info.get("supports_response_schema", False),
-            supports_audio_input=info.get("supports_audio_input", False),
-            supports_audio_output=info.get("supports_audio_output", False),
+            supports_vision=bool(info.get("supports_vision") or False),
+            supports_function_calling=bool(
+                info.get("supports_function_calling") or False
+            ),
+            supports_response_schema=bool(
+                info.get("supports_response_schema") or False
+            ),
+            supports_audio_input=bool(info.get("supports_audio_input") or False),
+            supports_audio_output=bool(info.get("supports_audio_output") or False),
             input_cost_per_token=info.get("input_cost_per_token"),
             output_cost_per_token=info.get("output_cost_per_token"),
         )

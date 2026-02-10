@@ -52,8 +52,8 @@ class CollectionsController(Controller):
     async def create_collection(
         self, collections_service: CollectionsService, data: CollectionCreate
     ) -> Collection:
-        """Create a new Collection."""
-        obj = await collections_service.create(data)
+        """Create a new Collection, or update if one with the same system_name exists."""
+        obj = await collections_service.upsert(data, match_fields=["system_name"])
         return collections_service.to_schema(obj, schema_type=Collection)
 
     @get("/code/{code:str}")
