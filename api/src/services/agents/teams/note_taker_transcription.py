@@ -267,6 +267,7 @@ async def _send_transcription_summary(
     status: str,
     job_id: str | None,
     transcription: dict | None,
+    pipeline_id: str | None,
     conversation_date: str | None,
     conversation_time: str | None,
     settings_system_name: str | None,
@@ -490,6 +491,7 @@ async def _send_transcription_summary(
                 context,
                 settings=settings,
                 job_id=job_id,
+                pipeline_id=pipeline_id,
                 meeting_context=meeting_context or resolve_meeting_details(context),
                 participants=participant_names,
                 conversation_date=conversation_date,
@@ -597,6 +599,11 @@ async def run_transcription_pipeline(
                 "Failed to load keyterms for transcription: %s",
                 getattr(err, "message", str(err)),
             )
+
+        selected_pipeline_id = (settings or {}).get("pipeline_id")
+        if isinstance(selected_pipeline_id, str) and selected_pipeline_id.strip():
+            pipeline_id = selected_pipeline_id.strip()
+
         try:
             invited_people = await get_invited_people(context)
         except Exception as err:
@@ -702,6 +709,7 @@ async def run_transcription_pipeline(
             status=status,
             job_id=job_id,
             transcription=transcription,
+            pipeline_id=pipeline_id,
             conversation_date=conversation_date,
             conversation_time=conversation_time,
             settings_system_name=settings_system_name,
@@ -823,6 +831,7 @@ async def run_transcription_pipeline(
             status=status or "unknown",
             job_id=job_id,
             transcription=transcription,
+            pipeline_id=None,
             conversation_date=conversation_date,
             conversation_time=conversation_time,
             settings_system_name=settings_system_name,

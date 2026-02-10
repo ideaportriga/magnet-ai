@@ -66,6 +66,7 @@ def _extract_first_url_from_attachments(activity: Any) -> str | None:
 
 _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
     "subscription_recordings_ready": False,
+    "pipeline_id": "elevenlabs",
     "create_knowledge_graph_embedding": False,
     "knowledge_graph_system_name": "",
     "keyterms": "",
@@ -98,6 +99,7 @@ def _merge_note_taker_settings(raw: dict[str, Any] | None) -> dict[str, Any]:
 
     for key in (
         "subscription_recordings_ready",
+        "pipeline_id",
         "create_knowledge_graph_embedding",
         "knowledge_graph_system_name",
         "keyterms",

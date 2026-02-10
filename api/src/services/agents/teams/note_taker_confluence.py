@@ -31,6 +31,7 @@ async def maybe_publish_confluence_notes(
     *,
     settings: dict[str, Any],
     job_id: str | None,
+    pipeline_id: str | None,
     meeting_context: dict[str, Any] | None,
     participants: list[str] | None,
     conversation_date: str | None,
@@ -90,11 +91,18 @@ async def maybe_publish_confluence_notes(
 
     keyterms_part = keyterms_to_display(keyterms)
 
+    resolved_pipeline_id = (
+        str(pipeline_id or "").strip() or str(settings.get("pipeline_id") or "").strip()
+    )
+    if not resolved_pipeline_id:
+        resolved_pipeline_id = "unknown"
+
     markdown_body = _build_confluence_markdown(
         meeting=meeting_context,
         participants=participants,
         invited_people=invited_people,
         keyterms=keyterms_part,
+        transcription_model=resolved_pipeline_id,
         conversation_date=conversation_date,
         conversation_time=conversation_time,
         duration=duration,
@@ -107,6 +115,7 @@ async def maybe_publish_confluence_notes(
         "space_id": space_id,
         "parent_id": parent_id or None,
         "title": title,
+        "pipeline_id": resolved_pipeline_id,
         "content_bytes": len(markdown_body.encode("utf-8", errors="ignore")),
         "content_sha256": _hash_text_sha256(markdown_body),
         "meeting_id": str((meeting_context or {}).get("id") or "").strip() or None,
@@ -429,6 +438,7 @@ def _build_confluence_markdown(
     participants: list[str] | None,
     invited_people: list[dict[str, str]] | None,
     keyterms: str | None,
+    transcription_model: str | None,
     conversation_date: str | None,
     conversation_time: str | None,
     duration: str | None,
@@ -441,6 +451,7 @@ def _build_confluence_markdown(
     duration_part = str(duration or "").strip() or "n/a"
     participants_part = ", ".join([p for p in (participants or []) if p]) or "n/a"
     keyterms_part = str(keyterms or "").strip()
+    model_part = str(transcription_model or "").strip() or "unknown"
 
     parts: list[str] = [
         f"# {meeting_title}",
@@ -450,6 +461,7 @@ def _build_confluence_markdown(
         f"- Meeting ID: {meeting_id}",
         f"- Participants: {participants_part}",
         *([f"- Keyterms: {keyterms_part}"] if keyterms_part else []),
+        f"- Transcription model: {model_part}",
         "",
     ]
 

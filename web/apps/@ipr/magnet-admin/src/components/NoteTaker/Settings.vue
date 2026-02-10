@@ -43,6 +43,19 @@
                     .km-description.text-secondary-text.q-pt-2 Automatically create recordings-ready subscriptions for meetings.
 
                   .km-field
+                    .text-secondary-text.q-pb-xs.km-title Transcription model
+                    km-select(
+                      v-model='pipelineId',
+                      :options='pipelineOptions',
+                      option-label='label',
+                      option-value='value',
+                      emit-value,
+                      map-options,
+                      height='30px'
+                    )
+                    .km-description.text-secondary-text.q-pt-2 Model to use for transcription flow.
+
+                  .km-field
                     .text-secondary-text.q-pb-xs.km-title Keyterms
                     km-input.full-width(
                       type='textarea',
@@ -345,6 +358,11 @@ const store = useStore()
 const router = useRouter()
 const route = useRoute()
 
+const pipelineOptions = [
+  { label: 'ElevenLabs', value: 'elevenlabs' },
+  { label: 'Voxtral (Mistral)', value: 'mistral' },
+]
+
 const knowledgeGraphs = ref<any[]>([])
 
 const promptTemplates = computed(() => {
@@ -380,6 +398,13 @@ const subscriptionRecordingsReady = computed({
   get: () => store.getters.noteTakerSettings?.subscription_recordings_ready ?? false,
   set: (value: boolean) => {
     store.dispatch('updateNoteTakerSetting', { path: 'subscription_recordings_ready', value })
+  },
+})
+
+const pipelineId = computed({
+  get: () => store.getters.noteTakerSettings?.pipeline_id || 'elevenlabs',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'pipeline_id', value })
   },
 })
 
