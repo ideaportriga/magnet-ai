@@ -9,9 +9,15 @@
       .q-mb-sm
         .text-secondary-text.km-button-xs-text Created:
         .text-secondary-text.km-description {{ created_at }}
-      div
+      .q-mb-sm
         .text-secondary-text.km-button-xs-text Modified:
         .text-secondary-text.km-description {{ updated_at }}
+      .q-mb-sm
+        .text-secondary-text.km-button-xs-text Created by:
+        .text-secondary-text.km-description {{ created_by }}
+      div
+        .text-secondary-text.km-button-xs-text Modified by:
+        .text-secondary-text.km-description {{ updated_by }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-mx-md
   km-btn(label='Save', icon='far fa-save', color='primary', bg='background', iconSize='16px', @click='save')
@@ -69,6 +75,14 @@ export default {
     updated_at() {
       if (!this.activeRagDB?.updated_at) return ''
       return `${this.formatDate(this.activeRagDB.updated_at)}`
+    },
+    created_by() {
+      if (!this.activeRagDB?.created_by) return 'Unknown'
+      return `${this.activeRagDB?.created_by}`
+    },
+    updated_by() {
+      if (!this.activeRagDB?.updated_by) return 'Unknown'
+      return `${this.activeRagDB?.updated_by}`
     },
     currentRag() {
       return this.$store.getters.rag

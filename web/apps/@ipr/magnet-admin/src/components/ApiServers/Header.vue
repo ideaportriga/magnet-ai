@@ -9,9 +9,16 @@
       .q-mb-sm
         .text-secondary-text.km-button-xs-text Created:
         .text-secondary-text.km-description {{ info.created_at }}
-      div
+      .q-mb-sm
         .text-secondary-text.km-button-xs-text Modified:
         .text-secondary-text.km-description {{ info.updated_at }}
+      .q-mb-sm
+        .text-secondary-text.km-button-xs-text Created by:
+        .text-secondary-text.km-description {{ info.created_by }}
+      
+      div
+        .text-secondary-text.km-button-xs-text Modified by:
+        .text-secondary-text.km-description {{ info.updated_by }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-mx-md
   km-btn(label='Save', icon='far fa-save', color='primary', bg='background', iconSize='16px', @click='save')
@@ -57,6 +64,8 @@ const info = computed(() => {
   return {
     created_at: formatDateTime(server.value?.created_at),
     updated_at: formatDateTime(server.value?.updated_at),
+    created_by: server.value?.created_by ? `${server.value?.created_by}` : 'Unknown',
+    updated_by: server.value?.updated_by ? `${server.value?.updated_by}` : 'Unknown',
   }
 })
 

@@ -9,9 +9,15 @@
       .q-mb-sm
         .text-secondary-text.km-button-xs-text Created:
         .text-secondary-text.km-description {{ created_at }}
-      div
+      .q-mb-sm
         .text-secondary-text.km-button-xs-text Modified:
         .text-secondary-text.km-description {{ updated_at }}
+      .q-mb-sm
+        .text-secondary-text.km-button-xs-text Created by:
+        .text-secondary-text.km-description {{ created_by }}
+      div
+        .text-secondary-text.km-button-xs-text Modified by:
+        .text-secondary-text.km-description {{ updated_by }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-mx-md
   km-btn(label='Create Run', icon='play_arrow', iconSize='16px', @click='showRunDialog = true')
@@ -105,6 +111,14 @@ export default {
     updated_at() {
       if (!this.activeRowDB) return ''
       return `${this.formatDate(this.activeRowDB?.updated_at)}`
+    },
+    created_by() {
+      if (!this.activeRowDB?.created_by) return 'Unknown'
+      return `${this.activeRowDB?.created_by}`
+    },
+    updated_by() {
+      if (!this.activeRowDB?.updated_by) return 'Unknown'
+      return `${this.activeRowDB?.updated_by}`
     },
     currentRow() {
       return this.$store.getters.selectedConfig

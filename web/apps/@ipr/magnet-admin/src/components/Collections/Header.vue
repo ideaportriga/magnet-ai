@@ -9,9 +9,15 @@
       .q-mb-sm
         .text-secondary-text.km-button-xs-text Created:
         .text-secondary-text.km-description {{ created_at }}
-      div
+      .q-mb-sm
         .text-secondary-text.km-button-xs-text Last Synced:
         .text-secondary-text.km-description {{ modified_at }}
+      .q-mb-sm
+        .text-secondary-text.km-button-xs-text Created by:
+        .text-secondary-text.km-description {{ created_by }}
+      div
+        .text-secondary-text.km-button-xs-text Modified by:
+        .text-secondary-text.km-description {{ updated_by }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-ml-md
   km-btn(label='Save', icon='far fa-save', iconSize='16px', color='primary', bg='background', @click='save', :loading='loading', :disable='loading')
@@ -79,6 +85,14 @@ export default {
   computed: {
     isCancelAvaliable() {
       return !this.$store.getters.promptTemplate?._metadata
+    },
+    created_by() {
+      if (!this.activeRowDB?.created_by) return 'Unknown'
+      return `${this.activeRowDB?.created_by}`
+    },
+    updated_by() {
+      if (!this.activeRowDB?.updated_by) return 'Unknown'
+      return `${this.activeRowDB?.updated_by}`
     },
     created_at() {
       if (!this.activeRowDB) return ''
