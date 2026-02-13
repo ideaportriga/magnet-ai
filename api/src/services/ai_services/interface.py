@@ -4,6 +4,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
 from models import DocumentSearchResult
 from services.ai_services.models import EmbeddingResponse, RerankResponse
+from typing import Any, BinaryIO
 
 
 class AIProviderInterface(ABC):
@@ -41,3 +42,23 @@ class AIProviderInterface(ABC):
         truncation: bool | None,
     ) -> RerankResponse:
         raise NotImplementedError("rerank is optional for this provider")
+
+
+class STTProviderInterface(ABC):
+    @abstractmethod
+    async def speech_to_text_convert(
+        self,
+        *,
+        file: BinaryIO,
+        model_id: str | None = None,
+        language_code: str | None = None,
+        diarize: bool | None = None,
+        num_speakers: int | None = None,
+        tag_audio_events: bool | None = None,
+        keyterms: list[str] | None = None,
+        entity_detection: str | list[str] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        raise NotImplementedError(
+            "speech_to_text_convert must be implemented for this provider"
+        )

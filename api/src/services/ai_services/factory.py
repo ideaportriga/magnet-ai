@@ -15,10 +15,11 @@ from services.ai_services.providers.tmp_local import TmpLocalProvider
 from services.ai_services.providers.oci import OCIProvider
 from services.ai_services.providers.oci_llama import OCILlamaProvider
 from services.ai_services.providers.openai import OpenAIProvider
+from services.ai_services.providers.elevenlabs_stt import ElevenLabsSTTProvider
 from utils.secrets import replace_placeholders_in_dict
 
 # Re-export for backward compatibility
-__all__ = ["get_ai_provider", "invalidate_provider_cache"]
+__all__ = ["get_ai_provider", "get_stt_provider", "invalidate_provider_cache"]
 
 
 def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
@@ -131,5 +132,60 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
     # Create and cache provider instance
     provider_instance = provider_class(provider_config)
     cache_provider(provider_system_name, provider_instance)
+
+    return provider_instance
+
+
+async def get_stt_provider(provider_system_name: str) -> ElevenLabsSTTProvider:
+    """
+    Get STT provider instance by provider_system_name (from providers table).
+
+    Uses same DB config & secrets mechanism as get_ai_provider(), but returns
+    an STT provider object (e.g. ElevenLabsSTTProvider).
+    """
+    cache_key = f"stt:{provider_system_name}"
+
+    cached_provider = get_cached_provider(cache_key)
+    if cached_provider is not None:
+        return cached_provider
+
+    async with alchemy.get_session() as session:
+        providers_service = ProvidersService(session=session)
+        provider = await providers_service.get_one(system_name=provider_system_name)
+
+        if not provider:
+            raise ValueError(
+                f"Provider '{provider_system_name}' is not found in database."
+            )
+
+        provider_data = {
+            "system_name": provider.system_name,
+            "name": provider.name,
+            "type": provider.type,
+            "endpoint": provider.endpoint,
+            "connection_config": provider.connection_config or {},
+            "secrets_encrypted": provider.secrets_encrypted or {},
+            "metadata_info": provider.metadata_info or {},
+        }
+
+    provider_type = provider_data.get("type")
+    if not provider_type:
+        raise ValueError(f"Provider '{provider_system_name}' has no type specified.")
+
+    stt_provider_classes = {
+        "elevenlabs_stt": ElevenLabsSTTProvider,
+    }
+
+    provider_class = stt_provider_classes.get(str(provider_type))
+    if not provider_class:
+        raise ValueError(
+            f"STT provider type '{provider_type}' is not implemented. "
+            f"Available types: {', '.join(stt_provider_classes.keys())}"
+        )
+
+    provider_config = _build_provider_config(provider_data)
+
+    provider_instance = provider_class(provider_config)
+    cache_provider(cache_key, provider_instance)
 
     return provider_instance
