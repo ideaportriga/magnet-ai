@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.6](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.5...v0.6.0-dev.6) (2026-02-13)
+
+### 🐛 Bug Fixes
+
+* **api:** support per-request num_speakers ([10799b0](https://github.com/ideaportriga/magnet-ai/commit/10799b0cfbce1ae7f419beee73403192af951a48))
+
 ## [0.6.0-dev.5](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.4...v0.6.0-dev.5) (2026-02-13)
 
 ### ✨ Features
