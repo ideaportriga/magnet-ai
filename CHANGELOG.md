@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.5](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.4...v0.6.0-dev.5) (2026-02-13)
+
+### ✨ Features
+
+* send number of participants into the transcription job ([5943444](https://github.com/ideaportriga/magnet-ai/commit/5943444918aa3604d72ba9b8aa58f76b0645ec57))
+
 ## [0.6.0-dev.4](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.3...v0.6.0-dev.4) (2026-02-10)
 
 ### ✨ Features

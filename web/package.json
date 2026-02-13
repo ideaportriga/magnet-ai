@@ -1,6 +1,6 @@
 {
   "name": "@magnet-monorepo/source",
-  "version": "0.6.0-dev.4",
+  "version": "0.6.0-dev.5",
   "license": "Apache-2.0",
   "private": true,
   "scripts": {
