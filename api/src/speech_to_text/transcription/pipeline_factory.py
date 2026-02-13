@@ -60,10 +60,16 @@ def build_pipeline(
         stt = OracleSpeechTranscriber(storage, cfg)
         dr = MockDiarization(DiarizationCfg(model="mock"))
     elif kind == "elevenlabs":
+        num_speakers = int(number_of_participants) if number_of_participants else None
+
+        internal = {"granularity": "word"}
+        if num_speakers is not None:
+            internal["num_speakers"] = num_speakers
+
         cfg = TranscriptionCfg(
             model="elevenlabs",
             language=language,
-            internal_cfg={"granularity": "word"},
+            internal_cfg=internal,
             keyterms=keyterms,
             entity_detection=entity_detection,
         )
