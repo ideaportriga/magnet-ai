@@ -41,8 +41,8 @@ class BaseSchema(BaseModel):
     id: Optional[UUID] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    created_by: Optional[UUID] = None
-    updated_by: Optional[UUID] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
 
 # Simple schemas
@@ -64,6 +64,7 @@ class BaseSimpleCreateSchema(BaseModel):
     Base schema for creating simple entities that inherit from UUIDAuditSimpleBase.
 
     Excludes auto-generated fields (id, created_at, updated_at).
+    created_by and updated_by are set by the controller from audit_username.
     """
 
     # Fields for creation
@@ -71,6 +72,8 @@ class BaseSimpleCreateSchema(BaseModel):
     description: Optional[str] = None
     system_name: str
     category: Optional[str] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
 
 class BaseSimpleUpdateSchema(BaseModel):
@@ -85,6 +88,7 @@ class BaseSimpleUpdateSchema(BaseModel):
     description: Optional[str] = None
     system_name: Optional[str] = None
     category: Optional[str] = None
+    updated_by: Optional[str] = None
 
 
 # Base schemas with variants

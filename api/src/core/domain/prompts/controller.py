@@ -63,9 +63,14 @@ class PromptsController(Controller):
 
     @post()
     async def create_prompt(
-        self, prompts_service: PromptsService, data: PromptCreate
+        self,
+        prompts_service: PromptsService,
+        data: PromptCreate,
+        audit_username: str | None,
     ) -> Prompt:
         """Create a new prompt."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await prompts_service.create(data)
         return prompts_service.to_schema(obj, schema_type=Prompt)
 
@@ -99,9 +104,14 @@ class PromptsController(Controller):
             title="Prompt ID",
             description="The prompt to update.",
         ),
+        audit_username: str | None = None,
     ) -> Prompt:
         """Update a prompt."""
-        obj = await prompts_service.update(data, item_id=prompt_id, auto_commit=True)
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
+        obj = await prompts_service.update(
+            update_data, item_id=prompt_id, auto_commit=True
+        )
         return prompts_service.to_schema(obj, schema_type=Prompt)
 
     @delete("/{prompt_id:uuid}")

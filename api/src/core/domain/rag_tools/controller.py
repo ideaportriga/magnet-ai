@@ -55,9 +55,14 @@ class RagToolsController(Controller):
 
     @post()
     async def create_rag_tool(
-        self, rag_tools_service: RagToolsService, data: RagToolCreate
+        self,
+        rag_tools_service: RagToolsService,
+        data: RagToolCreate,
+        audit_username: str | None,
     ) -> RagTool:
         """Create a new RAG tool."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await rag_tools_service.create(data)
         return rag_tools_service.to_schema(obj, schema_type=RagTool)
 
@@ -91,10 +96,13 @@ class RagToolsController(Controller):
             title="RAG Tool ID",
             description="The RAG tool to update.",
         ),
+        audit_username: str | None = None,
     ) -> RagTool:
         """Update a RAG tool."""
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await rag_tools_service.update(
-            data, item_id=rag_tool_id, auto_commit=True
+            update_data, item_id=rag_tool_id, auto_commit=True
         )
         return rag_tools_service.to_schema(obj, schema_type=RagTool)
 

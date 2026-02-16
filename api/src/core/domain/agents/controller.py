@@ -51,9 +51,15 @@ class AgentsController(Controller):
 
     @post()
     async def create_agent(
-        self, agents_service: AgentsService, data: AgentCreate, request: Request
+        self,
+        agents_service: AgentsService,
+        data: AgentCreate,
+        request: Request,
+        audit_username: str | None,
     ) -> Agent:
         """Create a new agent."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await agents_service.create(data)
         await _sync_runtime_caches(
             request=request,
@@ -93,11 +99,16 @@ class AgentsController(Controller):
             title="Agent ID",
             description="The agent to update.",
         ),
+        audit_username: str | None = None,
     ) -> Agent:
         """Update an agent."""
         existing_obj = await agents_service.get(agent_id)
         previous_channels = deepcopy(getattr(existing_obj, "channels", None))
-        obj = await agents_service.update(data, item_id=agent_id, auto_commit=True)
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
+        obj = await agents_service.update(
+            update_data, item_id=agent_id, auto_commit=True
+        )
         await _sync_runtime_caches(
             request=request,
             previous_channels=previous_channels,
