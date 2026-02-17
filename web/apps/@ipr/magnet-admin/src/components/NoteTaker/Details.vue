@@ -4,30 +4,11 @@
     q-spinner-gears(size='50px', color='primary')
 layouts-details-layout.q-mx-auto.collection-container(
   v-else,
+  v-model:name='recordName',
+  v-model:description='recordDescription',
+  v-model:systemName='recordSystemName',
   :contentContainerStyle='{ maxWidth: "1200px", minWidth: "600px", margin: "0 auto" }'
 )
-  template(#header)
-    .col
-      .row.items-center
-        km-input-flat.km-heading-4.full-width.text-black(
-          placeholder='Name',
-          :modelValue='recordName',
-          @input='recordName = $event'
-        )
-      .row.items-center.q-mt-sm
-        km-input-flat.km-description.full-width.text-black(
-          placeholder='Description',
-          :modelValue='recordDescription',
-          @input='recordDescription = $event'
-        )
-      .row.items-center.q-pl-6.q-mt-sm
-        q-icon.col-auto(name='o_info', color='text-secondary')
-          q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
-        km-input-flat.col.km-description.text-black.full-width(
-          placeholder='Enter system name',
-          :modelValue='recordSystemName',
-          @input='recordSystemName = $event'
-        )
   template(#content)
     q-tabs.bb-border.full-width(
       v-model='tab',
@@ -42,13 +23,17 @@ layouts-details-layout.q-mx-auto.collection-container(
     )
       template(v-for='t in tabs')
         q-tab(:name='t.name', :label='t.label')
-    .column.q-gap-16.overflow-auto.q-pt-lg.q-pb-lg
-      note-taker-tabs-general-settings(
-        v-if='tab === "general"',
-        :knowledge-graphs='knowledgeGraphs'
-      )
-      note-taker-tabs-prompts(v-if='tab === "prompts"')
-      note-taker-tabs-integration(v-if='tab === "integration"')
+    .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-pt-lg.q-pb-lg(style='max-height: calc(100vh - 300px) !important')
+      .row.q-gap-16.full-height.full-width
+        .col.full-height.full-width
+          .column.full-height.full-width.q-gap-16.overflow-auto.no-wrap
+            note-taker-tabs-general-settings(v-if='tab === "general"')
+            note-taker-tabs-prompts(v-if='tab === "prompts"')
+            note-taker-tabs-integration(v-if='tab === "integration"')
+            note-taker-tabs-knowledge-graph(
+              v-if='tab === "knowledge_graph"',
+              :knowledge-graphs='knowledgeGraphs'
+            )
 </template>
 
 <script setup lang="ts">
@@ -72,6 +57,7 @@ const tabs = [
   { name: 'general', label: 'General Settings' },
   { name: 'prompts', label: 'Prompts' },
   { name: 'integration', label: 'Integration' },
+  { name: 'knowledge_graph', label: 'Knowledge Graph' },
 ]
 
 const recordName = computed({
