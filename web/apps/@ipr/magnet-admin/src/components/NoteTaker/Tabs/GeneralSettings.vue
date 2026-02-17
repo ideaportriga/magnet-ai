@@ -5,15 +5,16 @@
     subTitle='Select transcription model to transcribe speech to text.'
   )
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Model
-    km-select(
-      v-model='pipelineId',
-      :options='pipelineOptions',
-      option-label='label',
-      option-value='value',
-      emit-value,
-      map-options,
-      height='30px'
-    )
+    .row.items-center.q-gap-16.no-wrap
+      km-select(
+        v-model='pipelineId',
+        :options='pipelineOptions',
+        option-label='label',
+        option-value='value',
+        emit-value,
+        map-options,
+        height='30px'
+      )
 
   q-separator.q-my-lg
 
@@ -45,15 +46,16 @@
         )
         .row.q-mt-sm(v-if='maxSpeakerCountSource === "manual"')
           .col(style='max-width: 120px')
-            km-input(
-              v-model='maxSpeakerCount',
-              type='number',
-              placeholder='Max speaker count',
-              height='30px',
-              :min='1',
-              :max='32'
-            )
-          .km-description.text-secondary-text.q-ml-sm Max value allowed: 32
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max speaker count
+            .row.items-center.q-gap-16.no-wrap
+              km-input(
+                v-model='maxSpeakerCount',
+                type='number',
+                height='30px',
+                :min='1',
+                :max='32'
+              )
+            .km-description.text-secondary-text.q-mt-xs.q-pl-8 Max value allowed: 32
       .column
         .row.items-baseline
           .col-auto.q-mr-sm
@@ -79,37 +81,33 @@
     title='Keyterms',
     subTitle='Optional keyterms to improve transcription and post-processing accuracy.'
   )
-    .column.q-gap-12
-      .row.q-gap-8(v-for='(entry, idx) in keytermsList', :key='idx')
-        .col
-          km-input(
-            :model-value='entry.keyterm',
-            placeholder='Keyterm',
-            height='30px',
-            @update:model-value='(v) => { entry.keyterm = v; syncKeytermsString() }'
-          )
-        .col
-          km-input(
-            :model-value='entry.description',
-            placeholder='Description / Extra info (optional)',
-            height='30px',
-            @update:model-value='(v) => { entry.description = v; syncKeytermsString() }'
-          )
-        .col-auto
-          q-btn(
-            flat,
-            dense,
-            round,
-            icon='delete',
-            color='grey',
-            @click='removeKeyterm(idx)'
-          )
-      km-btn(flat, icon='add', label='Add', @click='addKeyterm()')
+    .row.items-center.q-gap-8.no-wrap.q-mt-md(v-for='(entry, idx) in keytermsList', :key='idx')
+      .col
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Keyterm
+        km-input(
+          :model-value='entry.keyterm',
+          placeholder='Keyterm',
+          height='30px',
+          @update:model-value='(v) => { entry.keyterm = v; syncKeytermsString() }'
+        )
+      .col
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description / Extra info (optional)
+        km-input(
+          :model-value='entry.description',
+          placeholder='Description',
+          height='30px',
+          @update:model-value='(v) => { entry.description = v; syncKeytermsString() }'
+        )
+      .col-auto
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
+        km-btn(@click='removeKeyterm(idx)', icon='o_delete', size='sm', flat, color='negative')
+    .row.q-pt-16
+      km-btn(label='Add', @click='addKeyterm()', size='sm', icon='o_add', flat)
 
   q-separator.q-my-lg
 
   km-section(
-    title='Subscription for recordings',
+    title='Subscription for recordings ready',
     subTitle='Automatically create recordings-ready subscriptions for meetings.'
   )
     q-toggle(v-model='subscriptionRecordingsReady', color='primary', dense)

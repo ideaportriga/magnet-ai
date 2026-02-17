@@ -10,18 +10,21 @@
         .col-auto.q-mr-sm
           q-toggle(v-model='createKnowledgeGraphEmbedding', color='primary', dense)
         .col Create Knowledge Graph Embedding
-      .row.q-gap-8(v-if='createKnowledgeGraphEmbedding')
+      .row.q-gap-8.items-end(v-if='createKnowledgeGraphEmbedding')
         .col
-          km-select(
-            v-model='knowledgeGraphSystemName',
-            :options='props.knowledgeGraphs || []',
-            option-label='name',
-            option-value='system_name',
-            emit-value,
-            map-options,
-            hasDropdownSearch,
-            height='30px'
-          )
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge graph
+          .row.items-center.q-gap-16.no-wrap
+            km-select(
+              v-model='knowledgeGraphSystemName',
+              :options='props.knowledgeGraphs || []',
+              option-label='name',
+              option-value='system_name',
+              emit-value,
+              map-options,
+              hasDropdownSearch,
+              height='30px'
+              placeholder='Select knowledge graph'
+            )
         .col-auto(v-if='selectedKnowledgeGraph?.id')
           km-btn(
             icon='open_in_new',

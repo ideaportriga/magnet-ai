@@ -12,9 +12,9 @@
         .col Send transcript to Salesforce
       .column.q-pl-8.q-gap-12(v-if='sendTranscriptToSalesforce')
         .column
-          .km-field.text-secondary-text.q-pb-xs API Server
-          .row.items-center.q-gutter-sm
-            .col
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Server
+          .row.items-center.q-gap-16.no-wrap
+            .col(style='max-width: 320px')
               km-select(
                 v-model='salesforceApiServer',
                 :options='apiServers',
@@ -23,7 +23,8 @@
                 emit-value,
                 map-options,
                 height='30px',
-                clearable
+                clearable,
+                placeholder='Select API server'
               )
             .col-auto(v-if='salesforceApiServer')
               km-btn(
@@ -32,11 +33,11 @@
                 dense,
                 @click='navigateToApiServer(salesforceApiServer)'
               )
-          .km-description.text-secondary-text.q-mt-xs API server for Salesforce tool calls.
+          .km-description.text-secondary-text.q-mt-xs.q-pl-8 API server for Salesforce tool calls.
         .column
-          .km-field.text-secondary-text.q-pb-xs STT Recording Tool
-          .row.items-center.q-gutter-sm
-            .col
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 STT Recording Tool
+          .row.items-center.q-gap-16.no-wrap
+            .col(style='max-width: 320px')
               km-select(
                 v-model='salesforceSttRecordingTool',
                 :options='availableTools',
@@ -45,7 +46,8 @@
                 emit-value,
                 map-options,
                 height='30px',
-                clearable
+                clearable,
+                placeholder='Select STT recording tool'
               )
             .col-auto(v-if='salesforceSttRecordingTool')
               km-btn(
@@ -54,7 +56,7 @@
                 dense,
                 @click='navigateToTool(salesforceApiServer, salesforceSttRecordingTool)'
               )
-          .km-description.text-secondary-text.q-mt-xs Tool for creating STT recordings in Salesforce.
+          .km-description.text-secondary-text.q-mt-xs.q-pl-8 Tool for creating STT recordings in Salesforce.
 
   q-separator.q-my-lg
 
@@ -69,9 +71,9 @@
         .col Publish meeting notes to Confluence
       .column.q-pl-8.q-gap-12(v-if='confluenceEnabled')
         .column
-          .km-field.text-secondary-text.q-pb-xs API Server
-          .row.items-center.q-gutter-sm
-            .col
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Server
+          .row.items-center.q-gap-16.no-wrap
+            .col(style='max-width: 320px')
               km-select(
                 v-model='confluenceApiServer',
                 :options='apiServers',
@@ -80,7 +82,8 @@
                 emit-value,
                 map-options,
                 height='30px',
-                clearable
+                clearable,
+                placeholder='Select API server'
               )
             .col-auto(v-if='confluenceApiServer')
               km-btn(
@@ -89,11 +92,11 @@
                 dense,
                 @click='navigateToApiServer(confluenceApiServer)'
               )
-          .km-description.text-secondary-text.q-mt-xs API server used to call Confluence tools.
+          .km-description.text-secondary-text.q-mt-xs.q-pl-8 API server used to call Confluence tools.
         .column
-          .km-field.text-secondary-text.q-pb-xs Create Page Tool
-          .row.items-center.q-gutter-sm
-            .col
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Create Page Tool
+          .row.items-center.q-gap-16.no-wrap
+            .col(style='max-width: 320px')
               km-select(
                 v-model='confluenceCreatePageTool',
                 :options='confluenceAvailableApiTools',
@@ -102,7 +105,8 @@
                 emit-value,
                 map-options,
                 height='30px',
-                clearable
+                clearable,
+                placeholder='Select create page tool'
               )
             .col-auto(v-if='confluenceCreatePageTool')
               km-btn(
@@ -111,31 +115,34 @@
                 dense,
                 @click='navigateToTool(confluenceApiServer, confluenceCreatePageTool)'
               )
-          .km-description.text-secondary-text.q-mt-xs API tool used to create the Confluence page.
+          .km-description.text-secondary-text.q-mt-xs.q-pl-8 API tool used to create the Confluence page.
         .column
-          .km-field.text-secondary-text.q-pb-xs Space ID
-          km-input-flat.full-width(
-            placeholder='e.g. 10387460',
-            :modelValue='confluenceSpaceKey',
-            @input='confluenceSpaceKey = $event'
-          )
-          .km-description.text-secondary-text.q-mt-xs Confluence REST v2 spaceId where the page will be created.
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Space ID
+          .row.items-center.q-gap-16.no-wrap
+            km-input-flat.full-width(
+              placeholder='e.g. 10387460',
+              :modelValue='confluenceSpaceKey',
+              @input='confluenceSpaceKey = $event'
+            )
+          .km-description.text-secondary-text.q-mt-xs.q-pl-8 Confluence REST v2 spaceId where the page will be created.
         .column
-          .km-field.text-secondary-text.q-pb-xs Parent Page ID (optional)
-          km-input-flat.full-width(
-            placeholder='e.g. 123456',
-            :modelValue='confluenceParentId',
-            @input='confluenceParentId = $event'
-          )
-          .km-description.text-secondary-text.q-mt-xs If set, the page will be created under the specified parent.
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Parent Page ID (optional)
+          .row.items-center.q-gap-16.no-wrap
+            km-input-flat.full-width(
+              placeholder='e.g. 123456',
+              :modelValue='confluenceParentId',
+              @input='confluenceParentId = $event'
+            )
+          .km-description.text-secondary-text.q-mt-xs.q-pl-8 If set, the page will be created under the specified parent.
         .column
-          .km-field.text-secondary-text.q-pb-xs Title Template
-          km-input-flat.full-width(
-            placeholder='Meeting notes: {meeting_title} ({date})',
-            :modelValue='confluenceTitleTemplate',
-            @input='confluenceTitleTemplate = $event'
-          )
-          .km-description.text-secondary-text.q-mt-xs Available placeholders: {meeting_title}, {date}, {job_id}, {meeting_id}.
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title Template
+          .row.items-center.q-gap-16.no-wrap
+            km-input-flat.full-width(
+              placeholder='Meeting notes: {meeting_title} ({date})',
+              :modelValue='confluenceTitleTemplate',
+              @input='confluenceTitleTemplate = $event'
+            )
+          .km-description.text-secondary-text.q-mt-xs.q-pl-8 Available placeholders: {meeting_title}, {date}, {job_id}, {meeting_id}.
 </template>
 
 <script setup lang="ts">

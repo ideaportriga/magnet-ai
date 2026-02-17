@@ -10,18 +10,21 @@
         .col-auto.q-mr-sm
           q-toggle(v-model='postTranscriptionEnabled', color='primary', dense)
         .col Post-transcription processing
-      .row.q-gap-8.q-pl-8(v-if='postTranscriptionEnabled')
+      .row.q-gap-8.q-pl-8.items-end(v-if='postTranscriptionEnabled')
         .col
-          km-select(
-            v-model='postTranscriptionPromptTemplate',
-            :options='promptTemplates',
-            option-label='name',
-            option-value='system_name',
-            emit-value,
-            map-options,
-            hasDropdownSearch,
-            height='30px'
-          )
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+          .row.items-center.q-gap-16.no-wrap
+            km-select(
+              v-model='postTranscriptionPromptTemplate',
+              :options='promptTemplates',
+              option-label='name',
+              option-value='system_name',
+              emit-value,
+              map-options,
+              hasDropdownSearch,
+              height='30px'
+              placeholder='Select prompt template'
+            )
         .col-auto(v-if='postTranscriptionPromptTemplate')
           km-btn(
             icon='open_in_new',
@@ -41,18 +44,21 @@
         .col-auto.q-mr-sm
           q-toggle(v-model='createChaptersEnabled', color='primary', dense)
         .col Create Chapters
-      .row.q-gap-8.q-pl-8(v-if='createChaptersEnabled')
+      .row.q-gap-8.q-pl-8.items-end(v-if='createChaptersEnabled')
         .col
-          km-select(
-            v-model='createChaptersPromptTemplate',
-            :options='promptTemplates',
-            option-label='name',
-            option-value='system_name',
-            emit-value,
-            map-options,
-            hasDropdownSearch,
-            height='30px'
-          )
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+          .row.items-center.q-gap-16.no-wrap
+            km-select(
+              v-model='createChaptersPromptTemplate',
+              :options='promptTemplates',
+              option-label='name',
+              option-value='system_name',
+              emit-value,
+              map-options,
+              hasDropdownSearch,
+              height='30px'
+              placeholder='Select prompt template'
+            )
         .col-auto(v-if='createChaptersPromptTemplate')
           km-btn(
             icon='open_in_new',
@@ -72,18 +78,21 @@
         .col-auto.q-mr-sm
           q-toggle(v-model='createSummaryEnabled', color='primary', dense)
         .col Create Summary
-      .row.q-gap-8.q-pl-8(v-if='createSummaryEnabled')
+      .row.q-gap-8.q-pl-8.items-end(v-if='createSummaryEnabled')
         .col
-          km-select(
-            v-model='createSummaryPromptTemplate',
-            :options='promptTemplates',
-            option-label='name',
-            option-value='system_name',
-            emit-value,
-            map-options,
-            hasDropdownSearch,
-            height='30px'
-          )
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+          .row.items-center.q-gap-16.no-wrap
+            km-select(
+              v-model='createSummaryPromptTemplate',
+              :options='promptTemplates',
+              option-label='name',
+              option-value='system_name',
+              emit-value,
+              map-options,
+              hasDropdownSearch,
+              height='30px'
+              placeholder='Select prompt template'
+            )
         .col-auto(v-if='createSummaryPromptTemplate')
           km-btn(
             icon='open_in_new',
@@ -103,18 +112,21 @@
         .col-auto.q-mr-sm
           q-toggle(v-model='createInsightsEnabled', color='primary', dense)
         .col Create Insights
-      .row.q-gap-8.q-pl-8(v-if='createInsightsEnabled')
+      .row.q-gap-8.q-pl-8.items-end(v-if='createInsightsEnabled')
         .col
-          km-select(
-            v-model='createInsightsPromptTemplate',
-            :options='promptTemplates',
-            option-label='name',
-            option-value='system_name',
-            emit-value,
-            map-options,
-            hasDropdownSearch,
-            height='30px'
-          )
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+          .row.items-center.q-gap-16.no-wrap
+            km-select(
+              v-model='createInsightsPromptTemplate',
+              :options='promptTemplates',
+              option-label='name',
+              option-value='system_name',
+              emit-value,
+              map-options,
+              hasDropdownSearch,
+              height='30px'
+              placeholder='Select prompt template'
+            )
         .col-auto(v-if='createInsightsPromptTemplate')
           km-btn(
             icon='open_in_new',
