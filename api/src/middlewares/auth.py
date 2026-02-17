@@ -146,6 +146,7 @@ def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> A
             # All API keys has admin access
             # This could be changed with introduction of different API key roles
             "roles": {"admin"},
+            "preferred_username": api_client_code,
         },
         user_id=user_id,  # TODO - add user_id
     )

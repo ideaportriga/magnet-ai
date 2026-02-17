@@ -153,7 +153,7 @@ const actions = {
         method: 'GET',
         endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
         service: 'deep-research/configs?limit=1000',
-        credentials: rootGetters.config?.credentials,
+        credentials: 'include',
       })
 
       if (response?.error) {
@@ -181,7 +181,7 @@ const actions = {
         method: 'POST',
         endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
         service: 'deep-research/configs',
-        credentials: rootGetters.config?.credentials,
+        credentials: 'include',
         body: JSON.stringify({ name, system_name, config }),
         headers: {
           'Content-Type': 'application/json',
@@ -214,7 +214,7 @@ const actions = {
         method: 'DELETE',
         endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
         service: `deep-research/configs/${configId}`,
-        credentials: rootGetters.config?.credentials,
+        credentials: 'include',
       })
 
       if (response?.error) {
@@ -238,7 +238,7 @@ const actions = {
         method: 'PATCH',
         endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
         service: `deep-research/configs/${configId}`,
-        credentials: rootGetters.config?.credentials,
+        credentials: 'include',
         body: JSON.stringify(updates),
         headers: {
           'Content-Type': 'application/json',
@@ -280,7 +280,7 @@ const actions = {
         method: 'GET',
         endpoint: rootGetters.config?.api?.aiBridge?.urlAdmin,
         service: `deep-research/runs?${queryParams.toString()}`,
-        credentials: rootGetters.config?.credentials,
+        credentials: 'include',
       })
 
       if (response?.error) {

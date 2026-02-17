@@ -62,9 +62,14 @@ class EvaluationSetsController(Controller):
 
     @post()
     async def create_evaluation_set(
-        self, evaluation_sets_service: EvaluationSetsService, data: EvaluationSetCreate
+        self,
+        evaluation_sets_service: EvaluationSetsService,
+        data: EvaluationSetCreate,
+        audit_username: str | None,
     ) -> EvaluationSet:
         """Create a new evaluation set."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await evaluation_sets_service.create(data)
         return evaluation_sets_service.to_schema(obj, schema_type=EvaluationSet)
 
@@ -73,10 +78,13 @@ class EvaluationSetsController(Controller):
         self,
         evaluation_sets_service: EvaluationSetsService,
         data: Annotated[FormData, Body(media_type=RequestEncodingType.MULTI_PART)],
+        audit_username: str | None,
     ) -> EvaluationSet:
         """Create a new evaluation set from file upload."""
         json_data = json.loads(data.json)
         evaluation_set_data = EvaluationSetCreate(**json_data)
+        evaluation_set_data.created_by = audit_username
+        evaluation_set_data.updated_by = audit_username
 
         file = data.file
         if file:
@@ -133,10 +141,13 @@ class EvaluationSetsController(Controller):
             title="Evaluation Set ID",
             description="The evaluation set to update.",
         ),
+        audit_username: str | None = None,
     ) -> EvaluationSet:
         """Update an evaluation set."""
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await evaluation_sets_service.update(
-            data, item_id=evaluation_set_id, auto_commit=True
+            update_data, item_id=evaluation_set_id, auto_commit=True
         )
         return evaluation_sets_service.to_schema(obj, schema_type=EvaluationSet)
 

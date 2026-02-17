@@ -68,9 +68,11 @@ def _sanitize_keyterms(keyterms: list[str]) -> list[str]:
 class ElevenLabsTranscriber(BaseTranscriber):
     def __init__(self, storage: PgDataStorage, cfg: TranscriptionCfg):
         super().__init__(storage, cfg)
+
         api_key = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY")
         if not api_key:
             raise RuntimeError("Set ELEVENLABS_API_KEY")
+
         http_client = httpx.Client(
             timeout=httpx.Timeout(
                 connect=ELEVEN_HTTP_CONNECT_TIMEOUT,
@@ -85,14 +87,26 @@ class ElevenLabsTranscriber(BaseTranscriber):
             api_key=api_key,
             httpx_client=http_client,
         )
+
         self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v2")
         self._diarize = os.getenv("ELEVEN_DIARIZE", "true").lower() == "true"
-        self._language_code = None
-        ns = os.getenv("ELEVEN_NUM_SPEAKERS")
-        self._num_speakers = int(ns) if ns and ns.isdigit() else None
         self._tag_events = (
             os.getenv("ELEVEN_TAG_AUDIO_EVENTS", "false").lower() == "true"
         )
+
+        self._language_code = None
+
+        self._num_speakers = None
+        internal = cfg.internal_cfg or {}
+
+        raw_ns = internal.get("num_speakers")
+        if raw_ns is not None:
+            try:
+                ns_int = int(raw_ns)
+                if ns_int > 0:
+                    self._num_speakers = ns_int
+            except (TypeError, ValueError):
+                self._num_speakers = None
 
     async def _transcribe(self, file_id: str) -> Dict[str, Any]:
         src_url = await self._storage.get_audio_url(file_id)

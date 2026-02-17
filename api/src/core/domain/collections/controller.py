@@ -50,9 +50,14 @@ class CollectionsController(Controller):
 
     @post()
     async def create_collection(
-        self, collections_service: CollectionsService, data: CollectionCreate
+        self,
+        collections_service: CollectionsService,
+        data: CollectionCreate,
+        audit_username: str | None,
     ) -> Collection:
         """Create a new Collection."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await collections_service.create(data)
         return collections_service.to_schema(obj, schema_type=Collection)
 
@@ -86,10 +91,12 @@ class CollectionsController(Controller):
             title="Collection ID",
             description="The Collection to update.",
         ),
+        audit_username: str | None = None,
     ) -> Collection:
         """Update a Collection."""
         # Only include fields that were explicitly set in the request
         update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await collections_service.update(
             update_data, item_id=collection_id, auto_commit=True
         )
