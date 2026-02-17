@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.8](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.7...v0.6.0-dev.8) (2026-02-17)
+
+### ♻️ Code Refactoring
+
+* update created_by and updated_by fields to use string type in models and schemas ([db49b79](https://github.com/ideaportriga/magnet-ai/commit/db49b79bd523232466dfa26df209afbde02457ed))
+
 ## [0.6.0-dev.7](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.6...v0.6.0-dev.7) (2026-02-17)
 
 ### ✨ Features
