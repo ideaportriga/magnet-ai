@@ -67,9 +67,14 @@ class ProvidersController(Controller):
 
     @post()
     async def create_provider(
-        self, providers_service: ProvidersService, data: ProviderCreate
+        self,
+        providers_service: ProvidersService,
+        data: ProviderCreate,
+        audit_username: str | None,
     ) -> ProviderResponse:
         """Create a new Provider."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await providers_service.create(data)
         return providers_service.to_schema(obj, schema_type=ProviderResponse)
 
@@ -103,10 +108,13 @@ class ProvidersController(Controller):
             title="Provider ID",
             description="The Provider to update.",
         ),
+        audit_username: str | None = None,
     ) -> ProviderResponse:
         """Update a Provider."""
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await providers_service.update(
-            data, item_id=provider_id, auto_commit=True
+            update_data, item_id=provider_id, auto_commit=True
         )
         return providers_service.to_schema(obj, schema_type=ProviderResponse)
 

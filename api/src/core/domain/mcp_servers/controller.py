@@ -67,9 +67,14 @@ class MCPServersController(Controller):
 
     @post()
     async def create_mcp_server(
-        self, mcp_servers_service: MCPServersService, data: MCPServerCreate
+        self,
+        mcp_servers_service: MCPServersService,
+        data: MCPServerCreate,
+        audit_username: str | None,
     ) -> MCPServerResponse:
         """Create a new MCP server."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await mcp_servers_service.create(data)
         return mcp_servers_service.to_schema(obj, schema_type=MCPServerResponse)
 
@@ -103,10 +108,13 @@ class MCPServersController(Controller):
             title="MCP Server ID",
             description="The MCP server to update.",
         ),
+        audit_username: str | None = None,
     ) -> MCPServerResponse:
         """Update an MCP server."""
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await mcp_servers_service.update(
-            data, item_id=mcp_server_id, auto_commit=True
+            update_data, item_id=mcp_server_id, auto_commit=True
         )
         return mcp_servers_service.to_schema(obj, schema_type=MCPServerResponse)
 

@@ -68,9 +68,14 @@ class AIModelsController(Controller):
 
     @post()
     async def create_ai_model(
-        self, ai_models_service: AIModelsService, data: AIModelCreate
+        self,
+        ai_models_service: AIModelsService,
+        data: AIModelCreate,
+        audit_username: str | None,
     ) -> AIModel:
         """Create a new AI model."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await ai_models_service.create(data)
         clear_model_cache()
         return ai_models_service.to_schema(obj, schema_type=AIModel)
@@ -105,10 +110,13 @@ class AIModelsController(Controller):
             title="AI Model ID",
             description="The AI model to update.",
         ),
+        audit_username: str | None = None,
     ) -> AIModel:
         """Update an AI model."""
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await ai_models_service.update(
-            data, item_id=ai_model_id, auto_commit=True
+            update_data, item_id=ai_model_id, auto_commit=True
         )
         clear_model_cache()
         return ai_models_service.to_schema(obj, schema_type=AIModel)

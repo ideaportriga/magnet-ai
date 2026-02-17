@@ -29,12 +29,22 @@ class DependenciesPlugin(InitPluginProtocol):
         # Add user_id dependency
         dependencies["user_id"] = Provide(self._get_user_id)
 
+        # Add preferred_username for audit fields (created_by, updated_by)
+        dependencies["audit_username"] = Provide(self._get_audit_username)
+
         app_config.dependencies = dependencies
         return app_config
 
     async def _get_user_id(self, request: Request) -> str | None:
         """Get user ID from request scope."""
         return request.scope.get("user_id")
+
+    async def _get_audit_username(self, request: Request) -> str | None:
+        """Get preferred_username from auth for created_by/updated_by fields."""
+        auth = request.scope.get("auth")
+        if not auth:
+            return None
+        return (getattr(auth, "data", None) or {}).get("preferred_username")
 
     async def _get_db_session(self, request: Request) -> AsyncSession:
         """Get database session from request state."""
