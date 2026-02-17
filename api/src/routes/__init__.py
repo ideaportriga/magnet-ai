@@ -34,6 +34,7 @@ from services.agents.teams.note_taker_settings import NoteTakerSettingsControlle
 from .admin.observability import observability_router
 from .admin.rag import RagController
 from .admin.scheduler import SchedulerController
+from .admin.settings import SettingsController
 from .admin.transfer import TransferController
 from .admin.utils import UtilsController
 from .auth import AuthController
@@ -78,6 +79,7 @@ def get_route_handlers(
         RagToolsController,  # Admin / RAG Tools
         RetrievalToolsController,  # Admin / Retrieval Tools
         SchedulerController,  # Admin / Scheduler
+        SettingsController,  # Admin / Settings
         TracesController,  # Admin / Traces
         TransferController,  # Admin / Transfer
         UtilsController,  # Admin / Utils

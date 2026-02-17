@@ -134,6 +134,11 @@ const menu = [
     icon: 'fas fa-file-circle-question',
     path: 'retrieval',
   },
+  {
+    label: 'Settings',
+    icon: 'fas fa-sliders',
+    path: 'settings',
+  },
 ]
 
 const connectors = [

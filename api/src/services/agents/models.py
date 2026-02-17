@@ -20,6 +20,7 @@ class AgentActionType(StrEnum):
     RETRIEVAL = "retrieval"
     PROMPT_TEMPLATE = "prompt_template"
     MCP_TOOL = "mcp_tool"
+    KNOWLEDGE_GRAPH = "knowledge_graph"
 
 
 class Metadata(BaseModel):

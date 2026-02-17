@@ -1,0 +1,364 @@
+from __future__ import annotations
+
+import json
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any
+
+import aiofiles
+from litestar import Controller, get, post
+from litestar.exceptions import ClientException
+from pydantic import BaseModel
+from sqlalchemy import select
+
+from core.config.app import alchemy
+from core.fixtures.loader import FixtureLoader
+
+
+class SeedRecordPreview(BaseModel):
+    entity_type: str
+    system_name: str
+    exists: bool
+
+
+class SeedPreviewResponse(BaseModel):
+    items: list[SeedRecordPreview]
+
+
+class SeedPopulateRequestItem(BaseModel):
+    entity_type: str
+    system_name: str
+
+
+class SeedPopulateOneRequest(BaseModel):
+    entity_type: str
+    system_name: str
+
+
+class SeedPopulateOneResponse(BaseModel):
+    entity_type: str
+    system_name: str
+    overwritten: bool
+
+
+class SeedPopulateRequest(BaseModel):
+    items: list[SeedPopulateRequestItem]
+
+
+class UploadJsonRequest(BaseModel):
+    entity_type: str
+    payload: dict[str, Any] | list[dict[str, Any]]
+
+
+class UploadJsonResultItem(BaseModel):
+    system_name: str
+    overwritten: bool
+
+
+class UploadJsonResponse(BaseModel):
+    entity_type: str
+    results: list[UploadJsonResultItem]
+
+
+class ExportRecordPreview(BaseModel):
+    entity_type: str
+    system_name: str
+    name: str | None = None
+
+
+class ExportPreviewResponse(BaseModel):
+    items: list[ExportRecordPreview]
+
+
+class ExportJsonRequest(BaseModel):
+    items: list[SeedPopulateRequestItem]
+
+
+class ExportJsonResponse(BaseModel):
+    data: dict[str, list[dict[str, Any]]]
+
+
+class SettingsController(Controller):
+    path = "/settings"
+    tags = ["Admin / Settings"]
+
+    def _loader(self) -> FixtureLoader:
+        return FixtureLoader()
+
+    def _fixture_entities_path(self) -> Path:
+        return self._loader().fixtures_path
+
+    async def _load_fixture_records(self, entity_type: str) -> list[dict[str, Any]]:
+        entity_path = self._fixture_entities_path() / entity_type
+
+        if not entity_path.exists() or not entity_path.is_dir():
+            raise ClientException(f"Unknown fixture entity type: {entity_type}")
+
+        records: list[dict[str, Any]] = []
+
+        for json_file in sorted(entity_path.glob("*.json")):
+            async with aiofiles.open(json_file, "r", encoding="utf-8") as file:
+                content = await file.read()
+                parsed = json.loads(content)
+
+            if isinstance(parsed, dict):
+                parsed = [parsed]
+
+            if not isinstance(parsed, list):
+                continue
+
+            for item in parsed:
+                if isinstance(item, dict) and item.get("system_name"):
+                    records.append(item)
+
+        return records
+
+    def _supported_entity_types(self) -> list[str]:
+        loader = self._loader()
+        fixtures_path = self._fixture_entities_path()
+        entity_dirs = sorted(
+            [
+                d
+                for d in fixtures_path.iterdir()
+                if d.is_dir() and not d.name.startswith("_")
+            ],
+            key=lambda d: d.name,
+        )
+
+        supported: list[str] = []
+        for entity_dir in entity_dirs:
+            model_class = loader._get_model_class(entity_dir.name)
+            if model_class is None or not hasattr(model_class, "system_name"):
+                continue
+            supported.append(entity_dir.name)
+
+        return supported
+
+    def _serialize_value(self, value: Any) -> Any:
+        if isinstance(value, datetime | date):
+            return value.isoformat()
+
+        if isinstance(value, list):
+            return [self._serialize_value(item) for item in value]
+
+        if isinstance(value, dict):
+            return {key: self._serialize_value(val) for key, val in value.items()}
+
+        return value
+
+    def _serialize_model_record(self, model_class: type, record: Any) -> dict[str, Any]:
+        excluded = {"id", "created_at", "updated_at", "sa_orm_sentinel"}
+        serialized: dict[str, Any] = {}
+
+        for column in model_class.__table__.columns:
+            column_name = column.name
+            if column_name in excluded:
+                continue
+
+            serialized[column_name] = self._serialize_value(
+                getattr(record, column_name)
+            )
+
+        return serialized
+
+    async def _upsert_record(
+        self,
+        entity_type: str,
+        raw_record: dict[str, Any],
+    ) -> bool:
+        loader = self._loader()
+        model_class = loader._get_model_class(entity_type)
+
+        if model_class is None:
+            raise ClientException(f"Unsupported entity type: {entity_type}")
+
+        system_name = raw_record.get("system_name")
+        if not system_name:
+            raise ClientException("Record must contain system_name")
+
+        parsed_record = loader._parse_datetime_fields(raw_record, model_class)
+        parsed_record.pop("created_at", None)
+        parsed_record.pop("updated_at", None)
+        parsed_record.pop("id", None)
+
+        model_columns = set(model_class.__table__.columns.keys())
+        payload = {k: v for k, v in parsed_record.items() if k in model_columns}
+
+        async with alchemy.get_session() as session:
+            result = await session.execute(
+                select(model_class).where(model_class.system_name == system_name)
+            )
+            existing = result.scalar_one_or_none()
+
+            if existing:
+                for key, value in payload.items():
+                    setattr(existing, key, value)
+                await session.commit()
+                return True
+
+            session.add(model_class(**payload))
+            await session.commit()
+            return False
+
+    @get("/seed/preview")
+    async def seed_preview(self) -> SeedPreviewResponse:
+        loader = self._loader()
+        fixtures_path = self._fixture_entities_path()
+        entity_dirs = sorted(
+            [
+                d
+                for d in fixtures_path.iterdir()
+                if d.is_dir() and not d.name.startswith("_")
+            ],
+            key=lambda d: d.name,
+        )
+
+        preview_items: list[SeedRecordPreview] = []
+
+        for entity_dir in entity_dirs:
+            entity_type = entity_dir.name
+            model_class = loader._get_model_class(entity_type)
+            if model_class is None or not hasattr(model_class, "system_name"):
+                continue
+
+            records = await self._load_fixture_records(entity_type)
+            names = sorted(
+                {item["system_name"] for item in records if item.get("system_name")}
+            )
+
+            async with alchemy.get_session() as session:
+                result = await session.execute(
+                    select(model_class.system_name).where(
+                        model_class.system_name.in_(names)
+                    )
+                )
+                existing_names = set(result.scalars().all())
+
+            for system_name in names:
+                preview_items.append(
+                    SeedRecordPreview(
+                        entity_type=entity_type,
+                        system_name=system_name,
+                        exists=system_name in existing_names,
+                    )
+                )
+
+        return SeedPreviewResponse(items=preview_items)
+
+    @post("/seed/populate-one")
+    async def seed_populate_one(
+        self,
+        data: SeedPopulateOneRequest,
+    ) -> SeedPopulateOneResponse:
+        records = await self._load_fixture_records(data.entity_type)
+        record = next(
+            (item for item in records if item.get("system_name") == data.system_name),
+            None,
+        )
+
+        if not record:
+            raise ClientException(
+                f"Fixture record not found for entity '{data.entity_type}' and system_name '{data.system_name}'"
+            )
+
+        overwritten = await self._upsert_record(data.entity_type, record)
+
+        return SeedPopulateOneResponse(
+            entity_type=data.entity_type,
+            system_name=data.system_name,
+            overwritten=overwritten,
+        )
+
+    @post("/seed/populate")
+    async def seed_populate(
+        self,
+        data: SeedPopulateRequest,
+    ) -> list[SeedPopulateOneResponse]:
+        results: list[SeedPopulateOneResponse] = []
+
+        for item in data.items:
+            results.append(
+                await self.seed_populate_one(
+                    SeedPopulateOneRequest(
+                        entity_type=item.entity_type,
+                        system_name=item.system_name,
+                    )
+                )
+            )
+
+        return results
+
+    @post("/seed/upload-json")
+    async def seed_upload_json(self, data: UploadJsonRequest) -> UploadJsonResponse:
+        records = data.payload if isinstance(data.payload, list) else [data.payload]
+        results: list[UploadJsonResultItem] = []
+
+        for record in records:
+            if not isinstance(record, dict):
+                raise ClientException("Each JSON record must be an object")
+
+            system_name = record.get("system_name")
+            if not system_name:
+                raise ClientException("Each JSON record must contain system_name")
+
+            overwritten = await self._upsert_record(data.entity_type, record)
+            results.append(
+                UploadJsonResultItem(system_name=system_name, overwritten=overwritten)
+            )
+
+        return UploadJsonResponse(entity_type=data.entity_type, results=results)
+
+    @get("/seed/export-preview")
+    async def seed_export_preview(self) -> ExportPreviewResponse:
+        loader = self._loader()
+        items: list[ExportRecordPreview] = []
+
+        for entity_type in self._supported_entity_types():
+            model_class = loader._get_model_class(entity_type)
+            if model_class is None:
+                continue
+
+            async with alchemy.get_session() as session:
+                result = await session.execute(
+                    select(model_class.system_name, model_class.name).order_by(
+                        model_class.system_name
+                    )
+                )
+                rows = result.all()
+
+            for system_name, name in rows:
+                items.append(
+                    ExportRecordPreview(
+                        entity_type=entity_type,
+                        system_name=system_name,
+                        name=name,
+                    )
+                )
+
+        return ExportPreviewResponse(items=items)
+
+    @post("/seed/export-json")
+    async def seed_export_json(self, data: ExportJsonRequest) -> ExportJsonResponse:
+        loader = self._loader()
+        output: dict[str, list[dict[str, Any]]] = {}
+
+        grouped: dict[str, list[str]] = {}
+        for item in data.items:
+            grouped.setdefault(item.entity_type, []).append(item.system_name)
+
+        for entity_type, system_names in grouped.items():
+            model_class = loader._get_model_class(entity_type)
+            if model_class is None:
+                raise ClientException(f"Unsupported entity type: {entity_type}")
+
+            async with alchemy.get_session() as session:
+                result = await session.execute(
+                    select(model_class).where(model_class.system_name.in_(system_names))
+                )
+                records = result.scalars().all()
+
+            output[entity_type] = [
+                self._serialize_model_record(model_class, record) for record in records
+            ]
+
+        return ExportJsonResponse(data=output)
