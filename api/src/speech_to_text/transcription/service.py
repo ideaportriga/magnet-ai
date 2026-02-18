@@ -91,6 +91,7 @@ async def submit(
     backend: PipelineKind = "mock",
     language: str | None = None,
     number_of_participants: str | None = None,
+    diarization_threshold: str | float | None = None,
     keyterms: list[str] | None = None,
     entity_detection: str | list[str] | None = None,
 ) -> str:
@@ -119,6 +120,7 @@ async def submit(
         storage,
         language=language,
         number_of_participants=number_of_participants,
+        diarization_threshold=diarization_threshold,
         keyterms=keyterms,
         entity_detection=entity_detection,
     )
