@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.10](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.9...v0.6.0-dev.10) (2026-02-18)
+
+### ✨ Features
+
+* **api:** added diarization threshold support for elevenlabs ([01a02f0](https://github.com/ideaportriga/magnet-ai/commit/01a02f069d48e1f9ac8026edfb876799faf430a6))
+
 ## [0.6.0-dev.9](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.8...v0.6.0-dev.9) (2026-02-18)
 
 ### 🐛 Bug Fixes
