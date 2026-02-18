@@ -9,8 +9,8 @@ class BaseEntity(BaseModel):
     id: Optional[UUID] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    created_by: Optional[UUID | str] = None
-    updated_by: Optional[UUID | str] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
     name: str
     description: Optional[str] = None
     system_name: str

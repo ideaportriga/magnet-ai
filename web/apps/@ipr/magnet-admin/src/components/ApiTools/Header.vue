@@ -9,9 +9,15 @@
       .q-mb-sm
         .text-secondary-text.km-button-xs-text Created:
         .text-secondary-text.km-description {{ metadata.created_at }}
-      div
+      .q-mb-sm
         .text-secondary-text.km-button-xs-text Modified:
         .text-secondary-text.km-description {{ metadata.modified_at }}
+      .q-mb-sm
+        .text-secondary-text.km-button-xs-text Created by:
+        .text-secondary-text.km-description {{ metadata.created_by }}
+      div
+        .text-secondary-text.km-button-xs-text Modified by:
+        .text-secondary-text.km-description {{ metadata.updated_by }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-mx-md
   km-btn(label='Save', icon='far fa-save', color='primary', bg='background', iconSize='16px', @click='save')
@@ -56,6 +62,8 @@ export default {
       return {
         created_at: this.formatDate(this.selectedTool?.created_at),
         modified_at: this.formatDate(this.selectedTool?.updated_at),
+        created_by: this.selectedTool?.created_by ? `${this.selectedTool?.created_by}` : 'Unknown',
+        updated_by: this.selectedTool?.updated_by ? `${this.selectedTool?.updated_by}` : 'Unknown',
       }
     },
     selectedTool() {

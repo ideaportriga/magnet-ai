@@ -80,9 +80,14 @@ class ApiServersController(Controller):
 
     @post()
     async def create_api_server(
-        self, api_servers_service: ApiServersService, data: ApiServerCreate
+        self,
+        api_servers_service: ApiServersService,
+        data: ApiServerCreate,
+        audit_username: str | None,
     ) -> ApiServerResponse:
         """Create a new API server."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await api_servers_service.create(data)
         return api_servers_service.to_schema(obj, schema_type=ApiServerResponse)
 
@@ -116,10 +121,13 @@ class ApiServersController(Controller):
             title="API Server ID",
             description="The API server to update.",
         ),
+        audit_username: str | None = None,
     ) -> ApiServerResponse:
         """Update an API server."""
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await api_servers_service.update(
-            data, item_id=api_server_id, auto_commit=True
+            update_data, item_id=api_server_id, auto_commit=True
         )
         return api_servers_service.to_schema(obj, schema_type=ApiServerResponse)
 

@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.8](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.7...v0.6.0-dev.8) (2026-02-17)
+
+### ♻️ Code Refactoring
+
+* update created_by and updated_by fields to use string type in models and schemas ([db49b79](https://github.com/ideaportriga/magnet-ai/commit/db49b79bd523232466dfa26df209afbde02457ed))
+
+## [0.6.0-dev.7](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.6...v0.6.0-dev.7) (2026-02-17)
+
+### ✨ Features
+
+* add created by and modified by fields to various headers ([3710655](https://github.com/ideaportriga/magnet-ai/commit/3710655b22ad6423d0ce612f8a047324e9c9eb3e))
+* implement audit fields for created_by and updated_by in various controllers ([cea99bf](https://github.com/ideaportriga/magnet-ai/commit/cea99bfc5fed5128df88ee0f7dee0f8e6c19b76e))
+
+## [0.6.0-dev.6](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.5...v0.6.0-dev.6) (2026-02-13)
+
+### 🐛 Bug Fixes
+
+* **api:** support per-request num_speakers ([10799b0](https://github.com/ideaportriga/magnet-ai/commit/10799b0cfbce1ae7f419beee73403192af951a48))
+
+## [0.6.0-dev.5](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.4...v0.6.0-dev.5) (2026-02-13)
+
+### ✨ Features
+
+* send number of participants into the transcription job ([5943444](https://github.com/ideaportriga/magnet-ai/commit/5943444918aa3604d72ba9b8aa58f76b0645ec57))
+
 ## [0.6.0-dev.4](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.3...v0.6.0-dev.4) (2026-02-10)
 
 ### ✨ Features

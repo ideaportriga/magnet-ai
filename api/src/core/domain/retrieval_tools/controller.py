@@ -62,9 +62,14 @@ class RetrievalToolsController(Controller):
 
     @post()
     async def create_retrieval_tool(
-        self, retrieval_tools_service: RetrievalToolsService, data: RetrievalToolCreate
+        self,
+        retrieval_tools_service: RetrievalToolsService,
+        data: RetrievalToolCreate,
+        audit_username: str | None,
     ) -> RetrievalTool:
         """Create a new Retrieval tool."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await retrieval_tools_service.create(data)
         return retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
 
@@ -98,10 +103,13 @@ class RetrievalToolsController(Controller):
             title="Retrieval Tool ID",
             description="The Retrieval tool to update.",
         ),
+        audit_username: str | None = None,
     ) -> RetrievalTool:
         """Update a Retrieval tool."""
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await retrieval_tools_service.update(
-            data, item_id=retrieval_tool_id, auto_commit=True
+            update_data, item_id=retrieval_tool_id, auto_commit=True
         )
         return retrieval_tools_service.to_schema(obj, schema_type=RetrievalTool)
 
