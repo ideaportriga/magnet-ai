@@ -1,3 +1,4 @@
+import re
 import time
 import traceback
 from dataclasses import dataclass
@@ -46,8 +47,18 @@ logger = getLogger(__name__)
 
 
 def _serialize_for_json(obj: Any) -> Any:
-    """Convert datetime objects and other non-JSON-serializable objects to JSON-compatible format."""
-    if isinstance(obj, datetime):
+    """
+    Convert datetime objects and other non-JSON-serializable objects to JSON-compatible format.
+    Also removes null bytes and control characters that cause issues in SQL databases.
+    Pattern adapted from data_sync/utils.py clean_text function.
+    """
+    if isinstance(obj, str):
+        # Remove invalid or garbage characters (from clean_text)
+        text = obj.replace("\u0e00", " ")
+        text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\xEF\xBF\xBE]", " ", text)
+        text = re.sub(r"[\uf020-\uf074\ufffe]", " ", text)
+        return text
+    elif isinstance(obj, datetime):
         return obj.isoformat()
     elif isinstance(obj, dict):
         return {key: _serialize_for_json(value) for key, value in obj.items()}

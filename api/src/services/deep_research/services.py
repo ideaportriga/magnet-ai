@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 from uuid import UUID
@@ -32,6 +33,28 @@ from core.db.models.deep_research.run import DeepResearchRun as DeepResearchRunD
 
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_json_data(obj: Any) -> Any:
+    """
+    Recursively remove null bytes and control characters from strings.
+    These characters cause issues in most SQL databases (especially PostgreSQL JSONB).
+    Pattern adapted from data_sync/utils.py clean_text function.
+    """
+    if isinstance(obj, str):
+        # Remove invalid or garbage characters (from clean_text)
+        text = obj.replace("\u0e00", " ")
+        text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\xEF\xBF\xBE]", " ", text)
+        text = re.sub(r"[\uf020-\uf074\ufffe]", " ", text)
+        return text
+    elif isinstance(obj, dict):
+        return {key: _sanitize_json_data(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_json_data(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(_sanitize_json_data(item) for item in obj)
+    else:
+        return obj
 
 
 def _track_usage(run: DeepResearchRun, result_data: Any) -> None:
@@ -1046,7 +1069,7 @@ def _serialize_memory(memory: DeepResearchMemory) -> dict[str, Any]:
 
 def _serialize_run_details(run: DeepResearchRun) -> dict[str, Any]:
     """Build details payload for persistence."""
-    return {
+    details = {
         "memory": _serialize_memory(run.memory),
         "iterations": [
             iteration.model_dump(mode="json") for iteration in run.iterations
@@ -1060,6 +1083,8 @@ def _serialize_run_details(run: DeepResearchRun) -> dict[str, Any]:
         "total_latency": run.total_latency,
         "total_cost": run.total_cost,
     }
+    # Sanitize to remove null bytes and control characters that SQL databases cannot handle
+    return _sanitize_json_data(details)
 
 
 def _map_db_run_to_service(db_run: "DeepResearchRunDB") -> DeepResearchRun:
