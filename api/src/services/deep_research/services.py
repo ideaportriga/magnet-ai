@@ -462,8 +462,12 @@ async def _execute_reasoning_step(
         )
 
         # Build template_values from input
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         template_values = {
-            **run.input,  # Spread all input variables
+            **run.input,  # Spread all input variables for backward compatibility (e.g., {task})
+            **flattened_input,  # Also provide namespaced access (e.g., {input.task})
             "iteration": iteration,
             "max_iterations": config.max_iterations,
             "search_history": "\n".join(f"- {q}" for q in memory.search_queries),
@@ -698,7 +702,11 @@ async def _analyze_search_results(
             ]
         )
 
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         context = {
+            **flattened_input,  # Namespaced input (e.g., {input.task})
             "query": query,
             "results_count": len(results),
             "results": results_text,
@@ -853,9 +861,12 @@ async def _process_search_result(
         # Get relevance reasoning from analysis step
         relevance_reasoning = result.get("relevance_reasoning", "")
 
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         context = {
+            **flattened_input,  # Namespaced input (e.g., {input.task})
             "query": query,
-            "research_query": run.input.get("query", ""),
             "page_title": title,
             "page_url": url,
             "page_content": page_content,
