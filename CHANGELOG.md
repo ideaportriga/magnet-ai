@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.11](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.10...v0.6.0-dev.11) (2026-02-19)
+
+### 🐛 Bug Fixes
+
+* api/mcp server update fix ([1cb40a8](https://github.com/ideaportriga/magnet-ai/commit/1cb40a8b57a4f1060889b5b24dac0f28e0377ba2))
+
 ## [0.6.0-dev.10](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.9...v0.6.0-dev.10) (2026-02-18)
 
 ### ✨ Features
