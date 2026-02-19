@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.10](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.9...v0.6.0-dev.10) (2026-02-18)
+
+### ✨ Features
+
+* **api:** added diarization threshold support for elevenlabs ([01a02f0](https://github.com/ideaportriga/magnet-ai/commit/01a02f069d48e1f9ac8026edfb876799faf430a6))
+
+## [0.6.0-dev.9](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.8...v0.6.0-dev.9) (2026-02-18)
+
+### 🐛 Bug Fixes
+
+* fixing web channel teams typing error ([7f1ae4d](https://github.com/ideaportriga/magnet-ai/commit/7f1ae4d9984c723facd7a471f322631003f749eb))
+
+## [0.6.0-dev.8](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.7...v0.6.0-dev.8) (2026-02-17)
+
+### ♻️ Code Refactoring
+
+* update created_by and updated_by fields to use string type in models and schemas ([db49b79](https://github.com/ideaportriga/magnet-ai/commit/db49b79bd523232466dfa26df209afbde02457ed))
+
 ## [0.6.0-dev.7](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.6...v0.6.0-dev.7) (2026-02-17)
 
 ### ✨ Features

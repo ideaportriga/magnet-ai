@@ -36,6 +36,7 @@ class RecordingsController(Controller):
         language: Optional[str] = None
         pipeline_id: str = DEFAULT_PIPELINE
         number_of_participants: Optional[str] = None
+        diarization_threshold: Optional[str] = None
 
         # Parse inputs
         if ctype.startswith("multipart/"):
@@ -49,6 +50,7 @@ class RecordingsController(Controller):
             language = form.get("language")
             pipeline_id = form.get("pipeline_id") or DEFAULT_PIPELINE
             number_of_participants = form.get("number_of_participants")
+            diarization_threshold = form.get("diarization_threshold")
             keyterms = form.getlist("keyterms") if form.get("keyterms") else None
             entity_detection = (
                 form.getlist("entity_detection")
@@ -61,6 +63,7 @@ class RecordingsController(Controller):
             filename = data.get("filename")
             content_type = data.get("content_type")
             language = data.get("language")
+            diarization_threshold = data.get("diarization_threshold")
             pipeline_id = data.get("pipeline_id") or DEFAULT_PIPELINE
             number_of_participants = data.get("number_of_participants")
             keyterms = data.get("keyterms")
@@ -81,6 +84,29 @@ class RecordingsController(Controller):
                 status_code=400, detail="filename must include extension"
             )
 
+        def _is_provided(x: Optional[str]) -> bool:
+            return (
+                x is not None
+                and str(x).strip() != ""
+                and str(x).strip().lower() != "null"
+            )
+
+        if _is_provided(diarization_threshold):
+            try:
+                thr = float(diarization_threshold)
+            except (TypeError, ValueError):
+                raise HTTPException(
+                    status_code=400, detail="'diarization_threshold' must be a number"
+                )
+
+            if not (0.1 <= thr <= 0.4):
+                raise HTTPException(
+                    status_code=400,
+                    detail="'diarization_threshold' must be in [0.1, 0.4]",
+                )
+
+            diarization_threshold = str(thr)
+
         file_bytes = None
 
         # Submit to transcription pipeline
@@ -93,6 +119,7 @@ class RecordingsController(Controller):
             backend=pipeline_id,
             language=language,
             number_of_participants=number_of_participants,
+            diarization_threshold=diarization_threshold,
             keyterms=keyterms,
             entity_detection=entity_detection,
         )

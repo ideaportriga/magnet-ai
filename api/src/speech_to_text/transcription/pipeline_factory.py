@@ -16,6 +16,7 @@ from .diarize.oci_speech.models import OciSpeechDiarizer
 from .transcribe.mistral_transcribe.models import MistralVoxtralTranscriber
 from .diarize.mistral_diarize.models import MistralVoxtralDiarization
 import os
+from typing import Any
 
 HF_KEY = os.getenv("HF_KEY", "")
 
@@ -29,12 +30,22 @@ def _to_locale(lang: str) -> str:
     return m.get(lang.lower(), f"{lang.lower()}-{lang.upper()}")
 
 
+def _is_provided(x: Any) -> bool:
+    if x is None:
+        return False
+    if isinstance(x, str):
+        s = x.strip().lower()
+        return s not in ("", "null")
+    return True
+
+
 def build_pipeline(
     kind: str,
     storage: PgDataStorage,
     language: str,
     number_of_participants: str | None = None,
     *,
+    diarization_threshold: str | float | None = None,
     keyterms: list[str] | None = None,
     entity_detection: str | list[str] | None = None,
 ) -> TranscriptionPipeline:
@@ -60,11 +71,28 @@ def build_pipeline(
         stt = OracleSpeechTranscriber(storage, cfg)
         dr = MockDiarization(DiarizationCfg(model="mock"))
     elif kind == "elevenlabs":
-        num_speakers = int(number_of_participants) if number_of_participants else None
+        num_speakers = (
+            int(number_of_participants)
+            if _is_provided(number_of_participants)
+            else None
+        )
 
-        internal = {"granularity": "word"}
+        thr: float | None = None
+        if _is_provided(diarization_threshold):
+            thr = float(diarization_threshold)
+            if not (0.1 <= thr <= 0.4):
+                raise ValueError("diarization_threshold must be in [0.1, 0.4]")
+
+        if num_speakers is not None and thr is not None:
+            raise ValueError(
+                "Provide either number_of_participants OR diarization_threshold, not both."
+            )
+
+        internal: dict[str, Any] = {"granularity": "word"}
         if num_speakers is not None:
             internal["num_speakers"] = num_speakers
+        if thr is not None:
+            internal["diarization_threshold"] = thr
 
         cfg = TranscriptionCfg(
             model="elevenlabs",
