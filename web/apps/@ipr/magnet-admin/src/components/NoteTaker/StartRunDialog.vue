@@ -21,6 +21,7 @@ q-dialog(:model-value='modelValue', persistent, @update:model-value='$emit("upda
           clearable,
           use-chips,
           bottom-slots,
+          label='Choose file',
           hint='Select audio/video file for transcription',
           accept='.mp3,.mp4,.m4a,.wav,.webm,.ogg,.flac',
           @rejected='onFileRejected'

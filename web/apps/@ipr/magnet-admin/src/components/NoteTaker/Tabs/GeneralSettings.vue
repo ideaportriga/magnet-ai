@@ -18,35 +18,64 @@
 
   q-separator.q-my-lg
 
-  km-section(
+  km-section.speaker-settings-radios(
     title='Limit max number of speakers',
     subTitle='For Scribe models, you can use either max number of speakers or diarization threshold parameters to help model detect speakers more accurately.'
   )
     .column.q-gap-16
-      .column
-        .row.items-baseline
-          .col-auto.q-mr-sm
-            q-toggle(v-model='sendNumberOfSpeakers', color='primary', dense)
-          .col Send max number of speakers
-        .km-description.text-secondary-text.q-mt-xs.q-ml-sm When enabled, Note Taker sends speaker count to transcription backend.
-      .column.q-pl-8(v-if='sendNumberOfSpeakers')
-        q-radio(
-          v-model='maxSpeakerCountSource',
-          val='invited',
-          label='Send number of invited participants from the meeting',
-          color='primary',
-          dense
-        )
-        q-radio(
-          v-model='maxSpeakerCountSource',
-          val='manual',
-          label='Manually set max speaker count',
-          color='primary',
-          dense
-        )
+      .column.q-gap-8
+        .row.items-center.q-gap-8
+          q-radio(
+            v-model='speakerMode',
+            val='none',
+            label='Auto',
+            color='primary',
+            dense
+          )
+          q-icon(name='o_info', color='text-secondary', size='16px')
+            q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') Let the model automatically detect speakers without hints.
+        .row.items-center.q-gap-8
+          q-radio(
+            v-model='speakerMode',
+            val='speakers',
+            label='Send max number of speakers',
+            color='primary',
+            dense
+          )
+          q-icon(name='o_info', color='text-secondary', size='16px')
+            q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') Note Taker sends speaker count to transcription backend.
+        .row.items-center.q-gap-8
+          q-radio(
+            v-model='speakerMode',
+            val='threshold',
+            label='Diarization threshold',
+            color='primary',
+            dense
+          )
+          q-icon(name='o_info', color='text-secondary', size='16px')
+            q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') A higher value means less total speakers predicted.
+      q-separator.q-my-sm(v-if='speakerMode === "speakers" || speakerMode === "threshold"')
+      .column.q-pl-8.q-gap-8(v-if='speakerMode === "speakers"')
+        .row.items-center.q-gap-8
+          q-radio(
+            v-model='maxSpeakerCountSource',
+            val='invited',
+            label='Send number of invited participants from the meeting',
+            color='primary',
+            dense
+          )
+        .row.items-center.q-gap-8
+          q-radio(
+            v-model='maxSpeakerCountSource',
+            val='manual',
+            label='Manually set max speaker count',
+            color='primary',
+            dense
+          )
         .row.q-mt-sm(v-if='maxSpeakerCountSource === "manual"')
           .col(style='max-width: 120px')
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max speaker count
+            .row.items-center.q-gap-8
+              .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max speaker count
             .row.items-center.q-gap-16.no-wrap
               km-input(
                 v-model='maxSpeakerCount',
@@ -55,14 +84,7 @@
                 :min='1',
                 :max='32'
               )
-            .km-description.text-secondary-text.q-mt-xs.q-pl-8 Max value allowed: 32
-      .column
-        .row.items-baseline
-          .col-auto.q-mr-sm
-            q-toggle(v-model='diarizationThresholdEnabled', color='primary', dense)
-          .col Diarization threshold
-        .km-description.text-secondary-text.q-mt-xs.q-ml-sm When enabled, a higher value means less total speakers predicted.
-      .column(v-if='diarizationThresholdEnabled')
+      .column.q-pl-8(v-if='speakerMode === "threshold"')
         km-slider-card(
           v-model='diarizationThreshold',
           name='Diarization threshold',
@@ -81,12 +103,11 @@
     title='Keyterms',
     subTitle='Optional keyterms to improve transcription and post-processing accuracy.'
   )
-    .row.items-center.q-gap-8.no-wrap.q-mt-md(v-for='(entry, idx) in keytermsList', :key='idx')
+    .row.items-center.q-gap-8.no-wrap.q-mt-sm(v-for='(entry, idx) in keytermsList', :key='idx')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Keyterm
         km-input(
           :model-value='entry.keyterm',
-          placeholder='Keyterm',
           height='30px',
           @update:model-value='(v) => { entry.keyterm = v; syncKeytermsString() }'
         )
@@ -94,7 +115,6 @@
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description / Extra info (optional)
         km-input(
           :model-value='entry.description',
-          placeholder='Description',
           height='30px',
           @update:model-value='(v) => { entry.description = v; syncKeytermsString() }'
         )
@@ -111,6 +131,14 @@
     subTitle='Automatically create recordings-ready subscriptions for meetings.'
   )
     q-toggle(v-model='subscriptionRecordingsReady', color='primary', dense)
+
+  q-separator.q-my-lg
+
+  km-section(
+    title='Accept commands from non-organizer',
+    subTitle='Off by default. If switched on, Note Taker will accept commands from users other than meeting organizer.'
+  )
+    q-toggle(v-model='acceptCommandsFromNonOrganizer', color='primary', dense)
 </template>
 
 <script setup lang="ts">
@@ -134,6 +162,13 @@ const subscriptionRecordingsReady = computed({
   },
 })
 
+const acceptCommandsFromNonOrganizer = computed({
+  get: () => store.getters.noteTakerSettings?.accept_commands_from_non_organizer ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'accept_commands_from_non_organizer', value })
+  },
+})
+
 const pipelineId = computed({
   get: () => store.getters.noteTakerSettings?.pipeline_id || 'elevenlabs',
   set: (value: string) => {
@@ -141,11 +176,22 @@ const pipelineId = computed({
   },
 })
 
-const sendNumberOfSpeakers = computed({
-  get: () => store.getters.noteTakerSettings?.send_number_of_speakers ?? false,
-  set: (value: boolean) => {
-    store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value })
-    if (value) {
+const speakerMode = computed({
+  get: () => {
+    const settings = store.getters.noteTakerSettings
+    if (settings?.send_number_of_speakers) return 'speakers'
+    if (settings?.diarization_threshold_enabled) return 'threshold'
+    return 'none'
+  },
+  set: (value: 'none' | 'speakers' | 'threshold') => {
+    if (value === 'speakers') {
+      store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value: true })
+      store.dispatch('updateNoteTakerSetting', { path: 'diarization_threshold_enabled', value: false })
+    } else if (value === 'threshold') {
+      store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value: false })
+      store.dispatch('updateNoteTakerSetting', { path: 'diarization_threshold_enabled', value: true })
+    } else {
+      store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value: false })
       store.dispatch('updateNoteTakerSetting', { path: 'diarization_threshold_enabled', value: false })
     }
   },
@@ -171,16 +217,6 @@ const maxSpeakerCount = computed({
   set: (value: number | string | null) => {
     const num = value == null || value === '' ? null : Number(value)
     store.dispatch('updateNoteTakerSetting', { path: 'max_speaker_count', value: num })
-  },
-})
-
-const diarizationThresholdEnabled = computed({
-  get: () => store.getters.noteTakerSettings?.diarization_threshold_enabled ?? false,
-  set: (value: boolean) => {
-    store.dispatch('updateNoteTakerSetting', { path: 'diarization_threshold_enabled', value })
-    if (value) {
-      store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value: false })
-    }
   },
 })
 
@@ -239,3 +275,12 @@ function removeKeyterm(idx: number) {
   syncKeytermsString()
 }
 </script>
+
+<style scoped>
+.speaker-settings-radios :deep(.q-radio__label) {
+  font-family: var(--font-default);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--q-text-weak);
+}
+</style>

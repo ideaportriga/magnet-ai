@@ -13,7 +13,7 @@
       .row.q-gap-8.q-pl-8.items-end(v-if='postTranscriptionEnabled')
         .col
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
-          .row.items-center.q-gap-16.no-wrap
+          .row.items-center.q-gap-8.no-wrap
             km-select(
               v-model='postTranscriptionPromptTemplate',
               :options='promptTemplates',
@@ -25,13 +25,13 @@
               height='30px'
               placeholder='Select prompt template'
             )
-        .col-auto(v-if='postTranscriptionPromptTemplate')
-          km-btn(
-            icon='open_in_new',
-            flat,
-            dense,
-            @click='navigateToPrompt(postTranscriptionPromptTemplate)'
-          )
+            km-btn(
+              v-if='postTranscriptionPromptTemplate',
+              icon='open_in_new',
+              flat,
+              dense,
+              @click='navigateToPrompt(postTranscriptionPromptTemplate)'
+            )
 
   q-separator.q-my-lg
 
@@ -47,7 +47,7 @@
       .row.q-gap-8.q-pl-8.items-end(v-if='createChaptersEnabled')
         .col
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
-          .row.items-center.q-gap-16.no-wrap
+          .row.items-center.q-gap-8.no-wrap
             km-select(
               v-model='createChaptersPromptTemplate',
               :options='promptTemplates',
@@ -59,13 +59,13 @@
               height='30px'
               placeholder='Select prompt template'
             )
-        .col-auto(v-if='createChaptersPromptTemplate')
-          km-btn(
-            icon='open_in_new',
-            flat,
-            dense,
-            @click='navigateToPrompt(createChaptersPromptTemplate)'
-          )
+            km-btn(
+              v-if='createChaptersPromptTemplate',
+              icon='open_in_new',
+              flat,
+              dense,
+              @click='navigateToPrompt(createChaptersPromptTemplate)'
+            )
 
   q-separator.q-my-lg
 
@@ -81,7 +81,7 @@
       .row.q-gap-8.q-pl-8.items-end(v-if='createSummaryEnabled')
         .col
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
-          .row.items-center.q-gap-16.no-wrap
+          .row.items-center.q-gap-8.no-wrap
             km-select(
               v-model='createSummaryPromptTemplate',
               :options='promptTemplates',
@@ -93,13 +93,13 @@
               height='30px'
               placeholder='Select prompt template'
             )
-        .col-auto(v-if='createSummaryPromptTemplate')
-          km-btn(
-            icon='open_in_new',
-            flat,
-            dense,
-            @click='navigateToPrompt(createSummaryPromptTemplate)'
-          )
+            km-btn(
+              v-if='createSummaryPromptTemplate',
+              icon='open_in_new',
+              flat,
+              dense,
+              @click='navigateToPrompt(createSummaryPromptTemplate)'
+            )
 
   q-separator.q-my-lg
 
@@ -115,7 +115,7 @@
       .row.q-gap-8.q-pl-8.items-end(v-if='createInsightsEnabled')
         .col
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
-          .row.items-center.q-gap-16.no-wrap
+          .row.items-center.q-gap-8.no-wrap
             km-select(
               v-model='createInsightsPromptTemplate',
               :options='promptTemplates',
@@ -127,13 +127,13 @@
               height='30px'
               placeholder='Select prompt template'
             )
-        .col-auto(v-if='createInsightsPromptTemplate')
-          km-btn(
-            icon='open_in_new',
-            flat,
-            dense,
-            @click='navigateToPrompt(createInsightsPromptTemplate)'
-          )
+            km-btn(
+              v-if='createInsightsPromptTemplate',
+              icon='open_in_new',
+              flat,
+              dense,
+              @click='navigateToPrompt(createInsightsPromptTemplate)'
+            )
 </template>
 
 <script setup lang="ts">

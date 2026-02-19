@@ -13,7 +13,7 @@
       .row.q-gap-8.items-end(v-if='createKnowledgeGraphEmbedding')
         .col
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge graph
-          .row.items-center.q-gap-16.no-wrap
+          .row.items-center.q-gap-8.no-wrap
             km-select(
               v-model='knowledgeGraphSystemName',
               :options='props.knowledgeGraphs || []',
@@ -25,13 +25,13 @@
               height='30px'
               placeholder='Select knowledge graph'
             )
-        .col-auto(v-if='selectedKnowledgeGraph?.id')
-          km-btn(
-            icon='open_in_new',
-            flat,
-            dense,
-            @click='router.push(`/knowledge-graph/${selectedKnowledgeGraph.id}`)'
-          )
+            km-btn(
+              v-if='selectedKnowledgeGraph?.id',
+              icon='open_in_new',
+              flat,
+              dense,
+              @click='router.push(`/knowledge-graph/${selectedKnowledgeGraph.id}`)'
+            )
 </template>
 
 <script setup lang="ts">
