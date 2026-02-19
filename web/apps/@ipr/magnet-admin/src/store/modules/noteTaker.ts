@@ -46,6 +46,8 @@ interface NoteTakerSettingsRecord {
   description?: string
   created_at?: string
   updated_at?: string
+  created_by?: string
+  updated_by?: string
   config: NoteTakerSettings
 }
 
@@ -178,6 +180,8 @@ const normalizeSettingsPayload = (payload: any): NoteTakerSettingsRecord[] => {
       description: item?.description,
       created_at: item?.created_at,
       updated_at: item?.updated_at,
+      created_by: item?.created_by,
+      updated_by: item?.updated_by,
       config: toSettingsConfig(configSource),
     }
   })

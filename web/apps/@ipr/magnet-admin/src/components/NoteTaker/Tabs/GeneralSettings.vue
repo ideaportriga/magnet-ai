@@ -66,8 +66,8 @@
         km-slider-card(
           v-model='diarizationThreshold',
           name='Diarization threshold',
-          :min='0',
-          :max='1',
+          :min='0.1',
+          :max='0.4',
           minLabel='More speakers',
           maxLabel='Less speakers',
           :defaultValue='0.2',
@@ -145,6 +145,9 @@ const sendNumberOfSpeakers = computed({
   get: () => store.getters.noteTakerSettings?.send_number_of_speakers ?? false,
   set: (value: boolean) => {
     store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value })
+    if (value) {
+      store.dispatch('updateNoteTakerSetting', { path: 'diarization_threshold_enabled', value: false })
+    }
   },
 })
 
@@ -175,11 +178,17 @@ const diarizationThresholdEnabled = computed({
   get: () => store.getters.noteTakerSettings?.diarization_threshold_enabled ?? false,
   set: (value: boolean) => {
     store.dispatch('updateNoteTakerSetting', { path: 'diarization_threshold_enabled', value })
+    if (value) {
+      store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value: false })
+    }
   },
 })
 
 const diarizationThreshold = computed({
-  get: () => store.getters.noteTakerSettings?.diarization_threshold ?? 0.2,
+  get: () => {
+    const v = store.getters.noteTakerSettings?.diarization_threshold ?? 0.2
+    return Math.max(0.1, Math.min(0.4, Number(v)))
+  },
   set: (value: number) => {
     store.dispatch('updateNoteTakerSetting', { path: 'diarization_threshold', value })
   },
