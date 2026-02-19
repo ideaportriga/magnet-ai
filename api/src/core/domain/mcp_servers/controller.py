@@ -113,6 +113,7 @@ class MCPServersController(Controller):
         """Update an MCP server."""
         update_data = data.model_dump(exclude_unset=True)
         update_data["updated_by"] = audit_username
+        update_data = MCPServerUpdate(**update_data)
         obj = await mcp_servers_service.update(
             update_data, item_id=mcp_server_id, auto_commit=True
         )
