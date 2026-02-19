@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.12](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.11...v0.6.0-dev.12) (2026-02-19)
+
+### ✨ Features
+
+* **deep-research:** adjust variable usage in prompts ([7f15d9f](https://github.com/ideaportriga/magnet-ai/commit/7f15d9fe8f742faa390af2f9b0860e3a9e0b2689))
+
+### 🐛 Bug Fixes
+
+* **deep-research:** fix datetime field serialization in webhook call ([9f3096b](https://github.com/ideaportriga/magnet-ai/commit/9f3096b63b04d7dc13b5e5cc45f626388e2466c3))
+* **deep-research:** fix null byte handling in web page content ([6c5a408](https://github.com/ideaportriga/magnet-ai/commit/6c5a40851c78a012d1ca79626355363ca932c11a))
+* **deep-research:** fix payload template input ([3fe42c4](https://github.com/ideaportriga/magnet-ai/commit/3fe42c448825bd3373dde909a82b78f6b82ddcf1))
+
 ## [0.6.0-dev.11](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.10...v0.6.0-dev.11) (2026-02-19)
 
 ### 🐛 Bug Fixes
