@@ -192,10 +192,12 @@
                 .km-field
                   .text-secondary-text.q-pb-xs Payload Template (JSON)
                   q-input(
-                    v-model='webhookPayloadJson',
+                    v-model='webhookPayloadString',
                     type='textarea',
                     rows='10',
                     outlined,
+                    :rules='[validateJSON]',
+                    @blur='updatePayloadTemplate',
                     placeholder='Optional: {"run_id": "run_id", "result": "result.summary"}'
                   )
                   .km-description.text-secondary-text.q-pt-2 Optional JSON template with path references (e.g., "run_id", "input.query", "result.summary")
@@ -215,6 +217,7 @@ const $q = useQuasar()
 const configId = computed(() => route.params.id as string)
 const config = ref<any>(null)
 const showInfo = ref(false)
+const webhookPayloadString = ref('')
 
 const loading = computed(() => !config.value)
 
@@ -311,27 +314,45 @@ const webhookApiTool = computed({
   }
 })
 
-const webhookPayloadJson = computed({
-  get: () => {
-    const template = config.value?.config?.webhook?.payload_template
-    if (!template) return ''
-    if (typeof template === 'string') return template
-    return JSON.stringify(template, null, 2)
-  },
-  set: (value: string) => {
-    if (!config.value?.config?.webhook) return
-    if (!value.trim()) {
-      config.value.config.webhook.payload_template = null
-      return
-    }
-    try {
-      config.value.config.webhook.payload_template = JSON.parse(value)
-    } catch {
-      // Keep null if invalid JSON (user is still typing)
-      config.value.config.webhook.payload_template = null
-    }
+// Simple validation function similar to the working example
+const validateJSON = (val: string) => {
+  if (!val.trim()) return true // Empty is ok
+  try {
+    JSON.parse(val)
+    return true
+  } catch (e) {
+    return 'Invalid JSON'
   }
-})
+}
+
+// Sync webhook payload between config and local string
+watch(() => config.value?.config?.webhook?.payload_template, (newVal) => {
+  if (newVal === null || newVal === undefined) {
+    webhookPayloadString.value = ''
+  } else if (typeof newVal === 'string') {
+    webhookPayloadString.value = newVal
+  } else {
+    webhookPayloadString.value = JSON.stringify(newVal, null, 2)
+  }
+}, { immediate: true })
+
+// Update config when user finishes editing (on blur)
+const updatePayloadTemplate = () => {
+  if (!config.value?.config?.webhook) return
+  
+  const value = webhookPayloadString.value.trim()
+  if (!value) {
+    config.value.config.webhook.payload_template = null
+    return
+  }
+  
+  try {
+    config.value.config.webhook.payload_template = JSON.parse(value)
+  } catch {
+    // Keep the string value, don't clear it
+    // The validation rule will show the error
+  }
+}
 
 // Get prompt templates
 const promptTemplates = computed(() => {
