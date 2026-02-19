@@ -992,6 +992,12 @@ def _resolve_webhook_template(
             if value is None:
                 return None
 
+        # Convert non-JSON-serializable types to strings
+        if isinstance(value, datetime):
+            return value.isoformat()
+        elif isinstance(value, UUID):
+            return str(value)
+
         return value
 
     return resolve_path(template)
