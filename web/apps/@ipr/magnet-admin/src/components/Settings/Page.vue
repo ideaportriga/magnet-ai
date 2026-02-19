@@ -56,11 +56,11 @@
                 )
               template(v-slot:body-cell-source='props')
                 q-td(:props='props')
-                  q-chip(size='sm', color='light', text-color='text-secondary') {{ props.row.source === 'seed' ? 'Seed' : 'JSON' }}
+                  q-chip(size='sm', color='primary-light', text-color='primary') {{ props.row.source === 'seed' ? 'Seed' : 'JSON' }}
               template(v-slot:body-cell-exists='props')
                 q-td(:props='props')
-                  q-chip(size='sm', color='light', text-color='text-secondary', v-if='props.row.exists === null') Unknown
-                  q-chip(size='sm', :color='props.row.exists ? "warning-low" : "positive-low"', :text-color='props.row.exists ? "primary" : "positive"', v-else)
+                  q-chip(size='sm', color='primary-light', text-color='primary', v-if='props.row.exists === null') Unknown
+                  q-chip(size='sm', :color='props.row.exists ? "orange-2" : "green-2"', :text-color='props.row.exists ? "orange-8" : "green-8"', v-else)
                     | {{ props.row.exists ? 'Already loaded' : 'Missing' }}
               template(v-slot:body-cell-overwrite='props')
                 q-td(:props='props')
@@ -69,8 +69,8 @@
                 q-td(:props='props')
                   .row.items-center.q-gap-8
                     q-spinner(size='14px', color='primary', v-if='props.row.progress === "loading"')
-                    q-chip(size='sm', color='positive-low', text-color='positive', v-if='props.row.progress === "success"') Loaded
-                    q-chip(size='sm', color='negative-low', text-color='negative', v-if='props.row.progress === "error"') Error
+                    q-chip(size='sm', color='green-2', text-color='green-8', v-if='props.row.progress === "success"') Loaded
+                    q-chip(size='sm', color='red-2', text-color='red-8', v-if='props.row.progress === "error"') Error
                     .km-description.text-secondary-text(v-if='props.row.progressMessage') {{ props.row.progressMessage }}
 
             .row.q-mt-md.items-center
@@ -138,19 +138,7 @@
           q-btn(icon='close', flat, dense, @click='showUploadDialog = false')
       q-card-section.card-section-style
         .row.q-col-gutter-md
-          .col-4
-            .km-field.text-secondary-text.q-pb-xs Entity Type
-            q-select(
-              outlined,
-              dense,
-              :options='entityTypeOptions',
-              option-label='label',
-              option-value='value',
-              emit-value,
-              map-options,
-              v-model='uploadEntityType'
-            )
-          .col-8
+          .col-12
             .km-field.text-secondary-text.q-pb-xs JSON File
             q-file(
               outlined,
@@ -164,7 +152,7 @@
         km-btn(flat, label='Cancel', @click='showUploadDialog = false')
         km-btn(
           label='Add to List',
-          :disable='!uploadEntityType || !uploadFile || uploadingJson',
+          :disable='!uploadFile || uploadingJson',
           :loading='uploadingJson',
           @click='addFromJson'
         )
@@ -200,7 +188,6 @@ const exportEntityTypeFilter = ref('all')
 const exportNameFilter = ref('')
 
 const uploadFile = ref(null)
-const uploadEntityType = ref('')
 
 const adminEndpoint = computed(() => store.getters.config?.api?.aiBridge?.urlAdmin || '')
 const requestCredentials = computed(() => store.getters.config?.auth?.enabled ? 'include' : undefined)
@@ -287,19 +274,6 @@ const someExportRowsSelected = computed(() => {
   if (!filteredExportRows.value.length || allExportRowsSelected.value) return false
   return filteredExportRows.value.some((row) => selectedExportKeySet.value.has(row.row_key))
 })
-
-const entityTypeOptions = [
-  { label: 'agent', value: 'agent' },
-  { label: 'ai_app', value: 'ai_app' },
-  { label: 'ai_model', value: 'ai_model' },
-  { label: 'collection', value: 'collection' },
-  { label: 'evaluation_set', value: 'evaluation_set' },
-  { label: 'mcp_server', value: 'mcp_server' },
-  { label: 'prompt', value: 'prompt' },
-  { label: 'provider', value: 'provider' },
-  { label: 'rag_tool', value: 'rag_tool' },
-  { label: 'retrieval_tool', value: 'retrieval_tool' },
-]
 
 const progressValue = computed(() => {
   const total = selected.value.length
@@ -540,7 +514,7 @@ const loadSelected = async () => {
 }
 
 const addFromJson = async () => {
-  if (!uploadFile.value || !uploadEntityType.value) {
+  if (!uploadFile.value) {
     return
   }
 
@@ -556,35 +530,69 @@ const addFromJson = async () => {
     return
   }
 
-  const payloadItems = Array.isArray(payload) ? payload : [payload]
-  const invalidItems = payloadItems.filter((item) => !item || typeof item !== 'object' || !item.system_name)
+  const normalizedRows = []
 
-  if (invalidItems.length > 0) {
-    uploadingJson.value = false
-    $q.notify({ type: 'negative', message: 'Each JSON record must include system_name.' })
-    return
-  }
+  const addRecord = (entityType, item) => {
+    if (!item || typeof item !== 'object' || !entityType) return false
 
-  const jsonRows = payloadItems.map((item) => {
-    const rowKey = `${uploadEntityType.value}:${item.system_name}`
+    const systemName = item.system_name
+    if (!systemName) return false
+
+    const rowKey = `${entityType}:${systemName}`
     jsonPayloadByKey.value[rowKey] = item
-
-    return {
+    normalizedRows.push({
       source: 'json',
-      entity_type: uploadEntityType.value,
-      system_name: item.system_name,
+      entity_type: entityType,
+      system_name: systemName,
       exists: null,
       row_key: rowKey,
-    }
-  })
+    })
+    return true
+  }
 
-  mergeRows(jsonRows)
+  const isExportFormat = payload && !Array.isArray(payload) && typeof payload === 'object' && !payload.system_name
+  const exportData = isExportFormat && payload.data && typeof payload.data === 'object' ? payload.data : payload
+
+  if (isExportFormat && exportData && typeof exportData === 'object') {
+    Object.entries(exportData).forEach(([entityType, records]) => {
+      if (!Array.isArray(records)) return
+      records.forEach((item) => {
+        addRecord(entityType, item)
+      })
+    })
+
+    if (!normalizedRows.length) {
+      uploadingJson.value = false
+      $q.notify({
+        type: 'negative',
+        message: 'Export JSON must contain entity keys with arrays of records that include system_name.',
+      })
+      return
+    }
+  } else {
+    const payloadItems = Array.isArray(payload) ? payload : [payload]
+    const invalidItems = payloadItems.filter(
+      (item) => !item || typeof item !== 'object' || !item.system_name || !item.entity_type
+    )
+
+    if (invalidItems.length > 0) {
+      uploadingJson.value = false
+      $q.notify({ type: 'negative', message: 'Each JSON record must include entity_type and system_name.' })
+      return
+    }
+
+    payloadItems.forEach((item) => {
+      addRecord(item.entity_type, item)
+    })
+  }
+
+  mergeRows(normalizedRows)
 
   uploadingJson.value = false
 
   $q.notify({
     type: 'positive',
-    message: `Added ${jsonRows.length} JSON records to the list.`,
+    message: `Added ${normalizedRows.length} JSON records to the list.`,
   })
 
   uploadFile.value = null
@@ -595,7 +603,5 @@ onMounted(async () => {
   if (activeTab.value !== 'seed-data') {
     await router.replace('/settings/seed-data')
   }
-
-  uploadEntityType.value = entityTypeOptions[0].value
 })
 </script>
