@@ -1,0 +1,445 @@
+[
+    {
+        "url": "https://api.tavily.com",
+        "custom_headers": null,
+        "security_scheme": {
+            "type": "http",
+            "scheme": "bearer"
+        },
+        "security_values": {
+            "token": "{TOKEN}"
+        },
+        "verify_ssl": true,
+        "tools": [
+            {
+                "name": "Web Search",
+                "path": "/search",
+                "method": "POST",
+                "parameters": {
+                    "input": {
+                        "type": "object",
+                        "required": [
+                            "requestBody"
+                        ],
+                        "properties": {
+                            "requestBody": {
+                                "type": "object",
+                                "required": [
+                                    "query"
+                                ],
+                                "properties": {
+                                    "query": {
+                                        "type": "string",
+                                        "example": "who is Leo Messi?",
+                                        "description": "The search query to execute"
+                                    },
+                                    "topic": {
+                                        "enum": [
+                                            "general",
+                                            "news",
+                                            "finance"
+                                        ],
+                                        "type": "string",
+                                        "default": "general",
+                                        "description": "The category of the search. 'news' is useful for retrieving real-time updates, particularly about politics, sports, and major current events covered by mainstream media sources. 'general' is for broader, more general-purpose searches that may include a wide range of sources."
+                                    },
+                                    "end_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2025-12-29",
+                                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                        "description": "Will return all results before the specified end date based on publish date or last updated date. Required to be written in the format YYYY-MM-DD"
+                                    },
+                                    "start_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2025-02-09",
+                                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                        "description": "Will return all results after the specified start date based on publish date or last updated date. Required to be written in the format YYYY-MM-DD"
+                                    },
+                                    "time_range": {
+                                        "enum": [
+                                            "day",
+                                            "week",
+                                            "month",
+                                            "year",
+                                            "d",
+                                            "w",
+                                            "m",
+                                            "y"
+                                        ],
+                                        "type": "string",
+                                        "description": "The time range back from the current date to filter results based on publish date or last updated date. Useful when looking for sources that have published or updated data."
+                                    },
+                                    "max_results": {
+                                        "type": "integer",
+                                        "default": 5,
+                                        "example": 5,
+                                        "maximum": 20,
+                                        "minimum": 0,
+                                        "description": "The maximum number of search results to return"
+                                    },
+                                    "search_depth": {
+                                        "enum": [
+                                            "basic",
+                                            "advanced"
+                                        ],
+                                        "type": "string",
+                                        "default": "basic",
+                                        "description": "The depth of the search. 'advanced' search is tailored to retrieve the most relevant sources and content snippets for your query, while 'basic' search provides generic content snippets from each source. A basic search costs 1 API Credit, while an advanced search costs 2 API Credits."
+                                    },
+                                    "exclude_domains": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "maxItems": 150,
+                                        "description": "A list of domains to specifically exclude from the search results. Maximum 150 domains."
+                                    },
+                                    "include_domains": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "maxItems": 300,
+                                        "description": "A list of domains to specifically include in the search results. Maximum 300 domains."
+                                    },
+                                    "include_raw_content": {
+                                        "type": "boolean",
+                                        "default": false,
+                                        "description": "Include the cleaned and parsed HTML content of each search result. 'markdown' or true returns search result content in markdown format. 'text' returns the plain text from the results and may increase latency."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "output": {}
+                },
+                "description": "Execute a web search query and retrieve relevant results",
+                "system_name": "search",
+                "mock_response": null,
+                "mock_response_enabled": false,
+                "original_operation_definition": {
+                    "summary": "Web Search",
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "results": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string"
+                                                        },
+                                                        "score": {
+                                                            "type": "number"
+                                                        },
+                                                        "title": {
+                                                            "type": "string"
+                                                        },
+                                                        "content": {
+                                                            "type": "string"
+                                                        },
+                                                        "raw_content": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "description": "Successful search response"
+                        },
+                        "400": {
+                            "description": "Bad request - invalid parameters"
+                        },
+                        "401": {
+                            "description": "Unauthorized - invalid API key"
+                        },
+                        "500": {
+                            "description": "Internal server error"
+                        }
+                    },
+                    "description": "Execute a web search query and retrieve relevant results",
+                    "operationId": "search",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "query"
+                                    ],
+                                    "properties": {
+                                        "query": {
+                                            "type": "string",
+                                            "example": "who is Leo Messi?",
+                                            "description": "The search query to execute"
+                                        },
+                                        "topic": {
+                                            "enum": [
+                                                "general",
+                                                "news",
+                                                "finance"
+                                            ],
+                                            "type": "string",
+                                            "default": "general",
+                                            "description": "The category of the search. 'news' is useful for retrieving real-time updates, particularly about politics, sports, and major current events covered by mainstream media sources. 'general' is for broader, more general-purpose searches that may include a wide range of sources."
+                                        },
+                                        "end_date": {
+                                            "type": "string",
+                                            "format": "date",
+                                            "example": "2025-12-29",
+                                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                            "description": "Will return all results before the specified end date based on publish date or last updated date. Required to be written in the format YYYY-MM-DD"
+                                        },
+                                        "start_date": {
+                                            "type": "string",
+                                            "format": "date",
+                                            "example": "2025-02-09",
+                                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                                            "description": "Will return all results after the specified start date based on publish date or last updated date. Required to be written in the format YYYY-MM-DD"
+                                        },
+                                        "time_range": {
+                                            "enum": [
+                                                "day",
+                                                "week",
+                                                "month",
+                                                "year",
+                                                "d",
+                                                "w",
+                                                "m",
+                                                "y"
+                                            ],
+                                            "type": "string",
+                                            "description": "The time range back from the current date to filter results based on publish date or last updated date. Useful when looking for sources that have published or updated data."
+                                        },
+                                        "max_results": {
+                                            "type": "integer",
+                                            "default": 5,
+                                            "example": 5,
+                                            "maximum": 20,
+                                            "minimum": 0,
+                                            "description": "The maximum number of search results to return"
+                                        },
+                                        "search_depth": {
+                                            "enum": [
+                                                "basic",
+                                                "advanced"
+                                            ],
+                                            "type": "string",
+                                            "default": "basic",
+                                            "description": "The depth of the search. 'advanced' search is tailored to retrieve the most relevant sources and content snippets for your query, while 'basic' search provides generic content snippets from each source. A basic search costs 1 API Credit, while an advanced search costs 2 API Credits."
+                                        },
+                                        "exclude_domains": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "maxItems": 150,
+                                            "description": "A list of domains to specifically exclude from the search results. Maximum 150 domains."
+                                        },
+                                        "include_domains": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "maxItems": 300,
+                                            "description": "A list of domains to specifically include in the search results. Maximum 300 domains."
+                                        },
+                                        "include_raw_content": {
+                                            "type": "boolean",
+                                            "default": false,
+                                            "description": "Include the cleaned and parsed HTML content of each search result. 'markdown' or true returns search result content in markdown format. 'text' returns the plain text from the results and may increase latency."
+                                        }
+                                    }
+                                },
+                                "examples": {
+                                    "basic_search": {
+                                        "value": {
+                                            "query": "who is Leo Messi?",
+                                            "max_results": 5,
+                                            "search_depth": "basic",
+                                            "include_raw_content": false
+                                        },
+                                        "summary": "Basic search example"
+                                    }
+                                }
+                            }
+                        },
+                        "required": true
+                    }
+                }
+            },
+            {
+                "name": "Extract content from URLs",
+                "path": "/extract",
+                "method": "POST",
+                "parameters": {
+                    "input": {
+                        "type": "object",
+                        "required": [
+                            "requestBody"
+                        ],
+                        "properties": {
+                            "requestBody": {
+                                "type": "object",
+                                "required": [
+                                    "urls"
+                                ],
+                                "properties": {
+                                    "urls": {
+                                        "type": "string",
+                                        "example": "https://en.wikipedia.org/wiki/Artificial_intelligence",
+                                        "description": "The URL to extract content from"
+                                    },
+                                    "format": {
+                                        "enum": [
+                                            "markdown",
+                                            "text"
+                                        ],
+                                        "type": "string",
+                                        "default": "markdown",
+                                        "description": "The format of the extracted web page content. 'markdown' returns content in markdown format. 'text' returns plain text and may increase latency."
+                                    },
+                                    "timeout": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "maximum": 60,
+                                        "minimum": 1,
+                                        "description": "Maximum time in seconds to wait for the URL extraction before timing out. Must be between 1.0 and 60.0 seconds. If not specified, default timeouts are applied based on extract_depth - 10 seconds for basic extraction and 30 seconds for advanced extraction."
+                                    },
+                                    "extract_depth": {
+                                        "enum": [
+                                            "basic",
+                                            "advanced"
+                                        ],
+                                        "type": "string",
+                                        "default": "basic",
+                                        "description": "The depth of the extraction process. 'advanced' extraction retrieves more data, including tables and embedded content, with higher success but may increase latency. 'basic' extraction costs 1 credit per 5 successful URL extractions, while 'advanced' extraction costs 2 credits per 5 successful URL extractions."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "output": {}
+                },
+                "description": "Extract and parse content from specified URLs",
+                "system_name": "extract",
+                "mock_response": null,
+                "mock_response_enabled": false,
+                "original_operation_definition": {
+                    "summary": "Extract content from URLs",
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {
+                                            "results": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string"
+                                                        },
+                                                        "format": {
+                                                            "type": "string"
+                                                        },
+                                                        "content": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "description": "Successful extraction response"
+                        },
+                        "400": {
+                            "description": "Bad request - invalid parameters"
+                        },
+                        "401": {
+                            "description": "Unauthorized - invalid API key"
+                        },
+                        "500": {
+                            "description": "Internal server error"
+                        }
+                    },
+                    "description": "Extract and parse content from specified URLs",
+                    "operationId": "extract",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "urls"
+                                    ],
+                                    "properties": {
+                                        "urls": {
+                                            "type": "string",
+                                            "example": "https://en.wikipedia.org/wiki/Artificial_intelligence",
+                                            "description": "The URL to extract content from"
+                                        },
+                                        "format": {
+                                            "enum": [
+                                                "markdown",
+                                                "text"
+                                            ],
+                                            "type": "string",
+                                            "default": "markdown",
+                                            "description": "The format of the extracted web page content. 'markdown' returns content in markdown format. 'text' returns plain text and may increase latency."
+                                        },
+                                        "timeout": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "maximum": 60,
+                                            "minimum": 1,
+                                            "description": "Maximum time in seconds to wait for the URL extraction before timing out. Must be between 1.0 and 60.0 seconds. If not specified, default timeouts are applied based on extract_depth - 10 seconds for basic extraction and 30 seconds for advanced extraction."
+                                        },
+                                        "extract_depth": {
+                                            "enum": [
+                                                "basic",
+                                                "advanced"
+                                            ],
+                                            "type": "string",
+                                            "default": "basic",
+                                            "description": "The depth of the extraction process. 'advanced' extraction retrieves more data, including tables and embedded content, with higher success but may increase latency. 'basic' extraction costs 1 credit per 5 successful URL extractions, while 'advanced' extraction costs 2 credits per 5 successful URL extractions."
+                                        }
+                                    }
+                                },
+                                "examples": {
+                                    "basic_extract": {
+                                        "value": {
+                                            "urls": "https://www.biography.com/athletes/lionel-messi",
+                                            "format": "markdown",
+                                            "extract_depth": "basic"
+                                        },
+                                        "summary": "Basic extraction example"
+                                    }
+                                }
+                            }
+                        },
+                        "required": true
+                    }
+                }
+            }
+        ],
+        "name": "Tavily",
+        "description": null,
+        "system_name": "TAVILY",
+        "category": null
+    }
+]

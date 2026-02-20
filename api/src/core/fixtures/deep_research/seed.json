@@ -1,0 +1,26 @@
+[
+    {
+        "config": {
+            "webhook": {
+                "enabled": false,
+                "payload_template": {
+                    "result": {
+                        "sources": "result.sources",
+                        "summary": "result.summary"
+                    },
+                    "client_id": "client_id"
+                }
+            },
+            "max_results": 5,
+            "max_iterations": 1,
+            "reasoning_prompt": "DEFAULT_DEEP_RESEARCH_REASONING",
+            "parallel_tool_calls": false,
+            "process_search_result_prompt": "DEFAULT_DEEP_RESEARCH_PROCESS_SEARCH_RESULT",
+            "analyze_search_results_prompt": "DEFAULT_DEEP_RESEARCH_ANALYZE_SEARCH_RESULTS"
+        },
+        "name": "Default",
+        "description": "Default deep research config",
+        "system_name": "DEFAULT",
+        "category": null
+    }
+]

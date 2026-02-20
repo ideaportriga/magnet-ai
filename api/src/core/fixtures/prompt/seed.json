@@ -236,5 +236,96 @@
                 "sample_test_set": null
             }
         ]
+    },
+    {
+        "active_variant": "variant_1",
+        "variants": [
+            {
+                "text": "You are a research assistant conducting deep research to gather comprehensive information.\n\n**Task:**\n{input.task}\n\n**Process:**\n\n1. Develop varied search queries from different angles to gather comprehensive information\n2. Use the `web_search` tool to find information - you will receive processed summaries\n3. Label each search step:\n   - `initial_search` - First search in a new area\n   - `refining_query` - Adjusting search terms\n   - `different_angle` - Alternative search approaches\n   - `follow_up_lead` - Acting on discovered information\n   - `simplifying_approach` - Making search simpler/broader\n   - `comprehensive_check` - Verification searches\n4. Provide reasoning for each search approach\n\n**When to Present Final Report:**\n\nWhen you have gathered sufficient information and conducted searches from multiple angles, present your final report in JSON format.\n\n**Report Requirements:**\n- **summary**: Write a comprehensive Markdown-formatted text with all key findings. Use headers (##, ###), lists, bold text, and inline links to sources as [Source Title](URL)\n- **sources**: List all unique sources you referenced, with title and URL for each\n- Be concise, factual, and objective\n- Only present the report when investigation is complete\n\n**Important:**\n- Conduct multiple searches from different angles before concluding\n- Continue searching even if early results are limited\n- Do NOT present a report until you have thoroughly researched the task\n\nBegin your research.",
+                "topP": 1,
+                "variant": "variant_1",
+                "retrieve": {
+                    "collection_system_names": []
+                },
+                "description": null,
+                "sample_text": null,
+                "temperature": 0.2,
+                "display_name": null,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "NAME_DEFAULT_DEEP_RESEARCH_REASONING",
+                        "schema": "{\n  \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"$id\": \"https://example.com/deep-research-report.schema.json\",\n  \"title\": \"Deep Research Report\",\n  \"description\": \"Generic schema for deep research final report\",\n  \"type\": \"object\",\n  \"required\": [\"summary\", \"sources\"],\n  \"properties\": {\n    \"summary\": {\n      \"type\": \"string\",\n      \"description\": \"Comprehensive summary of research findings in Markdown format. Include all key information discovered, organized in a clear and readable way. Use Markdown formatting (headers, lists, bold, etc.) as appropriate.\"\n    },\n    \"sources\": {\n      \"type\": \"array\",\n      \"minItems\": 1,\n      \"description\": \"List of all sources referenced in the research\",\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\"title\", \"url\"],\n        \"properties\": {\n          \"title\": {\n            \"type\": \"string\",\n            \"minLength\": 1,\n            \"description\": \"Title or description of the source\"\n          },\n          \"url\": {\n            \"type\": \"string\",\n            \"format\": \"uri\",\n            \"description\": \"URL of the source\"\n          }\n        },\n        \"additionalProperties\": false\n      }\n    }\n  },\n  \"additionalProperties\": false\n}\n",
+                        "strict": true
+                    }
+                },
+                "sample_test_set": null,
+                "observability_level": "full",
+                "system_name_for_model": "AZURE_OPEN_AI_GPT-4.1"
+            }
+        ],
+        "name": "DEFAULT_DEEP_RESEARCH_REASONING",
+        "description": "",
+        "system_name": "DEFAULT_DEEP_RESEARCH_REASONING",
+        "category": "generic"
+    },
+    {
+        "active_variant": "variant_1",
+        "variants": [
+            {
+                "text": "\nYou are analyzing a web page for the following research task:\n\n**Task:** {input.task}\n\n**Research Context:**\n- Search query: {query}\n- Why this page was selected: {relevance_reasoning}\n\n**Page Information:**\n- Title: {page_title}\n- URL: {page_url}\n\n---\n\n## Page Content\n\n{page_content}\n\n---\n\n## Instructions\n\n1. Extract facts relevant to the research task\n2. Focus on what the analysis step identified: \"{relevance_reasoning}\"\n3. Return a concise summary (1-2 short paragraphs) of ONLY relevant facts\n4. Include inline Markdown links: `[{page_title}]({page_url})`\n5. If nothing relevant is found, return: `No relevant findings from this source.`\n\n**Do NOT:**\n- Include information not present on this page\n- Speculate or add context beyond what's written\n- Include irrelevant content\n\n**Response Format:** Plain text narrative with inline Markdown links\n",
+                "topP": 1,
+                "variant": "variant_1",
+                "retrieve": {
+                    "collection_system_names": []
+                },
+                "description": null,
+                "sample_text": null,
+                "temperature": 0.2,
+                "display_name": null,
+                "response_format": {
+                    "type": "text"
+                },
+                "sample_test_set": null,
+                "observability_level": "full",
+                "system_name_for_model": "AZURE_OPEN_AI_AZURE_OPEN_AI:_GPT-4.1-MINI"
+            }
+        ],
+        "name": "DEFAULT_DEEP_RESEARCH_PROCESS_SEARCH_RESULT",
+        "description": "",
+        "system_name": "DEFAULT_DEEP_RESEARCH_PROCESS_SEARCH_RESULT",
+        "category": "generic"
+    },
+    {
+        "active_variant": "variant_1",
+        "variants": [
+            {
+                "text": "You are analyzing search results for the following research task:\n\n**Task:** {input.task}\n\nYou performed a search query: {query}\n\n## Search Results\n\n{results}\n\n## Instructions\n\nDetermine which results are relevant to the research task. A result is relevant if it plausibly contains information directly related to the task objectives.\n\nFor each result, provide your reasoning and include only relevant results in your response.\n\nReturn your analysis in the JSON format defined by the schema.",
+                "topP": 1,
+                "variant": "variant_1",
+                "retrieve": {
+                    "collection_system_names": []
+                },
+                "description": null,
+                "sample_text": null,
+                "temperature": 0.2,
+                "display_name": null,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "NAME_DEFAULT_DEEP_RESEARCH_ANALYZE_SEARCH_RESULTS",
+                        "schema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"relevant_results\": {\n      \"type\": \"array\",\n      \"description\": \"List of relevant search results with reasoning\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"url\": {\n            \"type\": \"string\",\n            \"description\": \"The URL of the relevant result\"\n          },\n          \"reasoning\": {\n            \"type\": \"string\",\n            \"description\": \"Brief explanation of why this result is relevant to the research query\"\n          }\n        },\n        \"required\": [\"url\", \"reasoning\"]\n      }\n    }\n  },\n  \"required\": [\"relevant_results\"]\n}",
+                        "strict": true
+                    }
+                },
+                "sample_test_set": null,
+                "observability_level": "full",
+                "system_name_for_model": "AZURE_OPEN_AI_AZURE_OPEN_AI:_GPT-4.1-MINI"
+            }
+        ],
+        "name": "DEFAULT_DEEP_RESEARCH_ANALYZE_SEARCH_RESULTS",
+        "description": "",
+        "system_name": "DEFAULT_DEEP_RESEARCH_ANALYZE_SEARCH_RESULTS",
+        "category": "generic"
     }
 ]
