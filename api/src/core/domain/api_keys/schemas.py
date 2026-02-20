@@ -18,8 +18,8 @@ class APIKeyBaseSchema(BaseModel):
     id: Optional[UUID] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    created_by: Optional[UUID] = None
-    updated_by: Optional[UUID] = None
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
 
 
 class APIKeyFieldsMixin(BaseModel):

@@ -97,6 +97,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
         self._language_code = None
 
         self._num_speakers = None
+        self._diarization_threshold: float | None = None
         internal = cfg.internal_cfg or {}
 
         raw_ns = internal.get("num_speakers")
@@ -107,6 +108,20 @@ class ElevenLabsTranscriber(BaseTranscriber):
                     self._num_speakers = ns_int
             except (TypeError, ValueError):
                 self._num_speakers = None
+
+        raw_thr = internal.get("diarization_threshold")
+        if raw_thr is not None:
+            try:
+                thr = float(raw_thr)
+                if 0.1 <= thr <= 0.4:
+                    self._diarization_threshold = thr
+            except (TypeError, ValueError):
+                self._diarization_threshold = None
+
+        if self._num_speakers is not None and self._diarization_threshold is not None:
+            raise ValueError(
+                "Provide either num_speakers OR diarization_threshold, not both."
+            )
 
     async def _transcribe(self, file_id: str) -> Dict[str, Any]:
         src_url = await self._storage.get_audio_url(file_id)
@@ -147,6 +162,8 @@ class ElevenLabsTranscriber(BaseTranscriber):
                         kwargs["entity_detection"] = self._cfg.entity_detection
                     if self._num_speakers is not None:
                         kwargs["num_speakers"] = self._num_speakers
+                    if self._diarization_threshold is not None:
+                        kwargs["diarization_threshold"] = self._diarization_threshold
 
                     return self._client.speech_to_text.convert(**kwargs)
 

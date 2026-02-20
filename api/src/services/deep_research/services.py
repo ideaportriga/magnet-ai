@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 from uuid import UUID
@@ -32,6 +33,28 @@ from core.db.models.deep_research.run import DeepResearchRun as DeepResearchRunD
 
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_json_data(obj: Any) -> Any:
+    """
+    Recursively remove null bytes and control characters from strings.
+    These characters cause issues in most SQL databases (especially PostgreSQL JSONB).
+    Pattern adapted from data_sync/utils.py clean_text function.
+    """
+    if isinstance(obj, str):
+        # Remove invalid or garbage characters (from clean_text)
+        text = obj.replace("\u0e00", " ")
+        text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\xEF\xBF\xBE]", " ", text)
+        text = re.sub(r"[\uf020-\uf074\ufffe]", " ", text)
+        return text
+    elif isinstance(obj, dict):
+        return {key: _sanitize_json_data(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_json_data(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(_sanitize_json_data(item) for item in obj)
+    else:
+        return obj
 
 
 def _track_usage(run: DeepResearchRun, result_data: Any) -> None:
@@ -462,8 +485,12 @@ async def _execute_reasoning_step(
         )
 
         # Build template_values from input
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         template_values = {
-            **run.input,  # Spread all input variables
+            **run.input,  # Spread all input variables for backward compatibility (e.g., {task})
+            **flattened_input,  # Also provide namespaced access (e.g., {input.task})
             "iteration": iteration,
             "max_iterations": config.max_iterations,
             "search_history": "\n".join(f"- {q}" for q in memory.search_queries),
@@ -698,7 +725,11 @@ async def _analyze_search_results(
             ]
         )
 
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         context = {
+            **flattened_input,  # Namespaced input (e.g., {input.task})
             "query": query,
             "results_count": len(results),
             "results": results_text,
@@ -853,9 +884,12 @@ async def _process_search_result(
         # Get relevance reasoning from analysis step
         relevance_reasoning = result.get("relevance_reasoning", "")
 
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         context = {
+            **flattened_input,  # Namespaced input (e.g., {input.task})
             "query": query,
-            "research_query": run.input.get("query", ""),
             "page_title": title,
             "page_url": url,
             "page_content": page_content,
@@ -958,6 +992,12 @@ def _resolve_webhook_template(
             if value is None:
                 return None
 
+        # Convert non-JSON-serializable types to strings
+        if isinstance(value, datetime):
+            return value.isoformat()
+        elif isinstance(value, UUID):
+            return str(value)
+
         return value
 
     return resolve_path(template)
@@ -1035,7 +1075,7 @@ def _serialize_memory(memory: DeepResearchMemory) -> dict[str, Any]:
 
 def _serialize_run_details(run: DeepResearchRun) -> dict[str, Any]:
     """Build details payload for persistence."""
-    return {
+    details = {
         "memory": _serialize_memory(run.memory),
         "iterations": [
             iteration.model_dump(mode="json") for iteration in run.iterations
@@ -1049,6 +1089,8 @@ def _serialize_run_details(run: DeepResearchRun) -> dict[str, Any]:
         "total_latency": run.total_latency,
         "total_cost": run.total_cost,
     }
+    # Sanitize to remove null bytes and control characters that SQL databases cannot handle
+    return _sanitize_json_data(details)
 
 
 def _map_db_run_to_service(db_run: "DeepResearchRunDB") -> DeepResearchRun:

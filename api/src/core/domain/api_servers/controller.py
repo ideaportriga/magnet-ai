@@ -126,6 +126,7 @@ class ApiServersController(Controller):
         """Update an API server."""
         update_data = data.model_dump(exclude_unset=True)
         update_data["updated_by"] = audit_username
+        update_data = ApiServerUpdate(**update_data)
         obj = await api_servers_service.update(
             update_data, item_id=api_server_id, auto_commit=True
         )

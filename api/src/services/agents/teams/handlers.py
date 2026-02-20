@@ -55,6 +55,13 @@ async def _send_response_card(ctx: TurnContext, payload: AssistantPayload) -> No
     await ctx.send_activity(activity)
 
 
+async def _send_typing(ctx: TurnContext) -> None:
+    try:
+        await ctx.send_activity(Activity(type="typing"))
+    except Exception:
+        logger.debug("[agents] failed to send typing indicator", exc_info=True)
+
+
 async def _send_feedback_result_card(ctx: TurnContext, payload: dict):
     logger.info(f"[agents] _send_feedback_result_card payload: {payload}")
     card = create_feedback_result_card(payload)
@@ -80,7 +87,7 @@ def _make_on_members_added_handler(agent_system_name: str):
     return on_members_added
 
 
-def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnState]):
+def _make_on_message_handler(agent_system_name: str):
     def _format_exception_message(e: Exception) -> str:
         etype = e.__class__.__name__
         message = str(e)
@@ -119,7 +126,7 @@ def _make_on_message_handler(agent_system_name: str, app: AgentApplication[TurnS
             return
 
         try:
-            await app.typing.start(ctx)
+            await _send_typing(ctx)
 
             assistant_payload: AssistantPayload = await continue_conversation(
                 agent_system_name=agent_system_name,
@@ -346,5 +353,5 @@ def register_handlers(
     app.conversation_update("membersAdded")(
         _make_on_members_added_handler(agent_system_name or "")
     )
-    app.activity("message")(_make_on_message_handler(agent_system_name or "", app))
+    app.activity("message")(_make_on_message_handler(agent_system_name or ""))
     app.activity("invoke")(on_invoke_feedback)

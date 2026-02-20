@@ -43,10 +43,10 @@ class UUIDAuditSimpleBase(UUIDv7AuditBase, UniqueMixin):
         String(255), nullable=True, comment="Entity category"
     )
     created_by: Mapped[Optional[str]] = mapped_column(
-        String(36), nullable=True, comment="ID of the user who created the entity"
+        String(255), nullable=True, comment="User who created the entity"
     )
     updated_by: Mapped[Optional[str]] = mapped_column(
-        String(36), nullable=True, comment="ID of the user who last updated the entity"
+        String(255), nullable=True, comment="User who last updated the entity"
     )
 
     @classmethod
