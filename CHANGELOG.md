@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.14](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.13...v0.6.0-dev.14) (2026-02-20)
+
+### ✨ Features
+
+* **deep-research:** add fixtures ([c455bb5](https://github.com/ideaportriga/magnet-ai/commit/c455bb54b53f9539d7d9b22c220ea245516f7ae0))
+* **deep-research:** adjust default run input value ([c1c978c](https://github.com/ideaportriga/magnet-ai/commit/c1c978c06171112e462d1b211aa88bbb72f8399f))
+
+### 🐛 Bug Fixes
+
+* **deep-research:** fix model ([0aaf16d](https://github.com/ideaportriga/magnet-ai/commit/0aaf16dd569e078284847f983a69beddd5ba71b1))
+* **deep-research:** fix name and system name updating ([81a9d81](https://github.com/ideaportriga/magnet-ai/commit/81a9d8198249bf50bca66c9c57450ef253891f75))
+
 ## [0.6.0-dev.13](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.12...v0.6.0-dev.13) (2026-02-20)
 
 ### ✨ Features
