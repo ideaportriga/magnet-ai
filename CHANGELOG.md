@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.13](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.12...v0.6.0-dev.13) (2026-02-20)
+
+### ✨ Features
+
+*  export / import functionality ([243220c](https://github.com/ideaportriga/magnet-ai/commit/243220c45b1dc9f0c9bbaaf0c1234b65925b52d9))
+* export import configurations  ([01fbd7a](https://github.com/ideaportriga/magnet-ai/commit/01fbd7a2a59ae6fa18ecf505b335ec1144eebf09))
+* import/export entities in json ([02a8570](https://github.com/ideaportriga/magnet-ai/commit/02a85702739fb2374ea14f6db8e848029692ca9f))
+
+### 🐛 Bug Fixes
+
+* service invocation ([3397d78](https://github.com/ideaportriga/magnet-ai/commit/3397d78919187e576da389745033234d5fab7533))
+* **settings:** validate active tab against allowed values ([23a1a05](https://github.com/ideaportriga/magnet-ai/commit/23a1a05dfcaa114d4d12e8a504e8b84bb2e5a42d))
+
 ## [0.6.0-dev.12](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.11...v0.6.0-dev.12) (2026-02-19)
 
 ### ✨ Features
