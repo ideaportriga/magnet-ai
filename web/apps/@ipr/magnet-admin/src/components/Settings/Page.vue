@@ -221,7 +221,11 @@ const uploadFile = ref(null)
 
 const adminEndpoint = computed(() => store.getters.config?.api?.aiBridge?.urlAdmin || '')
 const requestCredentials = computed(() => store.getters.config?.auth?.enabled ? 'include' : undefined)
-const activeTab = computed(() => (route.params.tab || 'seed-data'))
+const allowedTabs = ['import', 'export']
+const activeTab = computed(() => {
+  const tab = route.params.tab
+  return allowedTabs.includes(tab) ? tab : 'import'
+})
 
 const onTabChange = async (tab) => {
   if (tab && tab !== route.params.tab) {
