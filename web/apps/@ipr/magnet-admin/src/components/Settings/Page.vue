@@ -14,12 +14,15 @@
             content-class='km-tabs',
             @update:model-value='onTabChange'
           )
-            q-tab(name='seed-data', label='Seed Data')
-            q-tab(name='export-data', label='Export Data')
+            q-tab(name='import', label='Import')
+            q-tab(name='export', label='Export')
 
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width(v-if='activeTab === "seed-data"')
+          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width.relative-position(v-if='activeTab === "import"')
+            q-inner-loading(:showing='loadingPreview || populating || checkingExists')
+              q-spinner-dots(color='primary', size='40px')
+              .km-description.text-primary.q-mt-sm {{ loadingPreview ? 'Loading seed records...' : populating ? 'Importing records...' : 'Checking records...' }}
             .row.items-center.q-mb-md
-              .km-heading-7 Seed Data
+              .km-heading-7 Import
               q-space
               km-btn.q-mr-8(flat, label='Add from JSON', icon='fas fa-upload', @click='showUploadDialog = true')
               km-btn.q-mr-8(flat, label='Add from Seed', icon='fas fa-database', :loading='loadingPreview', @click='addFromSeed')
@@ -31,14 +34,36 @@
               )
               km-btn(flat, label='Clear List', icon='fas fa-trash', :disable='rows.length === 0 || populating', @click='clearList')
             .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-md
-              q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
-              .km-paragraph.q-pb-4 The list is empty by default. Add candidate records from Seed or JSON, select needed rows, then click Load Selected.
+              km-notification-text(notification='The list is empty by default. Add candidate records from Seed or JSON, select needed rows, then click Load Selected.')
+            .row.q-col-gutter-md.q-mb-md
+              .col-2
+                km-input(placeholder='Search', iconBefore='search', v-model='importSearch', clearable)
+              .col-1
+                km-select(
+                  v-model='importEntityTypeFilter',
+                  :options='importEntityTypeOptions',
+                  emit-value,
+                  map-options,
+                  option-label='label',
+                  option-value='value',
+                  placeholder='Entity Type'
+                )
+              .col-1
+                km-select(
+                  v-model='importStatusFilter',
+                  :options='importStatusOptions',
+                  emit-value,
+                  map-options,
+                  option-label='label',
+                  option-value='value',
+                  placeholder='Status'
+                )
             .row(v-if='rows.length === 0').q-mb-md.bg-light.q-pa-sm.border-radius-6
               .km-description.text-secondary-text The list is empty. Use Add from Seed or Add from JSON.
             .row(v-if='selectedHasExisting').q-mb-md.bg-warning-low.q-pa-sm.border-radius-6
               .km-description.text-primary Existing selected records will be overwritten.
             q-table.full-width(
-              :rows='displayRows',
+              :rows='filteredImportRows',
               :columns='columns',
               row-key='row_key',
               selection='multiple',
@@ -77,9 +102,12 @@
               .col
                 q-linear-progress(v-if='populating', :value='progressValue', color='primary', rounded, size='8px')
 
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width(v-if='activeTab === "export-data"')
+          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width.relative-position(v-if='activeTab === "export"')
+            q-inner-loading(:showing='loadingExportPreview || exportingJson')
+              q-spinner-dots(color='primary', size='40px')
+              .km-description.text-primary.q-mt-sm {{ loadingExportPreview ? 'Loading records from database...' : 'Exporting records...' }}
             .row.items-center.q-mb-md
-              .km-heading-7 Export Data
+              .km-heading-7 Export
               q-space
               km-btn.q-mr-8(flat, label='Add from Database', icon='fas fa-database', :loading='loadingExportPreview', @click='addFromDatabase')
               km-btn.q-mr-8(
@@ -93,22 +121,20 @@
               .col-4
                 km-input(placeholder='Search', iconBefore='search', v-model='exportSearch', clearable)
               .col-4
-                q-select(
-                  outlined,
-                  dense,
+                km-select(
                   v-model='exportEntityTypeFilter',
                   :options='exportEntityTypeOptions',
                   emit-value,
                   map-options,
                   option-label='label',
                   option-value='value',
-                  label='Entity Type'
+                  placeholder='Entity Type'
                 )
               .col-4
                 km-input(placeholder='Filter by Name', v-model='exportNameFilter', clearable)
-            .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-md
+            //- .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-md
               q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
-              .km-paragraph.q-pb-4 Add records from any entity, select needed rows, then click Export Selected to download JSON in import format.
+              .km-paragraph Add records from any entity, select needed rows, then click Export Selected to download JSON in import format.
             .row(v-if='exportRows.length === 0').q-mb-md.bg-light.q-pa-sm.border-radius-6
               .km-description.text-secondary-text The list is empty. Use Add from Database.
             q-table.full-width(
@@ -174,6 +200,7 @@ const loadingPreview = ref(false)
 const loadingExportPreview = ref(false)
 const populating = ref(false)
 const uploadingJson = ref(false)
+const checkingExists = ref(false)
 const exportingJson = ref(false)
 const showUploadDialog = ref(false)
 
@@ -183,6 +210,9 @@ const progressByKey = ref({})
 const jsonPayloadByKey = ref({})
 const exportRows = ref([])
 const selectedExport = ref([])
+const importSearch = ref('')
+const importEntityTypeFilter = ref('all')
+const importStatusFilter = ref('all')
 const exportSearch = ref('')
 const exportEntityTypeFilter = ref('all')
 const exportNameFilter = ref('')
@@ -213,6 +243,35 @@ const exportColumns = [
   { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
   { name: 'system_name', label: 'System Name', field: 'system_name', align: 'left', sortable: true },
 ]
+
+const importEntityTypeOptions = computed(() => {
+  const values = [...new Set(rows.value.map((row) => row.entity_type))].sort()
+  return [{ label: 'All', value: 'all' }, ...values.map((value) => ({ label: value, value }))]
+})
+
+const importStatusOptions = [
+  { label: 'All', value: 'all' },
+  { label: 'Missing', value: 'missing' },
+  { label: 'Already loaded', value: 'loaded' },
+  { label: 'Unknown', value: 'unknown' },
+]
+
+const filteredImportRows = computed(() => {
+  const search = importSearch.value?.trim().toLowerCase() || ''
+
+  return displayRows.value.filter((row) => {
+    const byType = importEntityTypeFilter.value === 'all' || row.entity_type === importEntityTypeFilter.value
+    const rowSystemName = String(row.system_name || '').toLowerCase()
+    const rowEntity = String(row.entity_type || '').toLowerCase()
+    const bySearch = !search || rowSystemName.includes(search) || rowEntity.includes(search)
+    const byStatus =
+      importStatusFilter.value === 'all' ||
+      (importStatusFilter.value === 'unknown' && row.exists === null) ||
+      (importStatusFilter.value === 'missing' && row.exists === false) ||
+      (importStatusFilter.value === 'loaded' && row.exists === true)
+    return byType && bySearch && byStatus
+  })
+})
 
 const exportEntityTypeOptions = computed(() => {
   const values = [...new Set(exportRows.value.map((row) => row.entity_type))].sort()
@@ -256,13 +315,13 @@ const displayRows = computed(() => {
 const selectedHasExisting = computed(() => selected.value.some((row) => row.exists))
 
 const allSeedRowsSelected = computed(() => {
-  if (!displayRows.value.length) return false
-  return displayRows.value.every((row) => selectedKeySet.value.has(row.row_key))
+  if (!filteredImportRows.value.length) return false
+  return filteredImportRows.value.every((row) => selectedKeySet.value.has(row.row_key))
 })
 
 const someSeedRowsSelected = computed(() => {
-  if (!displayRows.value.length || allSeedRowsSelected.value) return false
-  return displayRows.value.some((row) => selectedKeySet.value.has(row.row_key))
+  if (!filteredImportRows.value.length || allSeedRowsSelected.value) return false
+  return filteredImportRows.value.some((row) => selectedKeySet.value.has(row.row_key))
 })
 
 const allExportRowsSelected = computed(() => {
@@ -332,10 +391,23 @@ const clearList = () => {
   selected.value = []
   progressByKey.value = {}
   jsonPayloadByKey.value = {}
+  importSearch.value = ''
+  importEntityTypeFilter.value = 'all'
+  importStatusFilter.value = 'all'
 }
 
 const toggleSelectAllSeedRows = (value) => {
-  selected.value = value ? [...displayRows.value] : []
+  if (value) {
+    const selectedMap = new Map(selected.value.map((row) => [row.row_key, row]))
+    filteredImportRows.value.forEach((row) => {
+      selectedMap.set(row.row_key, row)
+    })
+    selected.value = [...selectedMap.values()]
+    return
+  }
+
+  const filteredKeys = new Set(filteredImportRows.value.map((row) => row.row_key))
+  selected.value = selected.value.filter((row) => !filteredKeys.has(row.row_key))
 }
 
 const clearExportList = () => {
@@ -589,19 +661,47 @@ const addFromJson = async () => {
   mergeRows(normalizedRows)
 
   uploadingJson.value = false
+  uploadFile.value = null
+  showUploadDialog.value = false
+
+  // Check which records already exist in the database (after dialog closes so overlay is visible)
+  checkingExists.value = true
+  const checkResponse = await fetchData({
+    endpoint: adminEndpoint.value,
+    service: 'settings/seed/check-exists',
+    method: 'POST',
+    credentials: requestCredentials.value,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      items: normalizedRows.map((row) => ({
+        entity_type: row.entity_type,
+        system_name: row.system_name,
+      })),
+    }),
+  })
+
+  if (!checkResponse?.error) {
+    const checkData = await checkResponse.json()
+    const existsMap = new Map(
+      (checkData.items || []).map((item) => [`${item.entity_type}:${item.system_name}`, item.exists])
+    )
+    rows.value = rows.value.map((row) => {
+      if (!existsMap.has(row.row_key)) return row
+      return { ...row, exists: existsMap.get(row.row_key) }
+    })
+  }
+
+  checkingExists.value = false
 
   $q.notify({
     type: 'positive',
     message: `Added ${normalizedRows.length} JSON records to the list.`,
   })
-
-  uploadFile.value = null
-  showUploadDialog.value = false
 }
 
 onMounted(async () => {
-  if (activeTab.value !== 'seed-data') {
-    await router.replace('/settings/seed-data')
+  if (activeTab.value !== 'import') {
+    await router.replace('/settings/import')
   }
 })
 </script>

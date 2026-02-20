@@ -543,7 +543,7 @@ const routes = [
   },
   {
     path: '/settings',
-    redirect: '/settings/seed-data',
+    redirect: '/settings/import',
   },
   {
     path: '/settings/:tab',
