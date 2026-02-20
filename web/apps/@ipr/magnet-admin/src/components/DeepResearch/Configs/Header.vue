@@ -98,7 +98,7 @@ export default {
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
       showRunDialog: ref(false),
-      runInput: ref('{"query": ""}'),
+      runInput: ref('{"task": ""}'),
       runClientId: ref(''),
       creatingRun: ref(false),
     }
@@ -244,7 +244,7 @@ export default {
         })
 
         this.showRunDialog = false
-        this.runInput = '{"query": ""}'
+        this.runInput = '{"task": ""}'
         this.runClientId = ''
 
         // Navigate to the new run
