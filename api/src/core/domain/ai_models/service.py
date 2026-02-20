@@ -31,8 +31,12 @@ class AIModelsService(service.SQLAlchemyAsyncRepositoryService[AIModel]):
         Uses exclude_unset=True to only update fields that were explicitly set in the request,
         preventing unintentional clearing of optional fields like provider_system_name.
         """
-        # Use exclude_unset to only include fields that were explicitly provided
-        update_data = data.model_dump(exclude_unset=True)
+        # Support both schema instances and plain dict payloads from controllers.
+        if isinstance(data, dict):
+            update_data = data
+        else:
+            # Use exclude_unset to only include fields that were explicitly provided
+            update_data = data.model_dump(exclude_unset=True)
 
         # Call parent update method with the filtered data
         return await super().update(

@@ -48,6 +48,7 @@ import KnowledgeProvidersDetails from '@/components/KnowledgeProviders/Details.v
 import KnowledgeGraphPage from '@/components/KnowledgeGraph/Page.vue'
 import NoteTakerPage from '@/components/NoteTaker/Page.vue'
 import NoteTakerSettingsPage from '@/components/NoteTaker/Settings.vue'
+import SettingsPage from '@/components/Settings/Page.vue'
 import store from '@/store/index'
 
 const routes = [
@@ -538,6 +539,18 @@ const routes = [
       chroma: true,
       entity: 'knowledge_graph',
       detail: true,
+    },
+  },
+  {
+    path: '/settings',
+    redirect: '/settings/import',
+  },
+  {
+    path: '/settings/:tab',
+    name: 'Settings',
+    component: SettingsPage,
+    meta: {
+      pageLabel: 'Settings',
     },
   },
   {

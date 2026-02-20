@@ -164,24 +164,35 @@ class FixtureLoader:
         Returns:
             Model class or None if not found.
         """
+        # Explicit mapping: entity_name -> (module_path, class_name)
+        # Required for names that don't follow simple CamelCase conversion
+        # (e.g. acronyms like API, MCP, AI) or non-standard module paths.
+        ENTITY_MAP: dict[str, tuple[str, str]] = {
+            "agent": ("core.db.models.agent", "Agent"),
+            "ai_app": ("core.db.models.ai_app", "AIApp"),
+            "ai_model": ("core.db.models.ai_model", "AIModel"),
+            "api_server": ("core.db.models.api_server", "APIServer"),
+            "api_tool": ("core.db.models.api_tool", "APITool"),
+            "collection": ("core.db.models.collection", "Collection"),
+            "deep_research": ("core.db.models.deep_research", "DeepResearchConfig"),
+            "evaluation_set": ("core.db.models.evaluation_set", "EvaluationSet"),
+            "knowledge_graph": ("core.db.models.knowledge_graph", "KnowledgeGraph"),
+            "mcp_server": ("core.db.models.mcp_server", "MCPServer"),
+            "note_taker_settings": (
+                "core.db.models.teams.note_taker_settings",
+                "NoteTakerSettings",
+            ),
+            "prompt": ("core.db.models.prompt", "Prompt"),
+            "provider": ("core.db.models.provider", "Provider"),
+            "rag_tool": ("core.db.models.rag_tool", "RagTool"),
+            "retrieval_tool": ("core.db.models.retrieval_tool", "RetrievalTool"),
+        }
+
         try:
-            # Import the model dynamically - adjust path based on actual structure
-            if entity_name == "ai_model":
-                module_path = "core.db.models.ai_model"
-                class_name = "AIModel"
-            elif entity_name == "ai_app":
-                module_path = "core.db.models.ai_app"
-                class_name = "AIApp"
-            elif entity_name == "mcp_server":
-                module_path = "core.db.models.mcp_server"
-                class_name = "MCPServer"
-            elif entity_name == "evaluation_set":
-                module_path = "core.db.models.evaluation_set.evaluation_set"
-                class_name = "EvaluationSet"
-            elif entity_name == "collection":
-                module_path = "core.db.models.collection.collection"
-                class_name = "Collection"
+            if entity_name in ENTITY_MAP:
+                module_path, class_name = ENTITY_MAP[entity_name]
             else:
+                # Fallback for unknown entities
                 module_path = f"core.db.models.{entity_name}"
                 class_name = self._entity_name_to_class_name(entity_name)
 

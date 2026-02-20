@@ -55,6 +55,8 @@
         labelClass='km-title'
       )
     .column.q-mt-auto.q-gap-6
+      km-nav-btn(icon='fas fa-sliders', label='Settings', path='settings', :parentRoute='parentRoute', @navigate='navigate')
+      km-separator
       km-btn(
         icon='fas fa-sign-out-alt',
         iconSize='16px',

@@ -31,7 +31,10 @@ class ApiServersService(service.SQLAlchemyAsyncRepositoryService[APIServer]):
         - If key comes with empty/null value - keep existing value
         - If key is not present in request - delete it from secrets
         """
-        update_data = data.model_dump(exclude_unset=True)
+        if isinstance(data, dict):
+            update_data = data
+        else:
+            update_data = data.model_dump(exclude_unset=True)
 
         # Special handling for secrets_encrypted
         if "secrets_encrypted" in update_data:
