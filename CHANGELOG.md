@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.16](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.15...v0.6.0-dev.16) (2026-02-25)
+
+### 🐛 Bug Fixes
+
+* **api:** changed elevenlabs token creation to async ([dce7022](https://github.com/ideaportriga/magnet-ai/commit/dce7022d7a1ff78b66462b5aa8ea6c0e64323cf6))
+
 ## [0.6.0-dev.15](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.14...v0.6.0-dev.15) (2026-02-25)
 
 ### ✨ Features
