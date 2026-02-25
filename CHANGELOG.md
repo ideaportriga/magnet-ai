@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.15](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.14...v0.6.0-dev.15) (2026-02-25)
+
+### ✨ Features
+
+* **api:** added elevenlabs scribe token creation support ([824dabe](https://github.com/ideaportriga/magnet-ai/commit/824dabe88dd79773ef5ae29e4cc585d2fd27244f))
+
 ## [0.6.0-dev.14](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.13...v0.6.0-dev.14) (2026-02-20)
 
 ### ✨ Features
