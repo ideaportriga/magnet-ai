@@ -1,11 +1,12 @@
 from __future__ import annotations
+import os
 from typing import Any, Optional
 
-from elevenlabs import ElevenLabs
+from elevenlabs import AsyncElevenLabs
 from litestar import Controller, get, post, Request
 from litestar.exceptions import HTTPException
 from litestar.datastructures import UploadFile
-
+import httpx
 from speech_to_text.transcription import service
 
 MAX_UPLOAD_BYTES = 1000 * 1024 * 1024  # 1GB
@@ -175,13 +176,19 @@ class RecordingsController(Controller):
 
     @get("/scribe-token")
     async def scribe_token(self) -> dict[str, Any]:
-        """
-        Returns a single-use token for client-side realtime Scribe STT.
-        Client should request a new token for each realtime session.
-        """
+        api_key = os.getenv("ELEVENLABS_API_KEY")
+        if not api_key:
+            raise HTTPException(status_code=500, detail="ELEVENLABS_API_KEY not set")
+
         try:
-            client = ElevenLabs()
-            token = client.tokens.single_use.create("realtime_scribe")
+            client = AsyncElevenLabs(api_key=api_key, timeout=30)
+            token = await client.tokens.single_use.create("realtime_scribe")
             return token if isinstance(token, dict) else token.model_dump()
+        except httpx.TimeoutException:
+            raise HTTPException(status_code=504, detail="ElevenLabs timed out")
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=502, detail=f"ElevenLabs network error: {e}"
+            )
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to create token: {e}")
