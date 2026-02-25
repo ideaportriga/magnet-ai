@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Any, Optional
 
+from elevenlabs import ElevenLabs
 from litestar import Controller, get, post, Request
 from litestar.exceptions import HTTPException
 from litestar.datastructures import UploadFile
@@ -171,3 +172,16 @@ class RecordingsController(Controller):
                 status_code=404, detail="Transcription not available yet"
             )
         return {"transcription": tx}
+
+    @get("/scribe-token")
+    async def scribe_token(self) -> dict[str, Any]:
+        """
+        Returns a single-use token for client-side realtime Scribe STT.
+        Client should request a new token for each realtime session.
+        """
+        try:
+            client = ElevenLabs()
+            token = client.tokens.single_use.create("realtime_scribe")
+            return token if isinstance(token, dict) else token.model_dump()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to create token: {e}")
