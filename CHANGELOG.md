@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.17](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.16...v0.6.0-dev.17) (2026-02-25)
+
+### ✨ Features
+
+* **knowledge-graph:** allow ingesting documents with metadata ([e91ea4c](https://github.com/ideaportriga/magnet-ai/commit/e91ea4c1e539e7a09c016e18e383339d52ae9265))
+
 ## [0.6.0-dev.16](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.15...v0.6.0-dev.16) (2026-02-25)
 
 ### 🐛 Bug Fixes
