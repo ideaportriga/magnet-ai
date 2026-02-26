@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.18](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.17...v0.6.0-dev.18) (2026-02-26)
+
+### ✨ Features
+
+* **traces:** add persistent key to filter bar component ([6804b3f](https://github.com/ideaportriga/magnet-ai/commit/6804b3f300db399f00d7c6484e13cfa8d170e42b))
+
+### 🐛 Bug Fixes
+
+* **utils:** text extraction with asyncio ([3604027](https://github.com/ideaportriga/magnet-ai/commit/36040274411325417c508a4dc244ffa83fd0e7d7))
+
 ## [0.6.0-dev.17](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.16...v0.6.0-dev.17) (2026-02-25)
 
 ### ✨ Features
