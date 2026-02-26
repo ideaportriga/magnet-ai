@@ -7,7 +7,8 @@
           .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width
             .row.q-mb-12
               .col-auto.center-flex-y
-                km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject', outputFormat='sql')
+                km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject', outputFormat='sql'                  persistent,
+                persistentKey='traces-filter')
               q-space
               .col-auto.center-flex-y
                 km-btn.q-mr-12(
