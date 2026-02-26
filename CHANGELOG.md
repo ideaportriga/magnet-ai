@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.19](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.18...v0.6.0-dev.19) (2026-02-26)
+
+### 🐛 Bug Fixes
+
+* improved previous state ahndling in llm chunker ([c8948a5](https://github.com/ideaportriga/magnet-ai/commit/c8948a50930f4c67993273473235886457143045))
+
 ## [0.6.0-dev.18](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.17...v0.6.0-dev.18) (2026-02-26)
 
 ### ✨ Features
