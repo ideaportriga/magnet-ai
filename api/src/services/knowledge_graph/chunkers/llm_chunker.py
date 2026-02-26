@@ -16,6 +16,65 @@ class LLMChunker(AbstractChunker):
         super().__init__(config)
 
     @staticmethod
+    def _extract_tag(meta_block: str, tag: str) -> str | None:
+        """Best-effort extraction for <TAG>...</TAG> blocks (case/whitespace tolerant)."""
+        if not meta_block or not tag:
+            return None
+        # Allow optional attributes / whitespace in the opening tag; tolerate spaces in closing tag.
+        pattern = rf"<{re.escape(tag)}\b[^>]*>([\s\S]*?)</{re.escape(tag)}\s*>"
+        m = re.search(pattern, meta_block, flags=re.IGNORECASE)
+        if not m:
+            return None
+        value = (m.group(1) or "").strip()
+        if not value:
+            return None
+        # Avoid copying placeholder markers back into state
+        if value.strip().lower() in {
+            "(not yet extracted)",
+            "not yet extracted",
+            "none",
+        }:
+            return None
+        return value
+
+    @staticmethod
+    def _toc_lines(value: str) -> list[str]:
+        """Split a TOC block into stable, comparable lines."""
+        if not value:
+            return []
+        lines: list[str] = []
+        for raw in value.splitlines():
+            line = raw.rstrip()
+            if not line.strip():
+                continue
+            # Defensive: ignore accidental fences inside <TOC> content
+            if line.strip().startswith("```"):
+                continue
+            lines.append(line)
+        return lines
+
+    @classmethod
+    def _merge_toc_append_only(cls, previous: str, new: str) -> str:
+        """Append-only TOC merge.
+
+        - Keeps all previous lines unchanged
+        - Appends any new lines not already present (exact match)
+        """
+        prev_lines = cls._toc_lines(previous)
+        new_lines = cls._toc_lines(new)
+
+        if not prev_lines:
+            return "\n".join(new_lines).strip()
+
+        seen = set(prev_lines)
+        merged = list(prev_lines)
+        for line in new_lines:
+            if line not in seen:
+                merged.append(line)
+                seen.add(line)
+        return "\n".join(merged).strip()
+
+    @staticmethod
     def _strip_surrounding_code_fences(value: str) -> str:
         if not value:
             return value
@@ -125,7 +184,6 @@ class LLMChunker(AbstractChunker):
 
             # Provide previous last-chunk hints to encourage partial-chunk repair
             template_values["previous_last_chunk_header"] = ""
-            template_values["previous_last_chunk_content_tail"] = ""
             if segment_index > 0 and prev_segment_output:
                 try:
                     prev_chunks_list = [
@@ -145,17 +203,7 @@ class LLMChunker(AbstractChunker):
                             if prev_last_header_match
                             else ""
                         )
-                        prev_last_body = prev_last_chunk_full.removeprefix(
-                            prev_last_header
-                        ).strip()
                         template_values["previous_last_chunk_header"] = prev_last_header
-                        tail_len = 500
-                        if prev_last_body:
-                            template_values["previous_last_chunk_content_tail"] = (
-                                prev_last_body[-tail_len:]
-                                if len(prev_last_body) > tail_len
-                                else prev_last_body
-                            )
                 except Exception as e:
                     logger.warning(
                         f"Failed to extract previous last chunk hints for repair: {e}"
@@ -163,13 +211,19 @@ class LLMChunker(AbstractChunker):
 
             # Add current document state if processing multiple segments
             if len(segments) > 1 and segment_index > 0:
+                toc_state = (doc_toc or "").strip()
+                toc_state_block = (
+                    "```\n" + toc_state + "\n```"
+                    if toc_state
+                    else "(not yet extracted)"
+                )
                 current_state = (
                     "**Current Document State (accumulated so far):**\n\n"
                     + "Summary:\n"
                     + (doc_summary or "(not yet extracted)")
                     + "\n\n"
-                    + "Table of Contents:\n"
-                    + (doc_toc or "(not yet extracted)")
+                    + "Table of Contents (IMMUTABLE; append-only; copy verbatim):\n"
+                    + toc_state_block
                 )
                 template_values["current_state"] = current_state
             else:
@@ -221,10 +275,10 @@ class LLMChunker(AbstractChunker):
                     )
                     continue
 
-                # Remove completion marker
-                unprocessed_data = unprocessed_data.removesuffix(
-                    "<|COMPLETED|>"
-                ).strip()
+                # Remove completion marker (robust: allow trailing whitespace / extra text)
+                completed_idx = unprocessed_data.rfind("<|COMPLETED|>")
+                if completed_idx != -1:
+                    unprocessed_data = unprocessed_data[:completed_idx].strip()
 
                 # Extract/refresh document-level metadata whenever provided
                 try:
@@ -234,18 +288,28 @@ class LLMChunker(AbstractChunker):
                         if chunks_marker_idx != -1
                         else unprocessed_data
                     )
-                    # Parse tags
-                    title_match = re.search(r"<TITLE>([\s\S]*?)</TITLE>", meta_block)
-                    summary_match = re.search(
-                        r"<SUMMARY>([\s\S]*?)</SUMMARY>", meta_block
-                    )
-                    toc_match = re.search(r"<TOC>([\s\S]*?)</TOC>", meta_block)
-                    if title_match and not doc_title:
-                        doc_title = title_match.group(1).strip()
-                    if summary_match:
-                        doc_summary = summary_match.group(1).strip()
-                    if toc_match:
-                        doc_toc = toc_match.group(1).strip()
+                    # Parse tags (case/whitespace tolerant)
+                    extracted_title = self._extract_tag(meta_block, "TITLE")
+                    extracted_summary = self._extract_tag(meta_block, "SUMMARY")
+                    extracted_toc = self._extract_tag(meta_block, "TOC")
+
+                    if extracted_title and not doc_title:
+                        doc_title = extracted_title
+                    if extracted_summary:
+                        doc_summary = extracted_summary
+                    if extracted_toc:
+                        prev_toc_before = doc_toc
+                        doc_toc = self._merge_toc_append_only(doc_toc, extracted_toc)
+
+                        # Log if the LLM "updated" TOC by removing previous items
+                        prev_lines = self._toc_lines(prev_toc_before)
+                        new_lines_set = set(self._toc_lines(extracted_toc))
+                        if prev_lines and any(
+                            line not in new_lines_set for line in prev_lines
+                        ):
+                            logger.warning(
+                                "LLM TOC output missed previous entries; enforcing append-only merge"
+                            )
                     # Reduce unprocessed_data to just the chunks portion if marker exists
                     if chunks_marker_idx != -1:
                         unprocessed_data = unprocessed_data[
