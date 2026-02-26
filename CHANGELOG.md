@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.17](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.16...v0.6.0-dev.17) (2026-02-25)
+
+### ✨ Features
+
+* **knowledge-graph:** allow ingesting documents with metadata ([e91ea4c](https://github.com/ideaportriga/magnet-ai/commit/e91ea4c1e539e7a09c016e18e383339d52ae9265))
+
+## [0.6.0-dev.16](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.15...v0.6.0-dev.16) (2026-02-25)
+
+### 🐛 Bug Fixes
+
+* **api:** changed elevenlabs token creation to async ([dce7022](https://github.com/ideaportriga/magnet-ai/commit/dce7022d7a1ff78b66462b5aa8ea6c0e64323cf6))
+
+## [0.6.0-dev.15](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.14...v0.6.0-dev.15) (2026-02-25)
+
+### ✨ Features
+
+* **api:** added elevenlabs scribe token creation support ([824dabe](https://github.com/ideaportriga/magnet-ai/commit/824dabe88dd79773ef5ae29e4cc585d2fd27244f))
+
 ## [0.6.0-dev.14](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.13...v0.6.0-dev.14) (2026-02-20)
 
 ### ✨ Features

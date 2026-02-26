@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
 from typing import Annotated, Any
@@ -120,6 +121,14 @@ class KnowledgeGraphIngestJsonRequest(BaseModel):
         ),
         examples=["API Ingest", "Support Tickets"],
     )
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Optional key-value metadata to attach to the ingested document. "
+            "Stored under the `source` key in the document metadata."
+        ),
+        examples=[{"ticket_id": "456", "category": "billing"}],
+    )
 
     model_config = ConfigDict(extra="ignore")
 
@@ -151,6 +160,15 @@ class KnowledgeGraphIngestMultipartRequest(BaseModel):
         ),
         examples=["notes.txt", "meeting-notes"],
     )
+    metadata: str | None = Field(
+        default=None,
+        description=(
+            "Optional JSON-encoded key-value metadata to attach to the ingested document. "
+            "Must be a valid JSON object string. "
+            "Stored under the `source` key in the document metadata."
+        ),
+        examples=['{"document_id": "12345", "type": "meeting"}'],
+    )
     file: UploadFile | None = Field(
         default=None,
         description=(
@@ -175,6 +193,7 @@ class _IngestItem:
     filename: str
     text: str | None = None
     file_bytes: bytes | None = None
+    source_metadata: dict[str, Any] | None = None
 
 
 class KnowledgeGraphAskRequest(BaseModel):
@@ -568,16 +587,27 @@ class UserKnowledgeGraphController(Controller):
         content: str | None = None
         filename: str | None = None
         upload: UploadFile | None = None
+        source_metadata: dict[str, Any] | None = None
 
         if form_data is not None:
             source_name = form_data.source_name
             content = form_data.content
             filename = form_data.filename
             upload = form_data.file
+            if form_data.metadata:
+                try:
+                    source_metadata = json.loads(form_data.metadata)
+                except Exception:
+                    raise ClientException(
+                        "'metadata' must be a valid JSON object string"
+                    )
+                if not isinstance(source_metadata, dict):
+                    raise ClientException("'metadata' must be a JSON object")
         elif json_data is not None:
             source_name = json_data.source_name
             content = json_data.content
             filename = json_data.filename
+            source_metadata = json_data.metadata or None
         else:
             # Fallback for clients that don't match the expected parsing path (keeps behavior stable).
             if ctype.startswith("multipart/"):
@@ -586,12 +616,33 @@ class UserKnowledgeGraphController(Controller):
                 content = form.get("content")
                 filename = form.get("filename")
                 upload = form.get("file")
+                raw_meta = form.get("metadata")
+                if raw_meta:
+                    try:
+                        source_metadata = json.loads(raw_meta)
+                    except Exception:
+                        raise ClientException(
+                            "'metadata' must be a valid JSON object string"
+                        )
+                    if not isinstance(source_metadata, dict):
+                        raise ClientException("'metadata' must be a JSON object")
             else:
                 body = await request.json()
                 data = KnowledgeGraphIngestJsonRequest.model_validate(body)
                 source_name = data.source_name
                 content = data.content
                 filename = data.filename
+                raw_meta = data.metadata
+                if isinstance(raw_meta, str):
+                    try:
+                        raw_meta = json.loads(raw_meta)
+                    except Exception:
+                        raise ClientException(
+                            "'metadata' must be a valid JSON object string"
+                        )
+                if raw_meta is not None and not isinstance(raw_meta, dict):
+                    raise ClientException("'metadata' must be a JSON object")
+                source_metadata = raw_meta or None
 
         normalized_source_name = (source_name or "API Ingest").strip() or "API Ingest"
 
@@ -607,6 +658,7 @@ class UserKnowledgeGraphController(Controller):
                     kind="file",
                     filename=upload_filename,
                     file_bytes=file_bytes,
+                    source_metadata=source_metadata,
                 )
             )
 
@@ -622,6 +674,7 @@ class UserKnowledgeGraphController(Controller):
                     kind="text",
                     filename=text_filename,
                     text=content,
+                    source_metadata=source_metadata,
                 )
             )
 

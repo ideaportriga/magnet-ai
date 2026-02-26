@@ -26,6 +26,7 @@ class _IngestItemLike(Protocol):
     filename: str
     text: str | None
     file_bytes: bytes | None
+    source_metadata: dict[str, Any] | None
 
 
 class ApiIngestDataSource(AbstractDataSource):
@@ -304,6 +305,7 @@ async def run_background_ingest(
                                 graph_id,
                                 filename=item.filename,
                                 text=item.text or "",
+                                source_metadata=item.source_metadata,
                             )
                         elif item.kind == "file":
                             await data_source.ingest_file(
@@ -311,6 +313,7 @@ async def run_background_ingest(
                                 graph_id,
                                 filename=item.filename,
                                 file_bytes=item.file_bytes or b"",
+                                source_metadata=item.source_metadata,
                             )
                         else:
                             raise ValueError(f"Unknown ingest kind: {item.kind!r}")
