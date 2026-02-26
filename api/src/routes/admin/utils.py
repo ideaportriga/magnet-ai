@@ -1,3 +1,4 @@
+import asyncio
 import io
 from typing import Annotated
 
@@ -31,9 +32,12 @@ class UtilsController(Controller):
             raise ClientException("No file provided")
 
         content = await data.read()
-        pdf_reader = PdfReader(io.BytesIO(content))
-        pages = [page.extract_text() for page in pdf_reader.pages]
-
+        pages = await asyncio.to_thread(
+            lambda: [
+                page.extract_text(extraction_mode="plain")
+                for page in PdfReader(io.BytesIO(content)).pages
+            ]
+        )
         return ParsePdfResponse(pages=pages)
 
     @post("/generate_secret_encryption_key", status_code=HTTP_200_OK)
