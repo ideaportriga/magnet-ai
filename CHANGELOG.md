@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.20](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.19...v0.6.0-dev.20) (2026-02-27)
+
+### ✨ Features
+
+* documentation search ([ca2b9b3](https://github.com/ideaportriga/magnet-ai/commit/ca2b9b37f96acb1175831e22020dac7c90ec0129))
+
 ## [0.6.0-dev.19](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.18...v0.6.0-dev.19) (2026-02-26)
 
 ### 🐛 Bug Fixes
