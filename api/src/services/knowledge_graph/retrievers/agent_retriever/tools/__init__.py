@@ -232,4 +232,48 @@ def get_available_tools(
     return available_tools
 
 
-__all__ = ["get_available_tools"]
+def get_agent_tool_specs() -> list[dict[str, Any]]:
+    """
+    Return tool specs formatted for the agent tool selection UI.
+
+    Each entry contains ``name``, ``system_name``, ``description`` and
+    ``parameters`` (with the internal ``reasoning`` field stripped).
+    The ``exit`` tool is excluded because it is internal to the ReAct loop.
+    """
+
+    specs: list[dict[str, Any]] = []
+    for module in _iter_tool_modules():
+        tool_spec = getattr(module, "TOOL_SPEC", None)
+        if not isinstance(tool_spec, dict):
+            continue
+
+        fn = tool_spec.get("function")
+        if not isinstance(fn, dict):
+            continue
+
+        name = (fn.get("name") or "").strip()
+        if not name or name == "exit":
+            continue
+
+        # Deep-copy parameters and strip "reasoning" (internal to ReAct loop).
+        params: dict[str, Any] = copy.deepcopy(fn.get("parameters", {}))
+        if "properties" in params:
+            params["properties"] = {
+                k: v for k, v in params["properties"].items() if k != "reasoning"
+            }
+        if "required" in params:
+            params["required"] = [r for r in params["required"] if r != "reasoning"]
+
+        specs.append(
+            {
+                "name": name,
+                "system_name": name,
+                "description": fn.get("description", ""),
+                "parameters": params,
+            }
+        )
+
+    return specs
+
+
+__all__ = ["get_available_tools", "get_agent_tool_specs"]

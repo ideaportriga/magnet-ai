@@ -23,9 +23,9 @@
     km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
   .column.no-wrap.q-gap-16.full-height.full-width.q-mb-md.q-mt-16(
     style='max-height: calc(100vh - 560px) !important; height: 100% !important',
-    :class='{ "overflow-auto": tab == "mcp_tool" || tab == "api" }'
+    :class='{ "overflow-auto": tab == "mcp_tool" || tab == "api" || tab == "knowledge_graph" }'
   )
-    .column.full-height.full-width(v-if='tab != "mcp_tool" && tab != "api"')
+    .column.full-height.full-width(v-if='tab != "mcp_tool" && tab != "api" && tab != "knowledge_graph"')
       km-table-new.no-header.full-height(
         style='',
         @selectRow='selectRecord',
@@ -65,10 +65,24 @@
           :search-fields='["name", "description", "system_name"]',
           type='api'
         )
+      template(v-if='tab == "knowledge_graph"')
+        agents-select-section(
+          v-for='(server, index) in knowledge_graphs',
+          :key='server.id',
+          :server='server',
+          :selected='selected',
+          @select='selectRecord',
+          @selectMultiple='selectMultiple',
+          :search-string='searchString',
+          system-name-key='system_name',
+          :search-fields='["name", "description", "system_name"]',
+          type='knowledge_graph'
+        )
 </template>
 <script setup>
-import { useChroma } from '@shared'
-import { ref, computed } from 'vue'
+import { useChroma, fetchData } from '@shared'
+import { ref, computed, onMounted } from 'vue'
+import { useStore } from 'vuex'
 import { agentTopicActionsPopupColumns } from '@/config/agents/topics'
 
 const props = defineProps({
@@ -80,16 +94,42 @@ const props = defineProps({
 
 const emit = defineEmits(['update:selected'])
 
+const store = useStore()
+
 const { visibleRows: api_servers } = useChroma('api_servers')
 const { visibleRows: rag_tools } = useChroma('rag_tools')
 const { visibleRows: prompt_templates } = useChroma('promptTemplates')
 const { visibleRows: mcp_servers } = useChroma('mcp_servers')
 const { visibleRows: retrieval_tools } = useChroma('retrieval')
 
+const knowledge_graphs = ref([])
+
+const fetchKnowledgeGraphs = async () => {
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: 'knowledge_graphs/agent_tools',
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (response.ok) {
+      knowledge_graphs.value = await response.json()
+    }
+  } catch (error) {
+    console.error('Error fetching knowledge graphs:', error)
+  }
+}
+
+onMounted(() => {
+  fetchKnowledgeGraphs()
+})
+
 const tab = ref('api')
 const tabs = ref([
   { name: 'api', label: 'API Tools' },
   { name: 'mcp_tool', label: 'MCP Tools' },
+  { name: 'knowledge_graph', label: 'Knowledge Graph' },
   { name: 'rag', label: 'RAG Tools' },
   { name: 'retrieval', label: 'Retrieval Tools' },
   { name: 'prompt_template', label: 'Prompt Templates' },
