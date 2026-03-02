@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.23](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.22...v0.6.0-dev.23) (2026-03-02)
+
+### ✨ Features
+
+* add Eleven Labs client and enhance Drawer component for file upload and speech transcription ([1f60443](https://github.com/ideaportriga/magnet-ai/commit/1f60443599bec327c56c69bc39d8908aeb452368))
+
+### ♻️ Code Refactoring
+
+* update input binding for system name across multiple components ([7773f65](https://github.com/ideaportriga/magnet-ai/commit/7773f65e5c2e18ba465e5aa02c1e0da05e61429a))
+
 ## [0.6.0-dev.22](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.21...v0.6.0-dev.22) (2026-03-02)
 
 ### 🐛 Bug Fixes
