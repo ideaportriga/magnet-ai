@@ -5,6 +5,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from open_ai.models import ChatCompletionWithMetrics
 from openai_model.utils import get_model_by_system_name
 from services.ai_services.factory import get_ai_provider
+from services.ai_services.router import get_model_system_name_by_deployment_id
 from services.observability import observability_context
 from services.observability.models import (
     FeatureType,
@@ -132,6 +133,15 @@ async def create_chat_completion(
 
         # Call LLM, get response and calculate duration
         provider = await get_ai_provider(provider_system_name)
+
+        # Enrich call_model with provider-level observability details
+        otel_system = getattr(provider, "otel_gen_ai_system", None)
+        if otel_system:
+            call_model.update(otel_gen_ai_system=otel_system)
+        provider_label = getattr(provider, "config", {}).get("label")
+        if provider_label:
+            call_model.update(provider_display_name=provider_label)
+
         call_start_time = time.time()
         chat_completion = await provider.create_chat_completion(
             messages=messages,
@@ -148,9 +158,77 @@ async def create_chat_completion(
         call_end_time = time.time()
         call_duration = call_end_time - call_start_time
 
-        # Prepare usage and cost details for traces and metrics
+        # Detect if a fallback model handled the request.
+        # When the Router is used, _hidden_params["model_id"] identifies
+        # which deployment actually served the request. If it maps to a
+        # different system_name than the one we requested, a fallback occurred.
+        actual_model_system_name = model_system_name
+        if (
+            hasattr(chat_completion, "_hidden_params")
+            and chat_completion._hidden_params
+        ):
+            hidden = chat_completion._hidden_params
+            deployment_model_id = hidden.get("model_id")
+            if deployment_model_id:
+                resolved = get_model_system_name_by_deployment_id(deployment_model_id)
+                if resolved and resolved != model_system_name:
+                    actual_model_system_name = resolved
+
+                    # Update model details for traces/metrics with actual model info
+                    actual_config = await get_model_by_system_name(
+                        actual_model_system_name
+                    )
+                    actual_display = (
+                        actual_config.get("display_name")
+                        if actual_config
+                        else actual_model_system_name
+                    )
+                    actual_provider = (
+                        actual_config.get("provider_system_name")
+                        if actual_config
+                        else None
+                    )
+                    actual_llm = (
+                        actual_config.get("ai_model") if actual_config else None
+                    )
+
+                    call_model.update(
+                        name=actual_model_system_name,
+                        display_name=f"{actual_display} (fallback)",
+                    )
+                    if actual_provider:
+                        call_model.update(provider=actual_provider)
+                        # Update provider-level details for the fallback provider
+                        try:
+                            fb_provider = await get_ai_provider(actual_provider)
+                            fb_otel = getattr(fb_provider, "otel_gen_ai_system", None)
+                            if fb_otel:
+                                call_model.update(otel_gen_ai_system=fb_otel)
+                            fb_label = getattr(fb_provider, "config", {}).get("label")
+                            if fb_label:
+                                call_model.update(provider_display_name=fb_label)
+                        except Exception:
+                            pass  # Don't fail the request over observability
+
+                    # Update parameters.llm to the actual fallback model
+                    if actual_llm:
+                        params = call_model.get("parameters") or {}
+                        params["llm"] = actual_llm
+                        call_model.update(parameters=params)
+
+                    # Update the span with fallback info
+                    observability_context.update_current_span(
+                        model=call_model,
+                        extra_data={
+                            "fallback": True,
+                            "original_model": model_system_name,
+                            "actual_model": actual_model_system_name,
+                        },
+                    )
+
+        # Prepare usage and cost details — use the actual model for correct pricing
         call_usage, call_cost = await get_usage_and_cost_details(
-            chat_completion.usage, model_system_name
+            chat_completion.usage, actual_model_system_name
         )
 
         # Prepare output for traces and metrics
@@ -296,6 +374,15 @@ async def get_embeddings(text: str, model_system_name: str):
 
         # Call the LLM
         provider = await get_ai_provider(provider_system_name)
+
+        # Enrich call_model with provider-level observability details
+        otel_system = getattr(provider, "otel_gen_ai_system", None)
+        if otel_system:
+            call_model.update(otel_gen_ai_system=otel_system)
+        provider_label = getattr(provider, "config", {}).get("label")
+        if provider_label:
+            call_model.update(provider_display_name=provider_label)
+
         call_start_time = time.time()
         embeddings = await provider.get_embeddings(text=text, llm=llm)
         call_end_time = time.time()

@@ -1,47 +1,51 @@
-import openai
-from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
+"""
+Local/Custom Provider using LiteLLM with routing_config support.
 
-from services.ai_services.interface import AIProviderInterface
-from utils.common import transform_schema
+Supports:
+- Local LLM endpoints (Ollama, vLLM, text-generation-inference, etc.)
+- OpenAI-compatible custom endpoints
+- routing_config for caching, fallbacks, rate limiting
+"""
+
+from typing import Any
+
+from services.ai_services.providers.base_litellm import BaseLiteLLMProvider
 
 
-class TmpLocalProvider(AIProviderInterface):
-    def __init__(self, config):
-        # Connection parameters
-        self.api_key = config["connection"]["api_key"]
-        self.endpoint = config["connection"]["endpoint"]
+class TmpLocalProvider(BaseLiteLLMProvider):
+    """
+    Local/Custom endpoint provider using LiteLLM.
 
-        # Default parameters
-        self.model_default = config["defaults"].get("model")
-        self.temperature_default = config["defaults"].get("temperature")
-        self.top_p_default = config["defaults"].get("top_p")
-        # Client init
-        self.client = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.endpoint)
+    For OpenAI-compatible local or custom endpoints.
 
-    async def create_chat_completion(
-        self,
-        messages: list[ChatCompletionMessageParam],
-        model: str | None = None,
-        temperature: float | None = None,
-        top_p: float | None = None,
-        max_tokens: int | None = None,
-        response_format: dict | None = None,
-        tools: list[dict] | None = None,
-        tool_choice: str | dict | None = None,
-        model_config: dict | None = None,
-        parallel_tool_calls: bool | None = None,
-    ) -> ChatCompletion:
-        model = model or self.model_default
-        temperature = temperature or self.temperature_default
-        top_p = top_p or self.top_p_default
+    Configuration example:
+    {
+        "connection": {
+            "api_key": "dummy-key",  # or actual key if required
+            "endpoint": "http://localhost:8080/v1"
+        },
+        "defaults": {
+            "model": "local-model",
+            "temperature": 0.7,
+            "top_p": 1.0
+        }
+    }
 
-        return await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            response_format=transform_schema(response_format),
-            tools=tools or openai.NOT_GIVEN,
-            tool_choice=tool_choice or openai.NOT_GIVEN,
-        )
+    AIModel routing_config example:
+    {
+        "cache_enabled": true,
+        "cache_ttl": 3600,
+        "num_retries": 2,
+        "timeout": 300
+    }
+    """
+
+    # No prefix for custom endpoints
+    litellm_provider = ""
+
+    def __init__(self, config: dict[str, Any]):
+        super().__init__(config)
+
+        # For local endpoints, ensure we have a dummy key if none provided
+        if not self.api_key:
+            self.api_key = "sk-dummy-key"

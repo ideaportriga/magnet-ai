@@ -43,6 +43,32 @@ km-popup-confirm(
         map-options
       )
       .km-description.text-secondary-text {{ typeDescription }}
+
+  //- Features (Chat models)
+  template(v-if='newRow.type === "prompts"')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-sm Features
+    .row.q-col-gutter-md.q-px-8.q-mb-md
+      .col-6
+        km-checkbox(label='JSON Mode', v-model='newRow.json_mode', dense)
+      .col-6
+        km-checkbox(label='Structured Output', v-model='newRow.json_schema', dense)
+      .col-6
+        km-checkbox(label='Tool Calling', v-model='newRow.tool_calling', dense)
+      .col-6
+        km-checkbox(label='Reasoning', v-model='newRow.reasoning', dense)
+
+  //- Vector Config (Embeddings)
+  template(v-if='newRow.type === "embeddings"')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Vector Size
+    .full-width
+      km-input(
+        height='30px',
+        type='number',
+        placeholder='E.g. 1536',
+        v-model='vectorSize',
+        ref='vectorSizeRef'
+      )
+      .km-description.text-secondary-text Dimension of the embedding vector
 </template>
 
 <script>
@@ -92,6 +118,7 @@ export default {
   data() {
     return {
       isMounted: false,
+      availableModels: [],
     }
   },
   computed: {
@@ -123,6 +150,10 @@ export default {
       set(val) {
         this.newRow.ai_model = val
         this.newRow.name = val
+
+        // Auto-detect capabilities
+        this.checkModelCapabilities(val)
+
         if (this.autoChangeCode && this.isMounted && this.provider?.system_name) {
           this.newRow.system_name = toUpperCaseWithUnderscores(this.provider.system_name + '_' + val)
         }
@@ -168,11 +199,37 @@ export default {
       this.newRow.provider_name = this.provider.system_name
     }
     this.isMounted = true
+    
+    // Fetch available models for auto-detection
+    if (this.provider?.id) {
+       this.$store.dispatch('chroma/availableModels', { 
+         payload: this.provider.id, 
+         entity: 'provider' 
+       }).then(result => {
+         if (result && result.models) {
+           this.availableModels = result.models
+         }
+       }).catch(console.error)
+    }
   },
   beforeUnmount() {
     this.isMounted = false
   },
   methods: {
+    checkModelCapabilities(modelName) {
+      if (!modelName || !this.availableModels || !this.availableModels.length) return
+      
+      const found = this.availableModels.find(m => m.id === modelName)
+      if (found && this.newRow.type === 'prompts') {
+        this.newRow.json_mode = found.supports_json_mode || false
+        this.newRow.json_schema = found.supports_response_schema || false
+        this.newRow.tool_calling = found.supports_function_calling || false
+        // reasoning is not typically returned by litellm yet, but if it is:
+        if (found.supports_reasoning !== undefined) {
+          this.newRow.reasoning = found.supports_reasoning
+        }
+      }
+    },
     formatProviderName(name) {
       if (!name) return ''
       // Replace underscores with spaces and convert to proper case

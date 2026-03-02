@@ -55,10 +55,10 @@ class CollectionsController(Controller):
         data: CollectionCreate,
         audit_username: str | None,
     ) -> Collection:
-        """Create a new Collection."""
+        """Create a new Collection, or update if one with the same system_name exists."""
         data.created_by = audit_username
         data.updated_by = audit_username
-        obj = await collections_service.create(data)
+        obj = await collections_service.upsert(data, match_fields=["system_name"])
         return collections_service.to_schema(obj, schema_type=Collection)
 
     @get("/code/{code:str}")

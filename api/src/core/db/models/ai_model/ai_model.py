@@ -131,5 +131,12 @@ class AIModel(UUIDAuditSimpleBase):
         comment="Additional model configurations (e.g., vector_size for embeddings)",
     )
 
+    # Routing and rate limiting configuration for LiteLLM integration
+    routing_config: Mapped[Optional[dict]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
+    )
+
     def __repr__(self) -> str:
         return f"<AIModel(system_name='{self.system_name}', provider='{self.provider_name}', ai_model='{self.ai_model}')>"
