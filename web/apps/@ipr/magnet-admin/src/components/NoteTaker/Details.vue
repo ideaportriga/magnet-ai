@@ -2,13 +2,13 @@
 .row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
   q-inner-loading(:showing='loading')
     q-spinner-gears(size='50px', color='primary')
-layouts-details-layout.q-mx-auto.collection-container(
+layouts-details-layout(
   v-else,
   v-model:name='recordName',
   v-model:description='recordDescription',
   v-model:systemName='recordSystemName',
   :contentContainerStyle='{ maxWidth: "1200px", minWidth: "600px", margin: "0 auto" }'
-)
+).full-width
   template(#content)
     q-tabs.bb-border.full-width(
       v-model='tab',
@@ -34,6 +34,9 @@ layouts-details-layout.q-mx-auto.collection-container(
               v-if='tab === "knowledge_graph"',
               :knowledge-graphs='knowledgeGraphs'
             )
+
+  template(#drawer)
+    note-taker-drawer
 </template>
 
 <script setup lang="ts">
