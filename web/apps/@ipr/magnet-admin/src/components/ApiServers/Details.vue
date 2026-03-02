@@ -9,7 +9,8 @@ layouts-details-layout.q-mx-auto.collection-container(v-if='target_api_server')
           q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
         km-input-flat.col.km-description.text-black.full-width(
           placeholder='Enter system name',
-          v-model='system_name',
+          :model-value='system_name',
+          @change='system_name = $event',
           @focus='showInfo = true',
           @blur='showInfo = false'
         )
@@ -72,6 +73,7 @@ const system_name = computed({
     return target_api_server.value.system_name
   },
   set(value) {
+    console.log('SET SYSTEM NAME', value)
     store.dispatch('updateApiServerProperty', { key: 'system_name', value })
   },
 })
