@@ -50,7 +50,7 @@ sa.Text = Text
 
 # revision identifiers, used by Alembic.
 revision = "002e7d0ff790"
-down_revision = "219c74c3e359"
+down_revision = "d76b8a1b3dfa"
 branch_labels = None
 depends_on = None
 
