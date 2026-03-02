@@ -64,12 +64,16 @@ class ProvidersService(service.SQLAlchemyAsyncRepositoryService[Provider]):
             else:
                 new_endpoint = getattr(data, "endpoint", None)
 
-            # If endpoint is being changed and is different from current, clear secrets
+            # If endpoint is being changed and is different from current:
+            # - If new secrets provided: Use them (overwrite existing)
+            # - If no new secrets provided: Clear existing (set to None)
             if new_endpoint is not None and existing_provider.endpoint != new_endpoint:
                 if isinstance(data, dict):
-                    data["secrets_encrypted"] = None
+                    if not data.get("secrets_encrypted"):
+                        data["secrets_encrypted"] = None
                 else:
-                    data.secrets_encrypted = None
+                    if not getattr(data, "secrets_encrypted", None):
+                        data.secrets_encrypted = None
             else:
                 # Handle secrets_encrypted field - merge with existing secrets
                 # Only update secrets that have non-empty values

@@ -4,7 +4,7 @@ Pydantic schemas for AI models validation.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +13,65 @@ from core.domain.base.schemas import (
     BaseSimpleSchema,
     BaseSimpleUpdateSchema,
 )
+
+
+class RoutingConfig(BaseModel):
+    """
+    Routing configuration for LiteLLM integration.
+    Defines rate limits, failover, caching, and load balancing settings.
+    """
+
+    # Rate limiting
+    rpm: Optional[int] = Field(
+        None, description="Requests per minute limit for this model"
+    )
+    tpm: Optional[int] = Field(
+        None, description="Tokens per minute limit for this model"
+    )
+
+    # Failover configuration
+    fallback_models: Optional[list[str]] = Field(
+        None,
+        description="List of model system_names to fallback to on failure",
+    )
+
+    # Caching
+    cache_enabled: Optional[bool] = Field(
+        False, description="Enable in-memory response caching"
+    )
+    cache_ttl: Optional[int] = Field(
+        None, description="Cache TTL in seconds (default: 3600)"
+    )
+
+    # Load balancing
+    priority: Optional[int] = Field(
+        None, description="Priority for load balancing (lower = higher priority)"
+    )
+    weight: Optional[float] = Field(
+        None, description="Weight for weighted load balancing (0.0-1.0)"
+    )
+
+    # Retry settings
+    num_retries: Optional[int] = Field(
+        None, description="Number of retries on failure (default: 3)"
+    )
+    retry_after: Optional[int] = Field(
+        None, description="Seconds to wait before retry (default: 5)"
+    )
+
+    # Timeout
+    timeout: Optional[int] = Field(
+        None, description="Request timeout in seconds (default: 120)"
+    )
+
+    # Additional LiteLLM params
+    litellm_params: Optional[dict[str, Any]] = Field(
+        None,
+        description="Additional LiteLLM parameters (api_version, custom_llm_provider, etc.)",
+    )
+
+    class Config:
+        extra = "allow"
 
 
 # Base mixin for common AI model fields
@@ -76,6 +135,12 @@ class AIModelFieldsMixin(BaseModel):
     configs: Optional[dict] = Field(
         None,
         description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)",
+    )
+
+    # Routing and rate limiting configuration
+    routing_config: Optional[RoutingConfig] = Field(
+        None,
+        description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
 
 
@@ -142,6 +207,12 @@ class AIModelUpdateFieldsMixin(BaseModel):
     configs: Optional[dict] = Field(
         None,
         description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)",
+    )
+
+    # Routing and rate limiting configuration
+    routing_config: Optional[RoutingConfig] = Field(
+        None,
+        description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
 
 

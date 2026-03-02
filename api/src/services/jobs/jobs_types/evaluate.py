@@ -501,7 +501,16 @@ async def evaluate(job_data) -> dict:
 
     try:
         evaluation_ids = []
-        for config_item in config:
+        for idx, config_item in enumerate(config):
+            # Validate required fields in each config item
+            required_fields = ["system_name", "test_set_system_names", "variants"]
+            missing = [f for f in required_fields if f not in config_item]
+            if missing:
+                raise ValueError(
+                    f"Config item [{idx}] is missing required fields: {missing}. "
+                    f"Each config item must contain: {required_fields}"
+                )
+
             evaluation_ids.extend(
                 await start_new_thread(
                     config_item["system_name"],

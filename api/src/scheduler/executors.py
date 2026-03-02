@@ -2,6 +2,7 @@
 These functions handle the actual execution of scheduled jobs.
 """
 
+import asyncio
 import traceback
 from datetime import UTC, datetime, timedelta
 from functools import wraps
@@ -18,19 +19,24 @@ from services.observability.utils import observability_overrides
 
 logger = getLogger(__name__)
 
+# Default timeout for job execution (30 minutes)
+DEFAULT_JOB_TIMEOUT_SECONDS = 30 * 60
+
 
 def get_interval_days(interval):
-    print(f"Interval: {interval}")
+    logger.debug(f"Interval: {interval}")
     if interval == "1D":
         return 1
     if interval == "3D":
         return 3
     if interval == "7D":
         return 7
-    raise ValueError("Invalid interval value")
+    raise ValueError(f"Invalid interval value: {interval}")
 
 
-# Decorator to set status to PROGRESS before execution (async version)
+# Decorator to set status to PROCESSING before execution and apply timeout.
+# Note: ERROR status is NOT set here — it is handled by APScheduler's job_error_listener
+# to avoid race conditions with double status updates.
 def with_progress_status(func):
     @wraps(func)
     async def wrapper(**kwargs):
@@ -39,18 +45,18 @@ def with_progress_status(func):
         try:
             if job_id:
                 await update_job_status(job_id, JobStatus.PROCESSING)
-            return await func(**kwargs)
-        except Exception as e:
-            # If there's an error and job_id exists, update status to ERROR
-            if job_id:
-                try:
-                    await update_job_status(job_id, JobStatus.ERROR)
-                except Exception as update_error:
-                    logger.error(
-                        f"Failed to update job status for job {job_id}: {str(update_error)}"
-                    )
-            # Re-raise the original exception
-            raise e
+            return await asyncio.wait_for(
+                func(**kwargs),
+                timeout=DEFAULT_JOB_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.error(f"Job {job_id} timed out after {DEFAULT_JOB_TIMEOUT_SECONDS}s")
+            # Re-raise so APScheduler's job_error_listener handles the ERROR status
+            raise
+        except Exception:
+            # Re-raise the original exception — APScheduler's job_error_listener
+            # will handle setting the ERROR/WAITING status in the database.
+            raise
 
     return wrapper
 
@@ -86,8 +92,8 @@ async def execute_custom_function(**kwargs):
             },
         )
 
-        # Error status will be set by with_progress_status decorator
-        raise e
+        # Error status will be set by APScheduler's job_error_listener
+        raise
 
 
 @with_progress_status
@@ -114,43 +120,31 @@ async def execute_sync_collection(**kwargs):
         system_name = params.get("system_name")
 
         if not system_name:
-            logger.error(f"Missing system_name parameter for job {job_id}")
-            return False
+            raise ValueError(f"Missing system_name parameter for job {job_id}")
 
         # Get collection_id from system_name
-        collection_id = system_name
-
-        # This is a system name, not an ID
         from services.utils.get_ids_by_system_names import get_ids_by_system_names
 
         collection_id = await get_ids_by_system_names(system_name, "collections")
         if not collection_id:
-            logger.error(
+            raise ValueError(
                 f"Collection not found for system_name '{system_name}' in job {job_id}"
             )
-            return False
 
         # Handle case where collection_id is a list
         if isinstance(collection_id, list):
             if collection_id:
                 collection_id = collection_id[0]  # Take the first ID
             else:
-                logger.error(
+                raise ValueError(
                     f"Empty collection_id list for system_name '{system_name}' in job {job_id}"
                 )
-                return False
 
         # Create event loop and run the async sync_collection method
         # Import here to avoid circular imports
         from routes.admin.knowledge_sources import sync_collection_standalone
 
-        result = await sync_collection_standalone(collection_id)
-
-        if not result:
-            logger.warning(
-                f"Sync collection returned False for collection_id '{collection_id}' in job {job_id}"
-            )
-            return False
+        await sync_collection_standalone(collection_id)
 
         logger.info(f"Successfully completed sync collection for job {job_id}")
         return True
@@ -168,8 +162,8 @@ async def execute_sync_collection(**kwargs):
             },
         )
 
-        # Error status will be set by with_progress_status decorator
-        raise e
+        # Error status will be set by APScheduler's job_error_listener
+        raise
 
 
 @with_progress_status
@@ -184,8 +178,7 @@ async def execute_post_process_configuration(**kwargs):
         agents_system_names = params.get("agent_system_names")
 
         if not agents_system_names:
-            logger.error(f"Missing agent_system_names parameter for job {job_id}")
-            return False
+            raise ValueError(f"Missing agent_system_names parameter for job {job_id}")
 
         from core.config.app import alchemy
         from core.db.models.agent_conversation import AgentConversation
@@ -276,8 +269,8 @@ async def execute_post_process_configuration(**kwargs):
         )
         traceback.print_exc()
 
-        # Error status will be set by with_progress_status decorator
-        raise e
+        # Error status will be set by APScheduler's job_error_listener
+        raise
 
 
 @with_progress_status
@@ -303,12 +296,33 @@ async def execute_evaluation(**kwargs):
         # Import here to avoid circular imports
         from services.jobs.jobs_types.evaluate import evaluate
 
+        # Validate required params
+        eval_type = params.get("type")
+        if not eval_type:
+            raise ValueError(f"Missing 'type' parameter for evaluation job {job_id}")
+
+        config = params.get("config", [])
+        if not config:
+            raise ValueError(
+                f"Missing or empty 'config' parameter for evaluation job {job_id}"
+            )
+
+        # Validate each config item has required fields
+        required_config_fields = ["system_name", "test_set_system_names", "variants"]
+        for i, config_item in enumerate(config):
+            missing = [f for f in required_config_fields if f not in config_item]
+            if missing:
+                raise ValueError(
+                    f"Config item [{i}] in evaluation job {job_id} is missing required fields: {missing}. "
+                    f"Each config item must have: {required_config_fields}"
+                )
+
         # Transform scheduler params to run_job format
         job_record = {
             "_id": job_id,
-            "type": params.get("type"),  # "rag_eval" or "prompt_eval"
+            "type": eval_type,
             "iteration_count": params.get("iteration_count", 1),
-            "config": params.get("config", []),
+            "config": config,
             "result_entity": params.get("result_entity"),
         }
 
@@ -331,8 +345,8 @@ async def execute_evaluation(**kwargs):
             },
         )
 
-        # Error status will be set by with_progress_status decorator
-        raise e
+        # Error status will be set by APScheduler's job_error_listener
+        raise
 
 
 @with_progress_status
@@ -358,8 +372,7 @@ async def execute_sync_knowledge_graph_source(**kwargs):
         source_id = params.get("source_id")
 
         if not graph_id or not source_id:
-            logger.error(f"Missing graph_id or source_id for job {job_id}")
-            return False
+            raise ValueError(f"Missing graph_id or source_id for job {job_id}")
 
         from uuid import UUID
 
@@ -392,8 +405,8 @@ async def execute_sync_knowledge_graph_source(**kwargs):
             },
         )
 
-        # Error status will be set by with_progress_status decorator
-        raise e
+        # Error status will be set by APScheduler's job_error_listener
+        raise
 
 
 @with_progress_status
@@ -426,8 +439,7 @@ async def execute_cleanup_logs(**kwargs):
         cleanup_metrics = params.get("cleanup_metrics", True)
 
         if retention_days < 1:
-            logger.error(f"Invalid retention_days value: {retention_days}")
-            return False
+            raise ValueError(f"Invalid retention_days value: {retention_days}")
 
         cutoff_date = datetime.now(UTC) - timedelta(days=retention_days)
 
@@ -491,8 +503,8 @@ async def execute_cleanup_logs(**kwargs):
             },
         )
 
-        # Error status will be set by with_progress_status decorator
-        raise e
+        # Error status will be set by APScheduler's job_error_listener
+        raise
 
 
 # Mapping of run configuration types to execution functions directly

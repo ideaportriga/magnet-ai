@@ -1,45 +1,42 @@
-import openai
-from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
+"""
+Groq Provider using LiteLLM with routing_config support.
 
-from services.ai_services.interface import AIProviderInterface
-from utils.common import transform_schema
+Supports:
+- Groq models (llama, mixtral, gemma, etc.)
+- Fast inference with Groq LPUs
+- routing_config for caching, fallbacks, rate limiting
+"""
+
+from services.ai_services.providers.base_litellm import BaseLiteLLMProvider
 
 
-class GroqProvider(AIProviderInterface):
-    def __init__(self, config):
-        # Connection parameters
-        self.api_key = config["connection"]["api_key"]
-        self.endpoint = config["connection"]["endpoint"]
+class GroqProvider(BaseLiteLLMProvider):
+    """
+    Groq provider using LiteLLM.
 
-        # Default parameters
-        self.model_default = config["defaults"].get("model")
-        self.temperature_default = config["defaults"].get("temperature")
-        self.top_p_default = config["defaults"].get("top_p")
-        # Client init
-        self.client = openai.AsyncOpenAI(api_key=self.api_key, base_url=self.endpoint)
+    Configuration example:
+    {
+        "connection": {
+            "api_key": "gsk_...",
+            "endpoint": "https://api.groq.com/openai/v1"  # optional
+        },
+        "defaults": {
+            "model": "llama-3.1-70b-versatile",
+            "temperature": 0.7,
+            "top_p": 1.0
+        }
+    }
 
-    async def create_chat_completion(
-        self,
-        messages: list[ChatCompletionMessageParam],
-        model: str | None = None,
-        temperature: float | None = None,
-        top_p: float | None = None,
-        max_tokens: int | None = None,
-        response_format: dict | None = None,
-        tools: list[dict] | None = None,
-        tool_choice: str | dict | None = None,
-        model_config: dict | None = None,
-        parallel_tool_calls: bool | None = None,
-    ) -> ChatCompletion:
-        model = model or self.model_default
-        temperature = temperature or self.temperature_default
-        top_p = top_p or self.top_p_default
+    AIModel routing_config example:
+    {
+        "rpm": 30,
+        "tpm": 14400,
+        "fallback_models": ["llama-3.1-8b-instant"],
+        "cache_enabled": true,
+        "cache_ttl": 3600,
+        "num_retries": 3,
+        "timeout": 60
+    }
+    """
 
-        return await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            top_p=top_p,
-            max_tokens=max_tokens,
-            response_format=transform_schema(response_format),
-        )
+    litellm_provider = "groq"

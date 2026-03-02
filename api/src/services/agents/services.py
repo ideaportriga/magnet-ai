@@ -623,6 +623,18 @@ async def create_chat_completion_tool_parameters(
                 "required": ["userMessage"],
                 "additionalProperties": False,
             }
+        case AgentActionType.KNOWLEDGE_GRAPH:
+            return {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Rephrased user query optimized for semantic similarity search against knowledge graph chunks.",
+                    },
+                },
+                "required": ["query"],
+                "additionalProperties": False,
+            }
         case _:
             raise ValueError(f"Unknown action type - {action.type}")
 

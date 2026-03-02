@@ -2,7 +2,6 @@ import asyncio
 from datetime import UTC, datetime
 from logging import getLogger
 
-import nest_asyncio
 import pytz
 from apscheduler.events import (
     EVENT_JOB_ADDED,
@@ -13,7 +12,6 @@ from apscheduler.events import (
     EVENT_JOB_REMOVED,
 )
 from apscheduler.executors.asyncio import AsyncIOExecutor
-from apscheduler.executors.pool import ProcessPoolExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from litestar import Request
 from sqlalchemy import QueuePool
@@ -21,20 +19,23 @@ from sqlalchemy import QueuePool
 from core.config.base import get_database_settings, get_scheduler_settings
 from scheduler.types import JobStatus
 from scheduler.utils import format_next_run_time, update_job_status
-from stores import get_db_client
 
 logger = getLogger(__name__)
-client = get_db_client()
 
 # Global scheduler instance
 _scheduler = None
 
 
-def _run_async(coro):
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        nest_asyncio.apply()
-    return loop.run_until_complete(coro)
+def _schedule_async(coro):
+    """Schedule an async coroutine from a synchronous APScheduler listener.
+
+    Uses create_task to avoid blocking the listener and removes the need for nest_asyncio.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(coro)
+    except RuntimeError:
+        logger.warning("No running event loop found, cannot schedule async task")
 
 
 def get_global_scheduler() -> AsyncIOScheduler:
@@ -47,15 +48,18 @@ def get_global_scheduler() -> AsyncIOScheduler:
 
 def job_added_listener(event):
     """Listener for job added events"""
-    scheduler = get_global_scheduler()
-    job_id = event.job_id
-    running_job = scheduler.get_job(job_id)
+    try:
+        scheduler = get_global_scheduler()
+        job_id = event.job_id
+        running_job = scheduler.get_job(job_id)
 
-    next_run_time = format_next_run_time(running_job)
-    _run_async(
-        update_job_status(job_id, JobStatus.WAITING, {"next_run": next_run_time}),
-    )
-    logger.info(f"Job added: {job_id}")
+        next_run_time = format_next_run_time(running_job)
+        _schedule_async(
+            update_job_status(job_id, JobStatus.WAITING, {"next_run": next_run_time}),
+        )
+        logger.info(f"Job added: {job_id}")
+    except Exception as e:
+        logger.error(f"Error in job_added_listener for {event.job_id}: {e}")
 
 
 def job_removed_listener(event):
@@ -80,7 +84,7 @@ def job_executed_listener(event):
         # WAITING if recurring job has next run, COMPLETED if one-time job finished
         status = JobStatus.WAITING if next_run else JobStatus.COMPLETED
 
-        _run_async(
+        _schedule_async(
             update_job_status(
                 job_id,
                 status,
@@ -117,7 +121,7 @@ def job_error_listener(event):
             status = JobStatus.ERROR
 
         # Update the job in the database
-        _run_async(update_job_status(job_id, status, update_data))
+        _schedule_async(update_job_status(job_id, status, update_data))
 
         logger.error(
             f"Job error: {job_id}, scheduled run time: {event.scheduled_run_time}",
@@ -151,7 +155,6 @@ async def create_scheduler() -> AsyncIOScheduler:
     global _scheduler
 
     executors = {
-        "thread": ProcessPoolExecutor(10),
         "default": AsyncIOExecutor(),
     }
     job_defaults = {
@@ -231,7 +234,6 @@ def get_scheduler_pool_info() -> dict:
                 "checked_in": pool.checkedin(),
                 "checked_out": pool.checkedout(),
                 "overflow": pool.overflow(),
-                # "invalid": pool.invalid(),
                 "total_connections": pool.checkedout() + pool.checkedin(),
             }
         else:
@@ -252,7 +254,6 @@ def log_scheduler_pool_status():
             f"Checked out: {pool_info['checked_out']}, "
             f"Checked in: {pool_info['checked_in']}, "
             f"Overflow: {pool_info['overflow']}, "
-            f"Invalid: {pool_info['invalid']}, "
             f"Total: {pool_info['total_connections']}"
         )
 
