@@ -10,6 +10,7 @@ from .api_key import APIKey
 from .base import UUIDAuditEntityBase, UUIDAuditSimpleBase
 from .collection import Collection
 from .deep_research import DeepResearchConfig, DeepResearchRun
+from .prompt_queue import PromptQueueConfig
 
 # from .evaluation import Evaluation
 from .evaluation import Evaluation
@@ -28,6 +29,7 @@ __all__ = [
     "Collection",
     "DeepResearchConfig",
     "DeepResearchRun",
+    "PromptQueueConfig",
     "Job",
     "Metric",
     "Provider",

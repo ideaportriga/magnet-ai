@@ -34,6 +34,7 @@ import providers from './modules/providers'
 import deepResearch from './modules/deepResearch'
 import knowledgeGraph from './modules/knowledgeGraph'
 import noteTaker from './modules/noteTaker'
+import promptQueue from './modules/promptQueue'
 
 const merged = mergeModules([
   main,
@@ -65,6 +66,7 @@ const merged = mergeModules([
   deepResearch,
   knowledgeGraph,
   noteTaker,
+  promptQueue,
 ])
 
 export default createStore({

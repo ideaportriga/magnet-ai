@@ -125,6 +125,7 @@ export default {
         this.api_servers.get(),
         // this.jobs.get(),
         this.$store.dispatch('fetchConfigs'),
+        this.$store.dispatch('fetchPromptQueueConfigs'),
       ])
     },
     async onAuthCompleted() {
