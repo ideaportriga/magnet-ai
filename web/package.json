@@ -1,6 +1,6 @@
 {
   "name": "@magnet-monorepo/source",
-  "version": "0.6.0-dev.22",
+  "version": "0.6.0-dev.25",
   "license": "Apache-2.0",
   "private": true,
   "scripts": {
@@ -79,6 +79,7 @@
   "dependencies": {
     "@codemirror/lang-json": "^6.0.1",
     "@codemirror/lang-python": "^6.1.7",
+    "@elevenlabs/client": "^0.15.0",
     "@quasar/extras": "^1.16.17",
     "animate.css": "^4.1.1",
     "codemirror": "^6.0.1",

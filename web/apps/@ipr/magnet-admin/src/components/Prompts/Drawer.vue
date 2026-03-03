@@ -23,20 +23,69 @@
         type='textarea'
       )
       .km-field.text-secondary-text Plain text or JSON
-
       .q-mt-md
-        q-file(
-          outlined,
-          clearable,
-          label='File upload',
-          v-model='files',
-          multiple,
-          accept='.pdf',
-          @update:model-value='handleFilesUpload',
-          :loading='fileUploadInProgress'
-        )
-          template(v-slot:append)
-            q-icon(name='attach_file')
+      .row.q-mt-sm.items-center
+        .col-auto
+          km-select-flat(
+            placeholder='Input Options',
+            :options='inputOptions',
+            :model-value='selectedInputOptionOption',
+            @update:model-value='onInputOptionSelect'
+          )
+      template(v-if='selectedInputOption === "pdf"')
+        .q-mt-md
+          km-file-picker(
+            :model-value='files',
+            accept='.pdf',
+            multiple,
+            :loading='fileUploadInProgress',
+            hint='Drop PDF files or click to browse',
+            @update:model-value='onFilePickerUpdate'
+          )
+      template(v-if='selectedInputOption === "audio"')
+        .q-mt-md
+          km-file-picker(
+            :model-value='audioFiles',
+            accept='.flac,.m4a,.mp3,.ogg,.wav,.webm,.mp4',
+            :loading='audioUpload.isUploading.value',
+            :loading-text='audioUpload.uploadStatus.value',
+            hint='Drop audio file or click to browse',
+            @update:model-value='onAudioFilePickerUpdate'
+          )
+          .row(v-if='audioUpload.error.value').q-mt-xs
+            .col.text-negative.text-body2 {{ audioUpload.error.value }}
+      template(v-if='selectedInputOption === "speech"')
+        .q-mt-md
+          .row.items-center
+            .col-auto.q-mr-sm
+              q-btn(
+                v-if='!scribe.isConnected.value',
+                outline,
+                color='primary',
+                @click='startTranscription',
+                size='sm',
+                padding='6px 12px'
+              )
+                q-icon(name='fas fa-microphone', size='14px', class='q-mr-xs')
+                | Start recording
+              q-btn(
+                v-else,
+                outline,
+                color='error-text',
+                @click='stopTranscription',
+                size='sm',
+                padding='6px 12px'
+              )
+                q-icon(name='fas fa-stop', size='14px', class='q-mr-xs')
+                | Stop recording
+            .col(v-if='isLoadingToken || scribe.isConnected.value')
+              q-spinner(v-if='isLoadingToken', size='20px', color='primary')
+              span(v-else-if='scribe.isConnected.value').text-error-text
+                span.q-mr-xs ●
+                | Recording…
+          .row(v-if='scribe.error.value').q-mt-xs
+            .col.text-negative.text-body2 {{ scribe.error.value }}
+      .q-mt-md
 
       .row.justify-end
         .col-auto.q-my-md
@@ -129,15 +178,31 @@ import { defineComponent, ref } from 'vue'
 import { copyToClipboard } from 'quasar'
 import { useStore } from 'vuex'
 import { fetchData } from '@shared'
+import { useScribe } from '@/composables/useScribe'
+import { useAudioUpload } from '@/composables/useAudioUpload'
 
 export default defineComponent({
   props: ['open'],
   emits: ['update:open'],
   setup() {
     const store = useStore()
+    const scribe = useScribe({ modelId: 'scribe_v2_realtime' })
+    const audioUpload = useAudioUpload({
+      endpoint: () => store.getters.config?.api?.aiBridge?.urlAdmin ?? '',
+      credentials: 'include',
+      language: 'en',
+    })
+    const isLoadingToken = ref(false)
+    const transcriptionBaseText = ref('')
+    const selectedInputOption = ref(null)
 
     return {
       store,
+      scribe,
+      audioUpload,
+      isLoadingToken,
+      transcriptionBaseText,
+      selectedInputOption,
       detailedResponse: ref(undefined),
       showDetails: ref(false),
       testText: ref(''),
@@ -149,6 +214,7 @@ export default defineComponent({
       evaluationIds: ref(''),
       evaluationResults: ref({}),
       files: ref([]),
+      audioFiles: ref([]),
       fileUploadInProgress: ref(false),
     }
   },
@@ -164,6 +230,24 @@ export default defineComponent({
     },
     promptTemplateTestSetItem() {
       return this.$store.getters.promptTemplateTestSetItem
+    },
+    inputOptions() {
+      return [
+        { label: 'Manual input', value: null },
+        { label: 'PDF upload', value: 'pdf' },
+        { label: 'Audio upload', value: 'audio' },
+        { label: 'Speech to Text', value: 'speech' },
+      ]
+    },
+    selectedInputOptionOption() {
+      if (!this.selectedInputOption) return null
+      return this.inputOptions.find((o) => o.value === this.selectedInputOption) ?? null
+    },
+    scribeCommitted() {
+      return this.scribe.committedTranscripts?.value ?? []
+    },
+    scribePartial() {
+      return this.scribe.partialTranscript?.value ?? ''
     },
   },
   watch: {
@@ -184,8 +268,98 @@ export default defineComponent({
         }
       },
     },
+    open(newVal) {
+      if (!newVal && this.scribe.isConnected.value) {
+        this.scribe.pause()
+        this.testText = this.buildTranscriptString()
+        this.scribe.disconnect()
+        this.scribe.error.value = null
+      }
+    },
+    scribeCommitted: {
+      handler() {
+        if (this.scribe.isConnected.value) {
+          this.testText = this.buildTranscriptString()
+        }
+      },
+      deep: true,
+    },
+    scribePartial() {
+      if (this.scribe.isConnected.value) {
+        this.testText = this.buildTranscriptString()
+      }
+    },
   },
   methods: {
+    buildTranscriptString() {
+      const parts = this.scribe.committedTranscripts.value.map((t) => t.text)
+      const partial = this.scribe.partialTranscript.value?.trim()
+      if (partial) parts.push(partial)
+      const suffix = parts.join('\n\n').trim()
+      const base = this.transcriptionBaseText?.trim() ?? ''
+      return base ? (suffix ? `${base}\n\n${suffix}` : base) : suffix
+    },
+    async getScribeToken() {
+      const endpoint = this.store.getters.config.api.aiBridge.urlAdmin
+      const response = await fetchData({
+        method: 'GET',
+        endpoint,
+        credentials: 'include',
+        service: 'recordings/scribe-token',
+      })
+      if (response.error) throw response.error
+      const data = await response.json()
+      return data?.token ?? data?.key ?? data
+    },
+    async startTranscription() {
+      this.scribe.error.value = null
+      this.isLoadingToken = true
+      try {
+        const token = await this.getScribeToken()
+        this.transcriptionBaseText = this.testText || ''
+        await this.scribe.connect({
+          token,
+          microphone: { echoCancellation: true, noiseSuppression: true },
+        })
+      } catch (e) {
+        const msg = e?.response?.data?.detail ?? e?.message ?? e?.detail ?? String(e)
+        this.scribe.error.value = msg
+      } finally {
+        this.isLoadingToken = false
+      }
+    },
+    stopTranscription() {
+      this.scribe.pause()
+      this.testText = this.buildTranscriptString()
+      this.scribe.disconnect()
+      // this.selectedInputOption = null
+    },
+    onInputOptionSelect(option) {
+      this.selectedInputOption = option?.value ?? null
+    },
+    onFilePickerUpdate(value) {
+      this.files = value
+      const arr = Array.isArray(value) ? value : value ? [value] : []
+      this.handleFilesUpload(arr)
+    },
+    async onAudioFilePickerUpdate(value) {
+      const file = Array.isArray(value) ? value?.[0] : value
+      if (!file) {
+        this.audioFiles = []
+        this.audioUpload.reset()
+        return
+      }
+      this.audioFiles = [file]
+      this.audioUpload.reset()
+      try {
+        const { segments } = await this.audioUpload.uploadAndTranscribe(file)
+        this.testText = JSON.stringify(segments, null, 2)
+        this.audioFiles = []
+        this.selectedInputOption = null
+      } catch {
+        // error shown via audioUpload.error
+      }
+    },
     navigateToEval() {
       const query = {
         job_id: this.evaluationResults?.job_id,
@@ -217,6 +391,7 @@ export default defineComponent({
       event.preventDefault()
       this.text = undefined
       this.loading = true
+      this.selectedInputOption = null
 
       this.detailedResponse =
         (await this.$store.dispatch('enhanceTextDetails', {
@@ -257,7 +432,8 @@ export default defineComponent({
       } catch (error) {
         console.error('Error parsing files:', error)
       }
-
+      this.selectedInputOption = null
+      this.files = []
       this.fileUploadInProgress = false
     },
 

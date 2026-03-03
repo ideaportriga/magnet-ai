@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.25](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.24...v0.6.0-dev.25) (2026-03-03)
+
+### ✨ Features
+
+* add audio file upload functionality to prompt test drawer ([3be9375](https://github.com/ideaportriga/magnet-ai/commit/3be93754010ac5368dcd7728e43ce66f7bf97372))
+
+## [0.6.0-dev.24](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.23...v0.6.0-dev.24) (2026-03-03)
+
+### 🐛 Bug Fixes
+
+* support for json schema in litellm ([9480b12](https://github.com/ideaportriga/magnet-ai/commit/9480b12ab7e8eb47a1031f19da12d79240459f1a))
+
+## [0.6.0-dev.23](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.22...v0.6.0-dev.23) (2026-03-02)
+
+### ✨ Features
+
+* add Eleven Labs client and enhance Drawer component for file upload and speech transcription ([1f60443](https://github.com/ideaportriga/magnet-ai/commit/1f60443599bec327c56c69bc39d8908aeb452368))
+
+### ♻️ Code Refactoring
+
+* update input binding for system name across multiple components ([7773f65](https://github.com/ideaportriga/magnet-ai/commit/7773f65e5c2e18ba465e5aa02c1e0da05e61429a))
+
 ## [0.6.0-dev.22](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.21...v0.6.0-dev.22) (2026-03-02)
 
 ### 🐛 Bug Fixes

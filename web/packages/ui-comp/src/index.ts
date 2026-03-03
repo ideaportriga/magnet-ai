@@ -16,6 +16,7 @@ import Date from './components/base/Date.vue'
 import Drawer from './components/base/Drawer.vue'
 import EmptyState from './components/base/EmptyState.vue'
 import ErrorDialog from './components/base/ErrorDialog.vue'
+import FilePicker from './components/base/FilePicker.vue'
 import FilterBar from './components/base/FilterBar.vue'
 import Icon from './components/base/Icon.vue'
 import IconBtn from './components/base/IconBtn.vue'
@@ -63,6 +64,7 @@ export {
   Drawer,
   EmptyState,
   ErrorDialog,
+  FilePicker,
   FilterBar,
   Icon,
   IconBtn,
