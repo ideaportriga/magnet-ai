@@ -8,8 +8,9 @@
     @drop.prevent='onDrop'
   )
     template(v-if='loading')
-      .row.justify-center.items-center.full-width
+      .column.justify-center.items-center.full-width
         q-spinner(color='primary', size='32px')
+        .file-picker__hint.q-mt-sm(v-if='loadingText') {{ loadingText }}
     template(v-else-if='hasFiles')
       .file-picker__files
         .file-picker__file(v-for='(f, i) in displayFiles', :key='i')
@@ -65,6 +66,10 @@ export default defineComponent({
     loading: {
       type: Boolean,
       default: false,
+    },
+    loadingText: {
+      type: String,
+      default: undefined,
     },
     disable: {
       type: Boolean,

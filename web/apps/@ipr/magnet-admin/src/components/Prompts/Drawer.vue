@@ -42,6 +42,18 @@
             hint='Drop PDF files or click to browse',
             @update:model-value='onFilePickerUpdate'
           )
+      template(v-if='selectedInputOption === "audio"')
+        .q-mt-md
+          km-file-picker(
+            :model-value='audioFiles',
+            accept='.flac,.m4a,.mp3,.ogg,.wav,.webm,.mp4',
+            :loading='audioUpload.isUploading.value',
+            :loading-text='audioUpload.uploadStatus.value',
+            hint='Drop audio file or click to browse',
+            @update:model-value='onAudioFilePickerUpdate'
+          )
+          .row(v-if='audioUpload.error.value').q-mt-xs
+            .col.text-negative.text-body2 {{ audioUpload.error.value }}
       template(v-if='selectedInputOption === "speech"')
         .q-mt-md
           .row.items-center
@@ -167,6 +179,7 @@ import { copyToClipboard } from 'quasar'
 import { useStore } from 'vuex'
 import { fetchData } from '@shared'
 import { useScribe } from '@/composables/useScribe'
+import { useAudioUpload } from '@/composables/useAudioUpload'
 
 export default defineComponent({
   props: ['open'],
@@ -174,6 +187,11 @@ export default defineComponent({
   setup() {
     const store = useStore()
     const scribe = useScribe({ modelId: 'scribe_v2_realtime' })
+    const audioUpload = useAudioUpload({
+      endpoint: () => store.getters.config?.api?.aiBridge?.urlAdmin ?? '',
+      credentials: 'include',
+      language: 'en',
+    })
     const isLoadingToken = ref(false)
     const transcriptionBaseText = ref('')
     const selectedInputOption = ref(null)
@@ -181,6 +199,7 @@ export default defineComponent({
     return {
       store,
       scribe,
+      audioUpload,
       isLoadingToken,
       transcriptionBaseText,
       selectedInputOption,
@@ -195,6 +214,7 @@ export default defineComponent({
       evaluationIds: ref(''),
       evaluationResults: ref({}),
       files: ref([]),
+      audioFiles: ref([]),
       fileUploadInProgress: ref(false),
     }
   },
@@ -215,6 +235,7 @@ export default defineComponent({
       return [
         { label: 'Manual input', value: null },
         { label: 'PDF upload', value: 'pdf' },
+        { label: 'Audio upload', value: 'audio' },
         { label: 'Speech to Text', value: 'speech' },
       ]
     },
@@ -320,6 +341,24 @@ export default defineComponent({
       this.files = value
       const arr = Array.isArray(value) ? value : value ? [value] : []
       this.handleFilesUpload(arr)
+    },
+    async onAudioFilePickerUpdate(value) {
+      const file = Array.isArray(value) ? value?.[0] : value
+      if (!file) {
+        this.audioFiles = []
+        this.audioUpload.reset()
+        return
+      }
+      this.audioFiles = [file]
+      this.audioUpload.reset()
+      try {
+        const { segments } = await this.audioUpload.uploadAndTranscribe(file)
+        this.testText = JSON.stringify(segments, null, 2)
+        this.audioFiles = []
+        this.selectedInputOption = null
+      } catch {
+        // error shown via audioUpload.error
+      }
     },
     navigateToEval() {
       const query = {
