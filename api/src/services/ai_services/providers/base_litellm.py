@@ -452,6 +452,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
             return None
 
         if response_format.get("type") == "json_schema":
+            json_schema = response_format.get("json_schema", {})
+            schema = json_schema.get("schema")
+            if isinstance(schema, str):
+                import json
+
+                json_schema["schema"] = json.loads(schema)
             return response_format
 
         if response_format.get("type") == "json_object":
