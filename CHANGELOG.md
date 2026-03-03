@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.24](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.23...v0.6.0-dev.24) (2026-03-03)
+
+### 🐛 Bug Fixes
+
+* support for json schema in litellm ([9480b12](https://github.com/ideaportriga/magnet-ai/commit/9480b12ab7e8eb47a1031f19da12d79240459f1a))
+
 ## [0.6.0-dev.23](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.22...v0.6.0-dev.23) (2026-03-02)
 
 ### ✨ Features
