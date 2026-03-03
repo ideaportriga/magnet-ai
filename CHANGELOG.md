@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.25](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.24...v0.6.0-dev.25) (2026-03-03)
+
+### ✨ Features
+
+* add audio file upload functionality to prompt test drawer ([3be9375](https://github.com/ideaportriga/magnet-ai/commit/3be93754010ac5368dcd7728e43ce66f7bf97372))
+
 ## [0.6.0-dev.24](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.23...v0.6.0-dev.24) (2026-03-03)
 
 ### 🐛 Bug Fixes
