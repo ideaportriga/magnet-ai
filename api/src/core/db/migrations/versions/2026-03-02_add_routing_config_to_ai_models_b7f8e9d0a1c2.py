@@ -2,7 +2,7 @@
 """add routing_config to ai_models
 
 Revision ID: b7f8e9d0a1c2
-Revises: a1b2c3d4e5f6
+Revises: b465ecafa071
 Create Date: 2026-02-05 12:00:00.000000+00:00
 
 """
@@ -12,19 +12,19 @@ from __future__ import annotations
 import warnings
 from typing import TYPE_CHECKING
 
-import sqlalchemy as sa
-from alembic import op
-from advanced_alchemy.types import (
-    EncryptedString,
-    EncryptedText,
-    GUID,
-    ORA_JSONB,
-    DateTimeUTC,
-)
-from sqlalchemy import Text  # noqa: F401
 import advanced_alchemy.types
 import advanced_alchemy.types.datetime
 import advanced_alchemy.types.json
+import sqlalchemy as sa
+from advanced_alchemy.types import (
+    GUID,
+    ORA_JSONB,
+    DateTimeUTC,
+    EncryptedString,
+    EncryptedText,
+)
+from alembic import op
+from sqlalchemy import Text  # noqa: F401
 from sqlalchemy.dialects import postgresql
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ sa.Text = Text
 
 # revision identifiers, used by Alembic.
 revision = "b7f8e9d0a1c2"
-down_revision = "a1b2c3d4e5f6"
+down_revision = "b465ecafa071"
 branch_labels = None
 depends_on = None
 
