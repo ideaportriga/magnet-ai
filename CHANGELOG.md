@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.26](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.25...v0.6.0-dev.26) (2026-03-04)
+
+### ✨ Features
+
+* add Prompt Queue feature with routing and store integration ([a44c77a](https://github.com/ideaportriga/magnet-ai/commit/a44c77a7242114f2b9af1d54775ee8f35083974f))
+* prompt queue execution ([5504d9e](https://github.com/ideaportriga/magnet-ai/commit/5504d9ebd8c331de95add3c1a70f79f05411431c))
+
+### 🐛 Bug Fixes
+
+* allow string input of PromptQ ([75adb92](https://github.com/ideaportriga/magnet-ai/commit/75adb92367b96312ff7d21ee0dd515a4ec7ebc86))
+* move to end of list in toolbar ([81c95ff](https://github.com/ideaportriga/magnet-ai/commit/81c95ff38f55a91a8e953559f4db58ffc51572d9))
+* prompt q string values ([65ac8d1](https://github.com/ideaportriga/magnet-ai/commit/65ac8d1f5278c174cf06da54f29af3cf8f6b4c5d))
+
 ## [0.6.0-dev.25](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.24...v0.6.0-dev.25) (2026-03-03)
 
 ### ✨ Features
