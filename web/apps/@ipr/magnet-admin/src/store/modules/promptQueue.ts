@@ -22,18 +22,21 @@ interface State {
   promptQueueConfigs: PromptQueueConfigRecord[]
   selectedPromptQueueConfig: PromptQueueConfigRecord | null
   promptQueueLoading: boolean
+  executeDrawerOpen: boolean
 }
 
 const state = (): State => ({
   promptQueueConfigs: [],
   selectedPromptQueueConfig: null,
   promptQueueLoading: false,
+  executeDrawerOpen: false,
 })
 
 const getters = {
   promptQueueConfigs: (state: State) => state.promptQueueConfigs,
   selectedPromptQueueConfig: (state: State) => state.selectedPromptQueueConfig,
   promptQueueLoading: (state: State) => state.promptQueueLoading,
+  executeDrawerOpen: (state: State) => state.executeDrawerOpen,
 }
 
 const mutations = {
@@ -45,6 +48,9 @@ const mutations = {
   },
   setPromptQueueLoading(state: State, loading: boolean) {
     state.promptQueueLoading = loading
+  },
+  setExecuteDrawerOpen(state: State, open: boolean) {
+    state.executeDrawerOpen = open
   },
   addPromptQueueConfig(state: State, config: PromptQueueConfigRecord) {
     state.promptQueueConfigs.push(config)

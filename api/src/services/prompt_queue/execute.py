@@ -61,9 +61,9 @@ async def execute_prompt_queue(
     result: dict[str, Any] = {}
     steps = config.get("steps") or []
 
-    for step in steps:
+    for step_idx, step in enumerate(steps):
         prompts = step.get("prompts") or []
-        for prompt in prompts:
+        for prompt_idx, prompt in enumerate(prompts):
             template_id = prompt.get("prompt_template_id")
             if not template_id:
                 continue
