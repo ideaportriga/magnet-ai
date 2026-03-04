@@ -2,7 +2,7 @@
 """empty message
 
 Revision ID: 2a60f36c53f8
-Revises: b465ecafa071
+Revises: b7f8e9d0a1c2
 Create Date: 2026-03-03 14:57:26.527540+00:00
 
 """
@@ -50,7 +50,7 @@ sa.Text = Text
 
 # revision identifiers, used by Alembic.
 revision = "2a60f36c53f8"
-down_revision = "b465ecafa071"
+down_revision = "b7f8e9d0a1c2"
 branch_labels = None
 depends_on = None
 
