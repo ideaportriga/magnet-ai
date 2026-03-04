@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.29](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.28...v0.6.0-dev.29) (2026-03-04)
+
+### 🐛 Bug Fixes
+
+* **api-tools:** use verify_ssl param for all auth types ([af77f40](https://github.com/ideaportriga/magnet-ai/commit/af77f401fe980bf5842fc17d59d0b39076554c0b))
+
 ## [0.6.0-dev.28](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.27...v0.6.0-dev.28) (2026-03-04)
 
 ### ✨ Features
