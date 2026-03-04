@@ -26,6 +26,7 @@ from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
 from .admin.deep_research import DeepResearchConfigController, DeepResearchRunController
+from .admin.prompt_queue import PromptQueueConfigController
 from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
@@ -65,6 +66,7 @@ def get_route_handlers(
         CollectionsController,  # Admin / Collections
         DeepResearchConfigController,  # Admin / Deep Research Configs
         DeepResearchRunController,  # Admin / Deep Research Runs
+        PromptQueueConfigController,  # Admin / Prompt Queue
         EvaluationSetsController,  # Admin / Evaluation Sets
         EvaluationsController,  # Admin / Evaluations
         JobsController,  # Admin / Jobs
