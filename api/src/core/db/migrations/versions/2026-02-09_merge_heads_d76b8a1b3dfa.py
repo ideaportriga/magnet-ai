@@ -2,7 +2,7 @@
 """merge heads
 
 Revision ID: d76b8a1b3dfa
-Revises: 219c74c3e359, b7f8e9d0a1c2
+Revises: 219c74c3e359
 Create Date: 2026-02-09 21:53:00.310353+00:00
 
 """
@@ -13,14 +13,14 @@ import warnings
 from typing import TYPE_CHECKING
 
 import sqlalchemy as sa
-from alembic import op
 from advanced_alchemy.types import (
-    EncryptedString,
-    EncryptedText,
     GUID,
     ORA_JSONB,
     DateTimeUTC,
+    EncryptedString,
+    EncryptedText,
 )
+from alembic import op
 from sqlalchemy import Text  # noqa: F401
 
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ sa.Text = Text
 
 # revision identifiers, used by Alembic.
 revision = "d76b8a1b3dfa"
-down_revision = ("219c74c3e359", "b7f8e9d0a1c2")
+down_revision = "219c74c3e359"
 branch_labels = None
 depends_on = None
 

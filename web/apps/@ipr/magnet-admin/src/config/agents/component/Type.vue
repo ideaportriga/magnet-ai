@@ -36,6 +36,10 @@ export default defineComponent({
       if (this.row?.type === 'retrieval') {
         return 'Retrieval Tool'
       }
+
+      if (this.row?.type === 'knowledge_graph') {
+        return 'Knowledge Graph'
+      }
       return this.row?.type
     },
     statusStyles() {

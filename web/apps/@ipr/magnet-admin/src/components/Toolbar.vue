@@ -193,6 +193,7 @@ const observability = [
 ]
 
 const experimental = [
+
   {
     label: 'Knowledge graph',
     icon: 'o_hub',
@@ -213,6 +214,11 @@ const experimental = [
     icon: 'fas fa-clipboard-list',
     path: 'note-taker',
   },
+  {
+    label: 'Prompt Queue',
+    icon: 'fas fa-list-ul',
+    path: 'prompt-queue',
+  }
 ]
 
 const dev = [
