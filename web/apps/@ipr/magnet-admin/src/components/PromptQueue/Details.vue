@@ -58,8 +58,18 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                         height='30px',
                         placeholder='Select prompt template'
                       )
-                      template(v-if='getPromptPlaceholderKeys(stepIdx, promptIdx).length')
-                        .km-field.text-secondary-text.q-pb-xs.q-mt-sm Input
+                      .km-field.text-secondary-text.q-pb-xs.q-mt-sm
+                        .row.items-center
+                          span Input
+                          q-btn.q-ml-xs(
+                            v-if='getPromptPlaceholderKeys(stepIdx, promptIdx).length',
+                            flat,
+                            dense,
+                            size='sm',
+                            :label='getPromptInputMode(stepIdx, promptIdx) === "json" ? "Fields" : "JSON"',
+                            @click='setPromptInputMode(stepIdx, promptIdx, getPromptInputMode(stepIdx, promptIdx) === "json" ? "keyed" : "json")'
+                          )
+                      template(v-if='getPromptInputMode(stepIdx, promptIdx) === "keyed" && getPromptPlaceholderKeys(stepIdx, promptIdx).length')
                         .row.q-gutter-sm(v-for='key in getPromptPlaceholderKeys(stepIdx, promptIdx)', :key='key').items-center
                           .col-auto.km-description {{ key }}
                           .col
@@ -70,16 +80,16 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                               placeholder='e.g. input.task or result.data'
                             )
                       template(v-else)
-                        .km-field.text-secondary-text.q-pb-xs.q-mt-sm Input (JSON)
+                        .km-field.text-secondary-text.q-pb-xs(v-if='getPromptPlaceholderKeys(stepIdx, promptIdx).length') Input (JSON)
                         km-input(
                           :model-value='getPromptInputText(stepIdx, promptIdx)',
                           type='textarea',
                           rows='3',
-                          placeholder='{"task": "input.task", "context": "result.data"}',
+                          placeholder='{"task": "input.task", "context": "result.data"} or input.task',
                           @update:model-value='(v) => setPromptInputDraft(stepIdx, promptIdx, v)',
                           @blur='commitPromptInput(stepIdx, promptIdx)'
                         )
-                        .km-description.text-secondary-text Variable name → value or path (input.task, result.data)
+                        .km-description.text-secondary-text Variable name → value or path (input.task, result.data). Plain string for single placeholder.
                       .km-field.text-secondary-text.q-pb-xs.q-mt-sm Output key
                       km-input(
                         placeholder='e.g. data',
@@ -231,11 +241,24 @@ const tab = ref('steps')
 const newParamName = ref('')
 const newTestInputName = ref('')
 const promptInputDrafts = ref({})
+const promptInputMode = ref({})
 const apiToolCallBodyDrafts = ref({})
 
 const config = ref(null)
 
 const promptInputKey = (stepIdx, promptIdx) => `${stepIdx}-${promptIdx}`
+
+const getPromptInputMode = (stepIdx, promptIdx) => {
+  const key = promptInputKey(stepIdx, promptIdx)
+  if (promptInputMode.value[key]) return promptInputMode.value[key]
+  return getPromptPlaceholderKeys(stepIdx, promptIdx).length ? 'keyed' : 'json'
+}
+
+const setPromptInputMode = (stepIdx, promptIdx, mode) => {
+  const key = promptInputKey(stepIdx, promptIdx)
+  if (mode === 'keyed') delete promptInputDrafts.value[key]
+  promptInputMode.value[key] = mode
+}
 
 const name = computed({
   get: () => config.value?.name ?? '',
@@ -342,18 +365,32 @@ const setPromptInputDraft = (stepIdx, promptIdx, val) => {
 const commitPromptInput = (stepIdx, promptIdx) => {
   const key = promptInputKey(stepIdx, promptIdx)
   const val = promptInputDrafts.value[key]
-  delete promptInputDrafts.value[key]
   const trimmed = val?.trim()
   ensurePrompts(stepIdx)
   if (!config.value?.config?.steps?.[stepIdx]?.prompts?.[promptIdx]) return
   if (!trimmed) {
+    delete promptInputDrafts.value[key]
     config.value.config.steps[stepIdx].prompts[promptIdx].input = null
     return
   }
   try {
-    config.value.config.steps[stepIdx].prompts[promptIdx].input = JSON.parse(trimmed)
+    const parsed = JSON.parse(trimmed)
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      delete promptInputDrafts.value[key]
+      config.value.config.steps[stepIdx].prompts[promptIdx].input = parsed
+    } else if (typeof parsed === 'string') {
+      const keys = getPromptPlaceholderKeys(stepIdx, promptIdx)
+      if (keys.length === 1) {
+        delete promptInputDrafts.value[key]
+        config.value.config.steps[stepIdx].prompts[promptIdx].input = { [keys[0]]: parsed }
+      }
+    }
   } catch {
-    // Keep previous value on parse error
+    const keys = getPromptPlaceholderKeys(stepIdx, promptIdx)
+    if (keys.length === 1 && (trimmed.startsWith('input.') || trimmed.startsWith('result.'))) {
+      delete promptInputDrafts.value[key]
+      config.value.config.steps[stepIdx].prompts[promptIdx].input = { [keys[0]]: trimmed }
+    }
   }
 }
 
