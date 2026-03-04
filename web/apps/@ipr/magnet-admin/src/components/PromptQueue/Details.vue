@@ -352,7 +352,9 @@ const getPromptInputText = (stepIdx, promptIdx) => {
   const prompt = config.value?.config?.steps?.[stepIdx]?.prompts?.[promptIdx]
   if (!prompt?.input) return ''
   try {
-    return JSON.stringify(prompt.input, null, 2)
+    return typeof prompt.input === 'string'
+      ? prompt.input
+      : JSON.stringify(prompt.input, null, 2)
   } catch {
     return ''
   }
@@ -383,6 +385,9 @@ const commitPromptInput = (stepIdx, promptIdx) => {
       if (keys.length === 1) {
         delete promptInputDrafts.value[key]
         config.value.config.steps[stepIdx].prompts[promptIdx].input = { [keys[0]]: parsed }
+      } else {
+        delete promptInputDrafts.value[key]
+        config.value.config.steps[stepIdx].prompts[promptIdx].input = parsed
       }
     }
   } catch {
@@ -390,6 +395,9 @@ const commitPromptInput = (stepIdx, promptIdx) => {
     if (keys.length === 1 && (trimmed.startsWith('input.') || trimmed.startsWith('result.'))) {
       delete promptInputDrafts.value[key]
       config.value.config.steps[stepIdx].prompts[promptIdx].input = { [keys[0]]: trimmed }
+    } else {
+      delete promptInputDrafts.value[key]
+      config.value.config.steps[stepIdx].prompts[promptIdx].input = trimmed
     }
   }
 }

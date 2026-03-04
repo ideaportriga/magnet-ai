@@ -70,8 +70,15 @@ async def execute_prompt_queue(
 
             prompt_input = prompt.get("input")
             template_values: dict[str, Any] = {}
+            template_additional_messages: list[dict[str, Any]] = None
             if prompt_input and isinstance(prompt_input, dict):
                 template_values = _resolve_dict(prompt_input, input_data, result)
+            elif prompt_input and isinstance(prompt_input, str):
+                resolved = _resolve_value(prompt_input, input_data, result)
+                content = resolved if resolved is not None else prompt_input
+                template_additional_messages = [
+                    {"role": "user", "content": str(content)},
+                ]
 
             prompt_template_config = await get_prompt_template_by_system_name_flat(
                 template_id
@@ -79,6 +86,7 @@ async def execute_prompt_queue(
             exec_result = await execute_prompt_template(
                 system_name_or_config=prompt_template_config,
                 template_values=template_values,
+                template_additional_messages=template_additional_messages,
             )
 
             output_key = prompt.get("output_key")
