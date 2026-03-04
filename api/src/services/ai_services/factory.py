@@ -8,7 +8,7 @@ from services.ai_services.cache import (
     invalidate_all_provider_cache,
     invalidate_provider_cache,
 )
-from services.ai_services.interface import AIProviderInterface
+from services.ai_services.interface import AIProviderInterface, STTProviderInterface
 from services.ai_services.providers.oci import OCIProvider
 from services.ai_services.providers.oci_llama import OCILlamaProvider
 from services.ai_services.providers.openai import OpenAIProvider
@@ -17,6 +17,7 @@ from services.ai_services.providers.azure_ai import AzureAIProvider
 from services.ai_services.providers.groq import GroqProvider
 from services.ai_services.providers.tmp_local import TmpLocalProvider
 from services.ai_services.providers.litellm_provider import LiteLLMProvider
+from services.ai_services.providers.elevenlabs_stt import ElevenLabsSTTProvider
 from services.ai_services.router import (
     get_model_system_name_by_deployment_id,
     get_router,
@@ -169,3 +170,43 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
     cache_provider(provider_system_name, provider_instance)
 
     return provider_instance
+
+
+async def get_stt_provider(provider_system_name: str) -> STTProviderInterface:
+    cached = get_cached_provider(f"stt::{provider_system_name}")
+    if cached is not None:
+        return cached
+
+    async with alchemy.get_session() as session:
+        svc = ProvidersService(session=session)
+        provider = await svc.get_one(system_name=provider_system_name)
+        if not provider:
+            raise ValueError(f"Provider '{provider_system_name}' not found")
+
+        provider_data = {
+            "system_name": provider.system_name,
+            "name": provider.name,
+            "type": provider.type,
+            "endpoint": provider.endpoint,
+            "connection_config": provider.connection_config or {},
+            "secrets_encrypted": provider.secrets_encrypted or {},
+            "metadata_info": provider.metadata_info or {},
+        }
+
+    provider_type = str(provider_data.get("type") or "")
+    if not provider_type:
+        raise ValueError(f"Provider '{provider_system_name}' has no type")
+
+    provider_classes: dict[str, type[STTProviderInterface]] = {
+        "elevenlabs_stt": ElevenLabsSTTProvider,
+        "elevenlabs": ElevenLabsSTTProvider,
+    }
+
+    cls = provider_classes.get(provider_type)
+    if not cls:
+        raise ValueError(f"Unsupported STT provider type '{provider_type}'")
+
+    cfg = _build_provider_config(provider_data)
+    inst = cls(cfg)
+    cache_provider(f"stt::{provider_system_name}", inst)
+    return inst

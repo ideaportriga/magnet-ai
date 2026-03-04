@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from openai_model.utils import get_model_by_system_name
-from services.ai_services.factory import get_ai_provider
+from services.ai_services.factory import get_ai_provider, get_stt_provider
 
 
 async def get_provider_by_model(system_name_for_model: str):
@@ -103,3 +103,22 @@ def build_litellm_model_entry(
         "model_name": model_config.get("system_name", model_config.get("ai_model")),
         "litellm_params": litellm_params,
     }
+
+
+async def get_stt_provider_by_model(model_system_name: str):
+    model_cfg = await get_model_by_system_name(model_system_name)
+    if not model_cfg:
+        raise ValueError(f"STT model '{model_system_name}' not found")
+
+    provider_system_name = model_cfg.get("provider_system_name")
+    if not provider_system_name:
+        raise ValueError(f"Model '{model_system_name}' missing provider_system_name")
+
+    model_id = model_cfg.get("ai_model")
+    if not model_id:
+        raise ValueError(
+            f"Model '{model_system_name}' missing ai_model (vendor model id)"
+        )
+
+    provider = await get_stt_provider(provider_system_name)
+    return provider, model_cfg, str(model_id)

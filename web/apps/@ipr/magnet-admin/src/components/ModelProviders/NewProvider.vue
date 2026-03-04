@@ -76,7 +76,20 @@ export default {
       { label: 'Groq', value: 'groq' },
       { label: 'OCI', value: 'oci' },
       { label: 'OCI Llama', value: 'oci_llama' },
+      { label: 'ElevenLabs', value: 'elevenlabs' },
     ]
+
+    const TYPE_TO_CATEGORY = {
+      openai: 'llm',
+      azure_open_ai: 'llm',
+      azure_ai: 'llm',
+      groq: 'llm',
+      oci: 'llm',
+      oci_llama: 'llm',
+
+      // STT
+      elevenlabs_stt: 'stt',
+    }
 
     // Validate endpoint URL format
     const validateEndpoint = (val) => {
@@ -148,6 +161,16 @@ export default {
         oci_llama: 'Required. Your OCI Llama endpoint URL.',
       }
       return hints[type] || 'Provider API endpoint URL. Warning: changing endpoint later will clear all secrets.'
+    },
+  },
+  watch: {
+    'newRow.type': {
+      immediate: true,
+      handler(t) {
+        const mapped = TYPE_TO_CATEGORY[t]
+        if (mapped) this.newRow.category = mapped
+        else this.newRow.category = 'llm'
+      },
     },
   },
   mounted() {

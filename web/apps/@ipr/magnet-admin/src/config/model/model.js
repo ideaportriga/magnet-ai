@@ -10,6 +10,7 @@ const categoryOptions = [
   { label: 'Chat Completion', value: 'prompts' },
   { label: 'Vector Embedding', value: 'embeddings' },
   { label: 'Re-ranking', value: 're-ranking' },
+  { label: 'Speech to Text', value: 'stt' },
 ]
 
 const featureOptions = [
