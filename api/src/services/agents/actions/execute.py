@@ -40,7 +40,6 @@ EXECUTE_AGENT_ACTION_FUNCTION_MAP: dict[AgentActionType, ActionFunctionProtocol]
     AgentActionType.RAG: action_execute_rag,
     AgentActionType.RETRIEVAL: action_execute_retrieval,
     AgentActionType.PROMPT_TEMPLATE: action_execute_prompt_template,
-    AgentActionType.KNOWLEDGE_GRAPH: action_execute_knowledge_graph,
 }
 
 
@@ -49,6 +48,7 @@ EXECUTE_AGENT_PROVIDED_ACTION_FUNCTION_MAP: dict[
 ] = {
     AgentActionType.MCP_TOOL: action_execute_mcp_tool,
     AgentActionType.API: action_execute_api_tool,
+    AgentActionType.KNOWLEDGE_GRAPH: action_execute_knowledge_graph,
 }
 
 

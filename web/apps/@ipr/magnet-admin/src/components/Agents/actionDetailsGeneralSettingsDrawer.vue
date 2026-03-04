@@ -192,6 +192,11 @@ export default {
           return this.mcpItems.find((item) => item.system_name === this.action?.tool_provider)
         } else if (this.action?.type === 'retrieval') {
           return this.retrievalItems.find((item) => item.system_name === this.action?.tool_system_name)
+        } else if (this.action?.type === 'knowledge_graph') {
+          return {
+            name: `${this.action?.tool_provider} / ${this.action?.tool_system_name}`,
+            system_name: this.action?.tool_provider,
+          }
         }
         return {}
       },
@@ -215,6 +220,8 @@ export default {
         this.navigate(`mcp/${this.tool_object?.id}/tools/${this.tool_name}`)
       } else if (this.action?.type === 'retrieval') {
         this.navigate(`retrieval/${this.tool_object?.id}`)
+      } else if (this.action?.type === 'knowledge_graph') {
+        this.navigate(`knowledge-graph/${this.tool_object?.id || ''}`)
       }
     },
     getToolTypeLabel(name) {
@@ -224,6 +231,7 @@ export default {
         { name: 'prompt_template', label: 'Prompt Template' },
         { name: 'mcp_tool', label: 'MCP Tool' },
         { name: 'retrieval', label: 'Retrieval Tool' },
+        { name: 'knowledge_graph', label: 'Knowledge Graph' },
       ]
 
       return dict.find((item) => item.name === name)?.label || name
