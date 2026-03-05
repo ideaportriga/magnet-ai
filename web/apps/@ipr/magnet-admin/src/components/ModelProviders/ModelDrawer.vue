@@ -43,6 +43,10 @@
           .q-ml
             km-btn(flat, label='Edit defaults', color='primary', @click='goToDefaultModels')
 
+      .q-mt-8
+        km-checkbox(label='Active', :model-value='is_active', @update:model-value='is_active = $event')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs When disabled, this model will not be available for selection
+
       q-separator.q-my-16
 
       // Features section for prompts models
@@ -139,24 +143,28 @@
             style='max-width: 120px'
           )
           .text-secondary-text {{ price_output_unit_name }}
-      div
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for cached output
-        .row.items-center.q-gap-8.no-wrap
-          km-input(
-            prefix='$',
-            height='32px',
-            :model-value='price_reasoning_output',
-            @update:model-value='price_reasoning_output = $event',
-            style='max-width: 120px'
-          )
-          .text-secondary-text per
-          km-input(
-            height='32px',
-            :model-value='price_reasoning_output_unit_count',
-            @update:model-value='price_reasoning_output_unit_count = $event',
-            style='max-width: 120px'
-          )
-          .text-secondary-text {{ price_output_unit_name }}
+      template(v-if='reasoning')
+        q-separator.q-my-16
+        .km-title Reasoning Output
+        div
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Price for reasoning output
+          .row.items-center.q-gap-8.no-wrap
+            km-input(
+              prefix='$',
+              height='32px',
+              :model-value='price_reasoning_output',
+              @update:model-value='price_reasoning_output = $event',
+              style='max-width: 120px'
+            )
+            .text-secondary-text per
+            km-input(
+              height='32px',
+              :model-value='price_reasoning_output_unit_count',
+              @update:model-value='price_reasoning_output_unit_count = $event',
+              style='max-width: 120px'
+            )
+            .text-secondary-text {{ price_output_unit_name }}
+
 
     //- Routing Config Tab
     .column.q-gap-16.q-pa-16(v-if='tab == "routing"')
@@ -570,7 +578,7 @@ export default {
         return this.modelConfig?.price_reasoning || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning', value: parseFloat(value) })
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning', value: parseFloat(value) || null })
       },
     },
     price_reasoning_output_unit_count: {
@@ -578,9 +586,18 @@ export default {
         return this.modelConfig?.price_reasoning_output_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning_output_unit_count', value: parseFloat(value) })
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning_output_unit_count', value: parseFloat(value) || null })
       },
     },
+    is_active: {
+      get() {
+        return this.modelConfig?.is_active !== false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'is_active', value })
+      },
+    },
+
     resources: {
       get() {
         return this.modelConfig?.resources || ''

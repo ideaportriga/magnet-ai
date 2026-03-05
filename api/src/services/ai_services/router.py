@@ -18,6 +18,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from core.config.app import alchemy
 from core.domain.ai_models.service import AIModelsService
 from core.domain.providers.service import ProvidersService
+from services.ai_services.providers.universal import PROVIDER_TYPE_TO_LITELLM_PREFIX
 from utils.secrets import replace_placeholders_in_dict
 
 logger = logging.getLogger(__name__)
@@ -26,15 +27,8 @@ logger = logging.getLogger(__name__)
 _router: Router | None = None
 _router_lock = asyncio.Lock()
 
-# Provider type to LiteLLM provider prefix mapping
-PROVIDER_TYPE_TO_LITELLM = {
-    "openai": "openai",
-    "azure_open_ai": "azure",
-    "azure_ai": "azure_ai",
-    "groq": "groq",
-    "datakom": "",  # Local/custom endpoints
-    "litellm": "",  # Already LiteLLM format
-}
+# Re-use centralized prefix mapping from UniversalLiteLLMProvider
+PROVIDER_TYPE_TO_LITELLM = PROVIDER_TYPE_TO_LITELLM_PREFIX
 
 
 def _get_first_non_empty(connection: dict[str, Any], keys: list[str]) -> str | None:

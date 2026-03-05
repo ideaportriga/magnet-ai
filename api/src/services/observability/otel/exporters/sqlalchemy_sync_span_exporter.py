@@ -290,7 +290,9 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
 
         trace.name = trace.name or trace_fields.name.value
         trace.type = trace.type or trace_fields.type.value
-        trace.status = "error" if span_status == StatusCode.ERROR else None
+        # Propagate error status: once any span is an error, trace is an error
+        if span_status == "error":
+            trace.status = "error"
         trace.channel = trace.channel or global_fields.channel.value
         trace.source = trace.source or global_fields.source.value
         # TODO: merge extra data
@@ -518,6 +520,7 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
                 .values(
                     name=existing_trace.name or trace_patch.name,
                     type=existing_trace.type or trace_patch.type,
+                    status=trace_patch.status or existing_trace.status or "success",
                     channel=existing_trace.channel or trace_patch.channel,
                     source=existing_trace.source or trace_patch.source,
                     extra_data=_serialize_for_json(
