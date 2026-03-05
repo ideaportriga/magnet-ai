@@ -56,6 +56,7 @@ km-popup-confirm(
 import { ref, reactive, computed } from 'vue'
 import { useChroma, required, toUpperCaseWithUnderscores } from '@shared'
 import { useRouter } from 'vue-router'
+import { providerTypeOptions, providerEndpointHints } from '../../config/model_providers/providerTypes'
 
 export default {
   props: {
@@ -69,14 +70,7 @@ export default {
     const { create, ...useCollection } = useChroma('provider')
     const router = useRouter()
 
-    const typeOptions = [
-      { label: 'OpenAI', value: 'openai' },
-      { label: 'Azure OpenAI', value: 'azure_open_ai' },
-      { label: 'Azure AI', value: 'azure_ai' },
-      { label: 'Groq', value: 'groq' },
-      { label: 'OCI', value: 'oci' },
-      { label: 'OCI Llama', value: 'oci_llama' },
-    ]
+    const typeOptions = providerTypeOptions
 
     // Validate endpoint URL format
     const validateEndpoint = (val) => {
@@ -139,15 +133,7 @@ export default {
     },
     endpointHint() {
       const type = this.newRow?.type
-      const hints = {
-        openai: 'Leave empty to use official OpenAI API. Only specify for OpenAI-compatible APIs.',
-        azure_open_ai: 'Required. Your Azure OpenAI resource URL (e.g., https://your-resource.openai.azure.com)',
-        azure_ai: 'Required. Your Azure AI endpoint URL.',
-        groq: 'Leave empty to use default Groq API endpoint.',
-        oci: 'Required. Your OCI endpoint URL.',
-        oci_llama: 'Required. Your OCI Llama endpoint URL.',
-      }
-      return hints[type] || 'Provider API endpoint URL. Warning: changing endpoint later will clear all secrets.'
+      return providerEndpointHints[type] || 'Provider API endpoint URL. Warning: changing endpoint later will clear all secrets.'
     },
   },
   mounted() {

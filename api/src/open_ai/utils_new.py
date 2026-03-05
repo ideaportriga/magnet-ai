@@ -1,6 +1,8 @@
 import time
+from collections.abc import AsyncIterator
+from typing import BinaryIO
 
-from openai.types.chat import ChatCompletionMessageParam
+from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageParam
 
 from open_ai.models import ChatCompletionWithMetrics
 from openai_model.utils import get_model_by_system_name
@@ -294,7 +296,7 @@ async def create_chat_completion_from_prompt_template(
     messages: list[ChatCompletionMessageParam] = [
         {
             "role": "system",
-            "content": system_message,
+            "content": system_message or "",
         },
         *(additional_messages or []),
     ]
@@ -413,3 +415,367 @@ async def get_embeddings(text: str, model_system_name: str):
         )
 
         return embeddings.data
+
+
+async def create_chat_completion_stream(
+    *,
+    model_system_name: str,
+    messages: list[ChatCompletionMessageParam],
+    temperature: float | None = None,
+    top_p: float | None = None,
+    max_tokens: int | None = None,
+    response_format: dict | None = None,
+    tools: list[dict] | None = None,
+    tool_choice: str | dict | None = None,
+    parallel_tool_calls: bool | None = None,
+) -> AsyncIterator[ChatCompletionChunk]:
+    """
+    Stream chat completion chunks with observability.
+
+    Yields ChatCompletionChunk objects. The final chunk includes usage
+    information when the provider supports stream_options.include_usage.
+
+    Usage:
+        async for chunk in create_chat_completion_stream(
+            model_system_name="gpt-4o",
+            messages=[{"role": "user", "content": "Hello"}],
+        ):
+            content = chunk.choices[0].delta.content or ""
+            print(content, end="")
+    """
+    model_config = await get_model_by_system_name(model_system_name)
+    if not model_config:
+        raise LookupError(
+            f"Model configuration with system_name '{model_system_name}' was not found"
+        )
+
+    llm = model_config.get("ai_model")
+    provider_system_name = model_config.get("provider_system_name")
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
+
+    provider = await get_ai_provider(provider_system_name)
+
+    call_start_time = time.time()
+
+    async for chunk in provider.create_chat_completion_stream(
+        messages=messages,
+        model=llm,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        response_format=response_format,
+        tools=tools,
+        tool_choice=tool_choice,
+        model_config=model_config,
+        parallel_tool_calls=parallel_tool_calls,
+    ):
+        yield chunk
+
+    call_duration = time.time() - call_start_time
+
+    # Record streaming metrics via observability
+    call_model = ObservationModelDetails()
+    call_model.update(
+        name=model_system_name,
+        display_name=model_config.get("display_name"),
+        provider=provider_system_name,
+        parameters={"llm": llm, "streaming": True},
+    )
+    otel_system = getattr(provider, "otel_gen_ai_system", None)
+    if otel_system:
+        call_model.update(otel_gen_ai_system=otel_system)
+
+    observability_context.record_llm_metrics(
+        llm_type=LLMType.CHAT_COMPLETION,
+        model=call_model,
+        duration=call_duration,
+        usage=None,
+        cost=None,
+    )
+
+
+async def transcribe(
+    *,
+    model_system_name: str,
+    file: BinaryIO,
+    language: str | None = None,
+    prompt: str | None = None,
+    response_format: str | None = None,
+    timestamp_granularities: list[str] | None = None,
+):
+    """
+    Transcribe audio using the provider configured for the given model.
+
+    Args:
+        model_system_name: System name of the STT model in the database
+        file: Audio file binary stream
+        language: Language hint (ISO 639-1)
+        prompt: Optional prompt to guide transcription
+        response_format: Output format (json, text, srt, verbose_json, vtt)
+        timestamp_granularities: Timestamp detail levels
+
+    Returns:
+        TranscriptionResponse with text, segments, etc.
+    """
+    model_config = await get_model_by_system_name(model_system_name)
+    if not model_config:
+        raise LookupError(
+            f"Model configuration with system_name '{model_system_name}' was not found"
+        )
+
+    llm = model_config.get("ai_model")
+    provider_system_name = model_config.get("provider_system_name")
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
+
+    provider = await get_ai_provider(provider_system_name)
+
+    return await provider.transcribe(
+        file=file,
+        model=llm,
+        language=language,
+        prompt=prompt,
+        response_format=response_format,
+        timestamp_granularities=timestamp_granularities,
+    )
+
+
+async def text_to_speech(
+    *,
+    model_system_name: str,
+    input: str,
+    voice: str | None = None,
+    response_format: str | None = None,
+    speed: float | None = None,
+) -> bytes:
+    """
+    Generate speech audio using the provider configured for the given model.
+
+    Args:
+        model_system_name: System name of the TTS model in the database
+        input: Text to convert to speech
+        voice: Voice to use (provider-specific)
+        response_format: Audio format (mp3, opus, aac, flac, wav, pcm)
+        speed: Speech speed multiplier
+
+    Returns:
+        Raw audio bytes
+    """
+    model_config = await get_model_by_system_name(model_system_name)
+    if not model_config:
+        raise LookupError(
+            f"Model configuration with system_name '{model_system_name}' was not found"
+        )
+
+    llm = model_config.get("ai_model")
+    provider_system_name = model_config.get("provider_system_name")
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
+
+    provider = await get_ai_provider(provider_system_name)
+
+    return await provider.speech(
+        input=input,
+        model=llm,
+        voice=voice,
+        response_format=response_format,
+        speed=speed,
+    )
+
+
+async def create_response(
+    *,
+    model_system_name: str,
+    input: str | list,
+    instructions: str | None = None,
+    tools: list | None = None,
+    max_output_tokens: int | None = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    tool_choice: str | dict | None = None,
+    previous_response_id: str | None = None,
+    background: bool | None = None,
+    reasoning: dict | None = None,
+    text_format: dict | type | None = None,
+    **kwargs,
+):
+    """
+    Create a response using the Responses API.
+
+    Supports OpenAI Responses API, GPT-5 Codex (background=True),
+    built-in web search / file search tools, and stateful conversations
+    via previous_response_id.
+
+    LiteLLM automatically translates Responses API calls to Chat Completions
+    for providers that don't natively support it (e.g., Anthropic, Gemini).
+
+    Args:
+        model_system_name: System name of the model in the database
+        input: Prompt string or structured input list
+        instructions: System instructions
+        tools: Tool definitions (web_search, file_search, function, etc.)
+        max_output_tokens: Maximum output tokens
+        temperature: Sampling temperature
+        top_p: Top-p sampling
+        tool_choice: Tool choice setting
+        previous_response_id: ID of previous response for multi-turn
+        background: Run in background mode (GPT-5 Codex)
+        reasoning: Reasoning configuration (e.g., {"effort": "high"})
+        text_format: Structured output format (Pydantic model or dict)
+        **kwargs: Additional litellm.aresponses parameters
+
+    Returns:
+        ResponsesAPIResult with id, output_text, model, status, usage, raw
+    """
+    model_config = await get_model_by_system_name(model_system_name)
+    if not model_config:
+        raise LookupError(
+            f"Model configuration with system_name '{model_system_name}' was not found"
+        )
+
+    llm = model_config.get("ai_model")
+    provider_system_name = model_config.get("provider_system_name")
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
+
+    provider = await get_ai_provider(provider_system_name)
+
+    return await provider.create_response(
+        input=input,
+        model=llm,
+        instructions=instructions,
+        tools=tools,
+        max_output_tokens=max_output_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        tool_choice=tool_choice,
+        previous_response_id=previous_response_id,
+        background=background,
+        reasoning=reasoning,
+        text_format=text_format,
+        model_config=model_config,
+        **kwargs,
+    )
+
+
+async def create_response_stream(
+    *,
+    model_system_name: str,
+    input: str | list,
+    instructions: str | None = None,
+    tools: list | None = None,
+    max_output_tokens: int | None = None,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    tool_choice: str | dict | None = None,
+    previous_response_id: str | None = None,
+    reasoning: dict | None = None,
+    text_format: dict | type | None = None,
+    **kwargs,
+) -> AsyncIterator:
+    """
+    Stream a Responses API response.
+
+    Yields streaming events from the Responses API. Each event is a
+    ResponsesAPIStreamingResponse with type, data, etc.
+
+    Usage:
+        async for event in create_response_stream(
+            model_system_name="gpt-4.1",
+            input="Explain quantum computing",
+        ):
+            print(event)
+    """
+    model_config = await get_model_by_system_name(model_system_name)
+    if not model_config:
+        raise LookupError(
+            f"Model configuration with system_name '{model_system_name}' was not found"
+        )
+
+    llm = model_config.get("ai_model")
+    provider_system_name = model_config.get("provider_system_name")
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
+
+    provider = await get_ai_provider(provider_system_name)
+
+    async for event in provider.create_response_stream(
+        input=input,
+        model=llm,
+        instructions=instructions,
+        tools=tools,
+        max_output_tokens=max_output_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        tool_choice=tool_choice,
+        previous_response_id=previous_response_id,
+        reasoning=reasoning,
+        text_format=text_format,
+        model_config=model_config,
+        **kwargs,
+    ):
+        yield event
+
+
+async def generate_image(
+    *,
+    model_system_name: str,
+    prompt: str,
+    n: int = 1,
+    size: str | None = None,
+    quality: str | None = None,
+    style: str | None = None,
+    response_format: str | None = None,
+):
+    """
+    Generate images using the provider configured for the given model.
+
+    Supports OpenAI DALL-E, Azure OpenAI, Vertex AI Imagen, Bedrock, etc.
+
+    Args:
+        model_system_name: System name of the image model in the database
+        prompt: Text description of the image to generate
+        n: Number of images to generate
+        size: Image size (e.g., "1024x1024", "1792x1024")
+        quality: Image quality ("standard", "hd")
+        style: Image style ("vivid", "natural")
+        response_format: Output format ("url" or "b64_json")
+
+    Returns:
+        ImageGenerationResult with images list, model, raw response
+    """
+    model_config = await get_model_by_system_name(model_system_name)
+    if not model_config:
+        raise LookupError(
+            f"Model configuration with system_name '{model_system_name}' was not found"
+        )
+
+    llm = model_config.get("ai_model")
+    provider_system_name = model_config.get("provider_system_name")
+    if not provider_system_name:
+        raise ValueError(
+            f"Model '{model_system_name}' does not have a provider_system_name configured"
+        )
+
+    provider = await get_ai_provider(provider_system_name)
+
+    return await provider.generate_image(
+        prompt=prompt,
+        model=llm,
+        n=n,
+        size=size,
+        quality=quality,
+        style=style,
+        response_format=response_format,
+    )

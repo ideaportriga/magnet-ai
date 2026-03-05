@@ -16,13 +16,13 @@ km-popup-confirm(
         height='auto',
         minHeight='30px',
         placeholder='Provider',
-        :options='providerItems',
-        v-model='newRow.provider',
+        :options='providerOptions',
+        v-model='selectedProviderId',
         ref='providerRef',
         :rules='config.provider.rules',
         emit-value,
         map-options,
-        option-value='id'
+        option-value='value'
       )
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
       .full-width
@@ -112,11 +112,15 @@ export default {
       create,
       createNew: ref(false),
       requiredFields,
+      selectedProviderId: ref(null),
       newRow: reactive({
-        provider: 'azure_open_ai',
+        provider_name: '',
+        provider_system_name: '',
         name: '',
+        display_name: '',
         description: '',
         system_name: '',
+        ai_model: '',
         json_mode: false,
         json_schema: false,
         price_input: '',
@@ -130,10 +134,21 @@ export default {
       }),
       stepper: ref(0),
       autoChangeCode: ref(true),
+      autoChangeDisplayName: ref(true),
       providerItems,
     }
   },
   computed: {
+    providerOptions() {
+      return (this.providerItems || []).map(p => ({
+        label: p.name || p.system_name,
+        value: p.id,
+      }))
+    },
+    selectedProvider() {
+      if (!this.selectedProviderId) return null
+      return (this.providerItems || []).find(p => p.id === this.selectedProviderId) || null
+    },
     steps() {
       if (this.type === 'prompts' || this.type === 'embeddings') {
         return [
@@ -175,7 +190,15 @@ export default {
       },
       set(val) {
         this.newRow.ai_model = val
-        if (this.autoChangeCode && this.isMounted) this.newRow.system_name = toUpperCaseWithUnderscores(this.newRow.provider + '_' + val)
+        this.newRow.name = val
+        const providerName = this.selectedProvider?.system_name || this.selectedProvider?.name || ''
+        if (this.autoChangeCode && this.isMounted && providerName) {
+          this.newRow.system_name = toUpperCaseWithUnderscores(providerName + '_' + val)
+        }
+        if (this.autoChangeDisplayName && this.isMounted && providerName && val) {
+          const formattedProviderName = this.formatProviderName(providerName)
+          this.newRow.display_name = `${formattedProviderName}: ${val}`
+        }
       },
     },
     system_name: {
@@ -236,6 +259,15 @@ export default {
       }
       this.$emit('cancel')
     },
+    formatProviderName(name) {
+      if (!name) return ''
+      return name
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .split(' ')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+    },
 
     validateFields() {
       const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
@@ -244,11 +276,24 @@ export default {
     async createModel() {
       if (!this.validateFields()) return
 
+      // Set provider fields from selected provider
+      if (this.selectedProvider) {
+        this.newRow.provider_system_name = this.selectedProvider.system_name
+        this.newRow.provider_name = this.selectedProvider.system_name
+      }
+
       // Handle configs - only include if not empty
       const payload = { ...this.newRow }
       if (payload.configs && Object.keys(payload.configs).length === 0) {
         delete payload.configs
       }
+
+      // Clean up empty strings
+      if (!payload.description) payload.description = null
+      if (!payload.resources) payload.resources = null
+      if (!payload.price_input) payload.price_input = null
+      if (!payload.price_output) payload.price_output = null
+      if (!payload.price_cached) payload.price_cached = null
 
       await this.create(JSON.stringify(payload))
       this.$emit('cancel')

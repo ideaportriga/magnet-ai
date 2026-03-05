@@ -88,6 +88,13 @@ class AIModel(UUIDAuditSimpleBase):
         default=False,
         comment="Is this the default model for its type",
     )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+        comment="Whether the model is active and available for use",
+    )
 
     # Pricing information (stored as strings to maintain precision)
     price_input: Mapped[Optional[str]] = mapped_column(
@@ -99,6 +106,9 @@ class AIModel(UUIDAuditSimpleBase):
     price_cached: Mapped[Optional[str]] = mapped_column(
         String(20), nullable=True, comment="Price per cached input unit"
     )
+    price_reasoning: Mapped[Optional[str]] = mapped_column(
+        String(20), nullable=True, comment="Price per reasoning output unit"
+    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Mapped[Optional[int]] = mapped_column(
@@ -109,6 +119,9 @@ class AIModel(UUIDAuditSimpleBase):
     )
     price_standard_output_unit_count: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True, comment="Standard output unit count for pricing"
+    )
+    price_reasoning_output_unit_count: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, comment="Reasoning output unit count for pricing"
     )
 
     # Unit names
