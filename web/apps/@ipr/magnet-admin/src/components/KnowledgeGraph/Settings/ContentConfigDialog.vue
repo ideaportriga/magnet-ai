@@ -352,6 +352,17 @@
         <km-btn label="Save" @click="save" />
       </q-card-actions>
     </q-card>
+
+    <!-- Delete Content Config Dialog -->
+    <kg-confirm-dialog
+      v-model="showDeleteDialog"
+      title="Delete content configuration"
+      icon="delete_outline"
+      :description="`Are you sure you want to delete '${form.name}'?`"
+      confirm-label="Delete"
+      destructive
+      @confirm="performDelete"
+    />
   </q-dialog>
 </template>
 
@@ -361,7 +372,7 @@ import { fetchData, required } from '@shared'
 import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { KgDropdownField } from '../common'
+import { KgConfirmDialog, KgDropdownField } from '../common'
 import type { SourceRow } from '../Sources/models'
 import { chunkingStrategyOptions, readerOptions } from './models'
 
@@ -657,19 +668,17 @@ const save = async () => {
   dialogOpen.value = false
 }
 
+const showDeleteDialog = ref(false)
+
 const confirmDelete = () => {
-  const name = form.value?.name
-  if (!name) return
-  $q.dialog({
-    title: 'Delete content configuration',
-    message: `Are you sure you want to delete "${name}"?`,
-    cancel: true,
-    persistent: true,
-    ok: { label: 'Delete', color: 'negative' },
-  }).onOk(() => {
-    emit('delete', name)
-    dialogOpen.value = false
-  })
+  if (!form.value?.name) return
+  showDeleteDialog.value = true
+}
+
+const performDelete = () => {
+  emit('delete', form.value.name)
+  showDeleteDialog.value = false
+  dialogOpen.value = false
 }
 
 watch(

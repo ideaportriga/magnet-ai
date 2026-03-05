@@ -115,6 +115,31 @@
       @create-new="onPromoteCreateNew"
       @link-existing="onPromoteLinkExisting"
     />
+
+    <!-- Delete Field Definition Dialog -->
+    <kg-confirm-dialog
+      v-model="showDeleteFieldDialog"
+      title="Delete field definition"
+      icon="delete_outline"
+      :description="`Are you sure you want to delete the field '${deletingField?.display_name || deletingField?.name}'?`"
+      confirm-label="Delete"
+      destructive
+      warning="This won't delete existing metadata values, only the field definition."
+      warning-variant="info"
+      @confirm="performDeleteField"
+    />
+
+    <!-- Delete Extraction Field Dialog -->
+    <kg-confirm-dialog
+      v-model="showDeleteExtractedFieldDialog"
+      title="Delete extraction field"
+      icon="delete_outline"
+      :description="`Are you sure you want to delete the extraction field '${deletingExtractedField?.name}'?`"
+      confirm-label="Delete"
+      destructive
+      :loading="deleteExtractedFieldInProgress"
+      @confirm="performDeleteExtractedField"
+    />
   </div>
 </template>
 
@@ -123,6 +148,7 @@ import { fetchData } from '@shared'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
+import { KgConfirmDialog } from '../common'
 import { type SourceRow } from '../Sources/models'
 import MetadataFieldDialog from './MetadataFieldDialog.vue'
 import MetadataFieldsTable from './MetadataFieldsTable.vue'
@@ -781,35 +807,42 @@ const onSmartExtractionFieldSave = async (field: SmartExtractionFieldDefinition)
   }
 }
 
+const showDeleteExtractedFieldDialog = ref(false)
+const deleteExtractedFieldInProgress = ref(false)
+const deletingExtractedField = ref<MetadataExtractedField | null>(null)
+
 const confirmDeleteExtractedField = (field: MetadataExtractedField) => {
   const name = String(field?.name || '').trim()
   if (!name) return
-  $q.dialog({
-    title: 'Delete Extraction Field',
-    message: `Delete the extraction field \"${name}\"?`,
-    cancel: true,
-    persistent: true,
-    ok: { color: 'negative', label: 'Delete', flat: true },
-  }).onOk(async () => {
-    try {
-      const endpoint = store.getters.config.api.aiBridge.urlAdmin
-      const res = await fetchData({
-        endpoint,
-        service: `knowledge_graphs/${props.graphId}/metadata/extracted/${name}`,
-        method: 'DELETE',
-        credentials: 'include',
-      })
-      if (!res.ok) {
-        $q.notify({ type: 'negative', message: 'Failed to delete extraction field', position: 'top' })
-        return
-      }
-      await fetchExtractedFields()
-      $q.notify({ type: 'positive', message: 'Extraction field deleted', position: 'top', textColor: 'black', timeout: 1500 })
-    } catch (error) {
-      console.error('Error deleting extracted metadata field:', error)
-      $q.notify({ type: 'negative', message: 'Error deleting extraction field', position: 'top' })
+  deletingExtractedField.value = field
+  showDeleteExtractedFieldDialog.value = true
+}
+
+const performDeleteExtractedField = async () => {
+  if (!deletingExtractedField.value) return
+  const name = String(deletingExtractedField.value.name || '').trim()
+  try {
+    deleteExtractedFieldInProgress.value = true
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const res = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/metadata/extracted/${name}`,
+      method: 'DELETE',
+      credentials: 'include',
+    })
+    if (!res.ok) {
+      $q.notify({ type: 'negative', message: 'Failed to delete extraction field', position: 'top' })
+      return
     }
-  })
+    showDeleteExtractedFieldDialog.value = false
+    await fetchExtractedFields()
+    $q.notify({ type: 'positive', message: 'Extraction field deleted', position: 'top', textColor: 'black', timeout: 1500 })
+  } catch (error) {
+    console.error('Error deleting extracted metadata field:', error)
+    $q.notify({ type: 'negative', message: 'Error deleting extraction field', position: 'top' })
+  } finally {
+    deleteExtractedFieldInProgress.value = false
+  }
 }
 
 const onExtractionSettingsSave = (settings: SmartExtractionSettings) => {
@@ -820,17 +853,19 @@ const onExtractionSettingsSave = (settings: SmartExtractionSettings) => {
   showExtractionDialog.value = false
 }
 
+const showDeleteFieldDialog = ref(false)
+const deletingField = ref<MetadataFieldDefinition | null>(null)
+
 const confirmDeleteField = (field: MetadataFieldDefinition) => {
-  $q.dialog({
-    title: 'Delete Field Definition',
-    message: `Are you sure you want to delete the field "${field.display_name || field.name}"? This won't delete existing metadata values.`,
-    cancel: true,
-    persistent: true,
-    ok: { color: 'negative', label: 'Delete', flat: true },
-  }).onOk(() => {
-    definedFields.value = definedFields.value.filter((f) => f.id !== field.id)
-    syncDefinitionsToValues()
-  })
+  deletingField.value = field
+  showDeleteFieldDialog.value = true
+}
+
+const performDeleteField = () => {
+  if (!deletingField.value) return
+  definedFields.value = definedFields.value.filter((f) => f.id !== deletingField.value?.id)
+  syncDefinitionsToValues()
+  showDeleteFieldDialog.value = false
 }
 
 const addPresetField = async (preset: PresetFieldDefinition) => {

@@ -1,6 +1,6 @@
 <template>
   <div class="kg-warning-banner" :class="`kg-warning-banner--${variant}`">
-    <q-icon :name="iconName" :color="iconColor" size="26px" />
+    <q-icon :name="iconName" :color="iconColor" size="28px" class="q-mr-sm" />
     <div class="col">
       <slot />
     </div>

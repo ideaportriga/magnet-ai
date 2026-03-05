@@ -145,17 +145,29 @@
         </q-table>
       </div>
     </div>
+
+    <!-- Delete Document Dialog -->
+    <kg-confirm-dialog
+      v-model="showDeleteDialog"
+      title="Delete document"
+      icon="delete_outline"
+      :description="`Are you sure you want to delete '${deletingDocument?.title || deletingDocument?.name}'?`"
+      confirm-label="Delete"
+      destructive
+      :loading="deleteInProgress"
+      @confirm="performDelete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import { formatDuration, formatRelative } from '@shared/utils'
-import { QTableColumn, useQuasar } from 'quasar'
+import { QTableColumn } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import { KgChunkTypeBadge, KgFileTypeBadge, KgStatusBadge } from '../common'
+import { KgChunkTypeBadge, KgConfirmDialog, KgFileTypeBadge, KgStatusBadge } from '../common'
 import { Chunk, Document } from './models'
 
 const props = defineProps<{
@@ -341,43 +353,38 @@ const onChunksRequest = (props: any) => {
   fetchChunks(page, rowsPerPage, searchQuery.value)
 }
 
-// Quasar instance for dialogs
-const $q = useQuasar()
+const showDeleteDialog = ref(false)
+const deleteInProgress = ref(false)
+const deletingDocument = ref<Document | null>(null)
 
 const confirmDelete = (row: Document) => {
-  // Confirm then call delete
-  void $q
-    .dialog({
-      title: 'Delete document',
-      message: `Are you sure you want to delete "${row.title || row.name}"? This cannot be undone.`,
-      cancel: true,
-      persistent: true,
-      ok: {
-        color: 'negative',
-        label: 'Delete',
-        flat: true,
-      },
+  deletingDocument.value = row
+  showDeleteDialog.value = true
+}
+
+const performDelete = async () => {
+  if (!deletingDocument.value) return
+  const row = deletingDocument.value
+  try {
+    deleteInProgress.value = true
+    deletingIds.value.add(row.id)
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/documents/${row.id}`,
+      method: 'DELETE',
+      credentials: 'include',
     })
-    .onOk(async () => {
-      try {
-        deletingIds.value.add(row.id)
-        const endpoint = store.getters.config.api.aiBridge.urlAdmin
-        const response = await fetchData({
-          endpoint,
-          service: `knowledge_graphs/${props.graphId}/documents/${row.id}`,
-          method: 'DELETE',
-          credentials: 'include',
-        })
-        if (response.ok) {
-          // Remove from list immediately and refresh
-          documents.value = documents.value.filter((d) => d.id !== row.id)
-        }
-      } catch (e) {
-        console.error('Failed to delete document', e)
-      } finally {
-        deletingIds.value.delete(row.id)
-      }
-    })
+    if (response.ok) {
+      documents.value = documents.value.filter((d) => d.id !== row.id)
+      showDeleteDialog.value = false
+    }
+  } catch (e) {
+    console.error('Failed to delete document', e)
+  } finally {
+    deleteInProgress.value = false
+    deletingIds.value.delete(row.id)
+  }
 }
 
 const openExternalLink = (url?: string) => {

@@ -132,7 +132,8 @@
     <kg-confirm-dialog
       v-model="showDeleteDialog"
       title="Delete source"
-      :description="`Are you sure you want to delete ${selectedRow?.name}?`"
+      icon="delete_outline"
+      :description="`Are you sure you want to delete '${selectedRow?.name}'?`"
       confirm-label="Delete"
       destructive
       :loading="deleteInProgress"
@@ -145,7 +146,9 @@
     <kg-confirm-dialog
       v-model="showPurgeDialog"
       title="Purge all data"
-      :description="`Are you sure you want to purge all data from ${selectedRow?.name}?`"
+      icon="delete_sweep"
+      icon-variant="warning"
+      :description="`Are you sure you want to purge all data from '${selectedRow?.name}'?`"
       confirm-label="Purge"
       destructive
       :loading="purgeInProgress"
