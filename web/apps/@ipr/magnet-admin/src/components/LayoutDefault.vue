@@ -36,6 +36,8 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         ai-apps-header
       template(v-if='route.name === "EvaluationSetDetails"')
         evaluation-sets-header
+      template(v-if='route.name === "PromptQueueDetails"')
+        prompt-queue-header
       template(v-if='route.name === "RetrievalItems"')
         retrieval-header
       template(v-if='route.name === "AssistantItems"')

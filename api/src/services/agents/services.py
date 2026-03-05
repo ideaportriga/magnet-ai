@@ -624,12 +624,25 @@ async def create_chat_completion_tool_parameters(
                 "additionalProperties": False,
             }
         case AgentActionType.KNOWLEDGE_GRAPH:
+            from services.knowledge_graph.retrievers.agent_retriever.tools import (
+                get_agent_tool_specs,
+            )
+
+            tool_specs = get_agent_tool_specs()
+            spec = next(
+                (s for s in tool_specs if s["name"] == action.tool_system_name),
+                None,
+            )
+            if spec and spec.get("parameters"):
+                return spec["parameters"]
+
+            # Fallback for unknown tool names
             return {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Rephrased user query optimized for semantic similarity search against knowledge graph chunks.",
+                        "description": "Rephrased user query optimized for semantic similarity search against knowledge graph.",
                     },
                 },
                 "required": ["query"],

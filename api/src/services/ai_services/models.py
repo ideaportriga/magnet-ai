@@ -24,6 +24,46 @@ class RerankResponse:
 
 
 @dataclass
+class TranscriptionResponse:
+    """Response from audio transcription (STT)."""
+
+    text: str
+    language: str | None = None
+    duration: float | None = None
+    segments: list[dict[str, Any]] | None = None
+    words: list[dict[str, Any]] | None = None
+
+
+@dataclass
+class ResponsesAPIResult:
+    """Normalized result from the Responses API (litellm.aresponses).
+
+    Wraps the raw ResponsesAPIResponse to provide a consistent
+    application-level interface. The raw litellm response is available
+    via `raw` for advanced use cases.
+    """
+
+    id: str
+    output_text: str
+    model: str | None = None
+    status: str | None = None
+    usage: ModelUsage | None = None
+    raw: Any = None  # Original ResponsesAPIResponse for advanced access
+
+
+@dataclass
+class ImageGenerationResult:
+    """Result from image generation (litellm.aimage_generation)."""
+
+    images: list[
+        dict[str, Any]
+    ]  # [{"url": ..., "b64_json": ..., "revised_prompt": ...}]
+    model: str | None = None
+    usage: ModelUsage | None = None
+    raw: Any = None  # Original ImageResponse
+
+
+@dataclass
 class RoutingConfig:
     """Typed representation of AIModel.routing_config.
 

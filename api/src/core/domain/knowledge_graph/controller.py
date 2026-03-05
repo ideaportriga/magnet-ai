@@ -104,6 +104,39 @@ class KnowledgeGraphController(Controller):
     ) -> list[KnowledgeGraphExternalSchema]:
         return await graph_service.list_graphs(db_session)
 
+    @get("/agent_tools", status_code=HTTP_200_OK)
+    async def list_graphs_as_agent_tools(
+        self, graph_service: KnowledgeGraphService, db_session: AsyncSession
+    ) -> list[dict]:
+        """Return knowledge graphs with their individual retriever tools.
+
+        Each knowledge graph is returned as a 'server' whose ``tools``
+        list contains the actual retriever tools (e.g.
+        findChunksBySimilarity, findDocumentsBySummarySimilarity,
+        findDocumentsByMetadata).  This lets the admin pick individual
+        tools per graph, following the same pattern as MCP/API servers.
+        """
+        from services.knowledge_graph.retrievers.agent_retriever.tools import (
+            get_agent_tool_specs,
+        )
+
+        graphs = await graph_service.list_graphs(db_session)
+        tool_specs = get_agent_tool_specs()
+
+        result = []
+        for graph in graphs:
+            result.append(
+                {
+                    "id": graph.id,
+                    "name": graph.name,
+                    "system_name": graph.system_name,
+                    "description": graph.description,
+                    "url": None,
+                    "tools": tool_specs,
+                }
+            )
+        return result
+
     @get("/{graph_id:uuid}", status_code=HTTP_200_OK)
     async def get_graph(
         self,
