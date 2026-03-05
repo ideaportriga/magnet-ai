@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.30](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.29...v0.6.0-dev.30) (2026-03-05)
+
+### 🐛 Bug Fixes
+
+* **api-tools:** allow creating tools without file upload ([6a2bc8f](https://github.com/ideaportriga/magnet-ai/commit/6a2bc8fe6d7be9ea0715233a41c6fe42e42aa588))
+
 ## [0.6.0-dev.29](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.28...v0.6.0-dev.29) (2026-03-04)
 
 ### 🐛 Bug Fixes
