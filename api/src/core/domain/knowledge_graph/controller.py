@@ -387,12 +387,22 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        cascade: bool = Parameter(
-            default=False,
-            description="Delete documents and chunks for this source as well",
-        ),
     ) -> None:
-        await source_service.delete_source(db_session, graph_id, source_id, cascade)
+        await source_service.delete_source(db_session, graph_id, source_id)
+
+    @delete(
+        "/{graph_id:uuid}/sources/{source_id:uuid}/purge",
+        status_code=HTTP_204_NO_CONTENT,
+    )
+    async def purge_source(
+        self,
+        source_service: KnowledgeGraphSourceService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        source_id: UUID,
+    ) -> None:
+        """Delete all documents and chunks for a source, keeping the source itself."""
+        await source_service.purge_source_data(db_session, graph_id, source_id)
 
     @observe(
         name="Sync knowledge graph source",

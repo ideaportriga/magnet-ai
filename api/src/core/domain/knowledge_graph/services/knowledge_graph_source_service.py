@@ -159,7 +159,6 @@ class KnowledgeGraphSourceService(
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        cascade: bool = False,
     ) -> None:
         result = await db_session.execute(
             select(KnowledgeGraphSource).where(
@@ -171,29 +170,54 @@ class KnowledgeGraphSourceService(
         if not source:
             raise NotFoundException("Source not found")
 
-        # If cascade requested, delete all documents (and chunks via DB FK cascade) linked to this source
-        if cascade:
-            docs_table = docs_table_name(graph_id)
-            ch_table = chunks_table_name(graph_id)
-
-            # Explicitly delete chunks first (safer than relying solely on DB cascade)
-            await db_session.execute(
-                text(f"""
-                    DELETE FROM {ch_table}
-                    WHERE document_id IN (
-                        SELECT id FROM {docs_table} WHERE source_id = :source_id
-                    )
-                """),
-                {"source_id": str(source_id)},
-            )
-
-            await db_session.execute(
-                text(f"DELETE FROM {docs_table} WHERE source_id = :source_id"),
-                {"source_id": str(source_id)},
-            )
-
+        await self._delete_source_data(db_session, graph_id, source_id)
         await db_session.delete(source)
         await db_session.commit()
+
+    async def purge_source_data(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        source_id: UUID,
+    ) -> None:
+        """Delete all documents and chunks for a source, keeping the source itself."""
+        result = await db_session.execute(
+            select(KnowledgeGraphSource).where(
+                (KnowledgeGraphSource.id == source_id)
+                & (KnowledgeGraphSource.graph_id == graph_id)
+            )
+        )
+        source = result.scalar_one_or_none()
+        if not source:
+            raise NotFoundException("Source not found")
+
+        await self._delete_source_data(db_session, graph_id, source_id)
+        await db_session.commit()
+
+    async def _delete_source_data(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        source_id: UUID,
+    ) -> None:
+        """Delete all documents and chunks for a source, keeping the source itself."""
+        docs_table = docs_table_name(graph_id)
+        ch_table = chunks_table_name(graph_id)
+
+        await db_session.execute(
+            text(f"""
+                DELETE FROM {ch_table}
+                WHERE document_id IN (
+                    SELECT id FROM {docs_table} WHERE source_id = :source_id
+                )
+            """),
+            {"source_id": str(source_id)},
+        )
+
+        await db_session.execute(
+            text(f"DELETE FROM {docs_table} WHERE source_id = :source_id"),
+            {"source_id": str(source_id)},
+        )
 
     class Repo(repository.SQLAlchemyAsyncRepository[KnowledgeGraphSource]):
         model_type = KnowledgeGraphSource
