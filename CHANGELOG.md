@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.34](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.33...v0.6.0-dev.34) (2026-03-05)
+
+### ✨ Features
+
+* **kg:** added ability to purge source data ([a543ecd](https://github.com/ideaportriga/magnet-ai/commit/a543ecd38a1727256ff630c0de63f31c7ad4686b))
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed styling issues in data explorer and metadata studio when browser window is narrow ([8b0c2de](https://github.com/ideaportriga/magnet-ai/commit/8b0c2deeabee52b32b7949a91552f69e1e9b6abd))
+
+### ♻️ Code Refactoring
+
+* **kg:** consolidate all delete dialogs in the knowledge graph ([e796a91](https://github.com/ideaportriga/magnet-ai/commit/e796a9165cd1e5daf63bc69fb794a8543ec06d33))
+
 ## [0.6.0-dev.33](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.32...v0.6.0-dev.33) (2026-03-05)
 
 ### ✨ Features
