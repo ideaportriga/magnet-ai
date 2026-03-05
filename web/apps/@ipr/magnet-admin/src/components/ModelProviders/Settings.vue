@@ -83,6 +83,29 @@
 
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
+    .row.items-center.q-gap-8.q-mb-md(v-if='recommendedSecretKeys.length')
+      .km-description.text-secondary-text Recommended for {{ formatProviderType(provider.type) }}:
+      q-space
+      km-btn(
+        flat,
+        label='Pre-populate keys',
+        size='sm',
+        icon='o_auto_fix_high',
+        color='primary',
+        @click='prefillRecommendedSecrets',
+        :disable='allRecommendedSecretsExist'
+      )
+    .row.q-gap-4.flex-wrap.q-mb-md(v-if='recommendedSecretKeys.length')
+      q-chip(
+        v-for='rec in recommendedSecretKeys',
+        :key='rec.key',
+        color='primary-light',
+        text-color='primary',
+        size='sm',
+        dense
+      )
+        q-icon.q-mr-xs(:name='secretExists(rec.key) ? "fas fa-check-circle" : "o_key"', size='14px', :color='secretExists(rec.key) ? "positive" : "primary"')
+        | {{ rec.label }}
     km-secrets(v-model:secrets='secrets', :original-secrets='originalProviderSecrets', :remount-value='remountValue')
 </template>
 
@@ -91,6 +114,7 @@ import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { onBeforeRouteLeave } from 'vue-router'
 import { useQuasar } from 'quasar'
+import { providerSecretKeys, providerConnectionConfigKeys, formatProviderType } from '../../config/model_providers/providerTypes'
 
 const store = useStore()
 const $q = useQuasar()
@@ -200,6 +224,37 @@ const cancelEndpointChange = () => {
   if (pendingNavigation.value) {
     pendingNavigation.value(false)
     pendingNavigation.value = null
+  }
+}
+
+const recommendedSecretKeys = computed(() => {
+  const type = provider.value?.type
+  return providerSecretKeys[type] || []
+})
+
+const secretExists = (key) => {
+  const s = provider.value?.secrets_encrypted || {}
+  return key in s
+}
+
+const allRecommendedSecretsExist = computed(() => {
+  return recommendedSecretKeys.value.length > 0 && recommendedSecretKeys.value.every(r => secretExists(r.key))
+})
+
+const prefillRecommendedSecrets = () => {
+  const current = { ...(provider.value?.secrets_encrypted || {}) }
+  let changed = false
+  for (const rec of recommendedSecretKeys.value) {
+    if (!(rec.key in current)) {
+      current[rec.key] = ''
+      changed = true
+    }
+  }
+  if (changed) {
+    store.commit('updateProviderProperty', {
+      key: 'secrets_encrypted',
+      value: current,
+    })
   }
 }
 

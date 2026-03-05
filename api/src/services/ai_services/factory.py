@@ -12,21 +12,17 @@ from services.ai_services.cache import (
 from services.ai_services.interface import AIProviderInterface, STTProviderInterface
 from services.ai_services.providers.oci import OCIProvider
 from services.ai_services.providers.oci_llama import OCILlamaProvider
-from services.ai_services.providers.openai import OpenAIProvider
-from services.ai_services.providers.azure_open_ai import AzureProvider
-from services.ai_services.providers.azure_ai import AzureAIProvider
-from services.ai_services.providers.groq import GroqProvider
-from services.ai_services.providers.tmp_local import TmpLocalProvider
 from services.ai_services.providers.litellm_provider import LiteLLMProvider
+from services.ai_services.providers.universal import (
+    UniversalLiteLLMProvider,
+)
+from services.ai_services.providers.native.mistral_stt import NativeMistralSTTProvider
 from services.ai_services.providers.elevenlabs_stt import ElevenLabsSTTProvider
 from services.ai_services.providers.azure_speech_stt import AzureSpeechSTTProvider
 from services.ai_services.router import (
     get_model_system_name_by_deployment_id,
     get_router,
     refresh_router,
-    router_completion,
-    router_embedding,
-    is_model_in_router,
 )
 from utils.secrets import replace_placeholders_in_dict
 
@@ -38,9 +34,6 @@ __all__ = [
     "get_model_system_name_by_deployment_id",
     "get_router",
     "refresh_router",
-    "router_completion",
-    "router_embedding",
-    "is_model_in_router",
 ]
 
 
@@ -146,23 +139,22 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
         raise ValueError(f"Provider '{provider_system_name}' has no type specified.")
 
     # Map provider types to implementation classes
-    provider_classes = {
-        "openai": OpenAIProvider,
-        "azure_ai": AzureAIProvider,
-        "azure_open_ai": AzureProvider,
-        "oci": OCIProvider,
-        "oci_llama": OCILlamaProvider,
-        "groq": GroqProvider,
-        "datakom": TmpLocalProvider,
-        "litellm": LiteLLMProvider,
+    # Most types go through UniversalLiteLLMProvider (100+ providers via litellm).
+    # LiteLLMProvider is for explicit Router mode (model_list in metadata_info).
+    # OCI providers use native OCI SDK (not LiteLLM).
+    # Native providers bypass LiteLLM for unsupported operations.
+    provider_classes: dict[str, type] = {
+        "litellm": LiteLLMProvider,  # Router mode with own model_list
+        "oci": OCIProvider,  # Native OCI SDK
+        "oci_llama": OCILlamaProvider,  # Native OCI SDK (Llama variant)
+        "mistral_stt": NativeMistralSTTProvider,  # Mistral Voxtral STT (not in litellm)
     }
 
     provider_class = provider_classes.get(str(provider_type))
     if not provider_class:
-        raise ValueError(
-            f"Provider type '{provider_type}' is not implemented. "
-            f"Available types: {', '.join(provider_classes.keys())}"
-        )
+        # All other types (openai, azure_open_ai, groq, anthropic, etc.)
+        # go through UniversalLiteLLMProvider
+        provider_class = UniversalLiteLLMProvider
 
     # Build config in the format expected by provider classes
     provider_config = _build_provider_config(provider_data)

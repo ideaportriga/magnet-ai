@@ -10,7 +10,9 @@ const categoryOptions = [
   { label: 'Chat Completion', value: 'prompts' },
   { label: 'Vector Embedding', value: 'embeddings' },
   { label: 'Re-ranking', value: 're-ranking' },
-  { label: 'Speech to Text', value: 'stt' },
+  { label: 'Speech-to-Text', value: 'stt' },
+  { label: 'Text-to-Speech', value: 'tts' },
+  { label: 'Image Generation', value: 'image_generation' },
 ]
 
 const featureOptions = [
@@ -181,15 +183,16 @@ const controls = {
   },
   is_active: {
     name: 'is_active',
-    display: false,
+    display: true,
     label: 'Active',
     field: 'is_active',
-    readonly: true,
+    readonly: false,
     columnNumber: 0,
     fromMetadata: false,
-    ignorePatch: true,
+    ignorePatch: false,
     validate: true,
-    align: 'left',
+    align: 'center',
+    sortable: true,
   },
   description: {
     name: 'description',

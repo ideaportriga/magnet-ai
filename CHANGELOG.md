@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.31](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.30...v0.6.0-dev.31) (2026-03-05)
+
+### 🐛 Bug Fixes
+
+* litellm integration fixes ([1222ed7](https://github.com/ideaportriga/magnet-ai/commit/1222ed71670ca89d95c534ac9c1d2077c6b77ae3))
+
 ## [0.6.0-dev.30](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.29...v0.6.0-dev.30) (2026-03-05)
 
 ### 🐛 Bug Fixes

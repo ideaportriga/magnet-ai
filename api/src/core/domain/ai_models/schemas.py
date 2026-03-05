@@ -101,11 +101,17 @@ class AIModelFieldsMixin(BaseModel):
     is_default: bool = Field(
         default=False, description="Is this the default model for its type"
     )
+    is_active: bool = Field(
+        default=True, description="Whether the model is active and available for use"
+    )
 
     # Pricing information (stored as strings to maintain precision)
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
+    price_reasoning: Optional[str] = Field(
+        None, description="Price per reasoning output unit"
+    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -116,6 +122,9 @@ class AIModelFieldsMixin(BaseModel):
     )
     price_standard_output_unit_count: Optional[int] = Field(
         None, description="Standard output unit count for pricing"
+    )
+    price_reasoning_output_unit_count: Optional[int] = Field(
+        None, description="Reasoning output unit count for pricing"
     )
 
     # Unit names
@@ -173,11 +182,17 @@ class AIModelUpdateFieldsMixin(BaseModel):
     is_default: Optional[bool] = Field(
         None, description="Is this the default model for its type"
     )
+    is_active: Optional[bool] = Field(
+        None, description="Whether the model is active and available for use"
+    )
 
     # Pricing information (stored as strings to maintain precision)
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
+    price_reasoning: Optional[str] = Field(
+        None, description="Price per reasoning output unit"
+    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -188,6 +203,9 @@ class AIModelUpdateFieldsMixin(BaseModel):
     )
     price_standard_output_unit_count: Optional[int] = Field(
         None, description="Standard output unit count for pricing"
+    )
+    price_reasoning_output_unit_count: Optional[int] = Field(
+        None, description="Reasoning output unit count for pricing"
     )
 
     # Unit names
