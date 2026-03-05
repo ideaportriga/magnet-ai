@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.32](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.31...v0.6.0-dev.32) (2026-03-05)
+
+### 🐛 Bug Fixes
+
+* **deep-research:** set failed status is any step fails ([7ac96de](https://github.com/ideaportriga/magnet-ai/commit/7ac96de4754abccbbbed4703cb22c632541e2ba6))
+
 ## [0.6.0-dev.31](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.30...v0.6.0-dev.31) (2026-03-05)
 
 ### 🐛 Bug Fixes
