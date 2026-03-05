@@ -7,7 +7,6 @@ from uuid import UUID
 
 from litestar.exceptions import ClientException
 from litestar.status_codes import HTTP_415_UNSUPPORTED_MEDIA_TYPE
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import KnowledgeGraphSource
@@ -53,41 +52,18 @@ class ApiIngestDataSource(AbstractDataSource):
     async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
         raise NotImplementedError("ApiIngestDataSource does not support syncing.")
 
-    @override
-    async def get_or_create_source(
+    async def _ensure_source(
         self,
         db_session: AsyncSession,
         graph_id: UUID,
-        *,
-        status: str = "not_synced",
-    ) -> KnowledgeGraphSource:
-        """Get or create a source by (graph_id, type, name).
-
-        Unlike the base implementation (which is unique per type), api ingestion
-        needs to support multiple sources of the same type differentiated by name.
-        """
-        result = await db_session.execute(
-            select(KnowledgeGraphSource)
-            .where(KnowledgeGraphSource.graph_id == graph_id)
-            .where(KnowledgeGraphSource.type == self.type)
-            .where(KnowledgeGraphSource.name == self.name)
-        )
-        source_entity = result.scalar_one_or_none()
-
-        if not source_entity:
-            source_entity = KnowledgeGraphSource(
-                name=self.name,
-                type=self.type,
-                graph_id=graph_id,
-                config={},
-                status=status,
-                documents_count=0,
+    ) -> None:
+        """Ensure `self.source` is resolved, creating one if needed."""
+        if not self.source:
+            self.source = await self.get_or_create_source(
+                db_session, graph_id, status="syncing"
             )
-            db_session.add(source_entity)
-            await db_session.commit()
-            await db_session.refresh(source_entity)
-
-        return source_entity
+        self.source.status = "syncing"
+        await db_session.commit()
 
     async def ingest_text(
         self,
@@ -111,20 +87,7 @@ class ApiIngestDataSource(AbstractDataSource):
         if not resolved_filename:
             raise ClientException("filename is required for text ingestion.")
 
-        existing_source_id: str | None = None
-        if self.source:
-            existing_source_id = str(self.source.id)
-        else:
-            # Best-effort: find existing source id without creating a new source.
-            # This avoids creating sources for unsupported file types.
-            result = await db_session.execute(
-                select(KnowledgeGraphSource.id)
-                .where(KnowledgeGraphSource.graph_id == graph_id)
-                .where(KnowledgeGraphSource.type == self.type)
-                .where(KnowledgeGraphSource.name == self.name)
-            )
-            sid = result.scalar_one_or_none()
-            existing_source_id = str(sid) if sid else None
+        existing_source_id = await self._find_existing_source_id(db_session, graph_id)
 
         config = await get_content_config(
             db_session,
@@ -139,17 +102,11 @@ class ApiIngestDataSource(AbstractDataSource):
                 status_code=HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             )
 
-        if not self.source:
-            self.source = await self.get_or_create_source(
-                db_session, graph_id, status="syncing"
-            )
+        await self._ensure_source(db_session, graph_id)
 
-        # Mark syncing (best-effort)
-        self.source.status = "syncing"
-        await db_session.commit()
-
-        document = await self.create_document_for_source(
+        document = await self.document_service.upsert_document(
             db_session,
+            self.source,
             filename=resolved_filename,
             total_pages=None,
             file_metadata=file_metadata,
@@ -189,20 +146,7 @@ class ApiIngestDataSource(AbstractDataSource):
         if not resolved_filename:
             raise ClientException("filename is required for file ingestion.")
 
-        existing_source_id: str | None = None
-        if self.source:
-            existing_source_id = str(self.source.id)
-        else:
-            # Best-effort: find existing source id without creating a new source.
-            # This avoids creating sources for unsupported file types.
-            result = await db_session.execute(
-                select(KnowledgeGraphSource.id)
-                .where(KnowledgeGraphSource.graph_id == graph_id)
-                .where(KnowledgeGraphSource.type == self.type)
-                .where(KnowledgeGraphSource.name == self.name)
-            )
-            sid = result.scalar_one_or_none()
-            existing_source_id = str(sid) if sid else None
+        existing_source_id = await self._find_existing_source_id(db_session, graph_id)
 
         config = await get_content_config(
             db_session,
@@ -217,14 +161,7 @@ class ApiIngestDataSource(AbstractDataSource):
                 status_code=HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             )
 
-        if not self.source:
-            self.source = await self.get_or_create_source(
-                db_session, graph_id, status="syncing"
-            )
-
-        # Mark syncing (best-effort)
-        self.source.status = "syncing"
-        await db_session.commit()
+        await self._ensure_source(db_session, graph_id)
 
         content = load_content_from_bytes(bytes(file_bytes), config)
         total_pages = (
@@ -233,8 +170,9 @@ class ApiIngestDataSource(AbstractDataSource):
             else None
         )
 
-        document = await self.create_document_for_source(
+        document = await self.document_service.upsert_document(
             db_session,
+            self.source,
             filename=resolved_filename,
             total_pages=total_pages if isinstance(total_pages, int) else None,
             file_metadata=content.get("metadata")

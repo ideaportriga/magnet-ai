@@ -183,6 +183,14 @@ class SyncCounters:
     deleted: int = 0  # Orphaned documents removed (exist in KG but not in source)
 
 
+@dataclass
+class StoreDocumentResult:
+    """Result of store_document: either a metadata-only update or a new/updated document."""
+
+    document: dict[str, Any] | None = None
+    loaded_content: LoadedContent | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class MetadataMultiValueContainer:
     """Explicit wrapper for metadata fields that logically contain multiple values.

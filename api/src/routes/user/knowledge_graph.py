@@ -12,18 +12,20 @@ from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException
 from litestar.params import Body, Parameter
-from litestar.status_codes import HTTP_202_ACCEPTED, HTTP_200_OK
+from litestar.status_codes import HTTP_200_OK, HTTP_202_ACCEPTED
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.tags import TagNames
-from services.agents.conversations import get_last_conversation_by_client_id
 from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphAgentResponse,
 )
+from core.domain.knowledge_graph.services import KnowledgeGraphDocumentService
+from open_ai.utils_new import get_embeddings
+from services.agents.conversations import get_last_conversation_by_client_id
 from services.knowledge_graph.content_config_services import (
     get_graph_embedding_model,
     get_graph_settings,
@@ -38,8 +40,6 @@ from services.knowledge_graph.retrievers.agent_retriever.tools.find_chunks_by_si
 from services.knowledge_graph.retrievers.agent_retriever.tools.find_documents_by_metadata import (
     findDocumentsByMetadata,
 )
-from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
-from open_ai.utils_new import get_embeddings
 from services.knowledge_graph.sources.api_ingest import ApiIngestDataSource
 from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
     run_background_ingest,

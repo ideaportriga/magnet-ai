@@ -14,7 +14,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
+from core.domain.knowledge_graph.services import KnowledgeGraphDocumentService
 from open_ai.utils_new import get_embeddings
 from services.observability import observability_context, observe
 from services.observability.models import SpanType

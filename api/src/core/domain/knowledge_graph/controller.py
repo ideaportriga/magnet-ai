@@ -45,18 +45,23 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphUpdateResponse,
     KnowledgeGraphUploadUrlRequest,
 )
-from core.domain.knowledge_graph.service import (
+from core.domain.knowledge_graph.services import (
     KnowledgeGraphChunkService,
     KnowledgeGraphDocumentService,
     KnowledgeGraphMetadataService,
     KnowledgeGraphService,
     KnowledgeGraphSourceService,
 )
+from services.knowledge_graph import (
+    schedule_source_sync,
+    unschedule_source_sync,
+)
 from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
 )
 from services.knowledge_graph.sources import FileUploadDataSource
+from services.knowledge_graph.sources.sync_services import sync_source_background
 from services.observability import observability_overrides, observe
 
 logger = logging.getLogger(__name__)
@@ -374,7 +379,7 @@ class KnowledgeGraphController(Controller):
         await db_session.commit()
 
         # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh
-        asyncio.create_task(source_service.sync_source_background(graph_id, source_id))
+        asyncio.create_task(sync_source_background(graph_id, source_id))
         return {"status": "started", "message": "Sync started in background"}
 
     @observe(
@@ -395,7 +400,7 @@ class KnowledgeGraphController(Controller):
         scheduler: AsyncIOScheduler,
         data: Annotated[KnowledgeGraphSourceScheduleSyncRequest | None, Body()] = None,
     ) -> dict[str, Any]:
-        return await source_service.schedule_source_sync(
+        return await schedule_source_sync(
             db_session, graph_id, source_id, scheduler, data
         )
 
@@ -416,9 +421,7 @@ class KnowledgeGraphController(Controller):
         source_id: UUID,
         scheduler: AsyncIOScheduler,
     ) -> None:
-        await source_service.unschedule_source_sync(
-            db_session, graph_id, source_id, scheduler
-        )
+        await unschedule_source_sync(db_session, graph_id, source_id, scheduler)
 
     ###########################################################################
     # KNOWLEDGE GRAPH DOCUMENT ENDPOINTS #

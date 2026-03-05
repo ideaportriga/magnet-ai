@@ -12,16 +12,17 @@ from litestar.exceptions import ClientException
 from core.config.base import get_knowledge_source_settings
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from core.db.session import async_session_maker
-from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
+from utils.datetime_utils import parse_date_string
 
 from ...content_config_services import get_content_config
-from ...content_load_services import load_content_from_bytes
 from ...metadata_services import accumulate_discovered_metadata_fields
 from ...models import MetadataMultiValueContainer, SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
 from .fluid_topics_models import (
     FluidTopicsContentFetchTask,
+    FluidTopicsDocumentFetchTask,
     FluidTopicsListingTask,
+    FluidTopicsMapFetchTask,
     FluidTopicsRuntimeConfig,
     FluidTopicsSharedSyncState,
     ProcessDocumentTask,
@@ -46,16 +47,11 @@ FluidTopicsPipelineContext = SyncPipelineContext[
     FluidTopicsListingTask, FluidTopicsContentFetchTask, ProcessDocumentTask
 ]
 
-# TODO: Implement intelligent sync for Fluid Topics
-# Currently using legacy full-sync approach (always re-downloads and re-processes all content)
-# To implement:
-# 1. Extract source_document_id from FluidTopics API (mapId/documentId)
-# 2. Extract source_modified_at from FluidTopics API (lastModified/modificationDate)
-# 3. Compute content_hash (SHA256) of downloaded content
-# 4. Add timestamp-based skip logic in listing phase (like SharePoint)
-# 5. Add hash-based metadata-only update logic in content_fetch phase (like SharePoint)
-# 6. Pass these fields to create_document_for_source() calls below
-# Reference implementation: sharepoint_sync.py
+# Fluid Topics "intelligent sync" notes:
+# - We compute `content_hash` and use `source_document_id` (mapId/documentId) to detect unchanged content.
+# - When the stored hash matches, we do a metadata-only update and skip re-processing (chunking/embedding).
+# - We still download/fetch the content to compute the hash; further optimization would require an API-provided
+#   ETag/lastModified check that lets us skip downloads.
 
 
 class FluidTopicsSyncPipeline(
@@ -102,11 +98,26 @@ class FluidTopicsSyncPipeline(
             self._state = FluidTopicsSharedSyncState()
             self._client = client
             try:
-                return await self._run_pipeline(
+                counters = await self._run_pipeline(
                     listing_worker=self._listing_worker,
                     content_fetch_worker=self._content_fetch_worker,
                     document_processing_worker=self._document_processing_worker,
                 )
+
+                try:
+                    counters.deleted = await self.cleanup_orphaned_documents(
+                        graph_id=UUID(self._graph_id),
+                        source_id=self._source.source.id,
+                        counters=counters,
+                        log_extra=self._log_extra(),
+                    )
+                except Exception as cleanup_exc:  # noqa: BLE001
+                    logger.error(
+                        "Orphaned document cleanup failed",
+                        extra=self._log_extra(error=str(cleanup_exc)),
+                    )
+
+                return counters
             finally:
                 self._client = None
                 self._state = None
@@ -174,25 +185,29 @@ class FluidTopicsSyncPipeline(
                                 continue
 
                             doc_info = entry.get("document") or {}
-                            filename = str(doc_info.get("filename"))
+                            doc_id = str(doc_info.get("id"))
+                            doc_filename = str(doc_info.get("filename"))
                             doc_title = str(doc_info.get("title") or "").strip() or None
-                            external_link = self._build_document_external_link(
+                            doc_link = self._build_document_external_link(
                                 doc_info.get("viewerUrl")
                             )
                             doc_metadata = parse_fluid_topics_metadata_list(
                                 doc_info.get("metadata")
                             )
-                            if not filename:
+                            if not doc_id or not doc_filename:
                                 await ctx.inc("skipped")
                                 continue
 
+                            await self.track_source_document_id(doc_id)
+
                             await ctx.content_fetch_queue.put(
-                                FluidTopicsContentFetchTask(
-                                    kind="document",
-                                    filename=filename,
-                                    document_title=doc_title,
-                                    document_metadata=doc_metadata,
-                                    external_link=external_link,
+                                FluidTopicsDocumentFetchTask(
+                                    id=doc_id,
+                                    filename=doc_filename,
+                                    title=doc_title,
+                                    metadata=doc_metadata,
+                                    last_edition_date=doc_info.get("lastEditionDate"),
+                                    external_link=doc_link,
                                 )
                             )
 
@@ -215,6 +230,8 @@ class FluidTopicsSyncPipeline(
                                     await ctx.inc("skipped")
                                     continue
 
+                                await self.track_source_document_id(map_id)
+
                                 if map_id not in self._state.seen_maps:
                                     self._state.seen_maps[map_id] = map_title
                                 else:
@@ -224,11 +241,10 @@ class FluidTopicsSyncPipeline(
                                     continue
 
                             await ctx.content_fetch_queue.put(
-                                FluidTopicsContentFetchTask(
-                                    kind="map",
-                                    map_id=map_id,
-                                    map_title=map_title,
-                                    map_metadata_from_structure=True,
+                                FluidTopicsMapFetchTask(
+                                    id=map_id,
+                                    title=map_title,
+                                    metadata_from_structure=True,
                                 )
                             )
 
@@ -254,6 +270,8 @@ class FluidTopicsSyncPipeline(
                                     await ctx.inc("skipped")
                                     continue
 
+                                await self.track_source_document_id(map_id)
+
                                 if map_id not in self._state.seen_maps:
                                     self._state.seen_maps[map_id] = map_title
                                 else:
@@ -263,11 +281,11 @@ class FluidTopicsSyncPipeline(
                                     continue
 
                             await ctx.content_fetch_queue.put(
-                                FluidTopicsContentFetchTask(
-                                    kind="map",
-                                    map_id=map_id,
-                                    map_title=map_title,
-                                    map_metadata=map_metadata,
+                                FluidTopicsMapFetchTask(
+                                    id=map_id,
+                                    title=map_title,
+                                    metadata=map_metadata,
+                                    last_edition_date=map_info.get("lastEditionDate"),
                                 )
                             )
 
@@ -348,17 +366,18 @@ class FluidTopicsSyncPipeline(
         async with async_session_maker() as session:
             async for task in ctx.iter_content_fetch_tasks():
                 try:
-                    if task.kind == "map":
-                        map_id = task.map_id
-                        map_title = task.map_title or map_id
+                    if isinstance(task, FluidTopicsMapFetchTask):
+                        map_id = task.id
+                        map_title = task.title or map_id
                         doc_name = map_title.strip()
-                        map_metadata = task.map_metadata
+                        map_metadata = task.metadata
+                        map_last_edition_date = task.last_edition_date
                         external_link: str | None = None
                         structure: dict[str, Any] | None = None
 
                         # For TOPIC search entries, Fluid Topics doesn't include map metadata in the search
                         # response. We fetch it from the map structure endpoint when available.
-                        if task.map_metadata_from_structure:
+                        if task.metadata_from_structure:
                             if not self._fluid_topics_config.map_structure_url_template:
                                 logger.warning(
                                     "Skipping Fluid Topics map structure metadata fetch: FLUID_TOPICS_MAP_STRUCTURE is not configured",
@@ -384,6 +403,9 @@ class FluidTopicsSyncPipeline(
                                             parse_fluid_topics_metadata_list(
                                                 structure.get("metadata")
                                             )
+                                        )
+                                        map_last_edition_date = structure.get(
+                                            "lastEdition"
                                         )
                                         external_link = self._build_map_external_link(
                                             structure.get("readerUrl")
@@ -488,51 +510,52 @@ class FluidTopicsSyncPipeline(
                         )
 
                         (
+                            full_content,
                             toc,
                             chunks,
                             failed,
                             skipped,
-                        ) = await self._fetch_map_toc_and_chunks(ctx, map_id)
+                        ) = await self._get_fluid_topics_data(ctx, map_id)
 
                         if failed:
                             await ctx.inc("failed", int(failed))
                         if skipped:
                             await ctx.inc("skipped", int(skipped))
 
-                        # TODO: Add intelligent sync support
-                        # When ENABLE_INTELLIGENT_SYNC = True, extract and pass:
-                        # - source_document_id=map_id (stable identifier)
-                        # - source_modified_at=map_metadata.get("lastModified") (timestamp)
-                        # - content_hash=hashlib.sha256(chunks_bytes).hexdigest() (for change detection)
-                        document = await self._source.create_document_for_source(
+                        result = await self.store_document(
                             session,
+                            self._source.source,
+                            content=full_content,
+                            graph_id=self._graph_id,
+                            source_document_id=str(map_id),
                             filename=doc_name,
+                            source_modified_at=parse_date_string(map_last_edition_date),
                             source_metadata=map_metadata,
                             default_document_type="html",
+                            title=str(map_title),
+                            toc=toc,
+                            external_link=external_link,
                         )
+                        if not result.document:
+                            await ctx.inc("metadata_only_updated")
+                            continue
 
-                        await KnowledgeGraphDocumentService().update_document(
-                            session,
-                            graph_id=document["graph_id"],
-                            document_id=document["id"],
-                            fields={
-                                "title": str(map_title),
-                                "toc": toc,
-                            },
-                        )
+                        await ctx.inc("content_changed")
 
                         await ctx.document_processing_queue.put(
                             ProcessDocumentTask(
-                                document=document,
+                                document=result.document,
+                                document_title=str(map_title),
                                 chunks=chunks,
                                 toc=toc,
-                                document_title=str(map_title),
+                                extracted_text=full_content,
                                 external_link=external_link,
                             )
                         )
                         continue
 
-                    if task.kind == "document":
+                    if isinstance(task, FluidTopicsDocumentFetchTask):
+                        doc_id = task.id
                         filename = task.filename
 
                         content_config = await get_content_config(
@@ -553,15 +576,13 @@ class FluidTopicsSyncPipeline(
                             continue
 
                         # Best-effort: persist discovered metadata fields for this graph/source.
-                        if task.document_metadata:
+                        if task.metadata:
                             try:
                                 await accumulate_discovered_metadata_fields(
                                     session,
                                     graph_id=graph_uuid,
                                     source_id=source_uuid,
-                                    metadata=_to_discovery_metadata(
-                                        task.document_metadata
-                                    ),
+                                    metadata=_to_discovery_metadata(task.metadata),
                                     origin="source",
                                 )
                                 await session.commit()
@@ -585,42 +606,44 @@ class FluidTopicsSyncPipeline(
                         )
                         file_bytes = await download_file(self, ctx, filename)
 
-                        content = load_content_from_bytes(file_bytes, content_config)
-                        total_pages = content["metadata"].get("total_pages")
-
-                        # TODO: Add intelligent sync support
-                        # When ENABLE_INTELLIGENT_SYNC = True, extract and pass:
-                        # - source_document_id=task.document_metadata.get("documentId") (stable identifier)
-                        # - source_modified_at=task.document_metadata.get("lastModified") (timestamp)
-                        # - content_hash=hashlib.sha256(file_bytes).hexdigest() (for change detection)
-                        document = await self._source.create_document_for_source(
+                        result = await self.store_document(
                             session,
+                            self._source.source,
+                            content=file_bytes,
+                            graph_id=graph_uuid,
+                            source_document_id=str(doc_id),
                             filename=filename,
-                            total_pages=total_pages,
-                            file_metadata=content.get("metadata")
-                            if isinstance(content, dict)
-                            else None,
-                            source_metadata=task.document_metadata,
+                            source_modified_at=parse_date_string(
+                                task.last_edition_date
+                            ),
+                            source_metadata=task.metadata,
                             default_document_type="pdf",
-                            content_profile=content_config.name
-                            if content_config
-                            else None,
+                            content_config=content_config,
+                            title=str(task.title) if task.title else None,
+                            external_link=task.external_link,
                         )
+                        if not result.document:
+                            await ctx.inc("metadata_only_updated")
+                            continue
+
+                        await ctx.inc("content_changed")
 
                         await ctx.document_processing_queue.put(
                             ProcessDocumentTask(
-                                document=document,
-                                document_title=task.document_title,
-                                extracted_text=content["text"],
                                 content_config=content_config,
+                                document=result.document,
+                                document_title=task.title,
+                                extracted_text=result.loaded_content["text"],
                                 external_link=task.external_link,
                             )
                         )
                         continue
 
                     logger.warning(
-                        "Unknown Fluid Topics content_fetch task kind",
-                        extra=self._log_extra(worker_id=worker_id, task_kind=task.kind),
+                        "Unknown Fluid Topics content_fetch task",
+                        extra=self._log_extra(
+                            worker_id=worker_id, task_type=type(task).__name__
+                        ),
                     )
 
                 except Exception as exc:  # noqa: BLE001
@@ -628,7 +651,7 @@ class FluidTopicsSyncPipeline(
                         "Failed to fetch topic/document content from Fluid Topics",
                         extra=self._log_extra(
                             worker_id=worker_id,
-                            task_kind=task.kind,
+                            task_type=type(task).__name__,
                             doc_filename=getattr(task, "filename", None),
                             map_id=getattr(task, "map_id", None),
                             map_title=getattr(task, "map_title", None),
@@ -653,7 +676,7 @@ class FluidTopicsSyncPipeline(
                             "Failed to mark Fluid Topics document error",
                             extra=self._log_extra(
                                 worker_id=worker_id,
-                                task_kind=task.kind,
+                                task_type=type(task).__name__,
                                 error=str(mark_exc),
                                 error_type=type(mark_exc).__name__,
                             ),
@@ -665,7 +688,7 @@ class FluidTopicsSyncPipeline(
                             "Failed to rollback session after Fluid Topics task failure",
                             extra=self._log_extra(
                                 worker_id=worker_id,
-                                task_kind=task.kind,
+                                task_type=type(task).__name__,
                                 error=str(rb_exc),
                                 error_type=type(rb_exc).__name__,
                             ),
@@ -746,12 +769,12 @@ class FluidTopicsSyncPipeline(
                             ),
                         )
 
-    async def _fetch_map_toc_and_chunks(
+    async def _get_fluid_topics_data(
         self, ctx: FluidTopicsPipelineContext, map_id: str
-    ) -> tuple[list[dict[str, Any]], list[KnowledgeGraphChunk], int, int]:
+    ) -> tuple[str, list[dict[str, Any]], list[KnowledgeGraphChunk], int, int]:
         """Fetch TOC + all topic contents (chunks) for a map.
 
-        Returns: (toc, chunks, failed_count, skipped_count)
+        Returns: (full_content, toc, chunks, failed_count, skipped_count)
         """
 
         t0 = time.monotonic()
@@ -774,7 +797,7 @@ class FluidTopicsSyncPipeline(
                 "Fluid Topics map has empty TOC / no content nodes",
                 extra=self._log_extra(map_id=map_id, toc_root_nodes=len(toc_nodes)),
             )
-            return toc, [], 0, 0
+            return "", toc, [], 0, 0
 
         fetch_tasks = []
         for content_id, _ in content_requests:
@@ -827,6 +850,8 @@ class FluidTopicsSyncPipeline(
                 )
             )
 
+        full_content = "\n".join(c.content for c in chunks if c.content)
+
         elapsed_ms = (time.monotonic() - t0) * 1000.0
         logger.debug(
             "Fetched Fluid Topics map content",
@@ -841,7 +866,7 @@ class FluidTopicsSyncPipeline(
             ),
         )
 
-        return toc, chunks, failed, skipped
+        return full_content, toc, chunks, failed, skipped
 
     def _worker_validation(self) -> None:
         if not self._client or not self._state:

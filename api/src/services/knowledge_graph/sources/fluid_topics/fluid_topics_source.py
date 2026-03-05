@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from typing import Any, override
 
 from litestar.exceptions import ClientException
@@ -53,34 +52,6 @@ class FluidTopicsSource(AbstractDataSource):
         if source.type != SourceType.FLUID_TOPICS:
             raise ValueError("Source must be a Fluid Topics source")
         super().__init__(source)
-
-    @override
-    def extract_source_document_id(self, source_item: Any) -> str | None:
-        """Extract FluidTopics map ID or document ID as the stable identifier."""
-        if isinstance(source_item, dict):
-            # Try mapId first (for topics), then documentId (for files)
-            doc_id = source_item.get("mapId") or source_item.get("documentId")
-            return str(doc_id) if doc_id else None
-        return None
-
-    @override
-    def extract_source_modified_at(self, source_item: Any) -> datetime | None:
-        """Extract FluidTopics modification timestamp if available."""
-        if isinstance(source_item, dict):
-            # FluidTopics might have lastModified, modificationDate, or similar fields
-            modified = (
-                source_item.get("lastModified")
-                or source_item.get("modificationDate")
-                or source_item.get("modified")
-            )
-            if isinstance(modified, datetime):
-                return modified
-            if isinstance(modified, str):
-                try:
-                    return datetime.fromisoformat(modified.replace("Z", "+00:00"))
-                except Exception:  # noqa: BLE001
-                    return None
-        return None
 
     @override
     @observe(name="Sync Fluid Topics source")
@@ -139,19 +110,24 @@ class FluidTopicsSource(AbstractDataSource):
         await self._finalize(db_session, counters=counters)
 
         summary = {
+            # Source info
             "source_id": str(self.source.id),
-            "synced": counters.synced,
-            "failed": counters.failed,
-            "skipped": counters.skipped,
-            "total_found": counters.total_found,
+            # Document operations breakdown
+            "documents_created": counters.content_changed,
+            "documents_metadata_updated_only": counters.metadata_only_updated,
+            "documents_content_changed": counters.content_changed,
+            "documents_unchanged": counters.unchanged_skipped,
+            "documents_failed": counters.failed,
+            "documents_deleted": counters.deleted,
+            # Totals
+            "total_in_source": counters.total_found,
+            # Status
             "status": self.source.status,
             "last_sync_at": self.source.last_sync_at,
         }
 
         logger.info("Fluid Topics sync completed", extra=summary)
-
         observability_context.update_current_span(output=summary)
-
         return summary
 
     def _get_sync_config(self) -> FluidTopicsRuntimeConfig:
