@@ -53,28 +53,30 @@
           @row-click="onDocumentClick"
         >
           <template #body-cell-menu="slotScope">
-            <q-td :props="slotScope" class="flex items-center justify-end q-gap-2">
-              <km-btn
-                flat
-                color="secondary-text"
-                label-class="km-button-text"
-                icon-size="16px"
-                icon="fa fa-external-link"
-                :disable="!slotScope.row.external_link"
-                @click.stop="openExternalLink(slotScope.row.external_link)"
-              />
-              <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
-                <q-menu anchor="bottom right" self="top right" auto-close>
-                  <q-list dense>
-                    <q-item clickable @click="confirmDelete(slotScope.row)">
-                      <q-item-section thumbnail>
-                        <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                      </q-item-section>
-                      <q-item-section>Delete</q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
+            <q-td :props="slotScope" class="sticky-col">
+              <div class="flex items-center justify-end no-wrap q-gutter-x-xs">
+                <km-btn
+                  flat
+                  color="secondary-text"
+                  label-class="km-button-text"
+                  icon-size="16px"
+                  icon="fa fa-external-link"
+                  :disable="!slotScope.row.external_link"
+                  @click.stop="openExternalLink(slotScope.row.external_link)"
+                />
+                <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
+                  <q-menu anchor="bottom right" self="top right" auto-close>
+                    <q-list dense>
+                      <q-item clickable @click="confirmDelete(slotScope.row)">
+                        <q-item-section thumbnail>
+                          <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                        </q-item-section>
+                        <q-item-section>Delete</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </q-btn>
+              </div>
             </q-td>
           </template>
           <template #body-cell-name="slotScope">
@@ -261,6 +263,8 @@ const documentsColumns: QTableColumn<Document>[] = [
     name: 'menu',
     label: '',
     field: 'id',
+    style: 'width: 80px',
+    headerStyle: 'width: 80px',
   },
 ]
 const chunksColumns: QTableColumn<Chunk>[] = [
@@ -435,9 +439,6 @@ defineExpose({
 
 :deep(.q-table tbody td) {
   height: 47px;
-}
-
-:deep(.q-table tbody td) {
   padding: 3px 16px;
 }
 
@@ -452,5 +453,23 @@ defineExpose({
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
+}
+
+:deep(.sticky-col) {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: white;
+}
+
+:deep(tr:hover .sticky-col) {
+  background: #f5f5f5;
+}
+
+:deep(thead th:last-child) {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: inherit;
 }
 </style>
