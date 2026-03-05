@@ -33,7 +33,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("
           )
           .km-description-2.text-secondary-text.q-pb-4.q-pl-8 File format: JSON or YAML. Please make sure your API spec contains operation Ids and descriptions.
         .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg.q-pr-8 API specification Preview
-        km-input(v-model='actionsDefinition', type='textarea', rows='10')
+        km-input(v-model='actionsDefinition', @input='actionsDefinition = $event', type='textarea', rows='10')
       .column.full-width(v-if='stepper === 1')
         .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-lg
           q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
@@ -100,7 +100,7 @@ export default {
   },
   computed: {
     readyForNext() {
-      return !!this.file
+      return !!this.actionsDefinition
     },
     allSelected() {
       return this.apiTools.every((tool) => tool.selected === true)
@@ -115,6 +115,8 @@ export default {
         this.apiTools = []
         this.file = null
         this.stepper = 0
+        this.actionsDefinition = ''
+        this.errorMessage = null
       }
     },
     async file(newVal) {
