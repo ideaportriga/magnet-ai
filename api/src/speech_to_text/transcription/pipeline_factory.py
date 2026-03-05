@@ -14,6 +14,9 @@ from .pipeline import TranscriptionPipeline
 from .transcribe.elevenlabs_transcribe.models import ElevenLabsTranscriber
 from .diarize.elevenlabs_diarize.models import ElevenLabsDiarization
 
+from .transcribe.azure_speech_transcribe.models import AzureSpeechTranscriber
+from .diarize.azure_speech_diarize.models import AzureSpeechDiarization
+
 from .transcribe.mistral_transcribe.models import MistralVoxtralTranscriber
 from .diarize.mistral_diarize.models import MistralVoxtralDiarization
 
@@ -144,6 +147,20 @@ async def build_pipeline(
             },
         )
         dr = ElevenLabsDiarization(storage, diar_cfg)
+        return TranscriptionPipeline(stt, dr, storage)
+
+    if provider_type in ("azure_speech", "azure_speech_stt", "azure"):
+        stt = AzureSpeechTranscriber(storage, cfg)
+        diar_cfg = DiarizationCfg(
+            model="azure_speech",
+            internal_cfg={
+                **({"num_speakers": num_speakers} if num_speakers is not None else {}),
+                **({"diarization_threshold": thr} if thr is not None else {}),
+                # optionally pass language too if you want
+                **({"language": language} if language else {}),
+            },
+        )
+        dr = AzureSpeechDiarization(storage, diar_cfg)
         return TranscriptionPipeline(stt, dr, storage)
 
     if provider_type in ("mistral_stt", "mistral-voxtral", "mistral"):

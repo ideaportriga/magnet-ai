@@ -1,5 +1,6 @@
 from typing import Any
 
+
 from core.config.app import alchemy
 from core.domain.providers.service import ProvidersService
 from services.ai_services.cache import (
@@ -18,6 +19,7 @@ from services.ai_services.providers.groq import GroqProvider
 from services.ai_services.providers.tmp_local import TmpLocalProvider
 from services.ai_services.providers.litellm_provider import LiteLLMProvider
 from services.ai_services.providers.elevenlabs_stt import ElevenLabsSTTProvider
+from services.ai_services.providers.azure_speech_stt import AzureSpeechSTTProvider
 from services.ai_services.router import (
     get_model_system_name_by_deployment_id,
     get_router,
@@ -198,8 +200,8 @@ async def get_stt_provider(provider_system_name: str) -> STTProviderInterface:
         raise ValueError(f"Provider '{provider_system_name}' has no type")
 
     provider_classes: dict[str, type[STTProviderInterface]] = {
-        "elevenlabs_stt": ElevenLabsSTTProvider,
         "elevenlabs": ElevenLabsSTTProvider,
+        "azure_speech": AzureSpeechSTTProvider,
     }
 
     cls = provider_classes.get(provider_type)

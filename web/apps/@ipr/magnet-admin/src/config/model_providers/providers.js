@@ -12,6 +12,8 @@ const formatProviderType = (type) => {
     groq: 'Groq',
     oci: 'OCI',
     oci_llama: 'OCI Llama',
+    elevenlabs: 'ElevenLabs',
+    azure_speech: 'Azure Speech',
   }
   return typeLabels[type] || type
 }

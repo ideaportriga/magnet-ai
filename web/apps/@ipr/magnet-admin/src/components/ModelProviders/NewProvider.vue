@@ -77,6 +77,7 @@ export default {
       { label: 'OCI', value: 'oci' },
       { label: 'OCI Llama', value: 'oci_llama' },
       { label: 'ElevenLabs', value: 'elevenlabs' },
+      { label: 'Azure Speech', value: 'azure_speech' },
     ]
 
     const TYPE_TO_CATEGORY = {
