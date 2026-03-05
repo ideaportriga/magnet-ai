@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.33](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.32...v0.6.0-dev.33) (2026-03-05)
+
+### ✨ Features
+
+* **kg:** added support for partial sync for fluid topics ([0ebc86f](https://github.com/ideaportriga/magnet-ai/commit/0ebc86fd775c29633ec750271799076c1251be0d))
+
 ## [0.6.0-dev.32](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.31...v0.6.0-dev.32) (2026-03-05)
 
 ### 🐛 Bug Fixes
