@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.36](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.35...v0.6.0-dev.36) (2026-03-06)
+
+### ✨ Features
+
+* **kg:** quality of life improvements for knowledge graph content profiles ([7d9e544](https://github.com/ideaportriga/magnet-ai/commit/7d9e5440e06d0b796e7f35f409131ec104274ec5))
+
 ## [0.6.0-dev.35](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.34...v0.6.0-dev.35) (2026-03-06)
 
 ### 🐛 Bug Fixes
