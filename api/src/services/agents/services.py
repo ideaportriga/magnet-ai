@@ -284,7 +284,9 @@ async def classify_conversation(
             template_additional_messages=[
                 {
                     "role": "user",
-                    "content": json.dumps(clean_conversation, indent=2),
+                    "content": json.dumps(
+                        clean_conversation, indent=2, ensure_ascii=False
+                    ),
                 },
             ],
         )
@@ -1003,7 +1005,10 @@ def generate_completion_messages(
                         {
                             "role": "tool",
                             "tool_call_id": step.details.request.id,
-                            "content": json.dumps(step.details.response.content),
+                            "content": json.dumps(
+                                step.details.response.content,
+                                ensure_ascii=False,
+                            ),
                         },
                     )
                     continue
@@ -1027,7 +1032,9 @@ def create_tool_calls_from_topic_completion_step(
             type="function",
             function={
                 "name": action_call_request.function_name,
-                "arguments": json.dumps(action_call_request.arguments),
+                "arguments": json.dumps(
+                    action_call_request.arguments, ensure_ascii=False
+                ),
             },
         )
         tool_calls.append(tool_call)
