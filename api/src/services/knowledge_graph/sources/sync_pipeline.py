@@ -346,6 +346,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                     source_document_id=str(source_document_id),
                     source_modified_at=source_modified_at,
                     source_metadata=source_metadata,
+                    content_profile=content_config.name if content_config else None,
                 )
                 return StoreDocumentResult()
 

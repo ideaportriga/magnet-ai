@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -183,6 +184,102 @@ class AbstractDataSource(ABC):
             params,
         )
 
+    def _get_chunker_options(self, config: ContentConfig | None) -> dict[str, Any]:
+        if not config or not getattr(config, "chunker", None):
+            return {}
+
+        options = config.chunker.get("options")
+        return options if isinstance(options, dict) else {}
+
+    def _format_pattern(self, pattern: str, values: dict[str, Any]) -> str:
+        if not pattern:
+            return ""
+
+        return re.sub(
+            r"{(\w+)}",
+            lambda match: str(values.get(match.group(1), "") or ""),
+            pattern,
+        )
+
+    def _apply_pre_chunked_config(
+        self,
+        *,
+        chunks: list[KnowledgeGraphChunk],
+        config: ContentConfig | None,
+        document: dict[str, Any],
+        document_title: str | None,
+        source_modified_at: datetime | None,
+    ) -> tuple[str | None, list[KnowledgeGraphChunk]]:
+        options = self._get_chunker_options(config)
+        if not options:
+            return document_title, chunks
+
+        try:
+            chunk_max_size = int(options.get("chunk_max_size", 18000))
+        except Exception:  # noqa: BLE001
+            chunk_max_size = 18000
+
+        if chunk_max_size < 0:
+            chunk_max_size = 0
+
+        source_name = self.source.name if self.source else ""
+        source_date = (
+            source_modified_at.date().isoformat()
+            if isinstance(source_modified_at, datetime)
+            else ""
+        )
+        filename = str(document.get("name") or "").strip()
+
+        document_pattern_values = {
+            "filename": filename,
+            "title": document_title or "",
+            "date": source_date,
+            "source": source_name,
+        }
+        document_title_pattern = str(
+            options.get("document_title_pattern") or ""
+        ).strip()
+        if document_title_pattern:
+            formatted_title = self._format_pattern(
+                document_title_pattern, document_pattern_values
+            ).strip()
+            if formatted_title:
+                document_title = formatted_title
+                document_pattern_values["title"] = formatted_title
+
+        chunk_title_pattern = str(options.get("chunk_title_pattern") or "").strip()
+        normalized_chunks: list[KnowledgeGraphChunk] = []
+        for index, chunk in enumerate(chunks, start=1):
+            content = chunk.content or chunk.embedded_content or ""
+            embedded_content = chunk.embedded_content or content
+            chunk.content = content[:chunk_max_size]
+            chunk.embedded_content = embedded_content[:chunk_max_size]
+
+            if (
+                not isinstance(chunk.embedded_content, str)
+                or not chunk.embedded_content.strip()
+            ):
+                continue
+
+            if not isinstance(chunk.content, str) or not chunk.content.strip():
+                chunk.content = chunk.embedded_content
+
+            if chunk_title_pattern:
+                formatted_chunk_title = self._format_pattern(
+                    chunk_title_pattern,
+                    {
+                        **document_pattern_values,
+                        "index": index,
+                        "page": chunk.page or "",
+                    },
+                ).strip()
+                if formatted_chunk_title:
+                    chunk.title = formatted_chunk_title
+
+            normalized_chunks.append(chunk)
+
+        return document_title, normalized_chunks
+
     async def process_document(
         self,
         db_session: AsyncSession,
@@ -194,6 +291,7 @@ class AbstractDataSource(ABC):
         document_title: str | None = None,
         document_summary: str | None = None,
         external_link: str | None = None,
+        source_modified_at: datetime | None = None,
         toc_json: dict | list | None = None,
         embedding_model: str | None = None,
         delete_existing_chunks: bool = True,
@@ -248,6 +346,14 @@ class AbstractDataSource(ABC):
                     if isinstance(embedded_content, str) and embedded_content.strip():
                         ch.content = content or embedded_content
                         chunks_to_insert.append(ch)
+
+                document_title, chunks_to_insert = self._apply_pre_chunked_config(
+                    chunks=chunks_to_insert,
+                    config=config,
+                    document=document,
+                    document_title=document_title,
+                    source_modified_at=source_modified_at,
+                )
 
                 if len(chunks_to_insert) == 0:
                     logger.warning(

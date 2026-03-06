@@ -611,11 +611,13 @@ class KnowledgeGraphDocumentService:
         source_modified_at: datetime | None = None,
         file_metadata: dict[str, Any] | None = None,
         source_metadata: dict[str, Any] | None = None,
+        content_profile: str | None = None,
     ) -> None:
         """Update document metadata without re-processing content/chunks.
 
         Used when source metadata changed (e.g., filename, timestamps) but content hash matches.
-        This is a cheap operation that avoids re-chunking and re-embedding.
+        This is a cheap operation that avoids re-chunking and re-embedding while still
+        backfilling missing legacy document profile assignments.
         """
 
         docs_table = docs_table_name(source.graph_id)
@@ -635,6 +637,14 @@ class KnowledgeGraphDocumentService:
         if source_modified_at is not None:
             set_clauses.append("source_modified_at = :source_modified_at")
             params["source_modified_at"] = source_modified_at
+
+        if content_profile is not None:
+            set_clauses.append(
+                "content_profile = CASE "
+                "WHEN content_profile IS NULL OR content_profile = '' "
+                "THEN :content_profile ELSE content_profile END"
+            )
+            params["content_profile"] = content_profile
 
         # Update title from source metadata if available (e.g., SharePoint Title field)
         if isinstance(source_metadata, dict) and "Title" in source_metadata:

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
     KnowledgeGraph,
+    KnowledgeGraphSource,
     chunks_table_name,
     docs_table_name,
     resolve_vector_size_for_embedding_model,
@@ -27,6 +28,15 @@ from services.knowledge_graph import (
     get_default_metadata_settings,
     get_default_retrieval_settings,
 )
+from services.knowledge_graph.content_config_services import (
+    build_graph_settings_with_virtual_last_resort_profile,
+    clone_graph_settings,
+    ensure_fluid_topics_structured_profile,
+    remove_auto_managed_fluid_topics_structured_profiles,
+    sanitize_graph_settings_content_profiles,
+    validate_unique_content_profile_names,
+)
+from services.knowledge_graph.models import SourceType
 
 if TYPE_CHECKING:
     from .knowledge_graph_chunk_service import KnowledgeGraphChunkService
@@ -35,6 +45,17 @@ if TYPE_CHECKING:
 
 class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGraph]):
     """Service for Knowledge Graph operations."""
+
+    async def _has_sources_of_type(
+        self, db_session: AsyncSession, *, graph_id: UUID, source_type: str
+    ) -> bool:
+        result = await db_session.execute(
+            select(KnowledgeGraphSource.id)
+            .where(KnowledgeGraphSource.graph_id == graph_id)
+            .where(KnowledgeGraphSource.type == source_type)
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def list_graphs(
         self, db_session: AsyncSession
@@ -107,6 +128,13 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             chunks_count = int(chunks_count_res.scalar_one() or 0)
         except Exception:
             chunks_count = 0
+        settings = (
+            build_graph_settings_with_virtual_last_resort_profile(
+                getattr(graph, "settings", None)
+            )
+            if hasattr(graph, "settings")
+            else None
+        )
         return KnowledgeGraphExternalSchema(
             id=str(graph.id),
             name=graph.name,
@@ -114,9 +142,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             description=getattr(graph, "description", None),
             documents_count=int(documents_count or 0),
             chunks_count=int(chunks_count or 0),
-            settings=getattr(graph, "settings", None)
-            if hasattr(graph, "settings")
-            else None,
+            settings=settings,
             created_at=graph.created_at.isoformat() if graph.created_at else None,
             updated_at=graph.updated_at.isoformat() if graph.updated_at else None,
         )
@@ -220,11 +246,11 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         # Base settings start from explicit payload if provided, otherwise existing
         settings_to_apply: dict[str, Any] | None = None
         if data.settings is not None:
-            settings_to_apply = data.settings
+            settings_to_apply = clone_graph_settings(data.settings)
         else:
             current_settings = getattr(existing, "settings", None) or {}
             if isinstance(current_settings, dict):
-                settings_to_apply = dict(current_settings)
+                settings_to_apply = clone_graph_settings(current_settings)
 
         if data.content_configs is not None:
             if settings_to_apply is None:
@@ -234,6 +260,17 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             settings_to_apply["chunking"] = chunking
 
         if settings_to_apply is not None:
+            sanitize_graph_settings_content_profiles(settings_to_apply)
+            has_fluid_topics_sources = await self._has_sources_of_type(
+                db_session,
+                graph_id=graph_id,
+                source_type=str(SourceType.FLUID_TOPICS),
+            )
+            if has_fluid_topics_sources:
+                ensure_fluid_topics_structured_profile(settings_to_apply)
+            else:
+                remove_auto_managed_fluid_topics_structured_profiles(settings_to_apply)
+            validate_unique_content_profile_names(settings_to_apply)
             update_payload["settings"] = settings_to_apply
 
         updated = await self.update(

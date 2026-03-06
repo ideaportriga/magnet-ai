@@ -14,7 +14,10 @@ from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from core.db.session import async_session_maker
 from utils.datetime_utils import parse_date_string
 
-from ...content_config_services import get_content_config
+from ...content_config_services import (
+    get_content_config,
+    get_structured_content_config,
+)
 from ...metadata_services import accumulate_discovered_metadata_fields
 from ...models import MetadataMultiValueContainer, SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
@@ -522,6 +525,16 @@ class FluidTopicsSyncPipeline(
                         if skipped:
                             await ctx.inc("skipped", int(skipped))
 
+                        map_source_modified_at = parse_date_string(
+                            map_last_edition_date
+                        )
+                        content_config = await get_structured_content_config(
+                            session,
+                            UUID(self._graph_id),
+                            source_id=str(self._source.source.id),
+                            source_type=self._source.source.type,
+                        )
+
                         result = await self.store_document(
                             session,
                             self._source.source,
@@ -529,9 +542,10 @@ class FluidTopicsSyncPipeline(
                             graph_id=self._graph_id,
                             source_document_id=str(map_id),
                             filename=doc_name,
-                            source_modified_at=parse_date_string(map_last_edition_date),
+                            source_modified_at=map_source_modified_at,
                             source_metadata=map_metadata,
                             default_document_type="html",
+                            content_config=content_config,
                             title=str(map_title),
                             toc=toc,
                             external_link=external_link,
@@ -544,12 +558,14 @@ class FluidTopicsSyncPipeline(
 
                         await ctx.document_processing_queue.put(
                             ProcessDocumentTask(
+                                content_config=content_config,
                                 document=result.document,
                                 document_title=str(map_title),
                                 chunks=chunks,
                                 toc=toc,
                                 extracted_text=full_content,
                                 external_link=external_link,
+                                source_modified_at=map_source_modified_at,
                             )
                         )
                         continue
@@ -606,6 +622,8 @@ class FluidTopicsSyncPipeline(
                         )
                         file_bytes = await download_file(self, ctx, filename)
 
+                        source_modified_at = parse_date_string(task.last_edition_date)
+
                         result = await self.store_document(
                             session,
                             self._source.source,
@@ -613,9 +631,7 @@ class FluidTopicsSyncPipeline(
                             graph_id=graph_uuid,
                             source_document_id=str(doc_id),
                             filename=filename,
-                            source_modified_at=parse_date_string(
-                                task.last_edition_date
-                            ),
+                            source_modified_at=source_modified_at,
                             source_metadata=task.metadata,
                             default_document_type="pdf",
                             content_config=content_config,
@@ -635,6 +651,7 @@ class FluidTopicsSyncPipeline(
                                 document_title=task.title,
                                 extracted_text=result.loaded_content["text"],
                                 external_link=task.external_link,
+                                source_modified_at=source_modified_at,
                             )
                         )
                         continue
@@ -725,6 +742,7 @@ class FluidTopicsSyncPipeline(
                         extracted_text=task.extracted_text,
                         config=task.content_config,
                         external_link=task.external_link,
+                        source_modified_at=task.source_modified_at,
                         embedding_model=self._embedding_model,
                     )
                     await ctx.inc("synced")
