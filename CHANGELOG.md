@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.35](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.34...v0.6.0-dev.35) (2026-03-06)
+
+### 🐛 Bug Fixes
+
+* import/export functionality fix ([92e8710](https://github.com/ideaportriga/magnet-ai/commit/92e8710f8815b2e293b501266fbf74a453d9d9d5))
+
 ## [0.6.0-dev.34](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.33...v0.6.0-dev.34) (2026-03-05)
 
 ### ✨ Features
