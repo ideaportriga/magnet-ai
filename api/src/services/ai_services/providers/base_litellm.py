@@ -447,15 +447,30 @@ class BaseLiteLLMProvider(AIProviderInterface):
         self,
         text: str,
         llm: str | None = None,
+        model_config: dict | None = None,
     ) -> EmbeddingResponse:
-        """Get embeddings using LiteLLM."""
+        """Get embeddings using LiteLLM with routing_config support.
+
+        Uses num_retries from routing_config when configured on the model,
+        falling back to 2 retries by default for transient server errors.
+        """
         if llm is None:
             raise ValueError("Model name must be provided")
 
         full_model = self._get_model_name(llm)
+        routing_config = self._extract_routing_config(model_config)
+
         params = self._build_litellm_params()
         params["model"] = full_model
         params["input"] = [text]
+
+        if routing_config.num_retries is not None:
+            params["num_retries"] = routing_config.num_retries
+        else:
+            params["num_retries"] = 2
+
+        if routing_config.timeout:
+            params["timeout"] = routing_config.timeout
 
         response = await litellm.aembedding(**params)
 
@@ -564,7 +579,15 @@ class BaseLiteLLMProvider(AIProviderInterface):
             if isinstance(schema, str):
                 import json
 
-                schema = json.loads(schema)
+                try:
+                    schema = json.loads(schema)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Invalid JSON in response_format schema for '%s', "
+                        "falling back to json_object mode",
+                        json_schema.get("name", "unknown"),
+                    )
+                    return {"type": "json_object"}
                 json_schema["schema"] = schema
 
             # Auto-fix schema for OpenAI strict mode compliance

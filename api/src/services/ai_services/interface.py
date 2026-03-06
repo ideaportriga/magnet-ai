@@ -58,6 +58,7 @@ class AIProviderInterface(ABC):
         self,
         text: str,
         llm: str | None = None,
+        model_config: dict | None = None,
     ) -> EmbeddingResponse:
         raise NotImplementedError("get_embeddings is optional for this provider")
 

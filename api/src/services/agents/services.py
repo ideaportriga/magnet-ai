@@ -1,5 +1,7 @@
+import asyncio
 import json
 import os
+import re
 import uuid
 from logging import getLogger
 from typing import Final
@@ -196,6 +198,29 @@ async def execute_agent(
     return result
 
 
+def _extract_json_string(text: str) -> str:
+    """Best-effort extraction of a JSON object from LLM output.
+
+    Handles common quirks: code fences, leading prose, trailing text.
+    """
+    stripped = text.strip()
+    if not stripped:
+        return stripped
+
+    # Strip markdown code fences (```json ... ```)
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", stripped, re.DOTALL)
+    if fence_match:
+        stripped = fence_match.group(1).strip()
+
+    # Try to isolate the outermost JSON object
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start >= 0 and end > start:
+        return stripped[start : end + 1]
+
+    return stripped
+
+
 @observe(
     name="Determine intent & topic",
     description="Before processing user prompt, agent determines user's intent and conversation topic.",
@@ -224,40 +249,57 @@ async def classify_conversation(
         {"role": message.role, "content": message.content} for message in messages
     ]
 
-    prompt_template_result = await execute_prompt_template(
-        system_name_or_config=prompt_template,
-        template_values={
-            "TOPIC_DEFINITIONS": topic_definitions,
-            "TOPIC_SYSTEM_NAMES": topic_system_names,
-        },
-        template_additional_messages=[
-            {
-                "role": "user",
-                "content": json.dumps(clean_conversation, indent=2),
-            },
-        ],
-    )
+    max_attempts = 2
+    last_error: Exception | None = None
 
-    try:
-        result = AgentConversationClassification.model_validate_json(
-            prompt_template_result.content,
-        )
-        observability_context.update_current_span(
-            input={
-                "User message": clean_conversation[-1]["content"],
+    for attempt in range(max_attempts):
+        prompt_template_result = await execute_prompt_template(
+            system_name_or_config=prompt_template,
+            template_values={
+                "TOPIC_DEFINITIONS": topic_definitions,
+                "TOPIC_SYSTEM_NAMES": topic_system_names,
             },
-            output={
-                "Intent": result.intent,
-                "Topic": result.topic.upper() if result.topic else None,
-                "Reasoning": result.reason,
-            },
+            template_additional_messages=[
+                {
+                    "role": "user",
+                    "content": json.dumps(clean_conversation, indent=2),
+                },
+            ],
         )
-        return result
-    except Exception as e:
-        raise ValueError("Invalid classification result:", e)
+
+        raw_content = prompt_template_result.content or ""
+        cleaned = _extract_json_string(raw_content)
+
+        try:
+            result = AgentConversationClassification.model_validate_json(cleaned)
+            observability_context.update_current_span(
+                input={
+                    "User message": clean_conversation[-1]["content"],
+                },
+                output={
+                    "Intent": result.intent,
+                    "Topic": result.topic.upper() if result.topic else None,
+                    "Reasoning": result.reason,
+                },
+            )
+            return result
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                "Classification attempt %d/%d failed: %s (raw=%s)",
+                attempt + 1,
+                max_attempts,
+                e,
+                raw_content[:200],
+            )
+
+    raise ValueError("Invalid classification result:", last_error)
 
 
 EXECUTE_TOPIC_MAX_ITERATIONS = 5
+EXECUTE_TOPIC_TIMEOUT_SECONDS: Final[int] = int(
+    os.environ.get("AGENT_TOPIC_TIMEOUT_SECONDS", "120")
+)
 
 ACTION_MESSAGE_ARGUMENT_NAME: Final = "_magnetActionMessage"
 
@@ -300,119 +342,145 @@ async def execute_topic(
 
     steps = steps_initial.copy() if steps_initial else []
 
-    while iteration < EXECUTE_TOPIC_MAX_ITERATIONS:
-        iteration += 1
+    try:
+        async with asyncio.timeout(EXECUTE_TOPIC_TIMEOUT_SECONDS):
+            while iteration < EXECUTE_TOPIC_MAX_ITERATIONS:
+                iteration += 1
 
-        assistant_message = AgentConversationMessageAssistant(
-            id=uuid.uuid4(),
-            content=None,
-            run=AgentConversationRun(steps=steps),
-            topic=topic.system_name,
-        )
+                assistant_message = AgentConversationMessageAssistant(
+                    id=uuid.uuid4(),
+                    content=None,
+                    run=AgentConversationRun(steps=steps),
+                    topic=topic.system_name,
+                )
 
-        all_messages = messages + [assistant_message]
+                all_messages = messages + [assistant_message]
 
-        additional_completion_messages = generate_completion_messages(all_messages)
+                additional_completion_messages = generate_completion_messages(
+                    all_messages
+                )
 
-        topic_completion_step_started_at = utc_now()
+                topic_completion_step_started_at = utc_now()
 
-        chat_completion_result = await create_chat_completion_from_prompt_template(
-            prompt_template_config=prompt_template_config,
-            additional_messages=additional_completion_messages,
-            prompt_template_values={
-                "TOPIC_NAME": topic.name,
-                "TOPIC_INSTRUCTIONS": topic.instructions or "No instructions.",
-            },
-            tools=tools,  # type: ignore
-        )
-
-        chat_completion: ChatCompletion = chat_completion_result[0]
-        completion_message = chat_completion.choices[0].message
-
-        action_call_requests = create_action_call_requests(
-            tool_calls=completion_message.tool_calls,
-            actions_by_function_name=actions_by_function_name,
-            variables=variables,
-        )
-
-        action_call_requests_to_confirm = (
-            [
-                request
-                for request in action_call_requests
-                if request.requires_confirmation
-            ]
-            if action_call_requests
-            else None
-        )
-
-        topic_completion_step = AgentConversationRunStepTopicCompletion(
-            started_at=topic_completion_step_started_at,
-            details=AgentConversationTopicCompletion(
-                topic=selected_topic_data,
-                assistant_message=completion_message.content,
-                action_call_requests=action_call_requests,
-            ),
-        )
-
-        steps.append(topic_completion_step)
-
-        if action_call_requests_to_confirm:
-            result = AgentConversationExecuteTopicResult(
-                content=None,
-                steps=steps,
-                action_call_requests=[
-                    AgentActionCallRequestPublic(
-                        id=request.id,
-                        action_message=request.action_message
-                        or request.action_display_name,
+                chat_completion_result = (
+                    await create_chat_completion_from_prompt_template(
+                        prompt_template_config=prompt_template_config,
+                        additional_messages=additional_completion_messages,
+                        prompt_template_values={
+                            "TOPIC_NAME": topic.name,
+                            "TOPIC_INSTRUCTIONS": topic.instructions
+                            or "No instructions.",
+                        },
+                        tools=tools,  # type: ignore
                     )
-                    for request in action_call_requests_to_confirm
-                ],
-            )
+                )
 
-            return result
+                chat_completion: ChatCompletion = chat_completion_result[0]
+                completion_message = chat_completion.choices[0].message
 
-        if topic_completion_step.details.assistant_message:
-            result = AgentConversationExecuteTopicResult(
-                content=topic_completion_step.details.assistant_message,
-                steps=steps,
-            )
-            return result
+                action_call_requests = create_action_call_requests(
+                    tool_calls=completion_message.tool_calls,
+                    actions_by_function_name=actions_by_function_name,
+                    variables=variables,
+                )
 
-        assert action_call_requests, "Action call requests missing"
+                action_call_requests_to_confirm = (
+                    [
+                        request
+                        for request in action_call_requests
+                        if request.requires_confirmation
+                    ]
+                    if action_call_requests
+                    else None
+                )
 
-        for action_call_request in action_call_requests:
-            action_call_step_started_at = utc_now()
+                topic_completion_step = AgentConversationRunStepTopicCompletion(
+                    started_at=topic_completion_step_started_at,
+                    details=AgentConversationTopicCompletion(
+                        topic=selected_topic_data,
+                        assistant_message=completion_message.content,
+                        action_call_requests=action_call_requests,
+                    ),
+                )
 
-            action_call_response = await execute_agent_action(action_call_request)
+                steps.append(topic_completion_step)
 
-            action_call_step = AgentConversationRunStepTopicActionCall(
-                started_at=action_call_step_started_at,
-                details=AgentTopicActionCall(
-                    request=action_call_request,
-                    response=action_call_response,
-                ),
-            )
+                if action_call_requests_to_confirm:
+                    result = AgentConversationExecuteTopicResult(
+                        content=None,
+                        steps=steps,
+                        action_call_requests=[
+                            AgentActionCallRequestPublic(
+                                id=request.id,
+                                action_message=request.action_message
+                                or request.action_display_name,
+                            )
+                            for request in action_call_requests_to_confirm
+                        ],
+                    )
 
-            steps.append(action_call_step)
+                    return result
 
-        # Experimental feature. Allows to skip topic processing and use action response as assistant message.
-        if (
-            len(action_call_requests) == 1
-            and action_call_requests[0].use_response_as_assistant_message
-        ):
-            action_call_step = steps[-1]
-            assert isinstance(
-                action_call_step, AgentConversationRunStepTopicActionCall
-            ), "Last step must be an action call step"
-            action_call_response_content = action_call_step.details.response.content
+                if topic_completion_step.details.assistant_message:
+                    result = AgentConversationExecuteTopicResult(
+                        content=topic_completion_step.details.assistant_message,
+                        steps=steps,
+                    )
+                    return result
 
-            assistant_message.content = action_call_response_content
-            result = AgentConversationExecuteTopicResult(
-                content=action_call_response_content,
-                steps=steps,
-            )
-            return result
+                assert action_call_requests, "Action call requests missing"
+
+                for action_call_request in action_call_requests:
+                    action_call_step_started_at = utc_now()
+
+                    try:
+                        action_call_response = await execute_agent_action(
+                            action_call_request,
+                        )
+                    except Exception as e:
+                        logger.exception(
+                            "Action '%s' (type=%s) failed",
+                            action_call_request.action_system_name,
+                            action_call_request.action_type,
+                        )
+                        action_call_response = AgentActionCallResponse(
+                            content=f"Error executing tool '{action_call_request.action_display_name}': {e}",
+                        )
+
+                    action_call_step = AgentConversationRunStepTopicActionCall(
+                        started_at=action_call_step_started_at,
+                        details=AgentTopicActionCall(
+                            request=action_call_request,
+                            response=action_call_response,
+                        ),
+                    )
+
+                    steps.append(action_call_step)
+
+                # Experimental feature. Allows to skip topic processing and use action response as assistant message.
+                if (
+                    len(action_call_requests) == 1
+                    and action_call_requests[0].use_response_as_assistant_message
+                ):
+                    action_call_step = steps[-1]
+                    assert isinstance(
+                        action_call_step, AgentConversationRunStepTopicActionCall
+                    ), "Last step must be an action call step"
+                    action_call_response_content = (
+                        action_call_step.details.response.content
+                    )
+
+                    assistant_message.content = action_call_response_content
+                    result = AgentConversationExecuteTopicResult(
+                        content=action_call_response_content,
+                        steps=steps,
+                    )
+                    return result
+
+    except TimeoutError:
+        raise ValueError(
+            f"Agent topic execution timed out after {EXECUTE_TOPIC_TIMEOUT_SECONDS}s"
+        )
 
     raise ValueError("Max iteration count reached")
 
@@ -434,16 +502,25 @@ def create_action_call_requests(
 
         function = tool_call.function
         function_name = function.name
-        arguments: dict = json.loads(function.arguments)
+        try:
+            arguments: dict = json.loads(function.arguments)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Malformed JSON in tool call arguments for '%s': %s",
+                function_name,
+                function.arguments[:200],
+            )
+            continue
         action = actions_by_function_name.get(function_name)
-        action_message = arguments.pop(
-            ACTION_MESSAGE_ARGUMENT_NAME,
-            action.display_name,
-        )
 
         if not action:
             logger.warning(f'Action is missing for function "{function_name}"')
             continue
+
+        action_message = arguments.pop(
+            ACTION_MESSAGE_ARGUMENT_NAME,
+            action.display_name,
+        )
 
         action_call_requests.append(
             AgentActionCallRequest(
@@ -935,9 +1012,10 @@ async def create_action_call_steps(
         confirmation = confirmations_by_request_id.get(action_call_request.id)
 
         if action_call_request.requires_confirmation:
-            assert confirmation, (
-                f"Confirmation missing for action call request ID: {action_call_request.id}"
-            )
+            if not confirmation:
+                raise ValueError(
+                    f"Confirmation missing for action call request ID: {action_call_request.id}"
+                )
 
             if not confirmation.confirmed:
                 error_message = f"Error: User denied execution of this tool. Comment: {confirmation.comment}"
@@ -952,7 +1030,19 @@ async def create_action_call_steps(
                 continue
 
         action_call_step_started_at = utc_now()
-        action_call_response = await execute_agent_action(action_call_request)
+
+        try:
+            action_call_response = await execute_agent_action(action_call_request)
+        except Exception as e:
+            logger.exception(
+                "Confirmed action '%s' (type=%s) failed",
+                action_call_request.action_system_name,
+                action_call_request.action_type,
+            )
+            action_call_response = AgentActionCallResponse(
+                content=f"Error executing tool '{action_call_request.action_display_name}': {e}",
+            )
+
         action_call_step = AgentConversationRunStepTopicActionCall(
             started_at=action_call_step_started_at,
             details=AgentTopicActionCall(

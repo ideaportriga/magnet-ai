@@ -386,7 +386,11 @@ async def get_embeddings(text: str, model_system_name: str):
             call_model.update(provider_display_name=provider_label)
 
         call_start_time = time.time()
-        embeddings = await provider.get_embeddings(text=text, llm=llm)
+        embeddings = await provider.get_embeddings(
+            text=text,
+            llm=llm,
+            model_config=model_config,
+        )
         call_end_time = time.time()
         call_duration = call_end_time - call_start_time
 
