@@ -484,7 +484,16 @@ async def execute_topic(
                     )
                     return result
 
-                assert action_call_requests, "Action call requests missing"
+                if not action_call_requests:
+                    # LLM returned neither text nor tool calls — empty response.
+                    # Log and let the loop retry (next iteration will re-prompt).
+                    logger.warning(
+                        "LLM returned empty response (no content, no tool calls) "
+                        "on iteration %d/%d",
+                        iteration,
+                        EXECUTE_TOPIC_MAX_ITERATIONS,
+                    )
+                    continue
 
                 for action_call_request in action_call_requests:
                     action_call_step_started_at = utc_now()
