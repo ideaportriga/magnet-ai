@@ -165,14 +165,31 @@ async def execute_agent(
             return result
 
         topic_system_name = classification.topic
-        assert topic_system_name, "Topic is not determined"
+
+        if not topic_system_name:
+            logger.warning("Classification returned intent='topic' but topic is empty")
+            return AgentConversationMessageAssistant(
+                id=uuid.uuid4(),
+                content=classification.assistant_message,
+                run=run,
+            )
 
         topic = next(
             (topic for topic in topics if topic.system_name == topic_system_name),
             None,
         )
 
-        assert topic, f"Topic is not defined: {topic_system_name}"
+        if not topic:
+            logger.warning(
+                "Classification returned unknown topic '%s', available: %s",
+                topic_system_name,
+                [t.system_name for t in topics],
+            )
+            return AgentConversationMessageAssistant(
+                id=uuid.uuid4(),
+                content=classification.assistant_message,
+                run=run,
+            )
 
     if not topic:
         raise ValueError("No topic found for the conversation")
@@ -230,6 +247,10 @@ async def classify_conversation(
     messages: list[AgentConversationMessage],
     topics: list[AgentTopic],
 ) -> AgentConversationClassification:
+    valid_topic_system_names: set[str] = (
+        {t.system_name for t in topics} if topics else set()
+    )
+
     topic_definitions = "No topics."
     topic_system_names = ""
 
@@ -251,6 +272,7 @@ async def classify_conversation(
 
     max_attempts = 2
     last_error: Exception | None = None
+    last_result: AgentConversationClassification | None = None
 
     for attempt in range(max_attempts):
         prompt_template_result = await execute_prompt_template(
@@ -271,18 +293,32 @@ async def classify_conversation(
         cleaned = _extract_json_string(raw_content)
 
         try:
-            result = AgentConversationClassification.model_validate_json(cleaned)
+            parsed = AgentConversationClassification.model_validate_json(cleaned)
+            last_result = parsed
+
+            # Validate: if intent is "topic", the topic must exist
+            if parsed.intent == ConversationIntent.TOPIC:
+                if not parsed.topic:
+                    raise ValueError(
+                        "Classification returned intent='topic' but topic is null"
+                    )
+                if parsed.topic not in valid_topic_system_names:
+                    raise ValueError(
+                        f"Classification returned unknown topic '{parsed.topic}'. "
+                        f"Valid: {sorted(valid_topic_system_names)}"
+                    )
+
             observability_context.update_current_span(
                 input={
                     "User message": clean_conversation[-1]["content"],
                 },
                 output={
-                    "Intent": result.intent,
-                    "Topic": result.topic.upper() if result.topic else None,
-                    "Reasoning": result.reason,
+                    "Intent": parsed.intent,
+                    "Topic": parsed.topic.upper() if parsed.topic else None,
+                    "Reasoning": parsed.reason,
                 },
             )
-            return result
+            return parsed
         except Exception as e:
             last_error = e
             logger.warning(
@@ -293,7 +329,25 @@ async def classify_conversation(
                 raw_content[:200],
             )
 
-    raise ValueError("Invalid classification result:", last_error)
+    # All retries exhausted — return a safe fallback classification
+    # instead of crashing. Use the last LLM-generated reason as assistant_message
+    # so the response is in the conversation's language.
+    logger.warning(
+        "Classification failed after %d attempts, falling back to REQUEST_NOT_CLEAR",
+        max_attempts,
+    )
+    if last_result and isinstance(last_result, AgentConversationClassification):
+        last_result.intent = ConversationIntent.REQUEST_NOT_CLEAR
+        last_result.topic = None
+        if not last_result.assistant_message:
+            last_result.assistant_message = last_result.reason
+        return last_result
+
+    return AgentConversationClassification(
+        intent=ConversationIntent.REQUEST_NOT_CLEAR,
+        reason=str(last_error) if last_error else "Classification failed",
+        assistant_message=None,
+    )
 
 
 EXECUTE_TOPIC_MAX_ITERATIONS = 5
