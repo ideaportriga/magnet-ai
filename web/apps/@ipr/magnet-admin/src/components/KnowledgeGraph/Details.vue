@@ -250,7 +250,7 @@ import ChunkDrawer from './DataExplorer/ChunkDrawer.vue'
 import ExplorerTab from './DataExplorer/ExplorerTab.vue'
 import MetadataTab from './Metadata/MetadataTab.vue'
 import RetrievalTab from './Retrieval/RetrievalTab.vue'
-import RetrievalTestDrawer from './Retrieval/RetrievalTestDrawer.vue'
+import RetrievalTestDrawer from './Playground/RetrievalTestDrawer.vue'
 import SettingsTab from './Settings/SettingsTab.vue'
 import SourcesTab from './Sources/SourcesTab.vue'
 
