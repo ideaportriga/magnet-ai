@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.37](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.36...v0.6.0-dev.37) (2026-03-07)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed agent filter generation, now it used additional prompt to create filter object ([9af96ad](https://github.com/ideaportriga/magnet-ai/commit/9af96adde7bf850f89fe061bf7be915031006c05))
+
 ## [0.6.0-dev.36](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.35...v0.6.0-dev.36) (2026-03-06)
 
 ### ✨ Features
