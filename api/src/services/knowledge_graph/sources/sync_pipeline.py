@@ -342,7 +342,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                 source_id=source.id,
                 source_document_id=str(source_document_id),
                 content_hash=content_hash,
-                columns=("id",),
+                columns=("id", "source_modified_at"),
             )
             existing_doc_id = (
                 str(rows[0].get("id")) if rows and rows[0].get("id") else None

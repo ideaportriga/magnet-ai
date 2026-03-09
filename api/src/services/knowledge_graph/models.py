@@ -188,7 +188,11 @@ class SyncCounters:
 
 @dataclass
 class StoreDocumentResult:
-    """Result of store_document: either a metadata-only update or a new/updated document."""
+    """Result of store_document: either a metadata-only update or a new/updated document.
+
+    - ``document=None``: metadata-only DB update was applied (content hash matched).
+    - ``document=<dict>``: new or updated document was created/upserted.
+    """
 
     document: dict[str, Any] | None = None
     loaded_content: LoadedContent | None = None
