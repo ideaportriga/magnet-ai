@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.38](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.37...v0.6.0-dev.38) (2026-03-09)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed fluid topics sync issue reading incorrect document id field ([2322aab](https://github.com/ideaportriga/magnet-ai/commit/2322aab42e5c2a2450ddd326f6657e092155c821))
+
 ## [0.6.0-dev.37](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.36...v0.6.0-dev.37) (2026-03-07)
 
 ### 🐛 Bug Fixes
