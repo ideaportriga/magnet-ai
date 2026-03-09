@@ -308,6 +308,13 @@ class AbstractDataSource(ABC):
         start_time = time.perf_counter()
         docs_table = docs_table_name(document["graph_id"])
         doc_id = document["id"]
+        extracted_text = (extracted_text or "").strip()
+        # Strip non-UTF-8 characters and NULL bytes (PostgreSQL rejects 0x00 in text)
+        extracted_text = (
+            extracted_text.encode("utf-8", errors="ignore")
+            .decode("utf-8", errors="ignore")
+            .replace("\x00", "")
+        )
 
         try:
             # Mark processing early so the UI / callers can observe progress even if

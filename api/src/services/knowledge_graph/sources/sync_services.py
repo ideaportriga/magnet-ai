@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.app import alchemy
 from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
-from services.observability import observability_context
+from services.observability import observability_context, observe
 from services.observability.models import FeatureType
 from utils.datetime_utils import utc_now_isoformat
 
@@ -42,6 +42,7 @@ async def sync_source(
     return await _sync_source_impl(db_session, graph_id, source_id)
 
 
+@observe(name="Sync knowledge graph", channel="production", source="production")
 async def _sync_source_impl(
     db_session: AsyncSession, graph_id: UUID, source_id: UUID
 ) -> dict[str, Any]:

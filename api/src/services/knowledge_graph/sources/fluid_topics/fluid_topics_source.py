@@ -76,7 +76,11 @@ class FluidTopicsSource(AbstractDataSource):
         embedding_model = await self._require_embedding_model(db_session)
 
         observability_context.update_current_span(
-            input={"source_id": str(self.source.id), "filters": cfg.filters}
+            input={
+                "Source Id": str(self.source.id),
+                "Source Name": self.source.name,
+                "Filters": cfg.filters,
+            }
         )
 
         pipeline = FluidTopicsSyncPipeline(

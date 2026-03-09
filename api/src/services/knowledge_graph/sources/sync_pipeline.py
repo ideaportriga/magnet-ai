@@ -320,6 +320,16 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         Returns StoreDocumentResult with document=None when only metadata was updated
         (content unchanged), or document + loaded_content when a new document was created.
         """
+        logger.info(
+            "Storing document",
+            extra={
+                "source_id": source.id,
+                "graph_id": graph_id,
+                "source_filename": filename,
+                "source_document_id": source_document_id,
+            },
+        )
+
         if isinstance(content, str):
             content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         else:
@@ -337,7 +347,18 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             existing_doc_id = (
                 str(rows[0].get("id")) if rows and rows[0].get("id") else None
             )
+
             if existing_doc_id:
+                logger.info(
+                    "Existing document found",
+                    extra={
+                        "source_id": source.id,
+                        "graph_id": graph_id,
+                        "source_document_id": source_document_id,
+                        "existing_doc_id": existing_doc_id,
+                    },
+                )
+
                 await self.document_service.update_document_metadata_only(
                     session,
                     source,

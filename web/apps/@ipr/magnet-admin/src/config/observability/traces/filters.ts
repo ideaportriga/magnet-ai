@@ -34,6 +34,7 @@ const filter = {
       { label: 'RAG Tool', value: 'rag' },
       { label: 'Retrieval Tool', value: 'retrieval-tool' },
       { label: 'Knowledge Source', value: 'knowledge-source' },
+      { label: 'Knowledge Graph', value: 'knowledge-graph' },
       { label: 'Agent', value: 'agent' },
     ],
     multiple: true,

@@ -188,9 +188,9 @@ class FluidTopicsSyncPipeline(
                                 continue
 
                             doc_info = entry.get("document") or {}
-                            doc_id = str(doc_info.get("id"))
-                            doc_filename = str(doc_info.get("filename"))
-                            doc_title = str(doc_info.get("title") or "").strip() or None
+                            doc_id = doc_info.get("documentId")
+                            doc_filename = doc_info.get("filename")
+                            doc_title = doc_info.get("title")
                             doc_link = self._build_document_external_link(
                                 doc_info.get("viewerUrl")
                             )
@@ -227,8 +227,8 @@ class FluidTopicsSyncPipeline(
 
                             async with self._state.seen_maps_lock:
                                 topic_info = entry.get("topic") or {}
-                                map_id = str(topic_info.get("mapId"))
-                                map_title = str(topic_info.get("mapTitle") or "")
+                                map_id = topic_info.get("mapId")
+                                map_title = topic_info.get("mapTitle")
                                 if not map_id:
                                     await ctx.inc("skipped")
                                     continue
@@ -264,8 +264,8 @@ class FluidTopicsSyncPipeline(
 
                             async with self._state.seen_maps_lock:
                                 map_info = entry.get("map") or {}
-                                map_id = str(map_info.get("mapId") or "")
-                                map_title = str(map_info.get("title") or "")
+                                map_id = map_info.get("mapId")
+                                map_title = map_info.get("title")
                                 map_metadata = parse_fluid_topics_metadata_list(
                                     map_info.get("metadata")
                                 )
@@ -335,7 +335,7 @@ class FluidTopicsSyncPipeline(
                     ),
                 )
                 self._state.pages_done.set()
-                await ctx.inc("failed")
+                raise
 
     async def _content_fetch_worker(
         self, ctx: FluidTopicsPipelineContext, worker_id: int
@@ -629,7 +629,7 @@ class FluidTopicsSyncPipeline(
                             self._source.source,
                             content=file_bytes,
                             graph_id=graph_uuid,
-                            source_document_id=str(doc_id),
+                            source_document_id=doc_id,
                             filename=filename,
                             source_modified_at=source_modified_at,
                             source_metadata=task.metadata,
