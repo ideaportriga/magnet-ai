@@ -1,7 +1,7 @@
 import logging
 import re
 from typing import Any, override
-from uuid import UUID
+from urllib.parse import urlparse
 
 from litestar.exceptions import ClientException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from services.observability import observability_context, observe
 
 from ...models import SourceType, SyncPipelineConfig
 from ..abstract_source import AbstractDataSource
+from ..provider_utils import get_kg_provider, resolve_provider_params
 from .salesforce_models import SalesforceRuntimeConfig
 from .salesforce_sync import SalesforceSyncPipeline
 
@@ -24,11 +25,21 @@ class SalesforceSource(AbstractDataSource):
     """Salesforce Knowledge Articles source for Knowledge Graph.
 
     Credentials are resolved from a referenced Knowledge Source provider record
-    (stored in ``source.config['ks_provider_id']``).  The provider record is expected
-    to have the following ``secrets_encrypted`` fields:
-    - ``username``
-    - ``password``
-    - ``security_token``
+    (stored in ``source.config['ks_provider_id']``).
+
+    Provider fields (set in the Knowledge Source Provider UI):
+    - ``endpoint`` (required): full Salesforce instance URL,
+      e.g. ``https://your-org.my.salesforce.com``
+    - ``connection_config`` — non-sensitive identifiers (visible in UI):
+        - ``client_id``: OAuth Connected App consumer key (Client Credentials flow)
+        - ``username``: Salesforce login username (Password flow)
+    - ``secrets_encrypted`` — sensitive credentials (stored encrypted):
+        - ``client_secret``: OAuth Connected App consumer secret (Client Credentials flow)
+        - ``password``: Salesforce login password (Password flow)
+        - ``security_token``: Salesforce security token (Password flow)
+
+    Non-sensitive values may also be placed in ``secrets_encrypted`` for backward
+    compatibility — ``resolve_provider_params`` merges both sources transparently.
 
     Per-source config (``source.config``):
     - ``ks_provider_id`` (required): UUID of the KS provider that holds Salesforce credentials.
@@ -133,51 +144,25 @@ class SalesforceSource(AbstractDataSource):
         self, db_session: AsyncSession
     ) -> SalesforceRuntimeConfig:
         """Resolve credentials from the referenced KS provider and merge with source config."""
-
-        from core.domain.providers.service import ProvidersService
-
         cfg = self.source.config or {}
 
-        # --- KS provider lookup ---
-        ks_provider_id: str | None = cfg.get("ks_provider_id")
-        if not ks_provider_id:
-            raise ClientException(
-                "Salesforce source is missing 'ks_provider_id' in config. "
-                "Select a Salesforce Knowledge Source provider."
-            )
-
-        try:
-            provider_uuid = UUID(ks_provider_id)
-        except ValueError as exc:
-            raise ClientException(
-                f"Salesforce source has invalid 'ks_provider_id': {ks_provider_id}"
-            ) from exc
-
-        providers_service = ProvidersService(session=db_session)
-        try:
-            provider = await providers_service.get(provider_uuid)
-        except Exception as exc:
-            raise ClientException(
-                f"Knowledge Source provider '{ks_provider_id}' not found."
-            ) from exc
-
-        if provider.type.lower() != "salesforce":
-            raise ClientException(
-                f"Provider '{provider.name}' has type '{provider.type}', expected 'salesforce'."
-            )
-
-        secrets: dict[str, Any] = provider.secrets_encrypted or {}
-        # conn_cfg: dict[str, Any] = provider.connection_config or {}
+        # --- KS provider lookup + credential resolution ---
+        provider = await get_kg_provider(db_session, cfg, expected_type="salesforce")
+        # params = resolved connection_config (placeholders injected) merged with secrets.
+        # Non-sensitive values (client_id, username) belong in connection_config;
+        # sensitive values (client_secret, password, security_token) in secrets_encrypted.
+        # Both are accessible transparently via params.
+        params = resolve_provider_params(provider)
 
         # --- Auth flow resolution ---
         # Primary: Client Credentials (client_id + client_secret)
-        client_id = secrets.get("client_id") or ""
-        client_secret = secrets.get("client_secret") or ""
+        client_id = params.get("client_id") or ""
+        client_secret = params.get("client_secret") or ""
 
         # Fallback: Username/Password/Security Token
-        username = secrets.get("username") or ""
-        password = secrets.get("password") or ""
-        security_token = secrets.get("security_token") or ""
+        username = params.get("username") or ""
+        password = params.get("password") or ""
+        security_token = params.get("security_token") or ""
 
         if client_id and client_secret:
             # Client credentials flow — ready
@@ -192,17 +177,16 @@ class SalesforceSource(AbstractDataSource):
                 "or (username + password + security_token) for Password flow."
             )
 
-        # Domain: parse from provider.endpoint (e.g. https://xxx.my.salesforce.com → xxx.my)
-        if not provider.endpoint:
+        # Domain: parse from endpoint (e.g. https://xxx.my.salesforce.com → xxx.my)
+        endpoint: str = params.get("endpoint") or ""
+        if not endpoint:
             raise ClientException(
                 f"Salesforce provider '{provider.name}' has no Endpoint configured. "
                 "Set the Endpoint to the full Salesforce instance URL, "
                 "e.g. https://your-org.develop.my.salesforce.com"
             )
 
-        from urllib.parse import urlparse
-
-        hostname = urlparse(provider.endpoint).hostname or ""
+        hostname = urlparse(endpoint).hostname or ""
         sf_suffix = ".salesforce.com"
         if hostname.lower().endswith(sf_suffix):
             domain: str = hostname[: -len(sf_suffix)]
@@ -211,7 +195,7 @@ class SalesforceSource(AbstractDataSource):
         else:
             raise ClientException(
                 f"Salesforce provider '{provider.name}' has an invalid Endpoint URL: "
-                f"'{provider.endpoint}'. Expected a URL like "
+                f"'{endpoint}'. Expected a URL like "
                 "https://your-org.my.salesforce.com"
             )
 

@@ -86,12 +86,17 @@ class ProvidersService(service.SQLAlchemyAsyncRepositoryService[Provider]):
                     # Get existing secrets
                     existing_secrets = existing_provider.secrets_encrypted or {}
 
-                    # Merge: keep existing secrets, only update non-empty values
-                    merged_secrets = existing_secrets.copy()
+                    # Merge logic:
+                    # - Key with non-empty value → update with new value
+                    # - Key with empty value → keep existing encrypted value
+                    # - Key absent from request → deleted (not copied from existing)
+                    merged_secrets = {}
                     for key, value in new_secrets.items():
-                        if value and value.strip():  # Only update if value is non-empty
+                        if value and value.strip():  # New value provided
                             merged_secrets[key] = value
-                        # If value is empty/None, keep the existing value (don't delete)
+                        elif key in existing_secrets:  # Empty = keep existing
+                            merged_secrets[key] = existing_secrets[key]
+                        # New key with empty value → skip (don't add)
 
                     # Update data with merged secrets
                     if isinstance(data, dict):
