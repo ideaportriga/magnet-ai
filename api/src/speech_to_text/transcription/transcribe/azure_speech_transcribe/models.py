@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import asyncio
 import os
+from io import BytesIO
 from typing import Any, Dict, List
+
+from openai_model.utils import get_model_by_system_name
+from services.ai_services.factory import get_ai_provider
 
 from ...models import TranscriptionCfg
 from ...services.ffmpeg import extract_audio_to_wav
 from ...storage.postgres_storage import PgDataStorage
 from ..base import BaseTranscriber
-
-from services.ai_services.utils import get_stt_provider_by_model
 
 
 _AZURE_CACHE: dict[str, Dict[str, Any]] = {}
@@ -205,25 +207,47 @@ class AzureSpeechTranscriber(BaseTranscriber):
             except Exception:
                 pass
 
-            provider, model_cfg, model_id = await get_stt_provider_by_model(
-                self._model_system_name
+            model_cfg = await get_model_by_system_name(self._model_system_name)
+            if not model_cfg:
+                raise ValueError(f"STT model '{self._model_system_name}' not found")
+
+            provider_system_name = model_cfg.get("provider_system_name")
+            if not isinstance(provider_system_name, str) or not provider_system_name:
+                raise ValueError(
+                    f"Model '{self._model_system_name}' does not have provider_system_name configured"
+                )
+
+            model_id = (
+                model_cfg.get("ai_model")
+                or model_cfg.get("model_id")
+                or model_cfg.get("model")
+                or self._model_id
             )
+            if not isinstance(model_id, str) or not model_id:
+                raise ValueError(
+                    f"Model '{self._model_system_name}' is missing model id"
+                )
+
+            provider = await get_ai_provider(provider_system_name)
 
             file_bytes = await asyncio.to_thread(_read_bytes, tmp_wav)
-
             safe_terms = _sanitize_keyterms(self._cfg.keyterms)
 
-            raw_payload = await provider.speech_to_text_convert(
-                file=file_bytes,
-                model_id=model_id or self._model_id,
-                diarize=self._diarize,
-                language_code=self._language_code,
-                num_speakers=self._num_speakers,
-                diarization_threshold=self._diarization_threshold,
-                keyterms=safe_terms or None,
-                entity_detection=self._cfg.entity_detection,
-                model_config=model_cfg,
+            tx = await provider.transcribe(
+                file=BytesIO(file_bytes),
+                model=model_id,
+                language=self._language_code,
+                model_config={
+                    "diarize": self._diarize,
+                    "num_speakers": self._num_speakers,
+                    "diarization_threshold": self._diarization_threshold,
+                    "keyterms": safe_terms or None,
+                    "entity_detection": self._cfg.entity_detection,
+                    "model_cfg": model_cfg,
+                },
             )
+
+            raw_payload = getattr(tx, "raw", None) or getattr(tx, "data", None) or tx
 
         finally:
             try:

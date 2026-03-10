@@ -147,6 +147,7 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
         "oci": OCIProvider,  # Native OCI SDK
         "oci_llama": OCILlamaProvider,  # Native OCI SDK (Llama variant)
         "mistral_stt": NativeMistralSTTProvider,  # Mistral Voxtral STT (not in litellm)
+        "elevenlabs": ElevenLabsSTTProvider,
         "elevenlabs_stt": ElevenLabsSTTProvider,  # ElevenLabs STT (not in litellm)
     }
 

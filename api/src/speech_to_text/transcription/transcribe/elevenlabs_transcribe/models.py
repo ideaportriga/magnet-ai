@@ -80,7 +80,9 @@ class ElevenLabsTranscriber(BaseTranscriber):
         if not self._model_system_name:
             raise RuntimeError("Missing cfg.internal_cfg['model_system_name']")
 
-        self._language_code: str | None = internal.get("language_code")
+        self._language_code = (
+            cfg.language.strip() if isinstance(cfg.language, str) else None
+        )
 
         raw_ns = internal.get("num_speakers")
         self._num_speakers: int | None = None
@@ -161,7 +163,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
 
             provider = await get_ai_provider(provider_system_name)
 
-            safe_terms = _sanitize_keyterms(self._cfg.keyterms)
+            safe_terms = _sanitize_keyterms(self._cfg.keyterms or [])
             file_bytes = await asyncio.to_thread(_read_bytes, tmp_wav)
 
             # Style B: pass advanced STT knobs via model_config
