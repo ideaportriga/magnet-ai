@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.42](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.41...v0.6.0-dev.42) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** implemented new reader for sharepoint pages ([837698e](https://github.com/ideaportriga/magnet-ai/commit/837698e11a811c70c3fd11cc69170a4600611be4))
+
 ## [0.6.0-dev.41](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.40...v0.6.0-dev.41) (2026-03-10)
 
 ### ✨ Features
