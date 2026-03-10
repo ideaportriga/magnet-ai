@@ -82,6 +82,7 @@ class AIProviderInterface(ABC):
         prompt: str | None = None,
         response_format: str | None = None,
         timestamp_granularities: list[str] | None = None,
+        model_config: dict[str, Any] | None = None,
     ) -> TranscriptionResponse:
         """Transcribe audio. Override in subclasses that support STT."""
         raise NotImplementedError("transcribe is optional for this provider")
@@ -154,22 +155,3 @@ class AIProviderInterface(ABC):
     ) -> ImageGenerationResult:
         """Generate images from text. Override in subclasses."""
         raise NotImplementedError("generate_image is optional for this provider")
-
-
-class STTProviderInterface(ABC):
-    @abstractmethod
-    async def speech_to_text_convert(
-        self,
-        *,
-        file: bytes,
-        model_id: str,
-        diarize: bool | None = None,
-        tag_audio_events: bool | None = None,
-        language_code: str | None = None,
-        num_speakers: int | None = None,
-        diarization_threshold: float | None = None,
-        keyterms: list[str] | None = None,
-        entity_detection: str | list[str] | None = None,
-        model_config: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        raise NotImplementedError
