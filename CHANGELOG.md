@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.40](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.39...v0.6.0-dev.40) (2026-03-10)
+
+### ✨ Features
+
+* **prompttemplate:** enhance prompt template component with preview and code view modes ([7e42589](https://github.com/ideaportriga/magnet-ai/commit/7e42589a2707478532817ab2e7261257c24919c4))
+
 ## [0.6.0-dev.39](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.38...v0.6.0-dev.39) (2026-03-10)
 
 ### ✨ Features
