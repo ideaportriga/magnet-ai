@@ -1,3 +1,4 @@
+import json
 import time
 from collections.abc import AsyncIterator
 from typing import BinaryIO
@@ -285,6 +286,7 @@ async def create_chat_completion_from_prompt_template(
     parallel_tool_calls: bool | None = None,
 ) -> tuple[ChatCompletionWithMetrics, list[ChatCompletionMessageParam]]:
     system_message: str = prompt_template_config.get("text", "")
+    response_format: dict | None = prompt_template_config.get("response_format")
 
     if prompt_template_values:
         for system_message_key, system_message_value in prompt_template_values.items():
@@ -292,6 +294,14 @@ async def create_chat_completion_from_prompt_template(
                 f"{{{system_message_key}}}",
                 str(system_message_value),
             )
+        if response_format is not None:
+            format_str = json.dumps(response_format)
+            for key, value in prompt_template_values.items():
+                format_str = format_str.replace(f"{{{key}}}", str(value))
+            try:
+                response_format = json.loads(format_str)
+            except json.JSONDecodeError:
+                pass  # Keep original if substitution produced invalid JSON
 
     messages: list[ChatCompletionMessageParam] = [
         {
@@ -308,7 +318,7 @@ async def create_chat_completion_from_prompt_template(
         temperature=prompt_template_config.get("temperature"),
         top_p=prompt_template_config.get("topP"),
         max_tokens=prompt_template_config.get("maxTokens"),
-        response_format=prompt_template_config.get("response_format"),
+        response_format=response_format,
         model_system_name=prompt_template_config.get("system_name_for_model"),
         tools=tools,
         tool_choice=tool_choice,

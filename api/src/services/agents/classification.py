@@ -46,6 +46,21 @@ def _extract_json_string(text: str) -> str:
     # Remove single-line // comments
     stripped = re.sub(r"//[^\n]*", "", stripped)
 
+    # Handle wrapper pattern: {"final": "{...}"} or {"result": "{...}"} etc.
+    # Some models wrap the actual JSON in a string value under a known key.
+    try:
+        outer = json.loads(stripped)
+        if isinstance(outer, dict):
+            for key in ("final", "result", "output", "response", "json", "answer"):
+                inner_candidate = outer.get(key)
+                if isinstance(inner_candidate, str):
+                    inner = inner_candidate.strip()
+                    if inner.startswith("{"):
+                        stripped = inner
+                        break
+    except (json.JSONDecodeError, ValueError):
+        pass
+
     return stripped
 
 
