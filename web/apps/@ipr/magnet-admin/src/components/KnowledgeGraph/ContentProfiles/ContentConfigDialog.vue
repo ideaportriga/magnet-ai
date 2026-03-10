@@ -318,7 +318,11 @@
             <div class="row q-col-gutter-lg q-mb-md">
               <div class="col-8">
                 <div class="km-input-label q-pb-xs">Chunk Title</div>
-                <km-input v-model="form.chunker.options.chunk_title_pattern" :readonly="isReadonlyProfile" placeholder="e.g., Chunk {index} — Page {page}">
+                <km-input
+                  v-model="form.chunker.options.chunk_title_pattern"
+                  :readonly="isReadonlyProfile"
+                  placeholder="e.g., Chunk {index} — Page {page}"
+                >
                   <template #append>
                     <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
                     <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
@@ -389,13 +393,16 @@ import {
   FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_KEY,
   FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_VALUE,
   FLUID_TOPICS_STRUCTURED_READER,
-  hasReservedFluidTopicsNativeProfileName,
   hasDuplicateContentProfileName,
+  hasReservedFluidTopicsNativeProfileName,
   hasReservedVirtualFallbackProfileName,
   isLockedFluidTopicsNativeProfile,
   isVirtualFallbackContentProfile,
   readerOptions,
   selectableReaderOptions,
+  SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME,
+  SHAREPOINT_PAGE_READER,
+  SHAREPOINT_SOURCE_TYPE,
   VIRTUAL_FALLBACK_PROFILE_NAME,
 } from './models'
 import SourceTreeDropdown from './SourceTreeDropdown.vue'
@@ -452,6 +459,7 @@ const ALL_SOURCES_KEY = '__ALL__'
 const NONE_SELECTED_KEY = '__NONE__'
 const groupKey = (type: string) => `__GROUP__${type}`
 const FLUID_TOPICS_GROUP_KEY = groupKey(FLUID_TOPICS_SOURCE_TYPE)
+const SHAREPOINT_GROUP_KEY = groupKey(SHAREPOINT_SOURCE_TYPE)
 const mapLegacySourceTypesToSelectors = (legacyTypes: string[]) => {
   const typeSet = new Set((legacyTypes || []).map((t) => String(t)).filter(Boolean))
   return [...typeSet].map((type) => groupKey(type))
@@ -493,6 +501,24 @@ const applyReadonlyFallbackConstraints = (target: ReturnType<typeof getDefaultFo
       document_title_pattern: '',
       chunk_title_pattern: '',
     },
+  }
+}
+
+const applySharePointPageDefaults = (target: ReturnType<typeof getDefaultForm>) => {
+  if (!String(target.glob_pattern || '').trim()) {
+    target.glob_pattern = '*.aspx'
+  }
+
+  if (!Array.isArray(target.source_ids) || target.source_ids.length === 0 || target.source_ids.includes(NONE_SELECTED_KEY)) {
+    target.source_ids = [SHAREPOINT_GROUP_KEY]
+  }
+
+  if (!target.chunker?.strategy || target.chunker.strategy === 'recursive_character_text_splitting' || target.chunker.strategy === 'none') {
+    target.chunker.strategy = 'llm'
+  }
+
+  if (!String(target.chunker?.options?.prompt_template_system_name || '').trim()) {
+    target.chunker.options.prompt_template_system_name = SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME
   }
 }
 
@@ -588,10 +614,12 @@ const promptTemplateRef = ref()
 const newSplitter = ref('')
 const showNewSplitterInput = ref(false)
 const newSplitterInput = ref()
+const isHydratingForm = ref(false)
 const isReadonlyProfile = computed(() => isEditing.value && isVirtualFallbackContentProfile(props.config ?? form.value))
 const dialogTitle = computed(() => (isReadonlyProfile.value ? 'View Content Profile' : `${isEditing.value ? 'Edit' : 'Add'} Content Profile`))
 const dismissLabel = computed(() => (isReadonlyProfile.value ? 'Close' : 'Cancel'))
 const isLockedNativeProfile = computed(() => isEditing.value && isLockedFluidTopicsNativeProfile(props.config ?? form.value))
+const isSharePointPageReader = computed(() => form.value.reader.name === SHAREPOINT_PAGE_READER)
 const isLLMStrategy = computed(() => form.value.chunker.strategy === 'llm')
 const isRecursiveStrategy = computed(() => form.value.chunker.strategy === 'recursive_character_text_splitting')
 const isDirty = computed(() => JSON.stringify(form.value) !== JSON.stringify(initialFormState.value))
@@ -633,11 +661,7 @@ const validateDuplicateProfileName = (value: string) => {
     return true
   }
 
-  return hasDuplicateContentProfileName(
-    value,
-    props.existingConfigs || [],
-    props.config?.name
-  )
+  return hasDuplicateContentProfileName(value, props.existingConfigs || [], props.config?.name)
     ? 'A content profile with this name already exists.'
     : true
 }
@@ -693,6 +717,7 @@ const cancelAddSplitter = () => {
 }
 
 const initForm = () => {
+  isHydratingForm.value = true
   if (props.config) {
     isEditing.value = true
 
@@ -751,6 +776,7 @@ const initForm = () => {
     form.value = getDefaultForm()
   }
   initialFormState.value = JSON.parse(JSON.stringify(form.value))
+  isHydratingForm.value = false
 }
 
 const cancel = () => {
@@ -806,6 +832,23 @@ const save = async () => {
   emit('save', formData)
   dialogOpen.value = false
 }
+
+watch(
+  () => form.value.reader.name,
+  (readerName, previousReaderName) => {
+    if (
+      isHydratingForm.value ||
+      isLockedNativeProfile.value ||
+      isReadonlyProfile.value ||
+      readerName !== SHAREPOINT_PAGE_READER ||
+      readerName === previousReaderName
+    ) {
+      return
+    }
+
+    applySharePointPageDefaults(form.value)
+  }
+)
 
 watch(
   () => props.showDialog,

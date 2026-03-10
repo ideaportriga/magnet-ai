@@ -26,6 +26,9 @@ FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_VALUE = str(
     ContentReaderName.FLUID_TOPICS_STRUCTURED_DOCUMENTS
 )
 FLUID_TOPICS_SOURCE_SELECTOR = f"{GROUP_KEY_PREFIX}{SourceType.FLUID_TOPICS}"
+SHAREPOINT_PAGES_PROFILE_NAME = "SharePoint Pages (LLM Splitting)"
+SHAREPOINT_SOURCE_SELECTOR = f"{GROUP_KEY_PREFIX}{SourceType.SHAREPOINT}"
+SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME = "SHAREPOINT_PAGE_CHUNKING"
 FLUID_TOPICS_STRUCTURED_EDITABLE_CHUNKER_OPTION_KEYS = (
     "document_title_pattern",
     "chunk_title_pattern",
@@ -146,6 +149,36 @@ def _get_raw_profile_name(config_dict: dict[str, Any]) -> str:
 
     profile_name = config_dict.get("name")
     return str(profile_name).strip() if profile_name is not None else ""
+
+
+def _get_raw_glob_pattern(config_dict: dict[str, Any]) -> str:
+    if not isinstance(config_dict, dict):
+        return ""
+
+    glob_pattern = config_dict.get("glob_pattern")
+    return str(glob_pattern).strip().lower() if glob_pattern is not None else ""
+
+
+def _get_raw_source_ids(config_dict: dict[str, Any]) -> list[str]:
+    if not isinstance(config_dict, dict):
+        return []
+
+    source_ids = config_dict.get("source_ids")
+    if not isinstance(source_ids, list):
+        return []
+
+    return [str(source_id) for source_id in source_ids if source_id]
+
+
+def _get_raw_source_types(config_dict: dict[str, Any]) -> list[str]:
+    if not isinstance(config_dict, dict):
+        return []
+
+    source_types = config_dict.get("source_types")
+    if not isinstance(source_types, list):
+        return []
+
+    return [str(source_type) for source_type in source_types if source_type]
 
 
 def _has_reserved_fluid_topics_structured_profile_name(
@@ -281,6 +314,39 @@ def is_auto_managed_fluid_topics_structured_profile(
     )
 
 
+def is_sharepoint_pages_profile_candidate(config_dict: dict[str, Any]) -> bool:
+    if not isinstance(config_dict, dict):
+        return False
+
+    if (
+        _normalize_content_profile_name(_get_raw_profile_name(config_dict))
+        == SHAREPOINT_PAGES_PROFILE_NAME.strip().lower()
+    ):
+        return True
+
+    if _get_raw_glob_pattern(config_dict) != "*.aspx":
+        return False
+
+    source_ids = set(_get_raw_source_ids(config_dict))
+    if SHAREPOINT_SOURCE_SELECTOR in source_ids:
+        return True
+
+    source_types = set(_get_raw_source_types(config_dict))
+    if str(SourceType.SHAREPOINT) in source_types:
+        return True
+
+    return not source_ids and not source_types
+
+
+def _is_plain_text_catchall_profile(config_dict: dict[str, Any]) -> bool:
+    return (
+        _get_raw_reader_name(config_dict) == str(ContentReaderName.PLAIN_TEXT)
+        and not _get_raw_glob_pattern(config_dict)
+        and not _get_raw_source_ids(config_dict)
+        and not _get_raw_source_types(config_dict)
+    )
+
+
 def build_fluid_topics_structured_content_config() -> ContentConfig:
     return ContentConfig(
         name=FLUID_TOPICS_STRUCTURED_PROFILE_NAME,
@@ -309,6 +375,63 @@ def build_fluid_topics_structured_content_config() -> ContentConfig:
             },
         },
     )
+
+
+def build_sharepoint_pages_content_config() -> ContentConfig:
+    return ContentConfig(
+        name=SHAREPOINT_PAGES_PROFILE_NAME,
+        enabled=True,
+        glob_pattern="*.aspx",
+        source_ids=[SHAREPOINT_SOURCE_SELECTOR],
+        reader={"name": ContentReaderName.SHAREPOINT_PAGE, "options": {}},
+        chunker={
+            "strategy": ChunkerStrategy.LLM,
+            "options": {
+                "llm_batch_size": 18000,
+                "llm_batch_overlap": 0.1,
+                "llm_last_segment_increase": 0.0,
+                "recursive_chunk_size": 18000,
+                "recursive_chunk_overlap": 0.1,
+                "chunk_max_size": 18000,
+                "splitters": ["\n\n", "\n", " ", ""],
+                "prompt_template_system_name": SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME,
+                "document_title_pattern": "",
+                "chunk_title_pattern": "",
+            },
+        },
+    )
+
+
+def ensure_sharepoint_pages_profile_backfill(
+    content_settings: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if any(
+        is_sharepoint_pages_profile_candidate(config_dict)
+        for config_dict in content_settings
+        if isinstance(config_dict, dict)
+    ):
+        return content_settings
+
+    canonical_profile = build_sharepoint_pages_content_config().model_dump()
+    next_content_settings: list[dict[str, Any]] = []
+    inserted = False
+
+    for config_dict in content_settings:
+        if (
+            not inserted
+            and isinstance(config_dict, dict)
+            and _is_plain_text_catchall_profile(config_dict)
+        ):
+            next_content_settings.append(deepcopy(canonical_profile))
+            inserted = True
+
+        if isinstance(config_dict, dict):
+            next_content_settings.append(deepcopy(config_dict))
+
+    if not inserted:
+        next_content_settings.append(deepcopy(canonical_profile))
+
+    return next_content_settings
 
 
 def _get_chunker_options_dict(config_dict: dict[str, Any]) -> dict[str, Any]:
@@ -442,12 +565,13 @@ def get_persisted_content_config_dicts(
     if not isinstance(content_settings, list):
         return default_configs
 
-    return [
+    persisted_configs = [
         deepcopy(config_dict)
         for config_dict in content_settings
         if isinstance(config_dict, dict)
         and not is_virtual_last_resort_profile_candidate(config_dict)
     ]
+    return ensure_sharepoint_pages_profile_backfill(persisted_configs)
 
 
 def build_graph_settings_with_virtual_last_resort_profile(
@@ -528,6 +652,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                 },
             },
         ),
+        build_sharepoint_pages_content_config(),
         ContentConfig(
             name="Plain Text",
             enabled=True,

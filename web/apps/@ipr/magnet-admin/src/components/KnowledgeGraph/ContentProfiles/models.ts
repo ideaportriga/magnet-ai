@@ -23,6 +23,10 @@ export const FLUID_TOPICS_STRUCTURED_READER = 'fluid_topics_structured_documents
 export const FLUID_TOPICS_STRUCTURED_READER_LABEL = 'Fluid Topics Structured Document Reader'
 export const FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_KEY = '_auto_managed_profile'
 export const FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_VALUE = FLUID_TOPICS_STRUCTURED_READER
+export const SHAREPOINT_SOURCE_TYPE = 'sharepoint'
+export const SHAREPOINT_PAGE_READER = 'sharepoint_page'
+export const SHAREPOINT_PAGE_READER_LABEL = 'SharePoint Page Reader'
+export const SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME = 'SHAREPOINT_PAGE_CHUNKING'
 export const VIRTUAL_FALLBACK_PROFILE_NAME = '<default>'
 export const VIRTUAL_FALLBACK_PROFILE_KEY = '_virtual_profile'
 export const VIRTUAL_FALLBACK_PROFILE_VALUE = 'fallback_plain_text'
@@ -30,6 +34,7 @@ export const VIRTUAL_FALLBACK_PROFILE_VALUE = 'fallback_plain_text'
 export const readerOptions = [
   { label: 'Plain Text Reader', value: 'plain_text' },
   { label: 'PDF Reader', value: 'pdf' },
+  { label: SHAREPOINT_PAGE_READER_LABEL, value: SHAREPOINT_PAGE_READER },
   {
     label: FLUID_TOPICS_STRUCTURED_READER_LABEL,
     value: FLUID_TOPICS_STRUCTURED_READER,
@@ -71,8 +76,6 @@ export const isVirtualFallbackContentProfile = (config?: ContentConfigLike) =>
 export const isProtectedContentProfile = (config?: ContentConfigLike) =>
   isLockedFluidTopicsNativeProfile(config) || isVirtualFallbackContentProfile(config)
 
-export const getReaderLabel = (readerName?: string) => readerOptions.find((option) => option.value === readerName)?.label || readerName || '-'
-
 export const isAutoManagedFluidTopicsStructuredProfile = (config?: ContentConfigLike) =>
   isFluidTopicsStructuredReader(config?.reader?.name) &&
   config?.reader?.options?.[FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_KEY] === FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_VALUE
@@ -86,11 +89,7 @@ const normalizeProfileName = (profileName?: string) =>
     .trim()
     .toLowerCase()
 
-export const hasDuplicateContentProfileName = (
-  profileName?: string,
-  configs: ContentConfigLike[] = [],
-  currentProfileName?: string
-) => {
+export const hasDuplicateContentProfileName = (profileName?: string, configs: ContentConfigLike[] = [], currentProfileName?: string) => {
   const normalizedName = normalizeProfileName(profileName)
   if (!normalizedName) {
     return false
@@ -126,9 +125,7 @@ const getContentProfileSourceLabel = (sourceIds: string[] | undefined, sources: 
     return 'no source'
   }
 
-  const labels = selectors
-    .map((selector) => getSourceSelectorLabel(selector, sources))
-    .filter((label): label is string => Boolean(label))
+  const labels = selectors.map((selector) => getSourceSelectorLabel(selector, sources)).filter((label): label is string => Boolean(label))
 
   if (labels.length === 0) {
     return selectors.length === 1 ? 'selected source' : `${selectors.length} selected sources`

@@ -1,8 +1,17 @@
-from .models import ContentConfig, ContentReaderName, LoadedContent
-from .readers.pdf_reader import DefaultPdfReader
+from .models import (
+    ContentConfig,
+    ContentReaderContext,
+    ContentReaderName,
+    LoadedContent,
+)
+from .readers import DefaultPdfReader, DefaultSharePointPageReader
 
 
-def load_content_from_bytes(file_bytes: bytes, config: ContentConfig) -> LoadedContent:
+def load_content_from_bytes(
+    file_bytes: bytes,
+    config: ContentConfig,
+    context: ContentReaderContext | None = None,
+) -> LoadedContent:
     reader_name = config.reader.get("name", "").lower() if config.reader else ""
 
     match reader_name:
@@ -12,5 +21,10 @@ def load_content_from_bytes(file_bytes: bytes, config: ContentConfig) -> LoadedC
         case ContentReaderName.PLAIN_TEXT:
             text = file_bytes.decode("utf-8", errors="replace")
             return {"text": text, "metadata": {}}
+        case ContentReaderName.SHAREPOINT_PAGE:
+            text, metadata = DefaultSharePointPageReader().extract_text_from_bytes(
+                file_bytes, context=context
+            )
+            return {"text": text, "metadata": metadata}
         case _:
             raise ValueError(f"Unsupported reader: {reader_name!r}")

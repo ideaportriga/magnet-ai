@@ -58,7 +58,10 @@
       </template>
 
       <div v-else class="text-grey-7 text-body2">
-        Will sync all pages from the SitePages library
+        <div>Will sync all pages from the SitePages library</div>
+        <div class="q-mt-sm">
+          Tip: SitePages content is processed through the SharePoint Pages content profile for `.aspx` files.
+        </div>
       </div>
     </kg-dialog-section>
   </kg-dialog-source-base>

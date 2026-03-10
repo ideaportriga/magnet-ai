@@ -19,6 +19,7 @@ from services.observability.models import SpanExportMethod
 from ..content_load_services import load_content_from_bytes
 from ..models import (
     ContentConfig,
+    ContentReaderContext,
     LoadedContent,
     StoreDocumentResult,
     SyncCounters,
@@ -304,6 +305,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         source_metadata: dict[str, Any] | None = None,
         default_document_type: str = "txt",
         content_config: ContentConfig | None = None,
+        content_reader_context: ContentReaderContext | None = None,
         title: str | None = None,
         external_link: str | None = None,
         toc: list[dict[str, Any]] | dict[str, Any] | None = None,
@@ -342,15 +344,18 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                 source_id=source.id,
                 source_document_id=str(source_document_id),
                 content_hash=content_hash,
-                columns=("id",),
+                columns=("id", "status"),
             )
             existing_doc_id = (
                 str(rows[0].get("id")) if rows and rows[0].get("id") else None
             )
+            existing_status = (
+                str(rows[0].get("status")) if rows and rows[0].get("status") else None
+            )
 
-            if existing_doc_id:
+            if existing_doc_id and existing_status == "completed":
                 logger.info(
-                    "Existing document found",
+                    "Existing completed document found, updating metadata only",
                     extra={
                         "source_id": source.id,
                         "graph_id": graph_id,
@@ -371,12 +376,26 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                 )
                 return StoreDocumentResult()
 
+            if existing_doc_id:
+                logger.info(
+                    "Existing document found with non-completed status, re-processing",
+                    extra={
+                        "source_id": source.id,
+                        "graph_id": graph_id,
+                        "source_document_id": source_document_id,
+                        "existing_doc_id": existing_doc_id,
+                        "existing_status": existing_status,
+                    },
+                )
+
         loaded: LoadedContent | None = None
         total_pages: int | None = None
         file_metadata: dict[str, Any] | None = None
 
         if isinstance(content, bytes) and content_config:
-            loaded = load_content_from_bytes(content, content_config)
+            loaded = load_content_from_bytes(
+                content, content_config, context=content_reader_context
+            )
             file_metadata = loaded.get("metadata")
             total_pages = file_metadata.get("total_pages") if file_metadata else None
 

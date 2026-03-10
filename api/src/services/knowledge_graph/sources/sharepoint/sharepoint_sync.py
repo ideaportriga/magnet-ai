@@ -343,8 +343,14 @@ class SharePointSyncPipeline(
                         filename=filename,
                         source_modified_at=source_modified_at,
                         source_metadata=source_metadata,
-                        default_document_type="pdf",
+                        default_document_type="aspx" if is_aspx_page else "pdf",
                         content_config=content_config,
+                        content_reader_context={
+                            "document_url": external_link or "",
+                            "site_url": self._sharepoint_config.site_url or "",
+                            "server_relative_url": file_ref.server_relative_url or "",
+                            "filename": filename,
+                        },
                         external_link=external_link,
                     )
                     if not result.document:

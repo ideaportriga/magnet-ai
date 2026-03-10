@@ -32,6 +32,7 @@ class ContentReaderName(StrEnum):
 
     PDF = "pdf"
     PLAIN_TEXT = "plain_text"
+    SHAREPOINT_PAGE = "sharepoint_page"
     FLUID_TOPICS_STRUCTURED_DOCUMENTS = "fluid_topics_structured_documents"
 
 
@@ -115,6 +116,15 @@ class LoadedContent(TypedDict):
 
     text: str
     metadata: dict[str, Any]
+
+
+class ContentReaderContext(TypedDict, total=False):
+    """Optional runtime context passed to content readers."""
+
+    document_url: str
+    site_url: str
+    server_relative_url: str
+    filename: str
 
 
 @dataclass(frozen=True)
