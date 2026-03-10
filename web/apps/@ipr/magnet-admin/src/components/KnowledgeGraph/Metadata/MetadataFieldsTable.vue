@@ -80,33 +80,35 @@
       <!-- Lane 2: Smart Extraction -->
       <div class="board-lane board-lane--ai">
         <div class="lane-header">
-          <div class="lane-header__title">
-            <q-icon name="auto_awesome" size="18px" color="purple-7" />
-            <span>Smart Extraction</span>
-            <span class="lane-header__count">{{ extractedRows.length }}</span>
+          <div class="lane-header__top">
+            <div class="lane-header__title">
+              <q-icon name="auto_awesome" size="18px" color="purple-7" />
+              <span>Smart Extraction</span>
+              <span class="lane-header__count">{{ extractedRows.length }}</span>
+            </div>
+            <div class="lane-header__actions">
+              <q-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="o_add_circle" @click.stop="emit('add-extraction-field')">
+                <q-tooltip>Add Field</q-tooltip>
+              </q-btn>
+              <q-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="settings" @click.stop="emit('open-extraction-settings')">
+                <q-tooltip>Settings</q-tooltip>
+              </q-btn>
+              <q-btn
+                v-if="canRunExtraction"
+                round
+                flat
+                dense
+                class="lane-icon-btn lane-icon-btn--run"
+                icon="play_arrow"
+                :loading="runningExtraction"
+                :disable="runningExtraction"
+                @click.stop="emit('run-extraction')"
+              >
+                <q-tooltip>Run Extraction</q-tooltip>
+              </q-btn>
+            </div>
           </div>
           <div class="lane-header__subtitle">Configure which fields AI should extract</div>
-          <div class="lane-header__actions">
-            <q-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="o_add_circle" @click.stop="emit('add-extraction-field')">
-              <q-tooltip>Add Field</q-tooltip>
-            </q-btn>
-            <q-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="settings" @click.stop="emit('open-extraction-settings')">
-              <q-tooltip>Settings</q-tooltip>
-            </q-btn>
-            <q-btn
-              v-if="canRunExtraction"
-              round
-              flat
-              dense
-              class="lane-icon-btn lane-icon-btn--run"
-              icon="play_arrow"
-              :loading="runningExtraction"
-              :disable="runningExtraction"
-              @click.stop="emit('run-extraction')"
-            >
-              <q-tooltip>Run Extraction</q-tooltip>
-            </q-btn>
-          </div>
         </div>
         <div class="lane-content">
           <div v-if="extractedRows.length === 0" class="lane-empty">
@@ -152,17 +154,19 @@
       <!-- Lane 3: Schema -->
       <div class="board-lane board-lane--schema">
         <div class="lane-header">
-          <div class="lane-header__title">
-            <q-icon name="tune" size="18px" color="blue-7" />
-            <span>Schema</span>
-            <span class="lane-header__count">{{ schemaRows.length }}</span>
+          <div class="lane-header__top">
+            <div class="lane-header__title">
+              <q-icon name="tune" size="18px" color="blue-7" />
+              <span>Schema</span>
+              <span class="lane-header__count">{{ schemaRows.length }}</span>
+            </div>
+            <div class="lane-header__actions">
+              <q-btn round flat dense class="lane-icon-btn lane-icon-btn--schema" icon="o_add_circle" @click.stop="emit('add-field')">
+                <q-tooltip>Add Field</q-tooltip>
+              </q-btn>
+            </div>
           </div>
           <div class="lane-header__subtitle">Defined metadata fields</div>
-          <div class="lane-header__actions">
-            <q-btn round flat dense class="lane-icon-btn lane-icon-btn--schema" icon="o_add_circle" @click.stop="emit('add-field')">
-              <q-tooltip>Add Field</q-tooltip>
-            </q-btn>
-          </div>
         </div>
         <div
           class="lane-content"
@@ -832,6 +836,14 @@ watch([() => props.definedFields?.length, () => props.discoveredFields?.length],
   font-size: 14px;
   font-weight: 600;
   color: #1f2937;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.lane-header__title > span:not(.lane-header__count) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lane-header__count {
@@ -846,12 +858,19 @@ watch([() => props.definedFields?.length, () => props.discoveredFields?.length],
   font-size: 11px;
   font-weight: 600;
   color: #6b7280;
+  flex-shrink: 0;
 }
 
 .lane-header__subtitle {
   font-size: 11px;
   color: #9ca3af;
   margin-top: 2px;
+}
+
+.lane-header__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .lane-header__action {
@@ -861,11 +880,10 @@ watch([() => props.definedFields?.length, () => props.discoveredFields?.length],
 }
 
 .lane-header__actions {
-  position: absolute;
-  top: 6px;
-  right: 6px;
   display: flex;
   gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* Lane content (scrollable) */

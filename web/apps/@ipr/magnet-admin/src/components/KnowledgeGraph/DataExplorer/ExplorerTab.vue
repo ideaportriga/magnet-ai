@@ -53,28 +53,30 @@
           @row-click="onDocumentClick"
         >
           <template #body-cell-menu="slotScope">
-            <q-td :props="slotScope" class="flex items-center justify-end q-gap-2">
-              <km-btn
-                flat
-                color="secondary-text"
-                label-class="km-button-text"
-                icon-size="16px"
-                icon="fa fa-external-link"
-                :disable="!slotScope.row.external_link"
-                @click.stop="openExternalLink(slotScope.row.external_link)"
-              />
-              <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
-                <q-menu anchor="bottom right" self="top right" auto-close>
-                  <q-list dense>
-                    <q-item clickable @click="confirmDelete(slotScope.row)">
-                      <q-item-section thumbnail>
-                        <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                      </q-item-section>
-                      <q-item-section>Delete</q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
+            <q-td :props="slotScope" class="sticky-col">
+              <div class="flex items-center justify-end no-wrap q-gutter-x-xs">
+                <km-btn
+                  flat
+                  color="secondary-text"
+                  label-class="km-button-text"
+                  icon-size="16px"
+                  icon="fa fa-external-link"
+                  :disable="!slotScope.row.external_link"
+                  @click.stop="openExternalLink(slotScope.row.external_link)"
+                />
+                <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
+                  <q-menu anchor="bottom right" self="top right" auto-close>
+                    <q-list dense>
+                      <q-item clickable @click="confirmDelete(slotScope.row)">
+                        <q-item-section thumbnail>
+                          <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                        </q-item-section>
+                        <q-item-section>Delete</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </q-btn>
+              </div>
             </q-td>
           </template>
           <template #body-cell-name="slotScope">
@@ -145,17 +147,29 @@
         </q-table>
       </div>
     </div>
+
+    <!-- Delete Document Dialog -->
+    <kg-confirm-dialog
+      v-model="showDeleteDialog"
+      title="Delete document"
+      icon="delete_outline"
+      :description="`Are you sure you want to delete '${deletingDocument?.title || deletingDocument?.name}'?`"
+      confirm-label="Delete"
+      destructive
+      :loading="deleteInProgress"
+      @confirm="performDelete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import { formatDuration, formatRelative } from '@shared/utils'
-import { QTableColumn, useQuasar } from 'quasar'
+import { QTableColumn } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import { KgChunkTypeBadge, KgFileTypeBadge, KgStatusBadge } from '../common'
+import { KgChunkTypeBadge, KgConfirmDialog, KgFileTypeBadge, KgStatusBadge } from '../common'
 import { Chunk, Document } from './models'
 
 const props = defineProps<{
@@ -249,6 +263,8 @@ const documentsColumns: QTableColumn<Document>[] = [
     name: 'menu',
     label: '',
     field: 'id',
+    style: 'width: 80px',
+    headerStyle: 'width: 80px',
   },
 ]
 const chunksColumns: QTableColumn<Chunk>[] = [
@@ -341,43 +357,38 @@ const onChunksRequest = (props: any) => {
   fetchChunks(page, rowsPerPage, searchQuery.value)
 }
 
-// Quasar instance for dialogs
-const $q = useQuasar()
+const showDeleteDialog = ref(false)
+const deleteInProgress = ref(false)
+const deletingDocument = ref<Document | null>(null)
 
 const confirmDelete = (row: Document) => {
-  // Confirm then call delete
-  void $q
-    .dialog({
-      title: 'Delete document',
-      message: `Are you sure you want to delete "${row.title || row.name}"? This cannot be undone.`,
-      cancel: true,
-      persistent: true,
-      ok: {
-        color: 'negative',
-        label: 'Delete',
-        flat: true,
-      },
+  deletingDocument.value = row
+  showDeleteDialog.value = true
+}
+
+const performDelete = async () => {
+  if (!deletingDocument.value) return
+  const row = deletingDocument.value
+  try {
+    deleteInProgress.value = true
+    deletingIds.value.add(row.id)
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/documents/${row.id}`,
+      method: 'DELETE',
+      credentials: 'include',
     })
-    .onOk(async () => {
-      try {
-        deletingIds.value.add(row.id)
-        const endpoint = store.getters.config.api.aiBridge.urlAdmin
-        const response = await fetchData({
-          endpoint,
-          service: `knowledge_graphs/${props.graphId}/documents/${row.id}`,
-          method: 'DELETE',
-          credentials: 'include',
-        })
-        if (response.ok) {
-          // Remove from list immediately and refresh
-          documents.value = documents.value.filter((d) => d.id !== row.id)
-        }
-      } catch (e) {
-        console.error('Failed to delete document', e)
-      } finally {
-        deletingIds.value.delete(row.id)
-      }
-    })
+    if (response.ok) {
+      documents.value = documents.value.filter((d) => d.id !== row.id)
+      showDeleteDialog.value = false
+    }
+  } catch (e) {
+    console.error('Failed to delete document', e)
+  } finally {
+    deleteInProgress.value = false
+    deletingIds.value.delete(row.id)
+  }
 }
 
 const openExternalLink = (url?: string) => {
@@ -428,9 +439,6 @@ defineExpose({
 
 :deep(.q-table tbody td) {
   height: 47px;
-}
-
-:deep(.q-table tbody td) {
   padding: 3px 16px;
 }
 
@@ -445,5 +453,23 @@ defineExpose({
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease;
+}
+
+:deep(.sticky-col) {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: white;
+}
+
+:deep(tr:hover .sticky-col) {
+  background: white;
+}
+
+:deep(thead th:last-child) {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: inherit;
 }
 </style>

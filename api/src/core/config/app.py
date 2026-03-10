@@ -185,6 +185,11 @@ log = StructlogConfig(
                     "level": settings.log.KNOWLEDGE_GRAPH_LEVEL,
                     "handlers": ["queue_listener"],
                 },
+                "core.domain.knowledge_graph": {
+                    "propagate": False,
+                    "level": settings.log.KNOWLEDGE_GRAPH_LEVEL,
+                    "handlers": ["queue_listener"],
+                },
             },
         ),
     ),

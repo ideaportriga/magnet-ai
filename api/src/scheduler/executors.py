@@ -8,14 +8,16 @@ from datetime import UTC, datetime, timedelta
 from functools import wraps
 from logging import getLogger
 
-from scheduler.types import JobStatus, RunConfigurationType
-from scheduler.utils import update_job_status
 from services.agents.conversations.services import get_conversation_by_id
 from services.agents.models import AgentConversationDataWithMessages
 from services.agents.services import get_agent_by_system_name
+from services.knowledge_graph.sources.sync_services import sync_source
 from services.observability import observability_context, observe
 from services.observability.models import FeatureType
 from services.observability.utils import observability_overrides
+
+from .types import JobStatus, RunConfigurationType
+from .utils import update_job_status
 
 logger = getLogger(__name__)
 
@@ -350,7 +352,7 @@ async def execute_evaluation(**kwargs):
 
 
 @with_progress_status
-@observe(name="Sync knowledge graph source", channel="Job")
+@observe(name="Sync knowledge graph", channel="Job")
 async def execute_sync_knowledge_graph_source(**kwargs):
     """Execute a knowledge graph source sync job."""
     job_id = kwargs.get("job_id")
@@ -360,7 +362,6 @@ async def execute_sync_knowledge_graph_source(**kwargs):
         params = kwargs.get("params", {})
 
         observability_context.update_current_trace(
-            type="sync_knowledge_graph_source",
             extra_data={
                 "job_id": job_id,
                 "job_definition": job_definition,
@@ -377,13 +378,9 @@ async def execute_sync_knowledge_graph_source(**kwargs):
         from uuid import UUID
 
         from core.config.app import alchemy
-        from core.domain.knowledge_graph.service import KnowledgeGraphSourceService
 
         async with alchemy.get_session() as session:
-            service = KnowledgeGraphSourceService(session=session)
-            await service.sync_source(
-                session, UUID(str(graph_id)), UUID(str(source_id))
-            )
+            await sync_source(session, UUID(str(graph_id)), UUID(str(source_id)))
 
         logger.info(
             f"Successfully started sync for graph {graph_id} source {source_id} in job {job_id}"

@@ -45,18 +45,23 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphUpdateResponse,
     KnowledgeGraphUploadUrlRequest,
 )
-from core.domain.knowledge_graph.service import (
+from core.domain.knowledge_graph.services import (
     KnowledgeGraphChunkService,
     KnowledgeGraphDocumentService,
     KnowledgeGraphMetadataService,
     KnowledgeGraphService,
     KnowledgeGraphSourceService,
 )
+from services.knowledge_graph import (
+    schedule_source_sync,
+    unschedule_source_sync,
+)
 from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
 )
 from services.knowledge_graph.sources import FileUploadDataSource
+from services.knowledge_graph.sources.sync_services import sync_source_background
 from services.observability import observability_overrides, observe
 
 logger = logging.getLogger(__name__)
@@ -382,18 +387,23 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        cascade: bool = Parameter(
-            default=False,
-            description="Delete documents and chunks for this source as well",
-        ),
     ) -> None:
-        await source_service.delete_source(db_session, graph_id, source_id, cascade)
+        await source_service.delete_source(db_session, graph_id, source_id)
 
-    @observe(
-        name="Sync knowledge graph source",
-        channel="production",
-        source="production",
+    @delete(
+        "/{graph_id:uuid}/sources/{source_id:uuid}/purge",
+        status_code=HTTP_204_NO_CONTENT,
     )
+    async def purge_source(
+        self,
+        source_service: KnowledgeGraphSourceService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        source_id: UUID,
+    ) -> None:
+        """Delete all documents and chunks for a source, keeping the source itself."""
+        await source_service.purge_source_data(db_session, graph_id, source_id)
+
     @post("/{graph_id:uuid}/sources/{source_id:uuid}/sync", status_code=HTTP_200_OK)
     async def sync_source(
         self,
@@ -407,7 +417,7 @@ class KnowledgeGraphController(Controller):
         await db_session.commit()
 
         # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh
-        asyncio.create_task(source_service.sync_source_background(graph_id, source_id))
+        asyncio.create_task(sync_source_background(graph_id, source_id))
         return {"status": "started", "message": "Sync started in background"}
 
     @observe(
@@ -428,7 +438,7 @@ class KnowledgeGraphController(Controller):
         scheduler: AsyncIOScheduler,
         data: Annotated[KnowledgeGraphSourceScheduleSyncRequest | None, Body()] = None,
     ) -> dict[str, Any]:
-        return await source_service.schedule_source_sync(
+        return await schedule_source_sync(
             db_session, graph_id, source_id, scheduler, data
         )
 
@@ -449,9 +459,7 @@ class KnowledgeGraphController(Controller):
         source_id: UUID,
         scheduler: AsyncIOScheduler,
     ) -> None:
-        await source_service.unschedule_source_sync(
-            db_session, graph_id, source_id, scheduler
-        )
+        await unschedule_source_sync(db_session, graph_id, source_id, scheduler)
 
     ###########################################################################
     # KNOWLEDGE GRAPH DOCUMENT ENDPOINTS #

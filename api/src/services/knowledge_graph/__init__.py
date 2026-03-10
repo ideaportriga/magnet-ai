@@ -7,6 +7,7 @@ from .content_load_services import load_content_from_bytes
 from .metadata_settings import get_default_metadata_settings
 from .models import ContentConfig, SourceType
 from .retrieval_settings import get_default_retrieval_settings
+from .scheduler_services import schedule_source_sync, unschedule_source_sync
 
 __all__ = [
     "SourceType",
@@ -17,4 +18,6 @@ __all__ = [
     "get_default_metadata_settings",
     "get_default_retrieval_settings",
     "get_graph_embedding_model",
+    "schedule_source_sync",
+    "unschedule_source_sync",
 ]

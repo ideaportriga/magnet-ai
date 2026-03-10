@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, override
 
 from core.db.session import async_session_maker
 
-from ...content_load_services import load_content_from_bytes
 from ...models import ContentConfig, SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
 from .file_upload_models import (
@@ -105,28 +104,19 @@ class FileUploadSyncPipeline(
                     continue
 
                 try:
-                    content = load_content_from_bytes(
-                        task.file_bytes, task.content_config
-                    )
-                    total_pages = content["metadata"].get("total_pages")
-
-                    document = await self._source.create_document_for_source(
+                    result = await self.store_document(
                         session,
+                        self._source.source,
+                        content=task.file_bytes,
+                        graph_id=self._graph_id,
                         filename=filename,
-                        total_pages=total_pages,
-                        file_metadata=content.get("metadata")
-                        if isinstance(content, dict)
-                        else None,
-                        default_document_type="txt",
-                        content_profile=task.content_config.name
-                        if task.content_config
-                        else None,
+                        content_config=task.content_config,
                     )
 
                     await ctx.document_processing_queue.put(
                         FileUploadProcessDocumentTask(
-                            document=document,
-                            extracted_text=content["text"],
+                            document=result.document,
+                            extracted_text=result.loaded_content["text"],
                             content_config=task.content_config,
                         )
                     )

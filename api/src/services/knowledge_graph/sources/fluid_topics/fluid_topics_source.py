@@ -1,14 +1,18 @@
 import logging
-from datetime import datetime
 from typing import Any, override
 
 from litestar.exceptions import ClientException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.base import get_knowledge_source_settings
-from core.db.models.knowledge_graph import KnowledgeGraphSource
+from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
 from services.observability import observability_context, observe
 
+from ...content_config_services import (
+    clone_graph_settings,
+    ensure_fluid_topics_structured_profile,
+)
 from ...models import SourceType, SyncPipelineConfig
 from ..abstract_source import AbstractDataSource
 from .fluid_topics_models import FluidTopicsRuntimeConfig
@@ -55,34 +59,6 @@ class FluidTopicsSource(AbstractDataSource):
         super().__init__(source)
 
     @override
-    def extract_source_document_id(self, source_item: Any) -> str | None:
-        """Extract FluidTopics map ID or document ID as the stable identifier."""
-        if isinstance(source_item, dict):
-            # Try mapId first (for topics), then documentId (for files)
-            doc_id = source_item.get("mapId") or source_item.get("documentId")
-            return str(doc_id) if doc_id else None
-        return None
-
-    @override
-    def extract_source_modified_at(self, source_item: Any) -> datetime | None:
-        """Extract FluidTopics modification timestamp if available."""
-        if isinstance(source_item, dict):
-            # FluidTopics might have lastModified, modificationDate, or similar fields
-            modified = (
-                source_item.get("lastModified")
-                or source_item.get("modificationDate")
-                or source_item.get("modified")
-            )
-            if isinstance(modified, datetime):
-                return modified
-            if isinstance(modified, str):
-                try:
-                    return datetime.fromisoformat(modified.replace("Z", "+00:00"))
-                except Exception:  # noqa: BLE001
-                    return None
-        return None
-
-    @override
     @observe(name="Sync Fluid Topics source")
     async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]:
         """Synchronize documents/topics from Fluid Topics into the Knowledge Graph."""
@@ -95,11 +71,16 @@ class FluidTopicsSource(AbstractDataSource):
             },
         )
 
+        await self._ensure_structured_content_profile(db_session)
         cfg = self._get_sync_config()
         embedding_model = await self._require_embedding_model(db_session)
 
         observability_context.update_current_span(
-            input={"source_id": str(self.source.id), "filters": cfg.filters}
+            input={
+                "Source Id": str(self.source.id),
+                "Source Name": self.source.name,
+                "Filters": cfg.filters,
+            }
         )
 
         pipeline = FluidTopicsSyncPipeline(
@@ -139,20 +120,44 @@ class FluidTopicsSource(AbstractDataSource):
         await self._finalize(db_session, counters=counters)
 
         summary = {
+            # Source info
             "source_id": str(self.source.id),
-            "synced": counters.synced,
-            "failed": counters.failed,
-            "skipped": counters.skipped,
-            "total_found": counters.total_found,
+            # Document operations breakdown
+            "documents_created": counters.content_changed,
+            "documents_metadata_updated_only": counters.metadata_only_updated,
+            "documents_content_changed": counters.content_changed,
+            "documents_unchanged": counters.unchanged_skipped,
+            "documents_failed": counters.failed,
+            "documents_deleted": counters.deleted,
+            # Totals
+            "total_in_source": counters.total_found,
+            # Status
             "status": self.source.status,
             "last_sync_at": self.source.last_sync_at,
         }
 
         logger.info("Fluid Topics sync completed", extra=summary)
-
         observability_context.update_current_span(output=summary)
-
         return summary
+
+    async def _ensure_structured_content_profile(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Self-heal legacy graphs before sync so structured maps have a profile."""
+
+        result = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == self.source.graph_id)
+        )
+        graph = result.scalar_one_or_none()
+        if not graph:
+            return
+
+        settings = clone_graph_settings(getattr(graph, "settings", None))
+        if not ensure_fluid_topics_structured_profile(settings):
+            return
+
+        graph.settings = settings
+        await db_session.commit()
 
     def _get_sync_config(self) -> FluidTopicsRuntimeConfig:
         """Merge provider/env defaults with per-source overrides."""

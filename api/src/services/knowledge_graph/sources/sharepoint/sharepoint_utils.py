@@ -255,17 +255,14 @@ def _file_ref_from_office365_file(file: File) -> SharePointFileRef | None:
     # Extract unique_id and time_last_modified from File object properties
     # These are populated when file.listItemAllFields.get().execute_query() is called
     unique_id = getattr(file, "unique_id", None)
-    time_last_modified = getattr(file, "time_last_modified", None)
 
     # Convert to strings for SharePointFileRef
     unique_id_str = str(unique_id) if unique_id else None
-    time_modified_str = str(time_last_modified) if time_last_modified else None
 
     return SharePointFileRef(
         name=name,
         server_relative_url=server_relative_url,
         unique_id=unique_id_str,
-        time_last_modified=time_modified_str,
     )
 
 

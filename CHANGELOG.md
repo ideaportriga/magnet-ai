@@ -2,6 +2,56 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.38](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.37...v0.6.0-dev.38) (2026-03-09)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed fluid topics sync issue reading incorrect document id field ([2322aab](https://github.com/ideaportriga/magnet-ai/commit/2322aab42e5c2a2450ddd326f6657e092155c821))
+
+## [0.6.0-dev.37](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.36...v0.6.0-dev.37) (2026-03-07)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed agent filter generation, now it used additional prompt to create filter object ([9af96ad](https://github.com/ideaportriga/magnet-ai/commit/9af96adde7bf850f89fe061bf7be915031006c05))
+
+## [0.6.0-dev.36](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.35...v0.6.0-dev.36) (2026-03-06)
+
+### ✨ Features
+
+* **kg:** quality of life improvements for knowledge graph content profiles ([7d9e544](https://github.com/ideaportriga/magnet-ai/commit/7d9e5440e06d0b796e7f35f409131ec104274ec5))
+
+## [0.6.0-dev.35](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.34...v0.6.0-dev.35) (2026-03-06)
+
+### 🐛 Bug Fixes
+
+* import/export functionality fix ([92e8710](https://github.com/ideaportriga/magnet-ai/commit/92e8710f8815b2e293b501266fbf74a453d9d9d5))
+
+## [0.6.0-dev.34](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.33...v0.6.0-dev.34) (2026-03-05)
+
+### ✨ Features
+
+* **kg:** added ability to purge source data ([a543ecd](https://github.com/ideaportriga/magnet-ai/commit/a543ecd38a1727256ff630c0de63f31c7ad4686b))
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed styling issues in data explorer and metadata studio when browser window is narrow ([8b0c2de](https://github.com/ideaportriga/magnet-ai/commit/8b0c2deeabee52b32b7949a91552f69e1e9b6abd))
+
+### ♻️ Code Refactoring
+
+* **kg:** consolidate all delete dialogs in the knowledge graph ([e796a91](https://github.com/ideaportriga/magnet-ai/commit/e796a9165cd1e5daf63bc69fb794a8543ec06d33))
+
+## [0.6.0-dev.33](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.32...v0.6.0-dev.33) (2026-03-05)
+
+### ✨ Features
+
+* **kg:** added support for partial sync for fluid topics ([0ebc86f](https://github.com/ideaportriga/magnet-ai/commit/0ebc86fd775c29633ec750271799076c1251be0d))
+
+## [0.6.0-dev.32](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.31...v0.6.0-dev.32) (2026-03-05)
+
+### 🐛 Bug Fixes
+
+* **deep-research:** set failed status is any step fails ([7ac96de](https://github.com/ideaportriga/magnet-ai/commit/7ac96de4754abccbbbed4703cb22c632541e2ba6))
+
 ## [0.6.0-dev.31](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.30...v0.6.0-dev.31) (2026-03-05)
 
 ### 🐛 Bug Fixes

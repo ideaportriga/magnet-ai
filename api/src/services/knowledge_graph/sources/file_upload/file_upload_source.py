@@ -1,16 +1,12 @@
-from datetime import datetime, timezone
 from typing import Any, override
 from uuid import UUID
 
 from litestar.exceptions import ClientException
 from litestar.status_codes import HTTP_415_UNSUPPORTED_MEDIA_TYPE
-from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models.knowledge_graph import KnowledgeGraphSource, docs_table_name
-
 from ...content_config_services import get_content_config
-from ...models import SourceType, SyncPipelineConfig
+from ...models import SourceType, SyncCounters, SyncPipelineConfig
 from ..abstract_source import AbstractDataSource
 from .file_upload_sync import FileUploadSyncPipeline
 
@@ -60,19 +56,11 @@ class FileUploadDataSource(AbstractDataSource):
         - finalize source status based on document outcomes
         """
 
-        # Validate embedding model before creating any source or documents
         embedding_model = await self._require_embedding_model(
             db_session, graph_id=graph_id
         )
 
-        existing_source_id: str | None = None
-        result = await db_session.execute(
-            select(KnowledgeGraphSource.id)
-            .where(KnowledgeGraphSource.graph_id == graph_id)
-            .where(KnowledgeGraphSource.type == self.type)
-        )
-        sid = result.scalar_one_or_none()
-        existing_source_id = str(sid) if sid else None
+        existing_source_id = await self._find_existing_source_id(db_session, graph_id)
 
         config = await get_content_config(
             db_session,
@@ -87,11 +75,15 @@ class FileUploadDataSource(AbstractDataSource):
                 status_code=HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             )
 
-        source = await self.get_or_create_source(db_session, graph_id, status="syncing")
-        self.source = source
+        self.source = await self.get_or_create_source(
+            db_session, graph_id, status="syncing"
+        )
 
-        source.status = "syncing"
+        self.source.status = "syncing"
         await db_session.commit()
+
+        counters = SyncCounters()
+        counters.total_found = 1
 
         try:
             pipeline = FileUploadSyncPipeline(
@@ -117,39 +109,9 @@ class FileUploadDataSource(AbstractDataSource):
             )
 
             await pipeline.run()
+            counters.synced = 1
+        except Exception:
+            counters.failed = 1
+            raise
         finally:
-            # Finalize source status based on document outcomes across the source
-            try:
-                docs_table = docs_table_name(graph_id)
-                completed_count_result = await db_session.execute(
-                    text(
-                        f"SELECT COUNT(*) FROM {docs_table} WHERE source_id = :sid AND status = 'completed'"
-                    ),
-                    {"sid": str(source.id)},
-                )
-                failed_count_result = await db_session.execute(
-                    text(
-                        f"SELECT COUNT(*) FROM {docs_table} WHERE source_id = :sid AND status IN ('failed','error')"
-                    ),
-                    {"sid": str(source.id)},
-                )
-                completed_count = int(completed_count_result.scalar_one() or 0)
-                failed_count = int(failed_count_result.scalar_one() or 0)
-
-                if completed_count > 0 and failed_count == 0:
-                    source.status = "completed"
-                elif completed_count > 0 and failed_count > 0:
-                    source.status = "partial"
-                elif completed_count == 0 and failed_count > 0:
-                    source.status = "failed"
-                else:
-                    # No documents found or indeterminate -> treat as completed
-                    source.status = "completed"
-
-                source.last_sync_at = datetime.now(timezone.utc).isoformat()
-                await db_session.commit()
-            except Exception:
-                # In case of any unexpected error while finalizing, mark as failed
-                source.status = "failed"
-                source.last_sync_at = datetime.now(timezone.utc).isoformat()
-                await db_session.commit()
+            await self._finalize(db_session, counters=counters)

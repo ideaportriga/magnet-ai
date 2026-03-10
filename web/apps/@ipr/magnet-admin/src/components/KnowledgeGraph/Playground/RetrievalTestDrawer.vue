@@ -103,8 +103,7 @@
 
                 <!-- Response Content -->
                 <div v-if="msg.content" class="response-content">
-                  <div v-if="props.outputFormat === 'plain'" class="plain-text-content">{{ msg.content }}</div>
-                  <div v-else class="markdown-content" v-html="renderMarkdown(msg.content)" />
+                  <RetrievalResponseContent :content="msg.content" :format="props.outputFormat" />
                 </div>
 
                 <!-- Streaming indicator -->
@@ -218,7 +217,7 @@
         </q-card-section>
         <q-separator />
         <q-card-section class="source-dialog-content">
-          <div class="source-full-text markdown-content" v-html="renderMarkdown(selectedSource?.chunk_content || '')" />
+          <RetrievalResponseContent :content="selectedSource?.chunk_content || ''" class="source-full-text" />
         </q-card-section>
       </q-card>
     </q-dialog>
@@ -227,18 +226,10 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import MarkdownIt from 'markdown-it'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { tools } from './models'
-
-// Initialize markdown-it with sensible defaults
-const md = new MarkdownIt({
-  html: false,
-  linkify: true,
-  typographer: true,
-  breaks: true,
-})
+import { tools } from '../Retrieval/models'
+import RetrievalResponseContent from './RetrievalResponseContent.vue'
 
 interface WorkflowStep {
   iteration: number
@@ -316,11 +307,6 @@ const formatTime = (date: Date) => {
 const truncate = (text: string, length: number) => {
   if (!text) return ''
   return text.length > length ? text.substring(0, length) + '...' : text
-}
-
-const renderMarkdown = (text: string): string => {
-  if (!text) return ''
-  return md.render(text)
 }
 
 const scrollToBottom = async () => {
@@ -657,195 +643,6 @@ onMounted(() => {
   font-size: 14px;
   line-height: 1.65;
   color: #2d3436;
-}
-
-/* Plain Text Content */
-.plain-text-content {
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family:
-    'SF Pro Text',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
-}
-
-/* Markdown Content Styling */
-.markdown-content :deep(p) {
-  margin: 0 0 14px 0;
-  color: #2d3436;
-}
-
-.markdown-content :deep(p:last-child) {
-  margin-bottom: 0;
-}
-
-.markdown-content :deep(strong) {
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.markdown-content :deep(em) {
-  font-style: italic;
-  color: #4a5568;
-}
-
-.markdown-content :deep(h1),
-.markdown-content :deep(h2),
-.markdown-content :deep(h3),
-.markdown-content :deep(h4),
-.markdown-content :deep(h5),
-.markdown-content :deep(h6) {
-  font-weight: 600;
-  color: #1a1a1a;
-  margin: 18px 0 10px 0;
-  line-height: 1.3;
-}
-
-.markdown-content :deep(h1) {
-  font-size: 1.4em;
-  padding-bottom: 8px;
-}
-
-.markdown-content :deep(h2) {
-  font-size: 1.25em;
-  padding-bottom: 6px;
-}
-
-.markdown-content :deep(h3) {
-  font-size: 1.1em;
-}
-
-.markdown-content :deep(h4),
-.markdown-content :deep(h5),
-.markdown-content :deep(h6) {
-  font-size: 1em;
-}
-
-.markdown-content :deep(h1:first-child),
-.markdown-content :deep(h2:first-child),
-.markdown-content :deep(h3:first-child) {
-  margin-top: 0;
-}
-
-.markdown-content :deep(ul),
-.markdown-content :deep(ol) {
-  margin: 12px 0;
-  padding-left: 24px;
-}
-
-.markdown-content :deep(li) {
-  margin: 6px 0;
-  padding-left: 4px;
-}
-
-.markdown-content :deep(li::marker) {
-  color: #6c5ce7;
-}
-
-.markdown-content :deep(ul li) {
-  list-style-type: disc;
-}
-
-.markdown-content :deep(ul ul li) {
-  list-style-type: circle;
-}
-
-.markdown-content :deep(ol li) {
-  list-style-type: decimal;
-}
-
-.markdown-content :deep(blockquote) {
-  margin: 14px 0;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #f8f9ff 0%, #f5f6fa 100%);
-  border-left: 4px solid #6c5ce7;
-  border-radius: 0 8px 8px 0;
-  color: #4a5568;
-  font-style: italic;
-}
-
-.markdown-content :deep(blockquote p) {
-  margin: 0;
-}
-
-.markdown-content :deep(code) {
-  background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f4 100%);
-  padding: 3px 8px;
-  border-radius: 5px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
-  font-size: 0.88em;
-  color: #d63384;
-  border: 1px solid #e9ecef;
-}
-
-.markdown-content :deep(pre) {
-  margin: 14px 0;
-  padding: 16px;
-  background: linear-gradient(135deg, #2d3436 0%, #1e272e 100%);
-  border-radius: 10px;
-  overflow-x: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.markdown-content :deep(pre code) {
-  background: none;
-  padding: 0;
-  border: none;
-  color: #e8e8e8;
-  font-size: 0.85em;
-  line-height: 1.6;
-}
-
-.markdown-content :deep(a) {
-  color: #6c5ce7;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.2s ease;
-}
-
-.markdown-content :deep(a:hover) {
-  border-bottom-color: #6c5ce7;
-}
-
-.markdown-content :deep(hr) {
-  border: none;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #e8e8e8, transparent);
-  margin: 20px 0;
-}
-
-.markdown-content :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 14px 0;
-  font-size: 0.92em;
-}
-
-.markdown-content :deep(th),
-.markdown-content :deep(td) {
-  padding: 10px 14px;
-  text-align: left;
-  border: 1px solid #e8e8e8;
-}
-
-.markdown-content :deep(th) {
-  background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f4 100%);
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.markdown-content :deep(tr:nth-child(even)) {
-  background: #fafafa;
-}
-
-.markdown-content :deep(img) {
-  max-width: 100%;
-  border-radius: 8px;
-  margin: 12px 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Streaming Dots */

@@ -88,7 +88,7 @@ const load = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${graphId.value}`,
+      service: `knowledge_graphs/${graphId.value}`,
       method: 'GET',
       credentials: 'include',
     })
@@ -116,7 +116,7 @@ const deleteGraph = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${graphId.value}`,
+      service: `knowledge_graphs/${graphId.value}`,
       method: 'DELETE',
       credentials: 'include',
     })

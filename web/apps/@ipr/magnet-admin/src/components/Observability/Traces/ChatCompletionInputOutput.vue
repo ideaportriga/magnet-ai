@@ -12,30 +12,7 @@
           </div>
         </template>
         <template v-else-if="message?.type === 'tools'">
-          <div
-            v-for="(toolCall, toolIdx) in message?.content"
-            :key="toolIdx"
-            class="row no-wrap"
-            style="
-              font-size: 13px;
-              font-family:
-                Cascadia Mono,
-                Segoe UI Mono,
-                Liberation Mono,
-                Menlo,
-                Monaco,
-                Consolas,
-                monospace;
-            "
-          >
-            <div class="row q-pa-sm bg-secondary text-white justify-center items-center" style="width: 30px">
-              {{ toolIdx + 1 }}
-            </div>
-            <div class="row q-pa-sm q-gap-4" style="min-height: 30px; white-space: pre-wrap; word-break: break-word">
-              <span>{{ toolCall.function?.name }}</span>
-              <span>({{ toolCall.function?.arguments }})</span>
-            </div>
-          </div>
+          <ToolCallDisplay :tool-calls="message?.content" />
         </template>
       </div>
     </div>
@@ -44,6 +21,7 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
+import ToolCallDisplay from './ToolCallDisplay.vue'
 
 type ToolFunction = {
   name?: string

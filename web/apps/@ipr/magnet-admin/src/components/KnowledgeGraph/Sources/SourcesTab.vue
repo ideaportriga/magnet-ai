@@ -88,11 +88,18 @@
 
                   <q-separator />
 
+                  <q-item v-ripple="false" clickable @click="confirmPurge(slotScope.row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>Delete data</q-item-section>
+                  </q-item>
+
                   <q-item v-ripple="false" clickable @click="confirmDelete(slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Delete</q-item-section>
+                    <q-item-section>Delete source & data</q-item-section>
                   </q-item>
                 </q-list>
               </q-menu>
@@ -125,16 +132,30 @@
     <kg-confirm-dialog
       v-model="showDeleteDialog"
       title="Delete source"
-      :description="`Choose how you want to delete ${selectedRow?.name}.`"
-      :confirm-label="deleteMode === 'cascade_all' ? 'Delete All' : 'Delete Source'"
+      icon="delete_outline"
+      :description="`Are you sure you want to delete '${selectedRow?.name}'?`"
+      confirm-label="Delete"
       destructive
       :loading="deleteInProgress"
       @confirm="performDelete"
     >
-      <q-option-group v-model="deleteMode" type="radio" :options="deleteOptions" />
+      <template #warning>This will remove the source, its documents, and all chunks. This action cannot be undone.</template>
+    </kg-confirm-dialog>
 
-      <template v-if="deleteMode === 'cascade_all'" #warning>
-        This will remove the source, its documents, and all chunks. This action cannot be undone.
+    <!-- Purge Source Data Dialog -->
+    <kg-confirm-dialog
+      v-model="showPurgeDialog"
+      title="Purge all data"
+      icon="delete_sweep"
+      icon-variant="warning"
+      :description="`Are you sure you want to purge all data from '${selectedRow?.name}'?`"
+      confirm-label="Purge"
+      destructive
+      :loading="purgeInProgress"
+      @confirm="performPurge"
+    >
+      <template #warning>
+        This will delete all documents and chunks associated with this source. The source itself will be kept. This action cannot be undone.
       </template>
     </kg-confirm-dialog>
   </div>
@@ -175,20 +196,9 @@ const deletingIds = ref<Set<string>>(new Set())
 const syncingIds = ref<Set<string>>(new Set())
 const syncAllInProgress = ref(false)
 const showDeleteDialog = ref(false)
-const deleteMode = ref<'source_only' | 'cascade_all'>('source_only')
 const deleteInProgress = ref(false)
-const deleteOptions = [
-  {
-    label: 'Delete source only',
-    value: 'source_only',
-    description: 'Keep documents and chunks; they remain in the graph.',
-  },
-  {
-    label: 'Delete source, documents and chunks',
-    value: 'cascade_all',
-    description: 'Remove everything associated with this source.',
-  },
-]
+const showPurgeDialog = ref(false)
+const purgeInProgress = ref(false)
 
 // Inject global uploading flag to reflect 'syncing' for upload source immediately
 const kgUploading = inject<Ref<boolean>>('kgUploading')
@@ -459,7 +469,13 @@ const handleSyncAll = async () => {
     }
     // Show single notification for Sync All
     if (anySuccess && !anyFailure) {
-      $q.notify({ type: 'info', message: 'Sync started for all sources. Click Refresh to see progress.', position: 'top', textColor: 'white', timeout: 2500 })
+      $q.notify({
+        type: 'info',
+        message: 'Sync started for all sources. Click Refresh to see progress.',
+        position: 'top',
+        textColor: 'white',
+        timeout: 2500,
+      })
     } else if (anySuccess && anyFailure) {
       $q.notify({ type: 'warning', message: 'Sync started with some errors', position: 'top', timeout: 2000 })
     } else {
@@ -476,7 +492,6 @@ const activeDialogComponent = computed(() => {
 
 const confirmDelete = (source: SourceRow) => {
   selectedRow.value = source
-  deleteMode.value = 'source_only'
   showDeleteDialog.value = true
 }
 
@@ -487,10 +502,9 @@ const performDelete = async () => {
     deleteInProgress.value = true
     deletingIds.value.add(source.id)
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
-    const cascade = deleteMode.value === 'cascade_all'
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs/${props.graphId}/sources/${source.id}?cascade=${cascade ? 'true' : 'false'}`,
+      service: `knowledge_graphs/${props.graphId}/sources/${source.id}`,
       method: 'DELETE',
       credentials: 'include',
     })
@@ -498,7 +512,7 @@ const performDelete = async () => {
     if (response.ok) {
       $q.notify({
         type: 'positive',
-        message: cascade ? 'Source and related content deleted' : 'Source deleted',
+        message: 'Source and related content deleted',
         position: 'top',
         textColor: 'black',
         timeout: 1200,
@@ -515,6 +529,46 @@ const performDelete = async () => {
   } finally {
     deleteInProgress.value = false
     deletingIds.value.delete(selectedRow.value.id)
+  }
+}
+
+const confirmPurge = (source: SourceRow) => {
+  selectedRow.value = source
+  showPurgeDialog.value = true
+}
+
+const performPurge = async () => {
+  if (!selectedRow.value) return
+  const source = selectedRow.value
+  try {
+    purgeInProgress.value = true
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/sources/${source.id}/purge`,
+      method: 'DELETE',
+      credentials: 'include',
+    })
+
+    if (response.ok) {
+      $q.notify({
+        type: 'positive',
+        message: 'Documents and chunks purged',
+        position: 'top',
+        textColor: 'black',
+        timeout: 1200,
+      })
+      showPurgeDialog.value = false
+      fetchSources()
+      emit('refresh')
+    } else {
+      $q.notify({ type: 'negative', message: 'Failed to purge source data', position: 'top' })
+    }
+  } catch (error) {
+    console.error('Error purging source data:', error)
+    $q.notify({ type: 'negative', message: 'Error purging source data', position: 'top' })
+  } finally {
+    purgeInProgress.value = false
   }
 }
 

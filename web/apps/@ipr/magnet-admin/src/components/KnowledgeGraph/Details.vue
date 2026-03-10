@@ -245,12 +245,12 @@ import { useQuasar } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
+import ContentProfilesTab from './ContentProfiles/ContentProfilesTab.vue'
 import ChunkDrawer from './DataExplorer/ChunkDrawer.vue'
 import ExplorerTab from './DataExplorer/ExplorerTab.vue'
 import MetadataTab from './Metadata/MetadataTab.vue'
 import RetrievalTab from './Retrieval/RetrievalTab.vue'
-import RetrievalTestDrawer from './Retrieval/RetrievalTestDrawer.vue'
-import ContentProfilesTab from './Settings/ContentProfilesTab.vue'
+import RetrievalTestDrawer from './Playground/RetrievalTestDrawer.vue'
 import SettingsTab from './Settings/SettingsTab.vue'
 import SourcesTab from './Sources/SourcesTab.vue'
 
@@ -426,7 +426,7 @@ const fetchGraphDetails = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${graphId.value}`,
+      service: `knowledge_graphs/${graphId.value}`,
       method: 'GET',
       credentials: 'include',
     })
@@ -450,7 +450,7 @@ const updateGraph = async (payload: Record<string, any>) => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     await fetchData({
       endpoint,
-      service: `knowledge_graphs//${graphId.value}`,
+      service: `knowledge_graphs/${graphId.value}`,
       method: 'PATCH',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },

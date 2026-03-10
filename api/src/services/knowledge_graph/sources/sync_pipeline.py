@@ -1,13 +1,29 @@
 import asyncio
+import hashlib
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, AsyncIterator, Awaitable, Callable, Generic, Literal, TypeVar
+from uuid import UUID
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.db.models.knowledge_graph import KnowledgeGraphSource, docs_table_name
+from core.db.session import async_session_maker
+from core.domain.knowledge_graph.services import KnowledgeGraphDocumentService
 from services.observability import observability_context, observe
 from services.observability.models import SpanExportMethod
 
-from ..models import SyncCounters, SyncPipelineConfig
+from ..content_load_services import load_content_from_bytes
+from ..models import (
+    ContentConfig,
+    LoadedContent,
+    StoreDocumentResult,
+    SyncCounters,
+    SyncPipelineConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +123,15 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
     - Document-processing workers should not enqueue new tasks (keeps shutdown deterministic).
     """
 
+    document_service = KnowledgeGraphDocumentService()
+
+    def __init__(self, config: SyncPipelineConfig):
+        config.validate()
+        self.config = config
+        self.counters = SyncCounters()
+        self._seen_source_document_ids: set[str] = set()
+        self._seen_ids_lock = asyncio.Lock()
+
     async def bootstrap(
         self, ctx: SyncPipelineContext[ListTaskT, ContentTaskT, ProcessTaskT]
     ) -> None:
@@ -134,11 +159,6 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         Most implementations will call `self._run_pipeline(...)`.
         """
         raise NotImplementedError
-
-    def __init__(self, config: SyncPipelineConfig):
-        config.validate()
-        self.config = config
-        self.counters = SyncCounters()
 
     @observe(name="Run sync pipeline")
     async def _run_pipeline(
@@ -270,3 +290,236 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             self.counters.skipped,
         )
         return self.counters
+
+    async def store_document(
+        self,
+        session: AsyncSession,
+        source: KnowledgeGraphSource,
+        *,
+        content: bytes | str,
+        graph_id: UUID | str,
+        filename: str,
+        source_document_id: str | None = None,
+        source_modified_at: datetime | None = None,
+        source_metadata: dict[str, Any] | None = None,
+        default_document_type: str = "txt",
+        content_config: ContentConfig | None = None,
+        title: str | None = None,
+        external_link: str | None = None,
+        toc: list[dict[str, Any]] | dict[str, Any] | None = None,
+    ) -> StoreDocumentResult:
+        """Hash content, detect unchanged documents, and either update metadata or create/update.
+
+        When content is bytes and content_config is provided, the bytes are loaded via
+        load_content_from_bytes to extract text, total_pages, and file_metadata.
+        The loaded content is returned in the result for downstream processing.
+
+        When content is str, the hash is computed from the UTF-8 encoding and
+        no content loading is performed.
+
+        Returns StoreDocumentResult with document=None when only metadata was updated
+        (content unchanged), or document + loaded_content when a new document was created.
+        """
+        logger.info(
+            "Storing document",
+            extra={
+                "source_id": source.id,
+                "graph_id": graph_id,
+                "source_filename": filename,
+                "source_document_id": source_document_id,
+            },
+        )
+
+        if isinstance(content, str):
+            content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        else:
+            content_hash = hashlib.sha256(content).hexdigest()
+
+        if source_document_id and content_hash:
+            rows = await self.document_service.query_documents(
+                session,
+                graph_id=graph_id,
+                source_id=source.id,
+                source_document_id=str(source_document_id),
+                content_hash=content_hash,
+                columns=("id",),
+            )
+            existing_doc_id = (
+                str(rows[0].get("id")) if rows and rows[0].get("id") else None
+            )
+
+            if existing_doc_id:
+                logger.info(
+                    "Existing document found",
+                    extra={
+                        "source_id": source.id,
+                        "graph_id": graph_id,
+                        "source_document_id": source_document_id,
+                        "existing_doc_id": existing_doc_id,
+                    },
+                )
+
+                await self.document_service.update_document_metadata_only(
+                    session,
+                    source,
+                    document_id=existing_doc_id,
+                    filename=filename,
+                    source_document_id=str(source_document_id),
+                    source_modified_at=source_modified_at,
+                    source_metadata=source_metadata,
+                    content_profile=content_config.name if content_config else None,
+                )
+                return StoreDocumentResult()
+
+        loaded: LoadedContent | None = None
+        total_pages: int | None = None
+        file_metadata: dict[str, Any] | None = None
+
+        if isinstance(content, bytes) and content_config:
+            loaded = load_content_from_bytes(content, content_config)
+            file_metadata = loaded.get("metadata")
+            total_pages = file_metadata.get("total_pages") if file_metadata else None
+
+        document = await self.document_service.upsert_document(
+            session,
+            source,
+            filename=filename,
+            total_pages=total_pages,
+            file_metadata=file_metadata,
+            source_document_id=str(source_document_id) if source_document_id else None,
+            source_metadata=source_metadata,
+            source_modified_at=source_modified_at,
+            content_hash=content_hash,
+            default_document_type=default_document_type,
+            content_profile=content_config.name if content_config else None,
+            title=title,
+            toc=toc,
+            external_link=external_link,
+        )
+
+        return StoreDocumentResult(document=document, loaded_content=loaded)
+
+    async def track_source_document_id(self, source_document_id: str) -> None:
+        """Register a source_document_id as seen during the current sync run.
+
+        Call this for every document discovered in the remote source so that
+        `cleanup_orphaned_documents` can later identify documents that no longer exist.
+        """
+        async with self._seen_ids_lock:
+            self._seen_source_document_ids.add(source_document_id)
+
+    async def cleanup_orphaned_documents(
+        self,
+        *,
+        graph_id: UUID,
+        source_id: str | UUID,
+        counters: SyncCounters,
+        log_extra: dict[str, Any] | None = None,
+    ) -> int:
+        """Delete documents that exist in the Knowledge Graph but are no longer in the source.
+
+        Only deletes documents WITH source_document_id (intelligent sync enabled).
+        Legacy documents without source_document_id are skipped for safety.
+
+        Should be called after the pipeline has finished processing all documents,
+        so that `_seen_source_document_ids` is fully populated.
+        """
+        seen_ids = self._seen_source_document_ids
+        extra = log_extra or {}
+
+        logger.info(
+            "Starting orphaned document cleanup",
+            extra={
+                **extra,
+                "total_found": counters.total_found,
+                "seen_source_ids": len(seen_ids),
+            },
+        )
+
+        graph_uuid = graph_id if isinstance(graph_id, UUID) else UUID(str(graph_id))
+        source_id_str = str(source_id)
+
+        async with async_session_maker() as session:
+            docs_table = docs_table_name(graph_uuid)
+            result = await session.execute(
+                text(
+                    f"""
+                    SELECT id::text, source_document_id, name
+                    FROM {docs_table}
+                    WHERE source_id = :sid
+                    """
+                ),
+                {"sid": source_id_str},
+            )
+
+            existing_docs = result.all()
+            orphaned_docs = []
+
+            for doc_id, source_doc_id, doc_name in existing_docs:
+                if source_doc_id and source_doc_id not in seen_ids:
+                    orphaned_docs.append((doc_id, source_doc_id, doc_name))
+                elif not source_doc_id:
+                    logger.debug(
+                        "Found legacy document without source_document_id - skipping cleanup",
+                        extra={
+                            **extra,
+                            "document_id": doc_id,
+                            "document_name": doc_name,
+                        },
+                    )
+
+            if not orphaned_docs:
+                logger.info(
+                    "No orphaned documents found",
+                    extra={**extra, "existing_in_kg": len(existing_docs)},
+                )
+                return 0
+
+            logger.info(
+                "Deleting orphaned documents",
+                extra={
+                    **extra,
+                    "orphaned_count": len(orphaned_docs),
+                    "existing_count": len(existing_docs),
+                },
+            )
+
+            deleted_count = 0
+
+            for doc_id, source_doc_id, doc_name in orphaned_docs:
+                try:
+                    await self.document_service.delete_document(
+                        session, graph_uuid, UUID(doc_id)
+                    )
+                    deleted_count += 1
+                    logger.debug(
+                        "Deleted orphaned document",
+                        extra={
+                            **extra,
+                            "document_id": doc_id,
+                            "source_document_id": source_doc_id,
+                            "document_name": doc_name,
+                        },
+                    )
+                except Exception as delete_exc:  # noqa: BLE001
+                    logger.warning(
+                        "Failed to delete orphaned document",
+                        extra={
+                            **extra,
+                            "document_id": doc_id,
+                            "source_document_id": source_doc_id,
+                            "document_name": doc_name,
+                            "error": str(delete_exc),
+                        },
+                    )
+
+            logger.info(
+                "Orphaned document cleanup completed",
+                extra={
+                    **extra,
+                    "deleted": deleted_count,
+                    "failed": len(orphaned_docs) - deleted_count,
+                },
+            )
+
+            return deleted_count
