@@ -257,31 +257,22 @@ class BaseLiteLLMProvider(AIProviderInterface):
     ) -> Any:
         """Execute a streaming LLM call.
 
-        Uses global Router for fallback support when fallback_models are configured,
-        otherwise calls litellm.acompletion directly.
-
-        Subclasses can override this to use their own Router instance.
+        Always routes through the global Router when the model is registered,
+        ensuring rate-limiting and fallback support for streaming calls too.
         """
-        use_router = bool(routing_config.fallback_models)
+        from services.ai_services.router import get_router, is_model_in_router
 
-        if use_router:
-            from services.ai_services.router import get_router
+        model_system_name = (model_config or {}).get("system_name")
 
+        if model_system_name and is_model_in_router(model_system_name):
             router = await get_router()
-            model_system_name = (model_config or {}).get("system_name")
-            if not model_system_name:
-                logger.warning(
-                    "No system_name in model_config, falling back to direct litellm call for stream"
-                )
-                return await litellm.acompletion(**params)
-            else:
-                router_params = {
-                    k: v
-                    for k, v in params.items()
-                    if k not in ("api_key", "api_base", "api_version")
-                }
-                router_params["model"] = model_system_name
-                return await router.acompletion(**router_params)
+            router_params = {
+                k: v
+                for k, v in params.items()
+                if k not in ("api_key", "api_base", "api_version")
+            }
+            router_params["model"] = model_system_name
+            return await router.acompletion(**router_params)
         else:
             return await litellm.acompletion(**params)
 
@@ -406,39 +397,33 @@ class BaseLiteLLMProvider(AIProviderInterface):
     ) -> ChatCompletion:
         """Execute the actual LLM call.
 
-        Uses global Router for fallback support when fallback_models are configured,
-        otherwise calls litellm.acompletion directly.
+        Always routes through the global Router when the model has a
+        system_name registered in it.  This ensures rate-limiting (rpm/tpm)
+        and fallback support are applied consistently.
+        Falls back to direct litellm.acompletion only when system_name is
+        absent or the model is not in the Router.
 
         Subclasses can override this to use their own Router instance.
         """
-        use_router = bool(routing_config.fallback_models)
+        from services.ai_services.router import get_router, is_model_in_router
 
-        if use_router:
-            # Use Router for fallback support — the Router knows all model configs
-            # (API keys, endpoints, etc.) and can properly resolve system_names.
-            from services.ai_services.router import get_router
+        model_system_name = (model_config or {}).get("system_name")
 
+        if model_system_name and is_model_in_router(model_system_name):
             router = await get_router()
-
-            # Build router params — use the model's system_name (not the litellm model name)
-            # because the Router maps system_names to actual model deployments.
-            model_system_name = (model_config or {}).get("system_name")
-            if not model_system_name:
-                # Fallback to direct call if we don't have system_name
-                logger.warning(
-                    "No system_name in model_config, falling back to direct litellm call"
-                )
-                response = await litellm.acompletion(**params)
-            else:
-                # Build router-compatible params (without provider-specific api_key/api_base)
-                router_params = {
-                    k: v
-                    for k, v in params.items()
-                    if k not in ("api_key", "api_base", "api_version")
-                }
-                router_params["model"] = model_system_name
-                response = await router.acompletion(**router_params)
+            router_params = {
+                k: v
+                for k, v in params.items()
+                if k not in ("api_key", "api_base", "api_version")
+            }
+            router_params["model"] = model_system_name
+            response = await router.acompletion(**router_params)
         else:
+            if model_system_name:
+                logger.debug(
+                    "Model '%s' not in Router, using direct litellm call",
+                    model_system_name,
+                )
             response = await litellm.acompletion(**params)
 
         return cast(ChatCompletion, response)

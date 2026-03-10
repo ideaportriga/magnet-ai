@@ -323,8 +323,30 @@ async def refresh_router() -> None:
     async with _router_lock:
         _router = None
 
-    await get_router()
-    logger.info("LiteLLM Router refreshed")
+        model_list, fallback_map = await _build_router_config()
+
+        if not model_list:
+            logger.warning("No models configured for LiteLLM Router after refresh")
+            _router = Router(model_list=[])
+        else:
+            router_settings = {
+                "model_list": model_list,
+                "routing_strategy": "simple-shuffle",
+                "num_retries": 0,
+                "timeout": 120,
+                "retry_after": 0,
+                "enable_pre_call_checks": True,
+            }
+
+            if fallback_map:
+                router_settings["fallbacks"] = [
+                    {model_name: fallback_list}
+                    for model_name, fallback_list in fallback_map.items()
+                ]
+
+            _router = Router(**router_settings)
+
+        logger.info("LiteLLM Router refreshed with %d models", len(model_list))
 
 
 async def router_completion(
