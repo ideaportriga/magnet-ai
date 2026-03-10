@@ -72,7 +72,8 @@ async def _execute_find_chunks(
     )
 
     query = arguments.get("query")
-    assert query, "Cannot call findChunksBySimilarity - 'query' is missing"
+    if not query:
+        raise ValueError("Cannot call findChunksBySimilarity - 'query' is missing")
 
     limit = int(arguments.get("limit", DEFAULT_LIMIT))
     min_score = float(arguments.get("min_score", DEFAULT_MIN_SCORE))
@@ -133,7 +134,10 @@ async def _execute_find_documents_by_summary(
     from open_ai.utils_new import get_embeddings
 
     query = arguments.get("query")
-    assert query, "Cannot call findDocumentsBySummarySimilarity - 'query' is missing"
+    if not query:
+        raise ValueError(
+            "Cannot call findDocumentsBySummarySimilarity - 'query' is missing"
+        )
 
     limit = int(arguments.get("limit", DEFAULT_LIMIT))
     min_score = float(arguments.get("min_score", DEFAULT_MIN_SCORE))
@@ -189,7 +193,8 @@ async def _execute_find_documents_by_metadata(
     )
 
     filter_expr = arguments.get("filter")
-    assert filter_expr, "Cannot call findDocumentsByMetadata - 'filter' is missing"
+    if not filter_expr:
+        raise ValueError("Cannot call findDocumentsByMetadata - 'filter' is missing")
 
     try:
         result = await findDocumentsByMetadata(

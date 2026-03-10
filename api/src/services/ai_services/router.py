@@ -289,7 +289,7 @@ async def get_router() -> Router:
             "model_list": model_list,
             "routing_strategy": "simple-shuffle",  # Default strategy
             "num_retries": 0,  # Default: no retries, fallback immediately
-            "timeout": 30,
+            "timeout": 120,
             "retry_after": 0,  # No artificial delay between retries
             "enable_pre_call_checks": True,
         }
