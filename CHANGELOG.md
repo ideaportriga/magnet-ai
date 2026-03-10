@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.41](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.40...v0.6.0-dev.41) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** improve salesforce knowledge source provider param setting ([c314dcc](https://github.com/ideaportriga/magnet-ai/commit/c314dcc253a57c92e58997158fa5bc6b810ee32a))
+
 ## [0.6.0-dev.40](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.39...v0.6.0-dev.40) (2026-03-10)
 
 ### ✨ Features
