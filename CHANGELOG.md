@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.39](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.38...v0.6.0-dev.39) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** introduce salesforce source type ([125ab37](https://github.com/ideaportriga/magnet-ai/commit/125ab3708c167272f563b70afbb4a551efe02e37))
+
 ## [0.6.0-dev.38](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.37...v0.6.0-dev.38) (2026-03-09)
 
 ### 🐛 Bug Fixes
