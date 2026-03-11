@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.43](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.42...v0.6.0-dev.43) (2026-03-11)
+
+### 🐛 Bug Fixes
+
+* **kg:** made quiries optimzation for knowledge graphs and traces ([0b9ed5c](https://github.com/ideaportriga/magnet-ai/commit/0b9ed5c01d4a913cbfd4062a5f6b6a457fbca0e1))
+
 ## [0.6.0-dev.42](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.41...v0.6.0-dev.42) (2026-03-10)
 
 ### ✨ Features
