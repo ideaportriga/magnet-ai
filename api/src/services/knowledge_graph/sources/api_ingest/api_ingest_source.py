@@ -188,6 +188,7 @@ class ApiIngestDataSource(AbstractDataSource):
             db_session,
             document,
             extracted_text=content["text"],
+            raw_text=content["raw_text"],
             config=config,
             document_title=PurePath(doc_name).stem if doc_name else doc_name,
             embedding_model=embedding_model,

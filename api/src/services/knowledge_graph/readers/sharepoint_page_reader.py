@@ -131,7 +131,7 @@ class DefaultSharePointPageReader:
         page_bytes: bytes,
         *,
         context: Mapping[str, Any] | None = None,
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, str, dict[str, Any]]:
         html = page_bytes.decode("utf-8", errors="replace")
         return self.extract_text_from_html(html, context=context)
 
@@ -140,9 +140,17 @@ class DefaultSharePointPageReader:
         html: str,
         *,
         context: Mapping[str, Any] | None = None,
-    ) -> tuple[str, dict[str, Any]]:
+    ) -> tuple[str, str, dict[str, Any]]:
         if not isinstance(html, str) or not html.strip():
-            return "", {"section_count": 0, "canvas_control_count": 0, "image_count": 0}
+            return (
+                "",
+                "",
+                {
+                    "section_count": 0,
+                    "canvas_control_count": 0,
+                    "image_count": 0,
+                },
+            )
 
         soup = BeautifulSoup(html, "html.parser")
         canvas_sections = list(soup.select("div[data-sp-canvascontrol]"))
@@ -154,6 +162,7 @@ class DefaultSharePointPageReader:
             if isinstance(fallback_root, Tag):
                 sections = [fallback_root]
 
+        raw_section_blocks: list[str] = []
         section_blocks: list[str] = []
         nonempty_section_count = 0
         image_count = 0
@@ -169,17 +178,19 @@ class DefaultSharePointPageReader:
                 section_blocks.append(
                     self.section_marker_template.format(index=section_index)
                 )
+            raw_section_blocks.append(section_text)
             section_blocks.append(section_text)
             nonempty_section_count += 1
             image_count += section_image_count
 
+        raw_text = "\n\n".join(raw_section_blocks).strip()
         text = "\n\n".join(section_blocks).strip()
         metadata = {
             "section_count": nonempty_section_count,
             "canvas_control_count": len(canvas_sections),
             "image_count": image_count,
         }
-        return text, metadata
+        return raw_text, text, metadata
 
     def _extract_section_text(self, section: Tag, *, base_url: str) -> tuple[str, int]:
         accumulator = _SectionAccumulator()

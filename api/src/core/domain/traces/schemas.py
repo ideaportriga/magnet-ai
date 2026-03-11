@@ -26,9 +26,9 @@ class TraceBaseSchema(BaseModel):
     )
 
 
-# Base mixin for common Trace fields
-class TraceFieldsMixin(BaseModel):
-    """Mixin containing all common Trace fields."""
+# Base mixin for common Trace fields used in list and detail responses
+class TraceListFieldsMixin(BaseModel):
+    """Mixin containing trace fields shared by list and detail responses."""
 
     # Core trace information
     name: Optional[str] = Field(
@@ -72,10 +72,17 @@ class TraceFieldsMixin(BaseModel):
         None, description="Additional trace metadata and custom fields"
     )
 
-    # Spans data - nested trace information
+
+class TraceSpansMixin(BaseModel):
+    """Mixin containing heavy trace span data loaded only for details."""
+
     spans: Optional[list[dict]] = Field(
         None, description="List of trace spans with detailed execution information"
     )
+
+
+class TraceFieldsMixin(TraceListFieldsMixin, TraceSpansMixin):
+    """Mixin containing all trace response fields."""
 
 
 # Mixin for create operations with required core fields
@@ -181,6 +188,10 @@ class TraceUpdateFieldsMixin(BaseModel):
 
 
 # Pydantic schemas for Traces
+class TraceListItem(TraceBaseSchema, TraceListFieldsMixin):
+    """Trace schema for list responses without spans."""
+
+
 class Trace(TraceBaseSchema, TraceFieldsMixin):
     """Trace schema for serialization."""
 

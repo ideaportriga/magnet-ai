@@ -75,6 +75,7 @@ class ProcessDocumentTask:
 
     document: dict[str, Any]
     extracted_text: str
+    raw_text: str | None = None
     content_config: Any | None = None
     external_link: str | None = None
 

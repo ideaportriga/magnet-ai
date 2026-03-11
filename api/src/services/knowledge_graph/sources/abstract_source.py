@@ -280,12 +280,23 @@ class AbstractDataSource(ABC):
 
         return document_title, normalized_chunks
 
+    @staticmethod
+    def _sanitize_extracted_text(value: str | None) -> str:
+        normalized = (value or "").strip()
+        # Strip non-UTF-8 characters and NULL bytes (PostgreSQL rejects 0x00 in text)
+        return (
+            normalized.encode("utf-8", errors="ignore")
+            .decode("utf-8", errors="ignore")
+            .replace("\x00", "")
+        )
+
     async def process_document(
         self,
         db_session: AsyncSession,
         document: dict[str, Any],
         *,
         extracted_text: str | None = None,
+        raw_text: str | None = None,
         config: ContentConfig | None = None,
         chunks: list[KnowledgeGraphChunk] | None = None,
         document_title: str | None = None,
@@ -308,12 +319,9 @@ class AbstractDataSource(ABC):
         start_time = time.perf_counter()
         docs_table = docs_table_name(document["graph_id"])
         doc_id = document["id"]
-        extracted_text = (extracted_text or "").strip()
-        # Strip non-UTF-8 characters and NULL bytes (PostgreSQL rejects 0x00 in text)
-        extracted_text = (
-            extracted_text.encode("utf-8", errors="ignore")
-            .decode("utf-8", errors="ignore")
-            .replace("\x00", "")
+        extracted_text = self._sanitize_extracted_text(extracted_text)
+        raw_text = (
+            self._sanitize_extracted_text(raw_text) if raw_text is not None else None
         )
 
         try:
@@ -334,7 +342,7 @@ class AbstractDataSource(ABC):
             #
             # We either:
             # - take chunks as-is (pre-chunked mode), or
-            # - split raw extracted text (split mode).
+            # - split delimiter-preserving extracted text (split mode).
             #
             # The rest of the pipeline (embeddings, metadata, DB writes) is shared.
             # We keep a string label for logs. For split mode, it's the configured chunker
@@ -378,8 +386,10 @@ class AbstractDataSource(ABC):
                     return {"chunks_count": 0}
 
             else:
-                # Split mode: chunk raw extracted text.
-                if not extracted_text or not extracted_text.strip():
+                # Skip safely when the delimiter-free text is empty, even if the
+                # delimiter-preserving variant still contains synthetic markers.
+                skip_check_text = raw_text if raw_text is not None else extracted_text
+                if not skip_check_text:
                     logger.warning(
                         "Empty text for document %s, skipping processing", doc_id
                     )
@@ -414,6 +424,27 @@ class AbstractDataSource(ABC):
                 )
                 chunks_to_insert = result.chunks
 
+                if len(chunks_to_insert) == 0:
+                    status_msg = (
+                        "No chunks were generated for this document during processing."
+                    )
+                    await self._update_document_status(
+                        db_session,
+                        docs_table=docs_table,
+                        doc_id=doc_id,
+                        status="failed",
+                        status_message=status_msg,
+                        processing_time=float(time.perf_counter() - start_time),
+                    )
+                    await db_session.commit()
+                    logger.warning(
+                        "No chunks generated for document '%s' (id=%s), strategy=%s",
+                        document.get("name"),
+                        doc_id,
+                        chunker_strategy,
+                    )
+                    return {"chunks_count": 0}
+
                 # Prefer explicit metadata provided by the caller. Otherwise take the
                 # chunker-produced document metadata (title/summary/toc).
                 if result.document_metadata:
@@ -425,6 +456,13 @@ class AbstractDataSource(ABC):
                         toc_json = convert_markdown_toc_to_json(
                             result.document_metadata.toc
                         )
+
+            # Defensive guard: empty-chunk cases should already return above, but
+            # avoid any downstream work if a future change misses that early exit.
+            if not chunks_to_insert:
+                return {"chunks_count": 0}
+
+            chunks_count = len(chunks_to_insert)
 
             # Enrich chunks with embeddings
             await self._add_embeddings_to_chunks(chunks_to_insert, embedding_model)
@@ -468,58 +506,28 @@ class AbstractDataSource(ABC):
                     document_id=UUID(document["id"]),
                 )
 
-            chunks_count = await self.chunk_service.insert_chunks_bulk(
+            await self.chunk_service.insert_chunks_bulk(
                 db_session,
                 graph_id=document["graph_id"],
                 document=document,
                 chunks=chunks_to_insert,
             )
 
-            if chunks_count == 0:
-                # Split mode reaching 0 means the chunker produced no output; that's a real failure
-                # because we had non-empty extracted text.
-                status_msg = (
-                    "No chunks were generated for this document during processing."
-                    if not is_pre_chunked
-                    else "No chunks were inserted for this document during processing."
-                )
-                await self._update_document_status(
-                    db_session,
-                    docs_table=docs_table,
-                    doc_id=doc_id,
-                    status="failed",
-                    status_message=status_msg,
-                    processing_time=float(time.perf_counter() - start_time),
-                )
-                if is_pre_chunked:
-                    logger.warning(
-                        "No chunks inserted for pre-chunked document '%s' (id=%s)",
-                        document.get("name"),
-                        doc_id,
-                    )
-                else:
-                    logger.warning(
-                        "No chunks generated for document '%s' (id=%s), strategy=%s",
-                        document.get("name"),
-                        doc_id,
-                        chunker_strategy,
-                    )
-            else:
-                await self._update_document_status(
-                    db_session,
-                    docs_table=docs_table,
-                    doc_id=doc_id,
-                    status="completed",
-                    status_message=None,  # clear any previous error message
-                    processing_time=float(time.perf_counter() - start_time),
-                )
-                logger.info(
-                    "Completed processing document '%s' (id=%s): %s chunks, strategy=%s",
-                    document.get("name"),
-                    doc_id,
-                    chunks_count,
-                    chunker_strategy,
-                )
+            await self._update_document_status(
+                db_session,
+                docs_table=docs_table,
+                doc_id=doc_id,
+                status="completed",
+                status_message=None,  # clear any previous error message
+                processing_time=float(time.perf_counter() - start_time),
+            )
+            logger.info(
+                "Completed processing document '%s' (id=%s): %s chunks, strategy=%s",
+                document.get("name"),
+                doc_id,
+                chunks_count,
+                chunker_strategy,
+            )
 
             await db_session.commit()
             return {"chunks_count": chunks_count}

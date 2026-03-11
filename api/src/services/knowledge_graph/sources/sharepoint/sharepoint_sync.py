@@ -373,6 +373,7 @@ class SharePointSyncPipeline(
                         ProcessDocumentTask(
                             document=result.document,
                             extracted_text=result.loaded_content["text"],
+                            raw_text=result.loaded_content["raw_text"],
                             content_config=content_config,
                             external_link=external_link,
                         )
@@ -434,6 +435,7 @@ class SharePointSyncPipeline(
                         session,
                         task.document,
                         extracted_text=task.extracted_text,
+                        raw_text=task.raw_text,
                         config=task.content_config,
                         document_title=PurePath(doc_name).stem
                         if doc_name

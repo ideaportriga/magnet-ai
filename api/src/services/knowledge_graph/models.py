@@ -114,6 +114,7 @@ class ContentConfig(BaseModel):
 class LoadedContent(TypedDict):
     """Result of loading content from raw bytes."""
 
+    raw_text: str
     text: str
     metadata: dict[str, Any]
 

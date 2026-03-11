@@ -16,15 +16,23 @@ def load_content_from_bytes(
 
     match reader_name:
         case ContentReaderName.PDF:
-            text, total_pages = DefaultPdfReader().extract_text_from_bytes(file_bytes)
-            return {"text": text, "metadata": {"total_pages": total_pages}}
+            raw_text, text, total_pages = DefaultPdfReader().extract_text_from_bytes(
+                file_bytes
+            )
+            return {
+                "raw_text": raw_text,
+                "text": text,
+                "metadata": {"total_pages": total_pages},
+            }
         case ContentReaderName.PLAIN_TEXT:
             text = file_bytes.decode("utf-8", errors="replace")
-            return {"text": text, "metadata": {}}
+            return {"raw_text": text, "text": text, "metadata": {}}
         case ContentReaderName.SHAREPOINT_PAGE:
-            text, metadata = DefaultSharePointPageReader().extract_text_from_bytes(
-                file_bytes, context=context
+            raw_text, text, metadata = (
+                DefaultSharePointPageReader().extract_text_from_bytes(
+                    file_bytes, context=context
+                )
             )
-            return {"text": text, "metadata": metadata}
+            return {"raw_text": raw_text, "text": text, "metadata": metadata}
         case _:
             raise ValueError(f"Unsupported reader: {reader_name!r}")
