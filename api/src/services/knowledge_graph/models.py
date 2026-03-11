@@ -32,6 +32,7 @@ class ContentReaderName(StrEnum):
 
     PDF = "pdf"
     PLAIN_TEXT = "plain_text"
+    KREUZBERG = "kreuzberg"
 
 
 class ChunkerStrategy(StrEnum):
