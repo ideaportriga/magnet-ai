@@ -277,14 +277,47 @@ class AIModelsController(Controller):
                     )
 
             elif model_type == "re-ranking":
-                # For re-ranking models, we can't easily test without documents
-                # Just verify the provider is accessible
-                return ModelTestResult(
-                    success=True,
-                    message=f"Re-ranking model '{model.display_name}' configuration verified. Full testing requires documents.",
-                    error=None,
-                    response_preview="Configuration validated (re-ranking requires documents for full test)",
-                )
+                # Test rerank model with minimal synthetic documents
+                from decimal import Decimal
+
+                from models import DocumentSearchResultItem
+
+                test_docs = [
+                    DocumentSearchResultItem(
+                        id="test-1",
+                        content="Python is a programming language.",
+                        metadata={},
+                        score=Decimal("0.5"),
+                        collection_id="test",
+                    ),
+                    DocumentSearchResultItem(
+                        id="test-2",
+                        content="The weather is sunny today.",
+                        metadata={},
+                        score=Decimal("0.5"),
+                        collection_id="test",
+                    ),
+                ]
+                try:
+                    response = await ai_provider.rerank(
+                        query="programming language",
+                        documents=test_docs,
+                        llm=model_name,
+                        top_n=2,
+                        truncation=False,
+                    )
+                    return ModelTestResult(
+                        success=True,
+                        message=f"Re-ranking model '{model.display_name}' is working correctly!",
+                        error=None,
+                        response_preview=f"Reranked {len(response.data)} documents",
+                    )
+                except NotImplementedError:
+                    return ModelTestResult(
+                        success=False,
+                        message="Provider does not support reranking",
+                        error="The configured provider does not implement the rerank method",
+                    )
 
             else:
                 # Test chat/prompt model

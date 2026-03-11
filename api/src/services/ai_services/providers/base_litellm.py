@@ -480,12 +480,13 @@ class BaseLiteLLMProvider(AIProviderInterface):
         full_model = self._get_model_name(llm)
         doc_texts = [doc.content or "" for doc in documents]
 
-        response = await litellm.arerank(
-            model=full_model,
-            query=query,
-            documents=doc_texts,
-            top_n=top_n,
-        )
+        params = self._build_litellm_params()
+        params["model"] = full_model
+        params["query"] = query
+        params["documents"] = doc_texts
+        params["top_n"] = top_n
+
+        response = await litellm.arerank(**params)
 
         usage = None
         if hasattr(response, "usage") and response.usage:
