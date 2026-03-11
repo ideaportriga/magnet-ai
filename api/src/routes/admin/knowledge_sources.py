@@ -33,6 +33,7 @@ from type_defs.pagination import (
     OffsetPaginationRequest,
 )
 from utils.datetime_utils import utc_now
+from services.file_cleanup import KS_UPLOAD_DIR
 
 store = get_db_store()
 
@@ -510,7 +511,6 @@ class KnowledgeSourceFileUploadController(Controller):
 
     path = "/{collection_id:str}/files"
 
-    UPLOAD_DIR = os.environ.get("LOCAL_DIRECTORY") or "./files"
     MAX_UPLOAD_SIZE_MB = int(os.environ.get("MAX_UPLOAD_FILE_SIZE_MB", "50"))
 
     ALLOWED_EXTENSIONS = {
@@ -607,8 +607,8 @@ class KnowledgeSourceFileUploadController(Controller):
                 extension=ext,
             )
 
-        # Store file on disk
-        collection_dir = os.path.join(self.UPLOAD_DIR, "ks_uploads", collection_id)
+        # Store file in temporary directory (auto-cleaned by periodic job)
+        collection_dir = os.path.join(KS_UPLOAD_DIR, collection_id)
         await aiofiles.os.makedirs(collection_dir, exist_ok=True)
         storage_path = os.path.join(collection_dir, safe_filename)
 

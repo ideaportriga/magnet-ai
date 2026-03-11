@@ -410,16 +410,10 @@ class PgVectorStore(DocumentStore):
             metadata.get("category"),
             metadata.get("type"),
             metadata.get("ai_model"),
-            json.dumps(metadata.get("source", {})) if metadata.get("source") else None,
-            json.dumps(metadata.get("chunking", {}))
-            if metadata.get("chunking")
-            else None,
-            json.dumps(metadata.get("indexing", {}))
-            if metadata.get("indexing")
-            else None,
-            json.dumps(metadata.get("metadata_config", []))
-            if metadata.get("metadata_config")
-            else None,
+            metadata.get("source") or None,
+            metadata.get("chunking") or None,
+            metadata.get("indexing") or None,
+            metadata.get("metadata_config") or None,
             (
                 datetime.fromisoformat(metadata["last_synced"].replace("Z", "+00:00"))
                 if metadata.get("last_synced")
@@ -546,7 +540,7 @@ class PgVectorStore(DocumentStore):
                 param_idx += 1
             elif field in ["source", "chunking", "indexing", "metadata_config"]:
                 update_fields.append(f"{field} = ${param_idx}")
-                params.append(json.dumps(value) if value else None)
+                params.append(value if value else None)
                 param_idx += 1
             elif field == "last_synced":
                 update_fields.append(f"last_synced = ${param_idx}")
@@ -616,16 +610,10 @@ class PgVectorStore(DocumentStore):
             metadata.get("category"),
             metadata.get("type"),
             metadata.get("ai_model"),
-            json.dumps(metadata.get("source", {})) if metadata.get("source") else None,
-            json.dumps(metadata.get("chunking", {}))
-            if metadata.get("chunking")
-            else None,
-            json.dumps(metadata.get("indexing", {}))
-            if metadata.get("indexing")
-            else None,
-            json.dumps(metadata.get("metadata_config", []))
-            if metadata.get("metadata_config")
-            else None,
+            metadata.get("source") or None,
+            metadata.get("chunking") or None,
+            metadata.get("indexing") or None,
+            metadata.get("metadata_config") or None,
             (
                 datetime.fromisoformat(metadata["last_synced"].replace("Z", "+00:00"))
                 if metadata.get("last_synced")
@@ -953,7 +941,7 @@ class PgVectorStore(DocumentStore):
 
         if "metadata" in data:
             update_fields.append(f"metadata = ${param_idx}")
-            params.append(json.dumps(data["metadata"]))
+            params.append(data["metadata"])
             param_idx += 1
 
         if not update_fields:
