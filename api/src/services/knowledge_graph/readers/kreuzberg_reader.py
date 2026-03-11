@@ -1,9 +1,11 @@
 import logging
+import os
 from typing import Any
 
 from kreuzberg import (
     ExtractionConfig,
     ExtractionResult,
+    OcrConfig,
     PageConfig,
     extract_bytes,
 )
@@ -116,6 +118,21 @@ class KreuzbergReader:
                 marker_format="\n\n[Page: {page_num}]\n\n",
             ),
         )
+
+        # Configure OCR if requested via reader options or env vars
+        if self._options.get("ocr"):
+            ocr_backend = self._options.get(
+                "ocr_backend",
+                os.environ.get("KREUZBERG_OCR_BACKEND", "tesseract"),
+            )
+            ocr_language = self._options.get(
+                "ocr_language",
+                os.environ.get("KREUZBERG_OCR_LANGUAGE", "eng"),
+            )
+            config.ocr = OcrConfig(
+                backend=ocr_backend,
+                language=ocr_language,
+            )
 
         logger.info(
             "Extracting content via kreuzberg",

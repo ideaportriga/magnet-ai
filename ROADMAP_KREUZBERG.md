@@ -115,15 +115,15 @@ ExtractionResult
 
 ### Фаза 0: Подготовка (без изменения поведения)
 
-- [ ] **0.1** Добавить `kreuzberg` в `api/pyproject.toml`
-- [ ] **0.2** Создать `api/src/services/knowledge_graph/readers/kreuzberg_reader.py` — обёртка над kreuzberg
-- [ ] **0.3** Добавить MIME type detection утилиту (через `kreuzberg.detect_mime_type`)
-- [ ] **0.4** Написать unit-тесты для нового reader'а на тех же PDF, что и текущие тесты
+- [x] **0.1** Добавить `kreuzberg` в `api/pyproject.toml`
+- [x] **0.2** Создать `api/src/services/knowledge_graph/readers/kreuzberg_reader.py` — обёртка над kreuzberg
+- [x] **0.3** Добавить MIME type detection утилиту (через `kreuzberg.detect_mime_type`)
+- [x] **0.4** Написать unit-тесты для нового reader'а на тех же PDF, что и текущие тесты
 
 ### Фаза 1: Knowledge Graph — замена PDF reader (основной приоритет)
 
-- [ ] **1.1** Расширить `ContentReaderName` enum: добавить `KREUZBERG = "kreuzberg"`
-- [ ] **1.2** Реализовать `KreuzbergReader` класс:
+- [x] **1.1** Расширить `ContentReaderName` enum: добавить `KREUZBERG = "kreuzberg"`
+- [x] **1.2** Реализовать `KreuzbergReader` класс:
   ```python
   class KreuzbergReader:
       async def extract_from_bytes(
@@ -146,15 +146,15 @@ ExtractionResult
           }
           return result.content, metadata
   ```
-- [ ] **1.3** Обновить `load_content_from_bytes()` — добавить `case ContentReaderName.KREUZBERG` (async)
-- [ ] **1.4** Обновить `content_config_services.py` — для PDF использовать kreuzberg reader по дефолту
-- [ ] **1.5** Обновить `store_document()` в `sync_pipeline.py` — поддержать async вызов `load_content_from_bytes`
-- [ ] **1.6** Сохранить `DefaultPdfReader` как fallback (feature flag `USE_KREUZBERG=true/false`)
+- [x] **1.3** Обновить `load_content_from_bytes()` — добавить `case ContentReaderName.KREUZBERG` (async)
+- [x] **1.4** Обновить `content_config_services.py` — для PDF использовать kreuzberg reader по дефолту
+- [x] **1.5** Обновить `store_document()` в `sync_pipeline.py` — поддержать async вызов `load_content_from_bytes`
+- [x] **1.6** Сохранить `DefaultPdfReader` как fallback (feature flag `USE_KREUZBERG=true/false`)
 - [ ] **1.7** Тестирование: сравнить качество извлечения на существующих PDF-документах
 
 ### Фаза 2: Расширение поддерживаемых форматов
 
-- [ ] **2.1** Добавить конфигурации в `get_default_content_configs()`:
+- [x] **2.1** Добавить конфигурации в `get_default_content_configs()`:
   ```python
   ContentConfig(name="Word", glob_pattern="*.docx", reader={"name": "kreuzberg"}),
   ContentConfig(name="PowerPoint", glob_pattern="*.pptx", reader={"name": "kreuzberg"}),
@@ -166,33 +166,33 @@ ExtractionResult
   ContentConfig(name="Email", glob_pattern="*.eml,*.msg",
                 reader={"name": "kreuzberg"}),
   ```
-- [ ] **2.2** Добавить MIME type mapping для новых форматов
-- [ ] **2.3** Обновить `FileUploadDataSource` — поддержать новые форматы в upload endpoint
+- [x] **2.2** Добавить MIME type mapping для новых форматов
+- [x] **2.3** Обновить `FileUploadDataSource` — поддержать новые форматы в upload endpoint
 - [ ] **2.4** Обновить SharePoint source — убрать ограничение "ingests PDFs"
 - [ ] **2.5** Обновить API ingest — поддержать новые форматы файлов
 - [ ] **2.6** Обновить frontend — расширить list допустимых расширений для загрузки
-- [ ] **2.7** Тесты для каждого нового формата
+- [x] **2.7** Тесты для каждого нового формата
 
 ### Фаза 3: Markdown output вместо plain text
 
-- [ ] **3.1** Установить `output_format="markdown"` в `ExtractionConfig` по умолчанию
+- [x] **3.1** Установить `output_format="markdown"` в `ExtractionConfig` по умолчанию
 - [ ] **3.2** Адаптировать chunking стратегии для markdown:
   - Markdown-aware splitting (по заголовкам `#`, `##`, etc.)
   - Сохранение markdown-таблиц внутри чанков
   - Уважать markdown code blocks при сплите
 - [ ] **3.3** Обновить LLM prompt templates — указать что контекст в markdown
-- [ ] **3.4** Обновить `_extract_text_from_html()` в Fluid Topics:
+- [x] **3.4** Обновить `_extract_text_from_html()` в Fluid Topics:
   - Заменить `html2text` → `kreuzberg.extract_bytes(html_bytes, "text/html", config=ExtractionConfig(output_format="markdown"))`
   - Убрать ручную нормализацию whitespace (kreuzberg делает это сам)
-- [ ] **3.5** Обновить `data_sync/utils.py` `parse_page()`:
+- [x] **3.5** Обновить `data_sync/utils.py` `parse_page()`:
   - Заменить `BeautifulSoup + HTML2Text` → `kreuzberg`
-- [ ] **3.6** Обновить `data_sync/data_processor.py` `_html_to_text()`:
+- [x] **3.6** Обновить `data_sync/data_processor.py` `_html_to_text()`:
   - Заменить `BeautifulSoup + html2text` → `kreuzberg`
 - [ ] **3.7** Обновить существующие тесты, проверить markdown output
 
 ### Фаза 4: User Utils endpoint
 
-- [ ] **4.1** Обновить `POST /utils/parse-pdf` endpoint:
+- [x] **4.1** Обновить `POST /utils/parse-pdf` endpoint:
   ```python
   @post("/parse-pdf", status_code=HTTP_200_OK)
   async def parse_pdf(self, data: UploadFile) -> ParsePdfResponse:
@@ -205,21 +205,21 @@ ExtractionResult
       pages = [p.content for p in result.pages] if result.pages else [result.content]
       return ParsePdfResponse(pages=pages)
   ```
-- [ ] **4.2** Расширить endpoint — поддержать все форматы (переименовать в `/utils/parse-document`)
-- [ ] **4.3** Вернуть дополнительные метаданные: title, page_count, tables, detected_languages
+- [x] **4.2** Расширить endpoint — поддержать все форматы (переименовать в `/utils/parse-document`)
+- [x] **4.3** Вернуть дополнительные метаданные: title, page_count, tables, detected_languages
 
 ### Фаза 5: Data Sync legacy пайплайн
 
-- [ ] **5.1** Обновить `PdfSplitter` — заменить `PyPDFLoader` на kreuzberg
-- [ ] **5.2** Обновить `UrlDataProcessor.__create_pdf_documents()` — использовать kreuzberg
+- [x] **5.1** Обновить `PdfSplitter` — заменить `PyPDFLoader` на kreuzberg
+- [x] **5.2** Обновить `UrlDataProcessor.__create_pdf_documents()` — использовать kreuzberg
   - Убрать скачивание во временный файл, использовать `extract_bytes()` напрямую
 - [ ] **5.3** Обновить `UrlDataProcessor.create_chunks_from_doc()` — поддержать не только PDF
 - [ ] **5.4** Тесты для обновлённого data sync пайплайна
 
 ### Фаза 6: OCR для изображений и сканированных PDF
 
-- [ ] **6.1** Добавить Tesseract в Docker-образ (`Dockerfile`)
-- [ ] **6.2** Создать конфигурацию OCR для Knowledge Graph:
+- [x] **6.1** Добавить Tesseract в Docker-образ (`Dockerfile`)
+- [x] **6.2** Создать конфигурацию OCR для Knowledge Graph:
   ```python
   ExtractionConfig(
       ocr=OcrConfig(
@@ -229,7 +229,7 @@ ExtractionResult
       force_ocr=False,  # auto-detect
   )
   ```
-- [ ] **6.3** Добавить content config для изображений с OCR
+- [x] **6.3** Добавить content config для изображений с OCR
 - [ ] **6.4** Добавить возможность настройки OCR языка в Knowledge Graph settings
 - [ ] **6.5** Тесты с OCR (сканированные PDF, изображения)
 
@@ -237,7 +237,7 @@ ExtractionResult
 
 - [ ] **7.1** Удалить `DefaultPdfReader` (`readers/pdf_reader.py`) после стабилизации
 - [ ] **7.2** Удалить `pypdf` из зависимостей (или оставить для специфичных edge case)
-- [ ] **7.3** Оценить удаление `html2text` (если все use cases покрыты kreuzberg)
+- [x] **7.3** Оценить удаление `html2text` (если все use cases покрыты kreuzberg)
 - [ ] **7.4** Оценить удаление `langchain PyPDFLoader` из data_sync
 - [ ] **7.5** Обновить документацию: поддерживаемые форматы, настройки OCR
 

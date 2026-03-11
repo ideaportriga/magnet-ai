@@ -36,10 +36,10 @@
         .q-mt-md
           km-file-picker(
             :model-value='files',
-            accept='.pdf',
+            accept='.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.ods,.rtf,.html,.htm,.csv,.tsv,.txt,.md,.eml,.epub,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff',
             multiple,
             :loading='fileUploadInProgress',
-            hint='Drop PDF files or click to browse',
+            hint='Drop files or click to browse (PDF, Word, Excel, PowerPoint, images, etc.)',
             @update:model-value='onFilePickerUpdate'
           )
       template(v-if='selectedInputOption === "audio"')
@@ -234,7 +234,7 @@ export default defineComponent({
     inputOptions() {
       return [
         { label: 'Manual input', value: null },
-        { label: 'PDF upload', value: 'pdf' },
+        { label: 'Document upload', value: 'pdf' },
         { label: 'Audio upload', value: 'audio' },
         { label: 'Speech to Text', value: 'speech' },
       ]

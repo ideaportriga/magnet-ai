@@ -2,14 +2,17 @@ import logging  # Logging has been uncommented as per requirement
 import os
 from urllib.parse import urlparse
 
+import aiofiles
 import httpx
+from kreuzberg import ExtractionConfig, PageConfig, extract_bytes
 from langchain.schema import Document
 
 from data_sources.file.source import UrlDataSource
 from data_sources.types.basic_metadata import SourceBasicMetadata
 from data_sync.data_processor import DataProcessor
-from data_sync.splitters.pdf_splitter import PdfSplitter
+from data_sync.utils import clean_text
 from models import DocumentData
+from services.knowledge_graph.readers.kreuzberg_reader import mime_type_from_filename
 
 # Configure logging
 logging.basicConfig(
@@ -71,19 +74,27 @@ class UrlDataProcessor(DataProcessor):
         return self.__basic_metadata_cache
 
     async def get_all_records_basic_metadata_async(self) -> list[SourceBasicMetadata]:
-        """Extracts basic metadata for all URLs.
+        """Extracts basic metadata for all entries (URLs and local files).
 
         Returns:
-            List[SourceBasicMetadata]: List of basic metadata for each URL.
+            List[SourceBasicMetadata]: List of basic metadata for each entry.
 
         """
-        logger.info("Extracting basic metadata for all URLs.")
+        logger.info("Extracting basic metadata for all entries.")
         basic_metadata_list = []
-        for url in self.__urls:
-            logger.debug(f"Processing URL: {url}")
-            file_name = self.__get_file_name(url)
-            unique_id = url  # Use URL as unique identifier
-            last_modified = await self.__get_last_modified(url)
+        for entry in self.__urls:
+            logger.debug(f"Processing entry: {entry}")
+            is_local = entry.startswith("local://")
+
+            if is_local:
+                storage_path = entry[len("local://") :]
+                file_name = os.path.basename(storage_path)
+                last_modified = ""
+            else:
+                file_name = self.__get_file_name(entry)
+                last_modified = await self.__get_last_modified(entry)
+
+            unique_id = entry
             title = os.path.splitext(file_name)[0] if file_name else "Untitled"
             metadata = SourceBasicMetadata(
                 title=title,
@@ -97,70 +108,86 @@ class UrlDataProcessor(DataProcessor):
         return basic_metadata_list
 
     async def create_chunks_from_doc(self, id: str) -> list[DocumentData]:
-        """Creates documents for the given identifier (URLs).
+        """Creates documents for the given identifier (URL or local:// path).
 
         Args:
-            id (str): Unique identifier (URL).
+            id (str): Unique identifier (URL or local:// path).
 
         Returns:
             List[DocumentData]: List of documents with metadata.
 
         """
         logger.info(f"Creating documents for {id}.")
-        docs_to_add: list[Document] = []
 
-        # Filter URLs by given IDs
-        url = next((url for url in self.__urls if url == id), None)
+        # Check if the identifier exists in our data
+        entry = next((e for e in self.__urls if e == id), None)
+        if not entry:
+            raise Exception(f"Entry with id {id} not found")
 
-        if not url:
-            raise Exception(f"URL with id {id} not found")
+        is_local = id.startswith("local://")
 
-        logger.info(f"Processing URL: {url}")
-        file_name = self.__get_file_name(url)
+        if is_local:
+            storage_path = id[len("local://") :]
+            file_name = os.path.basename(storage_path)
+        else:
+            file_name = self.__get_file_name(id)
 
         if not file_name:
-            raise Exception(f"Could not extract file name from URL: {url}")
+            raise Exception(f"Could not extract file name from: {id}")
 
-        base_metadata = await self.__create_base_metadata(url=url, file_name=file_name)
+        logger.info(f"Processing: {id} (file: {file_name})")
+        base_metadata = await self.__create_base_metadata(url=id, file_name=file_name)
         logger.debug(f"Base metadata created: {base_metadata}")
 
-        if file_name.lower().endswith(".pdf"):
-            local_directory = os.environ.get("LOCAL_DIRECTORY") or "./files"
-            logger.info(f"Detected PDF file. Processing PDF: {file_name}")
-            documents = await self.__create_pdf_documents(
-                base_metadata=base_metadata,
-                url=url,
-                local_directory=local_directory,
-            )
-            logger.info(
-                f"Created {len(documents)} document chunks from PDF: {file_name}",
-            )
-            docs_to_add.extend(documents)
+        # Download or read file bytes
+        if is_local:
+            logger.info(f"Reading local file: {storage_path}")
+            async with aiofiles.open(storage_path, "rb") as f:
+                file_bytes = await f.read()
+            logger.info(f"Read {len(file_bytes)} bytes from local file: {file_name}")
         else:
-            logger.info(f"Non-PDF file detected ({file_name}). Skipping processing.")
+            logger.info(f"Downloading file from URL: {id}")
+            async with httpx.AsyncClient() as client:
+                response = await client.get(id, follow_redirects=True, timeout=60.0)
+                response.raise_for_status()
+                file_bytes = response.content
+            logger.info(f"Downloaded {len(file_bytes)} bytes from URL: {file_name}")
+
+        documents = await self.__create_documents_from_bytes(
+            base_metadata=base_metadata,
+            file_bytes=file_bytes,
+            file_name=file_name,
+        )
+        logger.info(
+            f"Created {len(documents)} document chunks from: {file_name}",
+        )
 
         return [
             DocumentData(content=doc.page_content, metadata=doc.metadata)
-            for doc in docs_to_add
+            for doc in documents
         ]
 
     async def __create_base_metadata(self, url: str, file_name: str) -> dict:
-        """Creates base metadata for a document based on the URL.
+        """Creates base metadata for a document based on the URL or local path.
 
         Args:
-            url (str): Public URL of the file.
+            url (str): Public URL or local:// identifier.
             file_name (str): Name of the file.
 
         Returns:
             dict: Base metadata.
 
         """
-        logger.debug(f"Creating base metadata for URL: {url}")
-        file_unique_id = url  # Use URL as unique identifier
-        file_path = url  # Full URL as path
+        logger.debug(f"Creating base metadata for: {url}")
+        file_unique_id = url
+        file_path = url
         file_title = os.path.splitext(file_name)[0]
-        modified_time = await self.__get_last_modified(url)
-        created_time = modified_time  # No creation time data
+
+        if url.startswith("local://"):
+            modified_time = ""
+        else:
+            modified_time = await self.__get_last_modified(url)
+        created_time = modified_time
 
         metadata = {
             "sourceId": file_unique_id,
@@ -219,43 +246,55 @@ class UrlDataProcessor(DataProcessor):
             logger.error(f"Error retrieving last modified date for URL {url}: {e}")
         return ""
 
-    # region PDF processing
-    async def __create_pdf_documents(
+    async def __create_documents_from_bytes(
         self,
         base_metadata: dict,
-        url: str,
-        local_directory: str,
+        file_bytes: bytes,
+        file_name: str,
     ):
-        """Creates documents for a PDF file.
+        """Creates documents from file bytes using kreuzberg (format-agnostic).
 
         Args:
             base_metadata (dict): Base metadata.
-            url (str): Public URL of the PDF file.
-            local_directory (str): Local directory for temporary PDF storage.
+            file_bytes (bytes): Raw file content.
+            file_name (str): Original filename (used for MIME detection).
 
         Returns:
             List[Document]: List of documents.
 
         """
-        file_name = base_metadata.get("name", "unknown.pdf")
-        logger.info(f"Creating PDF documents for file: {file_name}")
+        logger.info(f"Creating documents for file: {file_name}")
 
-        local_path = os.path.join(local_directory, file_name)
-        logger.debug(f"Local path for PDF download: {local_path}")
+        mime_type = mime_type_from_filename(file_name)
+        if not mime_type:
+            from kreuzberg import detect_mime_type
 
-        logger.info(f"Downloading PDF from URL: {url} to {local_path}")
-        await self.__data_source.download_file(url, local_path)
-        logger.info(f"Successfully downloaded PDF: {file_name}")
+            mime_type = detect_mime_type(file_bytes)
+        logger.info(f"Resolved MIME type: {mime_type} for {file_name}")
 
-        logger.info(f"Loading and splitting PDF: {file_name}")
-        chunks = await PdfSplitter(
-            local_path,
-            base_metadata=base_metadata,
-            chunking_config=self.__collection_config.get("chunking"),
-        ).split()
-        os.remove(local_path)
+        config = ExtractionConfig(
+            output_format="markdown",
+            pages=PageConfig(extract_pages=True),
+        )
+        result = await extract_bytes(file_bytes, mime_type, config=config)
 
-        chunks_total = len(chunks)
-        logger.info(f"Split PDF into {chunks_total} chunks.")
+        # Build per-page documents (if pages are available)
+        page_documents: list[Document] = []
+        if result.pages:
+            for i, page in enumerate(result.pages):
+                page_documents.append(
+                    Document(
+                        page_content=clean_text(page["content"]),
+                        metadata={**base_metadata, "page": i},
+                    )
+                )
+        else:
+            page_documents.append(
+                Document(
+                    page_content=clean_text(result.content),
+                    metadata=base_metadata,
+                )
+            )
 
-        return chunks
+        logger.info(f"Extracted {len(page_documents)} chunks from {file_name}.")
+        return page_documents

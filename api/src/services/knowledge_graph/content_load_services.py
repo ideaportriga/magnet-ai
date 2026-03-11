@@ -1,6 +1,10 @@
+import os
+
 from .models import ContentConfig, ContentReaderName, LoadedContent
 from .readers.kreuzberg_reader import KreuzbergReader, mime_type_from_filename
 from .readers.pdf_reader import DefaultPdfReader
+
+USE_KREUZBERG = os.environ.get("USE_KREUZBERG", "true").lower() in ("true", "1", "yes")
 
 
 def load_content_from_bytes(file_bytes: bytes, config: ContentConfig) -> LoadedContent:

@@ -8,9 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import KnowledgeGraph
 
+from .content_load_services import USE_KREUZBERG
 from .models import ChunkerStrategy, ContentConfig, ContentReaderName
 
 logger = logging.getLogger(__name__)
+
+
+def _pdf_reader_name() -> str:
+    """Return the reader name for PDF based on the USE_KREUZBERG feature flag."""
+    return ContentReaderName.KREUZBERG if USE_KREUZBERG else ContentReaderName.PDF
 
 
 def get_default_content_configs() -> list[ContentConfig]:
@@ -19,7 +25,7 @@ def get_default_content_configs() -> list[ContentConfig]:
             name="PDF",
             enabled=True,
             glob_pattern="*.pdf",
-            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
+            reader={"name": _pdf_reader_name(), "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.LLM,
                 "options": {
@@ -100,6 +106,46 @@ def get_default_content_configs() -> list[ContentConfig]:
             name="HTML",
             enabled=True,
             glob_pattern="*.html",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 15000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 15000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 15000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
+            name="Images",
+            enabled=True,
+            glob_pattern="*.png,*.jpg,*.jpeg,*.gif,*.webp,*.bmp,*.tiff",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {"ocr": True}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 15000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 15000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 15000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
+            name="Email",
+            enabled=True,
+            glob_pattern="*.eml,*.msg",
             reader={"name": ContentReaderName.KREUZBERG, "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.RECURSIVE,
