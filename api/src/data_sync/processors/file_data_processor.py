@@ -6,10 +6,15 @@ import aiofiles
 import httpx
 from kreuzberg import ExtractionConfig, PageConfig, extract_bytes
 from langchain.schema import Document
+from langchain_text_splitters import (
+    HTMLHeaderTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
 
 from data_sources.file.source import UrlDataSource
 from data_sources.types.basic_metadata import SourceBasicMetadata
 from data_sync.data_processor import DataProcessor
+from data_sync.models import ChunkingStrategy
 from data_sync.utils import clean_text
 from models import DocumentData
 from services.knowledge_graph.readers.kreuzberg_reader import mime_type_from_filename
@@ -21,6 +26,9 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
+
+DEFAULT_CHUNK_SIZE = 12000
+DEFAULT_CHUNK_OVERLAP = 2000
 
 
 class UrlDataProcessor(DataProcessor):
@@ -280,7 +288,7 @@ class UrlDataProcessor(DataProcessor):
 
         # Build per-page documents (if pages are available)
         page_documents: list[Document] = []
-        if result.pages:
+        if result.pages and len(result.pages) > 1:
             for i, page in enumerate(result.pages):
                 page_documents.append(
                     Document(
@@ -289,12 +297,107 @@ class UrlDataProcessor(DataProcessor):
                     )
                 )
         else:
+            # Single page or no pages (e.g. Word files) — don't set page metadata
+            content = result.pages[0]["content"] if result.pages else result.content
             page_documents.append(
                 Document(
-                    page_content=clean_text(result.content),
+                    page_content=clean_text(content),
                     metadata=base_metadata,
                 )
             )
 
-        logger.info(f"Extracted {len(page_documents)} chunks from {file_name}.")
+        # Apply chunking strategy from collection config
+        chunking_config = self.__collection_config.get("chunking", {})
+        strategy = chunking_config.get("strategy")
+
+        if strategy == ChunkingStrategy.RECURSIVE_CHARACTER_TEXT_SPLITTING:
+            chunk_size = self.__parse_int(
+                chunking_config.get("chunk_size"), DEFAULT_CHUNK_SIZE
+            )
+            chunk_overlap = self.__parse_int(
+                chunking_config.get("chunk_overlap"), DEFAULT_CHUNK_OVERLAP
+            )
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size, chunk_overlap=chunk_overlap
+            )
+            page_documents = [
+                Document(
+                    page_content=clean_text(chunk.page_content),
+                    metadata=chunk.metadata,
+                )
+                for chunk in splitter.split_documents(page_documents)
+            ]
+            logger.info(
+                f"Applied recursive chunking (size={chunk_size}, overlap={chunk_overlap}): "
+                f"{len(page_documents)} chunks from {file_name}."
+            )
+        elif strategy == ChunkingStrategy.HTML_HEADER_SPLITTING:
+            full_content = "\n\n".join(doc.page_content for doc in page_documents)
+            splitter = HTMLHeaderTextSplitter(
+                headers_to_split_on=[
+                    ("h1", "Header 1"),
+                    ("h2", "Header 2"),
+                    ("h3", "Header 3"),
+                    ("h4", "Header 4"),
+                    ("h5", "Header 5"),
+                    ("h6", "Header 6"),
+                ],
+                return_each_element=False,
+            )
+            raw_chunks = splitter.split_text(full_content)
+            page_documents = self.__process_html_header_chunks(
+                raw_chunks, base_metadata
+            )
+            logger.info(
+                f"Applied HTML header splitting: "
+                f"{len(page_documents)} chunks from {file_name}."
+            )
+        else:
+            logger.info(
+                f"No chunking applied (strategy={strategy}): "
+                f"{len(page_documents)} chunks from {file_name}."
+            )
+
         return page_documents
+
+    @staticmethod
+    def __parse_int(value, default: int) -> int:
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
+
+    @staticmethod
+    def __process_html_header_chunks(
+        chunks: list[Document], base_metadata: dict
+    ) -> list[Document]:
+        processed: list[Document] = []
+        for chunk in chunks:
+            headers = {
+                key: chunk.metadata.pop(key, None)
+                for key in [
+                    "Header 1",
+                    "Header 2",
+                    "Header 3",
+                    "Header 4",
+                    "Header 5",
+                    "Header 6",
+                ]
+            }
+            # Skip chunks that are just a header
+            if chunk.page_content in [v for v in headers.values() if v]:
+                continue
+            content = ""
+            for level, (_, header) in enumerate(headers.items(), 1):
+                if header:
+                    content += f"{'#' * level} {header}\n"
+            content += chunk.page_content
+            processed.append(
+                Document(
+                    page_content=clean_text(content),
+                    metadata=base_metadata,
+                )
+            )
+        return processed

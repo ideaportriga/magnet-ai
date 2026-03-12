@@ -3,6 +3,7 @@ div
   q-tabs.q-mb-sm(v-model='activeTab', dense, align='left', narrow-indicator)
     q-tab(name='url', label='URL', icon='fas fa-link')
     q-tab(name='upload', label='Upload', icon='fas fa-upload', :disable='!collectionId')
+      q-tooltip(v-if='!collectionId') Save the knowledge source first to enable file upload
 
   q-tab-panels(v-model='activeTab', animated)
     q-tab-panel(name='url')
