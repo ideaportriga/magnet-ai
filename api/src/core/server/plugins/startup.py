@@ -32,6 +32,9 @@ class StartupPlugin(InitPluginProtocol):
         """Application startup handler."""
         logger.info("Starting application...")
 
+        # Register LiteLLM callback logger for observability
+        self._register_litellm_callbacks()
+
         # Initialize scheduler
         await self._initialize_scheduler(app)
 
@@ -49,6 +52,19 @@ class StartupPlugin(InitPluginProtocol):
 
         # Preload Teams note-taker bot if configured via environment
         await self._initialize_teams_note_taker_runtime(app)
+
+    @staticmethod
+    def _register_litellm_callbacks() -> None:
+        """Register LiteLLM callback logger for failure/success observability."""
+        try:
+            import litellm
+
+            from services.ai_services.callbacks import MagnetAILogger
+
+            litellm.callbacks.append(MagnetAILogger())
+            logger.info("LiteLLM callback logger registered")
+        except Exception as e:
+            logger.warning("Failed to register LiteLLM callbacks: %s", e)
 
     async def _initialize_scheduler(self, app: Litestar) -> None:
         """Initialize the scheduler."""

@@ -219,17 +219,19 @@ async def _build_router_config() -> tuple[list[dict[str, Any]], dict[str, list[s
                         "api_version", "2024-05-01-preview"
                     )
 
+                # Add rate limiting to litellm_params so LiteLLM Router's
+                # _pre_call_checks can see them (it reads from litellm_params,
+                # not from the top-level model entry).
+                if routing_config.get("rpm"):
+                    litellm_params["rpm"] = routing_config["rpm"]
+                if routing_config.get("tpm"):
+                    litellm_params["tpm"] = routing_config["tpm"]
+
                 # Build model entry for Router
                 model_entry: dict[str, Any] = {
                     "model_name": model.system_name,  # Use system_name as deployment name
                     "litellm_params": litellm_params,
                 }
-
-                # Add rate limiting
-                if routing_config.get("rpm"):
-                    model_entry["rpm"] = routing_config["rpm"]
-                if routing_config.get("tpm"):
-                    model_entry["tpm"] = routing_config["tpm"]
 
                 # Add priority and weight for load balancing
                 if routing_config.get("priority"):
