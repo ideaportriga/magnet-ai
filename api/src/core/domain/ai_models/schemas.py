@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
@@ -152,6 +152,15 @@ class AIModelFieldsMixin(BaseModel):
         description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
 
+    # Per-model endpoint override (virtual field — stored in routing_config.litellm_params.api_base)
+    custom_endpoint: Optional[str] = Field(
+        None,
+        description=(
+            "Custom API endpoint for this model, overriding the provider-level endpoint. "
+            "Stored in routing_config.litellm_params.api_base."
+        ),
+    )
+
 
 # Mixin for update operations with all fields optional
 class AIModelUpdateFieldsMixin(BaseModel):
@@ -233,18 +242,59 @@ class AIModelUpdateFieldsMixin(BaseModel):
         description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
 
+    # Per-model endpoint override (virtual field — stored in routing_config.litellm_params.api_base)
+    custom_endpoint: Optional[str] = Field(
+        None,
+        description=(
+            "Custom API endpoint for this model, overriding the provider-level endpoint. "
+            "Stored in routing_config.litellm_params.api_base."
+        ),
+    )
+
 
 # Pydantic schemas for AI Models
 class AIModel(BaseSimpleSchema, AIModelFieldsMixin):
     """AI Model schema for serialization."""
 
+    @model_validator(mode="after")
+    def populate_custom_endpoint_from_routing_config(self) -> "AIModel":
+        """Populate custom_endpoint from routing_config.litellm_params.api_base on read."""
+        if self.custom_endpoint is None and self.routing_config:
+            litellm_params = self.routing_config.litellm_params or {}
+            api_base = litellm_params.get("api_base") or litellm_params.get("base_url")
+            if api_base:
+                self.custom_endpoint = api_base
+        return self
+
 
 class AIModelCreate(BaseSimpleCreateSchema, AIModelFieldsMixin):
     """Schema for creating a new AI model."""
 
+    @model_validator(mode="after")
+    def inject_custom_endpoint_into_routing_config(self) -> "AIModelCreate":
+        """Write custom_endpoint into routing_config.litellm_params.api_base on create."""
+        if self.custom_endpoint:
+            if self.routing_config is None:
+                self.routing_config = RoutingConfig()
+            litellm_params = dict(self.routing_config.litellm_params or {})
+            litellm_params["api_base"] = self.custom_endpoint
+            self.routing_config.litellm_params = litellm_params
+        return self
+
 
 class AIModelUpdate(BaseSimpleUpdateSchema, AIModelUpdateFieldsMixin):
     """Schema for updating an existing AI model."""
+
+    @model_validator(mode="after")
+    def inject_custom_endpoint_into_routing_config(self) -> "AIModelUpdate":
+        """Write custom_endpoint into routing_config.litellm_params.api_base on update."""
+        if self.custom_endpoint:
+            if self.routing_config is None:
+                self.routing_config = RoutingConfig()
+            litellm_params = dict(self.routing_config.litellm_params or {})
+            litellm_params["api_base"] = self.custom_endpoint
+            self.routing_config.litellm_params = litellm_params
+        return self
 
 
 class AIModelSetDefaultRequest(BaseModel):

@@ -187,5 +187,5 @@ async def classify_conversation(
     return AgentConversationClassification(
         intent=ConversationIntent.REQUEST_NOT_CLEAR,
         reason=fallback_reason,
-        assistant_message=fallback_reason,
+        assistant_message=None,
     )
