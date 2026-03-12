@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.45](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.44...v0.6.0-dev.45) (2026-03-12)
+
+### ✨ Features
+
+* **kg:** implemented new reader for confluence ([ea3e9a5](https://github.com/ideaportriga/magnet-ai/commit/ea3e9a5f27867cae57aeafdbded7cfc8f35895bf))
+
 ## [0.6.0-dev.44](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.43...v0.6.0-dev.44) (2026-03-12)
 
 ### 🐛 Bug Fixes
