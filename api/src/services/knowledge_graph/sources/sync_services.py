@@ -81,6 +81,10 @@ async def _sync_source_impl(
             from services.knowledge_graph.sources import SalesforceSource
 
             summary = await SalesforceSource(source).sync_source(db_session)
+        elif source.type == "confluence":
+            from services.knowledge_graph.sources import ConfluenceSource
+
+            summary = await ConfluenceSource(source).sync_source(db_session)
         else:
             raise NotFoundException(
                 f"Sync for source type '{source.type}' is not implemented"

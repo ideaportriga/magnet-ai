@@ -27,7 +27,7 @@
           <source-type-avatar name="SharePoint" :image="sharepointImage" background-color="blue-1" @select="selectSourceType('sharepoint')" />
           <source-type-avatar name="Fluid Topics" :image="fluidTopicsImage" background-color="red-1" @select="selectSourceType('fluid_topics')" />
           <source-type-avatar name="Salesforce" :image="salesforceImage" background-color="blue-1" @select="selectSourceType('salesforce')" />
-          <source-type-avatar name="Confluence" :image="confluenceImage" background-color="blue-1" disabled coming-soon />
+          <source-type-avatar name="Confluence" :image="confluenceImage" background-color="blue-1" @select="selectSourceType('confluence')" />
         </div>
       </q-card-section>
     </q-card>

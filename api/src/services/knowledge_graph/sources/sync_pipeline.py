@@ -373,6 +373,8 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                     source_modified_at=source_modified_at,
                     source_metadata=source_metadata,
                     content_profile=content_config.name if content_config else None,
+                    title=title,
+                    external_link=external_link,
                 )
                 return StoreDocumentResult()
 
