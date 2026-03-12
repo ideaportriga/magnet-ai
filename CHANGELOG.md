@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.44](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.43...v0.6.0-dev.44) (2026-03-12)
+
+### 🐛 Bug Fixes
+
+* **models table:**  fix small resolution pagginataion issue ([961279c](https://github.com/ideaportriga/magnet-ai/commit/961279c7515eb98723978d3282669a5db446b6b4))
+
 ## [0.6.0-dev.43](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.42...v0.6.0-dev.43) (2026-03-11)
 
 ### 🐛 Bug Fixes
