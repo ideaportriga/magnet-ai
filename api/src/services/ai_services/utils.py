@@ -37,6 +37,7 @@ def get_litellm_debug_info(
     model_name: str,
     model_system_name: str,
     model_routing_config: dict[str, Any] | None = None,
+    model_type: str | None = None,
 ) -> dict[str, Any]:
     """
     Compute LiteLLM routing diagnostic information for a model.
@@ -55,6 +56,7 @@ def get_litellm_debug_info(
         model_system_name: model.system_name used as the Router deployment name
         model_routing_config: optional routing_config dict from the AIModel record
                               (may contain litellm_params.api_base override)
+        model_type: optional model type ("prompts", "embeddings", "re-ranking")
     """
     from services.ai_services.router import is_model_in_router
 
@@ -73,15 +75,15 @@ def get_litellm_debug_info(
     else:
         litellm_model_string = model_name if model_name else None
 
-    # 2. Effective endpoint — model-level override wins over provider-level
-    model_level_endpoint: str | None = None
+    # 2. Effective endpoint — api_path is appended to provider endpoint (path-only, no host override)
+    api_path: str | None = None
     if model_routing_config:
-        litellm_params = model_routing_config.get("litellm_params") or {}
-        model_level_endpoint = litellm_params.get("api_base") or litellm_params.get(
-            "base_url"
-        )
+        api_path = model_routing_config.get("api_path")
 
-    effective_endpoint = model_level_endpoint or provider_endpoint
+    if api_path and provider_endpoint:
+        effective_endpoint = provider_endpoint.rstrip("/") + api_path
+    else:
+        effective_endpoint = provider_endpoint
 
     # 3. Whether the model routes through the global LiteLLM Router
     via_router = is_model_in_router(model_system_name)
@@ -92,6 +94,7 @@ def get_litellm_debug_info(
         model_name=model_name,
         endpoint=effective_endpoint,
         connection_config=connection_config,
+        model_type=model_type,
     )
 
     return {
@@ -107,14 +110,23 @@ def _build_computed_url(
     model_name: str,
     endpoint: str | None,
     connection_config: dict[str, Any],
+    model_type: str | None = None,
 ) -> str | None:
     """Build the approximate full URL that LiteLLM will send requests to."""
+
+    is_rerank = model_type == "re-ranking"
+    is_embedding = model_type == "embeddings"
 
     if provider_type == "azure_open_ai":
         base = (endpoint or "").rstrip("/")
         if not base:
             return None
         api_version = connection_config.get("api_version", "2024-02-01")
+        if is_embedding:
+            return (
+                f"{base}/openai/deployments/{model_name}"
+                f"/embeddings?api-version={api_version}"
+            )
         return (
             f"{base}/openai/deployments/{model_name}"
             f"/chat/completions?api-version={api_version}"
@@ -125,11 +137,23 @@ def _build_computed_url(
         if not base:
             return None
         api_version = connection_config.get("api_version", "2024-05-01-preview")
+        if is_rerank:
+            # LiteLLM appends /rerank when base ends with a version path (/v1, /v2, /providers/cohere/v2)
+            # otherwise defaults to /v1/rerank
+            for version_suffix in ("/providers/cohere/v2", "/v2", "/v1"):
+                if base.endswith(version_suffix):
+                    return f"{base}/rerank"
+            return f"{base}/v1/rerank"
+        if is_embedding:
+            return f"{base}/v1/embeddings"
         return f"{base}/chat/completions?api-version={api_version}"
 
-    # For embedding / rerank models the path differs, but we show the base URL
     base = endpoint or _DEFAULT_BASE_URLS.get(provider_type)
     if not base:
         return None
 
+    if is_rerank:
+        return f"{base.rstrip('/')}/v1/rerank"
+    if is_embedding:
+        return f"{base.rstrip('/')}/v1/embeddings"
     return f"{base.rstrip('/')}/v1/chat/completions"

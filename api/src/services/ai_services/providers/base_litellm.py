@@ -475,12 +475,21 @@ class BaseLiteLLMProvider(AIProviderInterface):
         llm: str,
         top_n: int,
         truncation: bool | None = None,
+        model_config: dict | None = None,
     ) -> RerankResponse:
         """Rerank documents using LiteLLM."""
         full_model = self._get_model_name(llm)
         doc_texts = [doc.content or "" for doc in documents]
 
         params = self._build_litellm_params()
+
+        # Apply model-level api_path: append to provider endpoint (path-only, no host override)
+        if model_config:
+            routing_config = model_config.get("routing_config") or {}
+            api_path = routing_config.get("api_path")
+            if api_path and params.get("api_base"):
+                params["api_base"] = params["api_base"].rstrip("/") + api_path
+
         params["model"] = full_model
         params["query"] = query
         params["documents"] = doc_texts
@@ -499,7 +508,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
         scores: dict[int, float] = {}
         if hasattr(response, "results"):
             for result in response.results:
-                scores[result.index] = result.relevance_score
+                if isinstance(result, dict):
+                    idx, score = result.get("index"), result.get("relevance_score")
+                else:
+                    idx, score = result.index, result.relevance_score
+                if idx is not None and score is not None:
+                    scores[idx] = score
 
         reranked_documents: DocumentSearchResult = []
         for idx, doc in enumerate(documents):

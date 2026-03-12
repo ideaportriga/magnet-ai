@@ -70,6 +70,7 @@ class AIProviderInterface(ABC):
         llm: str,
         top_n: int,
         truncation: bool | None,
+        model_config: dict | None = None,
     ) -> RerankResponse:
         raise NotImplementedError("rerank is optional for this provider")
 

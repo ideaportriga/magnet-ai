@@ -147,7 +147,18 @@ async def _build_router_config() -> tuple[list[dict[str, Any]], dict[str, list[s
                 if litellm_provider:
                     full_model_name = f"{litellm_provider}/{model_name}"
                 else:
-                    full_model_name = model_name
+                    # Empty prefix = OpenAI-compatible custom endpoint.
+                    # LiteLLM Router requires a provider prefix, so use "openai/"
+                    # when an endpoint is configured; otherwise skip this model.
+                    endpoint = provider_config.get("endpoint")
+                    if endpoint:
+                        full_model_name = f"openai/{model_name}"
+                    else:
+                        logger.warning(
+                            f"Skipping model {model.system_name}: provider type "
+                            f"'{provider_type}' uses empty prefix but no endpoint is configured"
+                        )
+                        continue
 
                 litellm_params: dict[str, Any] = {
                     "model": full_model_name,
@@ -202,7 +213,8 @@ async def _build_router_config() -> tuple[list[dict[str, Any]], dict[str, list[s
                 # Add endpoint/base URL
                 endpoint = provider_config.get("endpoint")
                 if endpoint:
-                    if provider_type == "azure_open_ai":
+                    # azure_open_ai and azure_ai both use api_base; other providers use base_url
+                    if provider_type in ("azure_open_ai", "azure_ai"):
                         litellm_params["api_base"] = endpoint
                     else:
                         litellm_params["base_url"] = endpoint
@@ -306,9 +318,14 @@ async def get_router() -> Router:
             ]
 
         # Create router
-        _router = Router(**router_settings)
-
-        logger.info(f"LiteLLM Router initialized with {len(model_list)} models")
+        try:
+            _router = Router(**router_settings)
+            logger.info(f"LiteLLM Router initialized with {len(model_list)} models")
+        except Exception:
+            logger.exception(
+                "LiteLLM Router initialization failed — falling back to empty router"
+            )
+            _router = Router(model_list=[])
 
         return _router
 
@@ -346,7 +363,13 @@ async def refresh_router() -> None:
                     for model_name, fallback_list in fallback_map.items()
                 ]
 
-            _router = Router(**router_settings)
+            try:
+                _router = Router(**router_settings)
+            except Exception:
+                logger.exception(
+                    "LiteLLM Router refresh failed — falling back to empty router"
+                )
+                _router = Router(model_list=[])
 
         logger.info("LiteLLM Router refreshed with %d models", len(model_list))
 

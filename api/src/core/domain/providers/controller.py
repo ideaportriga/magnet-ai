@@ -248,6 +248,11 @@ class ProvidersController(Controller):
                 elif model.type == "embeddings" and not embedding_model:
                     embedding_model = model
 
+            # Ensure router is initialized before checking is_model_in_router()
+            from services.ai_services.router import get_router
+
+            await get_router()
+
             # Compute diagnostic info using the first available model
             from services.ai_services.utils import get_litellm_debug_info
 

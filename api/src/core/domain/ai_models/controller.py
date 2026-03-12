@@ -260,6 +260,12 @@ class AIModelsController(Controller):
         - via_router: whether the request goes through the global LiteLLM Router
         - computed_url: approximate full URL LiteLLM will call
         """
+        debug_info: dict = {
+            "litellm_model_string": None,
+            "effective_endpoint": None,
+            "via_router": None,
+            "computed_url": None,
+        }
         try:
             # Get the model from database
             model = await ai_models_service.get(ai_model_id)
@@ -279,6 +285,11 @@ class AIModelsController(Controller):
                     error="Model does not have a provider_system_name configured",
                 )
 
+            # Ensure router is initialized before checking is_model_in_router()
+            from services.ai_services.router import get_router
+
+            await get_router()
+
             # Compute diagnostic info (read-only, no API call)
             from services.ai_services.utils import get_litellm_debug_info
 
@@ -295,6 +306,7 @@ class AIModelsController(Controller):
                     model_name=model.ai_model,
                     model_system_name=model.system_name,
                     model_routing_config=model.routing_config,
+                    model_type=model.type,
                 )
             else:
                 debug_info = {
@@ -320,7 +332,18 @@ class AIModelsController(Controller):
 
             model_type = model.type or "prompts"
             model_name = model.ai_model
-            model_config = {"system_name": model.system_name}
+            rc = model.routing_config
+            routing_config_dict = (
+                rc
+                if isinstance(rc, dict)
+                else rc.model_dump(exclude_none=True)
+                if rc
+                else {}
+            )
+            model_config = {
+                "system_name": model.system_name,
+                "routing_config": routing_config_dict,
+            }
 
             if model_type == "embeddings":
                 # Test embedding model
@@ -353,6 +376,13 @@ class AIModelsController(Controller):
                         error="The configured provider does not implement the get_embeddings method",
                         **debug_info,
                     )
+                except Exception as e:
+                    return ModelTestResult(
+                        success=False,
+                        message="Embedding test failed",
+                        error=str(e),
+                        **debug_info,
+                    )
 
             elif model_type == "re-ranking":
                 # Test rerank model with minimal synthetic documents
@@ -383,6 +413,7 @@ class AIModelsController(Controller):
                         llm=model_name,
                         top_n=2,
                         truncation=False,
+                        model_config=model_config,
                     )
                     return ModelTestResult(
                         success=True,
@@ -396,6 +427,13 @@ class AIModelsController(Controller):
                         success=False,
                         message="Provider does not support reranking",
                         error="The configured provider does not implement the rerank method",
+                        **debug_info,
+                    )
+                except Exception as e:
+                    return ModelTestResult(
+                        success=False,
+                        message="Re-ranking test failed",
+                        error=str(e),
                         **debug_info,
                     )
 
@@ -442,6 +480,13 @@ class AIModelsController(Controller):
                         error="The configured provider does not implement chat completions",
                         **debug_info,
                     )
+                except Exception as e:
+                    return ModelTestResult(
+                        success=False,
+                        message="Chat completion test failed",
+                        error=str(e),
+                        **debug_info,
+                    )
 
         except Exception as e:
             logger.exception("Error testing model %s", ai_model_id)
@@ -449,6 +494,7 @@ class AIModelsController(Controller):
                 success=False,
                 message="Model test failed",
                 error=str(e),
+                **debug_info,
             )
 
     @get(
@@ -474,7 +520,10 @@ class AIModelsController(Controller):
         - via_router: whether the model is registered in the global LiteLLM Router
         - computed_url: approximate full URL that LiteLLM will call
         """
+        from services.ai_services.router import get_router
         from services.ai_services.utils import get_litellm_debug_info
+
+        await get_router()
 
         model = await ai_models_service.get(ai_model_id)
         if not model:
@@ -496,6 +545,7 @@ class AIModelsController(Controller):
                 model_name=model.ai_model,
                 model_system_name=model.system_name,
                 model_routing_config=model.routing_config,
+                model_type=model.type,
             )
         else:
             from services.ai_services.router import is_model_in_router
