@@ -31,6 +31,7 @@ from core.db.models.knowledge_graph import docs_table_name
 from services.observability import observability_context, observe
 from services.observability.models import SpanType
 from services.prompt_templates import execute_prompt_template
+from services.utils.filter_compiler import BaseFilterCompiler
 
 from ....models import KnowledgeGraphRetrievalWorkflowStep
 
@@ -320,22 +321,12 @@ def _extract_external_metadata_filter(
     return ext_cfg
 
 
-class _SqlParamBuilder:
-    """Build SQL parameters with stable, unique names (p0, p1, ...) for safe binding."""
-
-    def __init__(self) -> None:
-        self.params: dict[str, Any] = {}
-        self._idx = 0
-
-    def add(self, value: Any) -> str:
-        name = f"p{self._idx}"
-        self._idx += 1
-        self.params[name] = value
-        return f":{name}"
-
-
-class _MetadataFilterCompiler:
+class _MetadataFilterCompiler(BaseFilterCompiler):
     """Compile a JSON metadata filter expression into SQL WHERE (Postgres).
+
+    Extends :class:`BaseFilterCompiler` with document-specific field resolution
+    that uses graph metadata field definitions and per-source value resolution
+    chains.
 
     Supported expression forms (examples):
 
@@ -357,7 +348,7 @@ class _MetadataFilterCompiler:
     """
 
     def __init__(self, field_definitions: list[dict[str, Any]] | None) -> None:
-        self.builder = _SqlParamBuilder()
+        super().__init__()
         self.fields_by_name: dict[str, dict[str, Any]] = {}
         for fd in field_definitions or []:
             if not isinstance(fd, dict):
@@ -366,55 +357,6 @@ class _MetadataFilterCompiler:
             if not name:
                 continue
             self.fields_by_name[name] = fd
-
-    def compile(self, expr: Any) -> tuple[str, dict[str, Any]]:
-        sql = self._compile_expr(expr)
-        sql = str(sql or "").strip()
-        return (sql, self.builder.params)
-
-    def _compile_expr(self, expr: Any) -> str:
-        # Convenience: a list is treated as an implicit AND group
-        if isinstance(expr, list):
-            return self._compile_expr({"and": expr})
-
-        if not isinstance(expr, dict):
-            return ""
-
-        if "and" in expr:
-            items = expr.get("and")
-            parts = [self._compile_expr(e) for e in (items or []) if e is not None]
-            parts = [p for p in parts if p]
-            if not parts:
-                return ""
-            return "(" + " AND ".join(parts) + ")"
-
-        if "or" in expr:
-            items = expr.get("or")
-            parts = [self._compile_expr(e) for e in (items or []) if e is not None]
-            parts = [p for p in parts if p]
-            if not parts:
-                return ""
-            return "(" + " OR ".join(parts) + ")"
-
-        if "not" in expr:
-            inner = self._compile_expr(expr.get("not"))
-            if not inner:
-                return ""
-            return f"(NOT ({inner}))"
-
-        # Leaf predicates
-        if "field" in expr:
-            field = str(expr.get("field") or "").strip()
-            if not field:
-                return ""
-            return self._compile_field_predicate(
-                field,
-                op=str(expr.get("op") or expr.get("operator") or "eq").strip().lower(),
-                value=expr.get("value"),
-                values=expr.get("values"),
-            )
-
-        return ""
 
     def _compile_field_predicate(
         self, field_name: str, *, op: str, value: Any, values: Any
@@ -589,123 +531,6 @@ class _MetadataFilterCompiler:
         if len(parts) == 1:
             return parts[0]
         return f"COALESCE({', '.join(parts)})"
-
-    def _apply_scalar_op(self, expr: str, *, op: str, value: Any, values: Any) -> str:
-        op = (op or "eq").strip().lower()
-
-        if op in {"exists", "is_set"}:
-            return f"({expr} IS NOT NULL)"
-        if op in {"not_exists", "is_not_set"}:
-            return f"({expr} IS NULL)"
-
-        if op in {"in"}:
-            vals = values
-            if vals is None:
-                vals = value
-            if not isinstance(vals, list):
-                return self._apply_scalar_op(expr, op="eq", value=value, values=None)
-            sub = []
-            for v in vals:
-                if v is None:
-                    sub.append(f"({expr} IS NULL)")
-                else:
-                    p = self.builder.add(str(v))
-                    sub.append(f"({expr} = {p})")
-            if not sub:
-                return "(1=0)"
-            return "(" + " OR ".join(sub) + ")"
-
-        if op in {"contains", "like"}:
-            if value is None:
-                return "(1=0)"
-            p = self.builder.add(str(value))
-            return f"({expr} ILIKE '%' || {p} || '%')"
-
-        if op in {"eq", "=", "=="}:
-            if value is None:
-                return f"({expr} IS NULL)"
-            p = self.builder.add(str(value))
-            return f"({expr} = {p})"
-
-        if op in {"ne", "!=", "<>"}:
-            if value is None:
-                return f"({expr} IS NOT NULL)"
-            p = self.builder.add(str(value))
-            return f"({expr} <> {p})"
-
-        # Unsupported op -> never match
-        return "(1=0)"
-
-    def _apply_array_op(self, expr: str, *, op: str, value: Any, values: Any) -> str:
-        op = (op or "eq").strip().lower()
-        expr_sql = f"({expr})"
-
-        if op in {"exists", "is_set"}:
-            return f"({expr_sql} IS NOT NULL)"
-        if op in {"not_exists", "is_not_set"}:
-            return f"({expr_sql} IS NULL)"
-
-        def _exists(where_sql: str) -> str:
-            return (
-                f"({expr_sql} IS NOT NULL AND EXISTS ("
-                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
-                f"WHERE {where_sql}"
-                f"))"
-            )
-
-        if op in {"in"}:
-            vals = values
-            if vals is None:
-                vals = value
-            if not isinstance(vals, list):
-                return self._apply_array_op(expr, op="eq", value=value, values=None)
-            sub: list[str] = []
-            if any(v is None for v in vals):
-                sub.append(f"({expr_sql} IS NULL)")
-            for v in vals:
-                if v is None:
-                    continue
-                p = self.builder.add(str(v))
-                sub.append(_exists(f"e.val = {p}"))
-            if not sub:
-                return "(1=0)"
-            return "(" + " OR ".join(sub) + ")"
-
-        if op in {"eq", "=", "==", "has"}:
-            if value is None:
-                return f"({expr_sql} IS NULL)"
-            p = self.builder.add(str(value))
-            return _exists(f"e.val = {p}")
-
-        if op in {"contains", "like"}:
-            if value is None:
-                return "(1=0)"
-            p = self.builder.add(str(value))
-            return _exists(f"e.val ILIKE '%' || {p} || '%'")
-
-        if op in {"ne", "!=", "<>"}:
-            if value is None:
-                return f"({expr_sql} IS NOT NULL)"
-            p = self.builder.add(str(value))
-            return (
-                f"({expr_sql} IS NOT NULL AND NOT EXISTS ("
-                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
-                f"WHERE e.val = {p}"
-                f"))"
-            )
-
-        if op in {"not_contains"}:
-            if value is None:
-                return "(1=0)"
-            p = self.builder.add(str(value))
-            return (
-                f"({expr_sql} IS NOT NULL AND NOT EXISTS ("
-                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
-                f"WHERE e.val ILIKE '%' || {p} || '%'"
-                f"))"
-            )
-
-        return "(1=0)"
 
 
 @observe(name="Find documents by metadata", type=SpanType.SEARCH)

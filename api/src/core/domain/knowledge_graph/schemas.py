@@ -417,6 +417,43 @@ class KnowledgeGraphEntityRecordListResponse(BaseModel):
     offset: int
 
 
+class KnowledgeGraphEntityQueryRequest(BaseModel):
+    """Request model for querying entity records using the filter DSL.
+
+    Supports the same filter expression syntax as metadata filtering::
+
+        {"field": "country", "op": "eq", "value": "US"}
+        {"and": [{"field": "country", "op": "eq", "value": "US"}, ...]}
+    """
+
+    entity: str = Field(
+        ..., description="Entity type to query (e.g. 'Person', 'Organization')"
+    )
+    filter: Any = Field(
+        default=None,
+        description=(
+            "Filter expression applied on top of the entity type. "
+            "Supports field predicates "
+            '({"field": "name", "op": "eq", "value": "..."}), '
+            "boolean groups (and/or/not), and operators: "
+            "eq, ne, in, contains, not_contains, like, exists, not_exists, "
+            "gt, gte, lt, lte. "
+            "Unknown field names are resolved against column_values keys."
+        ),
+    )
+    limit: int = Field(default=50, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)
+
+
+class KnowledgeGraphEntityQueryResponse(BaseModel):
+    """Response model for entity query — returns column_values records."""
+
+    records: list[dict[str, Any]]
+    total: int
+    limit: int
+    offset: int
+
+
 class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
     """Request model for triggering LLM-based entity extraction for a graph."""
 

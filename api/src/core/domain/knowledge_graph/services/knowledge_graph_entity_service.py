@@ -385,6 +385,56 @@ class KnowledgeGraphEntityService:
         rows = (await db_session.execute(stmt)).mappings().all()
         return [KnowledgeGraphEntityRecord.from_mapping(row) for row in rows]
 
+    async def query_records(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        filter_expr: Any = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[KnowledgeGraphEntityRecord], int]:
+        """Query entity records using the filter expression DSL.
+
+        Returns ``(records, total_count)``.
+        """
+
+        await self.create_table(db_session, graph_id=graph_id)
+        table_name = entities_table_name(graph_id)
+        md = MetaData()
+        entities_tbl = knowledge_graph_entity_table(md, table_name)
+
+        from services.knowledge_graph.entity_filter_compiler import (
+            EntityFilterCompiler,
+        )
+
+        compiler = EntityFilterCompiler(table_name)
+        where_sql, params = compiler.compile(filter_expr)
+
+        # Build base queries
+        count_stmt = select(func.count()).select_from(entities_tbl)
+        data_stmt = (
+            select(entities_tbl)
+            .order_by(
+                entities_tbl.c.updated_at.desc(),
+                entities_tbl.c.created_at.desc(),
+                entities_tbl.c.id.desc(),
+            )
+            .limit(max(int(limit), 1))
+            .offset(max(int(offset), 0))
+        )
+
+        if where_sql:
+            where_clause = text(where_sql).bindparams(**params)
+            count_stmt = count_stmt.where(where_clause)
+            # Re-create the clause for the data query (text() objects are single-use)
+            data_stmt = data_stmt.where(text(where_sql).bindparams(**params))
+
+        total = (await db_session.execute(count_stmt)).scalar_one()
+        rows = (await db_session.execute(data_stmt)).mappings().all()
+        records = [KnowledgeGraphEntityRecord.from_mapping(row) for row in rows]
+        return (records, total)
+
     async def upsert_record(
         self,
         db_session: AsyncSession,
