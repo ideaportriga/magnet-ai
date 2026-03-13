@@ -28,7 +28,9 @@ async def action_execute_rag(
             metadata_filter = FilterObject(json.loads(metadata_filter))
         except Exception as e:
             logger.error(f"Failed to parse metadata filter: {e}")
-            metadata_filter = None
+            return AgentActionCallResponse(
+                content=f'Invalid metadata_filter format: {e}. Please provide a valid MongoDB-like filter object, e.g. {{"$and": [{{"field": {{"$eq": "value"}}}}]}}',
+            )
 
     if not query:
         raise ValueError("Cannot call RAG Tool - user's query is missing")

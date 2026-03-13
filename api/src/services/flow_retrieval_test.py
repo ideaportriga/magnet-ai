@@ -6,7 +6,6 @@ from typing import Optional
 from services.language import TextTranslation, detect_language_and_translate_text
 from services.rerank import rerank
 from services.retrieve import retrieve
-from services.utils.metadata_filtering import metadata_filter_to_filter_object
 from validation.rag_tools import LanguageConfig
 from validation.retrieval_tools import RetrievalToolTest
 
@@ -44,7 +43,7 @@ async def flow_retrieval_test(input: RetrievalToolTest) -> RetrievalToolTestResu
         user_message=user_message,
         retrieve_config=input.retrieve,
         max_chunks_retrieved=max_chunks_retrieved,
-        filter=metadata_filter_to_filter_object(input.metadata_filter),
+        filter=input.metadata_filter,
     )
     # Step 1.5 Rerank
     if (

@@ -33,12 +33,14 @@ async def retrieve(
     if isinstance(collection_ids, str):
         collection_ids = [collection_ids]
 
+    effective_filter = filter if retrieve_config.allow_metadata_filter else None
+
     document_search_result = await store.document_collections_similarity_search(
         collection_ids=collection_ids,
         retrieve_config=retrieve_config,
         query=user_message,
         num_results=max_chunks_retrieved,
-        filter=filter,
+        filter=effective_filter,
     )
 
     selected_top_results = await select_top_results(
