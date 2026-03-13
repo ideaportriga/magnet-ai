@@ -42,6 +42,24 @@ export interface Chunk {
   toc_reference?: string
 }
 
+export interface EntityTypeSummary {
+  entity: string
+  count: number
+}
+
+export interface EntityRecord {
+  id: string
+  entity: string
+  record_identifier: string
+  normalized_record_identifier?: string
+  column_values: Record<string, unknown>
+  identifier_aliases?: string[]
+  source_document_ids?: string[]
+  source_chunk_ids?: string[]
+  created_at?: string
+  updated_at?: string
+}
+
 export interface TocNode {
   name: string
   text?: string

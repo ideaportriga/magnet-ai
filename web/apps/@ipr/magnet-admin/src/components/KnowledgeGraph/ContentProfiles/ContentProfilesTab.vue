@@ -120,6 +120,7 @@ import { QTableColumn, useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { KgConfirmDialog } from '../common'
+import { fetchKnowledgeGraphSources } from '../Sources/api'
 import type { SourceRow } from '../Sources/models'
 import ContentConfigDialog from './ContentConfigDialog.vue'
 import {
@@ -220,17 +221,10 @@ const fetchSources = async () => {
   try {
     const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) return
-    const response = await fetchData({
+    sources.value = await fetchKnowledgeGraphSources({
       endpoint,
-      service: `knowledge_graphs/${props.graphId}/sources`,
-      method: 'GET',
-      credentials: 'include',
+      graphId: props.graphId,
     })
-
-    if (response.ok) {
-      const data = await response.json()
-      sources.value = Array.isArray(data) ? data : data?.items || data?.data || []
-    }
   } catch (error) {
     console.error('Error fetching sources:', error)
   }

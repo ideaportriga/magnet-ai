@@ -23,6 +23,7 @@ from core.domain.knowledge_graph.schemas import (
 )
 from services.knowledge_graph import (
     get_default_content_configs,
+    get_default_entity_extraction_settings,
     get_default_metadata_settings,
     get_default_retrieval_settings,
 )
@@ -39,6 +40,7 @@ from services.knowledge_graph.models import SourceType
 if TYPE_CHECKING:
     from .knowledge_graph_chunk_service import KnowledgeGraphChunkService
     from .knowledge_graph_document_service import KnowledgeGraphDocumentService
+    from .knowledge_graph_entity_service import KnowledgeGraphEntityService
 
 
 class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGraph]):
@@ -145,6 +147,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         *,
         document_service: KnowledgeGraphDocumentService | None = None,
         chunk_service: KnowledgeGraphChunkService | None = None,
+        entity_service: KnowledgeGraphEntityService | None = None,
     ) -> KnowledgeGraphCreateResponse:
         system_name = (
             (data.system_name or data.name)
@@ -157,12 +160,14 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         default_configs = get_default_content_configs()
         retrieval_settings = get_default_retrieval_settings()
         metadata_settings = get_default_metadata_settings()
+        entity_extraction_settings = get_default_entity_extraction_settings()
         settings: dict[str, Any] | None = {
             "chunking": {
                 "content_settings": [cfg.model_dump() for cfg in default_configs],
             },
             **retrieval_settings,
             **metadata_settings,
+            **entity_extraction_settings,
         }
 
         # Set default embedding model if it exists
@@ -187,6 +192,9 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
                 "settings": settings,
             }
         )
+
+        entity_svc = entity_service or KnowledgeGraphEntityService()
+        await entity_svc.create_table(db_session, graph_id=created.id)
 
         # Create per-graph tables only when an embedding model is configured.
         embedding_model = (
@@ -216,6 +224,9 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         document_service: KnowledgeGraphDocumentService | None = None,
         chunk_service: KnowledgeGraphChunkService | None = None,
     ) -> KnowledgeGraphUpdateResponse:
+        from .knowledge_graph_chunk_service import KnowledgeGraphChunkService
+        from .knowledge_graph_document_service import KnowledgeGraphDocumentService
+
         existing = await self.repository.get(graph_id)
         prev_settings = getattr(existing, "settings", None) or {}
         prev_indexing = (
@@ -312,12 +323,15 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         *,
         document_service: KnowledgeGraphDocumentService | None = None,
         chunk_service: KnowledgeGraphChunkService | None = None,
+        entity_service: KnowledgeGraphEntityService | None = None,
     ) -> None:
         """Delete a graph and drop its per-graph tables."""
 
         # Drop dynamic tables (chunks first due to FK)
         doc_svc = document_service or KnowledgeGraphDocumentService()
         ch_svc = chunk_service or KnowledgeGraphChunkService()
+        entity_svc = entity_service or KnowledgeGraphEntityService()
+        await entity_svc.drop_table(db_session, graph_id=graph_id)
         await ch_svc.drop_table(db_session, graph_id=graph_id)
         await doc_svc.drop_table(db_session, graph_id=graph_id)
         await db_session.commit()

@@ -100,9 +100,10 @@
               >
                 <q-tab name="sources" label="Sources" />
                 <q-tab name="explorer" label="Data Explorer" />
-                <q-tab name="retrieval" label="Retrieval Agent" :alert="retrievalUnsaved" alert-color="orange-9" />
                 <q-tab name="metadata" label="Metadata Studio" :alert="metadataUnsaved" alert-color="orange-9" />
+                <q-tab name="entityExtraction" label="Entity Extraction" />
                 <q-tab name="contentProfiles" label="Content Profiles" />
+                <q-tab name="retrieval" label="Retrieval" :alert="retrievalUnsaved" alert-color="orange-9" />
                 <q-tab name="settings" label="Settings" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
               </q-tabs>
               <div class="col-auto">
@@ -148,13 +149,12 @@
                         :graph-details="graphDetails"
                         @refresh="fetchGraphDetails"
                       />
-                      <explorer-tab
+                      <data-explorer-tab
                         v-show="activeTab === 'explorer'"
                         v-if="graphDetails"
                         ref="explorerRef"
                         :graph-id="graphId"
                         :graph-details="graphDetails"
-                        @select-chunk="openChunkDrawer"
                       />
                       <retrieval-tab
                         v-show="activeTab === 'retrieval'"
@@ -174,6 +174,13 @@
                         @unsaved-change="metadataUnsaved = $event"
                         @refresh="fetchGraphDetails"
                       />
+                      <entity-extraction-tab
+                        v-show="activeTab === 'entityExtraction'"
+                        v-if="graphDetails"
+                        :graph-id="graphId"
+                        :graph-details="graphDetails"
+                        @refresh="fetchGraphDetails"
+                      />
                     </div>
                   </div>
                 </div>
@@ -184,7 +191,6 @@
       </div>
     </div>
     <div class="col-auto">
-      <chunk-drawer v-if="drawerOpen && drawerType === 'chunk'" :chunk="selectedChunk" @close="drawerOpen = false" />
       <retrieval-test-drawer
         v-show="drawerOpen && drawerType === 'retrieval'"
         :graph-id="graphId"
@@ -246,11 +252,11 @@ import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
 import ContentProfilesTab from './ContentProfiles/ContentProfilesTab.vue'
-import ChunkDrawer from './DataExplorer/ChunkDrawer.vue'
-import ExplorerTab from './DataExplorer/ExplorerTab.vue'
+import DataExplorerTab from './DataExplorer/DataExplorerTab.vue'
+import EntityExtractionTab from './EntityExtraction/EntityExtractionTab.vue'
 import MetadataTab from './Metadata/MetadataTab.vue'
-import RetrievalTab from './Retrieval/RetrievalTab.vue'
 import RetrievalTestDrawer from './Playground/RetrievalTestDrawer.vue'
+import RetrievalTab from './Retrieval/RetrievalTab.vue'
 import SettingsTab from './Settings/SettingsTab.vue'
 import SourcesTab from './Sources/SourcesTab.vue'
 
@@ -260,7 +266,7 @@ const $q = useQuasar()
 
 const graphId = computed(() => route.params.id as string)
 const graphDetails = ref<any>(null)
-const activeTab = ref<'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata'>('sources')
+const activeTab = ref<'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata' | 'entityExtraction'>('sources')
 const loading = ref(false)
 
 // Check if the knowledge graph has an embedding model configured
@@ -283,13 +289,15 @@ const systemName = ref('')
 const showInfo = ref(false)
 const retrievalUnsaved = ref(false)
 const metadataUnsaved = ref(false)
-const intendedTab = ref<'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata' | null>(null)
+const intendedTab = ref<'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata' | 'entityExtraction' | null>(null)
 const showRetrievalLeaveDialog = ref(false)
 const showMetadataLeaveDialog = ref(false)
 const retrievalRef = ref<any>(null)
 const metadataRef = ref<any>(null)
 
-const onTabAttemptChange = async (nextTab: 'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata') => {
+const onTabAttemptChange = async (
+  nextTab: 'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata' | 'entityExtraction'
+) => {
   // Guard when leaving Retrieval tab with unsaved changes
   if (activeTab.value === 'retrieval' && retrievalUnsaved.value && nextTab !== 'retrieval') {
     intendedTab.value = nextTab
@@ -352,8 +360,7 @@ const handleMetadataStay = () => {
 const sourcesRef = ref<any>(null)
 const explorerRef = ref<any>(null)
 const drawerOpen = ref(false)
-const drawerType = ref<'source' | 'chunk' | 'retrieval'>('source')
-const selectedChunk = ref<any>(null)
+const drawerType = ref<'source' | 'retrieval'>('source')
 
 const handleSourcesRefresh = async () => {
   await fetchGraphDetails()
@@ -407,12 +414,6 @@ watch(kgUploading, (uploading) => {
     fetchGraphDetails()
   }
 })
-
-const openChunkDrawer = (chunk: any) => {
-  selectedChunk.value = chunk
-  drawerType.value = 'chunk'
-  drawerOpen.value = true
-}
 
 const openRetrievalDrawer = () => {
   drawerType.value = 'retrieval'

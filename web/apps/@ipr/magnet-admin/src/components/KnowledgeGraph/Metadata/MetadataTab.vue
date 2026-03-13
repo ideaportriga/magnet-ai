@@ -149,6 +149,7 @@ import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { KgConfirmDialog } from '../common'
+import { fetchKnowledgeGraphSources } from '../Sources/api'
 import { type SourceRow } from '../Sources/models'
 import MetadataFieldDialog from './MetadataFieldDialog.vue'
 import MetadataFieldsTable from './MetadataFieldsTable.vue'
@@ -534,17 +535,10 @@ const fetchExtractedFields = async () => {
 const fetchSources = async () => {
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
-    const response = await fetchData({
+    sources.value = await fetchKnowledgeGraphSources({
       endpoint,
-      service: `knowledge_graphs/${props.graphId}/sources`,
-      method: 'GET',
-      credentials: 'include',
+      graphId: props.graphId,
     })
-    if (response.ok) {
-      sources.value = await response.json()
-    } else {
-      sources.value = []
-    }
   } catch (error) {
     console.error('Error fetching sources:', error)
     sources.value = []

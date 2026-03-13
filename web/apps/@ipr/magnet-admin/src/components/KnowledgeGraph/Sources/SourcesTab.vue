@@ -168,6 +168,7 @@ import { QTableColumn, useQuasar } from 'quasar'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
 import { useStore } from 'vuex'
 import { KgConfirmDialog, KgStatusBadge } from '../common'
+import { fetchKnowledgeGraphSources } from './api'
 import { formatAdded, getSourceTypeName, type SourceRow, type SourceSchedule } from './models'
 import SourceTypeDialog from './SourceTypeDialog.vue'
 import { getDialogComponentFor, isSyncable, type SourceTypeKey } from './SourceTypes/registry'
@@ -274,23 +275,19 @@ const columns: QTableColumn<SourceRow>[] = [
   },
 ]
 
-const fetchSources = async () => {
+const fetchSources = async (force = false) => {
   loading.value = true
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
-    const response = await fetchData({
+    rows.value = await fetchKnowledgeGraphSources({
       endpoint,
-      service: `knowledge_graphs/${props.graphId}/sources`,
-      method: 'GET',
-      credentials: 'include',
+      graphId: props.graphId,
+      force,
     })
 
-    if (response.ok) {
-      rows.value = await response.json()
-      // Keep selection in sync after refresh
-      if (selectedRow.value) {
-        selectedRow.value = rows.value.find((r) => r.id === selectedRow.value?.id) || null
-      }
+    // Keep selection in sync after refresh
+    if (selectedRow.value) {
+      selectedRow.value = rows.value.find((r) => r.id === selectedRow.value?.id) || null
     }
   } catch (error) {
     console.error('Error fetching sources:', error)
@@ -372,7 +369,7 @@ const handleSourceTypeSelect = (sourceType: 'upload' | 'sharepoint' | 'fluid_top
 const handleSourceCreated = () => {
   sourceDialogOpen.value = false
   selectedRow.value = null
-  fetchSources()
+  fetchSources(true)
   emit('refresh')
 }
 
@@ -441,7 +438,7 @@ function formatFull(dateStr?: string) {
 const handleSync = async (source: SourceRow) => {
   await syncSource(source)
   // Fetch sources to show the "syncing" status from backend
-  await fetchSources()
+  await fetchSources(true)
 }
 
 const handleSyncAll = async () => {
@@ -465,7 +462,7 @@ const handleSyncAll = async () => {
     }
     // Fetch sources once after all syncs to show "syncing" status for all sources
     if (anySuccess) {
-      await fetchSources()
+      await fetchSources(true)
     }
     // Show single notification for Sync All
     if (anySuccess && !anyFailure) {
@@ -518,7 +515,7 @@ const performDelete = async () => {
         timeout: 1200,
       })
       showDeleteDialog.value = false
-      fetchSources()
+      fetchSources(true)
       emit('refresh')
     } else {
       $q.notify({ type: 'negative', message: 'Failed to delete source', position: 'top' })
@@ -559,7 +556,7 @@ const performPurge = async () => {
         timeout: 1200,
       })
       showPurgeDialog.value = false
-      fetchSources()
+      fetchSources(true)
       emit('refresh')
     } else {
       $q.notify({ type: 'negative', message: 'Failed to purge source data', position: 'top' })
@@ -579,7 +576,7 @@ const onRowClick = (evt: Event, row: SourceRow) => {
 }
 
 defineExpose({
-  refresh: () => fetchSources(),
+  refresh: () => fetchSources(true),
 })
 
 onMounted(() => {

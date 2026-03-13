@@ -26,6 +26,11 @@
         </q-banner>
       </q-card-section>
 
+      <!-- Footer slot (fixed, above actions) -->
+      <div v-if="$slots.footer" class="kg-dialog__footer">
+        <slot name="footer" />
+      </div>
+
       <!-- Actions -->
       <q-card-actions class="kg-dialog__actions">
         <km-btn v-if="showConfirm" :label="cancelLabel" flat color="primary" @click="onCancel" />
@@ -159,6 +164,11 @@ const onClose = () => {
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
+}
+
+.kg-dialog__footer {
+  flex-shrink: 0;
+  padding: 16px 16px 0;
 }
 
 .kg-dialog__actions {

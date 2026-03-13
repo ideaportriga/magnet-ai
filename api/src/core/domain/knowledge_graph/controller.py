@@ -29,6 +29,11 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDiscoveredMetadataExternalSchema,
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
+    KnowledgeGraphEntityExtractionRunRequest,
+    KnowledgeGraphEntityExtractionRunResponse,
+    KnowledgeGraphEntityRecordListResponse,
+    KnowledgeGraphEntityRecordSchema,
+    KnowledgeGraphEntityTypeSummary,
     KnowledgeGraphExternalSchema,
     KnowledgeGraphExtractedMetadataExternalSchema,
     KnowledgeGraphExtractedMetadataUpsertRequest,
@@ -48,9 +53,13 @@ from core.domain.knowledge_graph.schemas import (
 from core.domain.knowledge_graph.services import (
     KnowledgeGraphChunkService,
     KnowledgeGraphDocumentService,
+    KnowledgeGraphEntityService,
     KnowledgeGraphMetadataService,
     KnowledgeGraphService,
     KnowledgeGraphSourceService,
+)
+from services.knowledge_graph.llm_entity_extraction import (
+    run_entity_extraction as _run_entity_extraction,
 )
 from services.knowledge_graph import (
     schedule_source_sync,
@@ -92,6 +101,7 @@ class KnowledgeGraphController(Controller):
         "metadata_service": Provide(
             KnowledgeGraphMetadataService, sync_to_thread=False
         ),
+        "entity_service": Provide(KnowledgeGraphEntityService, sync_to_thread=False),
     }
 
     ###########################################################################
@@ -501,18 +511,6 @@ class KnowledgeGraphController(Controller):
     # KNOWLEDGE GRAPH CHUNK ENDPOINTS #
     ###########################################################################
 
-    @get("/{graph_id:uuid}/chunks", status_code=HTTP_200_OK)
-    async def list_all_chunks(
-        self,
-        chunk_service: KnowledgeGraphChunkService,
-        db_session: AsyncSession,
-        graph_id: UUID,
-        limit: int = Parameter(default=50, ge=1, le=500),
-        offset: int = Parameter(default=0, ge=0),
-        q: str | None = Parameter(default=None, query="q"),
-    ) -> list[KnowledgeGraphChunkExternalSchema]:
-        return await chunk_service.list_chunks(db_session, graph_id, limit, offset, q)
-
     @get(
         "/{graph_id:uuid}/documents/{document_id:uuid}/chunks",
         status_code=HTTP_200_OK,
@@ -529,6 +527,99 @@ class KnowledgeGraphController(Controller):
         return await chunk_service.list_chunks(
             db_session, graph_id, limit, offset, None, document_id
         )
+
+    ###########################################################################
+    # KNOWLEDGE GRAPH ENTITY ENDPOINTS #
+    ###########################################################################
+
+    @get("/{graph_id:uuid}/entities", status_code=HTTP_200_OK)
+    async def list_entity_types(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+    ) -> list[KnowledgeGraphEntityTypeSummary]:
+        rows = await entity_service.list_entity_types(db_session, graph_id=graph_id)
+        return [KnowledgeGraphEntityTypeSummary(**r) for r in rows]
+
+    @get("/{graph_id:uuid}/entities/records", status_code=HTTP_200_OK)
+    async def list_entity_records(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        entity: str | None = Parameter(default=None, query="entity"),
+        limit: int = Parameter(default=50, ge=1, le=500),
+        offset: int = Parameter(default=0, ge=0),
+    ) -> KnowledgeGraphEntityRecordListResponse:
+        records = await entity_service.list_records(
+            db_session,
+            graph_id=graph_id,
+            entity=entity,
+            limit=limit,
+            offset=offset,
+        )
+        total = await entity_service.count_records(
+            db_session, graph_id=graph_id, entity=entity
+        )
+        return KnowledgeGraphEntityRecordListResponse(
+            records=[KnowledgeGraphEntityRecordSchema(**r.to_json()) for r in records],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    @delete("/{graph_id:uuid}/entities/records", status_code=HTTP_204_NO_CONTENT)
+    async def delete_entity_records(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        entity: str | None = Parameter(default=None, query="entity"),
+    ) -> None:
+        await entity_service.delete_records(
+            db_session,
+            graph_id=graph_id,
+            entity=entity,
+        )
+
+    @delete(
+        "/{graph_id:uuid}/entities/records/{record_id:uuid}",
+        status_code=HTTP_204_NO_CONTENT,
+    )
+    async def delete_entity_record(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        record_id: UUID,
+    ) -> None:
+        await entity_service.delete_record(
+            db_session,
+            graph_id=graph_id,
+            record_id=record_id,
+        )
+
+    @observe(
+        name="Running knowledge graph entity extraction",
+        channel="production",
+        source="production",
+    )
+    @post("/{graph_id:uuid}/entities/extract", status_code=HTTP_200_OK)
+    async def run_entity_extraction(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        data: KnowledgeGraphEntityExtractionRunRequest,
+    ) -> KnowledgeGraphEntityExtractionRunResponse:
+        result = await _run_entity_extraction(
+            db_session,
+            graph_id,
+            data,
+            entity_service=entity_service,
+        )
+        return KnowledgeGraphEntityExtractionRunResponse(status="ok", **result)
 
     ###########################################################################
     # KNOWLEDGE GRAPH METADATA ENDPOINTS #

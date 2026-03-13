@@ -386,6 +386,80 @@ class KnowledgeGraphAgentResponse(BaseModel):
     )
 
 
+class KnowledgeGraphEntityTypeSummary(BaseModel):
+    """Summary of one entity type with its record count."""
+
+    entity: str
+    count: int
+
+
+class KnowledgeGraphEntityRecordSchema(BaseModel):
+    """Item model for an extracted entity record."""
+
+    id: str
+    entity: str
+    record_identifier: str
+    normalized_record_identifier: Optional[str] = None
+    column_values: dict[str, Any] = Field(default_factory=dict)
+    identifier_aliases: list[str] = Field(default_factory=list)
+    source_document_ids: list[str] = Field(default_factory=list)
+    source_chunk_ids: list[str] = Field(default_factory=list)
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class KnowledgeGraphEntityRecordListResponse(BaseModel):
+    """Response model for entity records listing (paginated)."""
+
+    records: list[KnowledgeGraphEntityRecordSchema]
+    total: int
+    limit: int
+    offset: int
+
+
+class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
+    """Request model for triggering LLM-based entity extraction for a graph."""
+
+    approach: Optional[str] = Field(
+        default=None, description="Extraction approach: 'document' or 'chunks'"
+    )
+    prompt_template_system_name: Optional[str] = Field(
+        default=None, description="Prompt template system name to execute"
+    )
+    segment_size: Optional[int] = Field(
+        default=None,
+        ge=100,
+        description="Segment size in characters (used when approach=document)",
+    )
+    segment_overlap: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=0.9,
+        description="Segment overlap ratio 0..0.9 (used when approach=document)",
+    )
+
+
+class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
+    """Response model for entity extraction trigger endpoint."""
+
+    status: str = Field(default="ok")
+    approach: str = Field(..., description="Extraction approach used")
+    processed_documents: int = Field(default=0, description="Documents processed")
+    processed_chunks: int = Field(
+        default=0, description="Chunks processed (chunks approach)"
+    )
+    skipped_documents: int = Field(
+        default=0, description="Documents skipped due to missing content"
+    )
+    skipped_chunks: int = Field(
+        default=0, description="Chunks skipped due to missing content"
+    )
+    upserted_records: int = Field(
+        default=0, description="Entity rows inserted or updated"
+    )
+    errors: int = Field(default=0, description="Number of per-item extraction errors")
+
+
 class ChunkSearchResult(BaseModel):
     """Result model for chunk search."""
 
