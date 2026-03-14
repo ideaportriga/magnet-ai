@@ -150,8 +150,7 @@
                         @refresh="fetchGraphDetails"
                       />
                       <data-explorer-tab
-                        v-show="activeTab === 'explorer'"
-                        v-if="graphDetails"
+                        v-if="graphDetails && activeTab === 'explorer'"
                         ref="explorerRef"
                         :graph-id="graphId"
                         :graph-details="graphDetails"

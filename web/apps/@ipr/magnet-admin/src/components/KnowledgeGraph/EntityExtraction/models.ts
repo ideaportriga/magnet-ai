@@ -18,6 +18,7 @@ export interface EntityColumn {
   description: string
   type: EntityColumnType
   is_identifier: boolean
+  is_required: boolean
 }
 
 export interface EntityDefinition {
@@ -133,6 +134,7 @@ export function getEntityDefinitionsFromSettings(settings?: Record<string, unkno
               description: String(column.description || ''),
               type: normalizeColumnType(column.type),
               is_identifier: !!column.is_identifier,
+              is_required: !!column.is_required,
             }))
         : [],
     }))
@@ -208,6 +210,7 @@ export function createEmptyColumn(): EntityColumn {
     description: '',
     type: 'string',
     is_identifier: false,
+    is_required: false,
   }
 }
 

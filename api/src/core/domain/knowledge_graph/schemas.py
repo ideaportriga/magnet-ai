@@ -70,6 +70,7 @@ class KnowledgeGraphExtractedMetadataExternalSchema(BaseModel):
     is_multiple: bool = False
     allowed_values: Optional[list[dict[str, Any]]] = None
     llm_extraction_hint: Optional[str] = None
+    is_required: bool = False
     # Best-effort stats (optional / may be unused depending on pipeline)
     sample_values: Optional[list[str]] = None
     value_count: int = 0
@@ -91,6 +92,10 @@ class KnowledgeGraphExtractedMetadataUpsertRequest(BaseModel):
     )
     llm_extraction_hint: Optional[str] = Field(
         default=None, description="LLM instruction/hint for extracting this field"
+    )
+    is_required: bool = Field(
+        default=False,
+        description="Whether this field must always be present in extraction output",
     )
 
 

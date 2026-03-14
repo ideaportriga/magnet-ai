@@ -40,6 +40,7 @@ class EntityColumnDefinition:
     description: str = ""
     type: EntityColumnType = "string"
     is_identifier: bool = False
+    is_required: bool = False
 
 
 @dataclass(slots=True)
@@ -100,11 +101,13 @@ def normalize_entity_definitions(
                 column_description = str(raw_column.description or "").strip()
                 column_type = str(raw_column.type or "string").strip().lower()
                 is_identifier = bool(raw_column.is_identifier)
+                is_required = bool(raw_column.is_required)
             elif isinstance(raw_column, dict):
                 column_name = str(raw_column.get("name") or "").strip()
                 column_description = str(raw_column.get("description") or "").strip()
                 column_type = str(raw_column.get("type") or "string").strip().lower()
                 is_identifier = bool(raw_column.get("is_identifier"))
+                is_required = bool(raw_column.get("is_required"))
             else:
                 continue
 
@@ -127,6 +130,7 @@ def normalize_entity_definitions(
                     description=column_description,
                     type=column_type,  # type: ignore[arg-type]
                     is_identifier=is_identifier,
+                    is_required=is_required,
                 )
             )
             if is_identifier:
@@ -157,7 +161,19 @@ def normalize_entity_definitions(
 def build_entity_extraction_prompt_schema(
     entity_definitions: list[EntityDefinition],
 ) -> str:
-    lines: list[str] = ["type ExtractedEntityRecords = {", "  records: {"]
+    has_required_fields = any(
+        col.is_required for ed in entity_definitions for col in (ed.columns or [])
+    )
+    lines: list[str] = []
+    if has_required_fields:
+        lines += [
+            "/**",
+            " * Field notation:",
+            " *   field: type        — REQUIRED. If this field cannot be extracted, do NOT include the record at all.",
+            " *   field?: type | null — Optional. Omit or set to null if not found.",
+            " */",
+        ]
+    lines += ["type ExtractedEntityRecords = {", "  records: {"]
     ts_type_map: dict[EntityColumnType, str] = {
         "string": "string",
         "number": "number",
@@ -183,9 +199,14 @@ def build_entity_extraction_prompt_schema(
             if column.description:
                 comment_parts.append(column.description)
             lines.append(f"      /** {'; '.join(comment_parts)} */")
-            lines.append(
-                f"      {json.dumps(column.name)}: {ts_type_map[column.type]} | null"
-            )
+            if column.is_required:
+                lines.append(
+                    f"      {json.dumps(column.name)}: {ts_type_map[column.type]}"
+                )
+            else:
+                lines.append(
+                    f"      {json.dumps(column.name)}?: {ts_type_map[column.type]} | null"
+                )
 
         lines.append("    }>")
         lines.append("")
@@ -203,8 +224,11 @@ def _column_json_schema(column: EntityColumnDefinition) -> dict[str, Any]:
         "boolean": "boolean",
         "date": "string",
     }
+    col_type: Any = (
+        type_map[column.type] if column.is_required else [type_map[column.type], "null"]
+    )
     json_schema: dict[str, Any] = {
-        "type": [type_map[column.type], "null"],
+        "type": col_type,
         "description": (f"{column.description}. " if column.description else "")
         + (
             "This is the primary identifier column."

@@ -7,18 +7,7 @@
           Define entity schemas, configure the extraction prompt, and run AI-powered extraction against this knowledge graph
         </div>
       </div>
-      <div class="col-auto row q-gutter-sm">
-        <km-btn flat label="Extraction Settings" icon="settings" size="sm" :disable="saving" @click="showExtractionDialog = true" />
-        <km-btn
-          label="Run Extraction"
-          icon="auto_awesome"
-          size="sm"
-          :disable="!canRunExtraction || saving"
-          :loading="runningExtraction"
-          @click="runExtraction"
-        />
-        <km-btn label="New Entity" icon="add" size="sm" :disable="saving" @click="openCreateDialog" />
-      </div>
+      <div v-if="entities.length > 0" class="col-auto row q-gutter-sm" />
     </div>
 
     <q-separator class="q-my-md" />
@@ -42,6 +31,21 @@
     </div>
 
     <div v-else class="q-mt-md">
+      <div class="row items-center q-mb-md q-gutter-sm">
+        <km-btn flat label="New Entity" size="sm" :disable="saving" @click="openCreateDialog" />
+        <km-btn
+          label="Run Extraction"
+          size="sm"
+          :disable="!canRunExtraction || saving"
+          :loading="runningExtraction"
+          @click="runExtraction"
+        />
+        <q-space />
+        <q-btn round flat dense icon="settings" :disable="saving" @click="showExtractionDialog = true">
+          <q-tooltip>Extraction Settings</q-tooltip>
+        </q-btn>
+      </div>
+
       <q-table
         v-model:pagination="pagination"
         flat
@@ -132,7 +136,9 @@
       :loading="saving"
       @confirm="performDelete"
     >
-      <template #warning>This removes the entity definition from the extraction schema. Existing extracted rows are not deleted automatically.</template>
+      <template #warning>
+        This removes the entity definition from the extraction schema. Existing extracted rows are not deleted automatically.
+      </template>
     </kg-confirm-dialog>
   </div>
 </template>
@@ -325,10 +331,7 @@ async function persistEntityExtractionSettings(
       return false
     }
 
-    const nextSettings = withEntityExtractionRunSettings(
-      withEntityDefinitions(baseSettings.value, nextEntities),
-      nextExtractionSettings
-    )
+    const nextSettings = withEntityExtractionRunSettings(withEntityDefinitions(baseSettings.value, nextEntities), nextExtractionSettings)
 
     const response = await fetchData({
       endpoint,
@@ -511,6 +514,11 @@ defineExpose({
 :deep(.q-table thead th) {
   font-size: 14px;
   font-weight: 600;
+}
+
+:deep(.q-table tbody td) {
+  height: 40px;
+  padding: 2px 16px;
 }
 
 .entity-name-cell {

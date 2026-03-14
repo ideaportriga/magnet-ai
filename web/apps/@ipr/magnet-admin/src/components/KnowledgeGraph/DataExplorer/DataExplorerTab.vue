@@ -357,17 +357,18 @@ const performDeleteEntityRecord = async () => {
   }
 }
 
-// Watch for view mode changes
+// Watch for view mode changes — always refresh when switching
 watch(viewMode, (newMode) => {
   selectedEntityType.value = null
-  if (newMode === 'documents' && documents.value.length === 0) {
+  if (newMode === 'documents') {
     fetchDocuments()
-  } else if (newMode === 'entities' && entityTypes.value.length === 0) {
+  } else if (newMode === 'entities') {
     fetchEntityTypes()
   }
 })
 
 onMounted(() => {
+  viewMode.value = 'documents'
   fetchDocuments()
 })
 

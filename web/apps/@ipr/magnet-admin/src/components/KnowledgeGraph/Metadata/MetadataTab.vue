@@ -516,6 +516,7 @@ const fetchExtractedFields = async () => {
           name: String(r.name || '').trim(),
           value_type: (String(r.value_type || 'string') as any) || 'string',
           is_multiple: !!r.is_multiple,
+          is_required: !!r.is_required,
           allowed_values: Array.isArray(r.allowed_values) ? r.allowed_values : undefined,
           llm_extraction_hint: r.llm_extraction_hint ? String(r.llm_extraction_hint) : undefined,
           sample_values: Array.isArray(r.sample_values) ? r.sample_values : undefined,
@@ -774,6 +775,7 @@ const onSmartExtractionFieldSave = async (field: SmartExtractionFieldDefinition)
       name,
       value_type: field.value_type || 'string',
       is_multiple: !!field.is_multiple,
+      is_required: !!field.is_required,
       allowed_values: field.allowed_values?.length ? field.allowed_values : undefined,
       llm_extraction_hint: field.llm_extraction_hint,
     }

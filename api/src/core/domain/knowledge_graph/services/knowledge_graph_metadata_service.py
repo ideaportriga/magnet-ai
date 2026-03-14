@@ -101,6 +101,7 @@ class KnowledgeGraphMetadataService:
                     name=row.name,
                     value_type=str(settings.get("value_type") or "string"),
                     is_multiple=bool(settings.get("is_multiple")),
+                    is_required=bool(settings.get("is_required")),
                     allowed_values=allowed_values,
                     llm_extraction_hint=str(settings.get("llm_extraction_hint") or "")
                     or None,
@@ -133,6 +134,7 @@ class KnowledgeGraphMetadataService:
             str(getattr(data, "value_type", "") or "string").strip() or "string"
         )
         is_multiple = bool(getattr(data, "is_multiple", False))
+        is_required = bool(getattr(data, "is_required", False))
         allowed_values = getattr(data, "allowed_values", None)
         if allowed_values is not None and not isinstance(allowed_values, list):
             allowed_values = None
@@ -143,6 +145,7 @@ class KnowledgeGraphMetadataService:
         settings: dict[str, Any] = {
             "value_type": value_type,
             "is_multiple": is_multiple,
+            "is_required": is_required,
         }
         if allowed_values is not None:
             settings["allowed_values"] = allowed_values
@@ -180,6 +183,7 @@ class KnowledgeGraphMetadataService:
             name=row.name,
             value_type=str(settings.get("value_type") or "string"),
             is_multiple=bool(settings.get("is_multiple")),
+            is_required=bool(settings.get("is_required")),
             allowed_values=allowed_values_out,
             llm_extraction_hint=str(settings.get("llm_extraction_hint") or "") or None,
             sample_values=row.sample_values,

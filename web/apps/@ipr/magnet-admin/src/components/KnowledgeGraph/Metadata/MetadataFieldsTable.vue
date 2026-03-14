@@ -692,7 +692,6 @@ watch([() => props.definedFields?.length, () => props.discoveredFields?.length],
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 8px 0;
 }
 
 /* Board lanes container */

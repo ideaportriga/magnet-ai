@@ -4,25 +4,26 @@
     description="Define the columns (attributes) for this entity. Mark one column as the identifier to serve as a unique key."
     icon="o_view_column"
     icon-color="teal"
-    border-color="#c8e6c9"
-    background-color="#f1f8e9"
   >
-    <template #header-actions>
-      <q-btn no-caps flat dense color="teal-8" icon="add" label="Add Column" class="entity-add-col-btn" @click="addColumn" />
-    </template>
-
     <div class="entity-columns-list">
       <div v-if="columns.length === 0" class="entity-columns-empty">
         <q-icon name="o_view_column" size="28px" color="grey-4" />
         <div class="text-grey-6 text-caption q-mt-xs">No columns defined yet</div>
+        <q-btn no-caps unelevated color="teal-8" icon="add" label="Add Column" class="entity-add-col-btn q-mt-sm" @click="addColumn" />
       </div>
 
       <div v-for="(col, idx) in columns" :key="col.id" class="entity-column-card" :class="{ 'entity-column-card--identifier': col.is_identifier }">
         <div class="entity-column-header" @click="toggleColumnExpand(col.id)">
           <div class="entity-column-header__left">
-            <q-icon :name="expandedColumns.has(col.id) ? 'expand_less' : 'expand_more'" size="20px" color="grey-6" class="entity-column-toggle-icon" />
+            <q-icon
+              :name="expandedColumns.has(col.id) ? 'expand_less' : 'expand_more'"
+              size="20px"
+              color="grey-6"
+              class="entity-column-toggle-icon"
+            />
             <span class="entity-column-name" :class="{ 'text-grey-5': !col.name }">{{ col.name || 'Unnamed' }}</span>
             <q-badge v-if="col.is_identifier" color="amber-8" text-color="white" class="entity-column-id-badge">ID</q-badge>
+            <q-badge v-if="col.is_required" color="blue-7" text-color="white" class="entity-column-id-badge">REQ</q-badge>
           </div>
           <div class="entity-column-header__right">
             <q-btn flat dense round icon="delete_outline" size="sm" color="red-5" class="entity-col-action-btn" @click.stop="removeColumn(idx)" />
@@ -31,8 +32,7 @@
 
         <div v-if="expandedColumns.has(col.id)" class="entity-column-body">
           <div class="entity-column-grid">
-            <div class="entity-col-field entity-col-field--name">
-              <div class="entity-col-field-label">Column name</div>
+            <kg-field-row :cols="1" label="Column name">
               <km-input
                 :model-value="col.name"
                 outlined
@@ -41,26 +41,22 @@
                 class="entity-col-control entity-col-field-name"
                 @update:model-value="updateColumnName(idx, $event)"
               />
-            </div>
+            </kg-field-row>
 
-            <div class="entity-col-field entity-col-field--type">
-              <div class="entity-col-field-label">Type</div>
+            <kg-field-row :cols="1" label="Type">
               <kg-dropdown-field
                 :model-value="col.type"
                 :options="columnTypeOptions"
                 placeholder="Select type"
                 option-value="value"
                 option-label="label"
-                class="entity-col-control entity-col-field-type"
+                dense
+                class="entity-col-control"
                 @update:model-value="updateColumnType(idx, $event)"
               />
-            </div>
+            </kg-field-row>
 
-            <div class="entity-col-field entity-col-field--identifier">
-              <div class="entity-col-field-heading">
-                <span class="entity-col-field-label">Identifier</span>
-                <span class="entity-col-field-hint">Only one per entity</span>
-              </div>
+            <kg-field-row :cols="1" label="Identifier" class="entity-col-field--identifier">
               <div
                 class="entity-col-identifier-toggle"
                 :class="{ 'entity-col-identifier-toggle--active': col.is_identifier }"
@@ -84,10 +80,34 @@
                   @click.stop
                 />
               </div>
-            </div>
+            </kg-field-row>
 
-            <div class="entity-col-field entity-col-field--description">
-              <div class="entity-col-field-label">Description</div>
+            <kg-field-row :cols="1" label="Required" class="entity-col-field--required">
+              <div
+                class="entity-col-identifier-toggle entity-col-required-toggle"
+                :class="{ 'entity-col-required-toggle--active': col.is_required, 'entity-col-required-toggle--locked': col.is_identifier }"
+                :role="col.is_identifier ? undefined : 'button'"
+                :tabindex="col.is_identifier ? -1 : 0"
+                :aria-pressed="col.is_required"
+                @click="!col.is_identifier && updateColumn(idx, { is_required: !col.is_required })"
+                @keydown.enter.prevent="!col.is_identifier && updateColumn(idx, { is_required: !col.is_required })"
+                @keydown.space.prevent="!col.is_identifier && updateColumn(idx, { is_required: !col.is_required })"
+              >
+                <span class="entity-col-identifier-toggle__label">
+                  {{ col.is_required ? 'Required field' : 'Mark as required' }}
+                </span>
+                <q-toggle
+                  :model-value="col.is_required"
+                  :disable="col.is_identifier"
+                  dense
+                  size="sm"
+                  @update:model-value="!col.is_identifier && updateColumn(idx, { is_required: $event })"
+                  @click.stop
+                />
+              </div>
+            </kg-field-row>
+
+            <kg-field-row :cols="1" label="Description" class="entity-col-field--description">
               <km-input
                 :model-value="col.description"
                 outlined
@@ -98,17 +118,22 @@
                 :input-style="{ minHeight: '84px', maxHeight: '160px' }"
                 @update:model-value="updateColumnDescription(idx, $event)"
               />
-            </div>
+            </kg-field-row>
           </div>
         </div>
       </div>
+
+      <button v-if="columns.length > 0" class="entity-add-col-btn-dashed" @click="addColumn">
+        <q-icon name="add" size="16px" />
+        <span>Add Column</span>
+      </button>
     </div>
   </kg-dialog-section>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { KgDialogSection, KgDropdownField } from '../common'
+import { KgDialogSection, KgDropdownField, KgFieldRow } from '../common'
 import { ColumnTypeOptions, createEmptyColumn, type EntityColumn, type EntityColumnType } from './models'
 
 interface Props {
@@ -201,7 +226,8 @@ function setIdentifier(idx: number, value: boolean) {
   emitColumns(
     props.columns.map((column, index) => {
       if (value) {
-        return { ...column, is_identifier: index === idx }
+        // The column being set as identifier is also forced required
+        return { ...column, is_identifier: index === idx, ...(index === idx ? { is_required: true } : {}) }
       }
 
       if (index === idx) {
@@ -219,6 +245,32 @@ function setIdentifier(idx: number, value: boolean) {
   font-size: 12px;
   font-weight: 600;
   border-radius: 6px;
+}
+
+.entity-add-col-btn-dashed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #00796b;
+  background: transparent;
+  border: 1.5px dashed #b2dfdb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.entity-add-col-btn-dashed:hover {
+  border-color: #00796b;
+  background: #e0f2f1;
+  color: #004d40;
 }
 
 .entity-columns-list {
@@ -333,39 +385,13 @@ function setIdentifier(idx: number, value: boolean) {
 
 .entity-column-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(160px, 0.9fr) minmax(220px, 1fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(160px, 0.9fr) minmax(180px, 0.85fr) minmax(180px, 0.85fr);
   gap: 12px;
   align-items: start;
 }
 
-.entity-col-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
 .entity-col-field--description {
   grid-column: 1 / -1;
-}
-
-.entity-col-field-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.entity-col-field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #4f5b67;
-}
-
-.entity-col-field-hint {
-  font-size: 11px;
-  color: #8a94a6;
-  white-space: nowrap;
 }
 
 .entity-col-control :deep(.q-field__control) {
@@ -414,6 +440,11 @@ function setIdentifier(idx: number, value: boolean) {
   box-shadow: inset 0 0 0 1px rgba(240, 192, 64, 0.12);
 }
 
+.entity-col-required-toggle--locked {
+  cursor: default;
+  opacity: 0.75;
+}
+
 .entity-col-identifier-toggle__label {
   min-width: 0;
   font-size: 13px;
@@ -426,7 +457,8 @@ function setIdentifier(idx: number, value: boolean) {
     grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
   }
 
-  .entity-col-field--identifier {
+  .entity-col-field--identifier,
+  .entity-col-field--required {
     grid-column: 1 / -1;
   }
 }
@@ -434,10 +466,6 @@ function setIdentifier(idx: number, value: boolean) {
 @media (max-width: 720px) {
   .entity-column-grid {
     grid-template-columns: 1fr;
-  }
-
-  .entity-col-field-hint {
-    white-space: normal;
   }
 }
 </style>
