@@ -33,6 +33,8 @@ class ContentReaderName(StrEnum):
     PDF = "pdf"
     PLAIN_TEXT = "plain_text"
     KREUZBERG = "kreuzberg"
+    SHAREPOINT_PAGE = "sharepoint_page"
+    FLUID_TOPICS_STRUCTURED_DOCUMENTS = "fluid_topics_structured_documents"
 
 
 class ChunkerStrategy(StrEnum):
@@ -74,7 +76,7 @@ class ContentConfig(BaseModel):
     )
     source_ids: list[str] = Field(
         default_factory=list,
-        description="List of source IDs to match. If specified, both glob_pattern AND source_ids must match (AND logic). If empty, matches all sources.",
+        description="List of source selectors to match. Entries may be concrete source IDs or virtual selectors such as __GROUP__<type>. If specified, both glob_pattern AND source_ids must match (AND logic). If empty, matches all sources.",
     )
     source_types: list[str] = Field(
         default_factory=list,
@@ -100,6 +102,8 @@ class ContentConfig(BaseModel):
                 "splitters": ["\n\n", "\n", " ", ""],
                 # Optional prompt template for LLM-based chunking
                 "prompt_template_system_name": "",
+                # Optional pattern for document title generation
+                "document_title_pattern": "",
                 # Optional pattern for chunk title generation
                 "chunk_title_pattern": "",
             },
@@ -111,8 +115,18 @@ class ContentConfig(BaseModel):
 class LoadedContent(TypedDict):
     """Result of loading content from raw bytes."""
 
+    raw_text: str
     text: str
     metadata: dict[str, Any]
+
+
+class ContentReaderContext(TypedDict, total=False):
+    """Optional runtime context passed to content readers."""
+
+    document_url: str
+    site_url: str
+    server_relative_url: str
+    filename: str
 
 
 @dataclass(frozen=True)
@@ -186,7 +200,11 @@ class SyncCounters:
 
 @dataclass
 class StoreDocumentResult:
-    """Result of store_document: either a metadata-only update or a new/updated document."""
+    """Result of store_document: either a metadata-only update or a new/updated document.
+
+    - ``document=None``: metadata-only DB update was applied (content hash matched).
+    - ``document=<dict>``: new or updated document was created/upserted.
+    """
 
     document: dict[str, Any] | None = None
     loaded_content: LoadedContent | None = None

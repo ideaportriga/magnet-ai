@@ -2,6 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.45](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.44...v0.6.0-dev.45) (2026-03-12)
+
+### ✨ Features
+
+* **kg:** implemented new reader for confluence ([ea3e9a5](https://github.com/ideaportriga/magnet-ai/commit/ea3e9a5f27867cae57aeafdbded7cfc8f35895bf))
+
+## [0.6.0-dev.44](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.43...v0.6.0-dev.44) (2026-03-12)
+
+### 🐛 Bug Fixes
+
+* **models table:**  fix small resolution pagginataion issue ([961279c](https://github.com/ideaportriga/magnet-ai/commit/961279c7515eb98723978d3282669a5db446b6b4))
+
+## [0.6.0-dev.43](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.42...v0.6.0-dev.43) (2026-03-11)
+
+### 🐛 Bug Fixes
+
+* **kg:** made quiries optimzation for knowledge graphs and traces ([0b9ed5c](https://github.com/ideaportriga/magnet-ai/commit/0b9ed5c01d4a913cbfd4062a5f6b6a457fbca0e1))
+
+## [0.6.0-dev.42](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.41...v0.6.0-dev.42) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** implemented new reader for sharepoint pages ([837698e](https://github.com/ideaportriga/magnet-ai/commit/837698e11a811c70c3fd11cc69170a4600611be4))
+
+## [0.6.0-dev.41](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.40...v0.6.0-dev.41) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** improve salesforce knowledge source provider param setting ([c314dcc](https://github.com/ideaportriga/magnet-ai/commit/c314dcc253a57c92e58997158fa5bc6b810ee32a))
+
+## [0.6.0-dev.40](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.39...v0.6.0-dev.40) (2026-03-10)
+
+### ✨ Features
+
+* **prompttemplate:** enhance prompt template component with preview and code view modes ([7e42589](https://github.com/ideaportriga/magnet-ai/commit/7e42589a2707478532817ab2e7261257c24919c4))
+
+## [0.6.0-dev.39](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.38...v0.6.0-dev.39) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** introduce salesforce source type ([125ab37](https://github.com/ideaportriga/magnet-ai/commit/125ab3708c167272f563b70afbb4a551efe02e37))
+
+## [0.6.0-dev.38](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.37...v0.6.0-dev.38) (2026-03-09)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed fluid topics sync issue reading incorrect document id field ([2322aab](https://github.com/ideaportriga/magnet-ai/commit/2322aab42e5c2a2450ddd326f6657e092155c821))
+
+## [0.6.0-dev.37](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.36...v0.6.0-dev.37) (2026-03-07)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed agent filter generation, now it used additional prompt to create filter object ([9af96ad](https://github.com/ideaportriga/magnet-ai/commit/9af96adde7bf850f89fe061bf7be915031006c05))
+
+## [0.6.0-dev.36](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.35...v0.6.0-dev.36) (2026-03-06)
+
+### ✨ Features
+
+* **kg:** quality of life improvements for knowledge graph content profiles ([7d9e544](https://github.com/ideaportriga/magnet-ai/commit/7d9e5440e06d0b796e7f35f409131ec104274ec5))
+
+## [0.6.0-dev.35](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.34...v0.6.0-dev.35) (2026-03-06)
+
+### 🐛 Bug Fixes
+
+* import/export functionality fix ([92e8710](https://github.com/ideaportriga/magnet-ai/commit/92e8710f8815b2e293b501266fbf74a453d9d9d5))
+
 ## [0.6.0-dev.34](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.33...v0.6.0-dev.34) (2026-03-05)
 
 ### ✨ Features

@@ -463,7 +463,7 @@ defineExpose({
 }
 
 :deep(tr:hover .sticky-col) {
-  background: #f5f5f5;
+  background: white;
 }
 
 :deep(thead th:last-child) {

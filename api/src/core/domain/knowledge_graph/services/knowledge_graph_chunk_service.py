@@ -89,7 +89,7 @@ class KnowledgeGraphChunkService:
         graph_id: UUID | str,
         document: dict[str, Any],
         chunks: list[KnowledgeGraphChunk],
-    ) -> int:
+    ) -> None:
         """Insert chunks for a document into the per-graph chunks table.
 
         Notes:
@@ -102,7 +102,7 @@ class KnowledgeGraphChunkService:
         """
 
         if not chunks:
-            return 0
+            return
 
         doc_id_raw = document.get("id")
         if not doc_id_raw:
@@ -163,10 +163,9 @@ class KnowledgeGraphChunkService:
             )
 
         if not rows:
-            return 0
+            return
 
         await db_session.execute(insert(chunks_tbl), rows)
-        return len(rows)
 
     async def search_chunks(
         self,

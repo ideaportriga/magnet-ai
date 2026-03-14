@@ -1,10 +1,10 @@
 <template>
-  <q-dialog v-model="dialogOpen" :persistent="isDirty">
+  <q-dialog v-model="dialogOpen" :persistent="!isReadonlyProfile && isDirty">
     <q-card class="q-px-lg q-py-sm" style="min-width: 800px; max-width: 800px; height: 820px; display: flex; flex-direction: column">
       <q-card-section>
         <div class="row items-center">
           <div class="col">
-            <div class="km-heading-7">{{ isEditing ? 'Edit' : 'Add' }} Content Configuration</div>
+            <div class="km-heading-7">{{ dialogTitle }}</div>
           </div>
           <div class="col-auto">
             <q-btn icon="close" flat dense @click="cancel" />
@@ -20,14 +20,20 @@
               <div class="col-6">
                 <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Name</div>
                 <div class="km-description text-secondary-text q-mt-xs q-mb-md">Set profile name for this content configuration.</div>
-                <km-input ref="nameRef" v-model="form.name" :rules="[required()]" :disable="isEditing" required />
+                <km-input ref="nameRef" v-model="form.name" :rules="nameRules" :readonly="isLockedNativeProfile || isReadonlyProfile" required />
               </div>
 
               <!-- Content Reader -->
               <div class="col-6">
                 <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Reader</div>
                 <div class="km-description text-secondary-text q-mt-xs q-mb-md">Select tool used to read the content.</div>
-                <km-select v-model="form.reader.name" :options="readerOptions" emit-value map-options />
+                <km-select
+                  v-model="form.reader.name"
+                  :options="isLockedNativeProfile || isReadonlyProfile ? readerOptions : selectableReaderOptions"
+                  :disable="isLockedNativeProfile || isReadonlyProfile"
+                  emit-value
+                  map-options
+                />
               </div>
             </div>
           </div>
@@ -35,48 +41,61 @@
           <div class="q-mb-lg">
             <!-- Content Matching -->
             <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Matching</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
-              Select sources and file pattern to which this configuration applies. Use glob pattern syntax to match content, separate multiple
-              patterns with commas. If source doesn't support file pattern, leave it blank - empty pattern matches all content.
+            <div class="km-description text-secondary-text q-mt-xs q-mb-sm">
+              Choose which content this profile should apply to by editing the highlighted parts below.
             </div>
-            <div class="row q-col-gutter-lg">
-              <!-- Sources -->
-              <div class="col-6">
-                <div class="km-input-label q-pb-sm">Sources</div>
-                <kg-dropdown-field
-                  v-model="sourceIdsModel"
-                  :options="sourceOptions"
-                  placeholder="Select sources"
-                  option-value="value"
-                  option-label="label"
-                  multiple
-                  dense
-                  show-all-option
-                  all-option-label="All Sources"
-                />
-              </div>
-              <!-- File pattern -->
-              <div class="col-6">
-                <div class="km-input-label q-pb-sm">File Pattern</div>
-                <km-input v-model="form.glob_pattern" placeholder="e.g., *.pdf" />
-              </div>
+            <div class="content-matching-sentence q-mt-md">
+              <template v-if="isReadonlyProfile">
+                <span>This built-in profile is automatically used only when no other content profile matches.</span>
+              </template>
+              <template v-else-if="isLockedNativeProfile">
+                <span>This profile automatically applies to all Fluid Topics sources.</span>
+              </template>
+              <template v-else>
+                <span>Apply this profile matching</span>
+                <kg-inline-field tooltip="Glob pattern (e.g. *.pdf). Separate multiple patterns with commas. Leave empty to match all.">
+                  <input
+                    v-model="form.glob_pattern"
+                    class="kg-inline-field__input"
+                    placeholder="any file"
+                    spellcheck="false"
+                    :style="{ width: patternInputWidth }"
+                  >
+                </kg-inline-field>
+                <span>pattern from</span>
+                <source-tree-dropdown v-model="sourceIdsModel" :sources="sources || []" />
+              </template>
             </div>
           </div>
 
           <div class="q-mb-lg">
             <!-- Chunking Strategy -->
             <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Strategy</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">Select the strategy used to split content into chunks.</div>
+            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+              {{
+                isReadonlyProfile
+                  ? 'This built-in fallback always uses the Plain Text Reader and keeps the content as a single chunk up to the maximum size.'
+                  : isLockedNativeProfile
+                    ? 'Structured Fluid Topics content is already chunked upstream, so this reader always uses the built-in pre-chunked flow.'
+                    : 'Select the strategy used to split content into chunks.'
+              }}
+            </div>
             <div class="row q-col-gutter-lg items-center">
               <div class="col-4">
-                <km-select v-model="form.chunker.strategy" :options="chunkingStrategyOptions" emit-value map-options />
+                <km-select
+                  v-model="form.chunker.strategy"
+                  :options="chunkingStrategyOptions"
+                  emit-value
+                  map-options
+                  :disable="isLockedNativeProfile || isReadonlyProfile"
+                />
               </div>
               <div class="col-8">
                 <div class="km-description">{{ selectedChunkingStrategyDescription }}</div>
               </div>
             </div>
             <div
-              v-if="isLLMStrategy"
+              v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy"
               class="km-description q-mt-lg row items-center q-gap-8 q-pa-md rounded-borders bg-yellow-1 text-yellow-10"
               style="border: 1px solid var(--q-warning)"
             >
@@ -85,7 +104,7 @@
             </div>
           </div>
 
-          <template v-if="isLLMStrategy">
+          <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy">
             <div class="q-mb-lg">
               <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Prompt</div>
               <div class="km-description text-secondary-text q-mt-xs q-mb-md">Select a prompt template to use for chunking.</div>
@@ -120,7 +139,7 @@
             </div>
           </template>
 
-          <template v-if="isLLMStrategy">
+          <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy">
             <div class="q-mb-lg">
               <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Handling Content Size</div>
               <div class="km-description text-secondary-text q-mt-xs q-mb-md">
@@ -166,7 +185,7 @@
             </div>
           </template>
 
-          <template v-if="isRecursiveStrategy">
+          <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isRecursiveStrategy">
             <div class="q-mb-lg">
               <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Settings</div>
               <div class="km-description text-secondary-text q-mt-xs q-mb-md">
@@ -259,7 +278,7 @@
             </div>
             <div>
               <div class="km-input-label q-pb-xs">Document Title</div>
-              <km-input v-model="form.chunker.options.document_title_pattern" placeholder="e.g., {title} — {filename}">
+              <km-input v-model="form.chunker.options.document_title_pattern" :readonly="isReadonlyProfile" placeholder="e.g., {title} — {filename}">
                 <template #append>
                   <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
                   <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
@@ -299,7 +318,11 @@
             <div class="row q-col-gutter-lg q-mb-md">
               <div class="col-8">
                 <div class="km-input-label q-pb-xs">Chunk Title</div>
-                <km-input v-model="form.chunker.options.chunk_title_pattern" placeholder="e.g., Chunk {index} — Page {page}">
+                <km-input
+                  v-model="form.chunker.options.chunk_title_pattern"
+                  :readonly="isReadonlyProfile"
+                  placeholder="e.g., Chunk {index} — Page {page}"
+                >
                   <template #append>
                     <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
                     <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
@@ -338,7 +361,7 @@
               </div>
               <div class="col-4">
                 <div class="km-input-label q-pb-xs">Chunk Max Size (characters)</div>
-                <km-input v-model.number="form.chunker.options.chunk_max_size" type="number" min="100" required />
+                <km-input v-model.number="form.chunker.options.chunk_max_size" :readonly="isReadonlyProfile" type="number" min="100" required />
               </div>
             </div>
           </div>
@@ -346,23 +369,11 @@
       </q-card-section>
 
       <q-card-actions class="q-py-lg q-pr-lg">
-        <km-btn label="Cancel" flat color="primary" @click="cancel" />
-        <km-btn v-if="isEditing" flat icon="fas fa-trash" icon-size="14px" icon-color="negative" class="q-ml-sm" @click="confirmDelete" />
-        <q-space />
-        <km-btn label="Save" @click="save" />
+        <km-btn :label="dismissLabel" flat color="primary" @click="cancel" />
+        <q-space v-if="!isReadonlyProfile" />
+        <km-btn v-if="!isReadonlyProfile" label="Save" @click="save" />
       </q-card-actions>
     </q-card>
-
-    <!-- Delete Content Config Dialog -->
-    <kg-confirm-dialog
-      v-model="showDeleteDialog"
-      title="Delete content configuration"
-      icon="delete_outline"
-      :description="`Are you sure you want to delete '${form.name}'?`"
-      confirm-label="Delete"
-      destructive
-      @confirm="performDelete"
-    />
   </q-dialog>
 </template>
 
@@ -372,21 +383,41 @@ import { fetchData, required } from '@shared'
 import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { KgConfirmDialog, KgDropdownField } from '../common'
+import KgInlineField from '../common/KgInlineField.vue'
 import type { SourceRow } from '../Sources/models'
-import { chunkingStrategyOptions, readerOptions } from './models'
+import type { ContentConfigRow } from './models'
+import {
+  chunkingStrategyOptions,
+  FLUID_TOPICS_NATIVE_PROFILE_NAME,
+  FLUID_TOPICS_SOURCE_TYPE,
+  FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_KEY,
+  FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_VALUE,
+  FLUID_TOPICS_STRUCTURED_READER,
+  hasDuplicateContentProfileName,
+  hasReservedFluidTopicsNativeProfileName,
+  hasReservedVirtualFallbackProfileName,
+  isLockedFluidTopicsNativeProfile,
+  isVirtualFallbackContentProfile,
+  readerOptions,
+  selectableReaderOptions,
+  SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME,
+  SHAREPOINT_PAGE_READER,
+  SHAREPOINT_SOURCE_TYPE,
+  VIRTUAL_FALLBACK_PROFILE_NAME,
+} from './models'
+import SourceTreeDropdown from './SourceTreeDropdown.vue'
 
 const props = defineProps<{
   showDialog: boolean
-  config?: any
+  config?: ContentConfigRow
   sources?: SourceRow[]
+  existingConfigs?: ContentConfigRow[]
 }>()
 
 const emit = defineEmits<{
   (e: 'update:showDialog', value: boolean): void
   (e: 'save', value: any): void
   (e: 'cancel'): void
-  (e: 'delete', value: string): void
 }>()
 
 const dialogOpen = computed({
@@ -423,57 +454,126 @@ const loadTemplates = async () => {
   }
 }
 
-// Compute source options from props.sources
-const sourceOptions = computed(() => {
-  return (props.sources || []).map((s) => ({
-    value: s.id,
-    label: s.name,
-  }))
-})
+// Source selection helpers
+const ALL_SOURCES_KEY = '__ALL__'
+const NONE_SELECTED_KEY = '__NONE__'
+const groupKey = (type: string) => `__GROUP__${type}`
+const FLUID_TOPICS_GROUP_KEY = groupKey(FLUID_TOPICS_SOURCE_TYPE)
+const SHAREPOINT_GROUP_KEY = groupKey(SHAREPOINT_SOURCE_TYPE)
+const mapLegacySourceTypesToSelectors = (legacyTypes: string[]) => {
+  const typeSet = new Set((legacyTypes || []).map((t) => String(t)).filter(Boolean))
+  return [...typeSet].map((type) => groupKey(type))
+}
 
-const allSourceIds = computed(() => sourceOptions.value.map((o) => o.value))
+const applyLockedNativeProfileConstraints = (target: ReturnType<typeof getDefaultForm>) => {
+  target.name = FLUID_TOPICS_NATIVE_PROFILE_NAME
+  target.enabled = true
+  target.glob_pattern = ''
+  target.reader.name = FLUID_TOPICS_STRUCTURED_READER
+  target.reader.options = {
+    ...(target.reader.options || {}),
+    [FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_KEY]: FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_VALUE,
+  }
+  target.chunker.strategy = 'none'
+  target.source_ids = [FLUID_TOPICS_GROUP_KEY]
+}
 
-const pendingLegacySourceTypes = ref<string[] | null>(null)
-const mapLegacySourceTypesToSourceIds = (legacyTypes: string[]) => {
-  const typeSet = new Set((legacyTypes || []).map((t) => String(t)))
-  return (props.sources || []).filter((s) => typeSet.has(String(s.type))).map((s) => s.id)
+const applyReadonlyFallbackConstraints = (target: ReturnType<typeof getDefaultForm>) => {
+  target.name = VIRTUAL_FALLBACK_PROFILE_NAME
+  target.enabled = true
+  target.glob_pattern = ''
+  target.source_ids = []
+  target.reader = {
+    name: 'plain_text',
+    options: {},
+  }
+  target.chunker = {
+    strategy: 'none',
+    options: {
+      llm_batch_size: 15000,
+      llm_batch_overlap: 0.1,
+      llm_last_segment_increase: 0,
+      recursive_chunk_size: 15000,
+      recursive_chunk_overlap: 0.1,
+      chunk_max_size: 15000,
+      splitters: ['\n\n', '\n', ' ', ''],
+      prompt_template_system_name: '',
+      document_title_pattern: '',
+      chunk_title_pattern: '',
+    },
+  }
+}
+
+const applySharePointPageDefaults = (target: ReturnType<typeof getDefaultForm>) => {
+  if (!String(target.glob_pattern || '').trim()) {
+    target.glob_pattern = '*.aspx'
+  }
+
+  if (!Array.isArray(target.source_ids) || target.source_ids.length === 0 || target.source_ids.includes(NONE_SELECTED_KEY)) {
+    target.source_ids = [SHAREPOINT_GROUP_KEY]
+  }
+
+  if (!target.chunker?.strategy || target.chunker.strategy === 'recursive_character_text_splitting' || target.chunker.strategy === 'none') {
+    target.chunker.strategy = 'llm'
+  }
+
+  if (!String(target.chunker?.options?.prompt_template_system_name || '').trim()) {
+    target.chunker.options.prompt_template_system_name = SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME
+  }
 }
 
 // Bridge UI ↔ stored semantics:
-// - UI shows "All Sources" selected by default
-// - stored `source_ids: []` means "all sources" (keeps it future-proof as sources change)
+// - UI uses __ALL__, __GROUP__type, __NONE__, or individual IDs
+// - stored `source_ids: []` means "all sources" (backwards compatible)
+// - stored `source_ids: ['__NONE__']` means explicitly no sources
+// - stored `source_ids: ['__GROUP__type', ...]` means type groups
+// - stored `source_ids: [ids...]` means specific sources
+// Items are independent - no auto-collapsing of individual sources into groups.
+// Group selectors are stored as virtual markers so future sources of that type
+// inherit the selection automatically.
 const sourceIdsModel = computed<string[]>({
   get: () => {
     const stored = Array.isArray(form.value.source_ids) ? form.value.source_ids : []
-    if (stored.length === 0) {
-      return allSourceIds.value
+
+    // Explicit "none" marker
+    if (stored.includes(NONE_SELECTED_KEY)) {
+      return []
     }
+
+    // Empty = all sources (backwards compatible)
+    if (stored.length === 0) {
+      return [ALL_SOURCES_KEY]
+    }
+
+    // Return stored values as-is (group keys and individual IDs are stored directly)
     return stored
   },
-  set: (value) => {
-    const incoming = Array.isArray(value) ? value.filter(Boolean) : []
-    const all = allSourceIds.value
+  set: (uiValue) => {
+    const incoming = Array.isArray(uiValue) ? uiValue.filter(Boolean) : []
 
-    // If there are no sources yet, keep "all" semantics (stored empty)
-    if (all.length === 0) {
+    // __ALL__ = store empty array (backwards compatible)
+    if (incoming.includes(ALL_SOURCES_KEY)) {
       form.value.source_ids = []
       return
     }
 
-    // Treat empty selection as "All" (the UI should always have at least one)
+    // Empty selection = store explicit "none" marker
     if (incoming.length === 0) {
-      form.value.source_ids = []
+      form.value.source_ids = [NONE_SELECTED_KEY]
       return
     }
 
-    const isAllSelected = all.every((id) => incoming.includes(id))
-    form.value.source_ids = isAllSelected ? [] : incoming
+    // Store selectors as-is (group keys remain virtual; source IDs stay explicit)
+    form.value.source_ids = [...new Set(incoming)]
   },
 })
 
-const selectedChunkingStrategyDescription = computed(() => {
-  const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
-  return option?.description || ''
+const patternInputWidth = computed(() => {
+  const value = form.value.glob_pattern || ''
+  if (!value) {
+    return '8ch'
+  }
+  return `${value.length + 1}ch`
 })
 
 const getDefaultForm = () => ({
@@ -514,11 +614,59 @@ const promptTemplateRef = ref()
 const newSplitter = ref('')
 const showNewSplitterInput = ref(false)
 const newSplitterInput = ref()
-
-// Computed properties for conditional rendering
+const isHydratingForm = ref(false)
+const isReadonlyProfile = computed(() => isEditing.value && isVirtualFallbackContentProfile(props.config ?? form.value))
+const dialogTitle = computed(() => (isReadonlyProfile.value ? 'View Content Profile' : `${isEditing.value ? 'Edit' : 'Add'} Content Profile`))
+const dismissLabel = computed(() => (isReadonlyProfile.value ? 'Close' : 'Cancel'))
+const isLockedNativeProfile = computed(() => isEditing.value && isLockedFluidTopicsNativeProfile(props.config ?? form.value))
+const isSharePointPageReader = computed(() => form.value.reader.name === SHAREPOINT_PAGE_READER)
 const isLLMStrategy = computed(() => form.value.chunker.strategy === 'llm')
 const isRecursiveStrategy = computed(() => form.value.chunker.strategy === 'recursive_character_text_splitting')
 const isDirty = computed(() => JSON.stringify(form.value) !== JSON.stringify(initialFormState.value))
+const selectedChunkingStrategyDescription = computed(() => {
+  if (isReadonlyProfile.value) {
+    return 'This fallback profile stores the content as a single plain-text chunk and truncates only if it exceeds the maximum size.'
+  }
+
+  if (isLockedNativeProfile.value) {
+    return 'This reader keeps upstream Fluid Topics chunk boundaries and skips strategy-driven splitting.'
+  }
+
+  const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
+  return option?.description || ''
+})
+
+const validateReservedProfileName = (value: string) => {
+  if (isLockedNativeProfile.value || isReadonlyProfile.value) {
+    return true
+  }
+
+  if (hasReservedFluidTopicsNativeProfileName(value)) {
+    return 'This name is reserved for the Fluid Topics native profile.'
+  }
+
+  if (hasReservedVirtualFallbackProfileName(value)) {
+    return 'This name is reserved for the built-in fallback content profile.'
+  }
+
+  return true
+}
+
+const validateDuplicateProfileName = (value: string) => {
+  if (isLockedNativeProfile.value || isReadonlyProfile.value) {
+    return true
+  }
+
+  if (!String(value || '').trim()) {
+    return true
+  }
+
+  return hasDuplicateContentProfileName(value, props.existingConfigs || [], props.config?.name)
+    ? 'A content profile with this name already exists.'
+    : true
+}
+
+const nameRules = [required(), validateReservedProfileName, validateDuplicateProfileName]
 
 // Splitter management functions
 const formatSplitterDisplay = (splitter: string): string => {
@@ -569,14 +717,13 @@ const cancelAddSplitter = () => {
 }
 
 const initForm = () => {
+  isHydratingForm.value = true
   if (props.config) {
     isEditing.value = true
 
     // Parse chunker config
     const chunkerStrategy = props.config.chunker?.strategy || 'recursive_character_text_splitting'
     const chunkerOptions = props.config.chunker?.options || {}
-    // Backward compatibility: map old keys batch_size/batch_overlap if present
-    const hasLegacy = typeof chunkerOptions.batch_size !== 'undefined' || typeof chunkerOptions.batch_overlap !== 'undefined'
     const normalizedOptions: any = {
       llm_batch_size: chunkerOptions.llm_batch_size ?? chunkerOptions.batch_size ?? 18000,
       llm_batch_overlap: chunkerOptions.llm_batch_overlap ?? chunkerOptions.batch_overlap ?? 0.1,
@@ -597,13 +744,11 @@ const initForm = () => {
     // Backward compatibility:
     // - prefer explicit source_ids
     // - if only legacy source_types exist, map them to current sources (best-effort)
-    pendingLegacySourceTypes.value = null
     let initialSourceIds: string[] = []
     if (Array.isArray(props.config.source_ids)) {
       initialSourceIds = props.config.source_ids
     } else if (Array.isArray(props.config.source_types) && props.config.source_types.length > 0) {
-      pendingLegacySourceTypes.value = props.config.source_types
-      initialSourceIds = mapLegacySourceTypesToSourceIds(props.config.source_types)
+      initialSourceIds = mapLegacySourceTypesToSelectors(props.config.source_types)
     }
 
     form.value = {
@@ -612,7 +757,7 @@ const initForm = () => {
       glob_pattern: props.config.glob_pattern || '',
       source_ids: initialSourceIds,
       reader: {
-        name: props.config.reader?.name || 'default',
+        name: props.config.reader?.name || 'plain_text',
         options: props.config.reader?.options || {},
       },
       chunker: {
@@ -620,12 +765,18 @@ const initForm = () => {
         options: normalizedOptions,
       },
     }
+
+    if (isVirtualFallbackContentProfile(props.config)) {
+      applyReadonlyFallbackConstraints(form.value)
+    } else if (isLockedFluidTopicsNativeProfile(props.config)) {
+      applyLockedNativeProfileConstraints(form.value)
+    }
   } else {
     isEditing.value = false
     form.value = getDefaultForm()
-    pendingLegacySourceTypes.value = null
   }
   initialFormState.value = JSON.parse(JSON.stringify(form.value))
+  isHydratingForm.value = false
 }
 
 const cancel = () => {
@@ -641,10 +792,15 @@ const openPromptTemplateInNewTab = () => {
 }
 
 const save = async () => {
+  if (isReadonlyProfile.value) {
+    return
+  }
+
   let isValid = true
+  form.value.name = String(form.value.name || '').trim()
 
   // Validate required fields before submitting
-  const isNameValid = (nameRef.value as any)?.validate?.() !== false
+  const isNameValid = isLockedNativeProfile.value || (nameRef.value as any)?.validate?.() !== false
   if (!isNameValid) {
     isValid &&= false
   }
@@ -662,24 +818,37 @@ const save = async () => {
   }
 
   const formData = JSON.parse(JSON.stringify(form.value))
+  formData.name = String(formData.name || '').trim()
+
+  if (Array.isArray(formData.source_ids)) {
+    formData.source_ids = [...new Set(formData.source_ids.filter(Boolean))]
+  }
+
+  if (isLockedNativeProfile.value) {
+    applyLockedNativeProfileConstraints(formData)
+  }
 
   // Emit the configuration upwards for parent-managed saving
   emit('save', formData)
   dialogOpen.value = false
 }
 
-const showDeleteDialog = ref(false)
+watch(
+  () => form.value.reader.name,
+  (readerName, previousReaderName) => {
+    if (
+      isHydratingForm.value ||
+      isLockedNativeProfile.value ||
+      isReadonlyProfile.value ||
+      readerName !== SHAREPOINT_PAGE_READER ||
+      readerName === previousReaderName
+    ) {
+      return
+    }
 
-const confirmDelete = () => {
-  if (!form.value?.name) return
-  showDeleteDialog.value = true
-}
-
-const performDelete = () => {
-  emit('delete', form.value.name)
-  showDeleteDialog.value = false
-  dialogOpen.value = false
-}
+    applySharePointPageDefaults(form.value)
+  }
+)
 
 watch(
   () => props.showDialog,
@@ -687,26 +856,10 @@ watch(
     dialogOpen.value = newVal
     if (newVal) {
       initForm()
-      loadTemplates()
+      if (!isReadonlyProfile.value) {
+        loadTemplates()
+      }
     }
-  }
-)
-
-// If we loaded a legacy config that used `source_types` and sources arrived later,
-// apply the mapping once (without marking the form as "dirty").
-watch(
-  () => (props.sources || []).length,
-  () => {
-    if (!dialogOpen.value) return
-    if (!pendingLegacySourceTypes.value || pendingLegacySourceTypes.value.length === 0) return
-    if (isDirty.value) return
-
-    const mapped = mapLegacySourceTypesToSourceIds(pendingLegacySourceTypes.value)
-    if (mapped.length > 0) {
-      form.value.source_ids = mapped
-      initialFormState.value = JSON.parse(JSON.stringify(form.value))
-    }
-    pendingLegacySourceTypes.value = null
   }
 )
 
@@ -731,5 +884,19 @@ watch(
   font-size: 10px;
   font-weight: 500;
   color: var(--q-error-text) !important;
+}
+
+.content-matching-sentence {
+  font-size: 13px;
+  line-height: 2;
+  color: var(--q-secondary-text);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+  padding: 12px 16px;
+  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
+  border: 1px solid rgba(var(--q-primary-rgb, 25, 118, 210), 0.2);
+  border-radius: 4px;
 }
 </style>

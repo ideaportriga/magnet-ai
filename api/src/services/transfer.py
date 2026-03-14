@@ -51,7 +51,12 @@ async def export_entities(data: dict, skip_chunks: bool = False) -> dict:
                 {"system_name": {"$in": system_names}},
             ],
         }
-        projection = {"_id": False, "id": False, "_metadata": False}
+        projection = {
+            "_id": False,
+            "id": False,
+            "_metadata": False,
+            "secrets_encrypted": False,
+        }
 
         try:
             cursor = collection.find(filter, projection)

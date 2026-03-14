@@ -2,12 +2,17 @@ import logging
 from typing import Any, override
 
 from litestar.exceptions import ClientException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.base import get_knowledge_source_settings
-from core.db.models.knowledge_graph import KnowledgeGraphSource
+from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
 from services.observability import observability_context, observe
 
+from ...content_config_services import (
+    clone_graph_settings,
+    ensure_fluid_topics_structured_profile,
+)
 from ...models import SourceType, SyncPipelineConfig
 from ..abstract_source import AbstractDataSource
 from .fluid_topics_models import FluidTopicsRuntimeConfig
@@ -66,11 +71,16 @@ class FluidTopicsSource(AbstractDataSource):
             },
         )
 
+        await self._ensure_structured_content_profile(db_session)
         cfg = self._get_sync_config()
         embedding_model = await self._require_embedding_model(db_session)
 
         observability_context.update_current_span(
-            input={"source_id": str(self.source.id), "filters": cfg.filters}
+            input={
+                "Source Id": str(self.source.id),
+                "Source Name": self.source.name,
+                "Filters": cfg.filters,
+            }
         )
 
         pipeline = FluidTopicsSyncPipeline(
@@ -129,6 +139,25 @@ class FluidTopicsSource(AbstractDataSource):
         logger.info("Fluid Topics sync completed", extra=summary)
         observability_context.update_current_span(output=summary)
         return summary
+
+    async def _ensure_structured_content_profile(
+        self, db_session: AsyncSession
+    ) -> None:
+        """Self-heal legacy graphs before sync so structured maps have a profile."""
+
+        result = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == self.source.graph_id)
+        )
+        graph = result.scalar_one_or_none()
+        if not graph:
+            return
+
+        settings = clone_graph_settings(getattr(graph, "settings", None))
+        if not ensure_fluid_topics_structured_profile(settings):
+            return
+
+        graph.settings = settings
+        await db_session.commit()
 
     def _get_sync_config(self) -> FluidTopicsRuntimeConfig:
         """Merge provider/env defaults with per-source overrides."""

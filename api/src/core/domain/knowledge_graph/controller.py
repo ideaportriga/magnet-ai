@@ -404,11 +404,6 @@ class KnowledgeGraphController(Controller):
         """Delete all documents and chunks for a source, keeping the source itself."""
         await source_service.purge_source_data(db_session, graph_id, source_id)
 
-    @observe(
-        name="Sync knowledge graph source",
-        channel="production",
-        source="production",
-    )
     @post("/{graph_id:uuid}/sources/{source_id:uuid}/sync", status_code=HTTP_200_OK)
     async def sync_source(
         self,

@@ -21,6 +21,7 @@ from services.observability import (
     observability_overrides,
     observe,
 )
+from services.observability.models import FeatureType
 from utils.datetime_utils import utc_now
 
 from ...models import (
@@ -111,7 +112,9 @@ async def start_conversation(
     graph = await db_session.get(KnowledgeGraph, graph_id)
     if not graph:
         raise NotFoundException("Graph not found")
-    observability_context.update_current_trace(name=graph.name)
+    observability_context.update_current_trace(
+        name=graph.name, type=FeatureType.KNOWLEDGE_GRAPH.value
+    )
 
     conversation_service = AgentConversationService(session=db_session)
     now = utc_now()

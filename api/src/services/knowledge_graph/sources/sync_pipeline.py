@@ -21,6 +21,7 @@ from ..content_load_services import (
 )
 from ..models import (
     ContentConfig,
+    ContentReaderContext,
     LoadedContent,
     StoreDocumentResult,
     SyncCounters,
@@ -306,6 +307,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         source_metadata: dict[str, Any] | None = None,
         default_document_type: str = "txt",
         content_config: ContentConfig | None = None,
+        content_reader_context: ContentReaderContext | None = None,
         title: str | None = None,
         external_link: str | None = None,
         toc: list[dict[str, Any]] | dict[str, Any] | None = None,
@@ -322,6 +324,16 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         Returns StoreDocumentResult with document=None when only metadata was updated
         (content unchanged), or document + loaded_content when a new document was created.
         """
+        logger.info(
+            "Storing document",
+            extra={
+                "source_id": source.id,
+                "graph_id": graph_id,
+                "source_filename": filename,
+                "source_document_id": source_document_id,
+            },
+        )
+
         if isinstance(content, str):
             content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         else:
@@ -334,12 +346,26 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                 source_id=source.id,
                 source_document_id=str(source_document_id),
                 content_hash=content_hash,
-                columns=("id",),
+                columns=("id", "status", "source_modified_at"),
             )
             existing_doc_id = (
                 str(rows[0].get("id")) if rows and rows[0].get("id") else None
             )
-            if existing_doc_id:
+            existing_status = (
+                str(rows[0].get("status")) if rows and rows[0].get("status") else None
+            )
+
+            if existing_doc_id and existing_status == "completed":
+                logger.info(
+                    "Existing completed document found, updating metadata only",
+                    extra={
+                        "source_id": source.id,
+                        "graph_id": graph_id,
+                        "source_document_id": source_document_id,
+                        "existing_doc_id": existing_doc_id,
+                    },
+                )
+
                 await self.document_service.update_document_metadata_only(
                     session,
                     source,
@@ -348,8 +374,23 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                     source_document_id=str(source_document_id),
                     source_modified_at=source_modified_at,
                     source_metadata=source_metadata,
+                    content_profile=content_config.name if content_config else None,
+                    title=title,
+                    external_link=external_link,
                 )
                 return StoreDocumentResult()
+
+            if existing_doc_id:
+                logger.info(
+                    "Existing document found with non-completed status, re-processing",
+                    extra={
+                        "source_id": source.id,
+                        "graph_id": graph_id,
+                        "source_document_id": source_document_id,
+                        "existing_doc_id": existing_doc_id,
+                        "existing_status": existing_status,
+                    },
+                )
 
         loaded: LoadedContent | None = None
         total_pages: int | None = None
@@ -357,7 +398,10 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
 
         if isinstance(content, bytes) and content_config:
             loaded = await load_content_from_bytes_async(
-                content, content_config, filename=filename
+                content,
+                content_config,
+                filename=filename,
+                context=content_reader_context,
             )
             file_metadata = loaded.get("metadata")
             total_pages = file_metadata.get("total_pages") if file_metadata else None

@@ -335,7 +335,10 @@ class LLMChunker(AbstractChunker):
                 for chunk_str in raw_segment_chunks:
                     chunk_str = chunk_str.strip()
 
-                    # Extract chunk header (chunk<|>type<|>title<|>toc_reference<|>page)
+                    # Extract chunk header.
+                    # Supported formats:
+                    # - (chunk<|>type<|>title<|>toc_reference)
+                    # - (chunk<|>type<|>title<|>toc_reference<|>page)
                     chunk_header_match = re.match(
                         r"^\(chunk<\|>.*\)$", chunk_str, flags=re.MULTILINE
                     )
@@ -352,7 +355,8 @@ class LLMChunker(AbstractChunker):
                         .split("<|>")
                     )
 
-                    # Extract chunk page number (try to parse from text if not in header)
+                    # Extract optional page number from 5-field headers.
+                    # SharePoint page chunking uses the 4-field format and leaves page empty.
                     page_num = -1
                     if len(chunk_header) > 4 and chunk_header[4]:
                         try:

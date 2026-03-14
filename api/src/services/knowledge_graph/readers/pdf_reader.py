@@ -13,14 +13,14 @@ class DefaultPdfReader:
     def __init__(self, page_delimiter: str = "\n\f"):
         self.page_delimiter = page_delimiter
 
-    def extract_text_from_bytes(self, pdf_bytes: bytes) -> tuple[str, int]:
+    def extract_text_from_bytes(self, pdf_bytes: bytes) -> tuple[str, str, int]:
         """Extract text from PDF bytes with page awareness.
 
         Args:
             pdf_bytes: PDF file content as bytes
 
         Returns:
-            Tuple of (extracted_text, total_pages)
+            Tuple of (raw_text, extracted_text, total_pages)
 
         Raises:
             ValueError: If PDF cannot be read
@@ -36,12 +36,18 @@ class DefaultPdfReader:
             total_pages = len(pdf_reader.pages)
 
             page_texts = []
+            raw_page_texts = []
             for page_number, page in enumerate(pdf_reader.pages, start=1):
                 text_from_page = page.extract_text(extraction_mode="plain")
+                raw_page_texts.append(text_from_page or "")
 
                 page_text = f"[Page: {page_number}]\n{text_from_page}"
 
                 page_texts.append(page_text)
+
+            # Keep page content readable without the synthetic page markers/form-feed
+            # delimiters that the chunkers rely on in the delimiter-preserving variant.
+            raw_text = "\n".join(raw_page_texts).strip()
 
             # Join all pages with page delimiter
             pdf_content = self.page_delimiter.join(page_texts)
@@ -50,7 +56,7 @@ class DefaultPdfReader:
                 f"Successfully extracted text from {total_pages} pages, total length: {len(pdf_content)} chars"
             )
 
-            return pdf_content, total_pages
+            return raw_text, pdf_content, total_pages
 
         except Exception as e:
             logger.error(f"Error reading PDF bytes: {e}")

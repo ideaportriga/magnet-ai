@@ -3,6 +3,7 @@ from __future__ import annotations
 from advanced_alchemy.extensions.litestar import repository, service
 from advanced_alchemy.filters import FilterTypes
 from sqlalchemy import text
+from sqlalchemy.orm import defer
 
 from core.db.models.trace import Trace
 
@@ -72,9 +73,11 @@ class TracesService(service.SQLAlchemyAsyncRepositoryService[Trace]):
         Returns:
             Tuple of (filtered traces list, total count)
         """
+        load_options = [defer(Trace.spans)]
+
         # If no JSONB filters, use standard method
         if not jsonb_filters:
-            results, total = await self.list_and_count(*filters)
+            results, total = await self.list_and_count(*filters, load=load_options)
             return list(results), total
 
         # Create JSONB filters using our custom filter class
@@ -89,6 +92,6 @@ class TracesService(service.SQLAlchemyAsyncRepositoryService[Trace]):
 
         # Combine all filters and use standard list_and_count method
         all_filters = list(filters) + additional_filters
-        results, total = await self.list_and_count(*all_filters)
+        results, total = await self.list_and_count(*all_filters, load=load_options)
 
         return list(results), total

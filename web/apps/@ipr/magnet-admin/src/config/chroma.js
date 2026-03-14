@@ -1840,16 +1840,13 @@ const apiObservabilityTraces = {
       })
   },
   getDetail: async (_, endpoint, payload) => {
-    console.log('payload !', payload)
-    const params = new URLSearchParams({
-      ids: payload?.id,
-    })
+    const traceId = encodeURIComponent(payload?.id ?? '')
 
     return await fetchData({
       method: 'GET',
       endpoint,
       credentials: 'include',
-      service: `traces?${params.toString()}`,
+      service: `traces/${traceId}`,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -1858,9 +1855,7 @@ const apiObservabilityTraces = {
         if (response.ok) return response.json()
         throw response
       })
-      .then((data) => {
-        return data?.items?.[0] || {}
-      })
+      .then((data) => data || {})
       .catch((res) => {
         throw {
           technicalError: res?.error,

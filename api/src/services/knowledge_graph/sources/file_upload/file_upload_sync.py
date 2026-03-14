@@ -118,6 +118,7 @@ class FileUploadSyncPipeline(
                             document=result.document,
                             extracted_text=result.loaded_content["text"],
                             content_config=task.content_config,
+                            raw_text=result.loaded_content["raw_text"],
                         )
                     )
 
@@ -172,6 +173,7 @@ class FileUploadSyncPipeline(
                         session,
                         task.document,
                         extracted_text=task.extracted_text,
+                        raw_text=task.raw_text,
                         config=task.content_config,
                         document_title=PurePath(doc_name).stem
                         if doc_name

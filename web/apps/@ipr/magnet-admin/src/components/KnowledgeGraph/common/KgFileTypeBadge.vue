@@ -24,6 +24,7 @@ function getTypeColor(type: string) {
   switch (String(type || '').toLowerCase()) {
     case 'pdf':
       return 'red-7'
+    case 'aspx':
     case 'html':
       return 'orange-7'
     case 'md':

@@ -14,6 +14,12 @@ from core.db.models.knowledge_graph import (
     chunks_table_name,
     docs_table_name,
 )
+from services.knowledge_graph.content_config_services import (
+    clone_graph_settings,
+    ensure_fluid_topics_structured_profile,
+    remove_auto_managed_fluid_topics_structured_profiles,
+)
+from services.knowledge_graph.models import SourceType
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphSourceCreateRequest,
     KnowledgeGraphSourceCreateResponse,
@@ -26,6 +32,17 @@ from core.domain.knowledge_graph.schemas import (
 class KnowledgeGraphSourceService(
     service.SQLAlchemyAsyncRepositoryService[KnowledgeGraphSource]
 ):
+    async def _has_sources_of_type(
+        self, db_session: AsyncSession, *, graph_id: UUID, source_type: str
+    ) -> bool:
+        result = await db_session.execute(
+            select(KnowledgeGraphSource.id)
+            .where(KnowledgeGraphSource.graph_id == graph_id)
+            .where(KnowledgeGraphSource.type == source_type)
+            .limit(1)
+        )
+        return result.scalar_one_or_none() is not None
+
     async def set_source_status(
         self, db_session: AsyncSession, source_id: UUID, status: str
     ) -> None:
@@ -107,6 +124,12 @@ class KnowledgeGraphSourceService(
             }
         )
 
+        if source_type == str(SourceType.FLUID_TOPICS):
+            settings = clone_graph_settings(getattr(graph, "settings", None))
+            if ensure_fluid_topics_structured_profile(settings):
+                graph.settings = settings
+                await db_session.commit()
+
         return KnowledgeGraphSourceCreateResponse(
             id=str(created.id), name=created.name, type=created.type
         )
@@ -172,6 +195,24 @@ class KnowledgeGraphSourceService(
 
         await self._delete_source_data(db_session, graph_id, source_id)
         await db_session.delete(source)
+        await db_session.flush()
+
+        if source.type == str(
+            SourceType.FLUID_TOPICS
+        ) and not await self._has_sources_of_type(
+            db_session,
+            graph_id=graph_id,
+            source_type=str(SourceType.FLUID_TOPICS),
+        ):
+            graph_result = await db_session.execute(
+                select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
+            )
+            graph = graph_result.scalar_one_or_none()
+            if graph:
+                settings = clone_graph_settings(getattr(graph, "settings", None))
+                if remove_auto_managed_fluid_topics_structured_profiles(settings):
+                    graph.settings = settings
+
         await db_session.commit()
 
     async def purge_source_data(

@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
@@ -61,8 +62,10 @@ class ProcessDocumentTask:
 
     # Document mode (split)
     extracted_text: str | None = None
+    raw_text: str | None = None
     content_config: Any | None = None
     external_link: str | None = None
+    source_modified_at: datetime | None = None
 
 
 @dataclass

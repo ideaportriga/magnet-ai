@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.app import alchemy
 from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
-from services.observability import observability_context
+from services.observability import observability_context, observe
 from services.observability.models import FeatureType
 from utils.datetime_utils import utc_now_isoformat
 
@@ -42,6 +42,7 @@ async def sync_source(
     return await _sync_source_impl(db_session, graph_id, source_id)
 
 
+@observe(name="Sync knowledge graph", channel="production", source="production")
 async def _sync_source_impl(
     db_session: AsyncSession, graph_id: UUID, source_id: UUID
 ) -> dict[str, Any]:
@@ -76,6 +77,14 @@ async def _sync_source_impl(
             from services.knowledge_graph.sources import FluidTopicsSource
 
             summary = await FluidTopicsSource(source).sync_source(db_session)
+        elif source.type == "salesforce":
+            from services.knowledge_graph.sources import SalesforceSource
+
+            summary = await SalesforceSource(source).sync_source(db_session)
+        elif source.type == "confluence":
+            from services.knowledge_graph.sources import ConfluenceSource
+
+            summary = await ConfluenceSource(source).sync_source(db_session)
         else:
             raise NotFoundException(
                 f"Sync for source type '{source.type}' is not implemented"

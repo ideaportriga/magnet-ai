@@ -352,7 +352,7 @@ async def execute_evaluation(**kwargs):
 
 
 @with_progress_status
-@observe(name="Sync knowledge graph source", channel="Job")
+@observe(name="Sync knowledge graph", channel="Job")
 async def execute_sync_knowledge_graph_source(**kwargs):
     """Execute a knowledge graph source sync job."""
     job_id = kwargs.get("job_id")
@@ -362,7 +362,6 @@ async def execute_sync_knowledge_graph_source(**kwargs):
         params = kwargs.get("params", {})
 
         observability_context.update_current_trace(
-            type="sync_knowledge_graph_source",
             extra_data={
                 "job_id": job_id,
                 "job_definition": job_definition,
