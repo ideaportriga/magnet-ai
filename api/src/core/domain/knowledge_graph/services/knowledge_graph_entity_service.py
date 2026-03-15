@@ -13,9 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
     KnowledgeGraphEntityRecord,
+    edges_table_name,
     entities_index_prefix,
     entities_table_name,
     knowledge_graph_entity_table,
+)
+from core.domain.knowledge_graph.services.knowledge_graph_edge_service import (
+    KnowledgeGraphEdgeService,
 )
 from services.knowledge_graph.utils import normalize_metadata_value
 
@@ -181,26 +185,9 @@ class KnowledgeGraphEntityService:
             md = MetaData()
             entities_tbl = knowledge_graph_entity_table(md, table_name)
             entities_tbl.create(sync_conn, checkfirst=True)
-            for statement in (
-                f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS normalized_record_identifier VARCHAR(500) NOT NULL DEFAULT ''",
-                f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS identifier_aliases JSONB NOT NULL DEFAULT '[]'::jsonb",
-                f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS source_document_ids JSONB NOT NULL DEFAULT '[]'::jsonb",
-                f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS source_chunk_ids JSONB NOT NULL DEFAULT '[]'::jsonb",
-            ):
-                sync_conn.execute(text(statement))
-            sync_conn.execute(
-                text(
-                    f"""
-                    UPDATE {table_name}
-                    SET normalized_record_identifier = LOWER(BTRIM(record_identifier))
-                    WHERE COALESCE(normalized_record_identifier, '') = ''
-                    """
-                )
-            )
             Index(f"{index_prefix}_entity", entities_tbl.c.entity).create(
                 sync_conn, checkfirst=True
             )
-            sync_conn.execute(text(f'DROP INDEX IF EXISTS "{index_prefix}_erid_uq"'))
             Index(
                 f"{index_prefix}_nrid_uq",
                 entities_tbl.c.entity,
@@ -240,7 +227,6 @@ class KnowledgeGraphEntityService:
     ) -> list[dict[str, Any]]:
         """Return distinct entity names with their record counts."""
 
-        await self.create_table(db_session, graph_id=graph_id)
         table_name = entities_table_name(graph_id)
         md = MetaData()
         entities_tbl = knowledge_graph_entity_table(md, table_name)
@@ -266,7 +252,6 @@ class KnowledgeGraphEntityService:
     ) -> int:
         """Delete entity rows for a graph, optionally scoped to one entity type."""
 
-        await self.create_table(db_session, graph_id=graph_id)
         table_name = entities_table_name(graph_id)
         md = MetaData()
         entities_tbl = knowledge_graph_entity_table(md, table_name)
@@ -284,6 +269,14 @@ class KnowledgeGraphEntityService:
             .scalars()
             .all()
         )
+
+        # Clean up edges for deleted entities.
+        if deleted_rows:
+            edge_svc = KnowledgeGraphEdgeService()
+            await edge_svc.delete_edges_for_entities(
+                db_session, graph_id=graph_id, entity_ids=list(deleted_rows)
+            )
+
         await db_session.commit()
         return len(deleted_rows)
 
@@ -296,7 +289,6 @@ class KnowledgeGraphEntityService:
     ) -> None:
         """Delete one entity row from a graph."""
 
-        await self.create_table(db_session, graph_id=graph_id)
         table_name = entities_table_name(graph_id)
         md = MetaData()
         entities_tbl = knowledge_graph_entity_table(md, table_name)
@@ -311,9 +303,16 @@ class KnowledgeGraphEntityService:
                 .returning(entities_tbl.c.id)
             )
         ).scalar_one_or_none()
-        await db_session.commit()
         if deleted_id is None:
             raise NotFoundException("Entity record not found")
+
+        # Clean up edges for the deleted entity.
+        edge_svc = KnowledgeGraphEdgeService()
+        await edge_svc.delete_edges_for_entity(
+            db_session, graph_id=graph_id, entity_id=deleted_id
+        )
+
+        await db_session.commit()
 
     async def count_records(
         self,
@@ -324,7 +323,6 @@ class KnowledgeGraphEntityService:
     ) -> int:
         """Count entity rows, optionally filtered by entity name."""
 
-        await self.create_table(db_session, graph_id=graph_id)
         table_name = entities_table_name(graph_id)
         md = MetaData()
         entities_tbl = knowledge_graph_entity_table(md, table_name)
@@ -351,7 +349,6 @@ class KnowledgeGraphEntityService:
     ) -> list[KnowledgeGraphEntityRecord]:
         """List per-graph entity rows with optional JSONB containment filters."""
 
-        await self.create_table(db_session, graph_id=graph_id)
         table_name = entities_table_name(graph_id)
         md = MetaData()
         entities_tbl = knowledge_graph_entity_table(md, table_name)
@@ -383,7 +380,9 @@ class KnowledgeGraphEntityService:
             )
 
         rows = (await db_session.execute(stmt)).mappings().all()
-        return [KnowledgeGraphEntityRecord.from_mapping(row) for row in rows]
+        records = [KnowledgeGraphEntityRecord.from_mapping(row) for row in rows]
+        await self._hydrate_entity_edges(db_session, graph_id=graph_id, records=records)
+        return records
 
     async def query_records(
         self,
@@ -399,7 +398,6 @@ class KnowledgeGraphEntityService:
         Returns ``(records, total_count)``.
         """
 
-        await self.create_table(db_session, graph_id=graph_id)
         table_name = entities_table_name(graph_id)
         md = MetaData()
         entities_tbl = knowledge_graph_entity_table(md, table_name)
@@ -408,7 +406,9 @@ class KnowledgeGraphEntityService:
             EntityFilterCompiler,
         )
 
-        compiler = EntityFilterCompiler(table_name)
+        compiler = EntityFilterCompiler(
+            table_name, edges_table_name=edges_table_name(graph_id)
+        )
         where_sql, params = compiler.compile(filter_expr)
 
         # Build base queries
@@ -433,6 +433,7 @@ class KnowledgeGraphEntityService:
         total = (await db_session.execute(count_stmt)).scalar_one()
         rows = (await db_session.execute(data_stmt)).mappings().all()
         records = [KnowledgeGraphEntityRecord.from_mapping(row) for row in rows]
+        await self._hydrate_entity_edges(db_session, graph_id=graph_id, records=records)
         return (records, total)
 
     async def upsert_record(
@@ -449,7 +450,6 @@ class KnowledgeGraphEntityService:
     ) -> KnowledgeGraphEntityRecord:
         """Insert or update a per-graph entity row with dedup and provenance."""
 
-        await self.create_table(db_session, graph_id=graph_id)
         entity_value = str(entity or "").strip()
         if not entity_value:
             raise ValueError("entity is required")
@@ -492,6 +492,8 @@ class KnowledgeGraphEntityService:
             .one_or_none()
         )
 
+        edge_svc = KnowledgeGraphEdgeService()
+
         if existing_row is None:
             insert_stmt = (
                 entities_tbl.insert()
@@ -501,51 +503,93 @@ class KnowledgeGraphEntityService:
                     normalized_record_identifier=normalized_record_identifier,
                     column_values=normalized_column_values,
                     identifier_aliases=[record_identifier_value],
-                    source_document_ids=(
-                        [source_document_id_value] if source_document_id_value else []
-                    ),
-                    source_chunk_ids=(
-                        [source_chunk_id_value] if source_chunk_id_value else []
-                    ),
                 )
                 .returning(*entities_tbl.c)
             )
             row = (await db_session.execute(insert_stmt)).mappings().one()
-            return KnowledgeGraphEntityRecord.from_mapping(row)
-
-        existing_record = KnowledgeGraphEntityRecord.from_mapping(existing_row)
-        merged_record_identifier = _prefer_identifier_display(
-            existing_record.record_identifier, record_identifier_value
-        )
-        merged_column_values = _merge_column_values(
-            existing_record.column_values, normalized_column_values
-        )
-        merged_identifier_aliases = _merge_string_lists(
-            existing_record.identifier_aliases, [record_identifier_value]
-        )
-        merged_source_document_ids = _merge_string_lists(
-            existing_record.source_document_ids,
-            [source_document_id_value] if source_document_id_value else [],
-        )
-        merged_source_chunk_ids = _merge_string_lists(
-            existing_record.source_chunk_ids,
-            [source_chunk_id_value] if source_chunk_id_value else [],
-        )
-
-        stmt = (
-            update(entities_tbl)
-            .where(entities_tbl.c.id == existing_record.id)
-            .values(
-                record_identifier=merged_record_identifier,
-                normalized_record_identifier=normalized_record_identifier,
-                column_values=normalize_metadata_value(merged_column_values),
-                identifier_aliases=merged_identifier_aliases,
-                source_document_ids=merged_source_document_ids,
-                source_chunk_ids=merged_source_chunk_ids,
-                updated_at=func.now(),
+            record = KnowledgeGraphEntityRecord.from_mapping(row)
+        else:
+            existing_record = KnowledgeGraphEntityRecord.from_mapping(existing_row)
+            merged_record_identifier = _prefer_identifier_display(
+                existing_record.record_identifier, record_identifier_value
             )
-            .returning(*entities_tbl.c)
+            merged_column_values = _merge_column_values(
+                existing_record.column_values, normalized_column_values
+            )
+            merged_identifier_aliases = _merge_string_lists(
+                existing_record.identifier_aliases, [record_identifier_value]
+            )
+
+            stmt = (
+                update(entities_tbl)
+                .where(entities_tbl.c.id == existing_record.id)
+                .values(
+                    record_identifier=merged_record_identifier,
+                    normalized_record_identifier=normalized_record_identifier,
+                    column_values=normalize_metadata_value(merged_column_values),
+                    identifier_aliases=merged_identifier_aliases,
+                    updated_at=func.now(),
+                )
+                .returning(*entities_tbl.c)
+            )
+
+            row = (await db_session.execute(stmt)).mappings().one()
+            record = KnowledgeGraphEntityRecord.from_mapping(row)
+
+        # Create edges for provenance tracking.
+        if record.id is not None:
+            if source_document_id_value:
+                await edge_svc.upsert_edge(
+                    db_session,
+                    graph_id=graph_id,
+                    source_node_id=record.id,
+                    source_node_type="entity",
+                    target_node_id=UUID(source_document_id_value),
+                    target_node_type="document",
+                    label="extracted_from",
+                )
+            if source_chunk_id_value:
+                await edge_svc.upsert_edge(
+                    db_session,
+                    graph_id=graph_id,
+                    source_node_id=record.id,
+                    source_node_type="entity",
+                    target_node_id=UUID(source_chunk_id_value),
+                    target_node_type="chunk",
+                    label="extracted_from",
+                )
+
+        return record
+
+    async def _hydrate_entity_edges(
+        self,
+        db_session: AsyncSession,
+        *,
+        graph_id: UUID | str,
+        records: list[KnowledgeGraphEntityRecord],
+    ) -> None:
+        """Populate source_document_ids and source_chunk_ids from the edges table."""
+
+        entity_ids = [r.id for r in records if r.id is not None]
+        if not entity_ids:
+            return
+
+        edge_svc = KnowledgeGraphEdgeService()
+        edge_map = await edge_svc.get_entity_edge_map(
+            db_session, graph_id=graph_id, entity_ids=entity_ids
         )
 
-        row = (await db_session.execute(stmt)).mappings().one()
-        return KnowledgeGraphEntityRecord.from_mapping(row)
+        for record in records:
+            if record.id is None:
+                continue
+            edges = edge_map.get(record.id, [])
+            record.source_document_ids = [
+                str(e.target_node_id)
+                for e in edges
+                if e.target_node_type == "document" and e.target_node_id is not None
+            ]
+            record.source_chunk_ids = [
+                str(e.target_node_id)
+                for e in edges
+                if e.target_node_type == "chunk" and e.target_node_id is not None
+            ]

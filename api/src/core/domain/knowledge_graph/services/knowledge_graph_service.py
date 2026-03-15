@@ -40,6 +40,7 @@ from services.knowledge_graph.models import SourceType
 if TYPE_CHECKING:
     from .knowledge_graph_chunk_service import KnowledgeGraphChunkService
     from .knowledge_graph_document_service import KnowledgeGraphDocumentService
+    from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
     from .knowledge_graph_entity_service import KnowledgeGraphEntityService
 
 
@@ -148,6 +149,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         document_service: KnowledgeGraphDocumentService | None = None,
         chunk_service: KnowledgeGraphChunkService | None = None,
         entity_service: KnowledgeGraphEntityService | None = None,
+        edge_service: KnowledgeGraphEdgeService | None = None,
     ) -> KnowledgeGraphCreateResponse:
         system_name = (
             (data.system_name or data.name)
@@ -195,6 +197,11 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
 
         entity_svc = entity_service or KnowledgeGraphEntityService()
         await entity_svc.create_table(db_session, graph_id=created.id)
+
+        from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
+
+        edge_svc = edge_service or KnowledgeGraphEdgeService()
+        await edge_svc.create_table(db_session, graph_id=created.id)
 
         # Create per-graph tables only when an embedding model is configured.
         embedding_model = (
@@ -324,10 +331,15 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         document_service: KnowledgeGraphDocumentService | None = None,
         chunk_service: KnowledgeGraphChunkService | None = None,
         entity_service: KnowledgeGraphEntityService | None = None,
+        edge_service: KnowledgeGraphEdgeService | None = None,
     ) -> None:
         """Delete a graph and drop its per-graph tables."""
 
-        # Drop dynamic tables (chunks first due to FK)
+        from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
+
+        # Drop dynamic tables (edges first, then entities, chunks, docs)
+        edge_svc = edge_service or KnowledgeGraphEdgeService()
+        await edge_svc.drop_table(db_session, graph_id=graph_id)
         doc_svc = document_service or KnowledgeGraphDocumentService()
         ch_svc = chunk_service or KnowledgeGraphChunkService()
         entity_svc = entity_service or KnowledgeGraphEntityService()

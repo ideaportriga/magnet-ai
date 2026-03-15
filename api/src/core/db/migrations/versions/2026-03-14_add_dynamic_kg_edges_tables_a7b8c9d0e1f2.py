@@ -1,9 +1,9 @@
 # type: ignore
-"""add dynamic kg entities tables
+"""add dynamic kg edges tables
 
-Revision ID: 6f1e2d3c4b5a
-Revises: c4d5e6f7a8b9
-Create Date: 2026-03-11 12:00:00.000000+00:00
+Revision ID: a7b8c9d0e1f2
+Revises: 6f1e2d3c4b5a
+Create Date: 2026-03-14 12:00:00.000000+00:00
 
 """
 
@@ -45,8 +45,8 @@ sa.Text = Text
 
 
 # revision identifiers, used by Alembic.
-revision = "6f1e2d3c4b5a"
-down_revision = "c4d5e6f7a8b9"
+revision = "a7b8c9d0e1f2"
+down_revision = "6f1e2d3c4b5a"
 branch_labels = None
 depends_on = None
 
@@ -71,13 +71,12 @@ def _graph_suffix(graph_id: str) -> str:
     return str(graph_id).replace("-", "_")
 
 
-def _entities_table_name(graph_id: str) -> str:
-    return f"knowledge_graph_{_graph_suffix(graph_id)}_entities"
+def _edges_table_name(graph_id: str) -> str:
+    return f"knowledge_graph_{_graph_suffix(graph_id)}_edges"
 
 
-def _entities_index_prefix(graph_id: str) -> str:
-    # Keep generated names under PostgreSQL's 63 character limit.
-    return f"idx_kg_{_graph_suffix(graph_id)}_entities"
+def _edges_index_prefix(graph_id: str) -> str:
+    return f"idx_kg_{_graph_suffix(graph_id)}_edges"
 
 
 def _iter_graph_ids(conn) -> list[str]:
@@ -87,7 +86,7 @@ def _iter_graph_ids(conn) -> list[str]:
     return [str(row[0]) for row in rows if row and row[0] is not None]
 
 
-def _iter_dynamic_entities_tables(conn) -> list[str]:
+def _iter_dynamic_edges_tables(conn) -> list[str]:
     insp = sa.inspect(conn)
     table_names = insp.get_table_names()
     return sorted(
@@ -96,7 +95,7 @@ def _iter_dynamic_entities_tables(conn) -> list[str]:
             for table_name in table_names
             if isinstance(table_name, str)
             and table_name.startswith("knowledge_graph_")
-            and table_name.endswith("_entities")
+            and table_name.endswith("_edges")
         ]
     )
 
@@ -111,12 +110,12 @@ def schema_upgrades() -> None:
     }
 
     for graph_id in _iter_graph_ids(bind):
-        table_name = _entities_table_name(graph_id)
-        if table_name in existing_tables:
+        edges_table = _edges_table_name(graph_id)
+        if edges_table in existing_tables:
             continue
 
         op.create_table(
-            table_name,
+            edges_table,
             sa.Column(
                 "id",
                 sa.GUID(),
@@ -124,25 +123,26 @@ def schema_upgrades() -> None:
                 nullable=False,
                 server_default=sa.text("gen_random_uuid()"),
             ),
-            sa.Column("entity", sa.String(length=255), nullable=False),
-            sa.Column("record_identifier", sa.String(length=500), nullable=False),
+            sa.Column("source_node_id", sa.GUID(), nullable=False),
             sa.Column(
-                "normalized_record_identifier",
-                sa.String(length=500),
+                "source_node_type",
+                sa.String(length=50),
                 nullable=False,
-                server_default="",
+                server_default=sa.text("'entity'"),
+            ),
+            sa.Column("target_node_id", sa.GUID(), nullable=False),
+            sa.Column("target_node_type", sa.String(length=50), nullable=False),
+            sa.Column(
+                "label",
+                sa.String(length=255),
+                nullable=False,
+                server_default=sa.text("''"),
             ),
             sa.Column(
-                "column_values",
+                "metadata",
                 postgresql.JSONB(astext_type=sa.Text()),
-                nullable=False,
+                nullable=True,
                 server_default=sa.text("'{}'::jsonb"),
-            ),
-            sa.Column(
-                "identifier_aliases",
-                postgresql.JSONB(astext_type=sa.Text()),
-                nullable=False,
-                server_default=sa.text("'[]'::jsonb"),
             ),
             sa.Column(
                 "created_at",
@@ -158,25 +158,33 @@ def schema_upgrades() -> None:
             ),
         )
 
-        index_prefix = _entities_index_prefix(graph_id)
-        op.create_index(f"{index_prefix}_entity", table_name, ["entity"])
+        index_prefix = _edges_index_prefix(graph_id)
         op.create_index(
-            f"{index_prefix}_nrid_uq",
-            table_name,
-            ["entity", "normalized_record_identifier"],
-            unique=True,
+            f"{index_prefix}_src",
+            edges_table,
+            ["source_node_id", "source_node_type"],
         )
         op.create_index(
-            f"{index_prefix}_cols_gin",
-            table_name,
-            ["column_values"],
-            postgresql_using="gin",
+            f"{index_prefix}_tgt",
+            edges_table,
+            ["target_node_id", "target_node_type"],
+        )
+        op.create_index(
+            f"{index_prefix}_src_tgt_uq",
+            edges_table,
+            [
+                "source_node_id",
+                "source_node_type",
+                "target_node_id",
+                "target_node_type",
+            ],
+            unique=True,
         )
 
 
 def schema_downgrades() -> None:
     """schema downgrade migrations go here."""
-    for table_name in _iter_dynamic_entities_tables(op.get_bind()):
+    for table_name in _iter_dynamic_edges_tables(op.get_bind()):
         op.drop_table(table_name)
 
 

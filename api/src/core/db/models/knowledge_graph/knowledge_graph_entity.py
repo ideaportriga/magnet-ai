@@ -55,22 +55,10 @@ class KnowledgeGraphEntityRecord:
             column_values_val if isinstance(column_values_val, dict) else None
         )
         identifier_aliases_val = row.get("identifier_aliases")
-        source_document_ids_val = row.get("source_document_ids")
-        source_chunk_ids_val = row.get("source_chunk_ids")
 
         identifier_aliases = (
             [str(v) for v in identifier_aliases_val if v is not None]
             if isinstance(identifier_aliases_val, list)
-            else None
-        )
-        source_document_ids = (
-            [str(v) for v in source_document_ids_val if v is not None]
-            if isinstance(source_document_ids_val, list)
-            else None
-        )
-        source_chunk_ids = (
-            [str(v) for v in source_chunk_ids_val if v is not None]
-            if isinstance(source_chunk_ids_val, list)
             else None
         )
 
@@ -85,8 +73,6 @@ class KnowledgeGraphEntityRecord:
             else "",
             column_values=column_values,
             identifier_aliases=identifier_aliases,
-            source_document_ids=source_document_ids,
-            source_chunk_ids=source_chunk_ids,
             created_at=row.get("created_at"),
             updated_at=row.get("updated_at"),
         )
@@ -115,18 +101,6 @@ def knowledge_graph_entity_table(metadata: MetaData, table_name: str) -> Table:
         ),
         Column(
             "identifier_aliases",
-            JSONB,
-            nullable=False,
-            server_default=text("'[]'::jsonb"),
-        ),
-        Column(
-            "source_document_ids",
-            JSONB,
-            nullable=False,
-            server_default=text("'[]'::jsonb"),
-        ),
-        Column(
-            "source_chunk_ids",
             JSONB,
             nullable=False,
             server_default=text("'[]'::jsonb"),

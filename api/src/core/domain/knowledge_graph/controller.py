@@ -53,6 +53,7 @@ from core.domain.knowledge_graph.schemas import (
 from core.domain.knowledge_graph.services import (
     KnowledgeGraphChunkService,
     KnowledgeGraphDocumentService,
+    KnowledgeGraphEdgeService,
     KnowledgeGraphEntityService,
     KnowledgeGraphMetadataService,
     KnowledgeGraphService,
@@ -102,6 +103,7 @@ class KnowledgeGraphController(Controller):
             KnowledgeGraphMetadataService, sync_to_thread=False
         ),
         "entity_service": Provide(KnowledgeGraphEntityService, sync_to_thread=False),
+        "edge_service": Provide(KnowledgeGraphEdgeService, sync_to_thread=False),
     }
 
     ###########################################################################
@@ -162,6 +164,7 @@ class KnowledgeGraphController(Controller):
         graph_service: KnowledgeGraphService,
         document_service: KnowledgeGraphDocumentService,
         chunk_service: KnowledgeGraphChunkService,
+        edge_service: KnowledgeGraphEdgeService,
         db_session: AsyncSession,
         data: KnowledgeGraphCreateRequest,
     ) -> KnowledgeGraphCreateResponse:
@@ -170,6 +173,7 @@ class KnowledgeGraphController(Controller):
             data,
             document_service=document_service,
             chunk_service=chunk_service,
+            edge_service=edge_service,
         )
 
     @patch("/{graph_id:uuid}", status_code=HTTP_200_OK)
@@ -196,6 +200,7 @@ class KnowledgeGraphController(Controller):
         graph_service: KnowledgeGraphService,
         document_service: KnowledgeGraphDocumentService,
         chunk_service: KnowledgeGraphChunkService,
+        edge_service: KnowledgeGraphEdgeService,
         db_session: AsyncSession,
         graph_id: UUID,
     ) -> None:
@@ -204,6 +209,7 @@ class KnowledgeGraphController(Controller):
             graph_id,
             document_service=document_service,
             chunk_service=chunk_service,
+            edge_service=edge_service,
         )
 
     @observe(
