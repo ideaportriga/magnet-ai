@@ -208,6 +208,11 @@ def build_entity_extraction_prompt_schema(
                     f"      {json.dumps(column.name)}?: {ts_type_map[column.type]} | null"
                 )
 
+        lines.append("")
+        lines.append(
+            "      /** Detailed reasoning explaining why this record was extracted */"
+        )
+        lines.append('      "__reasoning": string')
         lines.append("    }>")
         lines.append("")
 
@@ -215,81 +220,6 @@ def build_entity_extraction_prompt_schema(
         lines.pop()
     lines.extend(["  }", "}"])
     return "\n".join(lines).strip() + "\n"
-
-
-def _column_json_schema(column: EntityColumnDefinition) -> dict[str, Any]:
-    type_map: dict[EntityColumnType, str] = {
-        "string": "string",
-        "number": "number",
-        "boolean": "boolean",
-        "date": "string",
-    }
-    col_type: Any = (
-        type_map[column.type] if column.is_required else [type_map[column.type], "null"]
-    )
-    json_schema: dict[str, Any] = {
-        "type": col_type,
-        "description": (f"{column.description}. " if column.description else "")
-        + (
-            "This is the primary identifier column."
-            if column.is_identifier
-            else f"Column type: {column.type}."
-        ),
-    }
-    return json_schema
-
-
-def build_entity_extraction_response_format(
-    entity_definitions: list[EntityDefinition],
-) -> dict[str, Any]:
-    records_properties: dict[str, Any] = {}
-    records_required: list[str] = []
-
-    for entity_definition in entity_definitions:
-        item_properties: dict[str, Any] = {}
-        item_required: list[str] = []
-
-        for column in entity_definition.columns or []:
-            item_properties[column.name] = _column_json_schema(column)
-            item_required.append(column.name)
-
-        records_properties[entity_definition.name] = {
-            "type": "array",
-            "description": (
-                entity_definition.description
-                or f"Records extracted for entity '{entity_definition.name}'."
-            ),
-            "items": {
-                "type": "object",
-                "properties": item_properties,
-                "required": item_required,
-                "additionalProperties": False,
-            },
-        }
-        records_required.append(entity_definition.name)
-
-    schema = {
-        "type": "object",
-        "properties": {
-            "records": {
-                "type": "object",
-                "properties": records_properties,
-                "required": records_required,
-                "additionalProperties": False,
-            }
-        },
-        "required": ["records"],
-        "additionalProperties": False,
-    }
-
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "kg_entity_extraction_response",
-            "schema": schema,
-            "strict": True,
-        },
-    }
 
 
 def _strip_surrounding_code_fences(value: str) -> str:
@@ -403,11 +333,24 @@ def _merge_candidate_records(
     )
     merged_column_values = dict(existing.column_values)
     for key, value in incoming.column_values.items():
+        if key == "__reasoning":
+            continue
         if key not in merged_column_values:
             if not _is_empty_value(value):
                 merged_column_values[key] = value
             continue
         merged_column_values[key] = _merge_values(merged_column_values.get(key), value)
+
+    existing_reasoning = str(existing.column_values.get("__reasoning") or "").strip()
+    incoming_reasoning = str(incoming.column_values.get("__reasoning") or "").strip()
+    if existing_reasoning and incoming_reasoning:
+        if incoming_reasoning != existing_reasoning:
+            merged_column_values["__reasoning"] = (
+                f"{existing_reasoning} | {incoming_reasoning}"
+            )
+    elif incoming_reasoning:
+        merged_column_values["__reasoning"] = incoming_reasoning
+
     return EntityCandidateRecord(
         entity=existing.entity,
         record_identifier=merged_identifier,
@@ -493,6 +436,10 @@ def parse_entity_candidates_from_output(
                 if coerced_value is not None:
                     column_values[column.name] = coerced_value
 
+            reasoning = raw_record.get("__reasoning")
+            if isinstance(reasoning, str) and reasoning.strip():
+                column_values["__reasoning"] = reasoning.strip()
+
             identifier_value = column_values.get(entity_definition.identifier_column)
             if _is_empty_value(identifier_value):
                 continue
@@ -517,43 +464,17 @@ def parse_entity_candidates_from_output(
     return list(candidates.values())
 
 
-@observe(
-    name="Knowledge graph entity extraction (LLM)",
-    channel="production",
-    source="production",
-    capture_input=False,
-    capture_output=False,
-)
 async def _extract_entities_from_content(
     *,
     prompt_template_config: dict[str, Any],
     schema: str,
+    entity_definition: EntityDefinition,
     content: str,
 ) -> dict[str, Any]:
-    try:
-        observability_context.update_current_span(
-            extra_data={
-                "prompt_template_system_name": str(
-                    prompt_template_config.get("system_name") or ""
-                ),
-                "content_chars": len(str(content or "")),
-                "schema_chars": len(str(schema or "")),
-                "expected_format": "strict_json_schema",
-            }
-        )
-    except Exception:
-        pass
-
-    user_content = (
-        "Extract the configured entities from the following content.\n"
-        "Return ONLY JSON that matches the provided response schema.\n\n"
-        f"```text\n{content}\n```"
-    )
-
     result = await execute_prompt_template(
         system_name_or_config=prompt_template_config,
-        template_values={"SCHEMA": schema},
-        template_additional_messages=[{"role": "user", "content": user_content}],
+        template_values={"SCHEMA": schema, "ENTITY_NAME": entity_definition.name},
+        template_additional_messages=[{"role": "user", "content": content}],
     )
     return _best_effort_json_object_from_text(result.content)
 
@@ -609,7 +530,6 @@ async def run_graph_llm_entity_extraction(
     prompt_template_system_name: str,
     entity_definitions: list[EntityDefinition],
     entity_service: KnowledgeGraphEntityService | None = None,
-    schema: str | None = None,
     segment_size: int = 18000,
     segment_overlap: float = 0.1,
 ) -> dict[str, Any]:
@@ -627,13 +547,6 @@ async def run_graph_llm_entity_extraction(
     prompt_template_config = dict(
         await get_prompt_template_by_system_name_flat(prompt_template_system_name)
     )
-    prompt_template_config["response_format"] = build_entity_extraction_response_format(
-        entity_definitions
-    )
-
-    prompt_schema = str(schema or "").strip() or build_entity_extraction_prompt_schema(
-        entity_definitions
-    )
 
     try:
         observability_context.update_current_span(
@@ -641,7 +554,6 @@ async def run_graph_llm_entity_extraction(
                 "graph_id": str(graph_id),
                 "approach": str(approach),
                 "prompt_template_system_name": prompt_template_system_name,
-                "schema_chars": len(prompt_schema),
                 "segment_size": int(segment_size),
                 "segment_overlap": float(segment_overlap),
                 "entity_definitions_count": len(entity_definitions),
@@ -719,36 +631,45 @@ async def run_graph_llm_entity_extraction(
                 )
 
                 for segment in segments:
-                    try:
-                        extracted = await _extract_entities_from_content(
-                            prompt_template_config=prompt_template_config,
-                            schema=prompt_schema,
-                            content=segment,
+                    for entity_def in entity_definitions:
+                        entity_schema = build_entity_extraction_prompt_schema(
+                            [entity_def]
                         )
-                    except Exception as exc:  # noqa: BLE001
-                        errors += 1
-                        logger.warning(
-                            "Entity extraction failed for document %s: %s",
-                            doc_id,
-                            exc,
-                        )
-                        continue
-
-                    for candidate in parse_entity_candidates_from_output(
-                        extracted, entity_definitions
-                    ):
-                        candidate_key = (
-                            candidate.entity,
-                            normalize_record_identifier(candidate.record_identifier),
-                        )
-                        if candidate_key in document_candidates:
-                            document_candidates[candidate_key] = (
-                                _merge_candidate_records(
-                                    document_candidates[candidate_key], candidate
-                                )
+                        try:
+                            extracted = await _extract_entities_from_content(
+                                prompt_template_config=prompt_template_config,
+                                schema=entity_schema,
+                                entity_definition=entity_def,
+                                content=segment,
                             )
-                        else:
-                            document_candidates[candidate_key] = candidate
+                        except Exception as exc:  # noqa: BLE001
+                            errors += 1
+                            logger.warning(
+                                "Entity extraction failed for document %s entity %s: %s",
+                                doc_id,
+                                entity_def.name,
+                                exc,
+                            )
+                            continue
+
+                        for candidate in parse_entity_candidates_from_output(
+                            extracted, [entity_def]
+                        ):
+                            candidate_key = (
+                                candidate.entity,
+                                normalize_record_identifier(
+                                    candidate.record_identifier
+                                ),
+                            )
+                            if candidate_key in document_candidates:
+                                document_candidates[candidate_key] = (
+                                    _merge_candidate_records(
+                                        document_candidates[candidate_key],
+                                        candidate,
+                                    )
+                                )
+                            else:
+                                document_candidates[candidate_key] = candidate
 
                 for candidate in document_candidates.values():
                     await entity_service.upsert_record(
@@ -831,38 +752,42 @@ async def run_graph_llm_entity_extraction(
             had_any_chunk_content = True
             processed_chunks += 1
 
-            try:
-                extracted = await _extract_entities_from_content(
-                    prompt_template_config=prompt_template_config,
-                    schema=prompt_schema,
-                    content=content_str,
-                )
-            except Exception as exc:  # noqa: BLE001
-                errors += 1
-                logger.warning(
-                    "Entity extraction failed for graph %s doc %s chunk %s: %s",
-                    str(graph_id),
-                    doc_id,
-                    chunk_id,
-                    exc,
-                )
-                continue
+            for entity_def in entity_definitions:
+                entity_schema = build_entity_extraction_prompt_schema([entity_def])
+                try:
+                    extracted = await _extract_entities_from_content(
+                        prompt_template_config=prompt_template_config,
+                        schema=entity_schema,
+                        entity_definition=entity_def,
+                        content=content_str,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    errors += 1
+                    logger.warning(
+                        "Entity extraction failed for graph %s doc %s chunk %s entity %s: %s",
+                        str(graph_id),
+                        doc_id,
+                        chunk_id,
+                        entity_def.name,
+                        exc,
+                    )
+                    continue
 
-            chunk_candidates = parse_entity_candidates_from_output(
-                extracted, entity_definitions
-            )
-            for candidate in chunk_candidates:
-                await entity_service.upsert_record(
-                    db_session,
-                    graph_id=graph_id,
-                    entity=candidate.entity,
-                    record_identifier=candidate.record_identifier,
-                    column_values=candidate.column_values,
-                    source_document_id=doc_id,
-                    source_chunk_id=chunk_id,
-                    source_id=source_id,
+                chunk_candidates = parse_entity_candidates_from_output(
+                    extracted, [entity_def]
                 )
-                upserted_records += 1
+                for candidate in chunk_candidates:
+                    await entity_service.upsert_record(
+                        db_session,
+                        graph_id=graph_id,
+                        entity=candidate.entity,
+                        record_identifier=candidate.record_identifier,
+                        column_values=candidate.column_values,
+                        source_document_id=doc_id,
+                        source_chunk_id=chunk_id,
+                        source_id=source_id,
+                    )
+                    upserted_records += 1
 
             await db_session.commit()
 
@@ -947,7 +872,6 @@ async def run_entity_extraction(
         else float(extraction_settings.get("segment_overlap") or 0.1)
     )
 
-    schema_str = build_entity_extraction_prompt_schema(entity_definitions)
     entity_svc = entity_service or KnowledgeGraphEntityService()
     await entity_svc.create_table(db_session, graph_id=graph_id)
 
@@ -958,7 +882,6 @@ async def run_entity_extraction(
         prompt_template_system_name=prompt_template_system_name,
         entity_definitions=entity_definitions,
         entity_service=entity_svc,
-        schema=schema_str,
         segment_size=segment_size,
         segment_overlap=segment_overlap,
     )
