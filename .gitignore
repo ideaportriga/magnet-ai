@@ -24,7 +24,7 @@ dist/
 build/
 *.egg-info/
 *.log
-
+.yarn
 
 # Offline static files for Swagger UI and ReDoc
 # api/static/*.js
