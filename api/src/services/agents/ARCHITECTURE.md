@@ -1,52 +1,52 @@
 # Agent System — Architecture
 
-> Описание модульной архитектуры кода агентов после рефакторинга.
-> Дата: март 2026.
+> Description of the modular architecture of agent code after refactoring.
+> Date: March 2026.
 
 ---
 
-## Обзор
+## Overview
 
-Система агентов обрабатывает пользовательские сообщения через трёхступенчатый конвейер:
+The agent system processes user messages through a three-stage pipeline:
 
 ```
 User Message
      │
      ▼
 ┌─────────────────┐
-│  Classification  │  — определение intent + выбор topic
+│  Classification  │  — intent detection + topic selection
 └────────┬────────┘
          │ intent = "topic"
          ▼
 ┌─────────────────┐
-│ Topic Execution  │  — цикл LLM ↔ Actions (до 5 итераций)
+│ Topic Execution  │  — LLM ↔ Actions loop (up to 5 iterations)
 └────────┬────────┘
          │
          ▼
   Assistant Message
 ```
 
-Если intent ≠ `topic` (greeting, farewell, off_topic, request_not_clear, other), цикл обработки topic пропускается и сразу возвращается `assistant_message` из classification.
+If intent ≠ `topic` (greeting, farewell, off_topic, request_not_clear, other), the topic processing loop is skipped and `assistant_message` from classification is returned immediately.
 
 ---
 
-## Структура модулей
+## Module Structure
 
 ```
 services/agents/
 ├── __init__.py              # Public API: execute_agent, get_agent_by_system_name
-├── services.py              # Оркестратор (241 строк)
-├── classification.py        # Классификация intent и topic (178 строк)
-├── topic_execution.py       # Основной цикл агента (343 строки)
-├── confirmation.py          # Обработка user confirmation (75 строк)
-├── tool_schema.py           # Генерация ChatCompletionTool из actions (394 строки)
-├── message_builder.py       # Конвертация истории → ChatCompletion messages (126 строк)
-├── memory.py                # Стратегии управления контекстом (43 строки)
-├── exceptions.py            # Иерархия кастомных исключений (33 строки)
-├── models.py                # Pydantic-модели данных (614 строк)
+├── services.py              # Orchestrator (241 lines)
+├── classification.py        # Intent and topic classification (178 lines)
+├── topic_execution.py       # Main agent loop (343 lines)
+├── confirmation.py          # User confirmation handling (75 lines)
+├── tool_schema.py           # ChatCompletionTool generation from actions (394 lines)
+├── message_builder.py       # History → ChatCompletion messages conversion (126 lines)
+├── memory.py                # Context management strategies (43 lines)
+├── exceptions.py            # Custom exception hierarchy (33 lines)
+├── models.py                # Pydantic data models (614 lines)
 │
 ├── actions/
-│   ├── execute.py                       # Роутер action → executor (86 строк)
+│   ├── execute.py                       # Action → executor router (86 lines)
 │   ├── action_execute_api_tool.py       # API action executor
 │   ├── action_execute_rag.py            # RAG action executor
 │   ├── action_execute_retrieval.py      # Retrieval action executor
@@ -54,106 +54,106 @@ services/agents/
 │   ├── action_execute_mcp_tool.py       # MCP Tool action executor
 │   └── action_execute_knowledge_graph.py# Knowledge Graph action executor
 │
-├── conversations/           # CRUD для бесед (отдельная подсистема)
-├── post_process/            # Пост-обработка ответов
-├── slack/                   # Slack-интеграция
-├── teams/                   # Teams-интеграция
-├── whatsapp/                # WhatsApp-интеграция
-└── utils/                   # Вспомогательные утилиты
+├── conversations/           # CRUD for conversations (separate subsystem)
+├── post_process/            # Response post-processing
+├── slack/                   # Slack integration
+├── teams/                   # Teams integration
+├── whatsapp/                # WhatsApp integration
+└── utils/                   # Helper utilities
 ```
 
 ---
 
-## Описание модулей
+## Module Descriptions
 
-### `services.py` — Оркестратор
+### `services.py` — Orchestrator
 
-Точка входа. Содержит функцию `execute_agent()`, которая:
+Entry point. Contains the `execute_agent()` function, which:
 
-1. Загружает конфигурацию агента (из БД или `config_override`)
-2. Определяет тип текущего запроса:
-   - **Confirmation flow** — пользователь подтверждает/отклоняет action call → делегирует в `confirmation.py`
-   - **PASS mode** — экспериментальный: пропуск classification, берётся первый topic
-   - **Обычный flow** — делегирует classification в `classification.py`
-3. Запускает `execute_topic()` из `topic_execution.py`
-4. Собирает финальный `AgentConversationMessageAssistant`
+1. Loads agent configuration (from DB or `config_override`)
+2. Determines the current request type:
+   - **Confirmation flow** — user confirms/rejects an action call → delegates to `confirmation.py`
+   - **PASS mode** — experimental: skips classification, takes the first topic
+   - **Normal flow** — delegates classification to `classification.py`
+3. Runs `execute_topic()` from `topic_execution.py`
+4. Assembles the final `AgentConversationMessageAssistant`
 
-Также содержит `get_agent_by_system_name()` для загрузки агента из БД.
+Also contains `get_agent_by_system_name()` for loading an agent from the DB.
 
-Все функции из подмодулей **реэкспортируются** через `services.py` для обратной совместимости — внешний код может продолжать импортировать из `services.agents.services`.
+All functions from submodules are **re-exported** through `services.py` for backwards compatibility — external code can continue importing from `services.agents.services`.
 
-### `classification.py` — Классификация
+### `classification.py` — Classification
 
-Функция `classify_conversation()`:
+The `classify_conversation()` function:
 
-- Вызывает LLM через prompt template для определения intent и topic
-- **3 попытки** с инъекцией ошибки парсинга в контекст ретрая
-- Обработка JSON-галлюцинаций LLM: trailing commas, `//` comments, markdown code fences
-- Валидация: если intent = "topic", проверяет что topic существует
-- **Graceful fallback**: при исчерпании попыток возвращает `REQUEST_NOT_CLEAR` вместо краша
+- Calls LLM via prompt template to determine intent and topic
+- **3 retries** with parse error injection into retry context
+- Handles LLM JSON hallucinations: trailing commas, `//` comments, markdown code fences
+- Validation: if intent = "topic", checks that the topic exists
+- **Graceful fallback**: returns `REQUEST_NOT_CLEAR` instead of crashing when retries are exhausted
 
-Вспомогательная функция `_extract_json_string()` — извлечение JSON из произвольного LLM-ответа.
+Helper function `_extract_json_string()` — extracts JSON from arbitrary LLM responses.
 
-### `topic_execution.py` — Основной цикл
+### `topic_execution.py` — Main Loop
 
-Функция `execute_topic()`:
+The `execute_topic()` function:
 
 ```
 while iteration < MAX_ITERATIONS (5):
-    1. Собрать context messages (через MemoryStrategy)
-    2. Вызвать LLM с tools
-    3. Если есть tool calls с requires_confirmation → вернуть для подтверждения
-    4. Если есть assistant_message → вернуть результат
-    5. Если есть tool calls → выполнить actions → добавить в steps → следующая итерация
+    1. Collect context messages (via MemoryStrategy)
+    2. Call LLM with tools
+    3. If there are tool calls with requires_confirmation → return for confirmation
+    4. If there is an assistant_message → return result
+    5. If there are tool calls → execute actions → add to steps → next iteration
 ```
 
-Защитные механизмы:
-- **Topic-level timeout**: `AGENT_TOPIC_TIMEOUT_SECONDS` (по умолчанию 120с, через env)
-- **Action-level timeout**: `AGENT_ACTION_TIMEOUT_SECONDS` (по умолчанию 30с, через env)
-- **Sanitized errors**: внутренние ошибки actions не утекают в ответ пользователю
-- **Graceful degradation**: при исчерпании итераций возвращает последний доступный `assistant_message` вместо exception
+Protective mechanisms:
+- **Topic-level timeout**: `AGENT_TOPIC_TIMEOUT_SECONDS` (default 120s, via env)
+- **Action-level timeout**: `AGENT_ACTION_TIMEOUT_SECONDS` (default 30s, via env)
+- **Sanitized errors**: internal action errors do not leak into the user response
+- **Graceful degradation**: when iterations are exhausted, returns the last available `assistant_message` instead of an exception
 
-Также содержит `create_action_call_requests()` — парсинг tool calls из LLM-ответа в `AgentActionCallRequest`.
+Also contains `create_action_call_requests()` — parses tool calls from LLM response into `AgentActionCallRequest`.
 
-### `confirmation.py` — Подтверждение Actions
+### `confirmation.py` — Action Confirmation
 
-Функция `create_action_call_steps()`:
+The `create_action_call_steps()` function:
 
-- Принимает список action requests + user confirmations
-- Для подтверждённых — выполняет action
-- Для отклонённых — возвращает сообщение об отклонении
-- Ошибки выполнения sanitized через `_sanitize_action_error()`
+- Accepts a list of action requests + user confirmations
+- For confirmed — executes the action
+- For rejected — returns a rejection message
+- Execution errors are sanitized via `_sanitize_action_error()`
 
-### `tool_schema.py` — Генерация Tool-схем
+### `tool_schema.py` — Tool Schema Generation
 
-Конвертирует `AgentAction` → `ChatCompletionToolParam` для OpenAI API:
+Converts `AgentAction` → `ChatCompletionToolParam` for the OpenAI API:
 
-| Action Type       | Источник параметров                              |
+| Action Type       | Parameter source                                 |
 |-------------------|--------------------------------------------------|
 | `API`             | ApiServer → tool → `parameters.input`            |
 | `MCP_TOOL`        | MCPServer → tool → `inputSchema`                 |
-| `RAG`             | Metadata fields из коллекций RAG-тула            |
-| `RETRIEVAL`       | Metadata fields из коллекций Retrieval-тула      |
-| `PROMPT_TEMPLATE` | Фиксированная схема `{userMessage: string}`      |
-| `KNOWLEDGE_GRAPH` | Из `get_agent_tool_specs()` или fallback-схема   |
+| `RAG`             | Metadata fields from RAG tool collections        |
+| `RETRIEVAL`       | Metadata fields from Retrieval tool collections  |
+| `PROMPT_TEMPLATE` | Fixed schema `{userMessage: string}`             |
+| `KNOWLEDGE_GRAPH` | From `get_agent_tool_specs()` or fallback schema |
 
-Для actions с `requires_confirmation` добавляет параметр `_magnetActionMessage`.
+For actions with `requires_confirmation` adds the `_magnetActionMessage` parameter.
 
-### `message_builder.py` — Построение сообщений
+### `message_builder.py` — Message Building
 
-Функция `generate_completion_messages()`:
+The `generate_completion_messages()` function:
 
-- Конвертирует `AgentConversationMessage[]` → `ChatCompletionMessageParam[]`
-- Обрабатывает все типы шагов: classification, topic_completion, topic_action_call
-- Параметр `max_messages` для обрезки контекста
+- Converts `AgentConversationMessage[]` → `ChatCompletionMessageParam[]`
+- Handles all step types: classification, topic_completion, topic_action_call
+- `max_messages` parameter for context truncation
 
-Функция `create_tool_calls_from_topic_completion_step()`:
+The `create_tool_calls_from_topic_completion_step()` function:
 
-- Конвертирует action requests из шага → `ChatCompletionMessageToolCallParam[]`
+- Converts action requests from a step → `ChatCompletionMessageToolCallParam[]`
 
-### `memory.py` — Стратегии памяти
+### `memory.py` — Memory Strategies
 
-Протокол `MemoryStrategy` и реализация `LastNMessagesStrategy`:
+The `MemoryStrategy` protocol and `LastNMessagesStrategy` implementation:
 
 ```python
 class MemoryStrategy(Protocol):
@@ -163,50 +163,50 @@ class LastNMessagesStrategy:
     def __init__(self, n: int = 10): ...
 ```
 
-По умолчанию `n=10` (`DEFAULT_LAST_N_MESSAGES`). Стратегия подключается в `execute_topic()`.
+Default `n=10` (`DEFAULT_LAST_N_MESSAGES`). Strategy is wired in `execute_topic()`.
 
-### `exceptions.py` — Иерархия исключений
+### `exceptions.py` — Exception Hierarchy
 
 ```
 AgentError (base)
-├── AgentNotFoundError         — агент не найден
-├── AgentConfigurationError    — невалидная конфигурация
-├── ClassificationError        — ошибка классификации
-├── ActionExecutionError       — ошибка выполнения action
-├── AgentLoopExhaustedError    — цикл исчерпан без результата
-└── AgentTimeoutError          — таймаут выполнения topic
+├── AgentNotFoundError         — agent not found
+├── AgentConfigurationError    — invalid configuration
+├── ClassificationError        — classification error
+├── ActionExecutionError       — action execution error
+├── AgentLoopExhaustedError    — loop exhausted without result
+└── AgentTimeoutError          — topic execution timeout
 ```
 
-### `models.py` — Модели данных
+### `models.py` — Data Models
 
-Ключевые модели:
+Key models:
 
-| Модель                             | Назначение                                        |
+| Model                              | Purpose                                           |
 |------------------------------------|---------------------------------------------------|
-| `Agent`                            | Конфигурация агента (multi-variant entity)        |
-| `AgentTopic`                       | Topic с описанием и списком actions                |
-| `AgentAction`                      | Описание action (тип, tool, function name и т.д.) |
+| `Agent`                            | Agent configuration (multi-variant entity)        |
+| `AgentTopic`                       | Topic with description and list of actions        |
+| `AgentAction`                      | Action description (type, tool, function name...) |
 | `ConversationIntent`               | Enum: greeting, farewell, topic, off_topic, ...   |
-| `AgentConversationClassification`  | Результат классификации (intent + topic + reason) |
-| `AgentConversationRun`             | Набор шагов (steps) одного прогона агента         |
-| `AgentConversationRunStep*`        | Типизированные шаги: Classification, TopicCompletion, ActionCall |
-| `AgentConversationExecuteTopicResult` | Результат execute_topic                        |
-| `AgentVariantValue`                | Вариант конфигурации: topics + prompt_templates   |
-| `AgentSettings`                    | Настройки: welcome_message, sample_questions, ...  |
+| `AgentConversationClassification`  | Classification result (intent + topic + reason)   |
+| `AgentConversationRun`             | Set of steps from a single agent run              |
+| `AgentConversationRunStep*`        | Typed steps: Classification, TopicCompletion, ActionCall |
+| `AgentConversationExecuteTopicResult` | Result of execute_topic                        |
+| `AgentVariantValue`                | Configuration variant: topics + prompt_templates  |
+| `AgentSettings`                    | Settings: welcome_message, sample_questions, ...  |
 
-### `actions/execute.py` — Роутер Actions
+### `actions/execute.py` — Action Router
 
-Маппинг `AgentActionType` → функция-исполнитель:
+Mapping `AgentActionType` → executor function:
 
 ```python
-# Простые actions (tool_system_name + arguments)
+# Simple actions (tool_system_name + arguments)
 EXECUTE_AGENT_ACTION_FUNCTION_MAP = {
     RAG:             action_execute_rag,
     RETRIEVAL:       action_execute_retrieval,
     PROMPT_TEMPLATE: action_execute_prompt_template,
 }
 
-# Actions с провайдером (tool_provider + tool_system_name + arguments)
+# Actions with provider (tool_provider + tool_system_name + arguments)
 EXECUTE_AGENT_PROVIDED_ACTION_FUNCTION_MAP = {
     MCP_TOOL:        action_execute_mcp_tool,
     API:             action_execute_api_tool,
@@ -216,35 +216,35 @@ EXECUTE_AGENT_PROVIDED_ACTION_FUNCTION_MAP = {
 
 ---
 
-## Конфигурация через переменные окружения
+## Environment Variable Configuration
 
-| Переменная                         | По умолч. | Описание                                |
-|------------------------------------|-----------|-----------------------------------------|
-| `AGENT_TOPIC_TIMEOUT_SECONDS`      | `120`     | Таймаут на весь цикл execute_topic      |
-| `AGENT_ACTION_TIMEOUT_SECONDS`     | `30`      | Таймаут на одно выполнение action       |
-| `ACTION_MESSAGE_DEFAULT_LLM_DESCRIPTION` | (встроен.) | LLM-инструкция для `_magnetActionMessage` |
+| Variable                           | Default   | Description                                     |
+|------------------------------------|-----------|-------------------------------------------------|
+| `AGENT_TOPIC_TIMEOUT_SECONDS`      | `120`     | Timeout for the entire execute_topic loop       |
+| `AGENT_ACTION_TIMEOUT_SECONDS`     | `30`      | Timeout for a single action execution           |
+| `ACTION_MESSAGE_DEFAULT_LLM_DESCRIPTION` | (built-in) | LLM instruction for `_magnetActionMessage` |
 
 ---
 
-## Потоки данных
+## Data Flows
 
-### Основной flow
+### Main flow
 
 ```
 execute_agent()                              [services.py]
   │
-  ├─ get_agent_by_system_name()              [services.py]  — загрузка из БД
+  ├─ get_agent_by_system_name()              [services.py]  — load from DB
   │
   ├─ classify_conversation()                 [classification.py]
-  │    ├─ execute_prompt_template()           — вызов LLM
-  │    ├─ _extract_json_string()              — парсинг ответа
-  │    └─ AgentConversationClassification     — результат
+  │    ├─ execute_prompt_template()           — call LLM
+  │    ├─ _extract_json_string()              — parse response
+  │    └─ AgentConversationClassification     — result
   │
   └─ execute_topic()                         [topic_execution.py]
        ├─ LastNMessagesStrategy.select_messages()  [memory.py]
        ├─ generate_completion_messages()            [message_builder.py]
        ├─ create_chat_completion_tools()            [tool_schema.py]
-       ├─ create_chat_completion_from_prompt_template()  — вызов LLM
+       ├─ create_chat_completion_from_prompt_template()  — call LLM
        ├─ create_action_call_requests()             [topic_execution.py]
        └─ execute_agent_action()                    [actions/execute.py]
             └─ action_execute_*()                   [actions/action_execute_*.py]
@@ -261,11 +261,11 @@ execute_agent()                              [services.py]
 
 ---
 
-## Принципы
+## Principles
 
-1. **Единственная ответственность** — каждый модуль отвечает за одну задачу
-2. **Graceful degradation** — система предпочитает вернуть неполный ответ, а не упасть
-3. **Sanitized errors** — внутренние ошибки и трейсы не попадают к пользователю
-4. **Явные исключения** — кастомная иерархия вместо `assert` / generic `ValueError`
-5. **Pluggable memory** — стратегия контекста заменяема через Protocol
-6. **Обратная совместимость** — все публичные символы реэкспортируются из `services.py`
+1. **Single responsibility** — each module is responsible for one task
+2. **Graceful degradation** — the system prefers to return an incomplete response rather than crash
+3. **Sanitized errors** — internal errors and tracebacks do not reach the user
+4. **Explicit exceptions** — custom hierarchy instead of `assert` / generic `ValueError`
+5. **Pluggable memory** — context strategy is replaceable via Protocol
+6. **Backwards compatibility** — all public symbols are re-exported from `services.py`
