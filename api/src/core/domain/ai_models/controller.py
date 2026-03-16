@@ -449,7 +449,7 @@ class AIModelsController(Controller):
                         model=model_name,
                         temperature=0,
                         top_p=1,
-                        max_tokens=10,  # Minimal tokens to save costs
+                        max_tokens=16,  # Minimal tokens to save costs (Responses API requires >= 16)
                         model_config=model_config,
                     )
 
