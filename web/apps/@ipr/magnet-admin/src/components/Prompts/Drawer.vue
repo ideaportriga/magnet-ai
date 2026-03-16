@@ -1,5 +1,5 @@
 <template lang="pug">
-.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(style='max-width: 500px; min-width: 500px !important')
+.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(style='max-width: 500px; min-width: 500px !important; overflow-x: hidden')
   .column.full-height
     .col-auto.km-heading-7.q-mb-xs
       .row
@@ -7,10 +7,34 @@
         .col-auto
           km-btn(flat, simple, label='Evaluate', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
     q-separator.q-mb-md
-    .col-auto
-      .km-heading-5.text-text-grey Input
+    .col-auto(style='overflow-x: auto')
+      .row.items-center.q-mb-xs
+        .col
+          .km-heading-5.text-text-grey Input
+        .col-auto
+          q-btn(
+            flat,
+            round,
+            dense,
+            icon='code',
+            :color="inputViewMode === 'code' ? 'primary' : 'grey-5'",
+            @click="inputViewMode = 'code'"
+          )
+            q-tooltip.bg-white.block-shadow.km-description.text-text-grey Show raw input
+          q-btn(
+            flat,
+            round,
+            dense,
+            icon='visibility',
+            :color="inputViewMode === 'preview' ? 'primary' : 'grey-5'",
+            @click="inputViewMode = 'preview'"
+          )
+            q-tooltip.bg-white.block-shadow.km-description.text-text-grey Show rendered preview
 
+      div.prompt-locked.markdown-content(v-show="inputViewMode === 'preview'")
+        div(v-html='inputRenderedHtml')
       km-input(
+        v-show="inputViewMode === 'code'",
         data-test='preview-input',
         ref='input',
         rows='10',
@@ -180,6 +204,7 @@ import { useStore } from 'vuex'
 import { fetchData } from '@shared'
 import { useScribe } from '@/composables/useScribe'
 import { useAudioUpload } from '@/composables/useAudioUpload'
+import MarkdownIt from 'markdown-it'
 
 export default defineComponent({
   props: ['open'],
@@ -195,6 +220,7 @@ export default defineComponent({
     const isLoadingToken = ref(false)
     const transcriptionBaseText = ref('')
     const selectedInputOption = ref(null)
+    const md = new MarkdownIt({ html: false, breaks: true })
 
     return {
       store,
@@ -203,6 +229,8 @@ export default defineComponent({
       isLoadingToken,
       transcriptionBaseText,
       selectedInputOption,
+      markdownRenderer: md,
+      inputViewMode: ref('code'),
       detailedResponse: ref(undefined),
       showDetails: ref(false),
       testText: ref(''),
@@ -242,6 +270,24 @@ export default defineComponent({
     selectedInputOptionOption() {
       if (!this.selectedInputOption) return null
       return this.inputOptions.find((o) => o.value === this.selectedInputOption) ?? null
+    },
+    inputRenderedHtml() {
+      const input = this.testText || ''
+      const varRegex = /\{[A-Za-z_][A-Za-z0-9_]*\}/g
+      const vars = []
+      const textForMd = input.replace(varRegex, (match) => {
+        const varName = match.slice(1, -1)
+        const idx = vars.length
+        vars.push(varName)
+        return `\u200B__VAR${idx}__\u200B`
+      })
+      let html = this.markdownRenderer.render(textForMd)
+      vars.forEach((varName, idx) => {
+        const placeholder = `\u200B__VAR${idx}__\u200B`
+        const escaped = varName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        html = html.split(placeholder).join(`<span class="prompt-var-chip">${escaped}</span>`)
+      })
+      return html
     },
     scribeCommitted() {
       return this.scribe.committedTranscripts?.value ?? []
@@ -473,3 +519,106 @@ export default defineComponent({
   },
 })
 </script>
+
+<style lang="stylus" scoped>
+.prompt-locked
+  background: #f7f7f9
+  border-radius: 8px
+  padding: 12px 16px
+  min-height: 120px
+  max-height: 220px
+  overflow-y: auto
+  font-size: 12px
+
+.prompt-locked :deep(.prompt-var-chip)
+  display: inline-flex
+  align-items: center
+  padding: 2px 8px
+  margin: 2px 2px
+  border-radius: 4px
+  font-size: 12px
+  font-weight: 500
+  border: 1px solid var(--q-primary)
+  color: var(--q-primary)
+  background: transparent
+
+.prompt-locked :deep(p)
+  margin: 0 0 8px 0
+  line-height: 1.5
+
+.prompt-locked :deep(p:last-child)
+  margin-bottom: 0
+
+.prompt-locked :deep(ul),
+.prompt-locked :deep(ol)
+  padding-left: 20px
+  margin: 0 0 8px 0
+
+.prompt-locked :deep(table)
+  border-collapse: collapse
+  border: 1px solid rgba(0, 0, 0, 0.12)
+  margin: 0 0 8px 0
+  width: auto
+  font-size: inherit
+
+.prompt-locked :deep(th),
+.prompt-locked :deep(td)
+  border: 1px solid rgba(0, 0, 0, 0.12)
+  padding: 6px 10px
+  text-align: left
+  font-size: inherit
+
+.prompt-locked :deep(pre),
+.prompt-locked :deep(code)
+  background: rgba(0, 0, 0, 0.06)
+  border-radius: 4px
+  padding: 2px 6px
+  font-size: 12px
+
+.prompt-locked :deep(pre)
+  padding: 12px
+  overflow-x: auto
+  white-space: pre-wrap
+
+.prompt-locked :deep(h1),
+.prompt-locked :deep(h2),
+.prompt-locked :deep(h3),
+.prompt-locked :deep(h4),
+.prompt-locked :deep(h5),
+.prompt-locked :deep(h6)
+  margin: 12px 0 6px 0
+  line-height: 1.3
+  font-size: 18px
+  font-weight: 600
+
+.prompt-locked :deep(h2)
+  font-size: 16px
+
+.prompt-locked :deep(h3)
+  font-size: 15px
+
+.prompt-locked :deep(h4)
+  font-size: 14px
+
+.prompt-locked :deep(h5)
+  font-size: 13px
+
+.prompt-locked :deep(h6)
+  font-size: 12px
+
+.prompt-locked :deep(h1:first-child),
+.prompt-locked :deep(h2:first-child),
+.prompt-locked :deep(h3:first-child),
+.prompt-locked :deep(h4:first-child)
+  margin-top: 0
+
+.prompt-locked :deep(strong)
+  font-weight: 600
+
+.prompt-locked :deep(a)
+  color: var(--q-primary)
+  text-decoration: none
+
+.prompt-locked :deep(a:hover)
+  text-decoration: underline
+</style>
