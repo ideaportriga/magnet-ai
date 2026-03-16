@@ -102,6 +102,13 @@ def get_route_handlers(
             ]
         )
 
+    if os.getenv("DEBUG_MODE", "").lower() in ("true", "1"):
+        from routes.admin.test_utils import TestUtilsController
+
+        route_handlers_admin.append(
+            TestUtilsController
+        )  # Admin / Test Utils (debug only)
+
     route_handlers_user: list[ControllerRouterHandler] = [
         AskMagnetController,  # User / Ask Magnet (form submissions)
         AgentConversationsController,  # User / Agent Conversations
