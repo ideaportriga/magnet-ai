@@ -39,7 +39,7 @@ const actions = {
       .catch((response) => {
         throw {
           technicalError: response?.error,
-          text: `Error parsing PDF file collection`,
+          text: `Error parsing file`,
         }
       })
   },

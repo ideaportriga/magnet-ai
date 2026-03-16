@@ -62,6 +62,11 @@ export default {
       allModels,
     }
   },
+  data() {
+    return {
+      isUnmounting: false,
+    }
+  },
   computed: {
     provider() {
       return this.$store.getters.provider
@@ -103,6 +108,7 @@ export default {
     selectedRow: {
       immediate: true,
       handler(newVal) {
+        if (this.isUnmounting) return
         if (newVal) {
           this.$store.commit('setProvider', newVal)
         }
@@ -111,6 +117,7 @@ export default {
     availableModels: {
       immediate: true,
       handler(newVal, oldVal) {
+        if (this.isUnmounting) return
         // Reset selectedModel if it's not in availableModels for current provider
         if (this.selectedModel && newVal.length > 0) {
           const modelExists = newVal.find((model) => model.id === this.selectedModel.id)
@@ -132,6 +139,12 @@ export default {
   mounted() {
     // Auto-selection will be handled by availableModels watcher
     // No need to select here as availableModels might not be loaded yet
+  },
+  beforeUnmount() {
+    // Guard watchers from firing store mutations during teardown.
+    // If they do, Vue's scheduler picks up the reactive change and tries to
+    // unmount children whose vnodes are already null → TypeError: null.type
+    this.isUnmounting = true
   },
   methods: {
     autoSelectFirstModel(models) {

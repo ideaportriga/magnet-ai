@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
@@ -70,8 +70,28 @@ class RoutingConfig(BaseModel):
         description="Additional LiteLLM parameters (api_version, custom_llm_provider, etc.)",
     )
 
+    # API path suffix appended to the provider endpoint (e.g. "/v2" for Azure AI Foundry rerank).
+    # Only the path portion is allowed — this prevents redirecting API keys to a different host.
+    api_path: Optional[str] = Field(
+        None,
+        description=(
+            "Path suffix appended to the provider endpoint for this model. "
+            "E.g. '/v2' → provider_endpoint/v2. "
+            "Must start with '/' and must not contain '://' (full URL override is not allowed)."
+        ),
+    )
+
     class Config:
         extra = "allow"
+
+    def validate_api_path(self) -> None:
+        if self.api_path is not None:
+            if "://" in self.api_path:
+                raise ValueError(
+                    "api_path must be a path suffix (e.g. '/v2'), not a full URL"
+                )
+            if not self.api_path.startswith("/"):
+                raise ValueError("api_path must start with '/'")
 
 
 # Base mixin for common AI model fields
@@ -242,9 +262,21 @@ class AIModel(BaseSimpleSchema, AIModelFieldsMixin):
 class AIModelCreate(BaseSimpleCreateSchema, AIModelFieldsMixin):
     """Schema for creating a new AI model."""
 
+    @model_validator(mode="after")
+    def validate_routing_config_api_path(self) -> "AIModelCreate":
+        if self.routing_config:
+            self.routing_config.validate_api_path()
+        return self
+
 
 class AIModelUpdate(BaseSimpleUpdateSchema, AIModelUpdateFieldsMixin):
     """Schema for updating an existing AI model."""
+
+    @model_validator(mode="after")
+    def validate_routing_config_api_path(self) -> "AIModelUpdate":
+        if self.routing_config:
+            self.routing_config.validate_api_path()
+        return self
 
 
 class AIModelSetDefaultRequest(BaseModel):

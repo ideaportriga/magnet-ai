@@ -342,6 +342,22 @@ const actions = {
     }
   },
 
+  async debugInfo({ rootGetters, state }: ActionContext<ChromaState, any>, { payload, entity }: { payload: any; entity: string }) {
+    const endpoint = rootGetters.config?.collections?.endpoint
+    const service = rootGetters.config?.collections?.service || ''
+    const req = state[entity].api
+
+    try {
+      if (!req.debugInfo) {
+        return null
+      }
+      const result = await req.debugInfo(service, endpoint, { id: payload })
+      return result
+    } catch {
+      return null
+    }
+  },
+
   async availableModels({ rootGetters, state }: ActionContext<ChromaState, any>, { payload, entity }: { payload: any; entity: string }) {
     const endpoint = rootGetters.config?.collections?.endpoint
     const service = rootGetters.config?.collections?.service || ''

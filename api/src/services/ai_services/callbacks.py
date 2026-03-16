@@ -113,12 +113,16 @@ class MagnetAILogger(CustomLogger):
                 else 0
             )
 
-            logger.warning(
-                "LiteLLM %s failure: model=%s, duration=%.2fs, error=%s",
+            error_str = str(exception)[:500] if exception else "unknown"
+            error_type = type(exception).__name__ if exception else "unknown"
+
+            logger.error(
+                "LiteLLM %s failure: model=%s, duration=%.2fs, error_type=%s, error=%s",
                 call_type,
                 model,
                 duration,
-                str(exception)[:200] if exception else "unknown",
+                error_type,
+                error_str,
             )
 
         except Exception:

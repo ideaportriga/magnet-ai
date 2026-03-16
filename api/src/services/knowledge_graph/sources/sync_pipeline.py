@@ -16,7 +16,9 @@ from core.domain.knowledge_graph.services import KnowledgeGraphDocumentService
 from services.observability import observability_context, observe
 from services.observability.models import SpanExportMethod
 
-from ..content_load_services import load_content_from_bytes
+from ..content_load_services import (
+    load_content_from_bytes_async,
+)
 from ..models import (
     ContentConfig,
     ContentReaderContext,
@@ -395,8 +397,11 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         file_metadata: dict[str, Any] | None = None
 
         if isinstance(content, bytes) and content_config:
-            loaded = load_content_from_bytes(
-                content, content_config, context=content_reader_context
+            loaded = await load_content_from_bytes_async(
+                content,
+                content_config,
+                filename=filename,
+                context=content_reader_context,
             )
             file_metadata = loaded.get("metadata")
             total_pages = file_metadata.get("total_pages") if file_metadata else None

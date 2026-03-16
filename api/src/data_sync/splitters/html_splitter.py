@@ -75,10 +75,11 @@ class HtmlSplitter(AbstractSplitter):
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=chunk_size, chunk_overlap=chunk_overlap
             )
+            parsed_content = await parse_page(self.html, self.base_url)
             raw_chunks = splitter.split_documents(
                 [
                     Document(
-                        page_content=parse_page(self.html, self.base_url),
+                        page_content=parsed_content,
                         metadata=self.base_metadata,
                     )
                 ]
@@ -91,9 +92,10 @@ class HtmlSplitter(AbstractSplitter):
             ]
         # If strategy is None, use the html as is
         elif strategy == ChunkingStrategy.NONE:
+            parsed_content = await parse_page(self.html, self.base_url)
             raw_chunks = [
                 Document(
-                    page_content=clean_text(parse_page(self.html, self.base_url)),
+                    page_content=clean_text(parsed_content),
                     metadata=self.base_metadata,
                 )
             ]

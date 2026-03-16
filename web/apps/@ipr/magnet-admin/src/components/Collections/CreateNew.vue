@@ -1,5 +1,5 @@
 <template lang="pug">
-q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
+q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
   q-card.card-style.q-px-md(style='min-width: 800px')
     q-card-section.card-section-style.q-mb-md
       .row
@@ -693,6 +693,10 @@ export default defineComponent({
       this.jsonError = false
       return true
     },
+    onDialogHide() {
+      this.resetState()
+      this.$emit('cancel')
+    },
     async cancelCreate() {
       this.$emit('cancel', false)
       this.resetState()
@@ -708,8 +712,12 @@ export default defineComponent({
       this.category = ''
       this.show_in_qa = false
       this.source_type = ''
+      this.source = {}
       this.provider_system_name = ''
       this.metadata = '{}'
+      this.stepper = 0
+
+      this.$store.commit('setKnowledge', { name: '', system_name: '', description: '' })
 
       this.customFields = {}
 

@@ -16,9 +16,8 @@ async def action_execute_prompt_template(
 ) -> AgentActionCallResponse:
     user_message = arguments.get("userMessage")
 
-    assert user_message and isinstance(user_message, str), (
-        "Cannot call Prompt Template - user message is missing"
-    )
+    if not user_message or not isinstance(user_message, str):
+        raise ValueError("Cannot call Prompt Template - user message is missing")
 
     observability_context.update_current_span(
         input={

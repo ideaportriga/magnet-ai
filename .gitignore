@@ -33,3 +33,4 @@ build/
 # api/static/*.map
 recording_test.py
 /research
+/reports
