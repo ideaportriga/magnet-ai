@@ -1,6 +1,6 @@
 <template lang="pug">
 .no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(style='max-width: 500px; min-width: 500px !important; overflow-x: hidden')
-  .column.full-height
+  .column.full-height.full-width.no-wrap
     .col-auto.km-heading-7.q-mb-xs
       .row
         .col Preview
@@ -144,7 +144,7 @@
             )
           .col-auto
             q-toggle(v-model='markdown', label='Markdown', color='primary')
-    q-scroll-area.full-height.col
+    q-scroll-area.col(style='min-height: 0')
       template(v-if='loading')
         .row.justify-center
           q-spinner-dots(size='62px', color='primary')

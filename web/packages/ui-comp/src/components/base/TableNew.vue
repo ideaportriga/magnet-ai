@@ -72,6 +72,9 @@ export default defineComponent({
     infiniteScroll: {
       default: false,
     },
+    selected: {
+      default: () => [],
+    },
   },
   emits: ['selectRow', 'cellAction', 'update:selected'],
   setup() {},

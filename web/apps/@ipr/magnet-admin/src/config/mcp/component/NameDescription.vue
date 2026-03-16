@@ -6,7 +6,7 @@
 import { defineComponent } from 'vue'
 
 export default defineComponent({
-  props: ['row'],
+  props: ['row', 'name'],
 
   setup() {
     return {}

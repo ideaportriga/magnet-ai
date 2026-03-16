@@ -24,6 +24,7 @@ import { defineComponent } from 'vue'
 import { typeOptions } from '@/config/evaluation_sets/evaluation_sets'
 
 export default defineComponent({
+  inheritAttrs: false,
   props: ['row'],
 
   setup() {
