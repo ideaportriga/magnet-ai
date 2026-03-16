@@ -464,19 +464,82 @@ def parse_entity_candidates_from_output(
     return list(candidates.values())
 
 
-async def _extract_entities_from_content(
+_VERIFICATION_PROMPT = (
+    "Are you sure that you have extracted all records for entity '{entity_name}'?. "
+    "Can you carefully review source text again and extract missing records. "
+    "Return only missing records, do not repeat already listed items."
+)
+
+
+async def _extract_entities_iterative(
     *,
     prompt_template_config: dict[str, Any],
     schema: str,
     entity_definition: EntityDefinition,
     content: str,
-) -> dict[str, Any]:
-    result = await execute_prompt_template(
-        system_name_or_config=prompt_template_config,
-        template_values={"SCHEMA": schema, "ENTITY_NAME": entity_definition.name},
-        template_additional_messages=[{"role": "user", "content": content}],
-    )
-    return _best_effort_json_object_from_text(result.content)
+    extra_iterations: int = 2,
+) -> list[EntityCandidateRecord]:
+    """Run entity extraction with verification iterations.
+
+    Performs an initial extraction pass, then up to ``extra_iterations`` more
+    passes where the full conversation history is preserved and the LLM is
+    asked to find anything it missed.  Stops early when a verification pass
+    returns zero new entities.
+    """
+    merged: dict[tuple[str, str], EntityCandidateRecord] = {}
+
+    # Accumulated conversation history — grows each iteration
+    additional_messages: list[dict[str, str]] = [{"role": "user", "content": content}]
+
+    for i in range(1 + max(0, extra_iterations)):
+        try:
+            result = await execute_prompt_template(
+                system_name_or_config=prompt_template_config,
+                template_values={
+                    "SCHEMA": schema,
+                    "ENTITY_NAME": entity_definition.name,
+                },
+                template_additional_messages=list(additional_messages),
+            )
+            raw = _best_effort_json_object_from_text(result.content)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Entity extraction iteration %d failed for entity %s: %s",
+                i,
+                entity_definition.name,
+                exc,
+            )
+            break
+
+        # Preserve the full assistant response in conversation history
+        additional_messages.append({"role": "assistant", "content": result.content})
+
+        # Parse candidates from this iteration and merge
+        iteration_candidates = parse_entity_candidates_from_output(
+            raw, [entity_definition]
+        )
+        for candidate in iteration_candidates:
+            key = (
+                candidate.entity,
+                normalize_record_identifier(candidate.record_identifier),
+            )
+            if key in merged:
+                merged[key] = _merge_candidate_records(merged[key], candidate)
+            else:
+                merged[key] = candidate
+
+        # Early stop: if any pass returned nothing, no point continuing
+        if len(iteration_candidates) == 0:
+            break
+
+        # Append verification prompt for the next iteration
+        if i < extra_iterations:
+            verification_msg = _VERIFICATION_PROMPT.replace(
+                "{entity_name}", entity_definition.name
+            )
+            additional_messages.append({"role": "user", "content": verification_msg})
+
+    return list(merged.values())
 
 
 def _split_into_segments(
@@ -516,12 +579,205 @@ def _split_into_segments(
 
 
 @observe(
-    name="Knowledge graph entity extraction",
+    name="Extract entity type from content", channel="production", source="production"
+)
+async def _extract_entity_from_content(
+    *,
+    prompt_template_config: dict[str, Any],
+    entity_definition: EntityDefinition,
+    content: str,
+    max_extraction_iterations: int,
+) -> list[EntityCandidateRecord]:
+    """Extract all records for a single entity type from a content string."""
+
+    observability_context.update_current_span(
+        input={
+            "Entity": entity_definition.name,
+            "Max Extraction Iterations": max_extraction_iterations,
+        }
+    )
+
+    entity_schema = build_entity_extraction_prompt_schema([entity_definition])
+    return await _extract_entities_iterative(
+        prompt_template_config=prompt_template_config,
+        schema=entity_schema,
+        entity_definition=entity_definition,
+        content=content,
+        extra_iterations=max_extraction_iterations - 1,
+    )
+
+
+@observe(
+    name="Extract entities from document", channel="production", source="production"
+)
+async def _process_document_extraction(
+    db_session: AsyncSession,
+    *,
+    graph_id: UUID,
+    doc_id: str,
+    source_id: str | None,
+    content_str: str,
+    entity_definitions: list[EntityDefinition],
+    prompt_template_config: dict[str, Any],
+    entity_service: KnowledgeGraphEntityService,
+    segment_size: int,
+    segment_overlap: float,
+    max_extraction_iterations: int,
+) -> dict[str, int]:
+    """Extract entities from a single document (document approach).
+
+    Splits content into segments, runs iterative extraction for each
+    (segment x entity) pair, merges across segments, and upserts records.
+    """
+
+    upserted_records = 0
+    errors = 0
+
+    document_candidates: dict[tuple[str, str], EntityCandidateRecord] = {}
+    segments = _split_into_segments(
+        content_str,
+        segment_size=segment_size,
+        segment_overlap=segment_overlap,
+    )
+
+    observability_context.update_current_span(
+        input={
+            "Document Id": doc_id,
+            "Segments Count": len(segments),
+        }
+    )
+
+    for segment in segments:
+        for entity_def in entity_definitions:
+            try:
+                candidates = await _extract_entity_from_content(
+                    prompt_template_config=prompt_template_config,
+                    entity_definition=entity_def,
+                    content=segment,
+                    max_extraction_iterations=max_extraction_iterations,
+                )
+            except Exception as exc:  # noqa: BLE001
+                errors += 1
+                logger.warning(
+                    "Entity extraction failed for document %s entity %s: %s",
+                    doc_id,
+                    entity_def.name,
+                    exc,
+                )
+                continue
+
+            for candidate in candidates:
+                candidate_key = (
+                    candidate.entity,
+                    normalize_record_identifier(candidate.record_identifier),
+                )
+                if candidate_key in document_candidates:
+                    document_candidates[candidate_key] = _merge_candidate_records(
+                        document_candidates[candidate_key],
+                        candidate,
+                    )
+                else:
+                    document_candidates[candidate_key] = candidate
+
+    for candidate in document_candidates.values():
+        await entity_service.upsert_record(
+            db_session,
+            graph_id=graph_id,
+            entity=candidate.entity,
+            record_identifier=candidate.record_identifier,
+            column_values=candidate.column_values,
+            source_document_id=doc_id,
+            source_id=source_id,
+        )
+        upserted_records += 1
+
+    await db_session.commit()
+    return {"upserted_records": upserted_records, "errors": errors}
+
+
+@observe(
+    name="Extract entities from document chunks",
     channel="production",
     source="production",
-    capture_input=False,
-    capture_output=False,
 )
+async def _process_document_chunks_extraction(
+    db_session: AsyncSession,
+    *,
+    graph_id: UUID,
+    doc_id: str,
+    source_id: str | None,
+    chunk_rows: list[Any],
+    entity_definitions: list[EntityDefinition],
+    prompt_template_config: dict[str, Any],
+    entity_service: KnowledgeGraphEntityService,
+    max_extraction_iterations: int,
+) -> dict[str, int]:
+    """Extract entities from chunks belonging to a single document."""
+
+    observability_context.update_current_span(
+        input={
+            "Document Id": doc_id,
+            "Chunk Count": len(chunk_rows),
+        }
+    )
+
+    processed_chunks = 0
+    skipped_chunks = 0
+    upserted_records = 0
+    errors = 0
+
+    for chunk_row in chunk_rows:
+        chunk_id = str(chunk_row.get("id") or "").strip()
+        content_str = str(chunk_row.get("content") or "").strip()
+        if not chunk_id or not content_str:
+            skipped_chunks += 1
+            continue
+
+        processed_chunks += 1
+
+        for entity_def in entity_definitions:
+            try:
+                chunk_candidates = await _extract_entity_from_content(
+                    prompt_template_config=prompt_template_config,
+                    entity_definition=entity_def,
+                    content=content_str,
+                    max_extraction_iterations=max_extraction_iterations,
+                )
+            except Exception as exc:  # noqa: BLE001
+                errors += 1
+                logger.warning(
+                    "Entity extraction failed for graph %s doc %s chunk %s entity %s: %s",
+                    str(graph_id),
+                    doc_id,
+                    chunk_id,
+                    entity_def.name,
+                    exc,
+                )
+                continue
+
+            for candidate in chunk_candidates:
+                await entity_service.upsert_record(
+                    db_session,
+                    graph_id=graph_id,
+                    entity=candidate.entity,
+                    record_identifier=candidate.record_identifier,
+                    column_values=candidate.column_values,
+                    source_document_id=doc_id,
+                    source_chunk_id=chunk_id,
+                    source_id=source_id,
+                )
+                upserted_records += 1
+
+        await db_session.commit()
+
+    return {
+        "processed_chunks": processed_chunks,
+        "skipped_chunks": skipped_chunks,
+        "upserted_records": upserted_records,
+        "errors": errors,
+    }
+
+
 async def run_graph_llm_entity_extraction(
     db_session: AsyncSession,
     *,
@@ -532,6 +788,7 @@ async def run_graph_llm_entity_extraction(
     entity_service: KnowledgeGraphEntityService | None = None,
     segment_size: int = 18000,
     segment_overlap: float = 0.1,
+    max_extraction_iterations: int = 3,
 ) -> dict[str, Any]:
     prompt_template_system_name = str(prompt_template_system_name or "").strip()
     if not prompt_template_system_name:
@@ -548,19 +805,12 @@ async def run_graph_llm_entity_extraction(
         await get_prompt_template_by_system_name_flat(prompt_template_system_name)
     )
 
-    try:
-        observability_context.update_current_span(
-            extra_data={
-                "graph_id": str(graph_id),
-                "approach": str(approach),
-                "prompt_template_system_name": prompt_template_system_name,
-                "segment_size": int(segment_size),
-                "segment_overlap": float(segment_overlap),
-                "entity_definitions_count": len(entity_definitions),
-            }
-        )
-    except Exception:
-        pass
+    observability_context.update_current_span(
+        input={
+            "approach": str(approach),
+            "entity_definitions_count": len(entity_definitions),
+        }
+    )
 
     processed_documents = 0
     processed_chunks = 0
@@ -623,67 +873,21 @@ async def run_graph_llm_entity_extraction(
                     continue
 
                 processed_documents += 1
-                document_candidates: dict[tuple[str, str], EntityCandidateRecord] = {}
-                segments = _split_into_segments(
-                    content_str,
+                doc_result = await _process_document_extraction(
+                    db_session,
+                    graph_id=graph_id,
+                    doc_id=doc_id,
+                    source_id=source_id,
+                    content_str=content_str,
+                    entity_definitions=entity_definitions,
+                    prompt_template_config=prompt_template_config,
+                    entity_service=entity_service,
                     segment_size=segment_size,
                     segment_overlap=segment_overlap,
+                    max_extraction_iterations=max_extraction_iterations,
                 )
-
-                for segment in segments:
-                    for entity_def in entity_definitions:
-                        entity_schema = build_entity_extraction_prompt_schema(
-                            [entity_def]
-                        )
-                        try:
-                            extracted = await _extract_entities_from_content(
-                                prompt_template_config=prompt_template_config,
-                                schema=entity_schema,
-                                entity_definition=entity_def,
-                                content=segment,
-                            )
-                        except Exception as exc:  # noqa: BLE001
-                            errors += 1
-                            logger.warning(
-                                "Entity extraction failed for document %s entity %s: %s",
-                                doc_id,
-                                entity_def.name,
-                                exc,
-                            )
-                            continue
-
-                        for candidate in parse_entity_candidates_from_output(
-                            extracted, [entity_def]
-                        ):
-                            candidate_key = (
-                                candidate.entity,
-                                normalize_record_identifier(
-                                    candidate.record_identifier
-                                ),
-                            )
-                            if candidate_key in document_candidates:
-                                document_candidates[candidate_key] = (
-                                    _merge_candidate_records(
-                                        document_candidates[candidate_key],
-                                        candidate,
-                                    )
-                                )
-                            else:
-                                document_candidates[candidate_key] = candidate
-
-                for candidate in document_candidates.values():
-                    await entity_service.upsert_record(
-                        db_session,
-                        graph_id=graph_id,
-                        entity=candidate.entity,
-                        record_identifier=candidate.record_identifier,
-                        column_values=candidate.column_values,
-                        source_document_id=doc_id,
-                        source_id=source_id,
-                    )
-                    upserted_records += 1
-
-                await db_session.commit()
+                upserted_records += doc_result["upserted_records"]
+                errors += doc_result["errors"]
 
             offset += len(batch)
 
@@ -740,58 +944,25 @@ async def run_graph_llm_entity_extraction(
             skipped_documents += 1
             continue
 
-        had_any_chunk_content = False
+        chunks_result = await _process_document_chunks_extraction(
+            db_session,
+            graph_id=graph_id,
+            doc_id=doc_id,
+            source_id=source_id,
+            chunk_rows=list(chunk_rows),
+            entity_definitions=entity_definitions,
+            prompt_template_config=prompt_template_config,
+            entity_service=entity_service,
+            max_extraction_iterations=max_extraction_iterations,
+        )
 
-        for chunk_row in chunk_rows:
-            chunk_id = str(chunk_row.get("id") or "").strip()
-            content_str = str(chunk_row.get("content") or "").strip()
-            if not chunk_id or not content_str:
-                skipped_chunks += 1
-                continue
+        p_chunks = chunks_result["processed_chunks"]
+        processed_chunks += p_chunks
+        skipped_chunks += chunks_result["skipped_chunks"]
+        upserted_records += chunks_result["upserted_records"]
+        errors += chunks_result["errors"]
 
-            had_any_chunk_content = True
-            processed_chunks += 1
-
-            for entity_def in entity_definitions:
-                entity_schema = build_entity_extraction_prompt_schema([entity_def])
-                try:
-                    extracted = await _extract_entities_from_content(
-                        prompt_template_config=prompt_template_config,
-                        schema=entity_schema,
-                        entity_definition=entity_def,
-                        content=content_str,
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    errors += 1
-                    logger.warning(
-                        "Entity extraction failed for graph %s doc %s chunk %s entity %s: %s",
-                        str(graph_id),
-                        doc_id,
-                        chunk_id,
-                        entity_def.name,
-                        exc,
-                    )
-                    continue
-
-                chunk_candidates = parse_entity_candidates_from_output(
-                    extracted, [entity_def]
-                )
-                for candidate in chunk_candidates:
-                    await entity_service.upsert_record(
-                        db_session,
-                        graph_id=graph_id,
-                        entity=candidate.entity,
-                        record_identifier=candidate.record_identifier,
-                        column_values=candidate.column_values,
-                        source_document_id=doc_id,
-                        source_chunk_id=chunk_id,
-                        source_id=source_id,
-                    )
-                    upserted_records += 1
-
-            await db_session.commit()
-
-        if had_any_chunk_content:
+        if p_chunks > 0:
             processed_documents += 1
         else:
             skipped_documents += 1
@@ -871,6 +1042,12 @@ async def run_entity_extraction(
         if getattr(data, "segment_overlap", None) is not None
         else float(extraction_settings.get("segment_overlap") or 0.1)
     )
+    max_extraction_iterations = max(
+        1,
+        int(data.max_extraction_iterations)
+        if getattr(data, "max_extraction_iterations", None) is not None
+        else int(extraction_settings.get("max_extraction_iterations") or 3),
+    )
 
     entity_svc = entity_service or KnowledgeGraphEntityService()
     await entity_svc.create_table(db_session, graph_id=graph_id)
@@ -884,4 +1061,5 @@ async def run_entity_extraction(
         entity_service=entity_svc,
         segment_size=segment_size,
         segment_overlap=segment_overlap,
+        max_extraction_iterations=max_extraction_iterations,
     )

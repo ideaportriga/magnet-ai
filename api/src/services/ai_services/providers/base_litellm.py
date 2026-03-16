@@ -342,7 +342,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
             if is_reasoning_model:
                 # Reasoning models use reasoning_effort instead of temperature
                 params["reasoning_effort"] = (model_config or {}).get(
-                    "reasoning_effort", "low"
+                    "reasoning_effort", "medium"
                 )
             elif "temperature" in supported_params:
                 params["temperature"] = temperature

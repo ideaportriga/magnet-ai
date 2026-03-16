@@ -7,7 +7,6 @@
           Define entity schemas, configure the extraction prompt, and run AI-powered extraction against this knowledge graph
         </div>
       </div>
-      <div v-if="entities.length > 0" class="col-auto row q-gutter-sm" />
     </div>
 
     <q-separator class="q-my-md" />
@@ -31,19 +30,19 @@
     </div>
 
     <div v-else class="q-mt-md">
-      <div class="row items-center q-mb-md q-gutter-sm">
-        <km-btn flat label="New Entity" size="sm" :disable="saving" @click="openCreateDialog" />
+      <div class="row items-center q-mb-md q-gutter-xs">
         <km-btn
           label="Run Extraction"
           size="sm"
           :disable="!canRunExtraction || saving"
           :loading="runningExtraction"
           @click="runExtraction"
-        />
+        >
+          <q-tooltip v-if="!canRunExtraction && !saving">Configure a prompt template in extraction settings first</q-tooltip>
+        </km-btn>
         <q-space />
-        <q-btn round flat dense icon="settings" :disable="saving" @click="showExtractionDialog = true">
-          <q-tooltip>Extraction Settings</q-tooltip>
-        </q-btn>
+        <km-btn flat icon="o_add_circle" label="New Entity" size="sm" :disable="saving" @click="openCreateDialog" />
+        <km-btn flat icon="settings" label="Settings" size="sm" :disable="saving" @click="showExtractionDialog = true" />
       </div>
 
       <q-table
@@ -537,6 +536,7 @@ defineExpose({
   color: #b8860b;
   font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
 }
+
 
 :deep(.entity-row-menu .q-focus-helper) {
   opacity: 0 !important;

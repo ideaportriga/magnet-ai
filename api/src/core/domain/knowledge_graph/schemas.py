@@ -479,6 +479,11 @@ class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
         le=0.9,
         description="Segment overlap ratio 0..0.9 (used when approach=document)",
     )
+    max_extraction_iterations: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Total extraction passes per segment (1 = single pass, 3 = initial + 2 verification passes)",
+    )
 
 
 class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
