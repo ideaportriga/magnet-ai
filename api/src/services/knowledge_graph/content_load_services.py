@@ -75,7 +75,7 @@ async def load_content_from_bytes_async(
         text, metadata = await reader.extract_from_bytes(
             file_bytes, mime_type=mime_type, filename=filename
         )
-        return {"text": text, "metadata": metadata}
+        return {"raw_text": text, "text": text, "metadata": metadata}
 
     # Delegate to synchronous loader for legacy readers
     return load_content_from_bytes(file_bytes, config, context=context)
