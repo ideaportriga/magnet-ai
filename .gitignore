@@ -34,3 +34,8 @@ build/
 recording_test.py
 /research
 /reports
+
+# Yarn PnP
+.pnp.cjs
+.pnp.loader.mjs
+.yarn/
