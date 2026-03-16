@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.46](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.45...v0.6.0-dev.46) (2026-03-16)
+
+### ✨ Features
+
+* kreuzberg integration, agent refactoring, metadata filter unification ([91b00e3](https://github.com/ideaportriga/magnet-ai/commit/91b00e3c2c4b0220cd5604815f47dce8a2adb520))
+
 ## [0.6.0-dev.45](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.44...v0.6.0-dev.45) (2026-03-12)
 
 ### ✨ Features
