@@ -81,13 +81,6 @@ _structlog_standard_lib_processors.insert(
     ),
 )
 
-# In debug mode, capture errors into in-memory collector for e2e test reporting
-if settings.log.DEBUG_MODE:
-    from core.server.test_error_collector import error_collector_processor
-
-    _structlog_default_processors.insert(-1, error_collector_processor)
-    _structlog_standard_lib_processors.insert(-1, error_collector_processor)
-
 # Loki processors (always JSON for structured logging in Loki)
 _structlog_loki_processors = default_structlog_standard_lib_processors(as_json=True)
 _structlog_loki_processors.insert(1, structlog.processors.EventRenamer("message"))
