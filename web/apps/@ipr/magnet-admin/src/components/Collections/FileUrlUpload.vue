@@ -266,6 +266,15 @@ export default {
 </script>
 
 <style scoped>
+:deep(.q-tab__content) {
+  flex-direction: row;
+  gap: 4px;
+}
+:deep(.q-tab__icon) {
+  font-size: 14px;
+  width: auto;
+  margin-bottom: 0;
+}
 .dropzone {
   border: 2px dashed #ccc;
   border-radius: 8px;
