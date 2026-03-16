@@ -31,9 +31,13 @@ export const VIRTUAL_FALLBACK_PROFILE_NAME = '<default>'
 export const VIRTUAL_FALLBACK_PROFILE_KEY = '_virtual_profile'
 export const VIRTUAL_FALLBACK_PROFILE_VALUE = 'fallback_plain_text'
 
+export const KREUZBERG_READER = 'kreuzberg'
+export const KREUZBERG_READER_LABEL = 'Kreuzberg Reader'
+
 export const readerOptions = [
   { label: 'Plain Text Reader', value: 'plain_text' },
   { label: 'PDF Reader', value: 'pdf' },
+  { label: KREUZBERG_READER_LABEL, value: KREUZBERG_READER },
   { label: SHAREPOINT_PAGE_READER_LABEL, value: SHAREPOINT_PAGE_READER },
   {
     label: FLUID_TOPICS_STRUCTURED_READER_LABEL,

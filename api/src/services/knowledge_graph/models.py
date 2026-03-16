@@ -32,6 +32,7 @@ class ContentReaderName(StrEnum):
 
     PDF = "pdf"
     PLAIN_TEXT = "plain_text"
+    KREUZBERG = "kreuzberg"
     SHAREPOINT_PAGE = "sharepoint_page"
     FLUID_TOPICS_STRUCTURED_DOCUMENTS = "fluid_topics_structured_documents"
 

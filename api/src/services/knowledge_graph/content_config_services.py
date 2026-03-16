@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import KnowledgeGraph
 
+from .content_load_services import USE_KREUZBERG
 from .models import ChunkerStrategy, ContentConfig, ContentReaderName, SourceType
 
 logger = logging.getLogger(__name__)
@@ -606,13 +607,18 @@ def sanitize_graph_settings_content_profiles(settings: dict[str, Any]) -> bool:
     return True
 
 
+def _pdf_reader_name() -> str:
+    """Return the reader name for PDF based on the USE_KREUZBERG feature flag."""
+    return ContentReaderName.KREUZBERG if USE_KREUZBERG else ContentReaderName.PDF
+
+
 def get_default_content_configs() -> list[ContentConfig]:
     return [
         ContentConfig(
             name="PDF (LLM Splitting)",
             enabled=True,
             glob_pattern="*.pdf",
-            reader={"name": ContentReaderName.PDF, "options": {}},
+            reader={"name": _pdf_reader_name(), "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.LLM,
                 "options": {
@@ -626,6 +632,26 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "PDF_DOCUMENT_CHUNKING",
                     "document_title_pattern": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
+            name="Word",
+            enabled=True,
+            glob_pattern="*.docx",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 18000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 18000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 18000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
                 },
             },
@@ -648,6 +674,106 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "document_title_pattern": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
+            name="PowerPoint",
+            enabled=True,
+            glob_pattern="*.pptx",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 18000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 18000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 18000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
+            name="Excel",
+            enabled=True,
+            glob_pattern="*.xlsx",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 18000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 18000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 18000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
+            name="HTML",
+            enabled=True,
+            glob_pattern="*.html",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 15000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 15000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 15000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
+            name="Images",
+            enabled=True,
+            glob_pattern="*.png,*.jpg,*.jpeg,*.gif,*.webp,*.bmp,*.tiff",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {"ocr": True}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 15000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 15000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 15000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
+            name="Email",
+            enabled=True,
+            glob_pattern="*.eml,*.msg",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 15000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 15000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 15000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
                 },
             },

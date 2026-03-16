@@ -1,8 +1,7 @@
-import asyncio
-import io
 from typing import Annotated
 
 from cryptography.fernet import Fernet
+from kreuzberg import ExtractionConfig, PageConfig, extract_bytes
 from litestar import Controller, post
 from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
@@ -10,7 +9,8 @@ from litestar.exceptions import ClientException
 from litestar.params import Body
 from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel
-from pypdf import PdfReader
+
+from services.knowledge_graph.readers.kreuzberg_reader import mime_type_from_filename
 
 
 class ParsePdfResponse(BaseModel):
@@ -27,16 +27,28 @@ class UtilsController(Controller):
         self,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
     ) -> ParsePdfResponse:
-        """Parse PDF file and extract text from its pages"""
+        """Parse a document file and extract text from its pages.
+
+        Accepts any format supported by kreuzberg (PDF, DOCX, PPTX, XLSX,
+        images, HTML, email, etc.). The MIME type is resolved from the
+        uploaded file's content-type header or inferred from its filename.
+        """
         if not data:
             raise ClientException("No file provided")
 
         content = await data.read()
-        pages = await asyncio.to_thread(
-            lambda: [
-                page.extract_text(extraction_mode="plain")
-                for page in PdfReader(io.BytesIO(content)).pages
-            ]
+        filename = data.filename or ""
+        mime_type = data.content_type or mime_type_from_filename(filename)
+        if not mime_type:
+            mime_type = "application/pdf"  # Fallback for legacy callers
+
+        config = ExtractionConfig(
+            output_format="markdown",
+            pages=PageConfig(extract_pages=True),
+        )
+        result = await extract_bytes(content, mime_type, config=config)
+        pages = (
+            [p["content"] for p in result.pages] if result.pages else [result.content]
         )
         return ParsePdfResponse(pages=pages)
 
