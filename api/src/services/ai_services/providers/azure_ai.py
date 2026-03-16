@@ -57,5 +57,5 @@ class AzureAIProvider(BaseLiteLLMProvider):
 
         # Store timeout from connection config
         self.timeout = (
-            self.connection.get("timeout", 30000) / 1000
+            self.connection.get("timeout", 120000) / 1000
         )  # convert to seconds

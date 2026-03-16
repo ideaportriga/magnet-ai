@@ -32,6 +32,9 @@ class StartupPlugin(InitPluginProtocol):
         """Application startup handler."""
         logger.info("Starting application...")
 
+        # Register LiteLLM callback logger for observability
+        self._register_litellm_callbacks()
+
         # Initialize scheduler
         await self._initialize_scheduler(app)
 
@@ -50,6 +53,19 @@ class StartupPlugin(InitPluginProtocol):
         # Preload Teams note-taker bot if configured via environment
         await self._initialize_teams_note_taker_runtime(app)
 
+    @staticmethod
+    def _register_litellm_callbacks() -> None:
+        """Register LiteLLM callback logger for failure/success observability."""
+        try:
+            import litellm
+
+            from services.ai_services.callbacks import MagnetAILogger
+
+            litellm.callbacks.append(MagnetAILogger())
+            logger.info("LiteLLM callback logger registered")
+        except Exception as e:
+            logger.warning("Failed to register LiteLLM callbacks: %s", e)
+
     async def _initialize_scheduler(self, app: Litestar) -> None:
         """Initialize the scheduler."""
         try:
@@ -58,11 +74,45 @@ class StartupPlugin(InitPluginProtocol):
             scheduler = await create_scheduler()
             app.state.scheduler = scheduler
             logger.info("Scheduler started successfully")
+
+            # Register periodic cleanup of temporary uploaded files
+            self._register_upload_cleanup_job(scheduler)
         except Exception as e:
             logger.error(f"Failed to start scheduler: {e}")
             # Set scheduler to None so we can handle it in shutdown
             app.state.scheduler = None
             # Don't raise the exception to allow the app to start without scheduler
+
+    @staticmethod
+    def _register_upload_cleanup_job(scheduler) -> None:
+        """Register a periodic job that removes expired knowledge-source uploads."""
+        try:
+            from apscheduler.triggers.interval import IntervalTrigger
+
+            from services.file_cleanup import (
+                KS_UPLOAD_CLEANUP_INTERVAL_MINUTES,
+                cleanup_old_uploads,
+            )
+
+            job_id = "ks_upload_cleanup"
+
+            # Remove stale job definition if it already exists (e.g. after restart)
+            if scheduler.get_job(job_id):
+                scheduler.remove_job(job_id)
+
+            scheduler.add_job(
+                cleanup_old_uploads,
+                trigger=IntervalTrigger(minutes=KS_UPLOAD_CLEANUP_INTERVAL_MINUTES),
+                id=job_id,
+                name="Cleanup expired knowledge-source uploads",
+                replace_existing=True,
+            )
+            logger.info(
+                "Registered ks_upload_cleanup job (every %d min)",
+                KS_UPLOAD_CLEANUP_INTERVAL_MINUTES,
+            )
+        except Exception as e:
+            logger.warning("Failed to register upload cleanup job: %s", e)
 
     async def _refresh_api_keys(self) -> None:
         """Refresh API keys cache."""

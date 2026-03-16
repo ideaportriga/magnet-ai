@@ -80,7 +80,7 @@ class SharepointPagesDataProcessor(SharepointAbstractDataProcessor):
         if page_content:
             if embed_title:
                 cleaned_content = clean_text(
-                    parse_page(page_content=page_content, base_url=base_url)
+                    await parse_page(page_content=page_content, base_url=base_url)
                 )
                 chunks = [
                     Document(

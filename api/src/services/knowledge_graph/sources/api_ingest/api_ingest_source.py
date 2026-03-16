@@ -13,7 +13,7 @@ from core.db.models.knowledge_graph import KnowledgeGraphSource
 from core.db.session import async_session_maker
 
 from ...content_config_services import get_content_config
-from ...content_load_services import load_content_from_bytes
+from ...content_load_services import load_content_from_bytes_async
 from ...models import SourceType, SyncCounters
 from ..abstract_source import AbstractDataSource
 
@@ -163,7 +163,9 @@ class ApiIngestDataSource(AbstractDataSource):
 
         await self._ensure_source(db_session, graph_id)
 
-        content = load_content_from_bytes(bytes(file_bytes), config)
+        content = await load_content_from_bytes_async(
+            bytes(file_bytes), config, filename=resolved_filename
+        )
         total_pages = (
             content.get("metadata", {}).get("total_pages")
             if isinstance(content, dict)

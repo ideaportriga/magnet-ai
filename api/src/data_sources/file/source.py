@@ -16,17 +16,21 @@ class UrlDataSource(DataSource[str]):
     def __init__(
         self,
         urls: list[str],
-        allowed_extensions: list[str] = [".pdf"],
+        allowed_extensions: list[str] | None = None,
+        local_files: list[dict] | None = None,
     ) -> None:
-        """Initializes the UrlDataSource with a list of URLs.
+        """Initializes the UrlDataSource with a list of URLs and optional local files.
 
         Args:
             urls (List[str]): A list of public URLs pointing to files.
             allowed_extensions (List[str], optional): List of allowed file extensions (e.g., ['.pdf', '.mp4']).
             If None, all files are allowed.
+            local_files: Optional list of dicts with 'filename' and 'storage_path' keys
+            for files uploaded from the filesystem.
 
         """
         self._urls = urls
+        self._local_files = local_files or []
         self._allowed_extensions = (
             {ext.lower() for ext in allowed_extensions} if allowed_extensions else None
         )
@@ -46,24 +50,38 @@ class UrlDataSource(DataSource[str]):
         return f"URL Data Source with {len(self._urls)} URLs."
 
     async def get_data(self) -> list[str]:
-        """Retrieves the list of URLs, optionally filtered by allowed extensions.
+        """Retrieves the list of URLs and local file identifiers, optionally filtered.
 
         Returns:
-            List[str]: A list of filtered URLs.
+            List[str]: A list of filtered URLs and local:// identifiers.
 
         """
+        urls = self._urls
         if self._allowed_extensions:
-            filtered_urls = [
+            urls = [
                 url
-                for url in self._urls
+                for url in urls
                 if self._get_extension(url) in self._allowed_extensions
             ]
             logger.info(
-                f"Filtered {len(filtered_urls)} URLs based on allowed extensions.",
+                f"Filtered {len(urls)} URLs based on allowed extensions.",
             )
-            return filtered_urls
-        logger.info(f"Returning all {len(self._urls)} URLs.")
-        return self._urls
+        else:
+            logger.info(f"Returning all {len(urls)} URLs.")
+
+        # Add local file identifiers
+        for lf in self._local_files:
+            local_id = f"local://{lf['storage_path']}"
+            if self._allowed_extensions:
+                ext = os.path.splitext(lf["filename"])[1].lower()
+                if ext not in self._allowed_extensions:
+                    continue
+            urls.append(local_id)
+
+        if self._local_files:
+            logger.info(f"Added {len(self._local_files)} local files.")
+
+        return urls
 
     async def download_file(self, url: str, local_path: str) -> None:
         """Downloads a file from a given URL to a local path.

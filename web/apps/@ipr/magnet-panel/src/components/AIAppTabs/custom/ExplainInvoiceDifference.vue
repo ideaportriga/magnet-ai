@@ -10,7 +10,7 @@
         outlined,
         label='Upload Files',
         v-model='files',
-        accept='.pdf',
+        accept='.pdf,.docx,.doc,.pptx,.xlsx,.xls,.html,.htm,.txt,.md,.eml,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff',
         dense,
         labelClass='km-heading-2'
       )

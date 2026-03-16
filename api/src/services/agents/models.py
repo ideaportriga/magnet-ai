@@ -100,6 +100,7 @@ class AgentSettings(BaseModel):
     sample_questions: SampleQuestions = Field(default_factory=SampleQuestions)
     user_feedback: bool | None = None
     notes: str | None = None
+    memory_last_n_messages: int | None = None
 
 
 class AgentVariantValue(BaseModel):
@@ -123,6 +124,7 @@ class ConversationIntent(StrEnum):
     FAREWELL = "farewell"
     REQUEST_NOT_CLEAR = "request_not_clear"
     TOPIC = "topic"
+    TOPIC_SWITCH = "topic_switch"
     OFF_TOPIC = "off_topic"
     OTHER = "other"
 
@@ -159,6 +161,7 @@ class AgentConversationClassification(BaseModel):
     reason: str
     assistant_message: str | None = None
     topic: str | None = None
+    confidence: float | None = None
 
 
 class AgentActionCallRequest(BaseModel):

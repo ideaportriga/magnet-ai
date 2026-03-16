@@ -147,7 +147,18 @@ async def _build_router_config() -> tuple[list[dict[str, Any]], dict[str, list[s
                 if litellm_provider:
                     full_model_name = f"{litellm_provider}/{model_name}"
                 else:
-                    full_model_name = model_name
+                    # Empty prefix = OpenAI-compatible custom endpoint.
+                    # LiteLLM Router requires a provider prefix, so use "openai/"
+                    # when an endpoint is configured; otherwise skip this model.
+                    endpoint = provider_config.get("endpoint")
+                    if endpoint:
+                        full_model_name = f"openai/{model_name}"
+                    else:
+                        logger.warning(
+                            f"Skipping model {model.system_name}: provider type "
+                            f"'{provider_type}' uses empty prefix but no endpoint is configured"
+                        )
+                        continue
 
                 litellm_params: dict[str, Any] = {
                     "model": full_model_name,
@@ -202,7 +213,8 @@ async def _build_router_config() -> tuple[list[dict[str, Any]], dict[str, list[s
                 # Add endpoint/base URL
                 endpoint = provider_config.get("endpoint")
                 if endpoint:
-                    if provider_type == "azure_open_ai":
+                    # azure_open_ai and azure_ai both use api_base; other providers use base_url
+                    if provider_type in ("azure_open_ai", "azure_ai"):
                         litellm_params["api_base"] = endpoint
                     else:
                         litellm_params["base_url"] = endpoint
@@ -219,17 +231,19 @@ async def _build_router_config() -> tuple[list[dict[str, Any]], dict[str, list[s
                         "api_version", "2024-05-01-preview"
                     )
 
+                # Add rate limiting to litellm_params so LiteLLM Router's
+                # _pre_call_checks can see them (it reads from litellm_params,
+                # not from the top-level model entry).
+                if routing_config.get("rpm"):
+                    litellm_params["rpm"] = routing_config["rpm"]
+                if routing_config.get("tpm"):
+                    litellm_params["tpm"] = routing_config["tpm"]
+
                 # Build model entry for Router
                 model_entry: dict[str, Any] = {
                     "model_name": model.system_name,  # Use system_name as deployment name
                     "litellm_params": litellm_params,
                 }
-
-                # Add rate limiting
-                if routing_config.get("rpm"):
-                    model_entry["rpm"] = routing_config["rpm"]
-                if routing_config.get("tpm"):
-                    model_entry["tpm"] = routing_config["tpm"]
 
                 # Add priority and weight for load balancing
                 if routing_config.get("priority"):
@@ -289,7 +303,7 @@ async def get_router() -> Router:
             "model_list": model_list,
             "routing_strategy": "simple-shuffle",  # Default strategy
             "num_retries": 0,  # Default: no retries, fallback immediately
-            "timeout": 30,
+            "timeout": 120,
             "retry_after": 0,  # No artificial delay between retries
             "enable_pre_call_checks": True,
         }
@@ -304,9 +318,14 @@ async def get_router() -> Router:
             ]
 
         # Create router
-        _router = Router(**router_settings)
-
-        logger.info(f"LiteLLM Router initialized with {len(model_list)} models")
+        try:
+            _router = Router(**router_settings)
+            logger.info(f"LiteLLM Router initialized with {len(model_list)} models")
+        except Exception:
+            logger.exception(
+                "LiteLLM Router initialization failed — falling back to empty router"
+            )
+            _router = Router(model_list=[])
 
         return _router
 
@@ -323,8 +342,36 @@ async def refresh_router() -> None:
     async with _router_lock:
         _router = None
 
-    await get_router()
-    logger.info("LiteLLM Router refreshed")
+        model_list, fallback_map = await _build_router_config()
+
+        if not model_list:
+            logger.warning("No models configured for LiteLLM Router after refresh")
+            _router = Router(model_list=[])
+        else:
+            router_settings = {
+                "model_list": model_list,
+                "routing_strategy": "simple-shuffle",
+                "num_retries": 0,
+                "timeout": 120,
+                "retry_after": 0,
+                "enable_pre_call_checks": True,
+            }
+
+            if fallback_map:
+                router_settings["fallbacks"] = [
+                    {model_name: fallback_list}
+                    for model_name, fallback_list in fallback_map.items()
+                ]
+
+            try:
+                _router = Router(**router_settings)
+            except Exception:
+                logger.exception(
+                    "LiteLLM Router refresh failed — falling back to empty router"
+                )
+                _router = Router(model_list=[])
+
+        logger.info("LiteLLM Router refreshed with %d models", len(model_list))
 
 
 async def router_completion(

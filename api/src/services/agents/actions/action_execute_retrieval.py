@@ -34,9 +34,12 @@ async def action_execute_retrieval(
             metadata_filter = FilterObject(json.loads(metadata_filter))
         except Exception as e:
             logger.error(f"Failed to parse metadata filter: {e}")
-            metadata_filter = None
+            return AgentActionCallResponse(
+                content=f'Invalid metadata_filter format: {e}. Please provide a valid MongoDB-like filter object, e.g. {{"$and": [{{"field": {{"$eq": "value"}}}}]}}',
+            )
 
-    assert query, "Cannot call Retrieval Tool - user's query is missing"
+    if not query:
+        raise ValueError("Cannot call Retrieval Tool - user's query is missing")
 
     observability_context.update_current_span(
         input={

@@ -71,6 +71,27 @@ class FilterCondition(BaseModel):
 
 
 class FilterObject(RootModel[dict[str, Any]]):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "title": "FilterObject",
+            "description": (
+                "MongoDB-like metadata filter. "
+                "Top-level key must be `$and` or `$or` (or a single field condition). "
+                "Supported operators: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $exists, $regex, $txt."
+            ),
+            "examples": [
+                {"$and": [{"language": {"$eq": "en"}}, {"status": {"$ne": "draft"}}]},
+                {
+                    "$or": [
+                        {"category": {"$in": ["news", "blog"]}},
+                        {"featured": {"$eq": True}},
+                    ]
+                },
+                {"author": {"$exists": True}},
+            ],
+        }
+    )
+
     @model_validator(mode="before")
     def validate_filter_object(cls, values: Any) -> Any:
         if not isinstance(values, dict):
