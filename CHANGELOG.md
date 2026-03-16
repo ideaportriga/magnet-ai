@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.48](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.47...v0.6.0-dev.48) (2026-03-16)
+
+### 🐛 Bug Fixes
+
+* minor ui fixes ([455a46b](https://github.com/ideaportriga/magnet-ai/commit/455a46b17045b73ecec663e260d5ff85b950c5cf))
+
 ## [0.6.0-dev.47](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.46...v0.6.0-dev.47) (2026-03-16)
 
 ### 🐛 Bug Fixes
