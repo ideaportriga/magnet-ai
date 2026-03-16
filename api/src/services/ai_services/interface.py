@@ -58,6 +58,7 @@ class AIProviderInterface(ABC):
         self,
         text: str,
         llm: str | None = None,
+        model_config: dict | None = None,
     ) -> EmbeddingResponse:
         raise NotImplementedError("get_embeddings is optional for this provider")
 
@@ -69,6 +70,7 @@ class AIProviderInterface(ABC):
         llm: str,
         top_n: int,
         truncation: bool | None,
+        model_config: dict | None = None,
     ) -> RerankResponse:
         raise NotImplementedError("rerank is optional for this provider")
 

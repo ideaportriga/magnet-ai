@@ -1,5 +1,5 @@
 import { isEqual, merge } from 'lodash'
-import { fetchData } from '@shared'
+import { fetchData, convertFiltersToFilterObject } from '@shared'
 
 // state
 const state = () => ({
@@ -61,7 +61,7 @@ const actions = {
   },
   async getSemanticSearchAnswer({ getters, rootGetters, commit, state }) {
     const prompt = state.semanticSearch
-    const metadataFilter = state.metadataFilter
+    const metadataFilter = convertFiltersToFilterObject(state.metadataFilter)
     const collection_id = getters.knowledge?.system_name
     const collection_display_name = getters.knowledge?.name
     const endpoint = getters.config?.documentSemanticSearch?.endpoint

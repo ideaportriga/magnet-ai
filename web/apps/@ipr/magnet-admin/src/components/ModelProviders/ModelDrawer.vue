@@ -168,6 +168,22 @@
 
     //- Routing Config Tab
     .column.q-gap-16.q-pa-16(v-if='tab == "routing"')
+      .km-title Endpoint
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Path
+        km-input(:model-value='apiPath', @update:model-value='apiPath = $event', placeholder='/v2')
+        .km-description.text-secondary-text.q-pl-8.q-pt-xs
+          | Path appended to the provider endpoint for this model. Must start with /.
+          template(v-if="type === 're-ranking'")
+            br
+            | Azure AI Foundry rerank paths: /v1 → /v1/rerank, /v2 → /v2/rerank, /providers/cohere/v2 → /providers/cohere/v2/rerank
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Request URL
+        .q-pa-xs.bg-grey-2.rounded-borders
+          .text-caption.text-mono(style='word-break: break-all; white-space: normal') {{ debugInfo?.computed_url || '—' }}
+
+      q-separator.q-my-16
+
       .km-title Caching
       km-checkbox(label='Enable Response Caching', :model-value='cacheEnabled', @update:model-value='cacheEnabled = $event')
       div(v-if='cacheEnabled')
@@ -316,7 +332,7 @@
 
 //- Test Result Dialog
 q-dialog(v-model='showTestDialog')
-  q-card(style='min-width: 400px; max-width: 500px')
+  q-card(style='min-width: 580px; max-width: 720px')
     q-card-section.row.items-center
       .km-heading-7 Test Result
       q-space
@@ -336,6 +352,30 @@ q-dialog(v-model='showTestDialog')
       .q-pa-sm.bg-negative-light.rounded-borders.q-mt-sm(v-if='testResult?.error')
         .km-field.text-negative.q-mb-xs Error Details
         .text-body2.text-negative {{ testResult?.error }}
+
+      //- LiteLLM Diagnostic Info
+      .q-mt-md.q-pa-sm.bg-grey-2.rounded-borders(
+        v-if='testResult?.litellm_model_string || testResult?.effective_endpoint || testResult?.computed_url || testResult?.via_router != null'
+      )
+        .km-field.text-secondary-text.q-mb-sm Connection Details
+        .q-gutter-y-xs
+          .row.items-start(v-if='testResult?.litellm_model_string')
+            .text-caption.text-grey-7.col-3 Model string
+            .text-caption.text-mono.col-9 {{ testResult.litellm_model_string }}
+          .row.items-start(v-if='testResult?.effective_endpoint')
+            .text-caption.text-grey-7.col-3 Endpoint
+            .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.effective_endpoint }}
+          .row.items-start(v-if='testResult?.via_router != null')
+            .text-caption.text-grey-7.col-3 Via Router
+            .col-9
+              q-badge(
+                :color='testResult.via_router ? "positive" : "grey-6"',
+                :label='testResult.via_router ? "Yes" : "No (direct call)"',
+                style='font-size: 11px'
+              )
+          .row.items-start(v-if='testResult?.computed_url')
+            .text-caption.text-grey-7.col-3 Request URL
+            .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.computed_url }}
     q-card-actions(align='right')
       km-btn(flat, label='Close', color='primary', @click='showTestDialog = false')
 
@@ -348,7 +388,7 @@ import { categoryOptions } from '../../config/model/model.js'
 
 export default {
   setup() {
-    const { items, update, create, selectedRow, test, capabilities: capabilitiesAction, ...useCollection } = useChroma('model')
+    const { items, update, create, selectedRow, test, capabilities: capabilitiesAction, debugInfo: debugInfoAction, ...useCollection } = useChroma('model')
 
     return {
       tab: ref('parameters'),
@@ -369,6 +409,7 @@ export default {
       testResult: ref(null),
       showTestDialog: ref(false),
       capabilities: ref(null),
+      debugInfo: ref(null),
       items,
       update,
       create,
@@ -376,6 +417,7 @@ export default {
       useCollection,
       testModelAction: test,
       capabilitiesAction,
+      debugInfoAction,
     }
   },
   computed: {
@@ -703,6 +745,14 @@ export default {
         this.updateRoutingConfigProperty('fallback_models', models)
       },
     },
+    apiPath: {
+      get() {
+        return this.routingConfig?.api_path || ''
+      },
+      set(value) {
+        this.updateRoutingConfigProperty('api_path', value || null)
+      },
+    },
   },
   watch: {
     modelId: {
@@ -710,8 +760,10 @@ export default {
       handler(newId) {
         if (newId) {
           this.fetchCapabilities()
+          this.fetchDebugInfo()
         } else {
           this.capabilities = null
+          this.debugInfo = null
         }
       },
     },
@@ -796,6 +848,24 @@ export default {
     },
     goToDefaultModels() {
       this.$router.push({ name: 'ModelProviders', query: { tab: 'DefaultModels' } })
+    },
+    async fetchDebugInfo() {
+      const modelId = this.modelId
+      if (!modelId) {
+        this.debugInfo = null
+        return
+      }
+      try {
+        let result
+        if (this.debugInfoAction) {
+          result = await this.debugInfoAction(modelId)
+        } else {
+          result = await this.$store.dispatch('chroma/debugInfo', { payload: modelId, entity: 'model' })
+        }
+        this.debugInfo = result
+      } catch {
+        this.debugInfo = null
+      }
     },
     async fetchCapabilities() {
       const modelId = this.modelId

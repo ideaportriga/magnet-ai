@@ -1,6 +1,5 @@
 import re
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, Field, root_validator
 
@@ -139,9 +138,10 @@ class RagToolTest(RagToolsBase):
         description="User's message to the RAG tool",
         examples=["How to ...?"],
     )
-    metadata_filter: list[dict[str, Any]] | None = Field(
-        description="Metadata filter to narrow down knowledge source chunks",
+    metadata_filter: FilterObject | None = Field(
+        description="MongoDB-like filter to narrow down knowledge source chunks. Supported operators: $eq, $ne, $in, $nin, $exists, $regex, $txt.",
         default=None,
+        examples=[{"$and": [{"language": {"$eq": "en"}}]}],
     )
 
 
@@ -155,8 +155,9 @@ class RagToolExecute(BaseModel):
         examples=["How to ...?"],
     )
     metadata_filter: FilterObject | None = Field(
-        description="Metadata filter to narrow down knowledge source chunks",
+        description="MongoDB-like filter to narrow down knowledge source chunks. Supported operators: $eq, $ne, $in, $nin, $exists, $regex, $txt.",
         default=None,
+        examples=[{"$and": [{"language": {"$eq": "en"}}]}],
     )
 
 

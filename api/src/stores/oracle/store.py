@@ -733,7 +733,6 @@ class OracleDbStore(DocumentStore):
         for model_name, embedding in embedding_results:
             embedding_cache[model_name] = embedding
 
-        metadata_filtering_allowed = retrieve_config.allow_metadata_filter
         use_keyword_search = retrieve_config.use_keyword_search
 
         async def _search_in_collection(cid: str):
@@ -756,7 +755,7 @@ class OracleDbStore(DocumentStore):
                             query=query,
                             vector=vector_for_collection,
                             num_results=num_results,
-                            filter=filter if metadata_filtering_allowed else None,
+                            filter=filter,
                         )
                     else:
                         logger.error(
@@ -769,7 +768,7 @@ class OracleDbStore(DocumentStore):
                         collection_id=cid,
                         query=query,
                         num_results=num_results,
-                        filter=filter if metadata_filtering_allowed else None,
+                        filter=filter,
                     )
 
                 semantic_search_result, keyword_search_result = await asyncio.gather(

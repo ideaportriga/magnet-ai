@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Any, override
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from kreuzberg import ChunkingConfig, ExtractionConfig, extract_bytes
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 
@@ -11,13 +11,15 @@ from .abstract_chunker import AbstractChunker
 
 logger = logging.getLogger(__name__)
 
+# Regex to find the last [Page: N] marker before or within a chunk
+_PAGE_MARKER_RE = re.compile(r"\[Page:\s*(\d+)\]")
+
 
 class DeterministicRecursiveChunker(AbstractChunker):
-    """Deterministic recursive splitter with embeddings generation.
+    """Deterministic Markdown-aware chunker powered by Kreuzberg.
 
-    Uses RecursiveCharacterTextSplitter with configurable separators, chunk size,
-    and overlap. Generates embeddings for each chunk using the configured model
-    or a default if unspecified.
+    Uses Kreuzberg's built-in ChunkingConfig for Markdown-aware splitting
+    with configurable chunk size and overlap.
     """
 
     def __init__(self, config: ContentConfig) -> None:
@@ -37,42 +39,46 @@ class DeterministicRecursiveChunker(AbstractChunker):
         )
         chunk_overlap_ratio = float(options.get("recursive_chunk_overlap", 0.1))
         chunk_overlap = int(chunk_size * chunk_overlap_ratio)
-        separators = options.get("splitters", ["\n\n", "\n", " ", ""])
 
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            separators=separators,
+        extraction_config = ExtractionConfig(
+            chunking=ChunkingConfig(
+                max_chars=chunk_size,
+                max_overlap=chunk_overlap,
+            ),
         )
-        text_chunks = splitter.split_text(text)
+
+        result = await extract_bytes(
+            text.encode("utf-8"), "text/markdown", config=extraction_config
+        )
+
         logger.info(
-            f"Split document into {len(text_chunks)} chunks using recursive splitter"
+            "Split document into %d chunks using Kreuzberg markdown chunker",
+            len(result.chunks),
         )
 
+        title_pattern = options.get("chunk_title_pattern") or ""
         chunks: list[KnowledgeGraphChunk] = []
-        for idx, chunk_text in enumerate(text_chunks):
-            # Resolve title pattern
-            options = self.config.chunker.get("options", {})
-            pattern = options.get("chunk_title_pattern") or ""
 
-            def format_pattern(pat: str, values: dict[str, Any]) -> str:
-                return re.sub(
-                    r"{(\w+)}", lambda m: str(values.get(m.group(1), "")), pat
-                )
+        for idx, kreuzberg_chunk in enumerate(result.chunks):
+            chunk_content = kreuzberg_chunk.content
+
+            # Extract page number from the last [Page: N] marker in the chunk
+            page_matches = _PAGE_MARKER_RE.findall(chunk_content)
+            page = int(page_matches[-1]) if page_matches else None
 
             default_title = f"Chunk {idx + 1}"
             title = (
-                format_pattern(
-                    pattern,
+                _format_title_pattern(
+                    title_pattern,
                     {
                         "index": idx + 1,
-                        "page": -1,
+                        "page": page if page is not None else -1,
                         "type": "TEXT",
                         "toc_reference": "",
                         "llm_title": "",
                     },
                 )
-                if pattern
+                if title_pattern
                 else default_title
             )
 
@@ -81,9 +87,14 @@ class DeterministicRecursiveChunker(AbstractChunker):
                 chunk_type="TEXT",
                 title=title,
                 toc_reference="",
-                content=chunk_text,
-                embedded_content=chunk_text,
+                page=page,
+                content=chunk_content,
+                embedded_content=chunk_content,
             )
             chunks.append(chunk)
 
         return ChunkerResult(chunks=chunks)
+
+
+def _format_title_pattern(pattern: str, values: dict[str, Any]) -> str:
+    return re.sub(r"{(\w+)}", lambda m: str(values.get(m.group(1), "")), pattern)

@@ -88,6 +88,7 @@ async def rerank(
                 query=query,
                 top_n=top_n,
                 truncation=False,
+                model_config=model_config,
             )
         except (AttributeError, NotImplementedError) as exc:
             observability_context.update_current_span(
