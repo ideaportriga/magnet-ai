@@ -9,6 +9,7 @@ env.bak/
 venv.bak/
 
 .vscode
+.zed
 generated_docs/
 specs/
 openshift/

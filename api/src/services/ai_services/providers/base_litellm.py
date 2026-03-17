@@ -28,7 +28,8 @@ from decimal import Decimal
 from typing import Any, BinaryIO, cast
 
 import litellm
-from litellm.caching import Cache
+from litellm.caching.caching import Cache
+from litellm.types.caching import LiteLLMCacheType
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -60,7 +61,7 @@ litellm.suppress_debug_info = True
 litellm.drop_params = True
 
 # Configure LiteLLM in-memory cache globally
-litellm.cache = Cache(type="local")  # In-memory cache
+litellm.cache = Cache(type=LiteLLMCacheType.LOCAL)  # In-memory cache
 litellm.enable_cache = (
     False  # Disabled by default, enabled per-request via routing_config
 )
@@ -192,9 +193,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
 
         # Zero out usage for cached responses to avoid double billing
         # LiteLLM stores cache_hit in _hidden_params
-        if hasattr(response, "_hidden_params") and response._hidden_params.get(
-            "cache_hit"
-        ):
+        if getattr(response, "_hidden_params", {}).get("cache_hit"):
             if hasattr(response, "usage") and response.usage:
                 response.usage.prompt_tokens = 0
                 response.usage.completion_tokens = 0
@@ -459,12 +458,13 @@ class BaseLiteLLMProvider(AIProviderInterface):
 
         response = await litellm.aembedding(**params)
 
+        usage_data = response.usage
         return EmbeddingResponse(
             data=response.data[0]["embedding"],
             usage=ModelUsage(
                 input_units="tokens",
-                input=response.usage.prompt_tokens,
-                total=response.usage.total_tokens,
+                input=getattr(usage_data, "prompt_tokens", 0) if usage_data else 0,
+                total=getattr(usage_data, "total_tokens", 0) if usage_data else 0,
             ),
         )
 
@@ -495,7 +495,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         params["documents"] = doc_texts
         params["top_n"] = top_n
 
-        response = await litellm.arerank(**params)
+        response: Any = await litellm.arerank(**params)
 
         usage = None
         if hasattr(response, "usage") and response.usage:
@@ -697,7 +697,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if timestamp_granularities:
             params["timestamp_granularities"] = timestamp_granularities
 
-        response = await litellm.atranscription(**params)
+        response: Any = await litellm.atranscription(**params)
 
         return TranscriptionResponse(
             text=getattr(response, "text", str(response)),
@@ -823,7 +823,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if routing_config.timeout:
             params["timeout"] = routing_config.timeout
 
-        response = await litellm.aresponses(**params)
+        response: Any = await litellm.aresponses(**params)
 
         # Extract output text from the response
         output_text = ""
@@ -927,7 +927,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if routing_config.timeout:
             params["timeout"] = routing_config.timeout
 
-        response = await litellm.aresponses(**params)
+        response: Any = await litellm.aresponses(**params)
         async for event in response:
             yield event
 
