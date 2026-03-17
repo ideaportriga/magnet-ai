@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.51](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.50...v0.6.0-dev.51) (2026-03-17)
+
+### ✨ Features
+
+* **api:** added azure fast stt support ([213de7a](https://github.com/ideaportriga/magnet-ai/commit/213de7aeeca7d8de7f1f2f2369a4a8e85e2a1042))
+* **api:** added azure stt (errors still present) ([71b0621](https://github.com/ideaportriga/magnet-ai/commit/71b0621cd8ad1692e01e19fe38130916c997053d))
+* **api:** added provider support for elevenlabs stt and azure fast stt ([370e90e](https://github.com/ideaportriga/magnet-ai/commit/370e90e10b9d564c95b61fa04309f15e27f048c2))
+* **api:** added provider support for stt ([9478d66](https://github.com/ideaportriga/magnet-ai/commit/9478d66f0e05dc896bb77acd2bd7a7457582bb0c))
+
+### 🐛 Bug Fixes
+
+* **api:** deleted unneeded migration ([18c8bd6](https://github.com/ideaportriga/magnet-ai/commit/18c8bd6f2d983aef5c6c60d704c92488c39bc7cb))
+* **api:** fixed provider bugs with elevenlabs ([06d2921](https://github.com/ideaportriga/magnet-ai/commit/06d2921a3acc81cdb0ebbe25403ada67ab813838))
+* **api:** removed get_stt_provider, fixed bugs ([71acaf3](https://github.com/ideaportriga/magnet-ai/commit/71acaf398557728db38bf25c6be499ca7a4c5d6a))
+
+### 📚 Documentation
+
+* introduce ARM template ([66e68d9](https://github.com/ideaportriga/magnet-ai/commit/66e68d9e39fd46dba485a2964a433b807bedc230))
+
 ## [0.6.0-dev.50](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.49...v0.6.0-dev.50) (2026-03-17)
 
 ### 🐛 Bug Fixes
