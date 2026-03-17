@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.49](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.48...v0.6.0-dev.49) (2026-03-17)
+
+### 🐛 Bug Fixes
+
+* update docker image python version ([3c1af2b](https://github.com/ideaportriga/magnet-ai/commit/3c1af2bc26fa695030da6d715241cd5d8a5b2d6f))
+
 ## [0.6.0-dev.48](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.47...v0.6.0-dev.48) (2026-03-16)
 
 ### 🐛 Bug Fixes
