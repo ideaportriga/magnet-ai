@@ -137,6 +137,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             description=getattr(graph, "description", None),
             documents_count=int(documents_count or 0),
             settings=settings,
+            state=getattr(graph, "state", None),
             created_at=graph.created_at.isoformat() if graph.created_at else None,
             updated_at=graph.updated_at.isoformat() if graph.updated_at else None,
         )

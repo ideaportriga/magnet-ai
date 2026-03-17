@@ -27,6 +27,7 @@ from core.domain.knowledge_graph.services.knowledge_graph_entity_service import 
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
 from services.observability import observability_context, observe
 from services.prompt_templates import execute_prompt_template
+from utils.datetime_utils import utc_now_isoformat
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,8 @@ def normalize_entity_definitions(
             entity_description = str(raw_entity.description or "").strip()
             raw_columns = raw_entity.columns or []
         elif isinstance(raw_entity, dict):
+            if raw_entity.get("enabled") is False:
+                continue
             entity_name = str(raw_entity.get("name") or "").strip()
             entity_description = str(raw_entity.get("description") or "").strip()
             raw_columns = (
@@ -789,6 +792,7 @@ async def run_graph_llm_entity_extraction(
     segment_size: int = 18000,
     segment_overlap: float = 0.1,
     max_extraction_iterations: int = 3,
+    progress_callback: Any | None = None,
 ) -> dict[str, Any]:
     prompt_template_system_name = str(prompt_template_system_name or "").strip()
     if not prompt_template_system_name:
@@ -823,6 +827,17 @@ async def run_graph_llm_entity_extraction(
     chunks_tbl = chunks_table_name(graph_id)
 
     if approach == "document":
+        # Count total documents for progress tracking
+        total_docs_res = await db_session.execute(
+            text(f"SELECT COUNT(*) FROM {docs_tbl}")
+        )
+        total_docs = total_docs_res.scalar_one() or 0
+        await db_session.commit()
+        docs_seen = 0
+
+        if progress_callback:
+            await progress_callback(0, total_docs)
+
         batch_size = 50
         offset = 0
 
@@ -870,6 +885,9 @@ async def run_graph_llm_entity_extraction(
                 content_str = str(content or "").strip()
                 if not content_str:
                     skipped_documents += 1
+                    docs_seen += 1
+                    if progress_callback:
+                        await progress_callback(docs_seen, total_docs)
                     continue
 
                 processed_documents += 1
@@ -888,6 +906,10 @@ async def run_graph_llm_entity_extraction(
                 )
                 upserted_records += doc_result["upserted_records"]
                 errors += doc_result["errors"]
+
+                docs_seen += 1
+                if progress_callback:
+                    await progress_callback(docs_seen, total_docs)
 
             offset += len(batch)
 
@@ -918,6 +940,12 @@ async def run_graph_llm_entity_extraction(
     docs_rows = docs_res.mappings().all()
     await db_session.commit()
 
+    total_docs = len(docs_rows)
+    docs_seen = 0
+
+    if progress_callback:
+        await progress_callback(0, total_docs)
+
     for drow in docs_rows:
         doc_id = str(drow.get("id") or "").strip()
         source_id = str(drow.get("source_id") or "").strip() or None
@@ -942,6 +970,9 @@ async def run_graph_llm_entity_extraction(
 
         if not chunk_rows:
             skipped_documents += 1
+            docs_seen += 1
+            if progress_callback:
+                await progress_callback(docs_seen, total_docs)
             continue
 
         chunks_result = await _process_document_chunks_extraction(
@@ -967,6 +998,10 @@ async def run_graph_llm_entity_extraction(
         else:
             skipped_documents += 1
 
+        docs_seen += 1
+        if progress_callback:
+            await progress_callback(docs_seen, total_docs)
+
     return {
         "approach": approach,
         "processed_documents": processed_documents,
@@ -976,6 +1011,55 @@ async def run_graph_llm_entity_extraction(
         "upserted_records": upserted_records,
         "errors": errors,
     }
+
+
+async def _update_extraction_status(
+    db_session: AsyncSession,
+    graph_id: UUID,
+    *,
+    status: str,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    result: dict[str, Any] | None = None,
+    error_message: str | None = None,
+    progress: dict[str, Any] | None = None,
+) -> None:
+    """Persist entity extraction status into the KG state JSONB column."""
+    try:
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
+        )
+        graph = graph_res.scalar_one_or_none()
+        if not graph:
+            return
+
+        current_state = dict(getattr(graph, "state", None) or {})
+        prev_extraction = current_state.get("entity_extraction")
+        extraction_status: dict[str, Any] = (
+            dict(prev_extraction) if isinstance(prev_extraction, dict) else {}
+        )
+        extraction_status["status"] = status
+
+        if started_at is not None:
+            extraction_status["started_at"] = started_at
+        if completed_at is not None:
+            extraction_status["completed_at"] = completed_at
+        if result is not None:
+            extraction_status["result"] = result
+        if error_message is not None:
+            extraction_status["error_message"] = error_message
+        if progress is not None:
+            extraction_status["progress"] = progress
+        elif status in ("completed", "error"):
+            extraction_status.pop("progress", None)
+
+        current_state["entity_extraction"] = extraction_status
+        graph.state = current_state
+        await db_session.commit()
+    except Exception:
+        logger.warning(
+            "Failed to update extraction status for graph %s", graph_id, exc_info=True
+        )
 
 
 async def run_entity_extraction(
@@ -1052,14 +1136,45 @@ async def run_entity_extraction(
     entity_svc = entity_service or KnowledgeGraphEntityService()
     await entity_svc.create_table(db_session, graph_id=graph_id)
 
-    return await run_graph_llm_entity_extraction(
-        db_session,
-        graph_id=graph_id,
-        approach=approach_raw,  # type: ignore[arg-type]
-        prompt_template_system_name=prompt_template_system_name,
-        entity_definitions=entity_definitions,
-        entity_service=entity_svc,
-        segment_size=segment_size,
-        segment_overlap=segment_overlap,
-        max_extraction_iterations=max_extraction_iterations,
+    await _update_extraction_status(
+        db_session, graph_id, status="running", started_at=utc_now_isoformat()
     )
+
+    async def _progress_cb(processed: int, total: int) -> None:
+        await _update_extraction_status(
+            db_session,
+            graph_id,
+            status="running",
+            progress={"processed": processed, "total": total},
+        )
+
+    try:
+        extraction_result = await run_graph_llm_entity_extraction(
+            db_session,
+            graph_id=graph_id,
+            approach=approach_raw,  # type: ignore[arg-type]
+            prompt_template_system_name=prompt_template_system_name,
+            entity_definitions=entity_definitions,
+            entity_service=entity_svc,
+            segment_size=segment_size,
+            segment_overlap=segment_overlap,
+            max_extraction_iterations=max_extraction_iterations,
+            progress_callback=_progress_cb,
+        )
+        await _update_extraction_status(
+            db_session,
+            graph_id,
+            status="completed",
+            completed_at=utc_now_isoformat(),
+            result=extraction_result,
+        )
+        return extraction_result
+    except Exception as exc:
+        await _update_extraction_status(
+            db_session,
+            graph_id,
+            status="error",
+            completed_at=utc_now_isoformat(),
+            error_message=str(exc),
+        )
+        raise

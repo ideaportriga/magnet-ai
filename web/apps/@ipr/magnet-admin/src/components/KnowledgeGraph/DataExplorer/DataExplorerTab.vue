@@ -42,7 +42,9 @@
       <div class="row items-center q-mb-md q-gutter-sm">
         <q-btn v-if="viewMode === 'entities' && selectedEntityType" flat dense icon="arrow_back" @click="clearSelectedEntityType" />
         <div v-if="viewMode === 'entities' && selectedEntityType" class="km-heading-8">{{ selectedEntityType }}</div>
-        <km-input v-model="searchQuery" placeholder="Search..." icon-before="search" clearable style="width: 250px" />
+        <km-input v-if="hasRecords" v-model="searchQuery" placeholder="Search..." icon-before="search" clearable style="width: 250px" />
+        <q-space />
+        <km-btn flat icon="refresh" label="Refresh" @click="refresh" />
       </div>
 
       <q-linear-progress v-if="loading" indeterminate color="primary" />
@@ -113,7 +115,7 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
 import { KgConfirmDialog } from '../common'
@@ -150,6 +152,11 @@ type EntityRecordsRequest = {
     rowsPerPage: number
   }
 }
+
+const hasRecords = computed(() => {
+  if (viewMode.value === 'documents') return documents.value.length > 0
+  return entityTypes.value.length > 0
+})
 
 const fetchDocuments = async () => {
   loading.value = true
@@ -372,20 +379,20 @@ onMounted(() => {
   fetchDocuments()
 })
 
-// Expose refresh method so parent can trigger reloads after uploads
-defineExpose({
-  refresh: () => {
-    if (viewMode.value === 'documents') {
-      fetchDocuments()
-    } else if (viewMode.value === 'entities') {
-      if (selectedEntityType.value) {
-        fetchEntityRecords(selectedEntityType.value, entityRecordsPagination.value.page, entityRecordsPagination.value.rowsPerPage)
-      } else {
-        fetchEntityTypes()
-      }
+const refresh = () => {
+  if (viewMode.value === 'documents') {
+    fetchDocuments()
+  } else if (viewMode.value === 'entities') {
+    if (selectedEntityType.value) {
+      fetchEntityRecords(selectedEntityType.value, entityRecordsPagination.value.page, entityRecordsPagination.value.rowsPerPage)
+    } else {
+      fetchEntityTypes()
     }
-  },
-})
+  }
+}
+
+// Expose refresh method so parent can trigger reloads after uploads
+defineExpose({ refresh })
 </script>
 
 <style scoped>

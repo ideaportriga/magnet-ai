@@ -25,6 +25,13 @@ class KnowledgeGraph(UUIDAuditSimpleBase):
         comment="Knowledge graph settings (processing config, etc.)",
     )
 
+    # Process states for graph operations (extraction status, sync progress, etc.)
+    state: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Process states for graph operations (extraction status, sync progress, etc.)",
+    )
+
     # Relationship to sources in this graph
     sources: Mapped[list["KnowledgeGraphSource"]] = relationship(
         "KnowledgeGraphSource",

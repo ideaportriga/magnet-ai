@@ -36,6 +36,7 @@ class KnowledgeGraphExternalSchema(BaseModel):
     created_at: Optional[str]
     updated_at: Optional[str]
     settings: Optional[dict[str, Any]] = None
+    state: Optional[dict[str, Any]] = None
 
 
 class KnowledgeGraphSourceLinkExternalSchema(BaseModel):

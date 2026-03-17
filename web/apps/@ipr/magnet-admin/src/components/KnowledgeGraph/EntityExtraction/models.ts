@@ -25,6 +25,7 @@ export interface EntityDefinition {
   id: string
   name: string
   description: string
+  enabled: boolean
   columns: EntityColumn[]
 }
 
@@ -125,6 +126,7 @@ export function getEntityDefinitionsFromSettings(settings?: Record<string, unkno
       id: String(entity.id || crypto.randomUUID()),
       name: String(entity.name || ''),
       description: String(entity.description || ''),
+      enabled: entity.enabled !== false,
       columns: Array.isArray(entity.columns)
         ? entity.columns
             .filter((column): column is Record<string, unknown> => !!column && typeof column === 'object')
@@ -203,6 +205,52 @@ export function withEntityExtractionRunSettings(
   return nextSettings
 }
 
+// --- Extraction Status ---
+
+export type EntityExtractionStatus = 'idle' | 'running' | 'completed' | 'error'
+
+export interface EntityExtractionStatusInfo {
+  status: EntityExtractionStatus
+  started_at?: string | null
+  completed_at?: string | null
+  progress?: { processed: number; total: number } | null
+  result?: {
+    approach?: string
+    processed_documents?: number
+    processed_chunks?: number
+    skipped_documents?: number
+    upserted_records?: number
+    errors?: number
+  } | null
+  error_message?: string | null
+}
+
+const VALID_EXTRACTION_STATUSES: EntityExtractionStatus[] = ['idle', 'running', 'completed', 'error']
+
+export function getExtractionStatusFromGraphDetails(graphDetails?: Record<string, any> | null): EntityExtractionStatusInfo {
+  const state = graphDetails?.state
+  if (!state || typeof state !== 'object') {
+    return { status: 'idle' }
+  }
+  const raw = (state as Record<string, unknown>).entity_extraction
+  if (!raw || typeof raw !== 'object') {
+    return { status: 'idle' }
+  }
+  const statusObj = raw as Record<string, unknown>
+  const status = String(statusObj.status || 'idle')
+  const progressRaw = statusObj.progress && typeof statusObj.progress === 'object' ? (statusObj.progress as Record<string, unknown>) : null
+  return {
+    status: VALID_EXTRACTION_STATUSES.includes(status as EntityExtractionStatus) ? (status as EntityExtractionStatus) : 'idle',
+    started_at: statusObj.started_at ? String(statusObj.started_at) : null,
+    completed_at: statusObj.completed_at ? String(statusObj.completed_at) : null,
+    progress: progressRaw
+      ? { processed: Number(progressRaw.processed) || 0, total: Number(progressRaw.total) || 0 }
+      : null,
+    result: statusObj.result && typeof statusObj.result === 'object' ? (statusObj.result as EntityExtractionStatusInfo['result']) : null,
+    error_message: statusObj.error_message ? String(statusObj.error_message) : null,
+  }
+}
+
 export function createEmptyColumn(): EntityColumn {
   return {
     id: crypto.randomUUID(),
@@ -219,6 +267,7 @@ export function createEmptyEntity(): EntityDefinition {
     id: crypto.randomUUID(),
     name: '',
     description: '',
+    enabled: true,
     columns: [createEmptyColumn()],
   }
 }

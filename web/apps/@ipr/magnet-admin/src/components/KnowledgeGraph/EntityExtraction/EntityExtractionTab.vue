@@ -34,15 +34,34 @@
         <km-btn
           label="Run Extraction"
           size="sm"
-          :disable="!canRunExtraction || saving"
-          :loading="runningExtraction"
+          :disable="!canRunExtraction || saving || extractionStatus.status === 'running' || extractionStarting"
           @click="runExtraction"
         >
           <q-tooltip v-if="!canRunExtraction && !saving">Configure a prompt template in extraction settings first</q-tooltip>
         </km-btn>
+
+        <!-- Running: progress bar -->
+        <div v-if="extractionStatus.status === 'running' || extractionStarting" class="extraction-progress row items-center no-wrap q-ml-sm" style="width: 140px">
+          <q-linear-progress
+            :value="progressFraction"
+            :indeterminate="!hasProgress"
+            color="primary"
+            track-color="grey-3"
+            rounded
+            size="8px"
+            class="col"
+          />
+        </div>
+
+        <!-- Completed / Error: short status message -->
+        <span v-else-if="extractionStatus.status !== 'idle'" class="text-caption text-grey-6 q-ml-xs">
+          {{ extractionStatusMessage }}
+        </span>
+
         <q-space />
         <km-btn flat icon="o_add_circle" label="New Entity" size="sm" :disable="saving" @click="openCreateDialog" />
         <km-btn flat icon="settings" label="Settings" size="sm" :disable="saving" @click="showExtractionDialog = true" />
+        <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="saving" @click="emit('refresh')" />
       </div>
 
       <q-table
@@ -52,8 +71,9 @@
         :rows="entities"
         :columns="columns"
         row-key="id"
-        :loading="saving || runningExtraction"
+        :loading="saving"
         :rows-per-page-options="[10]"
+        :row-class="(row: EntityDefinition) => row.enabled === false ? 'entity-row--disabled' : ''"
         @row-click="onRowClick"
       >
         <template #body-cell-name="slotScope">
@@ -77,6 +97,18 @@
               <span class="entity-identifier-name">{{ getIdentifierColumn(slotScope.row)?.name }}</span>
             </div>
             <span v-else class="text-grey-5 italic text-caption">None set</span>
+          </q-td>
+        </template>
+
+        <template #body-cell-enabled="slotScope">
+          <q-td :props="slotScope">
+            <q-toggle
+              :model-value="slotScope.row.enabled"
+              dense
+              :disable="saving"
+              @update:model-value="toggleEntityEnabled(slotScope.row, $event)"
+              @click.stop
+            />
           </q-td>
         </template>
 
@@ -156,10 +188,12 @@ import {
   cloneEntityExtractionRunSettings,
   createDefaultEntityExtractionRunSettings,
   getEntityExtractionSettingsFromSettings,
+  getExtractionStatusFromGraphDetails,
   withEntityDefinitions,
   withEntityExtractionRunSettings,
   type EntityDefinition,
   type EntityExtractionRunSettings,
+  type EntityExtractionStatusInfo,
 } from './models'
 
 const props = defineProps<{
@@ -182,7 +216,6 @@ const showDeleteDialog = ref(false)
 const showExtractionDialog = ref(false)
 const pagination = ref({ rowsPerPage: 10, page: 1 })
 const saving = ref(false)
-const runningExtraction = ref(false)
 const loadingPromptTemplates = ref(false)
 const promptTemplateOptions = ref<any[]>([])
 const baseSettings = ref<Record<string, any>>({})
@@ -218,6 +251,12 @@ const columns: QTableColumn<EntityDefinition>[] = [
     sortable: false,
   },
   {
+    name: 'enabled',
+    label: 'Enabled',
+    field: 'enabled',
+    align: 'center',
+  },
+  {
     name: 'menu',
     label: '',
     field: 'id',
@@ -227,6 +266,42 @@ const columns: QTableColumn<EntityDefinition>[] = [
 const canRunExtraction = computed(() => {
   return !!String(extractionSettings.value.prompt_template_system_name || '').trim() && entities.value.length > 0 && !loadingPromptTemplates.value
 })
+
+const extractionStatus = computed<EntityExtractionStatusInfo>(() => {
+  return getExtractionStatusFromGraphDetails(props.graphDetails)
+})
+
+const hasProgress = computed(() => {
+  const p = extractionStatus.value.progress
+  return !!p && p.total > 0
+})
+
+const progressFraction = computed(() => {
+  const p = extractionStatus.value.progress
+  if (!p || p.total <= 0) return 0
+  return Math.min(p.processed / p.total, 1)
+})
+
+const extractionStatusMessage = computed(() => {
+  const info = extractionStatus.value
+  if (info.status === 'completed') {
+    const ts = info.completed_at ? formatTimestamp(info.completed_at) : ''
+    return ts ? `Completed ${ts}` : 'Completed'
+  }
+  if (info.status === 'error') {
+    const ts = info.completed_at ? formatTimestamp(info.completed_at) : ''
+    return ts ? `Failed ${ts}` : 'Failed'
+  }
+  return ''
+})
+
+function formatTimestamp(dateStr: string): string {
+  try {
+    return new Date(dateStr).toLocaleString()
+  } catch {
+    return ''
+  }
+}
 
 const existingEntityNames = computed(() => {
   const editingEntityId = selectedEntity.value?.id
@@ -423,10 +498,21 @@ async function performDelete() {
   selectedEntity.value = null
 }
 
-async function runExtraction() {
-  if (!canRunExtraction.value) return
+async function toggleEntityEnabled(entity: EntityDefinition, enabled: boolean) {
+  const nextEntities = cloneEntityDefinitions(entities.value)
+  const target = nextEntities.find((e) => e.id === entity.id)
+  if (!target) return
+  target.enabled = enabled
+  await persistEntityExtractionSettings(nextEntities, extractionSettings.value, enabled ? 'Entity enabled' : 'Entity disabled')
+}
 
-  runningExtraction.value = true
+const extractionStarting = ref(false)
+
+async function runExtraction() {
+  if (!canRunExtraction.value || extractionStatus.value.status === 'running' || extractionStarting.value) return
+
+  extractionStarting.value = true
+
   try {
     const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) {
@@ -453,34 +539,25 @@ async function runExtraction() {
     if (!response.ok) {
       const message = await getResponseErrorMessage(response, 'Failed to start entity extraction')
       $q.notify({ type: 'negative', message, position: 'top' })
+      emit('refresh')
       return
     }
 
-    const data: Record<string, any> = await response.json().catch(() => ({}))
-    const processedDocuments = Number(data?.processed_documents || 0)
-    const processedChunks = Number(data?.processed_chunks || 0)
-    const upsertedRecords = Number(data?.upserted_records || 0)
-    const errors = Number(data?.errors || 0)
-    const approach = String(data?.approach || extractionSettings.value.approach)
-    const message =
-      approach === 'chunks'
-        ? `Entity extraction completed: ${upsertedRecords} records merged from ${processedChunks} chunks across ${processedDocuments} documents${errors ? ` (${errors} errors)` : ''}.`
-        : `Entity extraction completed: ${upsertedRecords} records merged from ${processedDocuments} documents${errors ? ` (${errors} errors)` : ''}.`
-
     $q.notify({
       type: 'positive',
-      message,
+      message: 'Entity extraction completed',
       position: 'top',
       textColor: 'black',
-      timeout: 3000,
+      timeout: 2000,
     })
 
     emit('refresh')
   } catch (error) {
     console.error('Error running entity extraction:', error)
     $q.notify({ type: 'negative', message: 'Error running entity extraction', position: 'top' })
+    emit('refresh')
   } finally {
-    runningExtraction.value = false
+    extractionStarting.value = false
   }
 }
 
@@ -537,6 +614,10 @@ defineExpose({
   font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
 }
 
+
+:deep(.entity-row--disabled) td:not(:last-child) {
+  opacity: 0.45;
+}
 
 :deep(.entity-row-menu .q-focus-helper) {
   opacity: 0 !important;
