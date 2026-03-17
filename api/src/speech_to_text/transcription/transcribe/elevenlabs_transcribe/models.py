@@ -2,25 +2,24 @@ from __future__ import annotations
 
 import asyncio
 import os
+from io import BytesIO
 from typing import Any, Dict
 
-import httpx
-from elevenlabs.client import ElevenLabs
+from openai_model.utils import get_model_by_system_name
+from services.ai_services.factory import get_ai_provider
 
 from ...models import TranscriptionCfg
 from ...services.ffmpeg import extract_audio_to_wav
 from ...storage.postgres_storage import PgDataStorage
 from ..base import BaseTranscriber
 
+
 _ELEVEN_CACHE: dict[str, Dict[str, Any]] = {}
 
-# ────────────────────────────────
-# ElevenLabs / HTTP timeouts (seconds)
-# ────────────────────────────────
-ELEVEN_HTTP_CONNECT_TIMEOUT = 10.0
-ELEVEN_HTTP_READ_TIMEOUT = 3600.0  # 1h
-ELEVEN_HTTP_WRITE_TIMEOUT = 60.0
-ELEVEN_HTTP_POOL_TIMEOUT = 10.0
+
+def _read_bytes(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
 
 
 def _to_dict(obj):
@@ -48,16 +47,13 @@ def _sanitize_keyterms(keyterms: list[str]) -> list[str]:
     if not keyterms:
         return []
 
-    cleaned = []
+    cleaned: list[str] = []
     for term in keyterms:
-        # skip non-string or empty
         if not isinstance(term, str):
             continue
         t = term.strip()
-        # skip too long strings
         if not t or len(t) > 50:
             continue
-        # limit to 5 words
         if len(t.split()) > 5:
             t = " ".join(t.split()[:5])
         cleaned.append(t)
@@ -65,63 +61,63 @@ def _sanitize_keyterms(keyterms: list[str]) -> list[str]:
     return cleaned[:100]
 
 
+def _is_provided(x: Any) -> bool:
+    if x is None:
+        return False
+    if isinstance(x, str):
+        s = x.strip().lower()
+        return s not in ("", "null")
+    return True
+
+
 class ElevenLabsTranscriber(BaseTranscriber):
     def __init__(self, storage: PgDataStorage, cfg: TranscriptionCfg):
         super().__init__(storage, cfg)
 
-        api_key = os.getenv("ELEVENLABS_API_KEY") or os.getenv("ELEVEN_API_KEY")
-        if not api_key:
-            raise RuntimeError("Set ELEVENLABS_API_KEY")
-
-        http_client = httpx.Client(
-            timeout=httpx.Timeout(
-                connect=ELEVEN_HTTP_CONNECT_TIMEOUT,
-                read=ELEVEN_HTTP_READ_TIMEOUT,
-                write=ELEVEN_HTTP_WRITE_TIMEOUT,
-                pool=ELEVEN_HTTP_POOL_TIMEOUT,
-                timeout=ELEVEN_HTTP_READ_TIMEOUT,
-            )
-        )
-
-        self._client = ElevenLabs(
-            api_key=api_key,
-            httpx_client=http_client,
-        )
-
-        self._model_id = os.getenv("ELEVEN_MODEL_ID", "scribe_v2")
-        self._diarize = os.getenv("ELEVEN_DIARIZE", "true").lower() == "true"
-        self._tag_events = (
-            os.getenv("ELEVEN_TAG_AUDIO_EVENTS", "false").lower() == "true"
-        )
-
-        self._language_code = None
-
-        self._num_speakers = None
-        self._diarization_threshold: float | None = None
         internal = cfg.internal_cfg or {}
 
+        self._model_system_name: str | None = internal.get("model_system_name")
+        if not self._model_system_name:
+            raise RuntimeError("Missing cfg.internal_cfg['model_system_name']")
+
+        self._language_code = (
+            cfg.language.strip() if isinstance(cfg.language, str) else None
+        )
+
         raw_ns = internal.get("num_speakers")
-        if raw_ns is not None:
+        self._num_speakers: int | None = None
+        if _is_provided(raw_ns):
             try:
-                ns_int = int(raw_ns)
-                if ns_int > 0:
-                    self._num_speakers = ns_int
+                ns = int(raw_ns)
+                if ns > 0:
+                    self._num_speakers = ns
             except (TypeError, ValueError):
                 self._num_speakers = None
 
         raw_thr = internal.get("diarization_threshold")
-        if raw_thr is not None:
+        self._diarization_threshold: float | None = None
+        if _is_provided(raw_thr):
             try:
                 thr = float(raw_thr)
                 if 0.1 <= thr <= 0.4:
                     self._diarization_threshold = thr
+                else:
+                    raise ValueError
             except (TypeError, ValueError):
-                self._diarization_threshold = None
+                raise ValueError("diarization_threshold must be in [0.1, 0.4]")
 
         if self._num_speakers is not None and self._diarization_threshold is not None:
             raise ValueError(
                 "Provide either num_speakers OR diarization_threshold, not both."
             )
+
+        diarize_val = internal.get("diarize")
+        self._diarize: bool | None = (
+            bool(diarize_val) if diarize_val is not None else None
+        )
+
+        tag_val = internal.get("tag_audio_events")
+        self._tag_events: bool | None = bool(tag_val) if tag_val is not None else None
 
     async def _transcribe(self, file_id: str) -> Dict[str, Any]:
         src_url = await self._storage.get_audio_url(file_id)
@@ -130,13 +126,9 @@ class ElevenLabsTranscriber(BaseTranscriber):
             extract_audio_to_wav, src_path=src_url, sr=16_000
         )
 
-        raw_payload = None
-
         try:
             try:
-                from ...services.ffmpeg import (
-                    get_wav_duration_seconds,
-                )
+                from ...services.ffmpeg import get_wav_duration_seconds
 
                 duration = await asyncio.to_thread(get_wav_duration_seconds, tmp_wav)
                 await self._storage._update_fields(
@@ -145,29 +137,47 @@ class ElevenLabsTranscriber(BaseTranscriber):
             except Exception:
                 pass
 
-            def _call():
-                with open(tmp_wav, "rb") as f:
-                    kwargs = dict(
-                        file=f,
-                        model_id=self._model_id,
-                        diarize=self._diarize,
-                        tag_audio_events=self._tag_events,
-                    )
-                    if self._language_code:
-                        kwargs["language_code"] = self._language_code
-                    safe_terms = _sanitize_keyterms(self._cfg.keyterms)
-                    if safe_terms:
-                        kwargs["keyterms"] = safe_terms
-                    if self._cfg.entity_detection:
-                        kwargs["entity_detection"] = self._cfg.entity_detection
-                    if self._num_speakers is not None:
-                        kwargs["num_speakers"] = self._num_speakers
-                    if self._diarization_threshold is not None:
-                        kwargs["diarization_threshold"] = self._diarization_threshold
+            model_cfg = await get_model_by_system_name(self._model_system_name)
+            if not model_cfg:
+                raise ValueError(f"STT model '{self._model_system_name}' not found")
 
-                    return self._client.speech_to_text.convert(**kwargs)
+            provider_system_name = model_cfg.get("provider_system_name")
+            if not isinstance(provider_system_name, str) or not provider_system_name:
+                raise ValueError(
+                    f"Model '{self._model_system_name}' does not have provider_system_name configured"
+                )
 
-            raw_payload = await asyncio.to_thread(_call)
+            model_id = (
+                model_cfg.get("ai_model")
+                or model_cfg.get("model_id")
+                or model_cfg.get("model")
+            )
+            if not isinstance(model_id, str) or not model_id:
+                raise ValueError(
+                    f"Model '{self._model_system_name}' is missing model id"
+                )
+
+            provider = await get_ai_provider(provider_system_name)
+
+            safe_terms = _sanitize_keyterms(self._cfg.keyterms or [])
+            file_bytes = await asyncio.to_thread(_read_bytes, tmp_wav)
+
+            stt_opts: dict[str, Any] = {
+                "diarize": self._diarize,
+                "tag_audio_events": self._tag_events,
+                "num_speakers": self._num_speakers,
+                "diarization_threshold": self._diarization_threshold,
+                "keyterms": safe_terms or None,
+                "entity_detection": self._cfg.entity_detection,
+                "model_cfg": model_cfg,
+            }
+
+            tx = await provider.transcribe(
+                file=BytesIO(file_bytes),
+                model=model_id,
+                language=self._language_code,
+                model_config=stt_opts,
+            )
 
         finally:
             try:
@@ -175,8 +185,8 @@ class ElevenLabsTranscriber(BaseTranscriber):
             except OSError:
                 pass
 
-        payload = _to_dict(raw_payload) or {}
-        words_raw = payload.get("words", []) or []
+        text = tx.text or ""
+        words_raw = tx.words or []
         words = [_to_dict(w) for w in words_raw]
 
         segments = []
@@ -194,10 +204,19 @@ class ElevenLabsTranscriber(BaseTranscriber):
                 }
             )
 
+        payload = {
+            "text": tx.text,
+            "language": tx.language,
+            "duration": tx.duration,
+            "segments": tx.segments,
+            "words": words_raw,
+        }
+
         res = {
-            "text": payload.get("text", "") or " ".join(x["text"] for x in segments),
+            "text": text or " ".join(x["text"] for x in segments),
             "segments": segments,
         }
+
         _ELEVEN_CACHE[file_id] = {"payload": payload}
         return res
 
