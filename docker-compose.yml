@@ -69,6 +69,10 @@ services:
       - WEB_AUTH_PROVIDER_TITLE=${WEB_AUTH_PROVIDER_TITLE:-Microsoft}
       - WEB_AUTH_POPUP_WIDTH=${WEB_AUTH_POPUP_WIDTH:-600}
       - WEB_AUTH_POPUP_HEIGHT=${WEB_AUTH_POPUP_HEIGHT:-400}
+      # Kreuzberg / OCR configuration
+      - USE_KREUZBERG=${USE_KREUZBERG:-true}
+      - KREUZBERG_OCR_BACKEND=${KREUZBERG_OCR_BACKEND:-tesseract}
+      - KREUZBERG_OCR_LANGUAGE=${KREUZBERG_OCR_LANGUAGE:-eng}
     ports:
       - "${PORT:-5000}:5000"
     volumes:

@@ -363,7 +363,7 @@ function formatScheduleSummary(schedule?: SourceSchedule): string {
   return `Every day at ${time}`
 }
 
-const handleSourceTypeSelect = (sourceType: 'upload' | 'sharepoint' | 'fluid_topics') => {
+const handleSourceTypeSelect = (sourceType: 'upload' | 'sharepoint' | 'fluid_topics' | 'salesforce') => {
   selectedRow.value = null
   activeSourceType.value = sourceType as SourceTypeKey
   sourceDialogOpen.value = true

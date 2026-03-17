@@ -17,6 +17,7 @@ from services.agents.models import (
     AgentExecute,
     AgentTest,
 )
+from services.observability.models import FeatureType, ObservedFeature
 from services.agents.post_process.utils import post_process_conversation
 from services.agents.services import execute_agent, get_agent_by_system_name
 from services.observability import observability_context, observe
@@ -54,15 +55,20 @@ class AgentsController(AgentsControllerBase):
             input={"User message": data.messages[-1].content}
         )
 
-        try:
-            result = await execute_agent(
-                messages=data.messages,
-                config_override=data.agent_config,
-                variables=data.variables,
-            )
-        except Exception:
-            # Handle exception as appropriate, e.g., log or re-raise
-            raise
+        observed_feature = ObservedFeature(
+            type=FeatureType.AGENT,
+            display_name=data.name,
+            system_name=data.system_name,
+        )
+        with observability_context.observe_feature(observed_feature):
+            try:
+                result = await execute_agent(
+                    messages=data.messages,
+                    config_override=data.agent_config,
+                    variables=data.variables,
+                )
+            except Exception:
+                raise
 
         observability_context.update_current_span(
             output={"Agent response": result.content},

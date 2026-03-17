@@ -33,7 +33,6 @@ class KnowledgeGraphExternalSchema(BaseModel):
     system_name: Optional[str]
     description: Optional[str]
     documents_count: int = 0
-    chunks_count: int = 0
     created_at: Optional[str]
     updated_at: Optional[str]
     settings: Optional[dict[str, Any]] = None

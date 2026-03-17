@@ -13,6 +13,7 @@ export default defineComponent({
       type: Object,
       required: true,
     },
+    name: String,
   },
   setup(props) {
     const typeLabel = computed(() => {

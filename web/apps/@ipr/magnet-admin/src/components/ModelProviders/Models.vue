@@ -1,5 +1,5 @@
 <template lang="pug">
-.column(style='width: 100%; overflow: hidden')
+.column(style='width: 100%; max-height: calc(100vh - 260px)').no-wrap
   .row
     .col-auto.center-flex-y
       km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)

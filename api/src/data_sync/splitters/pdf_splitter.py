@@ -1,9 +1,9 @@
-import asyncio
 from logging import getLogger
+from pathlib import Path
 from typing import override
 
+from kreuzberg import ExtractionConfig, PageConfig, extract_bytes
 from langchain.schema.document import Document
-from langchain_community.document_loaders.pdf import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from data_sync.models import ChunkingStrategy
@@ -39,6 +39,34 @@ class PdfSplitter(AbstractSplitter):
 
         strategy = self.chunking_config.get("strategy")
 
+        # Extract PDF content via kreuzberg
+        file_path = Path(self.file_path)
+        pdf_bytes = file_path.read_bytes()
+
+        config = ExtractionConfig(
+            output_format="markdown",
+            pages=PageConfig(extract_pages=True),
+        )
+        result = await extract_bytes(pdf_bytes, "application/pdf", config=config)
+
+        # Build per-page Document objects
+        page_documents: list[Document] = []
+        if result.pages:
+            for i, page in enumerate(result.pages):
+                page_documents.append(
+                    Document(
+                        page_content=page["content"],
+                        metadata={"page": i, "source": self.file_path},
+                    )
+                )
+        else:
+            page_documents.append(
+                Document(
+                    page_content=result.content,
+                    metadata={"source": self.file_path},
+                )
+            )
+
         # If strategy is Recursive Character Text Splitting, use recommended langchain text splitter
         # Default strategy
         if (
@@ -72,11 +100,7 @@ class PdfSplitter(AbstractSplitter):
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=chunk_size, chunk_overlap=chunk_overlap
             )
-            raw_chunks = await asyncio.to_thread(
-                lambda: PyPDFLoader(self.file_path).load_and_split(
-                    text_splitter=splitter
-                )
-            )
+            raw_chunks = splitter.split_documents(page_documents)
             raw_chunks = [
                 Document(
                     page_content=clean_text(chunk.page_content), metadata=chunk.metadata
@@ -85,13 +109,13 @@ class PdfSplitter(AbstractSplitter):
             ]
         # If strategy is None, concatenate all pages into one string, separated by newlines
         elif strategy == ChunkingStrategy.NONE:
-            raw_chunks = await asyncio.to_thread(PyPDFLoader(self.file_path).load)
-            if len(raw_chunks) > 0:
-                content = "\n\n".join([chunk.page_content for chunk in raw_chunks])
-                metadata = raw_chunks[0].metadata.copy()
-                del metadata["page"]
+            if len(page_documents) > 0:
+                content = "\n\n".join([doc.page_content for doc in page_documents])
                 raw_chunks = [
-                    Document(page_content=clean_text(content), metadata=metadata)
+                    Document(
+                        page_content=clean_text(content),
+                        metadata={"source": self.file_path},
+                    )
                 ]
         else:
             raise ValueError(f"Invalid chunking strategy: {strategy} for PDF splitter")

@@ -62,6 +62,7 @@ class ProcessDocumentTask:
 
     # Document mode (split)
     extracted_text: str | None = None
+    raw_text: str | None = None
     content_config: Any | None = None
     external_link: str | None = None
     source_modified_at: datetime | None = None

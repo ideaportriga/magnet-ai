@@ -1,5 +1,5 @@
 <template lang="pug">
-.column.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
+.column.no-wrap.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
   .col.q-pt-16
     .row.no-wrap.full-width.q-px-16
       q-tabs.bb-border.full-width(
@@ -16,7 +16,7 @@
         template(v-for='t in tabs')
           q-tab(:name='t.name', :label='t.label')
         .fit
-    .column.fit
+    .column.no-wrap.fit
       q-scroll-area.fit.q-px-16.q-py-32
         api-tools-test(v-if='tab == "test"')
         api-tools-input-details(v-if='tab == "details"', :selectedRow='selectedRow')

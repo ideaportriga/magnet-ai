@@ -48,7 +48,7 @@ class RightNowDataProcessor(DataProcessor):
         return [
             document
             for document in self.create_documents_from_plain_text(
-                self.__process_record(record),
+                await self.__process_record(record),
                 self.__create_base_metadata(record),
             )
         ]
@@ -67,6 +67,8 @@ class RightNowDataProcessor(DataProcessor):
             "modifiedTime": record.updated_time,
         }
 
-    def __process_record(self, record: Answer) -> str:
-        result = f"Question: {self._html_to_text(record.question or '')}\n\nSolution: {self._html_to_text(record.solution or '')}"
+    async def __process_record(self, record: Answer) -> str:
+        question = await self._html_to_text(record.question or "")
+        solution = await self._html_to_text(record.solution or "")
+        result = f"Question: {question}\n\nSolution: {solution}"
         return result

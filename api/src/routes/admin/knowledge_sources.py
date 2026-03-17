@@ -1,8 +1,14 @@
+import os
 from typing import Any
 
+import aiofiles
+import aiofiles.os
 from bson import errors
 from litestar import Controller, Router, delete, get, patch, post, put
+from litestar.datastructures import UploadFile
+from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException, NotFoundException
+from litestar.params import Body
 from litestar.status_codes import HTTP_200_OK, HTTP_204_NO_CONTENT
 import structlog
 
@@ -27,6 +33,7 @@ from type_defs.pagination import (
     OffsetPaginationRequest,
 )
 from utils.datetime_utils import utc_now
+from services.file_cleanup import KS_UPLOAD_DIR
 
 store = get_db_store()
 
@@ -186,8 +193,13 @@ class KnowledgeSourcesController(Controller):
         # All provider fields combined (security-critical + provider-specific)
         all_provider_fields = PROVIDER_ONLY_FIELDS | additional_provider_fields
 
-        def determine_component(field_name: str, field_type: str) -> str:
+        def determine_component(
+            field_name: str, field_type: str, field_schema: dict | None = None
+        ) -> str:
             """Determine the Vue component type based on field characteristics"""
+            # Allow plugins to specify a custom component via x-component
+            if field_schema and field_schema.get("x-component"):
+                return field_schema["x-component"]
             if field_type == "boolean":
                 return "km-toggle"
             elif field_type == "array":
@@ -244,7 +256,7 @@ class KnowledgeSourcesController(Controller):
                 "name": field_name,
                 "label": format_label(field_name),
                 "field": field_name,
-                "component": determine_component(field_name, field_type),
+                "component": determine_component(field_name, field_type, field_schema),
                 "type": type_mapping.get(field_type, "String"),
             }
 
@@ -285,6 +297,10 @@ class KnowledgeSourcesController(Controller):
             source_fields = []
 
             for field_name, field_schema in properties.items():
+                # Skip fields marked as hidden (managed internally by other components)
+                if field_schema.get("x-hidden"):
+                    continue
+
                 is_provider_field = field_name in all_provider_fields
 
                 field_info = transform_field(
@@ -490,6 +506,199 @@ class KnowledgeSourceChunksController(Controller):
         return collection_id
 
 
+class KnowledgeSourceFileUploadController(Controller):
+    """Handles file upload/delete for File-type knowledge sources."""
+
+    path = "/{collection_id:str}/files"
+
+    MAX_UPLOAD_SIZE_MB = int(os.environ.get("MAX_UPLOAD_FILE_SIZE_MB", "50"))
+
+    ALLOWED_EXTENSIONS = {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".odt",
+        ".ods",
+        ".odp",
+        ".rtf",
+        ".epub",
+        ".csv",
+        ".html",
+        ".htm",
+        ".xml",
+        ".txt",
+        ".md",
+        ".json",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".bmp",
+        ".tiff",
+        ".tif",
+        ".eml",
+        ".msg",
+    }
+
+    async def _get_collection_config(self, collection_id: str) -> dict[str, Any]:
+        collection_id = await self._validate_collection_id(collection_id)
+        return await store.get_collection_metadata(collection_id)
+
+    async def _validate_collection_id(self, collection_id: str) -> str:
+        try:
+            validate_id(collection_id)
+        except (errors.InvalidId, TypeError):
+            collection_id = await get_ids_by_system_names(collection_id, "collections")  # type: ignore
+            if not collection_id:
+                raise ClientException("Collection doesn't exist after alternate lookup")
+        try:
+            await store.get_collection_metadata(collection_id)
+        except LookupError:
+            raise ClientException("Collection doesn't exist")
+        return collection_id
+
+    @post(status_code=HTTP_200_OK)
+    async def upload_file(
+        self,
+        collection_id: str,
+        data: UploadFile = Body(media_type=RequestEncodingType.MULTI_PART),
+    ) -> dict[str, Any]:
+        """Upload a file for a File-type knowledge source."""
+        collection_id = await self._validate_collection_id(collection_id)
+        config = await store.get_collection_metadata(collection_id)
+
+        filename = data.filename or "upload"
+        file_bytes = await data.read()
+
+        if not file_bytes:
+            raise ClientException("Empty file")
+
+        # Validate file size
+        max_bytes = self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+        if len(file_bytes) > max_bytes:
+            raise ClientException(
+                f"File exceeds maximum size of {self.MAX_UPLOAD_SIZE_MB} MB"
+            )
+
+        # Sanitize filename to prevent path traversal
+        safe_filename = os.path.basename(filename)
+
+        # Validate file extension
+        ext = os.path.splitext(safe_filename)[1].lower()
+        if ext not in self.ALLOWED_EXTENSIONS:
+            raise ClientException(
+                f"Unsupported file extension '{ext}'. "
+                f"Allowed: {', '.join(sorted(self.ALLOWED_EXTENSIONS))}"
+            )
+
+        # Validate MIME type via magic bytes
+        from kreuzberg import detect_mime_type
+
+        detected_mime = detect_mime_type(file_bytes)
+        if detected_mime == "application/octet-stream":
+            logger.warning(
+                "Could not detect MIME type from file content",
+                filename=safe_filename,
+                extension=ext,
+            )
+
+        # Store file in temporary directory (auto-cleaned by periodic job)
+        collection_dir = os.path.join(KS_UPLOAD_DIR, collection_id)
+        await aiofiles.os.makedirs(collection_dir, exist_ok=True)
+        storage_path = os.path.join(collection_dir, safe_filename)
+
+        async with aiofiles.open(storage_path, "wb") as f:
+            await f.write(file_bytes)
+
+        # Update source config with uploaded file reference
+        source = config.get("source", {})
+        if not isinstance(source, dict):
+            source = {"source_type": source} if source else {}
+        uploaded_files = source.get("uploaded_files", [])
+
+        # Remove duplicate if same filename already exists
+        uploaded_files = [
+            uf for uf in uploaded_files if uf["filename"] != safe_filename
+        ]
+        uploaded_files.append({"filename": safe_filename, "storage_path": storage_path})
+
+        source["uploaded_files"] = uploaded_files
+        config["source"] = source
+        await store.update_collection_metadata(
+            collection_id=collection_id, metadata=config
+        )
+
+        logger.info(
+            "File uploaded to knowledge source",
+            collection_id=collection_id,
+            filename=safe_filename,
+            size=len(file_bytes),
+        )
+
+        return {
+            "filename": safe_filename,
+            "storage_path": storage_path,
+            "size": len(file_bytes),
+        }
+
+    @get(status_code=HTTP_200_OK)
+    async def list_uploaded_files(self, collection_id: str) -> list[dict[str, str]]:
+        """List uploaded files for a knowledge source."""
+        collection_id = await self._validate_collection_id(collection_id)
+        config = await store.get_collection_metadata(collection_id)
+        source = config.get("source", {})
+        if not isinstance(source, dict):
+            return []
+        return source.get("uploaded_files", [])
+
+    @delete("/{filename:str}", status_code=HTTP_204_NO_CONTENT)
+    async def delete_uploaded_file(self, collection_id: str, filename: str) -> None:
+        """Delete an uploaded file from a knowledge source."""
+        collection_id = await self._validate_collection_id(collection_id)
+        config = await store.get_collection_metadata(collection_id)
+
+        source = config.get("source", {})
+        if not isinstance(source, dict):
+            source = {"source_type": source} if source else {}
+        uploaded_files = source.get("uploaded_files", [])
+
+        # Sanitize filename
+        safe_filename = os.path.basename(filename)
+
+        target = next(
+            (uf for uf in uploaded_files if uf["filename"] == safe_filename), None
+        )
+        if not target:
+            raise NotFoundException(f"File '{safe_filename}' not found")
+
+        # Delete from disk
+        try:
+            await aiofiles.os.remove(target["storage_path"])
+        except FileNotFoundError:
+            pass
+
+        # Update config
+        uploaded_files = [
+            uf for uf in uploaded_files if uf["filename"] != safe_filename
+        ]
+        source["uploaded_files"] = uploaded_files
+        config["source"] = source
+        await store.update_collection_metadata(
+            collection_id=collection_id, metadata=config
+        )
+
+        logger.info(
+            "File deleted from knowledge source",
+            collection_id=collection_id,
+            filename=safe_filename,
+        )
+
+
 knowledge_sources_router = Router(
     path="/collections",
     tags=["[Deprecated] Knowledge Sources"],
@@ -497,6 +706,7 @@ knowledge_sources_router = Router(
         KnowledgeSourcesController,
         KnowledgeSourceMetadataController,
         KnowledgeSourceChunksController,
+        KnowledgeSourceFileUploadController,
     ],
 )
 
@@ -508,5 +718,6 @@ knowledge_sources_router_deprecated = Router(
         KnowledgeSourcesController,
         KnowledgeSourceMetadataController,
         KnowledgeSourceChunksController,
+        KnowledgeSourceFileUploadController,
     ],
 )

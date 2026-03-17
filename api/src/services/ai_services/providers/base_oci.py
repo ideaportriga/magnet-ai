@@ -183,6 +183,7 @@ class BaseOCIProvider(AIProviderInterface):
         self,
         text: str,
         llm: str | None = None,
+        model_config: dict | None = None,
     ) -> EmbeddingResponse:
         """Get embeddings using the shared OCI client."""
         embed_text_detail = oci.generative_ai_inference.models.EmbedTextDetails()

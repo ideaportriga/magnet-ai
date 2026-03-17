@@ -650,6 +650,7 @@ class FluidTopicsSyncPipeline(
                                 document=result.document,
                                 document_title=task.title,
                                 extracted_text=result.loaded_content["text"],
+                                raw_text=result.loaded_content["raw_text"],
                                 external_link=task.external_link,
                                 source_modified_at=source_modified_at,
                             )
@@ -740,6 +741,7 @@ class FluidTopicsSyncPipeline(
                         document_title=resolved_document_title,
                         toc_json=task.toc,
                         extracted_text=task.extracted_text,
+                        raw_text=task.raw_text,
                         config=task.content_config,
                         external_link=task.external_link,
                         source_modified_at=task.source_modified_at,

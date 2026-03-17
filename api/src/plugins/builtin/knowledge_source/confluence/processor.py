@@ -44,7 +44,7 @@ class ConfluenceDataProcessor(DataProcessor):
 
         return [
             document
-            for document in self.create_documents_from_html(
+            for document in await self.create_documents_from_html(
                 page.body.storage.value,
                 self.__create_base_metadata(page),
             )

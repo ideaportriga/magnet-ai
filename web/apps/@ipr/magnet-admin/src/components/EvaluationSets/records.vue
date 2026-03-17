@@ -54,7 +54,7 @@ import { ref } from 'vue'
 import { useChroma } from '@shared'
 
 export default {
-  emits: ['openTest'],
+  emits: ['openTest', 'record:update'],
   setup() {
     const { selectedRow: selectedEvaluationSet } = useChroma('evaluation_sets')
 

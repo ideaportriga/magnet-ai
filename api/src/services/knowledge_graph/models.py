@@ -32,6 +32,8 @@ class ContentReaderName(StrEnum):
 
     PDF = "pdf"
     PLAIN_TEXT = "plain_text"
+    KREUZBERG = "kreuzberg"
+    SHAREPOINT_PAGE = "sharepoint_page"
     FLUID_TOPICS_STRUCTURED_DOCUMENTS = "fluid_topics_structured_documents"
 
 
@@ -113,8 +115,18 @@ class ContentConfig(BaseModel):
 class LoadedContent(TypedDict):
     """Result of loading content from raw bytes."""
 
+    raw_text: str
     text: str
     metadata: dict[str, Any]
+
+
+class ContentReaderContext(TypedDict, total=False):
+    """Optional runtime context passed to content readers."""
+
+    document_url: str
+    site_url: str
+    server_relative_url: str
+    filename: str
 
 
 @dataclass(frozen=True)
@@ -188,7 +200,11 @@ class SyncCounters:
 
 @dataclass
 class StoreDocumentResult:
-    """Result of store_document: either a metadata-only update or a new/updated document."""
+    """Result of store_document: either a metadata-only update or a new/updated document.
+
+    - ``document=None``: metadata-only DB update was applied (content hash matched).
+    - ``document=<dict>``: new or updated document was created/upserted.
+    """
 
     document: dict[str, Any] | None = None
     loaded_content: LoadedContent | None = None

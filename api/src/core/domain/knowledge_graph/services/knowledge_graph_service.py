@@ -5,14 +5,12 @@ from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import repository, service
 from litestar.exceptions import NotFoundException
-from sqlalchemy import select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
     KnowledgeGraph,
     KnowledgeGraphSource,
-    chunks_table_name,
-    docs_table_name,
     resolve_vector_size_for_embedding_model,
 )
 from core.domain.ai_models.service import AIModelsService
@@ -46,6 +44,19 @@ if TYPE_CHECKING:
 class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGraph]):
     """Service for Knowledge Graph operations."""
 
+    @staticmethod
+    def _documents_count_subquery():
+        return (
+            select(
+                KnowledgeGraphSource.graph_id.label("graph_id"),
+                func.coalesce(func.sum(KnowledgeGraphSource.documents_count), 0).label(
+                    "documents_count"
+                ),
+            )
+            .group_by(KnowledgeGraphSource.graph_id)
+            .subquery()
+        )
+
     async def _has_sources_of_type(
         self, db_session: AsyncSession, *, graph_id: UUID, source_type: str
     ) -> bool:
@@ -60,74 +71,55 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
     async def list_graphs(
         self, db_session: AsyncSession
     ) -> list[KnowledgeGraphExternalSchema]:
+        documents_count_sq = self._documents_count_subquery()
+
         result = await db_session.execute(
-            select(KnowledgeGraph).order_by(KnowledgeGraph.created_at.desc())
-        )
-        graphs = result.scalars().all()
-        results: list[KnowledgeGraphExternalSchema] = []
-        for graph in graphs:
-            # Dynamic per-graph counts
-            docs_table = docs_table_name(graph.id)
-            ch_table = chunks_table_name(graph.id)
-            try:
-                docs_count_res = await db_session.execute(
-                    text(f"SELECT COUNT(*) FROM {docs_table}")
-                )
-                documents_count = int(docs_count_res.scalar_one() or 0)
-            except Exception:
-                documents_count = 0
-            try:
-                chunks_count_res = await db_session.execute(
-                    text(f"SELECT COUNT(*) FROM {ch_table}")
-                )
-                chunks_count = int(chunks_count_res.scalar_one() or 0)
-            except Exception:
-                chunks_count = 0
-            results.append(
-                KnowledgeGraphExternalSchema(
-                    id=str(graph.id),
-                    name=graph.name,
-                    system_name=getattr(graph, "system_name", None),
-                    description=getattr(graph, "description", None),
-                    documents_count=int(documents_count or 0),
-                    chunks_count=int(chunks_count or 0),
-                    created_at=graph.created_at.isoformat()
-                    if graph.created_at
-                    else None,
-                    updated_at=graph.updated_at.isoformat()
-                    if graph.updated_at
-                    else None,
-                )
+            select(
+                KnowledgeGraph,
+                func.coalesce(documents_count_sq.c.documents_count, 0).label(
+                    "documents_count"
+                ),
             )
-        return results
+            .outerjoin(
+                documents_count_sq, documents_count_sq.c.graph_id == KnowledgeGraph.id
+            )
+            .order_by(KnowledgeGraph.created_at.desc())
+        )
+        rows = result.all()
+
+        return [
+            KnowledgeGraphExternalSchema(
+                id=str(graph.id),
+                name=graph.name,
+                system_name=getattr(graph, "system_name", None),
+                description=getattr(graph, "description", None),
+                documents_count=int(documents_count or 0),
+                created_at=graph.created_at.isoformat() if graph.created_at else None,
+                updated_at=graph.updated_at.isoformat() if graph.updated_at else None,
+            )
+            for graph, documents_count in rows
+        ]
 
     async def get_graph(
         self, db_session: AsyncSession, graph_id: UUID
     ) -> KnowledgeGraphExternalSchema:
+        documents_count_sq = self._documents_count_subquery()
         graph_res = await db_session.execute(
-            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
+            select(
+                KnowledgeGraph,
+                func.coalesce(documents_count_sq.c.documents_count, 0).label(
+                    "documents_count"
+                ),
+            )
+            .outerjoin(
+                documents_count_sq, documents_count_sq.c.graph_id == KnowledgeGraph.id
+            )
+            .where(KnowledgeGraph.id == graph_id)
         )
-        graph = graph_res.scalar_one_or_none()
-        if not graph:
+        row = graph_res.one_or_none()
+        if not row:
             raise NotFoundException("Graph not found")
-
-        # Dynamic per-graph counts
-        docs_table = docs_table_name(graph.id)
-        ch_table = chunks_table_name(graph.id)
-        try:
-            docs_count_res = await db_session.execute(
-                text(f"SELECT COUNT(*) FROM {docs_table}")
-            )
-            documents_count = int(docs_count_res.scalar_one() or 0)
-        except Exception:
-            documents_count = 0
-        try:
-            chunks_count_res = await db_session.execute(
-                text(f"SELECT COUNT(*) FROM {ch_table}")
-            )
-            chunks_count = int(chunks_count_res.scalar_one() or 0)
-        except Exception:
-            chunks_count = 0
+        graph, documents_count = row
         settings = (
             build_graph_settings_with_virtual_last_resort_profile(
                 getattr(graph, "settings", None)
@@ -141,7 +133,6 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             system_name=getattr(graph, "system_name", None),
             description=getattr(graph, "description", None),
             documents_count=int(documents_count or 0),
-            chunks_count=int(chunks_count or 0),
             settings=settings,
             created_at=graph.created_at.isoformat() if graph.created_at else None,
             updated_at=graph.updated_at.isoformat() if graph.updated_at else None,

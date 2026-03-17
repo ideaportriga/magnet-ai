@@ -61,7 +61,7 @@
 
   //- Test Result Dialog
   q-dialog(v-model='showTestDialog')
-    q-card(style='min-width: 400px; max-width: 500px')
+    q-card(style='min-width: 580px; max-width: 720px')
       q-card-section.row.items-center
         .km-heading-7 Test Result
         q-space
@@ -78,6 +78,30 @@
         .q-pa-sm.bg-negative-light.rounded-borders.q-mt-sm(v-if='testResult?.error')
           .km-field.text-negative.q-mb-xs Error Details
           .text-body2.text-negative {{ testResult?.error }}
+
+        //- LiteLLM Diagnostic Info
+        .q-mt-md.q-pa-sm.bg-grey-2.rounded-borders(
+          v-if='testResult?.litellm_model_string || testResult?.effective_endpoint || testResult?.computed_url || testResult?.via_router != null'
+        )
+          .km-field.text-secondary-text.q-mb-sm Connection Details
+          .q-gutter-y-xs
+            .row.items-start(v-if='testResult?.litellm_model_string')
+              .text-caption.text-grey-7.col-3 Model string
+              .text-caption.text-mono.col-9 {{ testResult.litellm_model_string }}
+            .row.items-start(v-if='testResult?.effective_endpoint')
+              .text-caption.text-grey-7.col-3 Endpoint
+              .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.effective_endpoint }}
+            .row.items-start(v-if='testResult?.via_router != null')
+              .text-caption.text-grey-7.col-3 Via Router
+              .col-9
+                q-badge(
+                  :color='testResult.via_router ? "positive" : "grey-6"',
+                  :label='testResult.via_router ? "Yes" : "No (direct call)"',
+                  style='font-size: 11px'
+                )
+            .row.items-start(v-if='testResult?.computed_url')
+              .text-caption.text-grey-7.col-3 Request URL
+              .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.computed_url }}
       q-card-actions(align='right')
         km-btn(flat, label='Close', color='primary', @click='showTestDialog = false')
 

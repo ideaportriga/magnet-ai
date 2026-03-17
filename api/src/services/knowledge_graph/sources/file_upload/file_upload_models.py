@@ -29,3 +29,4 @@ class FileUploadProcessDocumentTask:
     document: dict[str, Any]
     extracted_text: str
     content_config: ContentConfig
+    raw_text: str | None = None

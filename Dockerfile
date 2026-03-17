@@ -40,8 +40,16 @@ RUN poetry install --no-interaction --no-root --only main
 # Stage 3: Create a smaller image with just the application
 FROM python:3.12-slim as final
 
-# Install netcat for database connectivity checks
-RUN apt-get update && apt-get install -y netcat-traditional ffmpeg && rm -rf /var/lib/apt/lists/*
+# Install netcat for database connectivity checks, ffmpeg, and Tesseract OCR
+RUN apt-get update && apt-get install -y \
+    netcat-traditional \
+    ffmpeg \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-deu \
+    tesseract-ocr-fra \
+    tesseract-ocr-rus \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

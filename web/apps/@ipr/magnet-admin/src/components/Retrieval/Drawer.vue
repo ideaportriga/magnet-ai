@@ -6,7 +6,7 @@
         .col Preview
     q-separator.q-mb-xs
     .col
-      .column.full-height.q-pb-md.relative-position
+      .column.no-wrap.full-height.q-pb-md.relative-position
         template(v-if='uiSettings?.header_configuration?.header')
           .row.justify-center.q-pb-12.q-pt-md.q-gap-2.items-center.full-width.text-center
             .km-heading-5 {{ uiSettings?.header_configuration?.header }}

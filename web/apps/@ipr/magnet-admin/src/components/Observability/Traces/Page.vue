@@ -43,7 +43,7 @@
 </template>
 
 <script>
-import { useChroma } from '@shared'
+import { fetchData, useChroma } from '@shared'
 import { ref } from 'vue'
 import _ from 'lodash'
 import { traceFilters } from '@/config/observability/traces'
@@ -63,7 +63,7 @@ export default {
       get,
       tableRef,
       getPaginated,
-      filterConfig: ref(traceFilters),
+      filterConfig: ref(traceFilters()),
       filterObject: ref({}),
     }
   },
@@ -75,6 +75,7 @@ export default {
   async mounted() {
     this.searchString = this.paramId || ''
 
+    await this.loadKnowledgeGraphFilters()
     await this.refreshTable()
   },
   methods: {
@@ -84,6 +85,27 @@ export default {
 
     async refreshTable() {
       this.tableRef.requestServerInteraction()
+    },
+    async loadKnowledgeGraphFilters() {
+      try {
+        const response = await fetchData({
+          endpoint: this.$store.getters.config.api.aiBridge.urlAdmin,
+          service: 'knowledge_graphs/',
+          method: 'GET',
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          return
+        }
+
+        const graphs = await response.json()
+        const graphNames = [...new Set((graphs ?? []).map((graph) => graph.name).filter(Boolean))]
+
+        this.filterConfig = traceFilters(graphNames)
+      } catch (error) {
+        console.error('Error fetching knowledge graph filter options:', error)
+      }
     },
     async openDetails(row) {
       await this.$router.push(`/observability-traces/${row.id}`)

@@ -1,6 +1,21 @@
 import store from '@/store'
 
-const filter = {
+const getTracingTargetOptions = (knowledgeGraphNames: string[] = []) => {
+  const options = []
+
+  options.push(...(store.getters.chroma.agents.items?.map((item) => item.name) ?? []))
+  options.push(...(store.getters.chroma.collections.items?.map((item) => item.name) ?? []))
+  options.push(...(store.getters.chroma.promptTemplates.items?.map((item) => item.name) ?? []))
+  options.push(...(store.getters.chroma.rag_tools.items?.map((item) => item.name) ?? []))
+  options.push(...(store.getters.chroma.retrieval.items?.map((item) => item.name) ?? []))
+  options.push(...knowledgeGraphNames)
+
+  return [...new Set(options.filter(Boolean))]
+    .map((name) => ({ label: name, value: name }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+}
+
+const createTraceFilters = (knowledgeGraphNames: string[] = []) => ({
   status: {
     label: 'Status',
     key: 'status',
@@ -13,15 +28,7 @@ const filter = {
   name: {
     label: 'Tracing Target',
     key: 'name',
-    get options() {
-      const options = []
-      options.push(...(store.getters.chroma.agents.items?.map((item) => item.name) ?? []))
-      options.push(...(store.getters.chroma.collections.items?.map((item) => item.name) ?? []))
-      options.push(...(store.getters.chroma.promptTemplates.items?.map((item) => item.name) ?? []))
-      options.push(...(store.getters.chroma.rag_tools.items?.map((item) => item.name) ?? []))
-      options.push(...(store.getters.chroma.retrieval.items?.map((item) => item.name) ?? []))
-      return [...new Set(options)].map((name) => ({ label: name, value: name })).sort((a, b) => a.label.localeCompare(b.label))
-    },
+    options: () => getTracingTargetOptions(knowledgeGraphNames),
     multiple: true,
     overviewFilter: true,
   },
@@ -60,6 +67,6 @@ const filter = {
     default: 'P1D',
     overviewFilter: true,
   },
-}
+})
 
-export default filter
+export default createTraceFilters
