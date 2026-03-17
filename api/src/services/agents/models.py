@@ -336,6 +336,7 @@ AgentConversationMessage = Union[
 
 class AgentTest(BaseModel):
     name: str | None = None
+    system_name: str | None = None
     agent_config: AgentVariantValue
     messages: list[AgentConversationMessage]
     variables: dict[str, str] | None = Field(
