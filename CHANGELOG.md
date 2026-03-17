@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.50](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.49...v0.6.0-dev.50) (2026-03-17)
+
+### 🐛 Bug Fixes
+
+* add observability context to agent preview ([9bf110c](https://github.com/ideaportriga/magnet-ai/commit/9bf110c0bb84e0b00c9cc460adcdd8e8017903aa))
+
 ## [0.6.0-dev.49](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.48...v0.6.0-dev.49) (2026-03-17)
 
 ### 🐛 Bug Fixes
