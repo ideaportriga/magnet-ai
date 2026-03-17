@@ -156,8 +156,6 @@ async def build_pipeline(
             internal_cfg={
                 **({"num_speakers": num_speakers} if num_speakers is not None else {}),
                 **({"diarization_threshold": thr} if thr is not None else {}),
-                # optionally pass language too if you want
-                **({"language": language} if language else {}),
             },
         )
         dr = AzureSpeechDiarization(storage, diar_cfg)

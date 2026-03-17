@@ -72,11 +72,8 @@ class ElevenLabsSTTProvider(AIProviderInterface):
 
         self._default_diarize = bool(defaults.get("diarize", True))
         self._default_tag_events = bool(defaults.get("tag_audio_events", False))
-
-        # Optional: allow setting default model_id in provider defaults
         self._default_model_id = defaults.get("model_id")
 
-    # --- Required by AIProviderInterface (even if unsupported) ---
     async def create_chat_completion(
         self,
         messages: list[ChatCompletionMessageParam],
@@ -94,7 +91,6 @@ class ElevenLabsSTTProvider(AIProviderInterface):
             "ElevenLabsSTTProvider does not support chat completions"
         )
 
-    # --- New unified STT entrypoint ---
     async def transcribe(
         self,
         file: BinaryIO,
@@ -105,32 +101,50 @@ class ElevenLabsSTTProvider(AIProviderInterface):
         timestamp_granularities: list[str] | None = None,
         model_config: dict[str, Any] | None = None,
     ) -> TranscriptionResponse:
-        # ElevenLabs wants bytes; your interface provides BinaryIO
+        model_config = model_config or {}
         audio_bytes = file.read()
 
-        # pick model_id: caller model > provider default > error
-        model_id = model or self._default_model_id
+        model_id = model or model_config.get("model_id") or self._default_model_id
         if not model_id:
             raise ValueError(
-                "ElevenLabs transcribe: model_id is required (pass model=... or set defaults.model_id)"
+                "ElevenLabs transcribe: model_id is required "
+                "(pass model=..., or model_config['model_id'], or set defaults.model_id)"
             )
 
-        diarize_final = self._default_diarize
-        tag_final = self._default_tag_events
+        diarize_final = (
+            self._default_diarize
+            if model_config.get("diarize") is None
+            else bool(model_config.get("diarize"))
+        )
+        tag_final = (
+            self._default_tag_events
+            if model_config.get("tag_audio_events") is None
+            else bool(model_config.get("tag_audio_events"))
+        )
 
-        # NOTE: ElevenLabs API supports these kwargs as you used before.
-        # prompt/response_format/timestamp_granularities may not apply to ElevenLabs:
-        # keep them ignored safely unless you *know* their API supports them.
         kwargs: dict[str, Any] = {
             "file": audio_bytes,
             "model_id": model_id,
             "diarize": diarize_final,
             "tag_audio_events": tag_final,
         }
+
         if language:
             kwargs["language_code"] = language
 
-        # If you want extra features later, you can map them here from prompt/etc.
+        if model_config.get("keyterms"):
+            kwargs["keyterms"] = model_config["keyterms"]
+
+        if model_config.get("entity_detection"):
+            kwargs["entity_detection"] = model_config["entity_detection"]
+
+        if model_config.get("num_speakers") is not None:
+            kwargs["num_speakers"] = int(model_config["num_speakers"])
+
+        if model_config.get("diarization_threshold") is not None:
+            kwargs["diarization_threshold"] = float(
+                model_config["diarization_threshold"]
+            )
 
         def _call():
             return self._client.speech_to_text.convert(**kwargs)
@@ -138,11 +152,20 @@ class ElevenLabsSTTProvider(AIProviderInterface):
         raw = await asyncio.to_thread(_call)
         payload = _to_dict(raw) or {}
 
-        # Normalize into your TranscriptionResponse
-        # (Adjust field names if your TranscriptionResponse schema differs.)
         text = payload.get("text") or payload.get("transcript") or ""
+
+        segments = payload.get("segments")
+        if not isinstance(segments, list):
+            segments = None
+
+        words = payload.get("words")
+        if not isinstance(words, list):
+            words = None
 
         return TranscriptionResponse(
             text=text,
-            raw=payload,
+            language=payload.get("language_code") or payload.get("language"),
+            duration=payload.get("duration"),
+            segments=segments,
+            words=words,
         )

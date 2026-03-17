@@ -85,30 +85,54 @@ def _get_phrase_text(p: Dict[str, Any]) -> str:
     )
 
 
-def _azure_payload_to_segments(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _normalize_azure_segments(
+    raw_segments: list[dict[str, Any]] | None,
+) -> List[Dict[str, Any]]:
     segs: list[dict[str, Any]] = []
+    if not raw_segments:
+        return segs
 
-    phrases = payload.get("phrases")
-    if isinstance(phrases, list) and phrases:
+    # Azure fast transcription phrases
+    if (
+        raw_segments
+        and isinstance(raw_segments[0], dict)
+        and (
+            "offsetMilliseconds" in raw_segments[0]
+            or "durationMilliseconds" in raw_segments[0]
+        )
+    ):
         try:
-            phrases = sorted(
-                phrases, key=lambda p: _ms_to_s(p.get("offsetMilliseconds"))
+            raw_segments = sorted(
+                raw_segments, key=lambda p: _ms_to_s(p.get("offsetMilliseconds"))
             )
         except Exception:
             pass
 
-        for p in phrases:
+        for p in raw_segments:
             s = _ms_to_s(p.get("offsetMilliseconds"))
             e = s + _ms_to_s(p.get("durationMilliseconds"))
             txt = _get_phrase_text(p).strip()
+
+            speaker_raw = p.get("speaker")
+            speaker = f"speaker_{speaker_raw}" if speaker_raw is not None else "unknown"
+
             if txt and e >= s:
-                segs.append({"start": float(s), "end": float(e), "text": txt})
+                segs.append(
+                    {
+                        "start": float(s),
+                        "end": float(e),
+                        "text": txt,
+                        "speaker": speaker,
+                    }
+                )
         return segs
 
-    rp = payload.get("recognizedPhrases") or payload.get("recognitionResult", {}).get(
-        "recognizedPhrases"
-    )
-    if isinstance(rp, list) and rp:
+    # Azure recognizedPhrases shape
+    if (
+        raw_segments
+        and isinstance(raw_segments[0], dict)
+        and ("offset" in raw_segments[0] or "offsetInTicks" in raw_segments[0])
+    ):
 
         def ticks_to_s(t: Any) -> float:
             try:
@@ -117,13 +141,14 @@ def _azure_payload_to_segments(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
                 return 0.0
 
         try:
-            rp = sorted(
-                rp, key=lambda p: ticks_to_s(p.get("offset") or p.get("offsetInTicks"))
+            raw_segments = sorted(
+                raw_segments,
+                key=lambda p: ticks_to_s(p.get("offset") or p.get("offsetInTicks")),
             )
         except Exception:
             pass
 
-        for p in rp:
+        for p in raw_segments:
             off = p.get("offset") or p.get("offsetInTicks") or 0
             dur = p.get("duration") or p.get("durationInTicks") or 0
             s = ticks_to_s(off)
@@ -136,23 +161,41 @@ def _azure_payload_to_segments(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
                 or ""
             )
             txt = str(txt).strip()
+
+            speaker_raw = p.get("speaker")
+            speaker = f"speaker_{speaker_raw}" if speaker_raw is not None else "unknown"
+
             if txt and e >= s:
-                segs.append({"start": float(s), "end": float(e), "text": txt})
+                segs.append(
+                    {
+                        "start": float(s),
+                        "end": float(e),
+                        "text": txt,
+                        "speaker": speaker,
+                    }
+                )
+        return segs
+
+    # Already-normalized segments fallback
+    for s in raw_segments:
+        if not isinstance(s, dict):
+            continue
+        start = s.get("start")
+        end = s.get("end", start)
+        text = str(s.get("text", "")).strip()
+        speaker = str(s.get("speaker") or "unknown").strip() or "unknown"
+        if start is None or end is None or not text:
+            continue
+        segs.append(
+            {
+                "start": float(start),
+                "end": float(end),
+                "text": text,
+                "speaker": speaker,
+            }
+        )
 
     return segs
-
-
-def _azure_payload_to_text(
-    payload: Dict[str, Any], segments: List[Dict[str, Any]]
-) -> str:
-    cp = payload.get("combinedPhrases")
-    if isinstance(cp, list) and cp:
-        txt = cp[0].get("text") or cp[0].get("display") or ""
-        if isinstance(txt, str) and txt.strip():
-            return txt.strip()
-
-    joined = " ".join(s.get("text", "") for s in segments).strip()
-    return joined
 
 
 class AzureSpeechTranscriber(BaseTranscriber):
@@ -194,8 +237,6 @@ class AzureSpeechTranscriber(BaseTranscriber):
             sr=self._pre_sr,
         )
 
-        raw_payload = None
-
         try:
             try:
                 from ...services.ffmpeg import get_wav_duration_seconds
@@ -212,7 +253,7 @@ class AzureSpeechTranscriber(BaseTranscriber):
                 raise ValueError(f"STT model '{self._model_system_name}' not found")
 
             provider_system_name = model_cfg.get("provider_system_name")
-            if not isinstance(provider_system_name, str) or not provider_system_name:
+            if not provider_system_name:
                 raise ValueError(
                     f"Model '{self._model_system_name}' does not have provider_system_name configured"
                 )
@@ -223,10 +264,6 @@ class AzureSpeechTranscriber(BaseTranscriber):
                 or model_cfg.get("model")
                 or self._model_id
             )
-            if not isinstance(model_id, str) or not model_id:
-                raise ValueError(
-                    f"Model '{self._model_system_name}' is missing model id"
-                )
 
             provider = await get_ai_provider(provider_system_name)
 
@@ -247,19 +284,27 @@ class AzureSpeechTranscriber(BaseTranscriber):
                 },
             )
 
-            raw_payload = getattr(tx, "raw", None) or getattr(tx, "data", None) or tx
-
         finally:
             try:
                 os.remove(tmp_wav)
             except OSError:
                 pass
 
-        payload = _to_dict(raw_payload) or {}
+        raw_segments = [_to_dict(s) for s in (tx.segments or [])]
+        segments = _normalize_azure_segments(raw_segments)
 
+        # Store payload in Azure-like shape so diarizer can reuse it
+        payload = {
+            "combinedPhrases": [{"text": tx.text}] if tx.text else [],
+            "phrases": raw_segments,
+            "language": tx.language,
+            "duration": tx.duration,
+            "words": tx.words,
+        }
         _put_cached(file_id, payload)
 
-        segments = _azure_payload_to_segments(payload)
-        text = _azure_payload_to_text(payload, segments)
+        text = (tx.text or "").strip()
+        if not text:
+            text = " ".join(s["text"] for s in segments).strip()
 
         return {"text": text, "segments": segments}

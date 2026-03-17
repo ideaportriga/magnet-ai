@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, BinaryIO
 
 import httpx
+from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
-from services.ai_services.interface import STTProviderInterface
+from services.ai_services.interface import AIProviderInterface
+from services.ai_services.models import TranscriptionResponse
 
 
 def _to_dict(obj: Any) -> Any:
@@ -29,7 +31,7 @@ def _to_dict(obj: Any) -> Any:
     return obj
 
 
-class AzureSpeechSTTProvider(STTProviderInterface):
+class AzureSpeechSTTProvider(AIProviderInterface):
     def __init__(self, cfg: dict[str, Any]):
         self._cfg = cfg
         connection = cfg.get("connection", {}) or {}
@@ -66,66 +68,160 @@ class AzureSpeechSTTProvider(STTProviderInterface):
             f"{base}/speechtotext/transcriptions:transcribe?api-version=2025-10-15"
         )
 
-        self._client = httpx.AsyncClient()
+        self._client = httpx.AsyncClient(
+            timeout=httpx.Timeout(
+                connect=15.0,
+                write=2400.0,
+                read=300.0,
+                pool=30.0,
+            )
+        )
         self._api_key = api_key
         self._default_diarize = bool(defaults.get("diarize", True))
 
-    async def speech_to_text_convert(
+    async def create_chat_completion(
         self,
-        *,
-        file: bytes,
-        model_id: str,
-        diarize: bool | None = None,
-        tag_audio_events: bool | None = None,
-        language_code: str | None = None,
-        num_speakers: int | None = None,
-        diarization_threshold: float | None = None,
-        keyterms: list[str] | None = None,
-        entity_detection: str | list[str] | None = None,
+        messages: list[ChatCompletionMessageParam],
+        model: str | None,
+        temperature: float | None,
+        top_p: float | None,
+        max_tokens: int | None = None,
+        response_format: dict | None = None,
+        tools: list[dict] | None = None,
+        tool_choice: str | dict | None = None,
+        model_config: dict | None = None,
+        parallel_tool_calls: bool | None = None,
+    ) -> ChatCompletion:
+        raise NotImplementedError(
+            "AzureSpeechSTTProvider does not support chat completions"
+        )
+
+    async def transcribe(
+        self,
+        file: BinaryIO,
+        model: str | None = None,
+        language: str | None = None,
+        prompt: str | None = None,
+        response_format: str | None = None,
+        timestamp_granularities: list[str] | None = None,
         model_config: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        diarize_final = self._default_diarize if diarize is None else bool(diarize)
+    ) -> TranscriptionResponse:
+        model_config = model_config or {}
+        audio_bytes = file.read()
 
-        definition: dict[str, Any] = {}
+        diarize_final = (
+            self._default_diarize
+            if model_config.get("diarize") is None
+            else bool(model_config.get("diarize"))
+        )
 
-        # Debug-friendly default: avoid empty definition while you test
-        definition["locales"] = [language_code or "en-US"]
+        definition: dict[str, Any] = {
+            "locales": [language or "en-US"],
+        }
 
-        if diarize_final:
-            diar: dict[str, Any] = {"enabled": True}
-            if num_speakers is not None:
-                diar["minSpeakers"] = int(num_speakers)
-                diar["maxSpeakers"] = int(num_speakers)
-            definition["diarization"] = diar
+        diarize_final = True
 
-        if keyterms:
+        definition: dict[str, Any] = {
+            "locales": [language or "en-US"],
+            "diarization": {
+                "enabled": diarize_final,
+            },
+        }
+
+        definition["diarization"]["minSpeakers"] = 2
+        definition["diarization"]["maxSpeakers"] = 2
+
+        if model_config.get("keyterms"):
             definition["phraseList"] = {
                 "phrases": [
-                    {"text": t} for t in keyterms if isinstance(t, str) and t.strip()
+                    {"text": t}
+                    for t in model_config["keyterms"]
+                    if isinstance(t, str) and t.strip()
                 ]
             }
 
         definition_json = json.dumps(
             definition,
             ensure_ascii=False,
-            separators=(",", ":"),
+            separators=(",", ":"),  # compact is fine
         )
-        definition_bytes = definition_json.encode("utf-8")
+
+        # Better: use httpx multipart form with explicit Content-Type for definition
+        files = {
+            "definition": (
+                "definition.json",  # filename can help Azure parse it
+                definition_json.encode("utf-8"),  # ensure bytes + utf-8
+                "application/json",  # ← important!
+            ),
+            "audio": (
+                "audio.wav",  # use original extension if possible (m4a, wav, mp3 all ok)
+                audio_bytes,
+                "audio/wav",  # or "audio/wav" etc. — match what you have
+            ),
+        }
+
+        headers = {
+            "Ocp-Apim-Subscription-Key": self._api_key,
+            # You can add Accept: application/json if you want, but usually not needed
+        }
 
         resp = await self._client.post(
             self._url,
-            headers={"Ocp-Apim-Subscription-Key": self._api_key},
-            files={
-                "audio": ("audio.wav", file, "audio/wav"),
-                "Definition": (
-                    None,
-                    definition_bytes,
-                    "application/json; charset=utf-8",
-                ),
-            },
+            headers=headers,
+            files=files,  # ← no data= dict anymore
         )
 
         if resp.status_code >= 400:
             raise RuntimeError(f"Azure STT error {resp.status_code}: {resp.text}")
 
-        return _to_dict(resp.json()) or {}
+        payload = _to_dict(resp.json()) or {}
+
+        # Preserve Azure-native phrase structures so downstream diarization can use them
+        segments = None
+        if isinstance(payload.get("phrases"), list):
+            segments = payload["phrases"]
+        elif isinstance(payload.get("recognizedPhrases"), list):
+            segments = payload["recognizedPhrases"]
+
+        text = ""
+        combined = payload.get("combinedPhrases")
+        if isinstance(combined, list) and combined:
+            text = combined[0].get("text") or combined[0].get("display") or ""
+
+        if not text and isinstance(payload.get("phrases"), list):
+            text = " ".join(
+                (p.get("text") or p.get("display") or "").strip()
+                for p in payload["phrases"]
+                if isinstance(p, dict)
+            ).strip()
+
+        if not text and isinstance(payload.get("recognizedPhrases"), list):
+            text = " ".join(
+                (
+                    p.get("nBest", [{}])[0].get("display") or p.get("display") or ""
+                ).strip()
+                for p in payload["recognizedPhrases"]
+                if isinstance(p, dict)
+            ).strip()
+
+        duration = None
+        if payload.get("durationMilliseconds") is not None:
+            try:
+                duration = float(payload["durationMilliseconds"]) / 1000.0
+            except Exception:
+                duration = None
+        print(
+            "definition sent:",
+            json.dumps(definition, ensure_ascii=True, separators=(",", ":")),
+        )
+        print(
+            "first phrases:",
+            json.dumps((payload.get("phrases") or [])[:3], ensure_ascii=False),
+        )
+
+        return TranscriptionResponse(
+            text=text,
+            language=language,
+            duration=duration,
+            segments=segments,
+        )

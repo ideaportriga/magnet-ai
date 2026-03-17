@@ -126,10 +126,7 @@ class ElevenLabsTranscriber(BaseTranscriber):
             extract_audio_to_wav, src_path=src_url, sr=16_000
         )
 
-        raw_payload: Any = None
-
         try:
-            # Store duration if we can
             try:
                 from ...services.ffmpeg import get_wav_duration_seconds
 
@@ -140,7 +137,6 @@ class ElevenLabsTranscriber(BaseTranscriber):
             except Exception:
                 pass
 
-            # Resolve model -> provider + model id
             model_cfg = await get_model_by_system_name(self._model_system_name)
             if not model_cfg:
                 raise ValueError(f"STT model '{self._model_system_name}' not found")
@@ -166,7 +162,6 @@ class ElevenLabsTranscriber(BaseTranscriber):
             safe_terms = _sanitize_keyterms(self._cfg.keyterms or [])
             file_bytes = await asyncio.to_thread(_read_bytes, tmp_wav)
 
-            # Style B: pass advanced STT knobs via model_config
             stt_opts: dict[str, Any] = {
                 "diarize": self._diarize,
                 "tag_audio_events": self._tag_events,
@@ -174,12 +169,9 @@ class ElevenLabsTranscriber(BaseTranscriber):
                 "diarization_threshold": self._diarization_threshold,
                 "keyterms": safe_terms or None,
                 "entity_detection": self._cfg.entity_detection,
-                # include full model cfg only if your provider uses it
                 "model_cfg": model_cfg,
             }
 
-            # NOTE: this requires AIProviderInterface.transcribe to accept model_config
-            # and ElevenLabsSTTProvider.transcribe to map model_config -> ElevenLabs kwargs.
             tx = await provider.transcribe(
                 file=BytesIO(file_bytes),
                 model=model_id,
@@ -187,17 +179,14 @@ class ElevenLabsTranscriber(BaseTranscriber):
                 model_config=stt_opts,
             )
 
-            # tx is TranscriptionResponse; keep raw payload for your segment parsing
-            raw_payload = getattr(tx, "raw", None) or getattr(tx, "data", None) or tx
-
         finally:
             try:
                 os.remove(tmp_wav)
             except OSError:
                 pass
 
-        payload = _to_dict(raw_payload) or {}
-        words_raw = payload.get("words", []) or []
+        text = tx.text or ""
+        words_raw = tx.words or []
         words = [_to_dict(w) for w in words_raw]
 
         segments = []
@@ -215,8 +204,16 @@ class ElevenLabsTranscriber(BaseTranscriber):
                 }
             )
 
+        payload = {
+            "text": tx.text,
+            "language": tx.language,
+            "duration": tx.duration,
+            "segments": tx.segments,
+            "words": words_raw,
+        }
+
         res = {
-            "text": payload.get("text", "") or " ".join(x["text"] for x in segments),
+            "text": text or " ".join(x["text"] for x in segments),
             "segments": segments,
         }
 

@@ -52,7 +52,11 @@ class AzureSpeechDiarization(BaseDiarization):
         cur_end: Optional[float] = None
 
         for p in phrases:
-            spk = str(p.get("speaker") or "unknown")
+            speaker_raw = p.get("speaker")
+            if speaker_raw is None:
+                spk = "unknown"
+            else:
+                spk = f"speaker_{speaker_raw}"
 
             s = _ms_to_s(p.get("offsetMilliseconds"))
             e = s + _ms_to_s(p.get("durationMilliseconds"))

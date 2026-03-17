@@ -18,6 +18,7 @@ from services.ai_services.providers.universal import (
 )
 from services.ai_services.providers.native.mistral_stt import NativeMistralSTTProvider
 from services.ai_services.providers.elevenlabs_stt import ElevenLabsSTTProvider
+from services.ai_services.providers.azure_speech_stt import AzureSpeechSTTProvider
 from services.ai_services.router import (
     get_model_system_name_by_deployment_id,
     get_router,
@@ -149,6 +150,8 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
         "mistral_stt": NativeMistralSTTProvider,  # Mistral Voxtral STT (not in litellm)
         "elevenlabs": ElevenLabsSTTProvider,
         "elevenlabs_stt": ElevenLabsSTTProvider,  # ElevenLabs STT (not in litellm)
+        "azure_speech": AzureSpeechSTTProvider,
+        "azure_speech_stt": AzureSpeechSTTProvider,
     }
 
     provider_class = provider_classes.get(str(provider_type))
