@@ -1,21 +1,10 @@
 <template>
   <div>
-    <div v-if="filteredDocuments.length === 0" class="q-mt-md">
-      <div class="text-center q-pa-lg">
-        <q-icon name="description" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">No documents found</div>
-        <div class="km-description text-grey-6">
-          {{ searchQuery ? 'Try a different search query' : 'Add sources to start populating this graph' }}
-        </div>
-      </div>
-    </div>
-
     <q-table
-      v-else
       v-model:pagination="pagination"
       flat
       table-header-class="bg-primary-light"
-      :rows="filteredDocuments"
+      :rows="documents"
       :columns="documentsColumns"
       row-key="id"
       :rows-per-page-options="[10]"
@@ -71,13 +60,12 @@
 <script setup lang="ts">
 import { formatDuration, formatRelative } from '@shared/utils'
 import type { QTableColumn } from 'quasar'
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { KgFileTypeBadge, KgStatusBadge } from '../common'
 import type { Document } from './models'
 
 const props = defineProps<{
   documents: Document[]
-  searchQuery: string
   deletingIds: Set<string>
 }>()
 
@@ -88,7 +76,6 @@ const emit = defineEmits<{
 }>()
 
 const pagination = ref({ rowsPerPage: 10, page: 1 })
-
 const documentsColumns: QTableColumn<Document>[] = [
   {
     name: 'name',
@@ -158,20 +145,6 @@ const documentsColumns: QTableColumn<Document>[] = [
     headerStyle: 'width: 80px',
   },
 ]
-
-const filteredDocuments = computed(() => {
-  if (!props.searchQuery) {
-    return props.documents
-  }
-
-  const search = props.searchQuery.toLowerCase()
-  return props.documents.filter(
-    (doc) =>
-      doc.name?.toLowerCase().includes(search) ||
-      doc.description?.toLowerCase().includes(search) ||
-      doc.source_name?.toLowerCase().includes(search)
-  )
-})
 
 const handleDocumentClick = (_event: Event, row: Document) => {
   emit('document-click', row)

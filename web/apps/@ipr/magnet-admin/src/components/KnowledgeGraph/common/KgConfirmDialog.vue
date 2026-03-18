@@ -38,8 +38,7 @@
           :label="confirmLabel"
           :bg="destructive ? 'error-bg' : undefined"
           :hover-bg="destructive ? 'error-text' : undefined"
-          :color="destructive ? 'error-text' : 'primary'"
-          :loading="loading"
+          :color="destructive ? 'error-text' : ''"
           :disable="disableConfirm"
           @click="$emit('confirm')"
         />

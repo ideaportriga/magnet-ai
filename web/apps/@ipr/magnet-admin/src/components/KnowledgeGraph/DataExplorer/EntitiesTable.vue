@@ -1,15 +1,6 @@
 <template>
   <div v-if="!selectedEntityType">
-    <div v-if="entityTypes.length === 0" class="q-mt-md">
-      <div class="text-center q-pa-lg">
-        <q-icon name="o_category" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">No entities found</div>
-        <div class="km-description text-grey-6">Define entity types in Entity Extraction and run extraction to populate data</div>
-      </div>
-    </div>
-
     <q-table
-      v-else
       flat
       table-header-class="bg-primary-light"
       :rows="entityTypes"
@@ -38,16 +29,7 @@
   </div>
 
   <div v-else>
-    <div v-if="entityRecords.length === 0" class="q-mt-md">
-      <div class="text-center q-pa-lg">
-        <q-icon name="o_table_rows" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">No records found</div>
-        <div class="km-description text-grey-6">No extracted records for this entity type yet</div>
-      </div>
-    </div>
-
     <q-table
-      v-else
       v-model:pagination="paginationModel"
       flat
       table-header-class="bg-primary-light"

@@ -106,20 +106,6 @@
                 <q-tab name="retrieval" label="Retrieval" :alert="retrievalUnsaved" alert-color="orange-9" />
                 <q-tab name="settings" label="Settings" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
               </q-tabs>
-              <div class="col-auto">
-                <km-btn
-                  icon="refresh"
-                  label="Refresh"
-                  icon-color="icon"
-                  hover-color="primary"
-                  label-class="km-title"
-                  flat
-                  icon-size="16px"
-                  hover-bg="primary-bg"
-                  size="sm"
-                  @click="handleRefreshAll"
-                />
-              </div>
             </div>
 
             <div class="column no-wrap q-gap-16 full-height full-width overflow-auto q-mt-lg">
@@ -365,12 +351,6 @@ const handleSourcesRefresh = async () => {
   await fetchGraphDetails()
   explorerRef.value?.refresh?.()
   metadataRef.value?.refresh?.()
-}
-
-const handleRefreshAll = async () => {
-  // Refresh all tabs that might be affected by sync
-  sourcesRef.value?.refresh?.()
-  await handleSourcesRefresh()
 }
 
 // Drag-and-drop upload state

@@ -1,15 +1,9 @@
 <template>
   <div class="q-px-md">
-    <div class="row items-center q-mb-md">
+    <div class="row items-start q-col-gutter-md q-mb-md">
       <div class="col">
         <div class="km-heading-7">Data Sources</div>
         <div class="km-description text-secondary-text">Manage document sources for this knowledge graph</div>
-      </div>
-      <div class="col-auto">
-        <div class="row items-center no-wrap q-gutter-x-sm">
-          <km-btn label="Sync All" size="sm" @click="handleSyncAll" />
-          <km-btn label="New" size="sm" @click="showSourceTypeDialog = true" />
-        </div>
       </div>
     </div>
 
@@ -22,10 +16,22 @@
         <q-icon name="folder_open" size="64px" color="grey-5" />
         <div class="km-heading-7 text-grey-7 q-mt-md">No sources added yet</div>
         <div class="km-description text-grey-6">Start by uploading a file(s) or connecting to external data sources</div>
+        <q-btn no-caps unelevated color="primary" label="Add First Source" class="q-mt-lg" @click="showSourceTypeDialog = true" />
       </div>
     </div>
 
-    <div v-else class="q-mt-md">
+    <div v-else>
+      <kg-table-toolbar>
+        <template #leading>
+          <km-btn label="Sync All" size="sm" :disable="syncAllInProgress" @click="showSyncAllConfirmDialog = true" />
+        </template>
+
+        <template #trailing>
+          <km-btn flat icon="o_add_circle" label="New Source" size="sm" @click="showSourceTypeDialog = true" />
+          <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="loading" @click="fetchSources(true)" />
+        </template>
+      </kg-table-toolbar>
+
       <q-table
         v-model:pagination="pagination"
         flat
@@ -158,6 +164,19 @@
         This will delete all documents and chunks associated with this source. The source itself will be kept. This action cannot be undone.
       </template>
     </kg-confirm-dialog>
+
+    <!-- Sync All Confirmation Dialog -->
+    <kg-confirm-dialog
+      v-model="showSyncAllConfirmDialog"
+      title="Sync all sources"
+      icon="sync"
+      icon-variant="info"
+      description="Are you sure you want to sync all sources? This will trigger a sync for every syncable source in this knowledge graph."
+      confirm-label="Sync All"
+      @confirm="onConfirmSyncAll"
+    >
+      <template #warning>Syncing may take a while depending on the number of sources and documents.</template>
+    </kg-confirm-dialog>
   </div>
 </template>
 
@@ -167,7 +186,7 @@ import { formatRelative } from '@shared/utils'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
 import { useStore } from 'vuex'
-import { KgConfirmDialog, KgStatusBadge } from '../common'
+import { KgConfirmDialog, KgStatusBadge, KgTableToolbar } from '../common'
 import { fetchKnowledgeGraphSources } from './api'
 import { formatAdded, getSourceTypeName, type SourceRow, type SourceSchedule } from './models'
 import SourceTypeDialog from './SourceTypeDialog.vue'
@@ -196,6 +215,7 @@ const pagination = ref({ rowsPerPage: 10, page: 1 })
 const deletingIds = ref<Set<string>>(new Set())
 const syncingIds = ref<Set<string>>(new Set())
 const syncAllInProgress = ref(false)
+const showSyncAllConfirmDialog = ref(false)
 const showDeleteDialog = ref(false)
 const deleteInProgress = ref(false)
 const showPurgeDialog = ref(false)
@@ -439,6 +459,11 @@ const handleSync = async (source: SourceRow) => {
   await syncSource(source)
   // Fetch sources to show the "syncing" status from backend
   await fetchSources(true)
+}
+
+function onConfirmSyncAll() {
+  showSyncAllConfirmDialog.value = false
+  void handleSyncAll()
 }
 
 const handleSyncAll = async () => {

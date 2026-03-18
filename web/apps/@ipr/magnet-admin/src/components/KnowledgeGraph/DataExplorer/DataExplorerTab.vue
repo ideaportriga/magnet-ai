@@ -39,20 +39,44 @@
 
       <q-separator class="q-my-md" />
 
-      <div class="row items-center q-mb-md q-gutter-sm">
-        <q-btn v-if="viewMode === 'entities' && selectedEntityType" flat dense icon="arrow_back" @click="clearSelectedEntityType" />
-        <div v-if="viewMode === 'entities' && selectedEntityType" class="km-heading-8">{{ selectedEntityType }}</div>
-        <km-input v-if="hasRecords" v-model="searchQuery" placeholder="Search..." icon-before="search" clearable style="width: 250px" />
-        <q-space />
-        <km-btn flat icon="refresh" label="Refresh" @click="refresh" />
-      </div>
+      <kg-table-toolbar v-if="hasRecords || loading">
+        <template #leading>
+          <q-btn v-if="viewMode === 'entities' && selectedEntityType" flat dense icon="arrow_back" @click="clearSelectedEntityType" />
+          <div v-if="viewMode === 'entities' && selectedEntityType" class="km-heading-8">{{ selectedEntityType }}</div>
+          <km-input v-if="hasRecords" v-model="searchQuery" placeholder="Search..." icon-before="search" clearable style="width: 250px" />
+        </template>
+
+        <template #trailing>
+          <km-btn flat icon="refresh" label="Refresh" size="sm" @click="refresh" />
+        </template>
+      </kg-table-toolbar>
 
       <q-linear-progress v-if="loading" indeterminate color="primary" />
 
+      <div v-if="!loading && !hasRecords" class="text-center q-pa-lg">
+        <q-icon :name="viewMode === 'documents' ? 'description' : 'hub'" size="64px" color="grey-5" />
+        <div class="km-heading-7 text-grey-7 q-mt-md">
+          {{ viewMode === 'documents' ? 'No documents yet' : 'No entities yet' }}
+        </div>
+        <div class="km-description text-grey-6 q-mb-md">
+          {{
+            viewMode === 'documents' ? 'Upload documents to this knowledge graph to get started.' : 'Run entity extraction to populate entities here.'
+          }}
+        </div>
+        <q-btn no-caps unelevated color="primary" label="Refresh" @click="refresh" />
+      </div>
+
+      <div v-if="!loading && hasRecords && viewMode === 'documents' && filteredDocuments.length === 0" class="text-center q-pa-lg">
+        <div class="km-description text-grey-6">Try a different search query</div>
+      </div>
+
+      <div v-if="!loading && viewMode === 'entities' && selectedEntityType && entityRecords.length === 0" class="text-center q-pa-lg">
+        <div class="km-description text-grey-6">No extracted records for this entity type yet</div>
+      </div>
+
       <documents-table
-        v-if="viewMode === 'documents' && !loading"
-        :documents="documents"
-        :search-query="searchQuery"
+        v-if="viewMode === 'documents' && !loading && filteredDocuments.length > 0"
+        :documents="filteredDocuments"
         :deleting-ids="deletingIds"
         @document-click="onDocumentClick"
         @delete-document="confirmDelete"
@@ -60,7 +84,7 @@
       />
 
       <entities-table
-        v-if="viewMode === 'entities' && !loading"
+        v-if="viewMode === 'entities' && !loading && entityTypes.length > 0"
         v-model:entity-records-pagination="entityRecordsPagination"
         :graph-details="graphDetails"
         :entity-types="entityTypes"
@@ -118,7 +142,7 @@ import { fetchData } from '@shared'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStore } from 'vuex'
-import { KgConfirmDialog } from '../common'
+import { KgConfirmDialog, KgTableToolbar } from '../common'
 import DocumentsTable from './DocumentsTable.vue'
 import EntitiesTable from './EntitiesTable.vue'
 import type { Document, EntityRecord, EntityTypeSummary } from './models'
@@ -156,6 +180,15 @@ type EntityRecordsRequest = {
 const hasRecords = computed(() => {
   if (viewMode.value === 'documents') return documents.value.length > 0
   return entityTypes.value.length > 0
+})
+
+const filteredDocuments = computed(() => {
+  if (!searchQuery.value) return documents.value
+  const search = searchQuery.value.toLowerCase()
+  return documents.value.filter(
+    (doc) =>
+      doc.name?.toLowerCase().includes(search) || doc.description?.toLowerCase().includes(search) || doc.source_name?.toLowerCase().includes(search)
+  )
 })
 
 const fetchDocuments = async () => {

@@ -1,12 +1,9 @@
 <template>
   <div class="q-px-md">
-    <div class="row items-center q-mb-md">
+    <div class="row items-start q-col-gutter-md q-mb-md">
       <div class="col">
         <div class="km-heading-7">Content Profiles</div>
         <div class="km-description text-secondary-text">Configure how different content types are processed and chunked</div>
-      </div>
-      <div class="col-auto">
-        <km-btn label="New Profile" :disable="saving" @click="openContentConfigDialog()" />
       </div>
     </div>
 
@@ -24,6 +21,13 @@
     </div>
 
     <div v-else class="q-mt-md">
+      <kg-table-toolbar>
+        <template #trailing>
+          <km-btn flat icon="o_add_circle" label="New Profile" size="sm" :disable="saving" @click="openContentConfigDialog()" />
+          <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="saving" @click="emit('refresh')" />
+        </template>
+      </kg-table-toolbar>
+
       <q-table
         :rows="displayContentConfigs"
         :columns="contentConfigTableColumns"
@@ -119,7 +123,7 @@ import { fetchData } from '@shared'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { KgConfirmDialog } from '../common'
+import { KgConfirmDialog, KgTableToolbar } from '../common'
 import { fetchKnowledgeGraphSources } from '../Sources/api'
 import type { SourceRow } from '../Sources/models'
 import ContentConfigDialog from './ContentConfigDialog.vue'
@@ -197,7 +201,7 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
   },
   {
     name: 'enabled',
-    label: 'Enabled',
+    label: 'Active',
     field: 'enabled',
     align: 'center' as const,
   },
@@ -212,9 +216,6 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
 
 const initializeForm = () => {
   loadContentConfigs()
-  if (apiReady.value) {
-    fetchSources()
-  }
 }
 
 const fetchSources = async () => {
@@ -428,15 +429,14 @@ watch(
 </script>
 
 <style scoped>
-:deep(.q-table__card .q-table thead tr, .q-table__card thead tr) {
-  background-color: #f5f5f5;
+:deep(.q-table thead th) {
+  font-size: 14px;
+  font-weight: 600;
 }
 
-:deep(.q-table__card .q-table thead th, .q-table__card thead th) {
-  padding: 16px 12px;
-  color: #1a1a1a;
-  font-size: 0.8rem;
-  font-weight: 600;
+:deep(.q-table tbody td) {
+  height: 40px;
+  padding: 2px 16px;
 }
 
 :deep(.sticky-col) {

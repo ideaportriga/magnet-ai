@@ -196,10 +196,13 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             }
         )
 
+        from .knowledge_graph_chunk_service import KnowledgeGraphChunkService
+        from .knowledge_graph_document_service import KnowledgeGraphDocumentService
+        from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
+        from .knowledge_graph_entity_service import KnowledgeGraphEntityService
+
         entity_svc = entity_service or KnowledgeGraphEntityService()
         await entity_svc.create_table(db_session, graph_id=created.id)
-
-        from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
 
         edge_svc = edge_service or KnowledgeGraphEdgeService()
         await edge_svc.create_table(db_session, graph_id=created.id)
@@ -336,7 +339,10 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
     ) -> None:
         """Delete a graph and drop its per-graph tables."""
 
+        from .knowledge_graph_chunk_service import KnowledgeGraphChunkService
+        from .knowledge_graph_document_service import KnowledgeGraphDocumentService
         from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
+        from .knowledge_graph_entity_service import KnowledgeGraphEntityService
 
         # Drop dynamic tables (edges first, then entities, chunks, docs)
         edge_svc = edge_service or KnowledgeGraphEdgeService()

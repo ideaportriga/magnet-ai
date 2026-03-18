@@ -16,63 +16,57 @@
         <q-icon name="o_category" size="64px" color="grey-5" />
         <div class="km-heading-7 text-grey-7 q-mt-md">No entities defined yet</div>
         <div class="km-description text-grey-6">Create at least one entity definition so the prompt knows what to extract.</div>
-        <q-btn
-          no-caps
-          unelevated
-          color="primary"
-          label="Create First Entity"
-          class="q-mt-lg"
-          icon="add"
-          :disable="saving"
-          @click="openCreateDialog"
-        />
+        <q-btn no-caps unelevated color="primary" label="Create First Entity" class="q-mt-lg" :disable="saving" @click="openCreateDialog" />
       </div>
     </div>
 
-    <div v-else class="q-mt-md">
-      <div class="row items-center q-mb-md q-gutter-xs">
-        <km-btn
-          v-if="isExtractionActive"
-          label="Cancel"
-          size="sm"
-          flat
-          color="negative"
-          :disable="cancelling"
-          @click="cancelExtraction"
-        />
-        <km-btn
-          v-else
-          label="Run Extraction"
-          size="sm"
-          :disable="!canRunExtraction || saving || extractionStarting"
-          @click="runExtraction"
-        >
-          <q-tooltip v-if="!canRunExtraction && !saving">Configure a prompt template in extraction settings first</q-tooltip>
-        </km-btn>
-
-        <!-- Progress bar when running/cancelling -->
-        <div v-if="isExtractionActive || extractionStarting" class="row items-center no-wrap q-ml-sm">
-          <q-linear-progress
-            :value="progressFraction"
-            :indeterminate="!hasProgress"
-            color="primary"
-            track-color="grey-3"
-            rounded
-            size="8px"
-            style="width: 140px"
+    <div v-else>
+      <kg-table-toolbar>
+        <template #leading>
+          <km-btn
+            v-if="isExtractionActive || extractionStarting"
+            label="Cancel"
+            size="sm"
+            flat
+            color="negative"
+            :disable="cancelling || extractionStarting"
+            @click="showCancelConfirmDialog = true"
           />
-        </div>
+          <km-btn v-else label="Run Extraction" size="sm" :disable="!canRunExtraction || saving" @click="showRunConfirmDialog = true">
+            <q-tooltip v-if="!canRunExtraction && !saving">Configure a prompt template in extraction settings first</q-tooltip>
+          </km-btn>
+        </template>
 
-        <!-- Completed / Cancelled / Error: short status message -->
-        <span v-else-if="extractionStatus.status !== 'idle'" class="text-caption text-grey-6 q-ml-xs">
-          {{ extractionStatusMessage }}
-        </span>
+        <template #status>
+          <!-- Progress area when running/starting -->
+          <template v-if="isExtractionActive || extractionStarting">
+            <q-linear-progress
+              :value="progressFraction"
+              :indeterminate="!hasProgress"
+              color="primary"
+              track-color="grey-3"
+              rounded
+              size="8px"
+              style="width: 160px"
+            />
+            <span v-if="hasProgress" class="text-caption text-grey-7">{{ progressPercentText }}</span>
+            <span class="text-caption text-grey-6">
+              {{ extractionStatus.status === 'cancelling' ? 'Cancelling...' : 'Running...' }}
+            </span>
+          </template>
 
-        <q-space />
-        <km-btn flat icon="o_add_circle" label="New Entity" size="sm" :disable="saving" @click="openCreateDialog" />
-        <km-btn flat icon="settings" label="Settings" size="sm" :disable="saving" @click="showExtractionDialog = true" />
-        <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="saving" @click="emit('refresh')" />
-      </div>
+          <!-- Terminal status: completed / cancelled / error -->
+          <span v-else-if="extractionStatus.status !== 'idle'" class="text-caption text-grey-7">
+            {{ extractionStatusMessage }}
+          </span>
+        </template>
+
+        <template #trailing>
+          <km-btn flat icon="o_add_circle" label="New Entity" size="sm" :disable="saving" @click="openCreateDialog" />
+          <km-btn flat icon="settings" label="Settings" size="sm" :disable="saving" @click="showExtractionDialog = true" />
+          <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="saving" @click="emit('refresh')" />
+        </template>
+      </kg-table-toolbar>
 
       <q-table
         v-model:pagination="pagination"
@@ -83,7 +77,7 @@
         row-key="id"
         :loading="saving"
         :rows-per-page-options="[10]"
-        :row-class="(row: EntityDefinition) => row.enabled === false ? 'entity-row--disabled' : ''"
+        :row-class="(row: EntityDefinition) => (row.enabled === false ? 'entity-row--disabled' : '')"
         @row-click="onRowClick"
       >
         <template #body-cell-name="slotScope">
@@ -97,16 +91,6 @@
         <template #body-cell-columns_count="slotScope">
           <q-td :props="slotScope">
             {{ slotScope.row.columns.length }}
-          </q-td>
-        </template>
-
-        <template #body-cell-identifier="slotScope">
-          <q-td :props="slotScope">
-            <div v-if="getIdentifierColumn(slotScope.row)" class="row items-center q-gap-4">
-              <q-icon name="o_key" size="14px" color="amber-8" />
-              <span class="entity-identifier-name">{{ getIdentifierColumn(slotScope.row)?.name }}</span>
-            </div>
-            <span v-else class="text-grey-5 italic text-caption">None set</span>
           </q-td>
         </template>
 
@@ -181,6 +165,33 @@
         This removes the entity definition from the extraction schema. Existing extracted rows are not deleted automatically.
       </template>
     </kg-confirm-dialog>
+
+    <kg-confirm-dialog
+      v-model="showRunConfirmDialog"
+      title="Run entity extraction"
+      icon="o_play_arrow"
+      icon-variant="info"
+      description="Are you sure you want to run entity extraction? This will process all documents in the knowledge graph."
+      confirm-label="Run Extraction"
+      @confirm="onConfirmRunExtraction"
+    >
+      <template #warning>Running extraction may take a while depending on the number of documents.</template>
+    </kg-confirm-dialog>
+
+    <kg-confirm-dialog
+      v-model="showCancelConfirmDialog"
+      title="Cancel extraction"
+      icon="o_cancel"
+      icon-variant="warning"
+      warning-variant="warning"
+      description="Are you sure you want to cancel the running extraction?"
+      confirm-label="Cancel Extraction"
+      destructive
+      :loading="cancelling"
+      @confirm="onConfirmCancelExtraction"
+    >
+      <template #warning>Entities already extracted will be kept, but the remaining documents will not be processed.</template>
+    </kg-confirm-dialog>
   </div>
 </template>
 
@@ -190,7 +201,7 @@ import type { QTableColumn } from 'quasar'
 import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { KgConfirmDialog } from '../common'
+import { KgConfirmDialog, KgTableToolbar } from '../common'
 import EntityDialog from './EntityDialog.vue'
 import EntityExtractionSettingsDialog from './EntityExtractionSettingsDialog.vue'
 import {
@@ -262,7 +273,7 @@ const columns: QTableColumn<EntityDefinition>[] = [
   },
   {
     name: 'enabled',
-    label: 'Enabled',
+    label: 'Active',
     field: 'enabled',
     align: 'center',
   },
@@ -296,6 +307,10 @@ const progressFraction = computed(() => {
   return Math.min(p.processed / p.total, 1)
 })
 
+const progressPercentText = computed(() => {
+  return `${Math.round(progressFraction.value * 100)}%`
+})
+
 const extractionStatusMessage = computed(() => {
   const info = extractionStatus.value
   if (info.status === 'completed') {
@@ -325,10 +340,6 @@ const existingEntityNames = computed(() => {
   const editingEntityId = selectedEntity.value?.id
   return entities.value.filter((entity) => entity.id !== editingEntityId).map((entity) => entity.name)
 })
-
-function getIdentifierColumn(entity: EntityDefinition) {
-  return entity.columns.find((column) => column.is_identifier) || null
-}
 
 function cloneSettings(settings?: Record<string, any>) {
   try {
@@ -526,6 +537,18 @@ async function toggleEntityEnabled(entity: EntityDefinition, enabled: boolean) {
 
 const extractionStarting = ref(false)
 const cancelling = ref(false)
+const showRunConfirmDialog = ref(false)
+const showCancelConfirmDialog = ref(false)
+
+function onConfirmRunExtraction() {
+  showRunConfirmDialog.value = false
+  runExtraction()
+}
+
+function onConfirmCancelExtraction() {
+  showCancelConfirmDialog.value = false
+  cancelExtraction()
+}
 
 async function runExtraction() {
   if (!canRunExtraction.value || isExtractionActive.value || extractionStarting.value) return
@@ -558,6 +581,7 @@ async function runExtraction() {
     if (!response.ok) {
       const message = await getResponseErrorMessage(response, 'Failed to start entity extraction')
       $q.notify({ type: 'negative', message, position: 'top' })
+      extractionStarting.value = false
       emit('refresh')
       return
     }
@@ -566,9 +590,8 @@ async function runExtraction() {
   } catch (error) {
     console.error('Error starting entity extraction:', error)
     $q.notify({ type: 'negative', message: 'Error starting entity extraction', position: 'top' })
-    emit('refresh')
-  } finally {
     extractionStarting.value = false
+    emit('refresh')
   }
 }
 
@@ -597,6 +620,12 @@ async function cancelExtraction() {
   }
 }
 
+watch(isExtractionActive, (active) => {
+  if (active && extractionStarting.value) {
+    extractionStarting.value = false
+  }
+})
+
 watch(
   () => extractionStatus.value.status,
   (newStatus, oldStatus) => {
@@ -609,7 +638,7 @@ watch(
         $q.notify({ type: 'negative', message: 'Entity extraction failed', position: 'top', timeout: 3000 })
       }
     }
-  },
+  }
 )
 
 watch(
@@ -657,14 +686,6 @@ defineExpose({
   font-weight: 600;
   color: #1a1a2e;
 }
-
-.entity-identifier-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #b8860b;
-  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
-}
-
 
 :deep(.entity-row--disabled) td:not(:last-child) {
   opacity: 0.45;
