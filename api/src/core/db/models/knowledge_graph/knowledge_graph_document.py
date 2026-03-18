@@ -146,6 +146,7 @@ class KnowledgeGraphDocument:
             if self.source_modified_at is not None
             else None,
             "content_hash": self.content_hash,
+            "external_link": self.external_link,
         }
 
     @classmethod

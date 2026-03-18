@@ -239,6 +239,7 @@ class KnowledgeGraphRetrievalSource(BaseModel):
     document_id: Optional[str] = None
     document_name: Optional[str] = None
     document_title: Optional[str] = None
+    external_link: Optional[str] = None
     chunk_title: Optional[str] = None
     chunk_content: Optional[str] = None
 

@@ -332,6 +332,7 @@ class KnowledgeGraphDocumentService:
                 docs_alias.c.id.label("id"),
                 title_expr,
                 docs_alias.c.summary.label("summary"),
+                docs_alias.c.external_link.label("external_link"),
                 score_expr,
             )
             .select_from(docs_alias)
@@ -354,6 +355,7 @@ class KnowledgeGraphDocumentService:
                 "id": str(r.get("id") or ""),
                 "title": r.get("title"),
                 "content": r.get("summary"),
+                "external_link": r.get("external_link"),
                 "score": float(r["score"]) if r.get("score") is not None else 0.0,
             }
             for r in rows
