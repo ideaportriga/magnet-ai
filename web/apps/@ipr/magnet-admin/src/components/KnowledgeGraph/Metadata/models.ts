@@ -179,6 +179,7 @@ export interface MetadataExtractedField {
   name: string
   value_type: MetadataValueType
   is_multiple: boolean
+  is_required: boolean
   allowed_values?: AllowedValue[]
   llm_extraction_hint?: string
   sample_values?: string[]

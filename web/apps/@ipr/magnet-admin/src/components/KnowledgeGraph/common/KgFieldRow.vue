@@ -1,7 +1,7 @@
 <template>
   <div class="kg-field-row-wrapper">
     <div v-if="label" class="kg-field-row-label">
-      <label>{{ label }}</label>
+      <span>{{ label }}</span>
       <span v-if="suffix" class="text-grey-6 text-weight-regular">{{ suffix }}</span>
       <q-icon v-if="hint" name="o_info" size="14px" color="grey-6" class="cursor-pointer">
         <q-tooltip self="top middle" :offset="[0, 8]">
@@ -51,18 +51,17 @@ const validatedCols = computed(() => {
 .kg-field-row-wrapper {
   display: flex;
   flex-direction: column;
+  gap: 6px;
 }
 
 .kg-field-row-label {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: #2d2438;
-  margin-bottom: 10px;
+  color: #4f5b67;
   line-height: 1.4;
-  letter-spacing: -0.01em;
 }
 
 .kg-field-row-label-hint-icon {

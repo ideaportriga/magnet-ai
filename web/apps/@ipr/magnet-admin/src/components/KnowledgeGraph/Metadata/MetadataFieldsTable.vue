@@ -1,10 +1,5 @@
 <template>
   <div class="metadata-board" :class="{ 'metadata-board--dragging': isDragging }">
-    <!-- Global Toolbar -->
-    <div class="board-toolbar">
-      <km-input v-model="search" placeholder="Search all fields..." icon-before="search" clearable style="width: 280px" />
-    </div>
-
     <q-linear-progress v-if="loading" indeterminate color="primary" class="q-mb-sm" />
 
     <!-- 4-Lane Board -->
@@ -331,6 +326,7 @@ const props = defineProps<{
   loading: boolean
   canRunExtraction?: boolean
   runningExtraction?: boolean
+  search?: string
 }>()
 
 const emit = defineEmits<{
@@ -351,7 +347,7 @@ const emit = defineEmits<{
   (e: 'quick-replace-from-extraction', payload: { extracted: MetadataExtractedField; target: MetadataFieldDefinition }): void
 }>()
 
-const search = ref('')
+const search = computed(() => props.search ?? '')
 const discardedExpanded = ref(false)
 
 // Drag-and-drop state
@@ -675,10 +671,6 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   if (def) emit('edit-field', def)
 }
 
-// Reset search when data changes significantly
-watch([() => props.definedFields?.length, () => props.discoveredFields?.length], () => {
-  // keep search
-})
 </script>
 
 <style scoped>
@@ -686,13 +678,6 @@ watch([() => props.definedFields?.length, () => props.discoveredFields?.length],
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.board-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 0;
 }
 
 /* Board lanes container */

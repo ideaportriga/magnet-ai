@@ -1,48 +1,47 @@
 <template>
   <div class="q-px-md">
     <!-- Header -->
-    <div class="row items-center q-mb-md">
+    <div class="row items-start q-col-gutter-md q-mb-md">
       <div class="col">
         <div class="km-heading-7">Metadata Schema</div>
         <div class="km-description text-secondary-text">
           Define, discover, and manage metadata fields across all documents in this knowledge graph
         </div>
       </div>
-      <div class="col-auto">
-        <q-btn-dropdown
-          no-caps
-          color="primary"
-          label="Preset"
-          dense
-          class="preset-selector q-pl-12"
-          dropdown-icon="expand_more"
-          content-class="preset-dropdown-menu"
-          :disable="availablePresets.length === 0"
-          @click.stop
-        >
-          <q-list dense class="preset-dropdown-list">
-            <q-item
-              v-for="preset in availablePresets"
-              :key="preset.name"
-              v-close-popup
-              clickable
-              class="preset-dropdown-item"
-              @click="addPresetField(preset)"
-            >
-              <q-item-section>
-                <q-item-label class="preset-label">{{ preset.display_name || preset.name }}</q-item-label>
-                <q-item-label v-if="preset.description" caption class="preset-caption">{{ preset.description }}</q-item-label>
-              </q-item-section>
-            </q-item>
-            <q-item v-if="availablePresets.length === 0" disable>
-              <q-item-section class="text-grey-6">All presets added</q-item-section>
-            </q-item>
-          </q-list>
-        </q-btn-dropdown>
-      </div>
     </div>
 
     <q-separator class="q-my-md" />
+
+    <kg-table-toolbar>
+      <template #leading>
+        <km-input v-model="searchQuery" placeholder="Search all fields..." icon-before="search" clearable style="width: 250px" />
+      </template>
+      <template #trailing>
+        <km-btn flat size="sm" :disable="availablePresets.length === 0">
+          <q-icon name="o_bookmark_add" size="22px" color="secondary" />
+          <div class="q-pl-sm km-button-sm-text">Preset</div>
+          <q-icon name="expand_more" size="22px" class="q-pl-xs" />
+          <q-menu anchor="bottom right" self="top right" :offset="[0, 4]" class="preset-dropdown-menu">
+            <q-list dense class="preset-dropdown-list">
+              <q-item
+                v-for="preset in availablePresets"
+                :key="preset.name"
+                v-close-popup
+                clickable
+                class="preset-dropdown-item"
+                @click="addPresetField(preset)"
+              >
+                <q-item-section>
+                  <q-item-label class="preset-label">{{ preset.display_name || preset.name }}</q-item-label>
+                  <q-item-label v-if="preset.description" caption class="preset-caption">{{ preset.description }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </km-btn>
+        <km-btn flat icon="refresh" label="Refresh" size="sm" @click="handleRefresh" />
+      </template>
+    </kg-table-toolbar>
 
     <div class="column q-gap-32">
       <metadata-fields-table
@@ -54,6 +53,7 @@
         :loading="loadingValues"
         :can-run-extraction="canRunExtraction"
         :running-extraction="runningExtraction"
+        :search="searchQuery"
         @add-field="openFieldDialog()"
         @add-extraction-field="openSmartExtractionFieldDialog()"
         @edit-extraction-field="openSmartExtractionFieldDialog"
@@ -148,7 +148,8 @@ import { fetchData } from '@shared'
 import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useStore } from 'vuex'
-import { KgConfirmDialog } from '../common'
+import { KgConfirmDialog, KgTableToolbar } from '../common'
+import { fetchKnowledgeGraphSources } from '../Sources/api'
 import { type SourceRow } from '../Sources/models'
 import MetadataFieldDialog from './MetadataFieldDialog.vue'
 import MetadataFieldsTable from './MetadataFieldsTable.vue'
@@ -180,6 +181,9 @@ const emit = defineEmits<{
 
 const store = useStore()
 const $q = useQuasar()
+
+// Search query for table toolbar
+const searchQuery = ref('')
 
 // Extraction settings
 const extractionApproach = ref<MetadataExtractionApproach>('document')
@@ -359,6 +363,12 @@ const scheduleRefresh = () => {
   refreshTimer = window.setTimeout(() => emit('refresh'), 300)
 }
 
+const handleRefresh = () => {
+  fetchMetadataValues()
+  fetchExtractedFields()
+  emit('refresh')
+}
+
 const scheduleAutoSave = () => {
   if (!autoSaveEnabled.value) return
   if (autoSaveTimer) window.clearTimeout(autoSaveTimer)
@@ -515,6 +525,7 @@ const fetchExtractedFields = async () => {
           name: String(r.name || '').trim(),
           value_type: (String(r.value_type || 'string') as any) || 'string',
           is_multiple: !!r.is_multiple,
+          is_required: !!r.is_required,
           allowed_values: Array.isArray(r.allowed_values) ? r.allowed_values : undefined,
           llm_extraction_hint: r.llm_extraction_hint ? String(r.llm_extraction_hint) : undefined,
           sample_values: Array.isArray(r.sample_values) ? r.sample_values : undefined,
@@ -534,17 +545,10 @@ const fetchExtractedFields = async () => {
 const fetchSources = async () => {
   try {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
-    const response = await fetchData({
+    sources.value = await fetchKnowledgeGraphSources({
       endpoint,
-      service: `knowledge_graphs/${props.graphId}/sources`,
-      method: 'GET',
-      credentials: 'include',
+      graphId: props.graphId,
     })
-    if (response.ok) {
-      sources.value = await response.json()
-    } else {
-      sources.value = []
-    }
   } catch (error) {
     console.error('Error fetching sources:', error)
     sources.value = []
@@ -780,6 +784,7 @@ const onSmartExtractionFieldSave = async (field: SmartExtractionFieldDefinition)
       name,
       value_type: field.value_type || 'string',
       is_multiple: !!field.is_multiple,
+      is_required: !!field.is_required,
       allowed_values: field.allowed_values?.length ? field.allowed_values : undefined,
       llm_extraction_hint: field.llm_extraction_hint,
     }
@@ -1173,14 +1178,6 @@ defineExpose({
 </script>
 
 <style scoped>
-/* Preset dropdown */
-.preset-selector {
-  height: 34px;
-  min-height: 34px;
-  font-size: 14px;
-  font-weight: 500;
-}
-
 :deep(.preset-dropdown-menu) {
   border-radius: 8px;
   box-shadow:

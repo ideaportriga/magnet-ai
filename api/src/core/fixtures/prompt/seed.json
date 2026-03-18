@@ -381,5 +381,37 @@
                 "observability_level": "full"
             }
         ]
+    },
+    {
+        "name": "Knowledge Graph Entity Extraction",
+        "description": "Extract configured knowledge-graph entities into structured JSON records.",
+        "system_name": "KG_ENTITY_EXTRACTION",
+        "category": "generic",
+        "active_variant": "variant_1",
+        "variants": [
+            {
+                "variant": "variant_1",
+                "topP": 0.2,
+                "temperature": 0.0,
+                "system_name_for_model": "OPENAI_GPT-4O-MINI",
+                "retrieve": {
+                    "collection_system_names": []
+                },
+                "display_name": null,
+                "description": null,
+                "text": "---Role---\nYou extract structured entities from document content for a knowledge graph.\n\n---Goal---\nReturn canonical entity records that match the configured entity schema.\n\n---Schema---\n{SCHEMA}\n\n---Instructions---\n1. Follow the configured entity names and column names exactly as provided in the schema.\n2. Each entity type must be returned under `records.<EntityName>` as an array.\n3. Every configured column must appear in each returned record. Use `null` when a value is unknown.\n4. The identifier column is the primary identity for deduplication. Use the most canonical human-readable form you can infer from the text.\n5. Deduplicate aggressively within the provided content before returning:\n   - Merge casing, whitespace, and punctuation variants of the same entity.\n   - Merge repeated mentions of the same entity into one record.\n   - Do not emit duplicate records for aliases that clearly refer to the same entity mention in context.\n6. Prefer explicit evidence from the text. Do not invent records or values that are not grounded in the content.\n7. If an entity type is not present, return an empty array for that entity.\n8. Return only JSON that matches the response schema attached to this prompt execution.\n\n---Quality Bar---\n- Prefer fewer, higher-confidence records over speculative records.\n- Preserve the original surface form for identifiers when possible.\n- If multiple mentions supply complementary fields for the same entity, merge them into one output record.\n- If two mentions are ambiguous and may be different entities, keep them separate.\n",
+                "sample_text": null,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "kg_entity_extraction_response",
+                        "schema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"records\": {\n      \"type\": \"object\",\n      \"properties\": {},\n      \"required\": [],\n      \"additionalProperties\": false\n    }\n  },\n  \"required\": [\"records\"],\n  \"additionalProperties\": false\n}",
+                        "strict": true
+                    }
+                },
+                "sample_test_set": null,
+                "observability_level": "full"
+            }
+        ]
     }
 ]

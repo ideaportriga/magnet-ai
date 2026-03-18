@@ -22,8 +22,13 @@ from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphAgentResponse,
+    KnowledgeGraphEntityQueryRequest,
+    KnowledgeGraphEntityQueryResponse,
 )
-from core.domain.knowledge_graph.services import KnowledgeGraphDocumentService
+from core.domain.knowledge_graph.services import (
+    KnowledgeGraphDocumentService,
+    KnowledgeGraphEntityService,
+)
 from open_ai.utils_new import get_embeddings
 from services.agents.conversations import get_last_conversation_by_client_id
 from services.knowledge_graph.content_config_services import (
@@ -702,4 +707,51 @@ class UserKnowledgeGraphController(Controller):
             source_id=str(source.id),
             source_name=source.name,
             trace_id=trace_id,
+        )
+
+    @post(
+        "/{graph_id_or_name:str}/entities/query",
+        summary="Query Knowledge Graph entities",
+        description=(
+            "Query extracted entities of a given type from a Knowledge Graph using the filter DSL. "
+            "Returns only the column_values of each matching record. "
+            "Unknown field names in the filter are resolved against column_values keys."
+        ),
+        status_code=HTTP_200_OK,
+    )
+    async def query_entities(
+        self,
+        graph_id_or_name: Annotated[
+            str,
+            Parameter(
+                title="Knowledge Graph ID or System Name",
+                description="The UUID or System Name of the Knowledge Graph to query.",
+            ),
+        ],
+        db_session: AsyncSession,
+        data: KnowledgeGraphEntityQueryRequest,
+    ) -> KnowledgeGraphEntityQueryResponse:
+        graph_id = await _resolve_graph_id_or_name(db_session, graph_id_or_name)
+        entity_service = KnowledgeGraphEntityService()
+
+        # Merge the required entity type into the filter expression
+        entity_clause = {"field": "entity", "op": "eq", "value": data.entity}
+        filter_expr = (
+            {"and": [entity_clause, data.filter]}
+            if data.filter is not None
+            else entity_clause
+        )
+
+        records, total = await entity_service.query_records(
+            db_session,
+            graph_id=graph_id,
+            filter_expr=filter_expr,
+            limit=data.limit,
+            offset=data.offset,
+        )
+        return KnowledgeGraphEntityQueryResponse(
+            records=[r.column_values or {} for r in records],
+            total=total,
+            limit=data.limit,
+            offset=data.offset,
         )

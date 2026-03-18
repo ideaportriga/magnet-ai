@@ -109,14 +109,19 @@ def run_migrations_offline() -> None:
             if name == "apscheduler_jobs":
                 return False
             # Ignore knowledge graph tables
-            if re.match(r"knowledge_graph_.*_(chunks|docs|documents)$", name):
+            if re.match(
+                r"knowledge_graph_.*_(chunks|docs|documents|entities|edges)$", name
+            ):
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
-            if re.match(r"idx_kg_.*_(chunks|docs|documents|docume).*", name):
+            if re.match(
+                r"idx_kg_.*_(chunks|docs|documents|docume|entities|edges).*", name
+            ):
                 return False
             if re.match(
-                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume).*", name
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities|edges).*",
+                name,
             ):
                 return False
         return True
@@ -160,14 +165,19 @@ def do_run_migrations(connection: Connection) -> None:
             if name == "apscheduler_jobs":
                 return False
             # Ignore knowledge graph tables
-            if re.match(r"knowledge_graph_.*_(chunks|docs|documents)$", name):
+            if re.match(
+                r"knowledge_graph_.*_(chunks|docs|documents|entities|edges)$", name
+            ):
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
-            if re.match(r"idx_kg_.*_(chunks|docs|documents|docume).*", name):
+            if re.match(
+                r"idx_kg_.*_(chunks|docs|documents|docume|entities|edges).*", name
+            ):
                 return False
             if re.match(
-                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume).*", name
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities|edges).*",
+                name,
             ):
                 return False
         return True
