@@ -89,6 +89,7 @@ export default {
       showNewDialog: ref(false),
       runEvaluationDialog: ref(false),
       showDeleteDialog: ref(false),
+      showEvaluationCreateDialog: ref(false),
     }
   },
 

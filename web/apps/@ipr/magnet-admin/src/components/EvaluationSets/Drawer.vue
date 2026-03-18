@@ -3,7 +3,7 @@
   style='max-width: 500px; min-width: 500px !important',
   v-if='open && currentRecord'
 )
-  .column.full-height
+  .column.no-wrap.full-height
     .col-auto.km-heading-7.q-mb-xs Test Set item details
       q-separator.q-mb-md
     .column.q-gap-12

@@ -338,6 +338,7 @@ class KnowledgeGraphChunkExternalSchema(BaseModel):
     chunk_type: Optional[str] = None
     content: Optional[str] = None
     content_format: Optional[str] = None
+    external_link: Optional[str] = None
     created_at: Optional[str] = None
 
 

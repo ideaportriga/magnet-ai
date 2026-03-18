@@ -112,6 +112,7 @@ class SalesforceSyncPipeline(
                 dict.fromkeys(
                     [cfg.article_id_field, cfg.title_field]
                     + cols
+                    + cfg.url_columns_to_select
                     + cfg.metadata_fields_list
                 )
             )
@@ -193,6 +194,7 @@ class SalesforceSyncPipeline(
             title: str = str(record.get(cfg.title_field) or record_id)
 
             content = self._salesforce_config.format_record(record)
+            external_link = cfg.format_external_url(record)
 
             last_modified_str: str | None = record.get("LastModifiedDate")
             source_modified_at = (
@@ -219,6 +221,7 @@ class SalesforceSyncPipeline(
                             if record.get(field) is not None
                         },
                         title=title,
+                        external_link=external_link,
                     )
 
                     # Only mark as seen once the document is confirmed in the DB
@@ -242,6 +245,7 @@ class SalesforceSyncPipeline(
                         extracted_text=content,
                         config=content_config,
                         document_title=title,
+                        external_link=external_link,
                         embedding_model=self._embedding_model,
                     )
                     await ctx.inc("synced")

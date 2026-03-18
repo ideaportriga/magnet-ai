@@ -210,6 +210,7 @@ class KnowledgeGraphChunkService:
                 chunks_tbl.c.document_id.label("document_id"),
                 docs_alias.c.name.label("document_name"),
                 docs_alias.c.title.label("document_title"),
+                docs_alias.c.external_link.label("document_external_link"),
                 chunks_tbl.c.page.label("page"),
                 chunks_tbl.c.index.label("index"),
                 score_expr,
@@ -246,6 +247,7 @@ class KnowledgeGraphChunkService:
                         id=r.get("document_id"),
                         name=r.get("document_name"),
                         title=r.get("document_title"),
+                        external_link=r.get("document_external_link"),
                     ),
                     page=r.get("page"),
                     index=r.get("index"),
@@ -309,6 +311,7 @@ class KnowledgeGraphChunkService:
                 chunks_tbl.c.created_at.label("created_at"),
                 docs_tbl.c.id.label("document_id"),
                 docs_tbl.c.name.label("document_name"),
+                docs_tbl.c.external_link.label("document_external_link"),
             )
             .select_from(join_from)
             .order_by(
@@ -339,6 +342,7 @@ class KnowledgeGraphChunkService:
                     chunk_type=chunk.chunk_type,
                     content=chunk.content,
                     content_format=chunk.content_format,
+                    external_link=row.get("document_external_link") or None,
                     created_at=chunk.created_at.isoformat()
                     if chunk.created_at
                     else None,

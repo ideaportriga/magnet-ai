@@ -227,6 +227,7 @@ class LiteLLMProvider(BaseLiteLLMProvider):
         self,
         text: str,
         llm: str | None = None,
+        model_config: dict | None = None,
     ) -> EmbeddingResponse:
         """Get embeddings using LiteLLM, with Router support."""
         model = llm or self.embedding_model

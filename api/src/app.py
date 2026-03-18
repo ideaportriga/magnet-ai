@@ -50,9 +50,12 @@ def create_app() -> Litestar:
     )
 
     # Create the application with all plugins
+    max_upload_mb = int(os.environ.get("MAX_UPLOAD_FILE_SIZE_MB", "50"))
+
     app = Litestar(
         route_handlers=route_handlers,
         debug=False,
+        request_max_body_size=max_upload_mb * 1024 * 1024,
         plugins=[
             # Core plugins
             alchemy,

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import TypeAlias
 
 
 @dataclass
@@ -31,7 +32,7 @@ class DocumentSearchResultItem(DocumentData):
     original_index: int | None = None
 
 
-DocumentSearchResult = list[DocumentSearchResultItem]
+DocumentSearchResult: TypeAlias = list[DocumentSearchResultItem]
 
 
 @dataclass(kw_only=True)

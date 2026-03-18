@@ -1,5 +1,5 @@
 <template lang="pug">
-.column.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
+.column.no-wrap.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
   .col.q-pt-16
     .row.no-wrap.full-width.q-px-16
       q-tabs.bb-border.full-width(
@@ -18,7 +18,7 @@
         .fit
     .column.q-px-8.no-wrap.fit
       q-scroll-area.fit
-        .column.full-height.q-py-16.q-px-16.q-gap-16
+        .column.no-wrap.full-height.q-py-16.q-px-16.q-gap-16
           .column.q-gap-16(v-if='tab === "details"')
             .col-6
               .km-description.text-secondary-text.q-pb-6 Agent Name

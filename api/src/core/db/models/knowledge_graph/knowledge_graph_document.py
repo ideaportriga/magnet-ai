@@ -150,6 +150,7 @@ class KnowledgeGraphDocument:
             else None,
             "content_hash": self.content_hash,
             "pipeline_state": self.pipeline_state,
+            "external_link": self.external_link,
         }
 
     @classmethod

@@ -1,5 +1,6 @@
 import type { Component } from 'vue'
 import ApiIngestDialog from './ApiIngestDialog.vue'
+import ConfluenceDialog from './ConfluenceDialog.vue'
 import FluidTopicsDialog from './FluidTopicsDialog.vue'
 import SalesforceDialog from './SalesforceDialog.vue'
 import SharePointDialog from './SharePointDialog.vue'
@@ -43,8 +44,8 @@ export const sourceRegistry: Record<SourceTypeKey, SourceTypeConfig> = {
   confluence: {
     key: 'confluence',
     label: 'Confluence',
-    syncable: false,
-    comingSoon: true,
+    syncable: true,
+    dialogComponent: ConfluenceDialog,
   },
   api_ingest: {
     key: 'api_ingest',

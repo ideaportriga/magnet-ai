@@ -669,6 +669,22 @@ const apiModelConfig = {
         return null
       })
   },
+  debugInfo: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'GET',
+      endpoint,
+      credentials: 'include',
+      service: `models/${id}/debug-info`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        return null
+      })
+      .catch(() => null)
+  },
 }
 const modelProviders = {
   get: async (service, endpoint) => {

@@ -1,10 +1,10 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
+.row.no-wrap.overflow-hidden.full-height(v-if='loading')
   q-inner-loading(:showing='loading')
     q-spinner-gears(size='50px', color='primary')
-.row.no-wrap.overflow-hidden.full-height(v-else, style='min-width: 1200px')
+.row.no-wrap.overflow-hidden.full-height(v-else)
   .col.row.no-wrap.full-height.justify-center.fit
-    .col(style='max-width: 1200px; min-width: 600px')
+    .col(style='max-width: 1200px; min-width: 500px')
       .full-height.q-pb-md.relative-position.q-px-md
         .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
           .col

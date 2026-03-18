@@ -28,7 +28,8 @@ from decimal import Decimal
 from typing import Any, BinaryIO, cast
 
 import litellm
-from litellm.caching import Cache
+from litellm.caching.caching import Cache
+from litellm.types.caching import LiteLLMCacheType
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -60,7 +61,7 @@ litellm.suppress_debug_info = True
 litellm.drop_params = True
 
 # Configure LiteLLM in-memory cache globally
-litellm.cache = Cache(type="local")  # In-memory cache
+litellm.cache = Cache(type=LiteLLMCacheType.LOCAL)  # In-memory cache
 litellm.enable_cache = (
     False  # Disabled by default, enabled per-request via routing_config
 )
@@ -192,9 +193,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
 
         # Zero out usage for cached responses to avoid double billing
         # LiteLLM stores cache_hit in _hidden_params
-        if hasattr(response, "_hidden_params") and response._hidden_params.get(
-            "cache_hit"
-        ):
+        if getattr(response, "_hidden_params", {}).get("cache_hit"):
             if hasattr(response, "usage") and response.usage:
                 response.usage.prompt_tokens = 0
                 response.usage.completion_tokens = 0
@@ -257,31 +256,22 @@ class BaseLiteLLMProvider(AIProviderInterface):
     ) -> Any:
         """Execute a streaming LLM call.
 
-        Uses global Router for fallback support when fallback_models are configured,
-        otherwise calls litellm.acompletion directly.
-
-        Subclasses can override this to use their own Router instance.
+        Always routes through the global Router when the model is registered,
+        ensuring rate-limiting and fallback support for streaming calls too.
         """
-        use_router = bool(routing_config.fallback_models)
+        from services.ai_services.router import get_router, is_model_in_router
 
-        if use_router:
-            from services.ai_services.router import get_router
+        model_system_name = (model_config or {}).get("system_name")
 
+        if model_system_name and is_model_in_router(model_system_name):
             router = await get_router()
-            model_system_name = (model_config or {}).get("system_name")
-            if not model_system_name:
-                logger.warning(
-                    "No system_name in model_config, falling back to direct litellm call for stream"
-                )
-                return await litellm.acompletion(**params)
-            else:
-                router_params = {
-                    k: v
-                    for k, v in params.items()
-                    if k not in ("api_key", "api_base", "api_version")
-                }
-                router_params["model"] = model_system_name
-                return await router.acompletion(**router_params)
+            router_params = {
+                k: v
+                for k, v in params.items()
+                if k not in ("api_key", "api_base", "api_version")
+            }
+            router_params["model"] = model_system_name
+            return await router.acompletion(**router_params)
         else:
             return await litellm.acompletion(**params)
 
@@ -406,39 +396,33 @@ class BaseLiteLLMProvider(AIProviderInterface):
     ) -> ChatCompletion:
         """Execute the actual LLM call.
 
-        Uses global Router for fallback support when fallback_models are configured,
-        otherwise calls litellm.acompletion directly.
+        Always routes through the global Router when the model has a
+        system_name registered in it.  This ensures rate-limiting (rpm/tpm)
+        and fallback support are applied consistently.
+        Falls back to direct litellm.acompletion only when system_name is
+        absent or the model is not in the Router.
 
         Subclasses can override this to use their own Router instance.
         """
-        use_router = bool(routing_config.fallback_models)
+        from services.ai_services.router import get_router, is_model_in_router
 
-        if use_router:
-            # Use Router for fallback support — the Router knows all model configs
-            # (API keys, endpoints, etc.) and can properly resolve system_names.
-            from services.ai_services.router import get_router
+        model_system_name = (model_config or {}).get("system_name")
 
+        if model_system_name and is_model_in_router(model_system_name):
             router = await get_router()
-
-            # Build router params — use the model's system_name (not the litellm model name)
-            # because the Router maps system_names to actual model deployments.
-            model_system_name = (model_config or {}).get("system_name")
-            if not model_system_name:
-                # Fallback to direct call if we don't have system_name
-                logger.warning(
-                    "No system_name in model_config, falling back to direct litellm call"
-                )
-                response = await litellm.acompletion(**params)
-            else:
-                # Build router-compatible params (without provider-specific api_key/api_base)
-                router_params = {
-                    k: v
-                    for k, v in params.items()
-                    if k not in ("api_key", "api_base", "api_version")
-                }
-                router_params["model"] = model_system_name
-                response = await router.acompletion(**router_params)
+            router_params = {
+                k: v
+                for k, v in params.items()
+                if k not in ("api_key", "api_base", "api_version")
+            }
+            router_params["model"] = model_system_name
+            response = await router.acompletion(**router_params)
         else:
+            if model_system_name:
+                logger.debug(
+                    "Model '%s' not in Router, using direct litellm call",
+                    model_system_name,
+                )
             response = await litellm.acompletion(**params)
 
         return cast(ChatCompletion, response)
@@ -447,24 +431,40 @@ class BaseLiteLLMProvider(AIProviderInterface):
         self,
         text: str,
         llm: str | None = None,
+        model_config: dict | None = None,
     ) -> EmbeddingResponse:
-        """Get embeddings using LiteLLM."""
+        """Get embeddings using LiteLLM with routing_config support.
+
+        Uses num_retries from routing_config when configured on the model,
+        falling back to 2 retries by default for transient server errors.
+        """
         if llm is None:
             raise ValueError("Model name must be provided")
 
         full_model = self._get_model_name(llm)
+        routing_config = self._extract_routing_config(model_config)
+
         params = self._build_litellm_params()
         params["model"] = full_model
         params["input"] = [text]
 
+        if routing_config.num_retries is not None:
+            params["num_retries"] = routing_config.num_retries
+        else:
+            params["num_retries"] = 2
+
+        if routing_config.timeout:
+            params["timeout"] = routing_config.timeout
+
         response = await litellm.aembedding(**params)
 
+        usage_data = response.usage
         return EmbeddingResponse(
             data=response.data[0]["embedding"],
             usage=ModelUsage(
                 input_units="tokens",
-                input=response.usage.prompt_tokens,
-                total=response.usage.total_tokens,
+                input=getattr(usage_data, "prompt_tokens", 0) if usage_data else 0,
+                total=getattr(usage_data, "total_tokens", 0) if usage_data else 0,
             ),
         )
 
@@ -475,17 +475,27 @@ class BaseLiteLLMProvider(AIProviderInterface):
         llm: str,
         top_n: int,
         truncation: bool | None = None,
+        model_config: dict | None = None,
     ) -> RerankResponse:
         """Rerank documents using LiteLLM."""
         full_model = self._get_model_name(llm)
         doc_texts = [doc.content or "" for doc in documents]
 
-        response = await litellm.arerank(
-            model=full_model,
-            query=query,
-            documents=doc_texts,
-            top_n=top_n,
-        )
+        params = self._build_litellm_params()
+
+        # Apply model-level api_path: append to provider endpoint (path-only, no host override)
+        if model_config:
+            routing_config = model_config.get("routing_config") or {}
+            api_path = routing_config.get("api_path")
+            if api_path and params.get("api_base"):
+                params["api_base"] = params["api_base"].rstrip("/") + api_path
+
+        params["model"] = full_model
+        params["query"] = query
+        params["documents"] = doc_texts
+        params["top_n"] = top_n
+
+        response: Any = await litellm.arerank(**params)
 
         usage = None
         if hasattr(response, "usage") and response.usage:
@@ -498,7 +508,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
         scores: dict[int, float] = {}
         if hasattr(response, "results"):
             for result in response.results:
-                scores[result.index] = result.relevance_score
+                if isinstance(result, dict):
+                    idx, score = result.get("index"), result.get("relevance_score")
+                else:
+                    idx, score = result.index, result.relevance_score
+                if idx is not None and score is not None:
+                    scores[idx] = score
 
         reranked_documents: DocumentSearchResult = []
         for idx, doc in enumerate(documents):
@@ -564,7 +579,15 @@ class BaseLiteLLMProvider(AIProviderInterface):
             if isinstance(schema, str):
                 import json
 
-                schema = json.loads(schema)
+                try:
+                    schema = json.loads(schema)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Invalid JSON in response_format schema for '%s', "
+                        "falling back to json_object mode",
+                        json_schema.get("name", "unknown"),
+                    )
+                    return {"type": "json_object"}
                 json_schema["schema"] = schema
 
             # Auto-fix schema for OpenAI strict mode compliance
@@ -674,7 +697,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if timestamp_granularities:
             params["timestamp_granularities"] = timestamp_granularities
 
-        response = await litellm.atranscription(**params)
+        response: Any = await litellm.atranscription(**params)
 
         return TranscriptionResponse(
             text=getattr(response, "text", str(response)),
@@ -800,7 +823,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if routing_config.timeout:
             params["timeout"] = routing_config.timeout
 
-        response = await litellm.aresponses(**params)
+        response: Any = await litellm.aresponses(**params)
 
         # Extract output text from the response
         output_text = ""
@@ -904,7 +927,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if routing_config.timeout:
             params["timeout"] = routing_config.timeout
 
-        response = await litellm.aresponses(**params)
+        response: Any = await litellm.aresponses(**params)
         async for event in response:
             yield event
 

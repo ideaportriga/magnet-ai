@@ -1,5 +1,3 @@
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 from type_defs.pagination import FilterObject
@@ -28,9 +26,10 @@ class RetrievalToolTest(RetrievalToolsBase):
         description="User's message to the RAG tool",
         examples=["How to ...?"],
     )
-    metadata_filter: list[dict[str, Any]] | None = Field(
-        description="Metadata filter to narrow down knowledge source chunks",
+    metadata_filter: FilterObject | None = Field(
+        description="MongoDB-like filter to narrow down knowledge source chunks. Supported operators: $eq, $ne, $in, $nin, $exists, $regex, $txt.",
         default=None,
+        examples=[{"$and": [{"language": {"$eq": "en"}}]}],
     )
     name: str | None = None
 
@@ -45,7 +44,8 @@ class RetrievalToolExecute(BaseModel):
         examples=["How to ...?"],
     )
     metadata_filter: FilterObject | None = Field(
-        description="Metadata filter to narrow down knowledge source chunks",
+        description="MongoDB-like filter to narrow down knowledge source chunks. Supported operators: $eq, $ne, $in, $nin, $exists, $regex, $txt.",
         default=None,
+        examples=[{"$and": [{"language": {"$eq": "en"}}]}],
     )
     name: str | None = None

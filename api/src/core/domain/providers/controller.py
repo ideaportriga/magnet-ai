@@ -27,6 +27,19 @@ class ProviderTestResult(BaseModel):
     success: bool = Field(..., description="Whether the test was successful")
     message: str = Field(..., description="Test result message")
     error: str | None = Field(None, description="Error details if test failed")
+    # LiteLLM diagnostic info
+    litellm_model_string: str | None = Field(
+        None, description="Full LiteLLM model string used (e.g. 'openai/gpt-4o')"
+    )
+    effective_endpoint: str | None = Field(
+        None, description="Provider endpoint that will be used for API calls"
+    )
+    via_router: bool | None = Field(
+        None, description="Whether the model routes through the global LiteLLM Router"
+    )
+    computed_url: str | None = Field(
+        None, description="Approximate full URL that LiteLLM will send requests to"
+    )
 
 
 class ProviderAvailableModel(BaseModel):
@@ -235,6 +248,26 @@ class ProvidersController(Controller):
                 elif model.type == "embeddings" and not embedding_model:
                     embedding_model = model
 
+            # Ensure router is initialized before checking is_model_in_router()
+            from services.ai_services.router import get_router
+
+            await get_router()
+
+            # Compute diagnostic info using the first available model
+            from services.ai_services.utils import get_litellm_debug_info
+
+            test_model_for_debug = prompts_model or embedding_model
+            debug_info = get_litellm_debug_info(
+                provider_data={
+                    "type": provider.type,
+                    "endpoint": provider.endpoint,
+                    "connection_config": provider.connection_config or {},
+                },
+                model_name=test_model_for_debug.ai_model,
+                model_system_name=test_model_for_debug.system_name,
+                model_routing_config=test_model_for_debug.routing_config,
+            )
+
             # Test with prompts model (chat completion) if available
             if prompts_model:
                 try:
@@ -245,6 +278,7 @@ class ProvidersController(Controller):
                         temperature=0,
                         top_p=1,
                         max_tokens=5,  # Minimal tokens to save costs
+                        model_config={"system_name": prompts_model.system_name},
                     )
 
                     if response and response.choices:
@@ -252,18 +286,32 @@ class ProvidersController(Controller):
                             success=True,
                             message=f"Connection successful! Provider '{provider.name}' is working correctly.",
                             error=None,
+                            **debug_info,
                         )
                     else:
                         return ProviderTestResult(
                             success=False,
                             message="Connection established but received unexpected response",
                             error="No response choices returned from provider",
+                            **debug_info,
                         )
                 except NotImplementedError:
                     pass  # Try embedding model instead
 
             # Test with embedding model if no prompts model or prompts test failed
             if embedding_model:
+                # Recompute debug_info for embedding model if it differs from prompts_model
+                if test_model_for_debug is not embedding_model:
+                    debug_info = get_litellm_debug_info(
+                        provider_data={
+                            "type": provider.type,
+                            "endpoint": provider.endpoint,
+                            "connection_config": provider.connection_config or {},
+                        },
+                        model_name=embedding_model.ai_model,
+                        model_system_name=embedding_model.system_name,
+                        model_routing_config=embedding_model.routing_config,
+                    )
                 try:
                     response = await ai_provider.get_embeddings(
                         text="Test embedding",
@@ -275,12 +323,14 @@ class ProvidersController(Controller):
                             success=True,
                             message=f"Connection successful! Provider '{provider.name}' is working correctly (tested via embeddings).",
                             error=None,
+                            **debug_info,
                         )
                     else:
                         return ProviderTestResult(
                             success=False,
                             message="Connection established but received unexpected response",
                             error="No embedding data returned from provider",
+                            **debug_info,
                         )
                 except NotImplementedError:
                     pass
@@ -290,6 +340,7 @@ class ProvidersController(Controller):
                 success=False,
                 message="Could not test provider",
                 error="No suitable model type found for testing. Please add a prompts or embeddings model.",
+                **debug_info,
             )
 
         except ValueError as e:

@@ -32,11 +32,24 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
                 "properties": {
                     "file_url": {
                         "type": "array",
-                        "description": "Only links to PDF files are accepted",
+                        "description": "Links to supported document files (PDF, DOCX, XLSX, PPTX, HTML, images, etc.)",
                         "items": {"type": "string"},
+                        "x-component": "collections-file-url-upload",
+                    },
+                    "uploaded_files": {
+                        "type": "array",
+                        "description": "Files uploaded from the filesystem",
+                        "x-hidden": True,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "filename": {"type": "string"},
+                                "storage_path": {"type": "string"},
+                            },
+                        },
                     },
                 },
-                "required": ["file_url"],
+                "required": [],
             },
         )
 
@@ -63,20 +76,21 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
         Raises:
             ClientException: If file_url is missing
         """
-        file_url = source_config.get("file_url")
+        file_url = source_config.get("file_url") or []
+        uploaded_files = source_config.get("uploaded_files") or []
 
-        if not file_url:
+        if not file_url and not uploaded_files:
             raise ClientException(
-                "Missing `file_url` configuration. Please specify the file URL(s) "
-                "in the knowledge source settings"
+                "Missing file configuration. Please specify file URL(s) "
+                "or upload files in the knowledge source settings"
             )
 
         # Ensure file_url is a list (can be string or list)
         if isinstance(file_url, str):
             file_url = [file_url]
 
-        # Create data source with list of URLs
-        data_source = UrlDataSource(file_url)
+        # Create data source with URLs and local files
+        data_source = UrlDataSource(file_url, local_files=uploaded_files)
 
         # Return processor
         return UrlDataProcessor(data_source, collection_config)

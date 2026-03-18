@@ -1,7 +1,6 @@
 from abc import abstractmethod
 
-import html2text
-from bs4 import BeautifulSoup
+from kreuzberg import ExtractionConfig, extract_bytes
 from langchain.schema import Document
 from langchain_text_splitters import (
     CharacterTextSplitter,
@@ -67,7 +66,7 @@ class DataProcessor:
 
         return IncrementalUpdateData(record_ids_to_add, document_ids_to_delete)
 
-    def create_documents_from_html(
+    async def create_documents_from_html(
         self,
         html: str,
         base_metadata: dict,
@@ -75,7 +74,7 @@ class DataProcessor:
         if not html:
             return []
 
-        text = self._html_to_text(html)
+        text = await self._html_to_text(html)
 
         return self.create_documents_from_plain_text(text, base_metadata)
 
@@ -101,16 +100,10 @@ class DataProcessor:
 
         return documents_data
 
-    def _html_to_text(self, html: str):
-        soup = BeautifulSoup(html, "html.parser")
-
-        page_text = soup.get_text("\n")
-        # convert to markdown
-        h = html2text.HTML2Text()
-        h.body_width = 0
-        page_text = h.handle(page_text)
-
-        return page_text
+    async def _html_to_text(self, html: str) -> str:
+        config = ExtractionConfig(output_format="markdown")
+        result = await extract_bytes(html.encode("utf-8"), "text/html", config=config)
+        return result.content
 
     def __split_docs(self, documents, chunk_size: int, chunk_overlap: int = 0):
         # Split documents to chunks

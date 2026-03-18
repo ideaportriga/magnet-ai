@@ -679,6 +679,7 @@ async def run_agentic_retrieval(
                 document_id=ch.get("document", {}).get("id"),
                 document_name=ch.get("document", {}).get("name"),
                 document_title=ch.get("document", {}).get("title"),
+                external_link=ch.get("document", {}).get("external_link"),
                 chunk_title=ch.get("title"),
                 chunk_content=ch.get("content"),
             )

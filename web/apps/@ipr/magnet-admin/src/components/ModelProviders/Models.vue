@@ -1,5 +1,5 @@
 <template lang="pug">
-.column(style='width: 100%; overflow: hidden')
+.column(style='width: 100%; max-height: calc(100vh - 260px)').no-wrap
   .row
     .col-auto.center-flex-y
       km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
@@ -112,7 +112,7 @@ q-dialog(v-model='showImportDialog', persistent)
               q-item-label.row.items-center.q-gap-8
                 span {{ model.id }}
                 km-chip(
-                  :label="model.model_type === 'embeddings' ? 'Embeddings' : 'Chat'",
+                  :label="model.model_type === 'embeddings' ? 'Embeddings' : (model.model_type === 'stt' ? 'STT' : 'Chat')",
                   :color="model.model_type === 'embeddings' ? 'in-progress' : 'primary-light'",
                   :text-color="model.model_type === 'embeddings' ? 'grey-7' : 'primary'",
                   round

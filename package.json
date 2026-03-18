@@ -1,6 +1,6 @@
 {
   "name": "magnet-ai",
-  "version": "0.6.0-dev.42",
+  "version": "0.6.0-dev.55",
   "license": "Apache-2.0",
   "private": true,
   "scripts": {
@@ -35,14 +35,20 @@
     "format:api": "cd api && poetry run ruff format .",
     "format:api:check": "cd api && poetry run ruff format --check .",
     "lint:web": "cd web && yarn nx run-many --target=lint --all --fix",
-    "lint": "npm run lint:api && npm run lint:web"
+    "lint": "npm run lint:api && npm run lint:web",
+    "e2e": "cd web && yarn nx run magnet-admin:e2e",
+    "e2e:ci": "cd web && yarn nx run magnet-admin:e2e --browser chrome --headless",
+    "fix-errors": "npx tsx scripts/fix-errors.ts",
+    "fix-errors:apply": "npx tsx scripts/fix-errors.ts --apply"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
     "@commitlint/cli": "^20.1.0",
     "@commitlint/config-conventional": "^20.0.0",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "husky": "^9.1.7",
-    "rimraf": "^6.1.2"
+    "rimraf": "^6.1.2",
+    "tsx": "^4.19.3"
   }
 }

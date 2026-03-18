@@ -36,6 +36,7 @@ export const providerTypeOptions = [
   { label: 'LM Studio', value: 'lm_studio' },
   // Audio / Multimodal
   { label: 'ElevenLabs', value: 'elevenlabs' },
+  { label: 'Azure Speech', value: 'azure_speech' },
   { label: 'Deepgram', value: 'deepgram' },
   // OCI
   { label: 'OCI', value: 'oci' },

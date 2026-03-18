@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "magnet-ai-api"
-version = "0.6.0.dev42"
+version = "0.6.0.dev55"
 description = ""
 authors = []
 readme = "README.md"
@@ -10,9 +10,8 @@ package-mode = false
 python = "^3.12"
 langchain = "0.3.27"
 office365-rest-python-client = "2.6.2"
-html2text = "2020.1.16"
 requests = "2.32.3"
-pypdf = "6.1.1"
+pypdf = "6.1.1"  # Kept as fallback when USE_KREUZBERG=false
 aiofiles = "23.2.1"
 atlassian-python-api = "3.41.9"
 pymongo = "4.12.0"
@@ -66,7 +65,8 @@ slack-bolt = "^1.26.0"
 microsoft-agents-hosting-core = "0.6.1"
 microsoft-agents-hosting-teams = "^0.6.1"
 azure-storage-blob = "^12.27.1"
-litellm = "^1.81.9"
+litellm = "^1.82.2"
+kreuzberg = "^4.4"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.9.10"
