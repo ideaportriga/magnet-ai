@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.54](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.53...v0.6.0-dev.54) (2026-03-18)
+
+### ✨ Features
+
+* **kg:** add external link to retrieval route results ([6c0c072](https://github.com/ideaportriga/magnet-ai/commit/6c0c0727299522c5eb05bceb1b7f14c6bc1b1c9e))
+
 ## [0.6.0-dev.53](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.52...v0.6.0-dev.53) (2026-03-18)
 
 ### ✨ Features
