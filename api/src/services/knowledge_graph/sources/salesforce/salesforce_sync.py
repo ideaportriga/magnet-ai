@@ -245,6 +245,7 @@ class SalesforceSyncPipeline(
                         extracted_text=content,
                         config=content_config,
                         document_title=title,
+                        external_link=external_link,
                         embedding_model=self._embedding_model,
                     )
                     await ctx.inc("synced")
