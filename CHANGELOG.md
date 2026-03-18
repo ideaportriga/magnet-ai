@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.55](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.54...v0.6.0-dev.55) (2026-03-18)
+
+### 🐛 Bug Fixes
+
+* **kg:** add external links for new salesforce articles ([4fce1ff](https://github.com/ideaportriga/magnet-ai/commit/4fce1ffe8960363162d9c881bd005fa099584b1f))
+
 ## [0.6.0-dev.54](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.53...v0.6.0-dev.54) (2026-03-18)
 
 ### ✨ Features
