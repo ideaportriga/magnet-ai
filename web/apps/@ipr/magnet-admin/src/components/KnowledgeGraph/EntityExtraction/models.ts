@@ -207,7 +207,7 @@ export function withEntityExtractionRunSettings(
 
 // --- Extraction Status ---
 
-export type EntityExtractionStatus = 'idle' | 'running' | 'completed' | 'error'
+export type EntityExtractionStatus = 'idle' | 'running' | 'cancelling' | 'cancelled' | 'completed' | 'error'
 
 export interface EntityExtractionStatusInfo {
   status: EntityExtractionStatus
@@ -225,7 +225,7 @@ export interface EntityExtractionStatusInfo {
   error_message?: string | null
 }
 
-const VALID_EXTRACTION_STATUSES: EntityExtractionStatus[] = ['idle', 'running', 'completed', 'error']
+const VALID_EXTRACTION_STATUSES: EntityExtractionStatus[] = ['idle', 'running', 'cancelling', 'cancelled', 'completed', 'error']
 
 export function getExtractionStatusFromGraphDetails(graphDetails?: Record<string, any> | null): EntityExtractionStatusInfo {
   const state = graphDetails?.state

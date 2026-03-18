@@ -19,8 +19,11 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_204_NO_CONTENT,
 )
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
+from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
@@ -30,7 +33,6 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
     KnowledgeGraphEntityExtractionRunRequest,
-    KnowledgeGraphEntityExtractionRunResponse,
     KnowledgeGraphEntityRecordListResponse,
     KnowledgeGraphEntityRecordSchema,
     KnowledgeGraphEntityTypeSummary,
@@ -59,13 +61,15 @@ from core.domain.knowledge_graph.services import (
     KnowledgeGraphService,
     KnowledgeGraphSourceService,
 )
-from services.knowledge_graph.llm_entity_extraction import (
-    run_entity_extraction as _run_entity_extraction,
-)
 from services.knowledge_graph import (
     schedule_source_sync,
     unschedule_source_sync,
 )
+from services.knowledge_graph.llm_entity_extraction import (
+    is_extraction_task_active,
+    run_entity_extraction_background,
+)
+from utils.datetime_utils import utc_now_isoformat
 from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
@@ -614,18 +618,81 @@ class KnowledgeGraphController(Controller):
     @post("/{graph_id:uuid}/entities/extract", status_code=HTTP_200_OK)
     async def run_entity_extraction(
         self,
-        entity_service: KnowledgeGraphEntityService,
         db_session: AsyncSession,
         graph_id: UUID,
         data: KnowledgeGraphEntityExtractionRunRequest,
-    ) -> KnowledgeGraphEntityExtractionRunResponse:
-        result = await _run_entity_extraction(
-            db_session,
-            graph_id,
-            data,
-            entity_service=entity_service,
+    ) -> dict[str, Any]:
+        # Guard: prevent concurrent runs
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
         )
-        return KnowledgeGraphEntityExtractionRunResponse(status="ok", **result)
+        graph_obj = graph_res.scalar_one_or_none()
+        if not graph_obj:
+            raise ClientException("Graph not found")
+
+        current_state = getattr(graph_obj, "state", None) or {}
+        extraction_state = (
+            current_state.get("entity_extraction")
+            if isinstance(current_state, dict)
+            else {}
+        ) or {}
+        if extraction_state.get("status") in ("running", "cancelling"):
+            raise ClientException("Entity extraction is already running")
+
+        # Pre-set status to "running" before spawning the background task so that
+        # an immediate refresh after this response returns sees the correct state.
+        current_state["entity_extraction"] = {
+            **(extraction_state or {}),
+            "status": "running",
+            "started_at": utc_now_isoformat(),
+        }
+        graph_obj.state = current_state
+        flag_modified(graph_obj, "state")
+        await db_session.commit()
+
+        asyncio.create_task(
+            run_entity_extraction_background(graph_id, data.model_dump())
+        )
+        return {"status": "started"}
+
+    @post("/{graph_id:uuid}/entities/extract/cancel", status_code=HTTP_200_OK)
+    async def cancel_entity_extraction(
+        self, db_session: AsyncSession, graph_id: UUID
+    ) -> dict[str, Any]:
+        """Request cancellation of a running entity extraction."""
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
+        )
+        graph_obj = graph_res.scalar_one_or_none()
+        if not graph_obj:
+            raise ClientException("Graph not found")
+
+        current_state = dict(getattr(graph_obj, "state", None) or {})
+        prev_extraction = (
+            current_state.get("entity_extraction")
+            if isinstance(current_state, dict)
+            else {}
+        ) or {}
+        extraction_state = dict(prev_extraction)
+
+        if extraction_state.get("status") not in ("running", "cancelling"):
+            raise ClientException("Entity extraction is not currently running")
+
+        # If no background task is actually alive (e.g. after a backend restart),
+        # transition directly to "cancelled" instead of waiting for a process
+        # that will never pick up the "cancelling" signal.
+        if is_extraction_task_active(graph_id):
+            extraction_state["status"] = "cancelling"
+        else:
+            extraction_state["status"] = "cancelled"
+            extraction_state["completed_at"] = utc_now_isoformat()
+
+        extraction_state.pop("progress", None)
+        current_state["entity_extraction"] = extraction_state
+        graph_obj.state = current_state
+        flag_modified(graph_obj, "state")
+        await db_session.commit()
+        return {"status": extraction_state["status"]}
 
     ###########################################################################
     # KNOWLEDGE GRAPH METADATA ENDPOINTS #

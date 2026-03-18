@@ -32,16 +32,26 @@
     <div v-else class="q-mt-md">
       <div class="row items-center q-mb-md q-gutter-xs">
         <km-btn
+          v-if="isExtractionActive"
+          label="Cancel"
+          size="sm"
+          flat
+          color="negative"
+          :disable="cancelling"
+          @click="cancelExtraction"
+        />
+        <km-btn
+          v-else
           label="Run Extraction"
           size="sm"
-          :disable="!canRunExtraction || saving || extractionStatus.status === 'running' || extractionStarting"
+          :disable="!canRunExtraction || saving || extractionStarting"
           @click="runExtraction"
         >
           <q-tooltip v-if="!canRunExtraction && !saving">Configure a prompt template in extraction settings first</q-tooltip>
         </km-btn>
 
-        <!-- Running: progress bar -->
-        <div v-if="extractionStatus.status === 'running' || extractionStarting" class="extraction-progress row items-center no-wrap q-ml-sm" style="width: 140px">
+        <!-- Progress bar when running/cancelling -->
+        <div v-if="isExtractionActive || extractionStarting" class="row items-center no-wrap q-ml-sm">
           <q-linear-progress
             :value="progressFraction"
             :indeterminate="!hasProgress"
@@ -49,11 +59,11 @@
             track-color="grey-3"
             rounded
             size="8px"
-            class="col"
+            style="width: 140px"
           />
         </div>
 
-        <!-- Completed / Error: short status message -->
+        <!-- Completed / Cancelled / Error: short status message -->
         <span v-else-if="extractionStatus.status !== 'idle'" class="text-caption text-grey-6 q-ml-xs">
           {{ extractionStatusMessage }}
         </span>
@@ -271,6 +281,10 @@ const extractionStatus = computed<EntityExtractionStatusInfo>(() => {
   return getExtractionStatusFromGraphDetails(props.graphDetails)
 })
 
+const isExtractionActive = computed(() => {
+  return extractionStatus.value.status === 'running' || extractionStatus.value.status === 'cancelling'
+})
+
 const hasProgress = computed(() => {
   const p = extractionStatus.value.progress
   return !!p && p.total > 0
@@ -287,6 +301,10 @@ const extractionStatusMessage = computed(() => {
   if (info.status === 'completed') {
     const ts = info.completed_at ? formatTimestamp(info.completed_at) : ''
     return ts ? `Completed ${ts}` : 'Completed'
+  }
+  if (info.status === 'cancelled') {
+    const ts = info.completed_at ? formatTimestamp(info.completed_at) : ''
+    return ts ? `Cancelled ${ts}` : 'Cancelled'
   }
   if (info.status === 'error') {
     const ts = info.completed_at ? formatTimestamp(info.completed_at) : ''
@@ -507,9 +525,10 @@ async function toggleEntityEnabled(entity: EntityDefinition, enabled: boolean) {
 }
 
 const extractionStarting = ref(false)
+const cancelling = ref(false)
 
 async function runExtraction() {
-  if (!canRunExtraction.value || extractionStatus.value.status === 'running' || extractionStarting.value) return
+  if (!canRunExtraction.value || isExtractionActive.value || extractionStarting.value) return
 
   extractionStarting.value = true
 
@@ -543,23 +562,55 @@ async function runExtraction() {
       return
     }
 
-    $q.notify({
-      type: 'positive',
-      message: 'Entity extraction completed',
-      position: 'top',
-      textColor: 'black',
-      timeout: 2000,
-    })
-
     emit('refresh')
   } catch (error) {
-    console.error('Error running entity extraction:', error)
-    $q.notify({ type: 'negative', message: 'Error running entity extraction', position: 'top' })
+    console.error('Error starting entity extraction:', error)
+    $q.notify({ type: 'negative', message: 'Error starting entity extraction', position: 'top' })
     emit('refresh')
   } finally {
     extractionStarting.value = false
   }
 }
+
+async function cancelExtraction() {
+  if (cancelling.value) return
+  cancelling.value = true
+  try {
+    const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+    if (!endpoint) return
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${props.graphId}/entities/extract/cancel`,
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      const message = await getResponseErrorMessage(response, 'Failed to cancel extraction')
+      $q.notify({ type: 'negative', message, position: 'top' })
+    }
+    emit('refresh')
+  } catch (error) {
+    console.error('Error cancelling extraction:', error)
+    $q.notify({ type: 'negative', message: 'Failed to cancel extraction', position: 'top' })
+  } finally {
+    cancelling.value = false
+  }
+}
+
+watch(
+  () => extractionStatus.value.status,
+  (newStatus, oldStatus) => {
+    if (oldStatus === 'running' || oldStatus === 'cancelling') {
+      if (newStatus === 'completed') {
+        $q.notify({ type: 'positive', message: 'Entity extraction completed', position: 'top', textColor: 'black', timeout: 2000 })
+      } else if (newStatus === 'cancelled') {
+        $q.notify({ type: 'warning', message: 'Entity extraction cancelled', position: 'top', timeout: 2000 })
+      } else if (newStatus === 'error') {
+        $q.notify({ type: 'negative', message: 'Entity extraction failed', position: 'top', timeout: 3000 })
+      }
+    }
+  },
+)
 
 watch(
   () => props.graphDetails,

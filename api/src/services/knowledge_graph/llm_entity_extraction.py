@@ -12,6 +12,7 @@ from litestar.exceptions import ClientException, NotFoundException
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config.app import alchemy
 from core.db.models.knowledge_graph import (
     KnowledgeGraph,
     chunks_table_name,
@@ -30,6 +31,11 @@ from services.prompt_templates import execute_prompt_template
 from utils.datetime_utils import utc_now_isoformat
 
 logger = logging.getLogger(__name__)
+
+# Registry of actively running extraction tasks keyed by graph_id.
+# Used to distinguish a live running process from a stale "running" DB status
+# (e.g. after a backend restart).
+_active_extraction_tasks: dict[UUID, bool] = {}
 
 EntityExtractionApproach = Literal["document", "chunks"]
 EntityColumnType = Literal["string", "number", "boolean", "date"]
@@ -481,6 +487,7 @@ async def _extract_entities_iterative(
     entity_definition: EntityDefinition,
     content: str,
     extra_iterations: int = 2,
+    cancel_check: Any = None,
 ) -> list[EntityCandidateRecord]:
     """Run entity extraction with verification iterations.
 
@@ -495,6 +502,9 @@ async def _extract_entities_iterative(
     additional_messages: list[dict[str, str]] = [{"role": "user", "content": content}]
 
     for i in range(1 + max(0, extra_iterations)):
+        if cancel_check and await cancel_check():
+            break
+
         try:
             result = await execute_prompt_template(
                 system_name_or_config=prompt_template_config,
@@ -590,6 +600,7 @@ async def _extract_entity_from_content(
     entity_definition: EntityDefinition,
     content: str,
     max_extraction_iterations: int,
+    cancel_check: Any = None,
 ) -> list[EntityCandidateRecord]:
     """Extract all records for a single entity type from a content string."""
 
@@ -607,6 +618,7 @@ async def _extract_entity_from_content(
         entity_definition=entity_definition,
         content=content,
         extra_iterations=max_extraction_iterations - 1,
+        cancel_check=cancel_check,
     )
 
 
@@ -626,6 +638,7 @@ async def _process_document_extraction(
     segment_size: int,
     segment_overlap: float,
     max_extraction_iterations: int,
+    cancel_check: Any = None,
 ) -> dict[str, int]:
     """Extract entities from a single document (document approach).
 
@@ -635,6 +648,7 @@ async def _process_document_extraction(
 
     upserted_records = 0
     errors = 0
+    cancelled = False
 
     document_candidates: dict[tuple[str, str], EntityCandidateRecord] = {}
     segments = _split_into_segments(
@@ -651,13 +665,20 @@ async def _process_document_extraction(
     )
 
     for segment in segments:
+        if cancelled:
+            break
         for entity_def in entity_definitions:
+            if cancel_check and await cancel_check():
+                cancelled = True
+                break
+
             try:
                 candidates = await _extract_entity_from_content(
                     prompt_template_config=prompt_template_config,
                     entity_definition=entity_def,
                     content=segment,
                     max_extraction_iterations=max_extraction_iterations,
+                    cancel_check=cancel_check,
                 )
             except Exception as exc:  # noqa: BLE001
                 errors += 1
@@ -695,7 +716,11 @@ async def _process_document_extraction(
         upserted_records += 1
 
     await db_session.commit()
-    return {"upserted_records": upserted_records, "errors": errors}
+    return {
+        "upserted_records": upserted_records,
+        "errors": errors,
+        "cancelled": cancelled,
+    }
 
 
 @observe(
@@ -714,6 +739,7 @@ async def _process_document_chunks_extraction(
     prompt_template_config: dict[str, Any],
     entity_service: KnowledgeGraphEntityService,
     max_extraction_iterations: int,
+    cancel_check: Any = None,
 ) -> dict[str, int]:
     """Extract entities from chunks belonging to a single document."""
 
@@ -728,8 +754,13 @@ async def _process_document_chunks_extraction(
     skipped_chunks = 0
     upserted_records = 0
     errors = 0
+    cancelled = False
 
     for chunk_row in chunk_rows:
+        if cancel_check and await cancel_check():
+            cancelled = True
+            break
+
         chunk_id = str(chunk_row.get("id") or "").strip()
         content_str = str(chunk_row.get("content") or "").strip()
         if not chunk_id or not content_str:
@@ -739,12 +770,17 @@ async def _process_document_chunks_extraction(
         processed_chunks += 1
 
         for entity_def in entity_definitions:
+            if cancel_check and await cancel_check():
+                cancelled = True
+                break
+
             try:
                 chunk_candidates = await _extract_entity_from_content(
                     prompt_template_config=prompt_template_config,
                     entity_definition=entity_def,
                     content=content_str,
                     max_extraction_iterations=max_extraction_iterations,
+                    cancel_check=cancel_check,
                 )
             except Exception as exc:  # noqa: BLE001
                 errors += 1
@@ -771,6 +807,9 @@ async def _process_document_chunks_extraction(
                 )
                 upserted_records += 1
 
+        if cancelled:
+            break
+
         await db_session.commit()
 
     return {
@@ -778,6 +817,7 @@ async def _process_document_chunks_extraction(
         "skipped_chunks": skipped_chunks,
         "upserted_records": upserted_records,
         "errors": errors,
+        "cancelled": cancelled,
     }
 
 
@@ -793,6 +833,7 @@ async def run_graph_llm_entity_extraction(
     segment_overlap: float = 0.1,
     max_extraction_iterations: int = 3,
     progress_callback: Any | None = None,
+    cancel_check: Any | None = None,
 ) -> dict[str, Any]:
     prompt_template_system_name = str(prompt_template_system_name or "").strip()
     if not prompt_template_system_name:
@@ -840,8 +881,13 @@ async def run_graph_llm_entity_extraction(
 
         batch_size = 50
         offset = 0
+        cancelled = False
 
         while True:
+            if cancel_check and await cancel_check():
+                cancelled = True
+                break
+
             batch_res = await db_session.execute(
                 text(
                     f"""
@@ -862,6 +908,10 @@ async def run_graph_llm_entity_extraction(
                 break
 
             for row in batch:
+                if cancel_check and await cancel_check():
+                    cancelled = True
+                    break
+
                 doc_id = str(row.get("id") or "").strip()
                 source_id = str(row.get("source_id") or "").strip() or None
                 if not doc_id:
@@ -903,13 +953,20 @@ async def run_graph_llm_entity_extraction(
                     segment_size=segment_size,
                     segment_overlap=segment_overlap,
                     max_extraction_iterations=max_extraction_iterations,
+                    cancel_check=cancel_check,
                 )
                 upserted_records += doc_result["upserted_records"]
                 errors += doc_result["errors"]
+                if doc_result.get("cancelled"):
+                    cancelled = True
+                    break
 
                 docs_seen += 1
                 if progress_callback:
                     await progress_callback(docs_seen, total_docs)
+
+            if cancelled:
+                break
 
             offset += len(batch)
 
@@ -921,6 +978,7 @@ async def run_graph_llm_entity_extraction(
             "skipped_chunks": skipped_chunks,
             "upserted_records": upserted_records,
             "errors": errors,
+            "cancelled": cancelled,
         }
 
     docs_res = await db_session.execute(
@@ -946,7 +1004,13 @@ async def run_graph_llm_entity_extraction(
     if progress_callback:
         await progress_callback(0, total_docs)
 
+    cancelled = False
+
     for drow in docs_rows:
+        if cancel_check and await cancel_check():
+            cancelled = True
+            break
+
         doc_id = str(drow.get("id") or "").strip()
         source_id = str(drow.get("source_id") or "").strip() or None
         if not doc_id:
@@ -985,6 +1049,7 @@ async def run_graph_llm_entity_extraction(
             prompt_template_config=prompt_template_config,
             entity_service=entity_service,
             max_extraction_iterations=max_extraction_iterations,
+            cancel_check=cancel_check,
         )
 
         p_chunks = chunks_result["processed_chunks"]
@@ -992,6 +1057,9 @@ async def run_graph_llm_entity_extraction(
         skipped_chunks += chunks_result["skipped_chunks"]
         upserted_records += chunks_result["upserted_records"]
         errors += chunks_result["errors"]
+        if chunks_result.get("cancelled"):
+            cancelled = True
+            break
 
         if p_chunks > 0:
             processed_documents += 1
@@ -1010,6 +1078,7 @@ async def run_graph_llm_entity_extraction(
         "skipped_chunks": skipped_chunks,
         "upserted_records": upserted_records,
         "errors": errors,
+        "cancelled": cancelled,
     }
 
 
@@ -1038,7 +1107,12 @@ async def _update_extraction_status(
         extraction_status: dict[str, Any] = (
             dict(prev_extraction) if isinstance(prev_extraction, dict) else {}
         )
-        extraction_status["status"] = status
+        # Don't overwrite a cancellation signal with "running"
+        current_db_status = extraction_status.get("status")
+        if current_db_status == "cancelling" and status == "running":
+            pass  # preserve cancellation
+        else:
+            extraction_status["status"] = status
 
         if started_at is not None:
             extraction_status["started_at"] = started_at
@@ -1050,7 +1124,7 @@ async def _update_extraction_status(
             extraction_status["error_message"] = error_message
         if progress is not None:
             extraction_status["progress"] = progress
-        elif status in ("completed", "error"):
+        elif status in ("completed", "error", "cancelled"):
             extraction_status.pop("progress", None)
 
         current_state["entity_extraction"] = extraction_status
@@ -1060,6 +1134,27 @@ async def _update_extraction_status(
         logger.warning(
             "Failed to update extraction status for graph %s", graph_id, exc_info=True
         )
+
+
+async def _is_extraction_cancelled(db_session: AsyncSession, graph_id: UUID) -> bool:
+    """Fresh DB read to check if cancellation was requested."""
+    try:
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph.state).where(KnowledgeGraph.id == graph_id)
+        )
+        state = graph_res.scalar_one_or_none()
+        if not state or not isinstance(state, dict):
+            return False
+        extraction = state.get("entity_extraction")
+        return isinstance(extraction, dict) and extraction.get("status") in (
+            "cancelling",
+            "cancelled",
+        )
+    except Exception:
+        logger.warning(
+            "Failed to check cancellation for graph %s", graph_id, exc_info=True
+        )
+        return False
 
 
 async def run_entity_extraction(
@@ -1148,6 +1243,9 @@ async def run_entity_extraction(
             progress={"processed": processed, "total": total},
         )
 
+    async def _cancel_check() -> bool:
+        return await _is_extraction_cancelled(db_session, graph_id)
+
     try:
         extraction_result = await run_graph_llm_entity_extraction(
             db_session,
@@ -1160,11 +1258,15 @@ async def run_entity_extraction(
             segment_overlap=segment_overlap,
             max_extraction_iterations=max_extraction_iterations,
             progress_callback=_progress_cb,
+            cancel_check=_cancel_check,
+        )
+        final_status = (
+            "cancelled" if extraction_result.get("cancelled") else "completed"
         )
         await _update_extraction_status(
             db_session,
             graph_id,
-            status="completed",
+            status=final_status,
             completed_at=utc_now_isoformat(),
             result=extraction_result,
         )
@@ -1178,3 +1280,30 @@ async def run_entity_extraction(
             error_message=str(exc),
         )
         raise
+
+
+def is_extraction_task_active(graph_id: UUID) -> bool:
+    """Return True if a background extraction task is currently running for this graph."""
+    return _active_extraction_tasks.get(graph_id, False)
+
+
+async def run_entity_extraction_background(
+    graph_id: UUID, data_dict: dict[str, Any]
+) -> None:
+    """Run entity extraction in background with its own database session.
+
+    Called via asyncio.create_task(). Should not raise exceptions to the caller.
+    """
+    _active_extraction_tasks[graph_id] = True
+    try:
+        async with alchemy.get_session() as db_session:
+            data = KnowledgeGraphEntityExtractionRunRequest(**data_dict)
+            await run_entity_extraction(db_session, graph_id, data)
+    except Exception:
+        logger.error(
+            "Background entity extraction failed for graph %s",
+            graph_id,
+            exc_info=True,
+        )
+    finally:
+        _active_extraction_tasks.pop(graph_id, None)
