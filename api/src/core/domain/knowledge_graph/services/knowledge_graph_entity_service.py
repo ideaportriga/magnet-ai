@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
     KnowledgeGraphEntityRecord,
+    docs_table_name,
     edges_table_name,
     entities_index_prefix,
     entities_table_name,
@@ -275,6 +276,19 @@ class KnowledgeGraphEntityService:
             edge_svc = KnowledgeGraphEdgeService()
             await edge_svc.delete_edges_for_entities(
                 db_session, graph_id=graph_id, entity_ids=list(deleted_rows)
+            )
+
+            # Invalidate entity_extraction pipeline state so documents get re-extracted.
+            d_tbl = docs_table_name(graph_id)
+            await db_session.execute(
+                text(
+                    f"""
+                    UPDATE {d_tbl}
+                    SET pipeline_state = pipeline_state - 'entity_extraction',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE pipeline_state ? 'entity_extraction'
+                    """
+                )
             )
 
         await db_session.commit()

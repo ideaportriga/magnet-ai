@@ -842,6 +842,31 @@ async def run_graph_llm_entity_extraction(
     if approach not in ("document", "chunks"):
         raise ValueError("approach must be 'document' or 'chunks'")
 
+    async def _mark_document_extracted(doc_id: str) -> None:
+        """Mark a document's entity_extraction pipeline state as completed."""
+        await db_session.execute(
+            text(
+                f"""
+                UPDATE {docs_table_name(graph_id)}
+                SET pipeline_state = COALESCE(pipeline_state, '{{}}'::jsonb) || :patch,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = CAST(:id AS uuid)
+                """
+            ),
+            {
+                "id": doc_id,
+                "patch": json.dumps(
+                    {
+                        "entity_extraction": {
+                            "status": "completed",
+                            "completed_at": utc_now_isoformat(),
+                        }
+                    }
+                ),
+            },
+        )
+        await db_session.commit()
+
     if not entity_definitions:
         raise ValueError("entity_definitions is required and cannot be empty")
 
@@ -870,7 +895,12 @@ async def run_graph_llm_entity_extraction(
     if approach == "document":
         # Count total documents for progress tracking
         total_docs_res = await db_session.execute(
-            text(f"SELECT COUNT(*) FROM {docs_tbl}")
+            text(
+                f"""
+                SELECT COUNT(*) FROM {docs_tbl}
+                WHERE pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
+                """
+            )
         )
         total_docs = total_docs_res.scalar_one() or 0
         await db_session.commit()
@@ -895,6 +925,7 @@ async def run_graph_llm_entity_extraction(
                         id::text AS id,
                         source_id::text AS source_id
                     FROM {docs_tbl}
+                    WHERE pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
                     ORDER BY created_at DESC
                     LIMIT :limit OFFSET :offset
                     """
@@ -961,6 +992,9 @@ async def run_graph_llm_entity_extraction(
                     cancelled = True
                     break
 
+                if doc_result["errors"] == 0:
+                    await _mark_document_extracted(doc_id)
+
                 docs_seen += 1
                 if progress_callback:
                     await progress_callback(docs_seen, total_docs)
@@ -991,6 +1025,7 @@ async def run_graph_llm_entity_extraction(
             WHERE EXISTS (
                 SELECT 1 FROM {chunks_tbl} c WHERE c.document_id = d.id
             )
+            AND d.pipeline_state->'entity_extraction'->>'status' IS DISTINCT FROM 'completed'
             ORDER BY d.created_at DESC
             """
         )
@@ -1065,6 +1100,9 @@ async def run_graph_llm_entity_extraction(
             processed_documents += 1
         else:
             skipped_documents += 1
+
+        if chunks_result["errors"] == 0:
+            await _mark_document_extracted(doc_id)
 
         docs_seen += 1
         if progress_callback:

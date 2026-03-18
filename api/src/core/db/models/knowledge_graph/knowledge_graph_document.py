@@ -105,6 +105,9 @@ class KnowledgeGraphDocument:
         None  # SHA256 hash of raw file bytes for change detection
     )
 
+    # Pipeline state tracking (JSONB) – tracks status of various processing pipelines
+    pipeline_state: dict[str, Any] | None = None
+
     # Content
     content_profile: str | None = None
     content_plaintext: str | None = None
@@ -146,6 +149,7 @@ class KnowledgeGraphDocument:
             if self.source_modified_at is not None
             else None,
             "content_hash": self.content_hash,
+            "pipeline_state": self.pipeline_state,
         }
 
     @classmethod
@@ -193,6 +197,7 @@ class KnowledgeGraphDocument:
             source_document_id=row.get("source_document_id"),
             source_modified_at=row.get("source_modified_at"),
             content_hash=row.get("content_hash"),
+            pipeline_state=row.get("pipeline_state"),
         )
 
 
@@ -247,4 +252,6 @@ def knowledge_graph_document_table(
         Column("source_document_id", String(500), nullable=True),
         Column("source_modified_at", DateTime(timezone=False), nullable=True),
         Column("content_hash", String(64), nullable=True),  # SHA256 = 64 hex chars
+        # Pipeline state tracking – stores status of processing pipelines (entity extraction, etc.)
+        Column("pipeline_state", JSONB, nullable=True),
     )

@@ -112,7 +112,7 @@ const emit = defineEmits<{
 const entityTypesColumns: QTableColumn<EntityTypeSummary>[] = [
   {
     name: 'entity',
-    label: 'Entity Type',
+    label: 'Entity',
     field: 'entity',
     align: 'left',
     sortable: true,
@@ -121,7 +121,7 @@ const entityTypesColumns: QTableColumn<EntityTypeSummary>[] = [
     name: 'count',
     label: 'Records',
     field: 'count',
-    align: 'right',
+    align: 'left',
     sortable: true,
   },
   {
