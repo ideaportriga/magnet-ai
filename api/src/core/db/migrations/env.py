@@ -109,14 +109,18 @@ def run_migrations_offline() -> None:
             if name == "apscheduler_jobs":
                 return False
             # Ignore knowledge graph tables
-            if re.match(r"knowledge_graph_.*_(chunks|docs|documents|entities)$", name):
+            if re.match(
+                r"knowledge_graph_.*_(chunks|docs|documents|entities|edges)$", name
+            ):
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
-            if re.match(r"idx_kg_.*_(chunks|docs|documents|docume|entities).*", name):
+            if re.match(
+                r"idx_kg_.*_(chunks|docs|documents|docume|entities|edges).*", name
+            ):
                 return False
             if re.match(
-                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities).*",
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities|edges).*",
                 name,
             ):
                 return False
@@ -161,14 +165,18 @@ def do_run_migrations(connection: Connection) -> None:
             if name == "apscheduler_jobs":
                 return False
             # Ignore knowledge graph tables
-            if re.match(r"knowledge_graph_.*_(chunks|docs|documents|entities)$", name):
+            if re.match(
+                r"knowledge_graph_.*_(chunks|docs|documents|entities|edges)$", name
+            ):
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
-            if re.match(r"idx_kg_.*_(chunks|docs|documents|docume|entities).*", name):
+            if re.match(
+                r"idx_kg_.*_(chunks|docs|documents|docume|entities|edges).*", name
+            ):
                 return False
             if re.match(
-                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities).*",
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities|edges).*",
                 name,
             ):
                 return False
