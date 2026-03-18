@@ -106,6 +106,22 @@
         @update:model-value="clearError"
       />
     </kg-dialog-section>
+
+    <kg-dialog-section
+      title="External URL Template"
+      description="Optional. URL template for linking back to the original article. Use {FieldName} placeholders for Salesforce fields. Referenced fields are automatically included in the query."
+      icon="link"
+    >
+      <km-input
+        v-model="externalUrlTemplate"
+        height="36px"
+        placeholder="https://yoursite.my.site.com/help/s/article/{UrlName}"
+        @update:model-value="clearError"
+      />
+      <div class="text-caption text-grey-7 q-mt-xs">
+        Example: https://yoursite.my.site.com/help/s/article/{UrlName}
+      </div>
+    </kg-dialog-section>
   </kg-dialog-source-base>
 </template>
 
@@ -124,6 +140,7 @@ type SalesforceSourceConfig = {
   article_id_field?: string
   title_field?: string
   metadata_fields?: string
+  external_url_template?: string
 }
 
 type SalesforceSourceRecord = Omit<SourceRow, 'type' | 'config'> & {
@@ -167,6 +184,7 @@ const articleIdField = ref(DEFAULT_ARTICLE_ID_FIELD)
 const titleField = ref(DEFAULT_TITLE_FIELD)
 const metadataFields = ref(DEFAULT_METADATA_FIELDS)
 const outputConfig = ref(DEFAULT_OUTPUT_CONFIG)
+const externalUrlTemplate = ref('')
 
 const isEditMode = computed(() => !!props.source)
 
@@ -216,6 +234,7 @@ watch(
         titleField.value = props.source.config?.title_field || DEFAULT_TITLE_FIELD
         metadataFields.value = props.source.config?.metadata_fields || DEFAULT_METADATA_FIELDS
         outputConfig.value = props.source.config?.output_config || DEFAULT_OUTPUT_CONFIG
+        externalUrlTemplate.value = props.source.config?.external_url_template || ''
       } else {
         selectedProvider.value = ''
         objectApiName.value = DEFAULT_OBJECT_API_NAME
@@ -223,6 +242,7 @@ watch(
         titleField.value = DEFAULT_TITLE_FIELD
         metadataFields.value = DEFAULT_METADATA_FIELDS
         outputConfig.value = DEFAULT_OUTPUT_CONFIG
+        externalUrlTemplate.value = ''
         error.value = ''
       }
     }
@@ -299,6 +319,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
         title_field: titleField.value.trim() || DEFAULT_TITLE_FIELD,
         metadata_fields: metadataFields.value.trim() || DEFAULT_METADATA_FIELDS,
         output_config: outputConfig.value.trim(),
+        external_url_template: externalUrlTemplate.value.trim() || undefined,
       },
     }
 
@@ -353,6 +374,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
         title_field: titleField.value.trim() || DEFAULT_TITLE_FIELD,
         metadata_fields: metadataFields.value.trim() || DEFAULT_METADATA_FIELDS,
         output_config: outputConfig.value.trim(),
+        external_url_template: externalUrlTemplate.value.trim() || undefined,
       },
     }
 
@@ -389,7 +411,7 @@ const onConfirm = async (payload: { sourceName: string; schedule: ScheduleFormSt
   }
 }
 
-watch([selectedProvider, outputConfig, objectApiName, articleIdField, titleField, metadataFields], () => {
+watch([selectedProvider, outputConfig, objectApiName, articleIdField, titleField, metadataFields, externalUrlTemplate], () => {
   if (error.value) error.value = ''
 })
 </script>

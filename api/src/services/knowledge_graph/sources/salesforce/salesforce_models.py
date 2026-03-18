@@ -30,6 +30,9 @@ class SalesforceRuntimeConfig:
     # Extra fields to store as document metadata, as a comma-separated string
     metadata_fields: str = "Title, CreatedDate, LastModifiedDate"
 
+    # Optional URL template for generating external_link per article
+    external_url_template: str = ""
+
     @property
     def metadata_fields_list(self) -> list[str]:
         """Parsed list of metadata field names."""
@@ -56,6 +59,15 @@ class SalesforceRuntimeConfig:
         """Extract unique field names referenced in output_config template."""
         return list(dict.fromkeys(re.findall(r"\{([^}]+)\}", self.output_config)))
 
+    @property
+    def url_columns_to_select(self) -> list[str]:
+        """Extract unique field names referenced in external_url_template."""
+        if not self.external_url_template:
+            return []
+        return list(
+            dict.fromkeys(re.findall(r"\{([^}]+)\}", self.external_url_template))
+        )
+
     def format_record(self, record: dict[str, Any]) -> str:
         """Render the output template with actual record field values.
 
@@ -65,6 +77,13 @@ class SalesforceRuntimeConfig:
         """
         safe = defaultdict(str, {k: "" if v is None else v for k, v in record.items()})
         return self.output_config.format_map(safe)
+
+    def format_external_url(self, record: dict[str, Any]) -> str | None:
+        """Render external_url_template with record field values, or None if not configured."""
+        if not self.external_url_template:
+            return None
+        safe = defaultdict(str, {k: "" if v is None else v for k, v in record.items()})
+        return self.external_url_template.format_map(safe)
 
 
 @dataclass(frozen=True)

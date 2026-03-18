@@ -223,6 +223,8 @@ class SalesforceSource(AbstractDataSource):
             cfg.get("metadata_fields") or "Title, CreatedDate, LastModifiedDate"
         )
 
+        external_url_template: str = cfg.get("external_url_template") or ""
+
         return SalesforceRuntimeConfig(
             client_id=client_id or None,
             client_secret=client_secret or None,
@@ -235,4 +237,5 @@ class SalesforceSource(AbstractDataSource):
             article_id_field=article_id_field,
             title_field=title_field,
             metadata_fields=metadata_fields,
+            external_url_template=external_url_template,
         )
