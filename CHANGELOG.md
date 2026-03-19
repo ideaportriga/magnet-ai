@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.56](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.55...v0.6.0-dev.56) (2026-03-19)
+
+### ✨ Features
+
+* fullSerch KG tool in agent and  memory settings in agent UI ([fe6caa0](https://github.com/ideaportriga/magnet-ai/commit/fe6caa082b5b245d7ed8bf55299cfba0ef3f205d))
+
 ## [0.6.0-dev.55](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.54...v0.6.0-dev.55) (2026-03-18)
 
 ### 🐛 Bug Fixes
