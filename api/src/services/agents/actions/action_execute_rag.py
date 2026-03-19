@@ -25,7 +25,12 @@ async def action_execute_rag(
     metadata_filter = arguments.get("metadata_filter")
     if metadata_filter:
         try:
-            metadata_filter = FilterObject(json.loads(metadata_filter))
+            parsed = json.loads(metadata_filter)
+            # Treat {"$and": []} / {"$or": []} as no filter — LLM sometimes generates these
+            # when it doesn't intend to filter anything
+            if parsed.get("$and") == [] or parsed.get("$or") == []:
+                parsed = None
+            metadata_filter = FilterObject(parsed) if parsed else None
         except Exception as e:
             logger.error(f"Failed to parse metadata filter: {e}")
             return AgentActionCallResponse(

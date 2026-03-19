@@ -16,7 +16,8 @@ from services.agents.exceptions import (
     AgentLoopExhaustedError,
     AgentTimeoutError,
 )
-from services.agents.memory import DEFAULT_LAST_N_MESSAGES, LastNMessagesStrategy
+from services.agents.memory import DEFAULT_LAST_N_MESSAGES, create_memory_strategy
+from services.agents.models import MemoryStrategyType
 from services.agents.message_builder import generate_completion_messages
 from services.agents.models import (
     AgentAction,
@@ -38,6 +39,7 @@ from services.agents.models import (
 from services.agents.tool_schema import (
     ACTION_MESSAGE_ARGUMENT_NAME,
     create_chat_completion_tools,
+    sanitize_function_name,
 )
 from services.observability import observe
 from utils.datetime_utils import utc_now
@@ -68,6 +70,7 @@ async def execute_topic(
     prompt_template: str,
     steps_initial: list[AgentConversationRunStep] | None = None,
     variables: dict[str, str] | None = None,
+    memory_strategy_type: MemoryStrategyType = MemoryStrategyType.LAST_N,
     memory_last_n_messages: int = DEFAULT_LAST_N_MESSAGES,
 ) -> AgentConversationExecuteTopicResult:
     selected_topic_data = AgentConversationSelectedTopic(
@@ -77,7 +80,9 @@ async def execute_topic(
     )
     iteration = 0
     actions = topic.actions
-    actions_by_function_name = {action.function_name: action for action in actions}
+    actions_by_function_name = {
+        sanitize_function_name(action.function_name): action for action in actions
+    }
     tools = await create_chat_completion_tools(topic.actions)
 
     prompt_template_config = await get_prompt_template_by_system_name_flat(
@@ -86,7 +91,9 @@ async def execute_topic(
 
     steps = steps_initial.copy() if steps_initial else []
 
-    memory_strategy = LastNMessagesStrategy(n=memory_last_n_messages)
+    memory_strategy = create_memory_strategy(
+        memory_strategy_type, memory_last_n_messages
+    )
 
     try:
         async with asyncio.timeout(EXECUTE_TOPIC_TIMEOUT_SECONDS):

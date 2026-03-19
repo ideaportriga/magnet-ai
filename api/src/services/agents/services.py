@@ -211,12 +211,12 @@ async def execute_agent(
     if not topic:
         raise AgentConfigurationError("No topic found for the conversation")
 
-    # Resolve memory_last_n_messages from agent settings if available
-    memory_n = (
-        settings.memory_last_n_messages
-        if settings and settings.memory_last_n_messages
-        else None
-    )
+    # Resolve memory settings from agent settings if available
+    memory_kwargs: dict = {}
+    if settings and settings.memory_strategy is not None:
+        memory_kwargs["memory_strategy_type"] = settings.memory_strategy
+    if settings and settings.memory_last_n_messages is not None:
+        memory_kwargs["memory_last_n_messages"] = settings.memory_last_n_messages
 
     try:
         topic_execute_result = await execute_topic(
@@ -225,7 +225,7 @@ async def execute_agent(
             prompt_template=prompt_templates.topic_processing,
             steps_initial=run.steps,
             variables=variables,
-            **({"memory_last_n_messages": memory_n} if memory_n is not None else {}),
+            **memory_kwargs,
         )
     except (AgentTimeoutError, AgentLoopExhaustedError) as e:
         logger.error("Topic execution failed for '%s': %s", topic.system_name, e)

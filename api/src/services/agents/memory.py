@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from services.agents.models import AgentConversationMessage
+from services.agents.models import AgentConversationMessage, MemoryStrategyType
 
 DEFAULT_LAST_N_MESSAGES = 10
 
@@ -41,3 +41,22 @@ class LastNMessagesStrategy:
         if len(messages) <= self.n:
             return messages
         return messages[-self.n :]
+
+
+class AllMessagesStrategy:
+    """Pass all messages to the LLM without any truncation."""
+
+    def select_messages(
+        self,
+        messages: list[AgentConversationMessage],
+    ) -> list[AgentConversationMessage]:
+        return messages
+
+
+def create_memory_strategy(
+    strategy_type: MemoryStrategyType,
+    last_n: int = DEFAULT_LAST_N_MESSAGES,
+) -> MemoryStrategy:
+    if strategy_type == MemoryStrategyType.ALL:
+        return AllMessagesStrategy()
+    return LastNMessagesStrategy(n=last_n)

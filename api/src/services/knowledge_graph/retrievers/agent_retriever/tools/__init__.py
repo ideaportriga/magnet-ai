@@ -221,6 +221,28 @@ def get_available_tools(
     return available_tools
 
 
+_FULL_SEARCH_SPEC: dict[str, Any] = {
+    "name": "fullSearch",
+    "system_name": "fullSearch",
+    "description": (
+        "Search the entire knowledge graph using an autonomous ReAct retrieval agent. "
+        "The agent autonomously decides which retrieval strategies to use "
+        "(chunk similarity, document summary, metadata filtering) to best answer the query."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The user query to search for in the knowledge graph.",
+            },
+        },
+        "required": ["query"],
+        "additionalProperties": False,
+    },
+}
+
+
 def get_agent_tool_specs() -> list[dict[str, Any]]:
     """
     Return tool specs formatted for the agent tool selection UI.
@@ -228,9 +250,10 @@ def get_agent_tool_specs() -> list[dict[str, Any]]:
     Each entry contains ``name``, ``system_name``, ``description`` and
     ``parameters`` (with the internal ``reasoning`` field stripped).
     The ``exit`` tool is excluded because it is internal to the ReAct loop.
+    ``fullSearch`` is prepended as a synthetic spec representing the full ReAct loop.
     """
 
-    specs: list[dict[str, Any]] = []
+    specs: list[dict[str, Any]] = [_FULL_SEARCH_SPEC]
     for module in _iter_tool_modules():
         tool_spec = getattr(module, "TOOL_SPEC", None)
         if not isinstance(tool_spec, dict):

@@ -1,6 +1,7 @@
 """Tool schema generation — builds ChatCompletionToolParam from agent actions."""
 
 import os
+import re
 from logging import getLogger
 from typing import Final
 
@@ -24,6 +25,14 @@ from services.mcp_servers.types import McpServerConfig
 logger = getLogger(__name__)
 
 ACTION_MESSAGE_ARGUMENT_NAME: Final = "_magnetActionMessage"
+
+_INVALID_FUNCTION_NAME_CHARS_RE = re.compile(r"[^a-zA-Z0-9_-]")
+
+
+def sanitize_function_name(name: str) -> str:
+    """Replace characters not allowed in OpenAI function names with underscores."""
+    return _INVALID_FUNCTION_NAME_CHARS_RE.sub("_", name)
+
 
 # TODO - avoid hardcoding
 _env = os.environ
@@ -75,7 +84,7 @@ async def create_chat_completion_tool(
     api_servers_by_system_name: dict[str, ApiServerConfig],
     mcp_servers_by_system_name: dict[str, McpServerConfig],
 ) -> ChatCompletionToolParam:
-    function_name = action.function_name
+    function_name = sanitize_function_name(action.function_name)
     function_description = action.function_description or ""
 
     parameters = await create_chat_completion_tool_parameters(
@@ -186,7 +195,7 @@ async def create_chat_completion_tool_parameters(
                     },
                     "metadata_filter": {
                         "type": "string",
-                        "description": f"MongoDB-like filter object, that is used to narrow down knowledge source chunks. List of available operators: $and, $or, $eq, $ne, $in. Top level operator should be either $and or $or. List of fields, that can be used in filter:\n{'\n'.join(field_list)}",
+                        "description": f"Optional MongoDB-like filter to narrow down knowledge source chunks. Omit this field entirely if no filtering is needed. When filtering is needed, use operators: $and, $or, $eq, $ne, $in. List of fields available for filtering:\n{'\n'.join(field_list)}",
                     },
                 },
                 "required": ["query"],

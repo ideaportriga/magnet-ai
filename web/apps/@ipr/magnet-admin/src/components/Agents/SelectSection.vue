@@ -12,7 +12,9 @@ template(v-if='searchResults.length > 0')
       .row.q-pa-8.bg-white.items-center.full-width.q-gap-8.bb-border
         km-checkbox(:model-value='isSelected(tool)', @update:model-value='onSelect(tool)')
         .col
-          .km-title {{ tool.name }}
+          .row.items-center.q-gap-8
+            .km-title {{ tool.name }}
+            km-chip(v-if='tool.system_name === "fullSearch"', label='Full Search', color='primary-transparent', text-color='primary', round, dense)
           .km-description {{ tool.description }}
 </template>
 <script setup>

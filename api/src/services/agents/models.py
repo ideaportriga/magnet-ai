@@ -90,6 +90,11 @@ class SampleQuestions(BaseModel):
         return values
 
 
+class MemoryStrategyType(StrEnum):
+    LAST_N = "last_n"
+    ALL = "all"
+
+
 class AgentSettings(BaseModel):
     """Represents settings for an agent, including welcome message,
     conversation closure interval, and sample questions.
@@ -100,6 +105,7 @@ class AgentSettings(BaseModel):
     sample_questions: SampleQuestions = Field(default_factory=SampleQuestions)
     user_feedback: bool | None = None
     notes: str | None = None
+    memory_strategy: MemoryStrategyType | None = None
     memory_last_n_messages: int | None = None
 
 

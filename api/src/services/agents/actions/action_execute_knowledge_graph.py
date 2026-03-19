@@ -223,6 +223,40 @@ async def _execute_find_documents_by_metadata(
     )
 
 
+async def _execute_full_search(
+    db_session: AsyncSession,
+    graph_id: UUID,
+    graph_system_name: str,
+    arguments: dict,
+) -> AgentActionCallResponse:
+    """Execute the full KG ReAct retrieval loop and return its answer."""
+    from services.knowledge_graph.retrievers.agent_retriever.agent import (
+        run_agentic_retrieval,
+    )
+
+    query = arguments.get("query")
+    if not query:
+        raise ValueError("Cannot call fullSearch - 'query' is missing")
+
+    run_result = await run_agentic_retrieval(
+        db_session,
+        graph_id,
+        [{"role": "user", "content": query}],
+    )
+
+    return AgentActionCallResponse(
+        content=run_result.content,
+        verbose_details={
+            "graph_system_name": graph_system_name,
+            "graph_id": str(graph_id),
+            "tool": "fullSearch",
+            "query": query,
+            "sources": [s.model_dump() for s in (run_result.sources or [])],
+            "workflow_steps": len(run_result.workflow or []),
+        },
+    )
+
+
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -292,6 +326,11 @@ async def action_execute_knowledge_graph(
 
             case "findDocumentsByMetadata":
                 return await _execute_find_documents_by_metadata(
+                    db_session, graph_id, tool_provider, arguments
+                )
+
+            case "fullSearch":
+                return await _execute_full_search(
                     db_session, graph_id, tool_provider, arguments
                 )
 
