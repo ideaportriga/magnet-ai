@@ -35,3 +35,8 @@ build/
 recording_test.py
 /research
 /reports
+
+# CLI (Go)
+cli/bin/
+cli/dist/
+cli/go.sum

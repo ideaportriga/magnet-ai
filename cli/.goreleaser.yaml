@@ -1,0 +1,49 @@
+version: 2
+project_name: magnet
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - binary: magnet
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: "magnet_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^chore"
+      - "^docs"
+      - "^ci"
+
+release:
+  github:
+    owner: ideaportriga
+    name: magnet-ai
+  name_template: "Magnet AI CLI v{{.Version}}"
