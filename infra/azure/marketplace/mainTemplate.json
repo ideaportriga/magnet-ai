@@ -1,0 +1,888 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.41.2.15936"
+    }
+  },
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "dev",
+      "allowedValues": [
+        "dev",
+        "staging",
+        "prod"
+      ],
+      "metadata": {
+        "description": "Environment name (dev, staging, prod)"
+      }
+    },
+    "containerImageTag": {
+      "type": "string",
+      "defaultValue": "latest",
+      "metadata": {
+        "description": "Container image tag"
+      }
+    },
+    "postgresServerName": {
+      "type": "string",
+      "defaultValue": "psql-magnet-ai-CHANGEME-dev",
+      "metadata": {
+        "description": "Globally unique name for the PostgreSQL Flexible Server"
+      }
+    },
+    "aiServicesName": {
+      "type": "string",
+      "defaultValue": "mf-magnet-ai-CHANGEME-dev",
+      "metadata": {
+        "description": "Globally unique name for the Azure AI Services account"
+      }
+    },
+    "postgresAdminPassword": {
+      "type": "securestring",
+      "defaultValue": "ChangeMe123!",
+      "metadata": {
+        "description": "PostgreSQL admin password"
+      }
+    },
+    "secretEncryptionKey": {
+      "type": "securestring",
+      "defaultValue": "[base64(newGuid())]",
+      "metadata": {
+        "description": "Fernet encryption key for SECRET_ENCRYPTION_KEY. Auto-generated if not provided."
+      }
+    }
+  },
+  "variables": {
+    "location": "[resourceGroup().location]",
+    "containerAppName": "[format('ca-magnet-ai-{0}', parameters('environment'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "log-analytics",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "location": {
+            "value": "[variables('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "1848688796096706583"
+            }
+          },
+          "parameters": {
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Environment name (dev, staging, prod)"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            }
+          },
+          "variables": {
+            "workspaceName": "[format('log-magnet-ai-{0}', parameters('environment'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[variables('workspaceName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 30
+              }
+            }
+          ],
+          "outputs": {
+            "workspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Resource ID of the Log Analytics workspace"
+              },
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "customerId": {
+              "type": "string",
+              "metadata": {
+                "description": "Customer ID (workspace ID) for log analytics configuration"
+              },
+              "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName')), '2023-09-01').customerId]"
+            },
+            "sharedKey": {
+              "type": "string",
+              "metadata": {
+                "description": "Primary shared key for log analytics"
+              },
+              "value": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName')), '2023-09-01').primarySharedKey]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "ai-foundry",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aiServicesName": {
+            "value": "[parameters('aiServicesName')]"
+          },
+          "location": {
+            "value": "[variables('location')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "15254377621010111257"
+            }
+          },
+          "parameters": {
+            "aiServicesName": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Services account name (globally unique)"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.CognitiveServices/accounts",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[parameters('aiServicesName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "S0"
+              },
+              "kind": "AIServices",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "customSubDomainName": "[parameters('aiServicesName')]",
+                "networkAcls": {
+                  "defaultAction": "Allow"
+                },
+                "publicNetworkAccess": "Enabled",
+                "allowProjectManagement": true,
+                "defaultProject": "magnet-ai",
+                "associatedProjects": [
+                  "magnet-ai"
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/defenderForAISettings",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'Default')]",
+              "properties": {
+                "state": "Disabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'gpt-4.1')]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": 250
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "gpt-4.1",
+                  "version": "2025-04-14"
+                },
+                "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
+                "raiPolicyName": "Microsoft.DefaultV2"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/projects', parameters('aiServicesName'), 'magnet-ai')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/deployments",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'gpt-4.1-mini')]",
+              "sku": {
+                "name": "GlobalStandard",
+                "capacity": 250
+              },
+              "properties": {
+                "model": {
+                  "format": "OpenAI",
+                  "name": "gpt-4.1-mini",
+                  "version": "2025-04-14"
+                },
+                "versionUpgradeOption": "OnceNewDefaultVersionAvailable",
+                "raiPolicyName": "Microsoft.DefaultV2"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]",
+                "[resourceId('Microsoft.CognitiveServices/accounts/deployments', parameters('aiServicesName'), 'gpt-4.1')]"
+              ]
+            },
+            {
+              "type": "Microsoft.CognitiveServices/accounts/projects",
+              "apiVersion": "2025-04-01-preview",
+              "name": "[format('{0}/{1}', parameters('aiServicesName'), 'magnet-ai')]",
+              "location": "[parameters('location')]",
+              "kind": "AIServices",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "description": "Default project created with the resource",
+                "displayName": "magnet-ai"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "endpoint": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Services endpoint URL"
+              },
+              "value": "[reference(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), '2025-04-01-preview').endpoint]"
+            },
+            "aiServicesName": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Services account name (use with az cognitiveservices account keys list)"
+              },
+              "value": "[parameters('aiServicesName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "postgresql",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "serverName": {
+            "value": "[parameters('postgresServerName')]"
+          },
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('postgresAdminPassword')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "10899668269615551112"
+            }
+          },
+          "parameters": {
+            "serverName": {
+              "type": "string",
+              "metadata": {
+                "description": "PostgreSQL server name (globally unique)"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "adminPassword": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Administrator password for PostgreSQL"
+              }
+            }
+          },
+          "variables": {
+            "databaseName": "magnet"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+              "apiVersion": "2024-08-01",
+              "name": "[parameters('serverName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard_B2s",
+                "tier": "Burstable"
+              },
+              "properties": {
+                "version": "17",
+                "administratorLogin": "postgres",
+                "administratorLoginPassword": "[parameters('adminPassword')]",
+                "storage": {
+                  "storageSizeGB": 32,
+                  "autoGrow": "Disabled"
+                },
+                "network": {
+                  "publicNetworkAccess": "Enabled"
+                },
+                "authConfig": {
+                  "activeDirectoryAuth": "Disabled",
+                  "passwordAuth": "Enabled"
+                },
+                "backup": {
+                  "backupRetentionDays": 7,
+                  "geoRedundantBackup": "Disabled"
+                },
+                "highAvailability": {
+                  "mode": "Disabled"
+                },
+                "dataEncryption": {
+                  "type": "SystemManaged"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers/databases",
+              "apiVersion": "2024-08-01",
+              "name": "[format('{0}/{1}', parameters('serverName'), variables('databaseName'))]",
+              "properties": {
+                "charset": "UTF8",
+                "collation": "en_US.utf8"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules",
+              "apiVersion": "2024-08-01",
+              "name": "[format('{0}/{1}', parameters('serverName'), 'AllowAllAzureServicesAndResourcesWithinAzureIps')]",
+              "properties": {
+                "startIpAddress": "0.0.0.0",
+                "endIpAddress": "0.0.0.0"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.DBforPostgreSQL/flexibleServers/configurations",
+              "apiVersion": "2024-08-01",
+              "name": "[format('{0}/{1}', parameters('serverName'), 'azure.extensions')]",
+              "properties": {
+                "value": "VECTOR",
+                "source": "user-override"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers/databases', parameters('serverName'), variables('databaseName'))]",
+                "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "serverFqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "PostgreSQL server FQDN"
+              },
+              "value": "[reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName')), '2024-08-01').fullyQualifiedDomainName]"
+            },
+            "connectionString": {
+              "type": "string",
+              "metadata": {
+                "description": "Connection string for the magnet database (asyncpg format)"
+              },
+              "value": "[format('postgresql+asyncpg://postgres:{0}@{1}:5432/{2}', parameters('adminPassword'), reference(resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('serverName')), '2024-08-01').fullyQualifiedDomainName, variables('databaseName'))]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "container-app-env",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "logAnalyticsCustomerId": {
+            "value": "[reference('log-analytics').outputs.customerId.value]"
+          },
+          "logAnalyticsSharedKey": {
+            "value": "[reference('log-analytics').outputs.sharedKey.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "3445700738105478187"
+            }
+          },
+          "parameters": {
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Environment name (dev, staging, prod)"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "logAnalyticsCustomerId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics workspace customer ID"
+              }
+            },
+            "logAnalyticsSharedKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Log Analytics workspace shared key"
+              }
+            }
+          },
+          "variables": {
+            "envName": "[format('cae-magnet-ai-{0}', parameters('environment'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/managedEnvironments",
+              "apiVersion": "2024-03-01",
+              "name": "[variables('envName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "appLogsConfiguration": {
+                  "destination": "log-analytics",
+                  "logAnalyticsConfiguration": {
+                    "customerId": "[parameters('logAnalyticsCustomerId')]",
+                    "sharedKey": "[parameters('logAnalyticsSharedKey')]"
+                  }
+                },
+                "zoneRedundant": false,
+                "peerAuthentication": {
+                  "mtls": {
+                    "enabled": false
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "environmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Container App Environment resource ID"
+              },
+              "value": "[resourceId('Microsoft.App/managedEnvironments', variables('envName'))]"
+            },
+            "defaultDomain": {
+              "type": "string",
+              "metadata": {
+                "description": "Default domain of the Container App Environment"
+              },
+              "value": "[reference(resourceId('Microsoft.App/managedEnvironments', variables('envName')), '2024-03-01').defaultDomain]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'log-analytics')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "container-app",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "appName": {
+            "value": "[variables('containerAppName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "location": {
+            "value": "[variables('location')]"
+          },
+          "environmentId": {
+            "value": "[reference('container-app-env').outputs.environmentId.value]"
+          },
+          "envDefaultDomain": {
+            "value": "[reference('container-app-env').outputs.defaultDomain.value]"
+          },
+          "containerImage": {
+            "value": "[format('ghcr.io/ideaportriga/magnet-ai:{0}', parameters('containerImageTag'))]"
+          },
+          "databaseConnectionString": {
+            "value": "[reference('postgresql').outputs.connectionString.value]"
+          },
+          "secretEncryptionKey": {
+            "value": "[parameters('secretEncryptionKey')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "17534568290488842364"
+            }
+          },
+          "parameters": {
+            "appName": {
+              "type": "string",
+              "metadata": {
+                "description": "Container App name (globally unique)"
+              }
+            },
+            "environment": {
+              "type": "string",
+              "metadata": {
+                "description": "Environment name (dev, staging, prod)"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for all resources"
+              }
+            },
+            "environmentId": {
+              "type": "string",
+              "metadata": {
+                "description": "Container App Environment resource ID"
+              }
+            },
+            "envDefaultDomain": {
+              "type": "string",
+              "metadata": {
+                "description": "Default domain of the Container App Environment"
+              }
+            },
+            "containerImage": {
+              "type": "string",
+              "metadata": {
+                "description": "Container image to deploy"
+              }
+            },
+            "databaseConnectionString": {
+              "type": "securestring",
+              "metadata": {
+                "description": "PostgreSQL connection string (asyncpg format)"
+              }
+            },
+            "secretEncryptionKey": {
+              "type": "securestring",
+              "metadata": {
+                "description": "Fernet encryption key"
+              }
+            }
+          },
+          "variables": {
+            "redirectUri": "[format('https://{0}.{1}/auth/callback', parameters('appName'), parameters('envDefaultDomain'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.App/containerApps",
+              "apiVersion": "2024-03-01",
+              "name": "[parameters('appName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "managedEnvironmentId": "[parameters('environmentId')]",
+                "configuration": {
+                  "secrets": [
+                    {
+                      "name": "database-url",
+                      "value": "[parameters('databaseConnectionString')]"
+                    },
+                    {
+                      "name": "pgvector-connection-string",
+                      "value": "[parameters('databaseConnectionString')]"
+                    },
+                    {
+                      "name": "secret-encryption-key",
+                      "value": "[parameters('secretEncryptionKey')]"
+                    }
+                  ],
+                  "activeRevisionsMode": "Single",
+                  "ingress": {
+                    "external": true,
+                    "targetPort": 8000,
+                    "transport": "Auto",
+                    "traffic": [
+                      {
+                        "weight": 100,
+                        "latestRevision": true
+                      }
+                    ],
+                    "allowInsecure": false
+                  }
+                },
+                "template": {
+                  "containers": [
+                    {
+                      "image": "[parameters('containerImage')]",
+                      "name": "[parameters('appName')]",
+                      "env": [
+                        {
+                          "name": "AUTH_ENABLED",
+                          "value": "false"
+                        },
+                        {
+                          "name": "AUTH_ENABLED_FOR_SCHEMA",
+                          "value": "false"
+                        },
+                        {
+                          "name": "ENV",
+                          "value": "[parameters('environment')]"
+                        },
+                        {
+                          "name": "DATABASE_URL",
+                          "secretRef": "database-url"
+                        },
+                        {
+                          "name": "PGVECTOR_CONNECTION_STRING",
+                          "secretRef": "pgvector-connection-string"
+                        },
+                        {
+                          "name": "SECRET_ENCRYPTION_KEY",
+                          "secretRef": "secret-encryption-key"
+                        },
+                        {
+                          "name": "MICROSOFT_ENTRA_ID_REDIRECT_URI",
+                          "value": "[variables('redirectUri')]"
+                        },
+                        {
+                          "name": "RUN_MIGRATIONS",
+                          "value": "true"
+                        },
+                        {
+                          "name": "WEB_INCLUDED",
+                          "value": "true"
+                        },
+                        {
+                          "name": "HELP_BASE_URL",
+                          "value": "/help"
+                        },
+                        {
+                          "name": "DATABASE_POOL_SIZE",
+                          "value": "5"
+                        },
+                        {
+                          "name": "DATABASE_MAX_POOL_OVERFLOW",
+                          "value": "3"
+                        },
+                        {
+                          "name": "DATABASE_POOL_TIMEOUT",
+                          "value": "60"
+                        },
+                        {
+                          "name": "DATABASE_POOL_RECYCLE",
+                          "value": "3600"
+                        },
+                        {
+                          "name": "DATABASE_PRE_POOL_PING",
+                          "value": "true"
+                        },
+                        {
+                          "name": "PGVECTOR_POOL_SIZE",
+                          "value": "5"
+                        },
+                        {
+                          "name": "SCHEDULER_POOL_SIZE",
+                          "value": "2"
+                        },
+                        {
+                          "name": "SCHEDULER_MAX_POOL_OVERFLOW",
+                          "value": "0"
+                        },
+                        {
+                          "name": "SCHEDULER_POOL_TIMEOUT",
+                          "value": "300"
+                        },
+                        {
+                          "name": "SCHEDULER_POOL_RECYCLE",
+                          "value": "3600"
+                        },
+                        {
+                          "name": "SCHEDULER_POOL_PRE_PING",
+                          "value": "true"
+                        }
+                      ],
+                      "resources": {
+                        "cpu": "[json('0.5')]",
+                        "memory": "1Gi"
+                      },
+                      "probes": [
+                        {
+                          "type": "Liveness",
+                          "failureThreshold": 3,
+                          "periodSeconds": 10,
+                          "successThreshold": 1,
+                          "tcpSocket": {
+                            "port": 8000
+                          },
+                          "timeoutSeconds": 5
+                        },
+                        {
+                          "type": "Readiness",
+                          "failureThreshold": 48,
+                          "periodSeconds": 5,
+                          "successThreshold": 1,
+                          "tcpSocket": {
+                            "port": 8000
+                          },
+                          "timeoutSeconds": 5
+                        },
+                        {
+                          "type": "Startup",
+                          "failureThreshold": 240,
+                          "initialDelaySeconds": 1,
+                          "periodSeconds": 1,
+                          "successThreshold": 1,
+                          "tcpSocket": {
+                            "port": 8000
+                          },
+                          "timeoutSeconds": 3
+                        }
+                      ]
+                    }
+                  ],
+                  "scale": {
+                    "minReplicas": 1,
+                    "maxReplicas": 1
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "fqdn": {
+              "type": "string",
+              "metadata": {
+                "description": "Container App FQDN"
+              },
+              "value": "[reference(resourceId('Microsoft.App/containerApps', parameters('appName')), '2024-03-01').configuration.ingress.fqdn]"
+            },
+            "url": {
+              "type": "string",
+              "metadata": {
+                "description": "Full HTTPS URL of the container app"
+              },
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', parameters('appName')), '2024-03-01').configuration.ingress.fqdn)]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', 'container-app-env')]",
+        "[resourceId('Microsoft.Resources/deployments', 'postgresql')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "containerAppUrl": {
+      "type": "string",
+      "metadata": {
+        "description": "Full HTTPS URL of the backend container app"
+      },
+      "value": "[reference('container-app').outputs.url.value]"
+    },
+    "aiServicesEndpoint": {
+      "type": "string",
+      "metadata": {
+        "description": "AI Services endpoint URL"
+      },
+      "value": "[reference('ai-foundry').outputs.endpoint.value]"
+    },
+    "aiServicesName": {
+      "type": "string",
+      "metadata": {
+        "description": "AI Services account name"
+      },
+      "value": "[reference('ai-foundry').outputs.aiServicesName.value]"
+    },
+    "postgresServerFqdn": {
+      "type": "string",
+      "metadata": {
+        "description": "PostgreSQL server FQDN"
+      },
+      "value": "[reference('postgresql').outputs.serverFqdn.value]"
+    }
+  }
+}

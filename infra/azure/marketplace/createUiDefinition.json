@@ -1,0 +1,82 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/0.1.2-preview/CreateUIDefinition.MultiVm.json#",
+  "handler": "Microsoft.Azure.CreateUIDef",
+  "version": "0.1.2-preview",
+  "parameters": {
+    "basics": [],
+    "steps": [
+      {
+        "name": "settings",
+        "label": "Settings",
+        "elements": [
+          {
+            "name": "environment",
+            "type": "Microsoft.Common.DropDown",
+            "label": "Environment",
+            "defaultValue": "dev",
+            "toolTip": "Used as a suffix in resource names and passed as the ENV variable to the application.",
+            "constraints": {
+              "allowedValues": [
+                { "label": "dev", "value": "dev" },
+                { "label": "staging", "value": "staging" },
+                { "label": "prod", "value": "prod" }
+              ],
+              "required": true
+            },
+            "visible": true
+          },
+          {
+            "name": "postgresServerName",
+            "type": "Microsoft.Common.TextBox",
+            "label": "PostgreSQL Server Name",
+            "defaultValue": "psql-magnet-ai-CHANGEME-dev",
+            "toolTip": "Globally unique name for the PostgreSQL server. Will become {name}.postgres.database.azure.com.",
+            "constraints": {
+              "required": true,
+              "regex": "^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$",
+              "validationMessage": "Must be 3-63 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen."
+            },
+            "visible": true
+          },
+          {
+            "name": "aiServicesName",
+            "type": "Microsoft.Common.TextBox",
+            "label": "AI Services Account Name",
+            "defaultValue": "mf-magnet-ai-CHANGEME-dev",
+            "toolTip": "Globally unique name for the Azure AI Services account. Will become {name}.cognitiveservices.azure.com.",
+            "constraints": {
+              "required": true,
+              "regex": "^[a-zA-Z0-9][a-zA-Z0-9-]{1,62}[a-zA-Z0-9]$",
+              "validationMessage": "Must be 3-64 characters, letters, numbers, and hyphens only. Cannot start or end with a hyphen."
+            },
+            "visible": true
+          },
+          {
+            "name": "postgresAdminPassword",
+            "type": "Microsoft.Common.PasswordBox",
+            "label": {
+              "password": "PostgreSQL Admin Password (optional)",
+              "confirmPassword": "Confirm Password"
+            },
+            "toolTip": "Leave empty to use the default password 'ChangeMe123!' — you can change it after deployment in the Azure Portal.",
+            "constraints": {
+              "required": false,
+              "regex": "^(|(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9!@#$%^&*]).{8,128})$",
+              "validationMessage": "Password must be 8-128 characters with at least one uppercase, one lowercase, and one number or special character."
+            },
+            "options": {
+              "hideConfirmation": true
+            },
+            "visible": true
+          }
+        ]
+      }
+    ],
+    "outputs": {
+      "environment": "[steps('settings').environment]",
+      "postgresServerName": "[steps('settings').postgresServerName]",
+      "aiServicesName": "[steps('settings').aiServicesName]",
+      "postgresAdminPassword": "[if(equals(steps('settings').postgresAdminPassword, ''), 'ChangeMe123!', steps('settings').postgresAdminPassword)]"
+    }
+  }
+}
