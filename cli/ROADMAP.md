@@ -2,7 +2,7 @@
 
 ## Overview
 
-`magnet` — Go CLI для управления Magnet AI через REST API. Устанавливается как единый бинарник, работает в Claude Code / CI / скриптах.
+`magnet` — Go CLI for managing Magnet AI via REST API. Installed as a single binary, works in Claude Code / CI / scripts.
 
 ```
 magnet [resource] [action] [flags]
@@ -16,13 +16,13 @@ magnet kg search <id> "query"
 
 ---
 
-## Монорепо: структура после добавления `cli/`
+## Monorepo: structure after adding `cli/`
 
 ```
 magnet-ai/
 ├── api/          # Python / Litestar
 ├── web/          # Vue.js / Nx
-├── cli/          # Go CLI  ← новая папка
+├── cli/          # Go CLI  ← new directory
 │   ├── cmd/
 │   │   ├── root.go
 │   │   ├── agents.go
@@ -52,22 +52,22 @@ magnet-ai/
 │   ├── go.sum
 │   ├── Makefile
 │   └── .goreleaser.yaml
-├── package.json               # добавить cli:* scripts
+├── package.json               # add cli:* scripts
 ├── .github/workflows/
-│   ├── ci.yml                 # добавить cli-checks job
-│   └── cli-release.yml        # новый workflow для бинарников
+│   ├── ci.yml                 # add cli-checks job
+│   └── cli-release.yml        # new workflow for binaries
 └── ...
 ```
 
 ---
 
-## Фазы реализации
+## Implementation Phases
 
-### Фаза 1 — Scaffold & Core Infrastructure (1–2 дня)
+### Phase 1 — Scaffold & Core Infrastructure (1–2 days)
 
-**Цель**: проект компилируется, читает конфиг, умеет делать HTTP-запросы с `x-api-key`.
+**Goal**: project compiles, reads config, can make HTTP requests with `x-api-key`.
 
-#### 1.1 Инициализация Go модуля
+#### 1.1 Go Module Initialization
 
 ```bash
 mkdir cli && cd cli
@@ -307,11 +307,11 @@ func main() {
 
 ---
 
-### Фаза 2 — CRUD команды для всех сущностей (3–4 дня)
+### Phase 2 — CRUD Commands for All Resources (3–4 days)
 
-**Цель**: полный CRUD для агентов, коллекций, KG, AI apps, промптов, провайдеров, моделей, API ключей, retrieval tools, MCP серверов.
+**Goal**: full CRUD for agents, collections, KG, AI apps, prompts, providers, models, API keys, retrieval tools, MCP servers.
 
-#### Паттерн команды (пример: `cli/cmd/agents.go`)
+#### Command Pattern (example: `cli/cmd/agents.go`)
 
 ```go
 package cmd
@@ -448,9 +448,9 @@ func truncate(s string, n int) string {
 }
 ```
 
-#### Список команд по сущностям
+#### Command List by Resource
 
-| Файл                       | Команда              | Эндпоинты                                    |
+| File                       | Command              | Endpoints                                    |
 |----------------------------|----------------------|----------------------------------------------|
 | `cmd/agents.go`            | `magnet agents`      | `/api/admin/agents`                          |
 | `cmd/collections.go`       | `magnet collections` | `/api/admin/collections`                     |
@@ -464,13 +464,13 @@ func truncate(s string, n int) string {
 | `cmd/mcp_servers.go`       | `magnet mcp`         | `/api/admin/mcp_servers`                     |
 | `cmd/api_servers.go`       | `magnet api-servers` | `/api/admin/api_servers`                     |
 
-Каждый файл содержит подкоманды: `list`, `get <id>`, `create -f file.yaml`, `update <id> -f file.yaml`, `delete <id>`.
+Each file contains subcommands: `list`, `get <id>`, `create -f file.yaml`, `update <id> -f file.yaml`, `delete <id>`.
 
 ---
 
-### Фаза 3 — Функциональные команды (2–3 дня)
+### Phase 3 — Functional Commands (2–3 days)
 
-#### 3.1 `magnet execute` — разовое выполнение агента
+#### 3.1 `magnet execute` — Single Agent Execution
 
 ```go
 // cmd/execute.go
@@ -492,19 +492,19 @@ var executeCmd = &cobra.Command{
 }
 ```
 
-Флаги:
-- `--agent <id>` — ID агента
-- `--message <text>` — сообщение (или читать из stdin)
-- `--stream` — стримить ответ
+Flags:
+- `--agent <id>` — agent ID
+- `--message <text>` — message (or read from stdin)
+- `--stream` — stream the response
 
-#### 3.2 `magnet chat` — интерактивный диалог
+#### 3.2 `magnet chat` — Interactive Dialog
 
 ```go
 // cmd/chat.go
 // REPL loop: readline -> POST /api/user/agent_conversations/{id}/message -> print
 ```
 
-#### 3.3 `magnet kg search <id> <query>` — поиск в KG
+#### 3.3 `magnet kg search <id> <query>` — Knowledge Graph Search
 
 ```go
 // POST /api/user/knowledge_graph/{id}/search
@@ -515,30 +515,30 @@ body := KnowledgeGraphSearchRequest{
 }
 ```
 
-Флаги: `--top-k 5`, `--threshold 0.7`
+Flags: `--top-k 5`, `--threshold 0.7`
 
-#### 3.4 `magnet transfer export/import` — бэкап конфигурации
+#### 3.4 `magnet transfer export/import` — Configuration Backup
 
 ```go
 // cmd/transfer.go
-// export: GET /api/admin/transfer/export → сохранить в файл
-// import: POST /api/admin/transfer/import ← загрузить из файла
+// export: GET /api/admin/transfer/export → save to file
+// import: POST /api/admin/transfer/import ← load from file
 ```
 
 ---
 
-### Фаза 4 — GitOps: `apply` команда (1 день)
+### Phase 4 — GitOps: `apply` Command (1 day)
 
 ```bash
 magnet apply -f ./magnet-config/
 ```
 
-Рекурсивно читает YAML файлы, для каждого:
-1. Определяет тип ресурса по полю `kind:` или директории
-2. Ищет существующий ресурс по `name`
-3. Создаёт если нет, обновляет если есть (idempotent)
+Recursively reads YAML files, for each:
+1. Determines resource type by `kind:` field or directory
+2. Looks up existing resource by `name`
+3. Creates if not found, updates if exists (idempotent)
 
-Структура YAML файла ресурса:
+Resource YAML file structure:
 ```yaml
 kind: agent
 metadata:
@@ -551,7 +551,7 @@ spec:
 
 ---
 
-### Фаза 5 — Сборка и дистрибуция (1 день)
+### Phase 5 — Build and Distribution (1 day)
 
 #### 5.1 `cli/Makefile`
 
@@ -626,9 +626,9 @@ release:
 
 ---
 
-### Фаза 6 — Интеграция в монорепо (0.5 дня)
+### Phase 6 — Monorepo Integration (0.5 days)
 
-#### 6.1 Добавить в `package.json` (корневой)
+#### 6.1 Add to root `package.json`
 
 ```json
 {
@@ -645,7 +645,7 @@ release:
 }
 ```
 
-#### 6.2 Добавить job в `.github/workflows/ci.yml`
+#### 6.2 Add job to `.github/workflows/ci.yml`
 
 ```yaml
 cli-checks:
@@ -674,9 +674,9 @@ cli-checks:
       run: go vet ./...
 ```
 
-Добавить `cli-checks` в `needs` финального джоба `all-checks-complete`.
+Add `cli-checks` to the `needs` of the final `all-checks-complete` job.
 
-#### 6.3 Новый workflow `.github/workflows/cli-release.yml`
+#### 6.3 New workflow `.github/workflows/cli-release.yml`
 
 ```yaml
 name: CLI Release
@@ -708,7 +708,7 @@ jobs:
 
 ---
 
-## Конфигурация пользователя
+## User Configuration
 
 ```yaml
 # ~/.magnet/config.yaml
@@ -718,26 +718,26 @@ api_key: sk-...
 output: table   # table | json | yaml
 ```
 
-Или через переменные окружения:
+Or via environment variables:
 ```bash
 export MAGNET_BASE_URL=https://magnet.company.com
 export MAGNET_API_KEY=sk-...
 ```
 
-Приоритет: `флаги CLI` > `env vars` > `config file` > `defaults`
+Priority: `CLI flags` > `env vars` > `config file` > `defaults`
 
 ---
 
-## Использование в Claude Code
+## Usage in Claude Code
 
-В `.claude/settings.json` проекта:
+In the project's `.claude/settings.json`:
 ```json
 {
   "mcpServers": {}
 }
 ```
 
-В системном промпте или `CLAUDE.md`:
+In the system prompt or `CLAUDE.md`:
 ```markdown
 ## Magnet AI Tools
 
@@ -747,17 +747,17 @@ Use `magnet` CLI to interact with Magnet AI:
 - `magnet kg search <kg-id> "query"` — search knowledge graph
 ```
 
-Claude Code будет использовать Bash tool для вызова `magnet` команд.
+Claude Code will use the Bash tool to call `magnet` commands.
 
 ---
 
-## Итоговый план спринтов
+## Sprint Summary
 
-| Спринт | Задачи                                           | Результат                        |
+| Sprint | Tasks                                            | Result                           |
 |--------|--------------------------------------------------|----------------------------------|
-| 1      | Scaffold, config, client, output, root cmd       | `magnet --help` работает         |
-| 2      | CRUD: agents, collections, kg, apps              | 4 ресурса полностью              |
-| 3      | CRUD: prompts, providers, models, api-keys       | 4 ресурса полностью              |
-| 4      | CRUD: rag, mcp, api-servers; execute, chat       | Все сущности + функции           |
+| 1      | Scaffold, config, client, output, root cmd       | `magnet --help` works            |
+| 2      | CRUD: agents, collections, kg, apps              | 4 resources complete             |
+| 3      | CRUD: prompts, providers, models, api-keys       | 4 resources complete             |
+| 4      | CRUD: rag, mcp, api-servers; execute, chat       | All resources + functions        |
 | 5      | kg search, transfer export/import, apply cmd     | GitOps workflow                  |
-| 6      | Build pipeline, GoReleaser, monorepo integration | Релиз в GitHub + Homebrew        |
+| 6      | Build pipeline, GoReleaser, monorepo integration | Release to GitHub + Homebrew     |
