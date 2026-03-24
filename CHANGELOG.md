@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.57](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.56...v0.6.0-dev.57) (2026-03-24)
+
+### ✨ Features
+
+* **api:** added diarization option to stt provider creation ([900f07c](https://github.com/ideaportriga/magnet-ai/commit/900f07c8b1e229643b99c30abfb38e44a09a37d2))
+* **api:** added diarization option to stt provider creation, added mistral stt provider support ([6c726a4](https://github.com/ideaportriga/magnet-ai/commit/6c726a4c9a1ae6fcb6d1a5c2d61791433b79e9ff))
+* **api:** added mistral stt provider support ([14ccd81](https://github.com/ideaportriga/magnet-ai/commit/14ccd81faefeef977d63852c5ee6fe1e774f7292))
+
+### 🐛 Bug Fixes
+
+* **api:** fixed lock file ([00606bf](https://github.com/ideaportriga/magnet-ai/commit/00606bfff7c88f20c7f75e05b30d74d3abd798d5))
+* **api:** fixed lock file ([f4dd00b](https://github.com/ideaportriga/magnet-ai/commit/f4dd00b446a0581b3c9b90b1f624fcb7d30f1e91))
+* **api:** fixed migration file, so it changes only diarization column ([7d57f27](https://github.com/ideaportriga/magnet-ai/commit/7d57f27f75f871e8b035939e6c07ab8dd874b027))
+* **api:** litellm was on quarantine, so changed to github link ([ba9b7f1](https://github.com/ideaportriga/magnet-ai/commit/ba9b7f15c336462b267a7f7eadd8fc7fc6c8148d))
+
 ## [0.6.0-dev.56](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.55...v0.6.0-dev.56) (2026-03-19)
 
 ### ✨ Features
