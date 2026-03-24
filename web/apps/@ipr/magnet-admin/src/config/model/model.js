@@ -20,6 +20,7 @@ const featureOptions = [
   { label: 'Structured Outputs', value: 'json_schema' },
   { label: 'Tool Calling', value: 'tool_calling' },
   { label: 'Reasoning', value: 'reasoning' },
+  { label: 'Diarization', value: 'diarization' },
 ]
 
 const controls = {
@@ -137,6 +138,16 @@ const controls = {
     field: 'json_mode',
     component: markRaw(Check),
     display: false,
+    align: 'center',
+    sortable: true,
+  },
+  diarization: {
+    name: 'diarization',
+    type: 'component',
+    display: false,
+    label: 'Diarization',
+    field: 'diarization',
+    component: markRaw(Check),
     align: 'center',
     sortable: true,
   },

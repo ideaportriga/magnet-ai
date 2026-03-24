@@ -130,6 +130,7 @@ export default {
         type: props.type,
         tool_calling: false,
         reasoning: false,
+        diarization: false,
         configs: {},
       }),
       stepper: ref(0),
