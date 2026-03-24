@@ -69,6 +69,13 @@ km-popup-confirm(
         ref='vectorSizeRef'
       )
       .km-description.text-secondary-text Dimension of the embedding vector
+
+  //- Diarization (STT models)
+  template(v-if='newRow.type === "stt"')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-sm Features
+    .row.q-col-gutter-md.q-px-8.q-mb-md
+      .col-6
+        km-checkbox(label='Diarization', v-model='newRow.diarization', dense)
 </template>
 
 <script>
@@ -106,6 +113,7 @@ export default {
         json_schema: false,
         tool_calling: false,
         reasoning: false,
+        diarization: false,
         price_input: '',
         price_output: '',
         price_cached: '',

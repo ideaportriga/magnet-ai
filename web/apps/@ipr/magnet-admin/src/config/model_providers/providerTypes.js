@@ -37,6 +37,7 @@ export const providerTypeOptions = [
   // Audio / Multimodal
   { label: 'ElevenLabs', value: 'elevenlabs' },
   { label: 'Azure Speech', value: 'azure_speech' },
+  { label: 'Mistral STT', value: 'mistral_stt' },
   { label: 'Deepgram', value: 'deepgram' },
   // OCI
   { label: 'OCI', value: 'oci' },
@@ -88,6 +89,7 @@ export const providerEndpointHints = {
   vllm: 'Required. Your vLLM server URL (e.g., http://localhost:8000).',
   lm_studio: 'Required. Your LM Studio server URL (e.g., http://localhost:1234).',
   elevenlabs: 'Leave empty to use official ElevenLabs API.',
+  mistral_stt: 'Leave empty to use official Mistral API for speech-to-text.',
   deepgram: 'Leave empty to use official Deepgram API.',
   oci: 'Required. Your OCI endpoint URL.',
   oci_llama: 'Required. Your OCI Llama endpoint URL.',
@@ -171,6 +173,9 @@ export const providerSecretKeys = {
   lm_studio: [],
   elevenlabs: [
     { key: 'api_key', label: 'API Key', placeholder: 'Your ElevenLabs API key' },
+  ],
+  mistral_stt: [
+    { key: 'api_key', label: 'API Key', placeholder: 'Your Mistral API key' },
   ],
   deepgram: [
     { key: 'api_key', label: 'API Key', placeholder: 'Your Deepgram API key' },

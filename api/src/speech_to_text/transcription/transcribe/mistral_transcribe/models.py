@@ -2,21 +2,24 @@ from __future__ import annotations
 
 import asyncio
 import os
-from typing import Any, Dict, List
+from io import BytesIO
+from typing import Any, Dict
 
-import httpx
+from openai_model.utils import get_model_by_system_name
+from services.ai_services.factory import get_ai_provider
 
 from ...models import TranscriptionCfg
 from ...services.ffmpeg import extract_audio_to_wav
 from ...storage.postgres_storage import PgDataStorage
 from ..base import BaseTranscriber
 
+
 _MISTRAL_CACHE: dict[str, Dict[str, Any]] = {}
 
-MISTRAL_HTTP_CONNECT_TIMEOUT = 10.0
-MISTRAL_HTTP_READ_TIMEOUT = 3600.0
-MISTRAL_HTTP_WRITE_TIMEOUT = 60.0
-MISTRAL_HTTP_POOL_TIMEOUT = 10.0
+
+def _read_bytes(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
 
 
 def _to_dict(obj: Any):
@@ -44,36 +47,19 @@ class MistralVoxtralTranscriber(BaseTranscriber):
     def __init__(self, storage: PgDataStorage, cfg: TranscriptionCfg):
         super().__init__(storage, cfg)
 
-        api_key = os.getenv("MISTRAL_API_KEY")
-        if not api_key:
-            raise RuntimeError("Set MISTRAL_API_KEY")
+        internal = cfg.internal_cfg or {}
 
-        base_url = os.getenv("MISTRAL_BASE_URL", "https://api.mistral.ai").rstrip("/")
+        self._model_system_name: str | None = internal.get("model_system_name")
+        if not self._model_system_name:
+            raise RuntimeError("Missing cfg.internal_cfg['model_system_name']")
 
-        self._api_key = api_key
-        self._endpoint = f"{base_url}/v1/audio/transcriptions"
-
-        self._http = httpx.Client(
-            timeout=httpx.Timeout(
-                connect=MISTRAL_HTTP_CONNECT_TIMEOUT,
-                read=MISTRAL_HTTP_READ_TIMEOUT,
-                write=MISTRAL_HTTP_WRITE_TIMEOUT,
-                pool=MISTRAL_HTTP_POOL_TIMEOUT,
-                timeout=MISTRAL_HTTP_READ_TIMEOUT,
-            )
+        self._language_code = (
+            cfg.language.strip() if isinstance(cfg.language, str) else None
         )
-
-        self._model = os.getenv("MISTRAL_MODEL_ID") or "voxtral-mini-latest"
-        self._language = os.getenv("MISTRAL_LANGUAGE") or None
-
-        # Always ON (your requirement)
-        self._diarize = True
-
-        # Required by Mistral when diarize=true
-        self._timestamp_granularity = "segment"
 
     async def _transcribe(self, file_id: str) -> Dict[str, Any]:
         src_url = await self._storage.get_audio_url(file_id)
+
         tmp_wav = await asyncio.to_thread(
             extract_audio_to_wav, src_path=src_url, sr=16_000
         )
@@ -89,29 +75,45 @@ class MistralVoxtralTranscriber(BaseTranscriber):
             except Exception:
                 pass
 
-            def _call_http() -> Dict[str, Any]:
-                headers = {"Authorization": f"Bearer {self._api_key}"}
+            model_cfg = await get_model_by_system_name(self._model_system_name)
+            if not model_cfg:
+                raise ValueError(f"STT model '{self._model_system_name}' not found")
 
-                form: Dict[str, str] = {
-                    "model": self._model,
-                    "diarize": "true",
-                    "timestamp_granularities": self._timestamp_granularity,  # "segment"
-                }
-                if self._language:
-                    form["language"] = self._language
+            provider_system_name = model_cfg.get("provider_system_name")
+            if not isinstance(provider_system_name, str) or not provider_system_name:
+                raise ValueError(
+                    f"Model '{self._model_system_name}' does not have provider_system_name configured"
+                )
 
-                with open(tmp_wav, "rb") as f:
-                    files = {"file": ("audio.wav", f, "audio/wav")}
-                    r = self._http.post(
-                        self._endpoint, headers=headers, data=form, files=files
-                    )
+            model_id = (
+                model_cfg.get("ai_model")
+                or model_cfg.get("model_id")
+                or model_cfg.get("model")
+            )
+            if not isinstance(model_id, str) or not model_id:
+                raise ValueError(
+                    f"Model '{self._model_system_name}' is missing model id"
+                )
 
-                if r.status_code >= 400:
-                    raise RuntimeError(f"Mistral error {r.status_code}: {r.text}")
+            provider = await get_ai_provider(provider_system_name)
 
-                return r.json()
+            file_bytes = await asyncio.to_thread(_read_bytes, tmp_wav)
 
-            raw_payload = await asyncio.to_thread(_call_http)
+            stt_opts: dict[str, Any] = {
+                "diarize": True,
+                "timestamp_granularities": ["segment"],
+                "model_cfg": model_cfg,
+            }
+
+            if self._cfg.keyterms:
+                stt_opts["keyterms"] = self._cfg.keyterms
+
+            tx = await provider.transcribe(
+                file=BytesIO(file_bytes),
+                model=model_id,
+                language=self._language_code,
+                model_config=stt_opts,
+            )
 
         finally:
             try:
@@ -119,25 +121,42 @@ class MistralVoxtralTranscriber(BaseTranscriber):
             except OSError:
                 pass
 
-        payload = _to_dict(raw_payload) or {}
+        text = tx.text or ""
 
-        segments_out: List[Dict[str, Any]] = []
-        segs = _to_dict(payload.get("segments") or []) or []
+        segments_raw = tx.segments or []
+        segments = []
 
-        for seg in segs:
-            seg = _to_dict(seg) or {}
-            t = seg.get("text") or seg.get("transcript") or ""
-            s = seg.get("start")
-            e = seg.get("end", s)
-            if s is None or e is None:
+        for seg in segments_raw:
+            s = _to_dict(seg) or {}
+            t = s.get("text") or s.get("transcript") or ""
+            start = s.get("start")
+            end = s.get("end", start)
+            if start is None or end is None:
                 continue
-            segments_out.append({"start": float(s), "end": float(e), "text": str(t)})
+            segments.append(
+                {
+                    "start": float(start),
+                    "end": float(end),
+                    "text": str(t),
+                }
+            )
 
-        text = (
-            payload.get("text", "") or " ".join(x["text"] for x in segments_out).strip()
-        )
+        words_raw = tx.words or []
+        words = [_to_dict(w) for w in words_raw]
 
-        res = {"text": text, "segments": segments_out}
+        payload = {
+            "text": tx.text,
+            "language": tx.language,
+            "duration": tx.duration,
+            "segments": tx.segments,
+            "words": words,
+        }
+
+        res = {
+            "text": text or " ".join(x["text"] for x in segments).strip(),
+            "segments": segments,
+        }
+
         _MISTRAL_CACHE[file_id] = {"payload": payload}
         return res
 

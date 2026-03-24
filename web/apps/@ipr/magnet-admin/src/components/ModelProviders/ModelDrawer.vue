@@ -65,6 +65,11 @@
           km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
           .km-description.text-secondary-text.q-pl-8.q-pt-xs Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
 
+      // Features section for stt models
+      template(v-if='type === "stt"')
+        .km-title Features
+        km-checkbox(label='Diarization', :model-value='diarization', @update:model-value='diarization = $event')
+
     .column.q-gap-16.q-pa-16(v-if='tab == "pricing"')
       .km-title Inputs
       div
@@ -533,6 +538,14 @@ export default {
       },
       set(value) {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'json_schema', value })
+      },
+    },
+    diarization: {
+      get() {
+        return this.modelConfig?.diarization || false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'diarization', value })
       },
     },
     tool_calling: {

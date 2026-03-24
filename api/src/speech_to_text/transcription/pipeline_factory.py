@@ -163,7 +163,14 @@ async def build_pipeline(
 
     if provider_type in ("mistral_stt", "mistral-voxtral", "mistral"):
         stt = MistralVoxtralTranscriber(storage, cfg)
-        dr = MistralVoxtralDiarization(storage, DiarizationCfg(model="mistral-voxtral"))
+        diar_cfg = DiarizationCfg(
+            model="mistral-voxtral",
+            internal_cfg={
+                **({"num_speakers": num_speakers} if num_speakers is not None else {}),
+                **({"diarization_threshold": thr} if thr is not None else {}),
+            },
+        )
+        dr = MistralVoxtralDiarization(storage, diar_cfg)
         return TranscriptionPipeline(stt, dr, storage)
 
     raise ValueError(
