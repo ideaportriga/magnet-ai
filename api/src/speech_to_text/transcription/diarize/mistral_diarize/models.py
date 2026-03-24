@@ -39,8 +39,9 @@ class MistralVoxtralDiarization(BaseDiarization):
         cached = _drain_cached(file_id) or {}
         payload: Dict[str, Any] = cached.get("payload") or {}
 
-        segs = _to_dict(payload.get("segments") or []) or []
-        if not segs:
+        raw_segments = _to_dict(payload.get("segments") or []) or []
+
+        if not raw_segments:
             meta = await self._storage.get_meta(file_id)
             tx = getattr(meta, "transcription", None) or {}
             fallback = tx.get("segments", [])
@@ -55,14 +56,20 @@ class MistralVoxtralDiarization(BaseDiarization):
             return []
 
         events: List[Dict[str, Any]] = []
-        for seg in segs:
-            seg = _to_dict(seg) or {}
-            spk = seg.get("speaker") or seg.get("speaker_id") or "unknown"
-            s = seg.get("start")
-            e = seg.get("end", s)
-            if s is None or e is None:
+        for seg in raw_segments:
+            s = _to_dict(seg) or {}
+            speaker = s.get("speaker") or s.get("speaker_id") or "unknown"
+            start = s.get("start")
+            end = s.get("end", start)
+            if start is None or end is None:
                 continue
-            events.append({"speaker": str(spk), "start": float(s), "end": float(e)})
+            events.append(
+                {
+                    "speaker": str(speaker),
+                    "start": float(start),
+                    "end": float(end),
+                }
+            )
 
         if not events:
             return []
@@ -77,9 +84,9 @@ class MistralVoxtralDiarization(BaseDiarization):
 
         def norm_speaker(raw: str) -> str:
             nonlocal next_idx
-            if raw in {"unknown", "", None}:
-                return "unknown"
-            raw = str(raw)
+            raw = str(raw or "unknown")
+            if raw == "unknown":
+                return raw
             if raw not in spk_map:
                 spk_map[raw] = f"speaker_{next_idx}"
                 next_idx += 1
@@ -93,9 +100,9 @@ class MistralVoxtralDiarization(BaseDiarization):
         cur_end: Optional[float] = None
 
         for ev in events:
-            spk = norm_speaker(ev.get("speaker") or "unknown")
-            s = float(ev.get("start", 0.0))
-            e = float(ev.get("end", s))
+            spk = norm_speaker(ev["speaker"])
+            s = float(ev["start"])
+            e = float(ev["end"])
 
             if cur_spk is None:
                 cur_spk, cur_start, cur_end = spk, s, e
