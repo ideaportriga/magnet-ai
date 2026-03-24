@@ -3,22 +3,19 @@
     <q-card class="kg-confirm-dialog" :style="dialogStyle">
       <!-- Header -->
       <q-card-section class="kg-confirm-dialog__header">
-        <div class="row items-center">
-          <div class="col">
-            <div class="km-heading-7">{{ title }}</div>
+        <div class="row items-center no-wrap q-gutter-x-sm">
+          <div v-if="icon" class="kg-confirm-dialog__icon" :class="`kg-confirm-dialog__icon--${iconVariant}`">
+            <q-icon :name="icon" size="20px" />
           </div>
-          <div class="col-auto">
-            <q-btn icon="close" flat dense @click="$emit('update:modelValue', false)" />
-          </div>
+          <div class="col kg-confirm-dialog__title">{{ title }}</div>
+          <q-btn icon="close" flat dense round size="sm" color="grey-6" @click="$emit('update:modelValue', false)" />
         </div>
       </q-card-section>
 
       <!-- Description -->
-      <q-card-section v-if="description" class="kg-confirm-dialog__description">
-        <div class="km-description text-secondary-text">
-          <span v-if="!$slots.description" class="text-weight-medium">{{ description }}</span>
-          <slot name="description" />
-        </div>
+      <q-card-section v-if="description || $slots.description" class="kg-confirm-dialog__description">
+        <span v-if="!$slots.description">{{ description }}</span>
+        <slot name="description" />
       </q-card-section>
 
       <!-- Content (options, warnings, etc.) -->
@@ -35,21 +32,16 @@
 
       <!-- Actions -->
       <q-card-actions class="kg-confirm-dialog__actions">
-        <div class="col-auto">
-          <km-btn flat :label="cancelLabel" color="primary" @click="$emit('update:modelValue', false)" />
-        </div>
-        <div class="col" />
-        <div class="col-auto">
-          <km-btn
-            :label="confirmLabel"
-            :bg="destructive ? 'error-bg' : undefined"
-            :hover-bg="destructive ? 'error-text' : undefined"
-            :color="destructive ? 'error-text' : 'primary'"
-            :loading="loading"
-            :disable="disableConfirm"
-            @click="$emit('confirm')"
-          />
-        </div>
+        <km-btn flat :label="cancelLabel" color="grey-7" @click="$emit('update:modelValue', false)" />
+        <q-space />
+        <km-btn
+          :label="confirmLabel"
+          :bg="destructive ? 'error-bg' : undefined"
+          :hover-bg="destructive ? 'error-text' : undefined"
+          :color="destructive ? 'error-text' : ''"
+          :disable="disableConfirm"
+          @click="$emit('confirm')"
+        />
       </q-card-actions>
 
       <q-inner-loading :showing="loading" />
@@ -74,6 +66,8 @@ interface Props {
   disableConfirm?: boolean
   width?: string
   height?: string
+  icon?: string
+  iconVariant?: 'error' | 'warning' | 'info'
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -83,8 +77,9 @@ const props = withDefaults(defineProps<Props>(), {
   destructive: false,
   loading: false,
   disableConfirm: false,
-  width: '676px',
+  width: '460px',
   height: 'auto',
+  iconVariant: 'error',
 })
 
 defineEmits<{
@@ -95,7 +90,6 @@ defineEmits<{
 const dialogStyle = computed(() => ({
   width: props.width,
   minHeight: props.height === 'auto' ? undefined : props.height,
-  padding: '32px',
 }))
 </script>
 
@@ -103,6 +97,33 @@ const dialogStyle = computed(() => ({
 .kg-confirm-dialog {
   display: flex;
   flex-direction: column;
+  padding: 24px;
+  border-radius: 12px;
+}
+
+.kg-confirm-dialog__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+}
+
+.kg-confirm-dialog__icon--error {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.kg-confirm-dialog__icon--warning {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.kg-confirm-dialog__icon--info {
+  background: #dbeafe;
+  color: #2563eb;
 }
 
 .kg-confirm-dialog__header,
@@ -112,8 +133,19 @@ const dialogStyle = computed(() => ({
   padding: 0 !important;
 }
 
+.kg-confirm-dialog__title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: #111827;
+}
+
 .kg-confirm-dialog__description {
-  margin-top: 16px;
+  margin-top: 14px;
+  padding-left: 2px !important;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
 }
 
 .kg-confirm-dialog__content {
@@ -121,12 +153,12 @@ const dialogStyle = computed(() => ({
 }
 
 .kg-confirm-dialog__warning {
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .kg-confirm-dialog__actions {
-  margin-top: auto;
-  padding: 30px 0 0 0 !important;
+  margin-top: 20px;
+  padding: 0 !important;
+  gap: 8px;
 }
 </style>
-

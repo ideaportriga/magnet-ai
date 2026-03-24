@@ -43,6 +43,7 @@ async def create_api_client_session(
                     password=password,
                     token_url=token_url,
                     custom_headers=api_server.custom_headers,
+                    verify_ssl=api_server.verify_ssl,
                 )
 
                 return client
@@ -62,6 +63,7 @@ async def create_api_client_session(
                     client_secret=client_secret,
                     token_url=token_url,
                     custom_headers=api_server.custom_headers,
+                    verify_ssl=api_server.verify_ssl,
                 )
 
                 return client
@@ -79,6 +81,7 @@ async def create_api_client_session(
                     username=username,
                     password=password,
                     custom_headers=api_server.custom_headers,
+                    verify_ssl=api_server.verify_ssl,
                 )
 
                 return client
@@ -105,6 +108,7 @@ async def create_api_client_session(
                     header_name=header_name,
                     header_value=header_value,
                     custom_headers=api_server.custom_headers,
+                    verify_ssl=api_server.verify_ssl,
                 )
 
                 return client

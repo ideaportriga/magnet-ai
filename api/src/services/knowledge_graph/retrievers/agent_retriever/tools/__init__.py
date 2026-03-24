@@ -22,10 +22,11 @@ from __future__ import annotations
 
 import copy
 import importlib
-import json
 import pkgutil
 from types import ModuleType
 from typing import Any
+
+from .find_documents_by_metadata import build_find_documents_by_metadata_description
 
 ToolSpec = dict[str, Any]
 
@@ -174,8 +175,8 @@ def get_available_tools(
             parameters["required"] = required
 
         # Metadata filter tool special casing:
-        # - external: agent cannot provide `filter` (only reasoning)
-        # - collaborative: agent may provide optional `filter` (merged with external input)
+        # - external: agent cannot provide `details` (only reasoning)
+        # - collaborative: agent may provide optional `details` (merged with external input)
         if tool_name == "findDocumentsByMetadata":
             sc = str(tool_cfg_d.get("searchControl") or "").strip().lower()
             parameters = tool_spec["function"]["parameters"]
@@ -187,33 +188,21 @@ def get_available_tools(
                 required = []
 
             if sc == "external":
-                properties.pop("filter", None)
-                required = [r for r in required if r != "filter"]
+                properties.pop("details", None)
+                required = [r for r in required if r != "details"]
             elif sc == "collaborative":
-                # Make filter optional for the agent; external input may be enough.
-                required = [r for r in required if r != "filter"]
+                # Make details optional for the agent; external input may be enough.
+                required = [r for r in required if r != "details"]
 
             parameters["properties"] = properties
             parameters["required"] = required
 
-            # Append the full schema (field_definitions) so the model knows available fields/values.
-            if metadata_field_definitions:
-                try:
-                    schema_str = json.dumps(
-                        metadata_field_definitions,
-                        ensure_ascii=False,
-                        indent=2,
-                        default=str,
-                    )
-                except Exception:
-                    schema_str = str(metadata_field_definitions)
-
-                tool_spec["function"]["description"] = (
-                    str(tool_spec["function"].get("description") or "").rstrip()
-                    + "\n\n"
-                    + "Metadata field schema (graph settings: metadata.field_definitions):\n"
-                    + schema_str
+            tool_spec["function"]["description"] = (
+                build_find_documents_by_metadata_description(
+                    description=tool_spec["function"].get("description"),
+                    metadata_field_definitions=metadata_field_definitions,
                 )
+            )
 
         available_tools.append(tool_spec)
 
@@ -232,4 +221,71 @@ def get_available_tools(
     return available_tools
 
 
-__all__ = ["get_available_tools"]
+_FULL_SEARCH_SPEC: dict[str, Any] = {
+    "name": "fullSearch",
+    "system_name": "fullSearch",
+    "description": (
+        "Search the entire knowledge graph using an autonomous ReAct retrieval agent. "
+        "The agent autonomously decides which retrieval strategies to use "
+        "(chunk similarity, document summary, metadata filtering) to best answer the query."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "The user query to search for in the knowledge graph.",
+            },
+        },
+        "required": ["query"],
+        "additionalProperties": False,
+    },
+}
+
+
+def get_agent_tool_specs() -> list[dict[str, Any]]:
+    """
+    Return tool specs formatted for the agent tool selection UI.
+
+    Each entry contains ``name``, ``system_name``, ``description`` and
+    ``parameters`` (with the internal ``reasoning`` field stripped).
+    The ``exit`` tool is excluded because it is internal to the ReAct loop.
+    ``fullSearch`` is prepended as a synthetic spec representing the full ReAct loop.
+    """
+
+    specs: list[dict[str, Any]] = [_FULL_SEARCH_SPEC]
+    for module in _iter_tool_modules():
+        tool_spec = getattr(module, "TOOL_SPEC", None)
+        if not isinstance(tool_spec, dict):
+            continue
+
+        fn = tool_spec.get("function")
+        if not isinstance(fn, dict):
+            continue
+
+        name = (fn.get("name") or "").strip()
+        if not name or name == "exit":
+            continue
+
+        # Deep-copy parameters and strip "reasoning" (internal to ReAct loop).
+        params: dict[str, Any] = copy.deepcopy(fn.get("parameters", {}))
+        if "properties" in params:
+            params["properties"] = {
+                k: v for k, v in params["properties"].items() if k != "reasoning"
+            }
+        if "required" in params:
+            params["required"] = [r for r in params["required"] if r != "reasoning"]
+
+        specs.append(
+            {
+                "name": name,
+                "system_name": name,
+                "description": fn.get("description", ""),
+                "parameters": params,
+            }
+        )
+
+    return specs
+
+
+__all__ = ["get_available_tools", "get_agent_tool_specs"]

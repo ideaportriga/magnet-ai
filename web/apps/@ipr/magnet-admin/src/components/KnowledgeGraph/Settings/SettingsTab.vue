@@ -111,7 +111,7 @@ const saveSettings = async () => {
     }
     const res = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${props.graphId}`,
+      service: `knowledge_graphs/${props.graphId}`,
       method: 'PATCH',
       credentials: 'include',
       body: JSON.stringify(payload),

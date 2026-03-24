@@ -1,16 +1,40 @@
 <template lang="pug">
-.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(style='max-width: 500px; min-width: 500px !important')
-  .column.full-height
+.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(style='max-width: 500px; min-width: 500px !important; overflow-x: hidden')
+  .column.full-height.full-width.no-wrap
     .col-auto.km-heading-7.q-mb-xs
       .row
         .col Preview
         .col-auto
           km-btn(flat, simple, label='Evaluate', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
     q-separator.q-mb-md
-    .col-auto
-      .km-heading-5.text-text-grey Input
+    .col-auto(style='overflow-x: auto')
+      .row.items-center.q-mb-xs
+        .col
+          .km-heading-5.text-text-grey Input
+        .col-auto
+          q-btn(
+            flat,
+            round,
+            dense,
+            icon='code',
+            :color="inputViewMode === 'code' ? 'primary' : 'grey-5'",
+            @click="inputViewMode = 'code'"
+          )
+            q-tooltip.bg-white.block-shadow.km-description.text-text-grey Show raw input
+          q-btn(
+            flat,
+            round,
+            dense,
+            icon='visibility',
+            :color="inputViewMode === 'preview' ? 'primary' : 'grey-5'",
+            @click="inputViewMode = 'preview'"
+          )
+            q-tooltip.bg-white.block-shadow.km-description.text-text-grey Show rendered preview
 
+      div.prompt-locked.markdown-content(v-show="inputViewMode === 'preview'")
+        div(v-html='inputRenderedHtml')
       km-input(
+        v-show="inputViewMode === 'code'",
         data-test='preview-input',
         ref='input',
         rows='10',
@@ -23,20 +47,69 @@
         type='textarea'
       )
       .km-field.text-secondary-text Plain text or JSON
-
       .q-mt-md
-        q-file(
-          outlined,
-          clearable,
-          label='File upload',
-          v-model='files',
-          multiple,
-          accept='.pdf',
-          @update:model-value='handleFilesUpload',
-          :loading='fileUploadInProgress'
-        )
-          template(v-slot:append)
-            q-icon(name='attach_file')
+      .row.q-mt-sm.items-center
+        .col-auto
+          km-select-flat(
+            placeholder='Input Options',
+            :options='inputOptions',
+            :model-value='selectedInputOptionOption',
+            @update:model-value='onInputOptionSelect'
+          )
+      template(v-if='selectedInputOption === "pdf"')
+        .q-mt-md
+          km-file-picker(
+            :model-value='files',
+            accept='.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.ods,.rtf,.html,.htm,.csv,.tsv,.txt,.md,.eml,.epub,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff',
+            multiple,
+            :loading='fileUploadInProgress',
+            hint='Drop files or click to browse (PDF, Word, Excel, PowerPoint, images, etc.)',
+            @update:model-value='onFilePickerUpdate'
+          )
+      template(v-if='selectedInputOption === "audio"')
+        .q-mt-md
+          km-file-picker(
+            :model-value='audioFiles',
+            accept='.flac,.m4a,.mp3,.ogg,.wav,.webm,.mp4',
+            :loading='audioUpload.isUploading.value',
+            :loading-text='audioUpload.uploadStatus.value',
+            hint='Drop audio file or click to browse',
+            @update:model-value='onAudioFilePickerUpdate'
+          )
+          .row(v-if='audioUpload.error.value').q-mt-xs
+            .col.text-negative.text-body2 {{ audioUpload.error.value }}
+      template(v-if='selectedInputOption === "speech"')
+        .q-mt-md
+          .row.items-center
+            .col-auto.q-mr-sm
+              q-btn(
+                v-if='!scribe.isConnected.value',
+                outline,
+                color='primary',
+                @click='startTranscription',
+                size='sm',
+                padding='6px 12px'
+              )
+                q-icon(name='fas fa-microphone', size='14px', class='q-mr-xs')
+                | Start recording
+              q-btn(
+                v-else,
+                outline,
+                color='error-text',
+                @click='stopTranscription',
+                size='sm',
+                padding='6px 12px'
+              )
+                q-icon(name='fas fa-stop', size='14px', class='q-mr-xs')
+                | Stop recording
+            .col(v-if='isLoadingToken || scribe.isConnected.value')
+              q-spinner(v-if='isLoadingToken', size='20px', color='primary')
+              span(v-else-if='scribe.isConnected.value').text-error-text
+                span.q-mr-xs ●
+                | Recording…
+          .row(v-if='scribe.error.value').q-mt-xs
+            .col.text-negative.text-body2 {{ scribe.error.value }}
+      .q-mt-md
 
       .row.justify-end
         .col-auto.q-my-md
@@ -71,7 +144,7 @@
             )
           .col-auto
             q-toggle(v-model='markdown', label='Markdown', color='primary')
-    q-scroll-area.full-height.col
+    q-scroll-area.col(style='min-height: 0')
       template(v-if='loading')
         .row.justify-center
           q-spinner-dots(size='62px', color='primary')
@@ -129,15 +202,35 @@ import { defineComponent, ref } from 'vue'
 import { copyToClipboard } from 'quasar'
 import { useStore } from 'vuex'
 import { fetchData } from '@shared'
+import { useScribe } from '@/composables/useScribe'
+import { useAudioUpload } from '@/composables/useAudioUpload'
+import MarkdownIt from 'markdown-it'
 
 export default defineComponent({
   props: ['open'],
   emits: ['update:open'],
   setup() {
     const store = useStore()
+    const scribe = useScribe({ modelId: 'scribe_v2_realtime' })
+    const audioUpload = useAudioUpload({
+      endpoint: () => store.getters.config?.api?.aiBridge?.urlAdmin ?? '',
+      credentials: 'include',
+      language: 'en',
+    })
+    const isLoadingToken = ref(false)
+    const transcriptionBaseText = ref('')
+    const selectedInputOption = ref(null)
+    const md = new MarkdownIt({ html: false, breaks: true })
 
     return {
       store,
+      scribe,
+      audioUpload,
+      isLoadingToken,
+      transcriptionBaseText,
+      selectedInputOption,
+      markdownRenderer: md,
+      inputViewMode: ref('code'),
       detailedResponse: ref(undefined),
       showDetails: ref(false),
       testText: ref(''),
@@ -149,6 +242,7 @@ export default defineComponent({
       evaluationIds: ref(''),
       evaluationResults: ref({}),
       files: ref([]),
+      audioFiles: ref([]),
       fileUploadInProgress: ref(false),
     }
   },
@@ -164,6 +258,42 @@ export default defineComponent({
     },
     promptTemplateTestSetItem() {
       return this.$store.getters.promptTemplateTestSetItem
+    },
+    inputOptions() {
+      return [
+        { label: 'Manual input', value: null },
+        { label: 'Document upload', value: 'pdf' },
+        { label: 'Audio upload', value: 'audio' },
+        { label: 'Speech to Text', value: 'speech' },
+      ]
+    },
+    selectedInputOptionOption() {
+      if (!this.selectedInputOption) return null
+      return this.inputOptions.find((o) => o.value === this.selectedInputOption) ?? null
+    },
+    inputRenderedHtml() {
+      const input = this.testText || ''
+      const varRegex = /\{[A-Za-z_][A-Za-z0-9_]*\}/g
+      const vars = []
+      const textForMd = input.replace(varRegex, (match) => {
+        const varName = match.slice(1, -1)
+        const idx = vars.length
+        vars.push(varName)
+        return `\u200B__VAR${idx}__\u200B`
+      })
+      let html = this.markdownRenderer.render(textForMd)
+      vars.forEach((varName, idx) => {
+        const placeholder = `\u200B__VAR${idx}__\u200B`
+        const escaped = varName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        html = html.split(placeholder).join(`<span class="prompt-var-chip">${escaped}</span>`)
+      })
+      return html
+    },
+    scribeCommitted() {
+      return this.scribe.committedTranscripts?.value ?? []
+    },
+    scribePartial() {
+      return this.scribe.partialTranscript?.value ?? ''
     },
   },
   watch: {
@@ -184,8 +314,98 @@ export default defineComponent({
         }
       },
     },
+    open(newVal) {
+      if (!newVal && this.scribe.isConnected.value) {
+        this.scribe.pause()
+        this.testText = this.buildTranscriptString()
+        this.scribe.disconnect()
+        this.scribe.error.value = null
+      }
+    },
+    scribeCommitted: {
+      handler() {
+        if (this.scribe.isConnected.value) {
+          this.testText = this.buildTranscriptString()
+        }
+      },
+      deep: true,
+    },
+    scribePartial() {
+      if (this.scribe.isConnected.value) {
+        this.testText = this.buildTranscriptString()
+      }
+    },
   },
   methods: {
+    buildTranscriptString() {
+      const parts = this.scribe.committedTranscripts.value.map((t) => t.text)
+      const partial = this.scribe.partialTranscript.value?.trim()
+      if (partial) parts.push(partial)
+      const suffix = parts.join('\n\n').trim()
+      const base = this.transcriptionBaseText?.trim() ?? ''
+      return base ? (suffix ? `${base}\n\n${suffix}` : base) : suffix
+    },
+    async getScribeToken() {
+      const endpoint = this.store.getters.config.api.aiBridge.urlAdmin
+      const response = await fetchData({
+        method: 'GET',
+        endpoint,
+        credentials: 'include',
+        service: 'recordings/scribe-token',
+      })
+      if (response.error) throw response.error
+      const data = await response.json()
+      return data?.token ?? data?.key ?? data
+    },
+    async startTranscription() {
+      this.scribe.error.value = null
+      this.isLoadingToken = true
+      try {
+        const token = await this.getScribeToken()
+        this.transcriptionBaseText = this.testText || ''
+        await this.scribe.connect({
+          token,
+          microphone: { echoCancellation: true, noiseSuppression: true },
+        })
+      } catch (e) {
+        const msg = e?.response?.data?.detail ?? e?.message ?? e?.detail ?? String(e)
+        this.scribe.error.value = msg
+      } finally {
+        this.isLoadingToken = false
+      }
+    },
+    stopTranscription() {
+      this.scribe.pause()
+      this.testText = this.buildTranscriptString()
+      this.scribe.disconnect()
+      // this.selectedInputOption = null
+    },
+    onInputOptionSelect(option) {
+      this.selectedInputOption = option?.value ?? null
+    },
+    onFilePickerUpdate(value) {
+      this.files = value
+      const arr = Array.isArray(value) ? value : value ? [value] : []
+      this.handleFilesUpload(arr)
+    },
+    async onAudioFilePickerUpdate(value) {
+      const file = Array.isArray(value) ? value?.[0] : value
+      if (!file) {
+        this.audioFiles = []
+        this.audioUpload.reset()
+        return
+      }
+      this.audioFiles = [file]
+      this.audioUpload.reset()
+      try {
+        const { segments } = await this.audioUpload.uploadAndTranscribe(file)
+        this.testText = JSON.stringify(segments, null, 2)
+        this.audioFiles = []
+        this.selectedInputOption = null
+      } catch {
+        // error shown via audioUpload.error
+      }
+    },
     navigateToEval() {
       const query = {
         job_id: this.evaluationResults?.job_id,
@@ -217,6 +437,7 @@ export default defineComponent({
       event.preventDefault()
       this.text = undefined
       this.loading = true
+      this.selectedInputOption = null
 
       this.detailedResponse =
         (await this.$store.dispatch('enhanceTextDetails', {
@@ -257,7 +478,8 @@ export default defineComponent({
       } catch (error) {
         console.error('Error parsing files:', error)
       }
-
+      this.selectedInputOption = null
+      this.files = []
       this.fileUploadInProgress = false
     },
 
@@ -297,3 +519,106 @@ export default defineComponent({
   },
 })
 </script>
+
+<style lang="stylus" scoped>
+.prompt-locked
+  background: #f7f7f9
+  border-radius: 8px
+  padding: 12px 16px
+  min-height: 120px
+  max-height: 220px
+  overflow-y: auto
+  font-size: 12px
+
+.prompt-locked :deep(.prompt-var-chip)
+  display: inline-flex
+  align-items: center
+  padding: 2px 8px
+  margin: 2px 2px
+  border-radius: 4px
+  font-size: 12px
+  font-weight: 500
+  border: 1px solid var(--q-primary)
+  color: var(--q-primary)
+  background: transparent
+
+.prompt-locked :deep(p)
+  margin: 0 0 8px 0
+  line-height: 1.5
+
+.prompt-locked :deep(p:last-child)
+  margin-bottom: 0
+
+.prompt-locked :deep(ul),
+.prompt-locked :deep(ol)
+  padding-left: 20px
+  margin: 0 0 8px 0
+
+.prompt-locked :deep(table)
+  border-collapse: collapse
+  border: 1px solid rgba(0, 0, 0, 0.12)
+  margin: 0 0 8px 0
+  width: auto
+  font-size: inherit
+
+.prompt-locked :deep(th),
+.prompt-locked :deep(td)
+  border: 1px solid rgba(0, 0, 0, 0.12)
+  padding: 6px 10px
+  text-align: left
+  font-size: inherit
+
+.prompt-locked :deep(pre),
+.prompt-locked :deep(code)
+  background: rgba(0, 0, 0, 0.06)
+  border-radius: 4px
+  padding: 2px 6px
+  font-size: 12px
+
+.prompt-locked :deep(pre)
+  padding: 12px
+  overflow-x: auto
+  white-space: pre-wrap
+
+.prompt-locked :deep(h1),
+.prompt-locked :deep(h2),
+.prompt-locked :deep(h3),
+.prompt-locked :deep(h4),
+.prompt-locked :deep(h5),
+.prompt-locked :deep(h6)
+  margin: 12px 0 6px 0
+  line-height: 1.3
+  font-size: 18px
+  font-weight: 600
+
+.prompt-locked :deep(h2)
+  font-size: 16px
+
+.prompt-locked :deep(h3)
+  font-size: 15px
+
+.prompt-locked :deep(h4)
+  font-size: 14px
+
+.prompt-locked :deep(h5)
+  font-size: 13px
+
+.prompt-locked :deep(h6)
+  font-size: 12px
+
+.prompt-locked :deep(h1:first-child),
+.prompt-locked :deep(h2:first-child),
+.prompt-locked :deep(h3:first-child),
+.prompt-locked :deep(h4:first-child)
+  margin-top: 0
+
+.prompt-locked :deep(strong)
+  font-weight: 600
+
+.prompt-locked :deep(a)
+  color: var(--q-primary)
+  text-decoration: none
+
+.prompt-locked :deep(a:hover)
+  text-decoration: underline
+</style>

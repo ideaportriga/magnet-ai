@@ -4,7 +4,7 @@
     .col-auto.km-heading-7.q-mb-xs Preview
     q-separator.q-mb-md
     .col
-      .column.full-height.q-pb-md.relative-position
+      .column.no-wrap.full-height.q-pb-md.relative-position
         retrieval-metadata-filter(v-model='metadataFilter', :sources='[knowledgeSystemName]')
         q-separator.q-mt-md.q-mb-md
         .column.search-prompt-container.border-radius-12.q-mb-16.full-width.q-gap-8

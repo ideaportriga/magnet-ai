@@ -143,6 +143,12 @@ kubectl apply -f magnet-ai.yaml
 oc -n magnet-ai expose service/magnet-ai --hostname=magnet.yourdomain.com
 ```
 
+> **Important:** The default OpenShift HAProxy router timeout is **30 seconds**. AI/LLM requests (especially agent workflows with tool calls) regularly exceed this limit, resulting in **504 Gateway Time-out** errors visible only on the frontend while the backend continues processing normally. Increase the route timeout:
+>
+> ```bash
+> oc -n magnet-ai annotate route/magnet-ai haproxy.router.openshift.io/timeout=5m --overwrite
+> ```
+
 ### 6. Verify
 
 ```bash

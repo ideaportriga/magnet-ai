@@ -56,8 +56,11 @@ class DeepResearchConfigController(Controller):
         self,
         config_service: DeepResearchConfigService,
         data: Annotated[DeepResearchConfigCreateSchema, Body()],
+        audit_username: str | None,
     ) -> DeepResearchConfigSchema:
         """Create a new deep research config."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await config_service.create(data)
         return config_service.to_schema(obj, schema_type=DeepResearchConfigSchema)
 
@@ -95,9 +98,14 @@ class DeepResearchConfigController(Controller):
             title="Config ID",
             description="The config to update.",
         ),
+        audit_username: str | None = None,
     ) -> DeepResearchConfigSchema:
         """Update a deep research config."""
-        obj = await config_service.update(data, item_id=config_id, auto_commit=True)
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
+        obj = await config_service.update(
+            update_data, item_id=config_id, auto_commit=True
+        )
         return config_service.to_schema(obj, schema_type=DeepResearchConfigSchema)
 
     @delete("/{config_id:uuid}", status_code=HTTP_204_NO_CONTENT)

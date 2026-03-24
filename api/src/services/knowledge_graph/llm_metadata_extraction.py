@@ -129,7 +129,11 @@ def build_typescript_schema_from_field_definitions(field_definitions: Any) -> st
                     lines.append(f"   * {cl_line}".rstrip())
             lines.append("   */")
 
-        lines.append(f"  {_ts_prop_name(name)}: {ts_type};")
+        is_required = bool(fd.get("is_required"))
+        if is_required:
+            lines.append(f"  {_ts_prop_name(name)}: {ts_type};")
+        else:
+            lines.append(f"  {_ts_prop_name(name)}?: {ts_type} | null;")
         lines.append("")
 
     # Trim trailing blank line if present

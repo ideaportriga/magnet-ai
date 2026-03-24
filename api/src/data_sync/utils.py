@@ -2,7 +2,7 @@ import re
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, Tag
-from html2text import HTML2Text
+from kreuzberg import ExtractionConfig, extract_bytes
 
 
 def clean_text(text: str) -> str:
@@ -18,7 +18,7 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def parse_page(page_content: str, base_url: str):
+async def parse_page(page_content: str, base_url: str):
     soup = BeautifulSoup(page_content, "html.parser")
 
     for anchor in soup.find_all("a", href=True):
@@ -28,13 +28,8 @@ def parse_page(page_content: str, base_url: str):
                 absolute_url = urljoin(base_url, href)
                 anchor["href"] = absolute_url
 
-    # replace the Unicode character \u200b (a zero-width space) with an empty string
-    # page_text = soup.get_text().replace("\u200b", "")
     clean_html = str(soup).replace("\u200b", "")
 
-    # convert to markdown
-    h = HTML2Text()
-    h.body_width = 0
-    page_text = h.handle(clean_html)
-
-    return page_text
+    config = ExtractionConfig(output_format="markdown")
+    result = await extract_bytes(clean_html.encode("utf-8"), "text/html", config=config)
+    return result.content

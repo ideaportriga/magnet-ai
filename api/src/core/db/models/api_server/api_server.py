@@ -18,6 +18,9 @@ class APIServer(UUIDAuditSimpleBase):
     __tablename__ = "api_servers"
 
     url: Mapped[str] = mapped_column(String, nullable=False, comment="API server URL")
+    custom_headers: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        JsonB, nullable=True, comment="Custom headers configuration"
+    )
     security_scheme: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JsonB, nullable=True, comment="Security scheme configuration"
     )

@@ -1,5 +1,5 @@
 <template lang="pug">
-.column.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
+.column.no-wrap.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
   .col.q-pt-16
     .row.no-wrap.full-width.q-px-16
       q-tabs.bb-border.full-width(
@@ -16,7 +16,7 @@
         template(v-for='t in tabs')
           q-tab(:name='t.name', :label='t.label')
         .fit
-    .column.fit.q-gap-16.q-pa-16(v-if='tab == "parameters"')
+    .column.no-wrap.fit.q-gap-16.q-pa-16(v-if='tab == "parameters"')
       .km-title General settings
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Provider Name
@@ -35,7 +35,7 @@
       km-checkbox(label='JSON Schema', :model-value='false', disabled)
       km-checkbox(label='Tool Calling', :model-value='false', disabled)
       km-checkbox(label='Reasoning', :model-value='false', disabled)
-    .column.fit.q-gap-16.q-pa-16(v-if='tab == "pricing"')
+    .column.no-wrap.fit.q-gap-16.q-pa-16(v-if='tab == "pricing"')
       .km-title Pricing
 </template>
 <script>

@@ -50,9 +50,14 @@ class AiAppsController(Controller):
 
     @post()
     async def create_ai_app(
-        self, ai_apps_service: AiAppsService, data: AiAppCreate
+        self,
+        ai_apps_service: AiAppsService,
+        data: AiAppCreate,
+        audit_username: str | None,
     ) -> AiApp:
         """Create a new AI app."""
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await ai_apps_service.create(data)
         return ai_apps_service.to_schema(obj, schema_type=AiApp)
 
@@ -86,9 +91,14 @@ class AiAppsController(Controller):
             title="AI App ID",
             description="The AI app to update.",
         ),
+        audit_username: str | None = None,
     ) -> AiApp:
         """Update an AI app."""
-        obj = await ai_apps_service.update(data, item_id=ai_app_id, auto_commit=True)
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
+        obj = await ai_apps_service.update(
+            update_data, item_id=ai_app_id, auto_commit=True
+        )
         return ai_apps_service.to_schema(obj, schema_type=AiApp)
 
     @delete("/{ai_app_id:uuid}")

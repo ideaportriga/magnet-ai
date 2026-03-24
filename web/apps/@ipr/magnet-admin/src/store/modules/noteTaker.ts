@@ -23,6 +23,8 @@ interface ConfluenceIntegrationSettings {
 
 interface NoteTakerSettings {
   subscription_recordings_ready: boolean
+  pipeline_id: string
+  send_number_of_speakers: boolean
   create_knowledge_graph_embedding: boolean
   knowledge_graph_system_name: string
   keyterms: string
@@ -58,6 +60,8 @@ const DEFAULT_SETTINGS_KEY = 'default'
 
 const defaultSettings = (): NoteTakerSettings => ({
   subscription_recordings_ready: false,
+  pipeline_id: 'elevenlabs',
+  send_number_of_speakers: false,
   create_knowledge_graph_embedding: false,
   knowledge_graph_system_name: '',
   keyterms: '',

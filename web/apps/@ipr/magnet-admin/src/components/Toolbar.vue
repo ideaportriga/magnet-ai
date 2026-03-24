@@ -55,6 +55,8 @@
         labelClass='km-title'
       )
     .column.q-mt-auto.q-gap-6
+      km-nav-btn(icon='fas fa-sliders', label='Settings', path='settings', :parentRoute='parentRoute', @navigate='navigate')
+      km-separator
       km-btn(
         icon='fas fa-sign-out-alt',
         iconSize='16px',
@@ -191,6 +193,7 @@ const observability = [
 ]
 
 const experimental = [
+
   {
     label: 'Knowledge graph',
     icon: 'o_hub',
@@ -211,6 +214,11 @@ const experimental = [
     icon: 'fas fa-clipboard-list',
     path: 'note-taker',
   },
+  {
+    label: 'Prompt Queue',
+    icon: 'fas fa-list-ul',
+    path: 'prompt-queue',
+  }
 ]
 
 const dev = [

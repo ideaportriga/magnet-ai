@@ -12,6 +12,7 @@ export default defineComponent({
       type: Object,
       required: true,
     },
+    name: String,
   },
 })
 </script>

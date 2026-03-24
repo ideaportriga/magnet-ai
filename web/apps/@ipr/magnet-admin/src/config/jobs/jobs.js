@@ -20,6 +20,14 @@ export const jobTypeOptions = [
   {
     value: 'sync_knowledge_graph_source',
     label: 'Knowledge graph source sync',
+  },
+  {
+    value: 'evaluation',
+    label: 'Evaluation',
+  },
+  {
+    value: 'cleanup_logs',
+    label: 'Cleanup logs',
   }
 ]
 
@@ -91,8 +99,10 @@ const jobsControls = {
   type: {
     name: 'type',
     label: 'Type',
-    // field: (row) => row?.definition?.run_configuration?.type,
-    field: (row) => jobTypeOptions?.find((el) => el.value === row?.definition?.run_configuration?.type)?.label,
+    field: (row) => {
+      const type = row?.definition?.run_configuration?.type
+      return jobTypeOptions?.find((el) => el.value === type)?.label || type || '—'
+    },
     align: 'left',
   },
   next_run: {

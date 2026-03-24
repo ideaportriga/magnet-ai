@@ -1,3 +1,38 @@
+import type { Filter } from '../types'
+
+type FilterObject = Record<string, unknown>
+
+export const convertFiltersToFilterObject = (filters: Filter[] | null | undefined): FilterObject | null => {
+  if (!filters || filters.length === 0) return null
+
+  const andClauses: FilterObject[] = []
+
+  for (const filterItem of filters) {
+    const { field, conditions } = filterItem
+    if (!field || !conditions?.length) continue
+
+    const orClauses: FilterObject[] = []
+
+    for (const condition of conditions) {
+      const isEqual = condition.operator === 'equal'
+
+      if (condition.type === 'value') {
+        orClauses.push({ [field]: { [isEqual ? '$eq' : '$ne']: condition.value ?? '' } })
+      } else if (condition.type === 'empty') {
+        orClauses.push({ [field]: { [isEqual ? '$in' : '$nin']: [null, ''] } })
+      } else if (condition.type === 'exists') {
+        orClauses.push({ [field]: { $exists: isEqual } })
+      }
+    }
+
+    if (orClauses.length === 0) continue
+    andClauses.push(orClauses.length === 1 ? orClauses[0] : { $or: orClauses })
+  }
+
+  if (andClauses.length === 0) return null
+  return andClauses.length === 1 ? andClauses[0] : { $and: andClauses }
+}
+
 export const formatDuration = (value: number) => {
   if (value == 0) return '0s'
   if (!value) return ''

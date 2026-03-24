@@ -21,7 +21,6 @@ import DeepResearchRunsPage from '@/components/DeepResearch/Runs/Page.vue'
 import DeepResearchDetailPage from '@/components/DeepResearch/Configs/Details.vue'
 import DeepResearchRunDetailsPage from '@/components/DeepResearch/Runs/Details.vue'
 import ModelPage from '@/components/ModelConfig/Page.vue'
-import ModelConfigPage from '@/components/ModelConfig/Page.vue'
 import ModelDetailPage from '@/components/ModelConfig/details.vue'
 import AssistantToolsPage from '@/components/AssistantTools/Page.vue'
 import AssistantToolsDetailPage from '@/components/AssistantTools/details.vue'
@@ -48,6 +47,9 @@ import KnowledgeProvidersDetails from '@/components/KnowledgeProviders/Details.v
 import KnowledgeGraphPage from '@/components/KnowledgeGraph/Page.vue'
 import NoteTakerPage from '@/components/NoteTaker/Page.vue'
 import NoteTakerSettingsPage from '@/components/NoteTaker/Settings.vue'
+import PromptQueuePage from '@/components/PromptQueue/Page.vue'
+import PromptQueueDetailsPage from '@/components/PromptQueue/Details.vue'
+import SettingsPage from '@/components/Settings/Page.vue'
 import store from '@/store/index'
 
 const routes = [
@@ -538,6 +540,34 @@ const routes = [
       chroma: true,
       entity: 'knowledge_graph',
       detail: true,
+    },
+  },
+  {
+    path: '/settings',
+    redirect: '/settings/import',
+  },
+  {
+    path: '/settings/:tab',
+    name: 'Settings',
+    component: SettingsPage,
+    meta: {
+      pageLabel: 'Settings',
+    },
+  },
+  {
+    path: '/prompt-queue',
+    name: 'PromptQueue',
+    component: PromptQueuePage,
+    meta: {
+      pageLabel: 'Prompt Queue',
+    },
+  },
+  {
+    path: '/prompt-queue/:id',
+    name: 'PromptQueueDetails',
+    component: PromptQueueDetailsPage,
+    meta: {
+      pageLabel: 'Prompt Queue',
     },
   },
   {

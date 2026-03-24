@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
 from typing import Annotated, Any
@@ -11,18 +12,25 @@ from litestar.datastructures import UploadFile
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import ClientException
 from litestar.params import Body, Parameter
-from litestar.status_codes import HTTP_202_ACCEPTED, HTTP_200_OK
+from litestar.status_codes import HTTP_200_OK, HTTP_202_ACCEPTED
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.tags import TagNames
-from services.agents.conversations import get_last_conversation_by_client_id
 from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphAgentResponse,
+    KnowledgeGraphEntityQueryRequest,
+    KnowledgeGraphEntityQueryResponse,
 )
+from core.domain.knowledge_graph.services import (
+    KnowledgeGraphDocumentService,
+    KnowledgeGraphEntityService,
+)
+from open_ai.utils_new import get_embeddings
+from services.agents.conversations import get_last_conversation_by_client_id
 from services.knowledge_graph.content_config_services import (
     get_graph_embedding_model,
     get_graph_settings,
@@ -37,8 +45,6 @@ from services.knowledge_graph.retrievers.agent_retriever.tools.find_chunks_by_si
 from services.knowledge_graph.retrievers.agent_retriever.tools.find_documents_by_metadata import (
     findDocumentsByMetadata,
 )
-from core.domain.knowledge_graph.service import KnowledgeGraphDocumentService
-from open_ai.utils_new import get_embeddings
 from services.knowledge_graph.sources.api_ingest import ApiIngestDataSource
 from services.knowledge_graph.sources.api_ingest.api_ingest_source import (
     run_background_ingest,
@@ -120,6 +126,14 @@ class KnowledgeGraphIngestJsonRequest(BaseModel):
         ),
         examples=["API Ingest", "Support Tickets"],
     )
+    metadata: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Optional key-value metadata to attach to the ingested document. "
+            "Stored under the `source` key in the document metadata."
+        ),
+        examples=[{"ticket_id": "456", "category": "billing"}],
+    )
 
     model_config = ConfigDict(extra="ignore")
 
@@ -151,6 +165,15 @@ class KnowledgeGraphIngestMultipartRequest(BaseModel):
         ),
         examples=["notes.txt", "meeting-notes"],
     )
+    metadata: str | None = Field(
+        default=None,
+        description=(
+            "Optional JSON-encoded key-value metadata to attach to the ingested document. "
+            "Must be a valid JSON object string. "
+            "Stored under the `source` key in the document metadata."
+        ),
+        examples=['{"document_id": "12345", "type": "meeting"}'],
+    )
     file: UploadFile | None = Field(
         default=None,
         description=(
@@ -175,6 +198,7 @@ class _IngestItem:
     filename: str
     text: str | None = None
     file_bytes: bytes | None = None
+    source_metadata: dict[str, Any] | None = None
 
 
 class KnowledgeGraphAskRequest(BaseModel):
@@ -568,16 +592,27 @@ class UserKnowledgeGraphController(Controller):
         content: str | None = None
         filename: str | None = None
         upload: UploadFile | None = None
+        source_metadata: dict[str, Any] | None = None
 
         if form_data is not None:
             source_name = form_data.source_name
             content = form_data.content
             filename = form_data.filename
             upload = form_data.file
+            if form_data.metadata:
+                try:
+                    source_metadata = json.loads(form_data.metadata)
+                except Exception:
+                    raise ClientException(
+                        "'metadata' must be a valid JSON object string"
+                    )
+                if not isinstance(source_metadata, dict):
+                    raise ClientException("'metadata' must be a JSON object")
         elif json_data is not None:
             source_name = json_data.source_name
             content = json_data.content
             filename = json_data.filename
+            source_metadata = json_data.metadata or None
         else:
             # Fallback for clients that don't match the expected parsing path (keeps behavior stable).
             if ctype.startswith("multipart/"):
@@ -586,12 +621,33 @@ class UserKnowledgeGraphController(Controller):
                 content = form.get("content")
                 filename = form.get("filename")
                 upload = form.get("file")
+                raw_meta = form.get("metadata")
+                if raw_meta:
+                    try:
+                        source_metadata = json.loads(raw_meta)
+                    except Exception:
+                        raise ClientException(
+                            "'metadata' must be a valid JSON object string"
+                        )
+                    if not isinstance(source_metadata, dict):
+                        raise ClientException("'metadata' must be a JSON object")
             else:
                 body = await request.json()
                 data = KnowledgeGraphIngestJsonRequest.model_validate(body)
                 source_name = data.source_name
                 content = data.content
                 filename = data.filename
+                raw_meta = data.metadata
+                if isinstance(raw_meta, str):
+                    try:
+                        raw_meta = json.loads(raw_meta)
+                    except Exception:
+                        raise ClientException(
+                            "'metadata' must be a valid JSON object string"
+                        )
+                if raw_meta is not None and not isinstance(raw_meta, dict):
+                    raise ClientException("'metadata' must be a JSON object")
+                source_metadata = raw_meta or None
 
         normalized_source_name = (source_name or "API Ingest").strip() or "API Ingest"
 
@@ -607,6 +663,7 @@ class UserKnowledgeGraphController(Controller):
                     kind="file",
                     filename=upload_filename,
                     file_bytes=file_bytes,
+                    source_metadata=source_metadata,
                 )
             )
 
@@ -622,6 +679,7 @@ class UserKnowledgeGraphController(Controller):
                     kind="text",
                     filename=text_filename,
                     text=content,
+                    source_metadata=source_metadata,
                 )
             )
 
@@ -649,4 +707,51 @@ class UserKnowledgeGraphController(Controller):
             source_id=str(source.id),
             source_name=source.name,
             trace_id=trace_id,
+        )
+
+    @post(
+        "/{graph_id_or_name:str}/entities/query",
+        summary="Query Knowledge Graph entities",
+        description=(
+            "Query extracted entities of a given type from a Knowledge Graph using the filter DSL. "
+            "Returns only the column_values of each matching record. "
+            "Unknown field names in the filter are resolved against column_values keys."
+        ),
+        status_code=HTTP_200_OK,
+    )
+    async def query_entities(
+        self,
+        graph_id_or_name: Annotated[
+            str,
+            Parameter(
+                title="Knowledge Graph ID or System Name",
+                description="The UUID or System Name of the Knowledge Graph to query.",
+            ),
+        ],
+        db_session: AsyncSession,
+        data: KnowledgeGraphEntityQueryRequest,
+    ) -> KnowledgeGraphEntityQueryResponse:
+        graph_id = await _resolve_graph_id_or_name(db_session, graph_id_or_name)
+        entity_service = KnowledgeGraphEntityService()
+
+        # Merge the required entity type into the filter expression
+        entity_clause = {"field": "entity", "op": "eq", "value": data.entity}
+        filter_expr = (
+            {"and": [entity_clause, data.filter]}
+            if data.filter is not None
+            else entity_clause
+        )
+
+        records, total = await entity_service.query_records(
+            db_session,
+            graph_id=graph_id,
+            filter_expr=filter_expr,
+            limit=data.limit,
+            offset=data.offset,
+        )
+        return KnowledgeGraphEntityQueryResponse(
+            records=[r.column_values or {} for r in records],
+            total=total,
+            limit=data.limit,
+            offset=data.offset,
         )

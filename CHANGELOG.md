@@ -2,7 +2,397 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.5.3](https://github.com/ideaportriga/magnet-ai/compare/v0.5.2...v0.5.3) (2026-02-06)
+## [0.6.0-dev.56](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.55...v0.6.0-dev.56) (2026-03-19)
+
+### ✨ Features
+
+* fullSerch KG tool in agent and  memory settings in agent UI ([fe6caa0](https://github.com/ideaportriga/magnet-ai/commit/fe6caa082b5b245d7ed8bf55299cfba0ef3f205d))
+
+## [0.6.0-dev.55](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.54...v0.6.0-dev.55) (2026-03-18)
+
+### 🐛 Bug Fixes
+
+* **kg:** add external links for new salesforce articles ([4fce1ff](https://github.com/ideaportriga/magnet-ai/commit/4fce1ffe8960363162d9c881bd005fa099584b1f))
+
+## [0.6.0-dev.54](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.53...v0.6.0-dev.54) (2026-03-18)
+
+### ✨ Features
+
+* **kg:** add external link to retrieval route results ([6c0c072](https://github.com/ideaportriga/magnet-ai/commit/6c0c0727299522c5eb05bceb1b7f14c6bc1b1c9e))
+
+## [0.6.0-dev.53](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.52...v0.6.0-dev.53) (2026-03-18)
+
+### ✨ Features
+
+* **kg:** enable setting external link to salesforce sources ([a1d01f1](https://github.com/ideaportriga/magnet-ai/commit/a1d01f1a7541b5e6404afa9523113cd524ff78eb))
+
+## [0.6.0-dev.52](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.51...v0.6.0-dev.52) (2026-03-17)
+
+### 🐛 Bug Fixes
+
+* minor linter fixes ([a1b2aa0](https://github.com/ideaportriga/magnet-ai/commit/a1b2aa00e56cacd3e4b75c7256023153df41fa7a))
+
+## [0.6.0-dev.51](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.50...v0.6.0-dev.51) (2026-03-17)
+
+### ✨ Features
+
+* **api:** added azure fast stt support ([213de7a](https://github.com/ideaportriga/magnet-ai/commit/213de7aeeca7d8de7f1f2f2369a4a8e85e2a1042))
+* **api:** added azure stt (errors still present) ([71b0621](https://github.com/ideaportriga/magnet-ai/commit/71b0621cd8ad1692e01e19fe38130916c997053d))
+* **api:** added provider support for elevenlabs stt and azure fast stt ([370e90e](https://github.com/ideaportriga/magnet-ai/commit/370e90e10b9d564c95b61fa04309f15e27f048c2))
+* **api:** added provider support for stt ([9478d66](https://github.com/ideaportriga/magnet-ai/commit/9478d66f0e05dc896bb77acd2bd7a7457582bb0c))
+
+### 🐛 Bug Fixes
+
+* **api:** deleted unneeded migration ([18c8bd6](https://github.com/ideaportriga/magnet-ai/commit/18c8bd6f2d983aef5c6c60d704c92488c39bc7cb))
+* **api:** fixed provider bugs with elevenlabs ([06d2921](https://github.com/ideaportriga/magnet-ai/commit/06d2921a3acc81cdb0ebbe25403ada67ab813838))
+* **api:** removed get_stt_provider, fixed bugs ([71acaf3](https://github.com/ideaportriga/magnet-ai/commit/71acaf398557728db38bf25c6be499ca7a4c5d6a))
+
+### 📚 Documentation
+
+* introduce ARM template ([66e68d9](https://github.com/ideaportriga/magnet-ai/commit/66e68d9e39fd46dba485a2964a433b807bedc230))
+
+## [0.6.0-dev.50](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.49...v0.6.0-dev.50) (2026-03-17)
+
+### 🐛 Bug Fixes
+
+* add observability context to agent preview ([9bf110c](https://github.com/ideaportriga/magnet-ai/commit/9bf110c0bb84e0b00c9cc460adcdd8e8017903aa))
+
+## [0.6.0-dev.49](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.48...v0.6.0-dev.49) (2026-03-17)
+
+### 🐛 Bug Fixes
+
+* update docker image python version ([3c1af2b](https://github.com/ideaportriga/magnet-ai/commit/3c1af2bc26fa695030da6d715241cd5d8a5b2d6f))
+
+## [0.6.0-dev.48](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.47...v0.6.0-dev.48) (2026-03-16)
+
+### 🐛 Bug Fixes
+
+* minor ui fixes ([455a46b](https://github.com/ideaportriga/magnet-ai/commit/455a46b17045b73ecec663e260d5ff85b950c5cf))
+
+## [0.6.0-dev.47](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.46...v0.6.0-dev.47) (2026-03-16)
+
+### 🐛 Bug Fixes
+
+* gitignore update ([a906483](https://github.com/ideaportriga/magnet-ai/commit/a906483b365532d3af3cb0188e4755b5055bbc11))
+
+## [0.6.0-dev.46](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.45...v0.6.0-dev.46) (2026-03-16)
+
+### ✨ Features
+
+* kreuzberg integration, agent refactoring, metadata filter unification ([91b00e3](https://github.com/ideaportriga/magnet-ai/commit/91b00e3c2c4b0220cd5604815f47dce8a2adb520))
+
+## [0.6.0-dev.45](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.44...v0.6.0-dev.45) (2026-03-12)
+
+### ✨ Features
+
+* **kg:** implemented new reader for confluence ([ea3e9a5](https://github.com/ideaportriga/magnet-ai/commit/ea3e9a5f27867cae57aeafdbded7cfc8f35895bf))
+
+## [0.6.0-dev.44](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.43...v0.6.0-dev.44) (2026-03-12)
+
+### 🐛 Bug Fixes
+
+* **models table:**  fix small resolution pagginataion issue ([961279c](https://github.com/ideaportriga/magnet-ai/commit/961279c7515eb98723978d3282669a5db446b6b4))
+
+## [0.6.0-dev.43](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.42...v0.6.0-dev.43) (2026-03-11)
+
+### 🐛 Bug Fixes
+
+* **kg:** made quiries optimzation for knowledge graphs and traces ([0b9ed5c](https://github.com/ideaportriga/magnet-ai/commit/0b9ed5c01d4a913cbfd4062a5f6b6a457fbca0e1))
+
+## [0.6.0-dev.42](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.41...v0.6.0-dev.42) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** implemented new reader for sharepoint pages ([837698e](https://github.com/ideaportriga/magnet-ai/commit/837698e11a811c70c3fd11cc69170a4600611be4))
+
+## [0.6.0-dev.41](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.40...v0.6.0-dev.41) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** improve salesforce knowledge source provider param setting ([c314dcc](https://github.com/ideaportriga/magnet-ai/commit/c314dcc253a57c92e58997158fa5bc6b810ee32a))
+
+## [0.6.0-dev.40](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.39...v0.6.0-dev.40) (2026-03-10)
+
+### ✨ Features
+
+* **prompttemplate:** enhance prompt template component with preview and code view modes ([7e42589](https://github.com/ideaportriga/magnet-ai/commit/7e42589a2707478532817ab2e7261257c24919c4))
+
+## [0.6.0-dev.39](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.38...v0.6.0-dev.39) (2026-03-10)
+
+### ✨ Features
+
+* **kg:** introduce salesforce source type ([125ab37](https://github.com/ideaportriga/magnet-ai/commit/125ab3708c167272f563b70afbb4a551efe02e37))
+
+## [0.6.0-dev.38](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.37...v0.6.0-dev.38) (2026-03-09)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed fluid topics sync issue reading incorrect document id field ([2322aab](https://github.com/ideaportriga/magnet-ai/commit/2322aab42e5c2a2450ddd326f6657e092155c821))
+
+## [0.6.0-dev.37](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.36...v0.6.0-dev.37) (2026-03-07)
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed agent filter generation, now it used additional prompt to create filter object ([9af96ad](https://github.com/ideaportriga/magnet-ai/commit/9af96adde7bf850f89fe061bf7be915031006c05))
+
+## [0.6.0-dev.36](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.35...v0.6.0-dev.36) (2026-03-06)
+
+### ✨ Features
+
+* **kg:** quality of life improvements for knowledge graph content profiles ([7d9e544](https://github.com/ideaportriga/magnet-ai/commit/7d9e5440e06d0b796e7f35f409131ec104274ec5))
+
+## [0.6.0-dev.35](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.34...v0.6.0-dev.35) (2026-03-06)
+
+### 🐛 Bug Fixes
+
+* import/export functionality fix ([92e8710](https://github.com/ideaportriga/magnet-ai/commit/92e8710f8815b2e293b501266fbf74a453d9d9d5))
+
+## [0.6.0-dev.34](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.33...v0.6.0-dev.34) (2026-03-05)
+
+### ✨ Features
+
+* **kg:** added ability to purge source data ([a543ecd](https://github.com/ideaportriga/magnet-ai/commit/a543ecd38a1727256ff630c0de63f31c7ad4686b))
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed styling issues in data explorer and metadata studio when browser window is narrow ([8b0c2de](https://github.com/ideaportriga/magnet-ai/commit/8b0c2deeabee52b32b7949a91552f69e1e9b6abd))
+
+### ♻️ Code Refactoring
+
+* **kg:** consolidate all delete dialogs in the knowledge graph ([e796a91](https://github.com/ideaportriga/magnet-ai/commit/e796a9165cd1e5daf63bc69fb794a8543ec06d33))
+
+## [0.6.0-dev.33](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.32...v0.6.0-dev.33) (2026-03-05)
+
+### ✨ Features
+
+* **kg:** added support for partial sync for fluid topics ([0ebc86f](https://github.com/ideaportriga/magnet-ai/commit/0ebc86fd775c29633ec750271799076c1251be0d))
+
+## [0.6.0-dev.32](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.31...v0.6.0-dev.32) (2026-03-05)
+
+### 🐛 Bug Fixes
+
+* **deep-research:** set failed status is any step fails ([7ac96de](https://github.com/ideaportriga/magnet-ai/commit/7ac96de4754abccbbbed4703cb22c632541e2ba6))
+
+## [0.6.0-dev.31](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.30...v0.6.0-dev.31) (2026-03-05)
+
+### 🐛 Bug Fixes
+
+* litellm integration fixes ([1222ed7](https://github.com/ideaportriga/magnet-ai/commit/1222ed71670ca89d95c534ac9c1d2077c6b77ae3))
+
+## [0.6.0-dev.30](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.29...v0.6.0-dev.30) (2026-03-05)
+
+### 🐛 Bug Fixes
+
+* **api-tools:** allow creating tools without file upload ([6a2bc8f](https://github.com/ideaportriga/magnet-ai/commit/6a2bc8fe6d7be9ea0715233a41c6fe42e42aa588))
+
+## [0.6.0-dev.29](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.28...v0.6.0-dev.29) (2026-03-04)
+
+### 🐛 Bug Fixes
+
+* **api-tools:** use verify_ssl param for all auth types ([af77f40](https://github.com/ideaportriga/magnet-ai/commit/af77f401fe980bf5842fc17d59d0b39076554c0b))
+
+## [0.6.0-dev.28](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.27...v0.6.0-dev.28) (2026-03-04)
+
+### ✨ Features
+
+* add knowledge ([af53bbe](https://github.com/ideaportriga/magnet-ai/commit/af53bbe921b90c78a3f8a21ed7b31809b2c8a3ee))
+
+## [0.6.0-dev.27](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.26...v0.6.0-dev.27) (2026-03-04)
+
+### 🐛 Bug Fixes
+
+* update down_revision in migration file to reflect correct lineage ([f57eb6e](https://github.com/ideaportriga/magnet-ai/commit/f57eb6edfe8761e25d4197864a224cf36aa7b2c2))
+
+## [0.6.0-dev.26](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.25...v0.6.0-dev.26) (2026-03-04)
+
+### ✨ Features
+
+* add Prompt Queue feature with routing and store integration ([a44c77a](https://github.com/ideaportriga/magnet-ai/commit/a44c77a7242114f2b9af1d54775ee8f35083974f))
+* prompt queue execution ([5504d9e](https://github.com/ideaportriga/magnet-ai/commit/5504d9ebd8c331de95add3c1a70f79f05411431c))
+
+### 🐛 Bug Fixes
+
+* allow string input of PromptQ ([75adb92](https://github.com/ideaportriga/magnet-ai/commit/75adb92367b96312ff7d21ee0dd515a4ec7ebc86))
+* move to end of list in toolbar ([81c95ff](https://github.com/ideaportriga/magnet-ai/commit/81c95ff38f55a91a8e953559f4db58ffc51572d9))
+* prompt q string values ([65ac8d1](https://github.com/ideaportriga/magnet-ai/commit/65ac8d1f5278c174cf06da54f29af3cf8f6b4c5d))
+
+## [0.6.0-dev.25](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.24...v0.6.0-dev.25) (2026-03-03)
+
+### ✨ Features
+
+* add audio file upload functionality to prompt test drawer ([3be9375](https://github.com/ideaportriga/magnet-ai/commit/3be93754010ac5368dcd7728e43ce66f7bf97372))
+
+## [0.6.0-dev.24](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.23...v0.6.0-dev.24) (2026-03-03)
+
+### 🐛 Bug Fixes
+
+* support for json schema in litellm ([9480b12](https://github.com/ideaportriga/magnet-ai/commit/9480b12ab7e8eb47a1031f19da12d79240459f1a))
+
+## [0.6.0-dev.23](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.22...v0.6.0-dev.23) (2026-03-02)
+
+### ✨ Features
+
+* add Eleven Labs client and enhance Drawer component for file upload and speech transcription ([1f60443](https://github.com/ideaportriga/magnet-ai/commit/1f60443599bec327c56c69bc39d8908aeb452368))
+
+### ♻️ Code Refactoring
+
+* update input binding for system name across multiple components ([7773f65](https://github.com/ideaportriga/magnet-ai/commit/7773f65e5c2e18ba465e5aa02c1e0da05e61429a))
+
+## [0.6.0-dev.22](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.21...v0.6.0-dev.22) (2026-03-02)
+
+### 🐛 Bug Fixes
+
+* two head migrations ([1278991](https://github.com/ideaportriga/magnet-ai/commit/1278991e04fc1af7c2d7079b2f9547574618443e))
+
+## [0.6.0-dev.21](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.20...v0.6.0-dev.21) (2026-03-02)
+
+### ✨ Features
+
+* litellm integration ([9def1d4](https://github.com/ideaportriga/magnet-ai/commit/9def1d4750aa19e7147469a5f00a781682e71a37))
+
+## [0.6.0-dev.20](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.19...v0.6.0-dev.20) (2026-02-27)
+
+### ✨ Features
+
+* documentation search ([ca2b9b3](https://github.com/ideaportriga/magnet-ai/commit/ca2b9b37f96acb1175831e22020dac7c90ec0129))
+
+## [0.6.0-dev.19](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.18...v0.6.0-dev.19) (2026-02-26)
+
+### 🐛 Bug Fixes
+
+* improved previous state ahndling in llm chunker ([c8948a5](https://github.com/ideaportriga/magnet-ai/commit/c8948a50930f4c67993273473235886457143045))
+
+## [0.6.0-dev.18](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.17...v0.6.0-dev.18) (2026-02-26)
+
+### ✨ Features
+
+* **traces:** add persistent key to filter bar component ([6804b3f](https://github.com/ideaportriga/magnet-ai/commit/6804b3f300db399f00d7c6484e13cfa8d170e42b))
+
+### 🐛 Bug Fixes
+
+* **utils:** text extraction with asyncio ([3604027](https://github.com/ideaportriga/magnet-ai/commit/36040274411325417c508a4dc244ffa83fd0e7d7))
+
+## [0.6.0-dev.17](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.16...v0.6.0-dev.17) (2026-02-25)
+
+### ✨ Features
+
+* **knowledge-graph:** allow ingesting documents with metadata ([e91ea4c](https://github.com/ideaportriga/magnet-ai/commit/e91ea4c1e539e7a09c016e18e383339d52ae9265))
+
+## [0.6.0-dev.16](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.15...v0.6.0-dev.16) (2026-02-25)
+
+### 🐛 Bug Fixes
+
+* **api:** changed elevenlabs token creation to async ([dce7022](https://github.com/ideaportriga/magnet-ai/commit/dce7022d7a1ff78b66462b5aa8ea6c0e64323cf6))
+
+## [0.6.0-dev.15](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.14...v0.6.0-dev.15) (2026-02-25)
+
+### ✨ Features
+
+* **api:** added elevenlabs scribe token creation support ([824dabe](https://github.com/ideaportriga/magnet-ai/commit/824dabe88dd79773ef5ae29e4cc585d2fd27244f))
+
+## [0.6.0-dev.14](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.13...v0.6.0-dev.14) (2026-02-20)
+
+### ✨ Features
+
+* **deep-research:** add fixtures ([c455bb5](https://github.com/ideaportriga/magnet-ai/commit/c455bb54b53f9539d7d9b22c220ea245516f7ae0))
+* **deep-research:** adjust default run input value ([c1c978c](https://github.com/ideaportriga/magnet-ai/commit/c1c978c06171112e462d1b211aa88bbb72f8399f))
+
+### 🐛 Bug Fixes
+
+* **deep-research:** fix model ([0aaf16d](https://github.com/ideaportriga/magnet-ai/commit/0aaf16dd569e078284847f983a69beddd5ba71b1))
+* **deep-research:** fix name and system name updating ([81a9d81](https://github.com/ideaportriga/magnet-ai/commit/81a9d8198249bf50bca66c9c57450ef253891f75))
+
+## [0.6.0-dev.13](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.12...v0.6.0-dev.13) (2026-02-20)
+
+### ✨ Features
+
+*  export / import functionality ([243220c](https://github.com/ideaportriga/magnet-ai/commit/243220c45b1dc9f0c9bbaaf0c1234b65925b52d9))
+* export import configurations  ([01fbd7a](https://github.com/ideaportriga/magnet-ai/commit/01fbd7a2a59ae6fa18ecf505b335ec1144eebf09))
+* import/export entities in json ([02a8570](https://github.com/ideaportriga/magnet-ai/commit/02a85702739fb2374ea14f6db8e848029692ca9f))
+
+### 🐛 Bug Fixes
+
+* service invocation ([3397d78](https://github.com/ideaportriga/magnet-ai/commit/3397d78919187e576da389745033234d5fab7533))
+* **settings:** validate active tab against allowed values ([23a1a05](https://github.com/ideaportriga/magnet-ai/commit/23a1a05dfcaa114d4d12e8a504e8b84bb2e5a42d))
+
+## [0.6.0-dev.12](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.11...v0.6.0-dev.12) (2026-02-19)
+
+### ✨ Features
+
+* **deep-research:** adjust variable usage in prompts ([7f15d9f](https://github.com/ideaportriga/magnet-ai/commit/7f15d9fe8f742faa390af2f9b0860e3a9e0b2689))
+
+### 🐛 Bug Fixes
+
+* **deep-research:** fix datetime field serialization in webhook call ([9f3096b](https://github.com/ideaportriga/magnet-ai/commit/9f3096b63b04d7dc13b5e5cc45f626388e2466c3))
+* **deep-research:** fix null byte handling in web page content ([6c5a408](https://github.com/ideaportriga/magnet-ai/commit/6c5a40851c78a012d1ca79626355363ca932c11a))
+* **deep-research:** fix payload template input ([3fe42c4](https://github.com/ideaportriga/magnet-ai/commit/3fe42c448825bd3373dde909a82b78f6b82ddcf1))
+
+## [0.6.0-dev.11](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.10...v0.6.0-dev.11) (2026-02-19)
+
+### 🐛 Bug Fixes
+
+* api/mcp server update fix ([1cb40a8](https://github.com/ideaportriga/magnet-ai/commit/1cb40a8b57a4f1060889b5b24dac0f28e0377ba2))
+
+## [0.6.0-dev.10](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.9...v0.6.0-dev.10) (2026-02-18)
+
+### ✨ Features
+
+* **api:** added diarization threshold support for elevenlabs ([01a02f0](https://github.com/ideaportriga/magnet-ai/commit/01a02f069d48e1f9ac8026edfb876799faf430a6))
+
+## [0.6.0-dev.9](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.8...v0.6.0-dev.9) (2026-02-18)
+
+### 🐛 Bug Fixes
+
+* fixing web channel teams typing error ([7f1ae4d](https://github.com/ideaportriga/magnet-ai/commit/7f1ae4d9984c723facd7a471f322631003f749eb))
+
+## [0.6.0-dev.8](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.7...v0.6.0-dev.8) (2026-02-17)
+
+### ♻️ Code Refactoring
+
+* update created_by and updated_by fields to use string type in models and schemas ([db49b79](https://github.com/ideaportriga/magnet-ai/commit/db49b79bd523232466dfa26df209afbde02457ed))
+
+## [0.6.0-dev.7](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.6...v0.6.0-dev.7) (2026-02-17)
+
+### ✨ Features
+
+* add created by and modified by fields to various headers ([3710655](https://github.com/ideaportriga/magnet-ai/commit/3710655b22ad6423d0ce612f8a047324e9c9eb3e))
+* implement audit fields for created_by and updated_by in various controllers ([cea99bf](https://github.com/ideaportriga/magnet-ai/commit/cea99bfc5fed5128df88ee0f7dee0f8e6c19b76e))
+
+## [0.6.0-dev.6](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.5...v0.6.0-dev.6) (2026-02-13)
+
+### 🐛 Bug Fixes
+
+* **api:** support per-request num_speakers ([10799b0](https://github.com/ideaportriga/magnet-ai/commit/10799b0cfbce1ae7f419beee73403192af951a48))
+
+## [0.6.0-dev.5](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.4...v0.6.0-dev.5) (2026-02-13)
+
+### ✨ Features
+
+* send number of participants into the transcription job ([5943444](https://github.com/ideaportriga/magnet-ai/commit/5943444918aa3604d72ba9b8aa58f76b0645ec57))
+
+## [0.6.0-dev.4](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.3...v0.6.0-dev.4) (2026-02-10)
+
+### ✨ Features
+
+* select the model in note taker config set ([c0e5bbb](https://github.com/ideaportriga/magnet-ai/commit/c0e5bbbcda3f04c38c5905aa8bf80ca55b25aa23))
+
+## [0.6.0-dev.3](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.2...v0.6.0-dev.3) (2026-02-09)
+
+### ✨ Features
+
+* **api:** added mistral stt model ([f930fa8](https://github.com/ideaportriga/magnet-ai/commit/f930fa8407162b9c4a8581315f28416fedf4c4c8))
+
+## [0.6.0-dev.2](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.1...v0.6.0-dev.2) (2026-02-09)
+
+### 🐛 Bug Fixes
+
+* **api-tools:** added missing field custom_headers to the request, reponse and api server table ([d0db4e0](https://github.com/ideaportriga/magnet-ai/commit/d0db4e0db4940efca9e1e33a71c271ce84bd48d9))
+
+## [0.6.0-dev.1](https://github.com/ideaportriga/magnet-ai/compare/v0.5.2...v0.6.0-dev.1) (2026-02-06)
+
+### ✨ Features
+
+* **knowledge-graphs:** implement partial Sharepoint source sync ([e163b63](https://github.com/ideaportriga/magnet-ai/commit/e163b63cf58d88e1fd92ca5620447d8b52b750a2))
 
 ### ♻️ Code Refactoring
 

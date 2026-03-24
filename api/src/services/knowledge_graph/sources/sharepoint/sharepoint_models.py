@@ -52,6 +52,7 @@ class SharePointFileRef:
 
     name: str
     server_relative_url: str
+    unique_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +75,7 @@ class ProcessDocumentTask:
 
     document: dict[str, Any]
     extracted_text: str
+    raw_text: str | None = None
     content_config: Any | None = None
     external_link: str | None = None
 

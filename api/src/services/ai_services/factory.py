@@ -1,24 +1,40 @@
 from typing import Any
 
+
 from core.config.app import alchemy
 from core.domain.providers.service import ProvidersService
 from services.ai_services.cache import (
     cache_provider,
     get_cached_provider,
+    invalidate_all_provider_cache,
     invalidate_provider_cache,
 )
 from services.ai_services.interface import AIProviderInterface
-from services.ai_services.providers.azure_ai import AzureAIProvider
-from services.ai_services.providers.azure_open_ai import AzureProvider
-from services.ai_services.providers.groq import GroqProvider
-from services.ai_services.providers.tmp_local import TmpLocalProvider
 from services.ai_services.providers.oci import OCIProvider
 from services.ai_services.providers.oci_llama import OCILlamaProvider
-from services.ai_services.providers.openai import OpenAIProvider
+from services.ai_services.providers.litellm_provider import LiteLLMProvider
+from services.ai_services.providers.universal import (
+    UniversalLiteLLMProvider,
+)
+from services.ai_services.providers.native.mistral_stt import NativeMistralSTTProvider
+from services.ai_services.providers.elevenlabs_stt import ElevenLabsSTTProvider
+from services.ai_services.providers.azure_speech_stt import AzureSpeechSTTProvider
+from services.ai_services.router import (
+    get_model_system_name_by_deployment_id,
+    get_router,
+    refresh_router,
+)
 from utils.secrets import replace_placeholders_in_dict
 
 # Re-export for backward compatibility
-__all__ = ["get_ai_provider", "invalidate_provider_cache"]
+__all__ = [
+    "get_ai_provider",
+    "invalidate_provider_cache",
+    "invalidate_all_provider_cache",
+    "get_model_system_name_by_deployment_id",
+    "get_router",
+    "refresh_router",
+]
 
 
 def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
@@ -51,9 +67,24 @@ def _build_provider_config(provider_data: dict[str, Any]) -> dict[str, Any]:
     metadata_info = provider_data.get("metadata_info") or {}
     defaults = metadata_info.get("defaults", {})
 
+    # Extract router_config for LiteLLM provider (with secrets resolved)
+    router_config = metadata_info.get("router_config", {})
+    if router_config and router_config.get("model_list"):
+        # Resolve placeholders in each model's litellm_params
+        resolved_model_list = []
+        for model_entry in router_config["model_list"]:
+            resolved_entry = model_entry.copy()
+            if "litellm_params" in resolved_entry:
+                resolved_entry["litellm_params"] = replace_placeholders_in_dict(
+                    resolved_entry["litellm_params"], secrets
+                )
+            resolved_model_list.append(resolved_entry)
+        router_config = {**router_config, "model_list": resolved_model_list}
+
     return {
         "connection": connection,
         "defaults": defaults,
+        "router_config": router_config,
         "type": provider_data.get("type"),
         "label": provider_data.get("name"),
         "otel_gen_ai_system": metadata_info.get("otel_gen_ai_system"),
@@ -108,22 +139,26 @@ async def get_ai_provider(provider_system_name: str) -> AIProviderInterface:
         raise ValueError(f"Provider '{provider_system_name}' has no type specified.")
 
     # Map provider types to implementation classes
-    provider_classes = {
-        "openai": OpenAIProvider,
-        "azure_ai": AzureAIProvider,
-        "azure_open_ai": AzureProvider,
-        "oci": OCIProvider,
-        "oci_llama": OCILlamaProvider,
-        "groq": GroqProvider,
-        "datakom": TmpLocalProvider,
+    # Most types go through UniversalLiteLLMProvider (100+ providers via litellm).
+    # LiteLLMProvider is for explicit Router mode (model_list in metadata_info).
+    # OCI providers use native OCI SDK (not LiteLLM).
+    # Native providers bypass LiteLLM for unsupported operations.
+    provider_classes: dict[str, type] = {
+        "litellm": LiteLLMProvider,  # Router mode with own model_list
+        "oci": OCIProvider,  # Native OCI SDK
+        "oci_llama": OCILlamaProvider,  # Native OCI SDK (Llama variant)
+        "mistral_stt": NativeMistralSTTProvider,  # Mistral Voxtral STT (not in litellm)
+        "elevenlabs": ElevenLabsSTTProvider,
+        "elevenlabs_stt": ElevenLabsSTTProvider,  # ElevenLabs STT (not in litellm)
+        "azure_speech": AzureSpeechSTTProvider,
+        "azure_speech_stt": AzureSpeechSTTProvider,
     }
 
     provider_class = provider_classes.get(str(provider_type))
     if not provider_class:
-        raise ValueError(
-            f"Provider type '{provider_type}' is not implemented. "
-            f"Available types: {', '.join(provider_classes.keys())}"
-        )
+        # All other types (openai, azure_open_ai, groq, anthropic, etc.)
+        # go through UniversalLiteLLMProvider
+        provider_class = UniversalLiteLLMProvider
 
     # Build config in the format expected by provider classes
     provider_config = _build_provider_config(provider_data)

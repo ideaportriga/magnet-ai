@@ -1,6 +1,7 @@
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from datetime import datetime
+from typing import Any
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 
@@ -29,20 +30,23 @@ class FluidTopicsListingTask:
 class FluidTopicsContentFetchTask:
     """Task for the content-fetch stage (topic map or file bytes)."""
 
-    kind: Literal["map", "document"]
-    map_id: str | None = None
-    map_title: str | None = None
+    id: str
+    title: str | None = None
+    metadata: dict[str, Any] | None = None
+    last_edition_date: str | None = None
+    external_link: str | None = None
+
+
+@dataclass(frozen=True)
+class FluidTopicsDocumentFetchTask(FluidTopicsContentFetchTask):
+    filename: str | None = None
+
+
+@dataclass(frozen=True)
+class FluidTopicsMapFetchTask(FluidTopicsContentFetchTask):
     # If true, map metadata should be fetched from the configured map-structure endpoint
     # (used for TOPIC entries where search results don't contain map metadata).
-    map_metadata_from_structure: bool = False
-    # Source metadata coming from the Fluid Topics search response (MAP entry metadata array),
-    # normalized as a JSON-friendly mapping of key -> scalar-or-list.
-    map_metadata: dict[str, Any] | None = None
-    # DOCUMENT entry metadata/title from the Fluid Topics search response.
-    document_title: str | None = None
-    document_metadata: dict[str, Any] | None = None
-    filename: str | None = None
-    external_link: str | None = None
+    metadata_from_structure: bool = False
 
 
 @dataclass(frozen=True)
@@ -58,8 +62,10 @@ class ProcessDocumentTask:
 
     # Document mode (split)
     extracted_text: str | None = None
+    raw_text: str | None = None
     content_config: Any | None = None
     external_link: str | None = None
+    source_modified_at: datetime | None = None
 
 
 @dataclass

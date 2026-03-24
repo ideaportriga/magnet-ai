@@ -26,7 +26,8 @@
           />
           <source-type-avatar name="SharePoint" :image="sharepointImage" background-color="blue-1" @select="selectSourceType('sharepoint')" />
           <source-type-avatar name="Fluid Topics" :image="fluidTopicsImage" background-color="red-1" @select="selectSourceType('fluid_topics')" />
-          <source-type-avatar name="Confluence" :image="confluenceImage" background-color="blue-1" disabled coming-soon />
+          <source-type-avatar name="Salesforce" :image="salesforceImage" background-color="blue-1" @select="selectSourceType('salesforce')" />
+          <source-type-avatar name="Confluence" :image="confluenceImage" background-color="blue-1" @select="selectSourceType('confluence')" />
         </div>
       </q-card-section>
     </q-card>
@@ -36,9 +37,11 @@
 <script setup lang="ts">
 import confluenceImage from '@/assets/brands/atlassian-confluence.png'
 import fluidTopicsImage from '@/assets/brands/fluid-topics.png'
+import salesforceImage from '@/assets/brands/salesforce.png'
 import sharepointImage from '@/assets/brands/sharepoint.svg'
 import { computed } from 'vue'
 import SourceTypeAvatar from './SourceTypeAvatar.vue'
+
 
 const props = defineProps<{
   showDialog: boolean
@@ -46,7 +49,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:showDialog', value: boolean): void
-  (e: 'select', sourceType: 'upload' | 'sharepoint' | 'fluid_topics' | 'confluence'): void
+  (e: 'select', sourceType: 'upload' | 'sharepoint' | 'fluid_topics' | 'salesforce' | 'confluence'): void
   (e: 'cancel'): void
 }>()
 
@@ -55,7 +58,7 @@ const dialogOpen = computed({
   set: (value) => emit('update:showDialog', value),
 })
 
-const selectSourceType = (sourceType: 'upload' | 'sharepoint' | 'fluid_topics' | 'confluence') => {
+const selectSourceType = (sourceType: 'upload' | 'sharepoint' | 'fluid_topics' | 'salesforce' | 'confluence') => {
   emit('select', sourceType)
   dialogOpen.value = false
 }

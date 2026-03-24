@@ -125,7 +125,7 @@ const secrets = computed({
     if (!encryptedSecrets) {
       return {}
     }
-    return encryptedSecrets
+    return { ...encryptedSecrets }
   },
   set(value) {
     store.commit('updateProviderProperty', {

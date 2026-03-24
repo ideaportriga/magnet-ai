@@ -39,9 +39,11 @@ class WebhookConfig(BaseModel):
         default=True, description="Enable webhook calls on completion"
     )
     api_server: str = Field(
-        max_length=255, description="API server system name for webhook"
+        default="", max_length=255, description="API server system name for webhook"
     )
-    api_tool: str = Field(max_length=255, description="Tool system name for webhook")
+    api_tool: str = Field(
+        default="", max_length=255, description="Tool system name for webhook"
+    )
     payload_template: dict[str, Any] | None = Field(
         default=None,
         description=(

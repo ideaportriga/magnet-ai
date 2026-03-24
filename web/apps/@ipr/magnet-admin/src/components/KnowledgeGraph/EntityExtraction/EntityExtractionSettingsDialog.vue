@@ -1,0 +1,161 @@
+<template>
+  <kg-dialog-base
+    :model-value="props.showDialog"
+    title="Entity Extraction Settings"
+    subtitle="Configure how AI extracts structured entities from your documents"
+    confirm-label="Save Settings"
+    :loading="loading"
+    size="md"
+    @update:model-value="emit('update:showDialog', $event)"
+    @cancel="emit('cancel')"
+    @confirm="onConfirm"
+  >
+    <div class="column q-gap-16">
+      <kg-dialog-section
+        title="Extraction Settings"
+        description="Choose when entity extraction runs and which prompt template should produce the structured entity output."
+        icon="auto_awesome"
+      >
+        <div class="column q-gap-16">
+          <kg-field-row label="Extraction Mode" hint="Choose whether entities are extracted from full documents or from already-generated chunks.">
+            <kg-tile-select v-model="approach" :options="approachOptions" :cols="2" />
+          </kg-field-row>
+
+          <kg-field-row label="Extraction Prompt" hint="Select a prompt template that returns structured entity records.">
+            <kg-dropdown-field
+              v-model="promptTemplateSystemName"
+              placeholder="Select a prompt template"
+              :options="promptTemplateOptions"
+              :loading="loadingPromptTemplates"
+              option-value="system_name"
+              option-label="name"
+              searchable
+              clearable
+            />
+          </kg-field-row>
+        </div>
+      </kg-dialog-section>
+
+      <kg-dialog-section
+        title="Segmentation Settings"
+        :description="
+          approach === 'document'
+            ? 'Split large documents into overlapping segments before extraction.'
+            : 'Chunk-based extraction uses the existing chunks, so segmentation settings are ignored.'
+        "
+        icon="content_cut"
+      >
+        <template v-if="approach === 'document'">
+          <div class="row q-col-gutter-lg">
+            <div class="col-12 col-md-5">
+              <kg-field-row label="Segment size (characters)">
+                <km-input v-model.number="segmentSize" type="number" min="100" height="36px" />
+              </kg-field-row>
+            </div>
+            <div class="col-12 col-md-7">
+              <kg-field-row label="Segment overlap">
+                <div class="row items-center q-gap-md">
+                  <q-slider
+                    v-model="segmentOverlap"
+                    :min="0"
+                    :max="0.9"
+                    :step="0.02"
+                    label
+                    :label-value="`${Math.round((segmentOverlap || 0) * 100)}%`"
+                    class="col"
+                  />
+                  <span class="overlap-value">{{ Math.round((segmentOverlap || 0) * 100) }}%</span>
+                </div>
+              </kg-field-row>
+            </div>
+          </div>
+        </template>
+        <template v-else>
+          <kg-warning-banner variant="neutral">
+            Chunk-based extraction reuses the graph's chunks directly, so document segmentation is not applied here.
+          </kg-warning-banner>
+        </template>
+      </kg-dialog-section>
+    </div>
+  </kg-dialog-base>
+</template>
+
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgTileSelect, KgWarningBanner, type TileOption } from '../common'
+import {
+  createDefaultEntityExtractionRunSettings,
+  type EntityExtractionApproach,
+  type EntityExtractionRunSettings,
+} from './models'
+
+const approachOptions: TileOption[] = [
+  {
+    label: 'Document Based',
+    value: 'document',
+    description: 'Extract entities from full documents with automatic segmentation for large inputs. Recommended for most graphs.',
+  },
+  {
+    label: 'Chunk Based',
+    value: 'chunks',
+    description: 'Extract entities from each existing chunk. Useful when chunk-level provenance matters most.',
+  },
+]
+
+const props = defineProps<{
+  showDialog: boolean
+  settings?: EntityExtractionRunSettings | null
+  promptTemplateOptions?: any[]
+  loadingPromptTemplates?: boolean
+}>()
+
+const emit = defineEmits<{
+  (e: 'update:showDialog', value: boolean): void
+  (e: 'cancel'): void
+  (e: 'save', settings: EntityExtractionRunSettings): void
+}>()
+
+const defaults = createDefaultEntityExtractionRunSettings()
+const approach = ref<EntityExtractionApproach>(defaults.approach)
+const promptTemplateSystemName = ref(defaults.prompt_template_system_name)
+const segmentSize = ref(defaults.segment_size)
+const segmentOverlap = ref(defaults.segment_overlap)
+const loading = ref(false)
+
+watch(
+  () => [props.showDialog, props.settings] as const,
+  () => {
+    if (props.showDialog && props.settings) {
+      approach.value = props.settings.approach || defaults.approach
+      promptTemplateSystemName.value = props.settings.prompt_template_system_name || defaults.prompt_template_system_name
+      segmentSize.value = props.settings.segment_size || defaults.segment_size
+      segmentOverlap.value = props.settings.segment_overlap ?? defaults.segment_overlap
+    } else if (props.showDialog) {
+      approach.value = defaults.approach
+      promptTemplateSystemName.value = defaults.prompt_template_system_name
+      segmentSize.value = defaults.segment_size
+      segmentOverlap.value = defaults.segment_overlap
+    }
+  },
+  { immediate: true }
+)
+
+function onConfirm() {
+  emit('save', {
+    approach: approach.value,
+    prompt_template_system_name: promptTemplateSystemName.value.trim(),
+    segment_size: segmentSize.value,
+    segment_overlap: segmentOverlap.value,
+  })
+}
+</script>
+
+<style scoped>
+.overlap-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+  min-width: 40px;
+  text-align: right;
+}
+</style>

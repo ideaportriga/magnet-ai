@@ -17,7 +17,10 @@ export default withMermaid(
       //  https:vitepress.dev/reference/default-theme-config
       socialLinks: [{ icon: 'github', link: 'https:github.com/ideaportriga/magnet-ai' }],
       footer: {
-        copyright: 'Copyright © 2025 Ideaport Riga AS',
+        copyright: 'Copyright © 2026 Ideaport Riga AS',
+      },
+      search: {
+        provider: 'local',
       },
     },
     base,

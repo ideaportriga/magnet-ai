@@ -65,13 +65,6 @@ const columns = [
     sortable: true,
   },
   {
-    name: 'chunks_count',
-    label: 'Chunks',
-    field: 'chunks_count',
-    align: 'right',
-    sortable: true,
-  },
-  {
     name: 'created_at',
     label: 'Created',
     field: 'created_at',

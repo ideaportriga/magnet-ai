@@ -9,7 +9,8 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
           q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
         km-input-flat.col.km-description.text-black.full-width(
           placeholder='Enter system name',
-          v-model='system_name',
+          :model-value='system_name',
+          @change='system_name = $event',
           @focus='showInfo = true',
           @blur='showInfo = false'
         )
@@ -61,6 +62,11 @@ export default {
       allModels,
     }
   },
+  data() {
+    return {
+      isUnmounting: false,
+    }
+  },
   computed: {
     provider() {
       return this.$store.getters.provider
@@ -102,6 +108,7 @@ export default {
     selectedRow: {
       immediate: true,
       handler(newVal) {
+        if (this.isUnmounting) return
         if (newVal) {
           this.$store.commit('setProvider', newVal)
         }
@@ -110,6 +117,7 @@ export default {
     availableModels: {
       immediate: true,
       handler(newVal, oldVal) {
+        if (this.isUnmounting) return
         // Reset selectedModel if it's not in availableModels for current provider
         if (this.selectedModel && newVal.length > 0) {
           const modelExists = newVal.find((model) => model.id === this.selectedModel.id)
@@ -131,6 +139,12 @@ export default {
   mounted() {
     // Auto-selection will be handled by availableModels watcher
     // No need to select here as availableModels might not be loaded yet
+  },
+  beforeUnmount() {
+    // Guard watchers from firing store mutations during teardown.
+    // If they do, Vue's scheduler picks up the reactive change and tries to
+    // unmount children whose vnodes are already null → TypeError: null.type
+    this.isUnmounting = true
   },
   methods: {
     autoSelectFirstModel(models) {

@@ -20,6 +20,20 @@ div
         .km-input-label Question 3
         km-input(v-model='question3', placeholder='What is the maximum discount that can be applied on top of other discounts?')
   q-separator.q-my-lg
+  km-section(title='Memory strategy', subTitle='Controls how much conversation history is passed to the LLM as context.')
+    q-btn-toggle(
+      v-model='memoryStrategy',
+      toggle-color='primary-light',
+      :options='memoryStrategyOptions',
+      dense,
+      text-color='text-weak',
+      toggle-text-color='primary'
+    )
+    template(v-if='memoryStrategy === "last_n"')
+      .q-mt-md
+        .km-input-label Last N messages
+        km-input(v-model='memoryLastNMessages', type='number', placeholder='10', height='36px')
+  q-separator.q-my-lg
 </template>
 
 <script>
@@ -29,10 +43,16 @@ const intervals = [
   { label: '1 week', value: '7D' },
 ]
 
+const memoryStrategyOptions = [
+  { label: 'Last N messages', value: 'last_n' },
+  { label: 'All messages', value: 'all' },
+]
+
 export default {
   setup() {
     return {
       intervals,
+      memoryStrategyOptions,
     }
   },
   data() {
@@ -86,6 +106,23 @@ export default {
       },
       set(value) {
         this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.sample_questions.questions.question3', value })
+      },
+    },
+    memoryStrategy: {
+      get() {
+        return this.$store.getters.agentDetailVariant?.value?.settings?.memory_strategy || 'last_n'
+      },
+      set(value) {
+        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.memory_strategy', value })
+      },
+    },
+    memoryLastNMessages: {
+      get() {
+        return this.$store.getters.agentDetailVariant?.value?.settings?.memory_last_n_messages ?? null
+      },
+      set(value) {
+        const parsed = value === '' || value === null ? null : Number(value)
+        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.memory_last_n_messages', value: parsed })
       },
     },
   },

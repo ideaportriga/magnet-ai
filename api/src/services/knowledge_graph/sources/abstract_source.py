@@ -1,10 +1,8 @@
-import json
 import logging
 import re
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from pathlib import PurePath
 from typing import Any
 from uuid import UUID
 
@@ -17,7 +15,7 @@ from core.db.models.knowledge_graph import (
     KnowledgeGraphSource,
     docs_table_name,
 )
-from core.domain.knowledge_graph.service import (
+from core.domain.knowledge_graph.services import (
     KnowledgeGraphChunkService,
     KnowledgeGraphDocumentService,
 )
@@ -26,7 +24,7 @@ from open_ai.utils_new import get_embeddings
 from ..content_config_services import get_graph_embedding_model
 from ..content_split_services import split_content
 from ..models import ChunkerStrategy, ContentConfig, SourceType, SyncCounters
-from ..utils import normalize_metadata_value
+from ..utils import convert_markdown_toc_to_json
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +33,9 @@ _UNSET: object = object()
 
 class AbstractDataSource(ABC):
     """Abstract base class for managing knowledge graph data sources."""
+
+    document_service = KnowledgeGraphDocumentService()
+    chunk_service = KnowledgeGraphChunkService()
 
     def __init__(self, source: KnowledgeGraphSource | None = None):
         self.source = source
@@ -45,23 +46,53 @@ class AbstractDataSource(ABC):
     @abstractmethod
     async def sync_source(self, db_session: AsyncSession) -> dict[str, Any]: ...
 
-    async def _refresh_documents_count(self, db_session: AsyncSession) -> None:
-        source = self.source
-        if not source:
-            return
+    async def get_or_create_source(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        *,
+        status: str = "not_synced",
+    ) -> KnowledgeGraphSource:
+        """Get or create a source uniquely identified by (graph_id, type, name)."""
+        result = await db_session.execute(
+            select(KnowledgeGraphSource)
+            .where(KnowledgeGraphSource.graph_id == graph_id)
+            .where(KnowledgeGraphSource.type == self.type)
+            .where(KnowledgeGraphSource.name == self.name)
+        )
+        source_entity = result.scalar_one_or_none()
 
-        try:
-            table = docs_table_name(source.graph_id)
-            res = await db_session.execute(
-                text(f"SELECT COUNT(*) FROM {table} WHERE source_id = :sid"),
-                {"sid": str(source.id)},
+        if not source_entity:
+            source_entity = KnowledgeGraphSource(
+                name=self.name,
+                type=self.type,
+                graph_id=graph_id,
+                config={},
+                status=status,
+                documents_count=0,
             )
-            source.documents_count = int(res.scalar_one() or 0)
+            db_session.add(source_entity)
             await db_session.commit()
-        except Exception:
-            logger.warning(
-                "Failed to update documents_count for source %s", str(source.id)
-            )
+            await db_session.refresh(source_entity)
+
+        return source_entity
+
+    async def _find_existing_source_id(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+    ) -> str | None:
+        """Find existing source ID by (graph_id, type, name) without creating one."""
+        if self.source:
+            return str(self.source.id)
+        result = await db_session.execute(
+            select(KnowledgeGraphSource.id)
+            .where(KnowledgeGraphSource.graph_id == graph_id)
+            .where(KnowledgeGraphSource.type == self.type)
+            .where(KnowledgeGraphSource.name == self.name)
+        )
+        sid = result.scalar_one_or_none()
+        return str(sid) if sid else None
 
     async def _add_embeddings_to_chunks(
         self, chunks: list[KnowledgeGraphChunk], embedding_model: str | None
@@ -115,146 +146,6 @@ class AbstractDataSource(ABC):
             )
         return embedding_model
 
-    async def get_or_create_source(
-        self, db_session: AsyncSession, graph_id: UUID, *, status: str = "not_synced"
-    ) -> KnowledgeGraphSource:
-        result = await db_session.execute(
-            select(KnowledgeGraphSource)
-            .where(KnowledgeGraphSource.graph_id == graph_id)
-            .where(KnowledgeGraphSource.type == self.type)
-        )
-        source_entity = result.scalar_one_or_none()
-
-        if not source_entity:
-            source_entity = KnowledgeGraphSource(
-                name=self.name,
-                type=self.type,
-                graph_id=graph_id,
-                config={},
-                status=status,
-                documents_count=0,
-            )
-            db_session.add(source_entity)
-            await db_session.commit()
-            await db_session.refresh(source_entity)
-
-        return source_entity
-
-    async def create_document_for_source(
-        self,
-        db_session: AsyncSession,
-        *,
-        filename: str,
-        total_pages: int | None = None,
-        file_metadata: dict[str, Any] | None = None,
-        source_metadata: dict[str, Any] | None = None,
-        default_document_type: str = "txt",
-        content_profile: str | None = None,
-    ) -> dict[str, Any]:
-        source = self.source
-        if not source:
-            raise ClientException("Source is required to create a document")
-
-        if not filename:
-            raise ClientException("Filename is required")
-
-        base_name = PurePath(filename).name
-        file_ext = base_name.rsplit(".", 1)[-1].lower() if "." in base_name else ""
-
-        doc_metadata_json: str | None = None
-        doc_metadata_payload: dict[str, Any] = {}
-        if isinstance(file_metadata, dict) and file_metadata:
-            doc_metadata_payload["file"] = file_metadata
-        if isinstance(source_metadata, dict) and source_metadata:
-            doc_metadata_payload["source"] = source_metadata
-        if doc_metadata_payload:
-            try:
-                normalized_payload = normalize_metadata_value(doc_metadata_payload)
-                doc_metadata_json = json.dumps(
-                    normalized_payload, ensure_ascii=False, default=str
-                )
-            except Exception:  # noqa: BLE001
-                # Best-effort: do not fail document creation if metadata cannot be serialized.
-                doc_metadata_json = None
-
-        docs_table = docs_table_name(source.graph_id)
-        # Check for existing document by source_id + name
-        existing = await db_session.execute(
-            text(
-                f"""
-                SELECT id::text
-                FROM {docs_table}
-                WHERE source_id = :sid AND name = :name
-                ORDER BY created_at DESC
-                LIMIT 1
-                """
-            ),
-            {"sid": str(source.id), "name": base_name},
-        )
-        document_id = existing.scalar_one_or_none()
-        if document_id:
-            await db_session.execute(
-                text(
-                    f"""
-                    UPDATE {docs_table}
-                    SET status = 'pending',
-                    status_message = NULL,
-                    total_pages = :total_pages,
-                    type = :type,
-                    content_profile = :content_profile,
-                    metadata = CASE
-                        WHEN CAST(:metadata_json AS jsonb) IS NULL THEN metadata
-                        ELSE COALESCE(metadata, '{{}}'::jsonb) || CAST(:metadata_json AS jsonb)
-                    END,
-                    processing_time = NULL,
-                    updated_at = CURRENT_TIMESTAMP
-                    WHERE id = :id
-                    """
-                ),
-                {
-                    "id": document_id,
-                    "total_pages": total_pages,
-                    "type": (file_ext or default_document_type),
-                    "content_profile": content_profile,
-                    "metadata_json": doc_metadata_json,
-                },
-            )
-            await db_session.commit()
-        else:
-            res = await db_session.execute(
-                text(
-                    f"""
-                    INSERT INTO {docs_table} (
-                    name, type, status, total_pages, source_id, content_profile, metadata
-                    )
-                    VALUES (
-                        :name,
-                        :type,
-                        'pending',
-                        :total_pages,
-                        :source_id,
-                        :content_profile,
-                        COALESCE(CAST(:metadata_json AS jsonb), '{{}}'::jsonb)
-                    )
-                    RETURNING id::text
-                    """
-                ),
-                {
-                    "name": base_name,
-                    "type": (file_ext or default_document_type),
-                    "total_pages": total_pages,
-                    "source_id": str(source.id),
-                    "content_profile": content_profile,
-                    "metadata_json": doc_metadata_json,
-                },
-            )
-            document_id = res.scalar_one()
-            await db_session.commit()
-
-        await self._refresh_documents_count(db_session)
-
-        return {"id": document_id, "graph_id": str(source.graph_id), "name": base_name}
-
     async def _update_document_status(
         self,
         db_session: AsyncSession,
@@ -293,17 +184,125 @@ class AbstractDataSource(ABC):
             params,
         )
 
+    def _get_chunker_options(self, config: ContentConfig | None) -> dict[str, Any]:
+        if not config or not getattr(config, "chunker", None):
+            return {}
+
+        options = config.chunker.get("options")
+        return options if isinstance(options, dict) else {}
+
+    def _format_pattern(self, pattern: str, values: dict[str, Any]) -> str:
+        if not pattern:
+            return ""
+
+        return re.sub(
+            r"{(\w+)}",
+            lambda match: str(values.get(match.group(1), "") or ""),
+            pattern,
+        )
+
+    def _apply_pre_chunked_config(
+        self,
+        *,
+        chunks: list[KnowledgeGraphChunk],
+        config: ContentConfig | None,
+        document: dict[str, Any],
+        document_title: str | None,
+        source_modified_at: datetime | None,
+    ) -> tuple[str | None, list[KnowledgeGraphChunk]]:
+        options = self._get_chunker_options(config)
+        if not options:
+            return document_title, chunks
+
+        try:
+            chunk_max_size = int(options.get("chunk_max_size", 18000))
+        except Exception:  # noqa: BLE001
+            chunk_max_size = 18000
+
+        if chunk_max_size < 0:
+            chunk_max_size = 0
+
+        source_name = self.source.name if self.source else ""
+        source_date = (
+            source_modified_at.date().isoformat()
+            if isinstance(source_modified_at, datetime)
+            else ""
+        )
+        filename = str(document.get("name") or "").strip()
+
+        document_pattern_values = {
+            "filename": filename,
+            "title": document_title or "",
+            "date": source_date,
+            "source": source_name,
+        }
+        document_title_pattern = str(
+            options.get("document_title_pattern") or ""
+        ).strip()
+        if document_title_pattern:
+            formatted_title = self._format_pattern(
+                document_title_pattern, document_pattern_values
+            ).strip()
+            if formatted_title:
+                document_title = formatted_title
+                document_pattern_values["title"] = formatted_title
+
+        chunk_title_pattern = str(options.get("chunk_title_pattern") or "").strip()
+        normalized_chunks: list[KnowledgeGraphChunk] = []
+        for index, chunk in enumerate(chunks, start=1):
+            content = chunk.content or chunk.embedded_content or ""
+            embedded_content = chunk.embedded_content or content
+            chunk.content = content[:chunk_max_size]
+            chunk.embedded_content = embedded_content[:chunk_max_size]
+
+            if (
+                not isinstance(chunk.embedded_content, str)
+                or not chunk.embedded_content.strip()
+            ):
+                continue
+
+            if not isinstance(chunk.content, str) or not chunk.content.strip():
+                chunk.content = chunk.embedded_content
+
+            if chunk_title_pattern:
+                formatted_chunk_title = self._format_pattern(
+                    chunk_title_pattern,
+                    {
+                        **document_pattern_values,
+                        "index": index,
+                        "page": chunk.page or "",
+                    },
+                ).strip()
+                if formatted_chunk_title:
+                    chunk.title = formatted_chunk_title
+
+            normalized_chunks.append(chunk)
+
+        return document_title, normalized_chunks
+
+    @staticmethod
+    def _sanitize_extracted_text(value: str | None) -> str:
+        normalized = (value or "").strip()
+        # Strip non-UTF-8 characters and NULL bytes (PostgreSQL rejects 0x00 in text)
+        return (
+            normalized.encode("utf-8", errors="ignore")
+            .decode("utf-8", errors="ignore")
+            .replace("\x00", "")
+        )
+
     async def process_document(
         self,
         db_session: AsyncSession,
         document: dict[str, Any],
         *,
         extracted_text: str | None = None,
+        raw_text: str | None = None,
         config: ContentConfig | None = None,
         chunks: list[KnowledgeGraphChunk] | None = None,
         document_title: str | None = None,
         document_summary: str | None = None,
         external_link: str | None = None,
+        source_modified_at: datetime | None = None,
         toc_json: dict | list | None = None,
         embedding_model: str | None = None,
         delete_existing_chunks: bool = True,
@@ -320,6 +319,10 @@ class AbstractDataSource(ABC):
         start_time = time.perf_counter()
         docs_table = docs_table_name(document["graph_id"])
         doc_id = document["id"]
+        extracted_text = self._sanitize_extracted_text(extracted_text)
+        raw_text = (
+            self._sanitize_extracted_text(raw_text) if raw_text is not None else None
+        )
 
         try:
             # Mark processing early so the UI / callers can observe progress even if
@@ -339,7 +342,7 @@ class AbstractDataSource(ABC):
             #
             # We either:
             # - take chunks as-is (pre-chunked mode), or
-            # - split raw extracted text (split mode).
+            # - split delimiter-preserving extracted text (split mode).
             #
             # The rest of the pipeline (embeddings, metadata, DB writes) is shared.
             # We keep a string label for logs. For split mode, it's the configured chunker
@@ -359,6 +362,14 @@ class AbstractDataSource(ABC):
                         ch.content = content or embedded_content
                         chunks_to_insert.append(ch)
 
+                document_title, chunks_to_insert = self._apply_pre_chunked_config(
+                    chunks=chunks_to_insert,
+                    config=config,
+                    document=document,
+                    document_title=document_title,
+                    source_modified_at=source_modified_at,
+                )
+
                 if len(chunks_to_insert) == 0:
                     logger.warning(
                         "No valid chunks for document %s, skipping processing", doc_id
@@ -375,8 +386,10 @@ class AbstractDataSource(ABC):
                     return {"chunks_count": 0}
 
             else:
-                # Split mode: chunk raw extracted text.
-                if not extracted_text or not extracted_text.strip():
+                # Skip safely when the delimiter-free text is empty, even if the
+                # delimiter-preserving variant still contains synthetic markers.
+                skip_check_text = raw_text if raw_text is not None else extracted_text
+                if not skip_check_text:
                     logger.warning(
                         "Empty text for document %s, skipping processing", doc_id
                     )
@@ -411,6 +424,27 @@ class AbstractDataSource(ABC):
                 )
                 chunks_to_insert = result.chunks
 
+                if len(chunks_to_insert) == 0:
+                    status_msg = (
+                        "No chunks were generated for this document during processing."
+                    )
+                    await self._update_document_status(
+                        db_session,
+                        docs_table=docs_table,
+                        doc_id=doc_id,
+                        status="failed",
+                        status_message=status_msg,
+                        processing_time=float(time.perf_counter() - start_time),
+                    )
+                    await db_session.commit()
+                    logger.warning(
+                        "No chunks generated for document '%s' (id=%s), strategy=%s",
+                        document.get("name"),
+                        doc_id,
+                        chunker_strategy,
+                    )
+                    return {"chunks_count": 0}
+
                 # Prefer explicit metadata provided by the caller. Otherwise take the
                 # chunker-produced document metadata (title/summary/toc).
                 if result.document_metadata:
@@ -419,9 +453,16 @@ class AbstractDataSource(ABC):
                     if document_summary is None:
                         document_summary = result.document_metadata.summary or None
                     if toc_json is None and result.document_metadata.toc:
-                        toc_json = _convert_markdown_toc_to_json(
+                        toc_json = convert_markdown_toc_to_json(
                             result.document_metadata.toc
                         )
+
+            # Defensive guard: empty-chunk cases should already return above, but
+            # avoid any downstream work if a future change misses that early exit.
+            if not chunks_to_insert:
+                return {"chunks_count": 0}
+
+            chunks_count = len(chunks_to_insert)
 
             # Enrich chunks with embeddings
             await self._add_embeddings_to_chunks(chunks_to_insert, embedding_model)
@@ -441,7 +482,7 @@ class AbstractDataSource(ABC):
                             exc,
                         )
 
-                await KnowledgeGraphDocumentService().update_document(
+                await self.document_service.update_document(
                     db_session,
                     graph_id=document["graph_id"],
                     document_id=doc_id,
@@ -459,64 +500,34 @@ class AbstractDataSource(ABC):
             # Clear existing chunks before inserting new ones. This keeps re-sync idempotent
             # (a map/document won't accumulate duplicate chunks across runs).
             if delete_existing_chunks:
-                await KnowledgeGraphChunkService().delete_chunks(
+                await self.chunk_service.delete_chunks(
                     db_session,
                     graph_id=UUID(document["graph_id"]),
                     document_id=UUID(document["id"]),
                 )
 
-            chunks_count = await KnowledgeGraphChunkService().insert_chunks_bulk(
+            await self.chunk_service.insert_chunks_bulk(
                 db_session,
                 graph_id=document["graph_id"],
                 document=document,
                 chunks=chunks_to_insert,
             )
 
-            if chunks_count == 0:
-                # Split mode reaching 0 means the chunker produced no output; that's a real failure
-                # because we had non-empty extracted text.
-                status_msg = (
-                    "No chunks were generated for this document during processing."
-                    if not is_pre_chunked
-                    else "No chunks were inserted for this document during processing."
-                )
-                await self._update_document_status(
-                    db_session,
-                    docs_table=docs_table,
-                    doc_id=doc_id,
-                    status="failed",
-                    status_message=status_msg,
-                    processing_time=float(time.perf_counter() - start_time),
-                )
-                if is_pre_chunked:
-                    logger.warning(
-                        "No chunks inserted for pre-chunked document '%s' (id=%s)",
-                        document.get("name"),
-                        doc_id,
-                    )
-                else:
-                    logger.warning(
-                        "No chunks generated for document '%s' (id=%s), strategy=%s",
-                        document.get("name"),
-                        doc_id,
-                        chunker_strategy,
-                    )
-            else:
-                await self._update_document_status(
-                    db_session,
-                    docs_table=docs_table,
-                    doc_id=doc_id,
-                    status="completed",
-                    status_message=None,  # clear any previous error message
-                    processing_time=float(time.perf_counter() - start_time),
-                )
-                logger.info(
-                    "Completed processing document '%s' (id=%s): %s chunks, strategy=%s",
-                    document.get("name"),
-                    doc_id,
-                    chunks_count,
-                    chunker_strategy,
-                )
+            await self._update_document_status(
+                db_session,
+                docs_table=docs_table,
+                doc_id=doc_id,
+                status="completed",
+                status_message=None,  # clear any previous error message
+                processing_time=float(time.perf_counter() - start_time),
+            )
+            logger.info(
+                "Completed processing document '%s' (id=%s): %s chunks, strategy=%s",
+                document.get("name"),
+                doc_id,
+                chunks_count,
+                chunker_strategy,
+            )
 
             await db_session.commit()
             return {"chunks_count": chunks_count}
@@ -609,82 +620,3 @@ class AbstractDataSource(ABC):
             )
 
         await db_session.commit()
-
-
-def _convert_markdown_toc_to_json(markdown: str) -> list[dict[str, Any]]:
-    """Convert a markdown TOC-like content into a JSON tree structure.
-
-    Rules:
-    - Only ATX headings (# .. ######) are treated as section delimiters.
-    - Text lines are associated with the most recent heading at the current depth.
-    - Nested headings create children of the nearest ancestor with a lower level.
-    - Content before the first heading is ignored.
-
-    Returns a list of root-level nodes, each with: { name, text, children }.
-    """
-    if not markdown:
-        return []
-
-    try:
-        root: list[dict[str, Any]] = []
-        stack: list[tuple[int, dict[str, Any]]] = []  # (level, node)
-        in_fenced_block = False
-
-        heading_re = re.compile(r"^(#{1,6})\s+(.*)$")
-        fence_re = re.compile(r"^```+")
-
-        for raw_line in markdown.splitlines():
-            line = raw_line.rstrip("\n")
-
-            # Toggle fenced code blocks to avoid parsing headings inside code
-            if fence_re.match(line):
-                in_fenced_block = not in_fenced_block
-            if in_fenced_block:
-                # Treat code as regular text if within a section
-                if stack:
-                    stack[-1][1].setdefault("text_lines", []).append(line)
-                continue
-
-            m = heading_re.match(line)
-            if m:
-                level = len(m.group(1))
-                title = (
-                    m.group(2).strip().rstrip("#").strip()
-                )  # trim trailing #'s if present
-
-                node: dict[str, Any] = {"name": title, "text_lines": [], "children": []}
-
-                # Find parent by popping until the stack top has lower level
-                while stack and stack[-1][0] >= level:
-                    stack.pop()
-
-                if stack:
-                    stack[-1][1]["children"].append(node)
-                else:
-                    root.append(node)
-
-                stack.append((level, node))
-            else:
-                # Regular text goes to the current section (last heading)
-                if stack:
-                    stack[-1][1].setdefault("text_lines", []).append(line)
-                else:
-                    # Ignore text before the first heading
-                    continue
-
-        def _finalize_nodes(nodes: list[dict[str, Any]]):
-            for node in nodes:
-                lines: list[str] = node.pop("text_lines", [])
-                # Preserve intra-paragraph newlines but trim leading/trailing whitespace
-                text = "\n".join(lines).strip()
-                node["text"] = text
-                children = node.get("children", []) or []
-                if children:
-                    _finalize_nodes(children)
-
-        # Finalize text fields
-        _finalize_nodes(root)
-        return root
-    except Exception as e:
-        logger.error(f"Failed to convert markdown TOC to JSON: {e}")
-        return []

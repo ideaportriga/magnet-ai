@@ -103,7 +103,7 @@ const loading = ref(false)
 const showNewDialog = ref(false)
 const creating = ref(false)
 const selectedConfigId = ref<string | null>(null)
-const runInput = ref('{"query": ""}')
+const runInput = ref('{"task": ""}')
 const runClientId = ref('')
 
 const pagination = ref({
@@ -346,7 +346,7 @@ const createRun = async () => {
 
     // Reset form
     selectedConfigId.value = null
-    runInput.value = '{"query": ""}'
+    runInput.value = '{"task": ""}'
     runClientId.value = ''
 
     // Navigate to the new run

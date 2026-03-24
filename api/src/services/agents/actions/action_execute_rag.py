@@ -25,12 +25,20 @@ async def action_execute_rag(
     metadata_filter = arguments.get("metadata_filter")
     if metadata_filter:
         try:
-            metadata_filter = FilterObject(json.loads(metadata_filter))
+            parsed = json.loads(metadata_filter)
+            # Treat {"$and": []} / {"$or": []} as no filter — LLM sometimes generates these
+            # when it doesn't intend to filter anything
+            if parsed.get("$and") == [] or parsed.get("$or") == []:
+                parsed = None
+            metadata_filter = FilterObject(parsed) if parsed else None
         except Exception as e:
             logger.error(f"Failed to parse metadata filter: {e}")
-            metadata_filter = None
+            return AgentActionCallResponse(
+                content=f'Invalid metadata_filter format: {e}. Please provide a valid MongoDB-like filter object, e.g. {{"$and": [{{"field": {{"$eq": "value"}}}}]}}',
+            )
 
-    assert query, "Cannot call RAG Tool - user's query is missing"
+    if not query:
+        raise ValueError("Cannot call RAG Tool - user's query is missing")
 
     observability_context.update_current_span(
         input={"RAG tool system name": tool_system_name, "Query": query},

@@ -1,4 +1,5 @@
 import asyncio
+import re
 import time
 import traceback
 from dataclasses import dataclass
@@ -44,6 +45,26 @@ from services.observability.utils import (
 )
 
 logger = getLogger(__name__)
+
+
+def _sanitize_json_data(obj: Any) -> Any:
+    """
+    Recursively remove null bytes and control characters from strings.
+    These characters cause issues in most SQL databases (especially PostgreSQL JSONB).
+    Pattern adapted from data_sync/utils.py clean_text function.
+    """
+    if isinstance(obj, str):
+        # Remove invalid or garbage characters (from clean_text)
+        text = obj.replace("\u0e00", " ")
+        text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\xEF\xBF\xBE]", " ", text)
+        text = re.sub(r"[\uf020-\uf074\ufffe]", " ", text)
+        return text
+    elif isinstance(obj, dict):
+        return {key: _sanitize_json_data(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_json_data(item) for item in obj]
+    else:
+        return obj
 
 
 def _to_datetime(dt: Any) -> datetime | None:
@@ -289,11 +310,15 @@ class SqlAlchemySpanExporter(SpanExporter):
 
         trace.name = trace.name or trace_fields.name.value
         trace.type = trace.type or trace_fields.type.value
-        trace.status = "error" if span_status == StatusCode.ERROR else None
+        # Propagate error status: once any span is an error, trace is an error
+        if span_status == "error":
+            trace.status = "error"
         trace.channel = trace.channel or global_fields.channel.value
         trace.source = trace.source or global_fields.source.value
         # TODO: merge extra data
-        trace.extra_data = trace.extra_data or trace_fields.extra_data.value
+        trace.extra_data = trace.extra_data or _sanitize_json_data(
+            trace_fields.extra_data.value
+        )
         trace.user_id = trace.user_id or global_fields.user_id.value
 
         if (
@@ -302,26 +327,28 @@ class SqlAlchemySpanExporter(SpanExporter):
             or span_status == "error"
         ):
             trace.spans.append(
-                {
-                    "id": span_id,
-                    "parent_id": span_parent_id,
-                    "name": get_span_name(attributes),
-                    "type": span_type,
-                    "start_time": span_start_time,
-                    "end_time": span_end_time,
-                    "latency": get_duration(span_start_time, span_end_time),
-                    "status": span_status,
-                    "status_message": span_status_message,
-                    "prompt_template": get_span_prompt_template(attributes),
-                    "model": model_details,
-                    "description": get_span_description(attributes),
-                    "extra_data": extra_data,
-                    "input": input,
-                    "output": output,
-                    "usage_details": usage_details,
-                    "cost_details": cost_details,
-                    "conversation_id": conversation.id.value,
-                }
+                _sanitize_json_data(
+                    {
+                        "id": span_id,
+                        "parent_id": span_parent_id,
+                        "name": get_span_name(attributes),
+                        "type": span_type,
+                        "start_time": span_start_time,
+                        "end_time": span_end_time,
+                        "latency": get_duration(span_start_time, span_end_time),
+                        "status": span_status,
+                        "status_message": span_status_message,
+                        "prompt_template": get_span_prompt_template(attributes),
+                        "model": model_details,
+                        "description": get_span_description(attributes),
+                        "extra_data": extra_data,
+                        "input": input,
+                        "output": output,
+                        "usage_details": usage_details,
+                        "cost_details": cost_details,
+                        "conversation_id": conversation.id.value,
+                    }
+                )
             )
 
         if span.name == "root":
@@ -550,6 +577,12 @@ class SqlAlchemySpanExporter(SpanExporter):
                 .values(
                     name=existing_trace.name or trace_patch.name,
                     type=existing_trace.type or trace_patch.type,
+                    # Propagate error: if any new span is error, override trace status
+                    status=(
+                        "error"
+                        if trace_patch.status == "error"
+                        else existing_trace.status
+                    ),
                     channel=existing_trace.channel or trace_patch.channel,
                     source=existing_trace.source or trace_patch.source,
                     extra_data=existing_trace.extra_data or trace_patch.extra_data,

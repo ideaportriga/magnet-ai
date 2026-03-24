@@ -1,5 +1,5 @@
 <template lang="pug">
-.column.q-pa-16.bg-white.fit.bl-border.height-100.fit(v-if='!!selectedRow', style='min-width: 500px; max-width: 500px')
+.column.no-wrap.q-pa-16.bg-white.fit.bl-border.height-100.fit(v-if='!!selectedRow', style='min-width: 500px; max-width: 500px')
   .row.items-center
     km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
 

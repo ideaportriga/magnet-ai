@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Annotated
-from uuid import UUID
 
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from advanced_alchemy.filters import BeforeAfter, CollectionFilter
@@ -12,7 +11,7 @@ from litestar.params import Dependency, Parameter
 
 from core.domain.traces.service import TracesService
 
-from .schemas import Trace, TraceCreate, TraceUpdate
+from .schemas import Trace, TraceCreate, TraceListItem, TraceUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +84,7 @@ class TracesController(Controller):
         system_name_in: list[str] | None = Parameter(
             query="system_name_in", default=None, required=False
         ),
-    ) -> service.OffsetPagination[Trace]:
+    ) -> service.OffsetPagination[TraceListItem]:
         """List traces with pagination and filtering."""
 
         additional_filters = []
@@ -142,7 +141,7 @@ class TracesController(Controller):
         )
 
         return traces_service.to_schema(
-            results, total, filters=all_filters, schema_type=Trace
+            results, total, filters=all_filters, schema_type=TraceListItem
         )
 
     @post()
@@ -161,11 +160,11 @@ class TracesController(Controller):
         obj = await traces_service.get_one(name=name)
         return traces_service.to_schema(obj, schema_type=Trace)
 
-    @get("/{trace_id:uuid}")
+    @get("/{trace_id:str}")
     async def get_trace(
         self,
         traces_service: TracesService,
-        trace_id: UUID = Parameter(
+        trace_id: str = Parameter(
             title="Trace ID",
             description="The trace to retrieve.",
         ),
@@ -174,12 +173,12 @@ class TracesController(Controller):
         obj = await traces_service.get(trace_id)
         return traces_service.to_schema(obj, schema_type=Trace)
 
-    @patch("/{trace_id:uuid}")
+    @patch("/{trace_id:str}")
     async def update_trace(
         self,
         traces_service: TracesService,
         data: TraceUpdate,
-        trace_id: UUID = Parameter(
+        trace_id: str = Parameter(
             title="Trace ID",
             description="The trace to update.",
         ),
@@ -188,11 +187,11 @@ class TracesController(Controller):
         obj = await traces_service.update(data, item_id=trace_id, auto_commit=True)
         return traces_service.to_schema(obj, schema_type=Trace)
 
-    @delete("/{trace_id:uuid}")
+    @delete("/{trace_id:str}")
     async def delete_trace(
         self,
         traces_service: TracesService,
-        trace_id: UUID = Parameter(
+        trace_id: str = Parameter(
             title="Trace ID",
             description="The trace to delete.",
         ),

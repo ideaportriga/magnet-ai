@@ -25,6 +25,7 @@ PipelineKind = Literal[
     "whisper-http",
     "whisper-http-pyannote",
     "elevenlabs",
+    "mistral",
     "azure-whisper-azure-diar",
     # removed: "oci-whisper-oci-diar" (Azure-only)
 ]
@@ -87,7 +88,8 @@ async def submit(
     *,
     object_key: str | None = None,
     content_type: str = "application/octet-stream",
-    backend: PipelineKind = "mock",
+    diarization_threshold: str | float | None = None,
+    stt_model_system_name: str | None = None,
     language: str | None = None,
     number_of_participants: str | None = None,
     keyterms: list[str] | None = None,
@@ -95,7 +97,8 @@ async def submit(
 ) -> str:
     if bytes_ is None and object_key is None:
         raise ValueError("submit(): supply either bytes_ or object_key")
-
+    if not stt_model_system_name:
+        stt_model_system_name = "ELEVENLABS2_SCRIBE_V1"
     _assert_supported(f".{ext}")
 
     file_data = FileData(
@@ -113,9 +116,10 @@ async def submit(
         stream = await open_object_stream(object_key)
 
     # Build pipeline and launch
-    pipeline: TranscriptionPipeline = build_pipeline(
-        backend,
+    pipeline: TranscriptionPipeline = await build_pipeline(
         storage,
+        stt_model_system_name=stt_model_system_name,
+        diarization_threshold=diarization_threshold,
         language=language,
         number_of_participants=number_of_participants,
         keyterms=keyterms,

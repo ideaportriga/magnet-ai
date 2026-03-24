@@ -9,9 +9,15 @@
       .q-mb-sm
         .text-secondary-text.km-button-xs-text Created:
         .text-secondary-text.km-description {{ created_at }}
-      div
+      .q-mb-sm
         .text-secondary-text.km-button-xs-text Modified:
         .text-secondary-text.km-description {{ modified_at }}
+      .q-mb-sm
+        .text-secondary-text.km-button-xs-text Created by:
+        .text-secondary-text.km-description {{ created_by }}
+      div
+        .text-secondary-text.km-button-xs-text Modified by:
+        .text-secondary-text.km-description {{ updated_by }}
 q-separator(vertical, color='white')
 .col-auto.text-white.q-mx-md
   km-btn(label='Save', icon='far fa-save', color='primary', bg='background', iconSize='16px', @click='save', :loading='loading', :disable='loading')
@@ -74,7 +80,14 @@ export default {
       if (!this.activeRetrievalDB?.updated_at) return ''
       return `${this.formatDate(this.activeRetrievalDB.updated_at)}`
     },
-
+    created_by() {
+      if (!this.activeRetrievalDB?.created_by) return 'Unknown'
+      return `${this.activeRetrievalDB?.created_by}`
+    },
+    updated_by() {
+      if (!this.activeRetrievalDB?.updated_by) return 'Unknown'
+      return `${this.activeRetrievalDB?.updated_by}`
+    },
     currentModel() {
       return this.$store.getters['modelConfig/entity']
     },

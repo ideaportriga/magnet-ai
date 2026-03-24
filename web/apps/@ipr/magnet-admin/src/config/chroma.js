@@ -649,6 +649,42 @@ const apiModelConfig = {
         }
       })
   },
+  capabilities: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'GET',
+      endpoint,
+      credentials: 'include',
+      service: `models/${id}/capabilities`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+        return null
+      })
+      .catch(() => {
+        // Return null if capabilities not available (e.g., model not in LiteLLM registry)
+        return null
+      })
+  },
+  debugInfo: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'GET',
+      endpoint,
+      credentials: 'include',
+      service: `models/${id}/debug-info`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        return null
+      })
+      .catch(() => null)
+  },
 }
 const modelProviders = {
   get: async (service, endpoint) => {
@@ -789,6 +825,26 @@ const modelProviders = {
           technicalError: response?.error,
           text: `Error testing model provider connection`,
         }
+      })
+  },
+  availableModels: async (service, endpoint, { id }) => {
+    return await fetchData({
+      method: 'GET',
+      endpoint,
+      credentials: 'include',
+      service: `providers/${id}/available-models`,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then((response) => {
+        if (response.ok) return response.json()
+        if (response.error) throw response
+        return { models: [], source: 'error', error: 'Failed to fetch' }
+      })
+      .catch((response) => {
+        console.error('Error fetching available models:', response)
+        return { models: [], source: 'error', error: response?.error || 'Unknown error' }
       })
   },
 }
@@ -1784,16 +1840,13 @@ const apiObservabilityTraces = {
       })
   },
   getDetail: async (_, endpoint, payload) => {
-    console.log('payload !', payload)
-    const params = new URLSearchParams({
-      ids: payload?.id,
-    })
+    const traceId = encodeURIComponent(payload?.id ?? '')
 
     return await fetchData({
       method: 'GET',
       endpoint,
       credentials: 'include',
-      service: `traces?${params.toString()}`,
+      service: `traces/${traceId}`,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -1802,9 +1855,7 @@ const apiObservabilityTraces = {
         if (response.ok) return response.json()
         throw response
       })
-      .then((data) => {
-        return data?.items?.[0] || {}
-      })
+      .then((data) => data || {})
       .catch((res) => {
         throw {
           technicalError: res?.error,

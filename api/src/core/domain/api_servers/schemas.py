@@ -78,6 +78,9 @@ class ApiServerResponse(BaseSimpleSchema, SecretsEncryptedMixin):
     """API server schema for API responses with masked secrets."""
 
     url: str = Field(..., description="API server URL")
+    custom_headers: Optional[Dict[str, Any]] = Field(
+        default=None, description="Custom headers configuration"
+    )
     security_scheme: Optional[Dict[str, Any]] = Field(
         default=None, description="Security scheme configuration"
     )
@@ -97,6 +100,9 @@ class ApiServerCreate(BaseSimpleCreateSchema):
     """Schema for creating a new API server."""
 
     url: str = Field(..., description="API server URL")
+    custom_headers: Optional[Dict[str, Any]] = Field(
+        default=None, description="Custom headers configuration"
+    )
     security_scheme: Optional[Dict[str, Any]] = Field(
         default=None, description="Security scheme configuration"
     )
@@ -116,6 +122,9 @@ class ApiServerUpdate(BaseSimpleUpdateSchema):
     """Schema for updating an existing API server."""
 
     url: Optional[str] = Field(default=None, description="API server URL")
+    custom_headers: Optional[Dict[str, Any]] = Field(
+        default=None, description="Custom headers configuration"
+    )
     security_scheme: Optional[Dict[str, Any]] = Field(
         default=None, description="Security scheme configuration"
     )

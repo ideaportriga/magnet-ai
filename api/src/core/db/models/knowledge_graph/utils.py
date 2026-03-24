@@ -33,6 +33,30 @@ def chunks_index_prefix(graph_id: UUID | str) -> str:
     return f"idx_kg_{graph_suffix(graph_id)}_chunks_"
 
 
+def entities_table_name(graph_id: UUID | str) -> str:
+    """Per-graph extracted entities table name."""
+    return f"knowledge_graph_{graph_suffix(graph_id)}_entities"
+
+
+def entities_index_prefix(graph_id: UUID | str) -> str:
+    """Per-graph extracted entities index prefix.
+
+    Uses no trailing underscore so derived index names stay under PostgreSQL's
+    63-character limit for UUID-based graph suffixes.
+    """
+    return f"idx_kg_{graph_suffix(graph_id)}_entities"
+
+
+def edges_table_name(graph_id: UUID | str) -> str:
+    """Per-graph edges table name."""
+    return f"knowledge_graph_{graph_suffix(graph_id)}_edges"
+
+
+def edges_index_prefix(graph_id: UUID | str) -> str:
+    """Per-graph edges index prefix."""
+    return f"idx_kg_{graph_suffix(graph_id)}_edges"
+
+
 def to_uuid(v: Any) -> UUID | None:
     if v is None:
         return None

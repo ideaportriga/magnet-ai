@@ -24,6 +24,8 @@ class NoteTakerSettingsSchema(BaseModel):
     model_config = ConfigDict(extra="allow")  # TODO: remove it
 
     subscription_recordings_ready: bool = False
+    pipeline_id: str = "elevenlabs"
+    send_number_of_speakers: bool = False
     create_knowledge_graph_embedding: bool = False
     knowledge_graph_system_name: str = ""
     keyterms: str = ""

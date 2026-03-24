@@ -33,10 +33,10 @@ class KnowledgeGraphExternalSchema(BaseModel):
     system_name: Optional[str]
     description: Optional[str]
     documents_count: int = 0
-    chunks_count: int = 0
     created_at: Optional[str]
     updated_at: Optional[str]
     settings: Optional[dict[str, Any]] = None
+    state: Optional[dict[str, Any]] = None
 
 
 class KnowledgeGraphSourceLinkExternalSchema(BaseModel):
@@ -71,6 +71,7 @@ class KnowledgeGraphExtractedMetadataExternalSchema(BaseModel):
     is_multiple: bool = False
     allowed_values: Optional[list[dict[str, Any]]] = None
     llm_extraction_hint: Optional[str] = None
+    is_required: bool = False
     # Best-effort stats (optional / may be unused depending on pipeline)
     sample_values: Optional[list[str]] = None
     value_count: int = 0
@@ -92,6 +93,10 @@ class KnowledgeGraphExtractedMetadataUpsertRequest(BaseModel):
     )
     llm_extraction_hint: Optional[str] = Field(
         default=None, description="LLM instruction/hint for extracting this field"
+    )
+    is_required: bool = Field(
+        default=False,
+        description="Whether this field must always be present in extraction output",
     )
 
 
@@ -333,6 +338,7 @@ class KnowledgeGraphChunkExternalSchema(BaseModel):
     chunk_type: Optional[str] = None
     content: Optional[str] = None
     content_format: Optional[str] = None
+    external_link: Optional[str] = None
     created_at: Optional[str] = None
 
 
@@ -385,6 +391,122 @@ class KnowledgeGraphAgentResponse(BaseModel):
         default=None,
         description="OpenTelemetry trace id associated with this agent run.",
     )
+
+
+class KnowledgeGraphEntityTypeSummary(BaseModel):
+    """Summary of one entity type with its record count."""
+
+    entity: str
+    count: int
+
+
+class KnowledgeGraphEntityRecordSchema(BaseModel):
+    """Item model for an extracted entity record."""
+
+    id: str
+    entity: str
+    record_identifier: str
+    normalized_record_identifier: Optional[str] = None
+    column_values: dict[str, Any] = Field(default_factory=dict)
+    identifier_aliases: list[str] = Field(default_factory=list)
+    source_document_ids: list[str] = Field(default_factory=list)
+    source_chunk_ids: list[str] = Field(default_factory=list)
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class KnowledgeGraphEntityRecordListResponse(BaseModel):
+    """Response model for entity records listing (paginated)."""
+
+    records: list[KnowledgeGraphEntityRecordSchema]
+    total: int
+    limit: int
+    offset: int
+
+
+class KnowledgeGraphEntityQueryRequest(BaseModel):
+    """Request model for querying entity records using the filter DSL.
+
+    Supports the same filter expression syntax as metadata filtering::
+
+        {"field": "country", "op": "eq", "value": "US"}
+        {"and": [{"field": "country", "op": "eq", "value": "US"}, ...]}
+    """
+
+    entity: str = Field(
+        ..., description="Entity type to query (e.g. 'Person', 'Organization')"
+    )
+    filter: Any = Field(
+        default=None,
+        description=(
+            "Filter expression applied on top of the entity type. "
+            "Supports field predicates "
+            '({"field": "name", "op": "eq", "value": "..."}), '
+            "boolean groups (and/or/not), and operators: "
+            "eq, ne, in, contains, not_contains, like, exists, not_exists, "
+            "gt, gte, lt, lte. "
+            "Unknown field names are resolved against column_values keys."
+        ),
+    )
+    limit: int = Field(default=50, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)
+
+
+class KnowledgeGraphEntityQueryResponse(BaseModel):
+    """Response model for entity query — returns column_values records."""
+
+    records: list[dict[str, Any]]
+    total: int
+    limit: int
+    offset: int
+
+
+class KnowledgeGraphEntityExtractionRunRequest(BaseModel):
+    """Request model for triggering LLM-based entity extraction for a graph."""
+
+    approach: Optional[str] = Field(
+        default=None, description="Extraction approach: 'document' or 'chunks'"
+    )
+    prompt_template_system_name: Optional[str] = Field(
+        default=None, description="Prompt template system name to execute"
+    )
+    segment_size: Optional[int] = Field(
+        default=None,
+        ge=100,
+        description="Segment size in characters (used when approach=document)",
+    )
+    segment_overlap: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=0.9,
+        description="Segment overlap ratio 0..0.9 (used when approach=document)",
+    )
+    max_extraction_iterations: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Total extraction passes per segment (1 = single pass, 3 = initial + 2 verification passes)",
+    )
+
+
+class KnowledgeGraphEntityExtractionRunResponse(BaseModel):
+    """Response model for entity extraction trigger endpoint."""
+
+    status: str = Field(default="ok")
+    approach: str = Field(..., description="Extraction approach used")
+    processed_documents: int = Field(default=0, description="Documents processed")
+    processed_chunks: int = Field(
+        default=0, description="Chunks processed (chunks approach)"
+    )
+    skipped_documents: int = Field(
+        default=0, description="Documents skipped due to missing content"
+    )
+    skipped_chunks: int = Field(
+        default=0, description="Chunks skipped due to missing content"
+    )
+    upserted_records: int = Field(
+        default=0, description="Entity rows inserted or updated"
+    )
+    errors: int = Field(default=0, description="Number of per-item extraction errors")
 
 
 class ChunkSearchResult(BaseModel):

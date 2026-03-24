@@ -16,7 +16,7 @@
         :model-value="modelValue"
         :disable="disabled"
         dense
-        color="primary"
+        :color="activeColor"
         class="q-ml-6"
         @update:model-value="$emit('update:modelValue', $event)"
         @click.stop
@@ -31,10 +31,12 @@ interface Props {
   title?: string
   description?: string
   disabled?: boolean
+  activeColor?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   disabled: false,
+  activeColor: 'primary',
 })
 
 const emit = defineEmits<{

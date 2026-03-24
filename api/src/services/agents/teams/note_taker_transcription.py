@@ -94,6 +94,7 @@ async def _start_transcription_from_object_key(
     content_type: str,
     pipeline_id: str,
     keyterms: list[str] | None = None,
+    number_of_participants: str | None = None,
     on_submit: Callable[[str], Awaitable[None]] | None = None,
 ) -> tuple[str, dict | None]:
     await _ensure_vector_pool_ready()
@@ -108,6 +109,7 @@ async def _start_transcription_from_object_key(
         content_type=content_type,
         backend=pipeline_id,
         keyterms=keyterms,
+        number_of_participants=number_of_participants,
     )
     if on_submit and job_id:
         try:
@@ -267,6 +269,7 @@ async def _send_transcription_summary(
     status: str,
     job_id: str | None,
     transcription: dict | None,
+    pipeline_id: str | None,
     conversation_date: str | None,
     conversation_time: str | None,
     settings_system_name: str | None,
@@ -281,8 +284,10 @@ async def _send_transcription_summary(
 ) -> None:
     duration = None
     transcript_payload = transcription
+    participants = None
     if isinstance(transcription, dict):
         duration = transcription.get("duration")
+        participants = transcription.get("participants")
         nested = transcription.get("transcription")
         if isinstance(nested, dict):
             transcript_payload = nested
@@ -295,13 +300,13 @@ async def _send_transcription_summary(
     if status in {"completed", "transcribed", "diarized"}:
         segs_count = 0
         full_text = None
+        seen_participants: set[str] = set()
         if isinstance(transcript_payload, dict):
             segs = transcript_payload.get("segments") or []
             segs_count = len(segs)
             full_text = transcript_payload.get("text") or ""
             if segs:
                 lines = []
-                seen_participants: set[str] = set()
                 for s in segs:
                     if not isinstance(s, dict):
                         continue
@@ -323,8 +328,23 @@ async def _send_transcription_summary(
                     ).strip()
 
         duration_part = f", duration={duration_str}" if duration_str else ""
+        speakers_count: int | None = None
+        if isinstance(participants, list) and participants:
+            keys: set[str] = set()
+            for p in participants:
+                if not isinstance(p, dict):
+                    continue
+                key = p.get("key") or p.get("name")
+                if not key:
+                    continue
+                keys.add(str(key))
+            if keys:
+                speakers_count = len(keys)
+        if speakers_count is None and seen_participants:
+            speakers_count = len(seen_participants)
+        speakers_part = f", speakers={speakers_count}" if speakers_count else ""
         await context.send_activity(
-            f"Transcription completed (job={job_id or 'n/a'}, segments={segs_count}{duration_part})."
+            f"Transcription completed (job={job_id or 'n/a'}, segments={segs_count}{speakers_part}{duration_part})."
         )
 
         if not full_text and segs_count == 0:
@@ -490,6 +510,7 @@ async def _send_transcription_summary(
                 context,
                 settings=settings,
                 job_id=job_id,
+                pipeline_id=pipeline_id,
                 meeting_context=meeting_context or resolve_meeting_details(context),
                 participants=participant_names,
                 conversation_date=conversation_date,
@@ -597,6 +618,11 @@ async def run_transcription_pipeline(
                 "Failed to load keyterms for transcription: %s",
                 getattr(err, "message", str(err)),
             )
+
+        selected_pipeline_id = (settings or {}).get("pipeline_id")
+        if isinstance(selected_pipeline_id, str) and selected_pipeline_id.strip():
+            pipeline_id = selected_pipeline_id.strip()
+
         try:
             invited_people = await get_invited_people(context)
         except Exception as err:
@@ -608,6 +634,14 @@ async def run_transcription_pipeline(
             settings=settings,
             invited_people=invited_people,
         )
+        number_of_participants: str | None = None
+        if (settings or {}).get("send_number_of_speakers"):
+            try:
+                count = len(invited_people or [])
+            except Exception:
+                count = 0
+            if count >= 2:
+                number_of_participants = str(count)
         timeout = httpx.Timeout(connect=30.0, read=600.0, write=600.0, pool=30.0)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
             (
@@ -683,6 +717,7 @@ async def run_transcription_pipeline(
                 content_type=content_type,
                 pipeline_id=pipeline_id,
                 keyterms=keyterms,
+                number_of_participants=number_of_participants,
                 on_submit=submit_cb,
             )
         except Exception as err:
@@ -702,6 +737,7 @@ async def run_transcription_pipeline(
             status=status,
             job_id=job_id,
             transcription=transcription,
+            pipeline_id=pipeline_id,
             conversation_date=conversation_date,
             conversation_time=conversation_time,
             settings_system_name=settings_system_name,
@@ -823,6 +859,7 @@ async def run_transcription_pipeline(
             status=status or "unknown",
             job_id=job_id,
             transcription=transcription,
+            pipeline_id=None,
             conversation_date=conversation_date,
             conversation_time=conversation_time,
             settings_system_name=settings_system_name,

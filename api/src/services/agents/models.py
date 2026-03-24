@@ -20,6 +20,7 @@ class AgentActionType(StrEnum):
     RETRIEVAL = "retrieval"
     PROMPT_TEMPLATE = "prompt_template"
     MCP_TOOL = "mcp_tool"
+    KNOWLEDGE_GRAPH = "knowledge_graph"
 
 
 class Metadata(BaseModel):
@@ -89,6 +90,11 @@ class SampleQuestions(BaseModel):
         return values
 
 
+class MemoryStrategyType(StrEnum):
+    LAST_N = "last_n"
+    ALL = "all"
+
+
 class AgentSettings(BaseModel):
     """Represents settings for an agent, including welcome message,
     conversation closure interval, and sample questions.
@@ -99,6 +105,8 @@ class AgentSettings(BaseModel):
     sample_questions: SampleQuestions = Field(default_factory=SampleQuestions)
     user_feedback: bool | None = None
     notes: str | None = None
+    memory_strategy: MemoryStrategyType | None = None
+    memory_last_n_messages: int | None = None
 
 
 class AgentVariantValue(BaseModel):
@@ -122,6 +130,7 @@ class ConversationIntent(StrEnum):
     FAREWELL = "farewell"
     REQUEST_NOT_CLEAR = "request_not_clear"
     TOPIC = "topic"
+    TOPIC_SWITCH = "topic_switch"
     OFF_TOPIC = "off_topic"
     OTHER = "other"
 
@@ -158,6 +167,7 @@ class AgentConversationClassification(BaseModel):
     reason: str
     assistant_message: str | None = None
     topic: str | None = None
+    confidence: float | None = None
 
 
 class AgentActionCallRequest(BaseModel):
@@ -332,6 +342,7 @@ AgentConversationMessage = Union[
 
 class AgentTest(BaseModel):
     name: str | None = None
+    system_name: str | None = None
     agent_config: AgentVariantValue
     messages: list[AgentConversationMessage]
     variables: dict[str, str] | None = Field(

@@ -26,6 +26,7 @@ from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
 from .admin.deep_research import DeepResearchConfigController, DeepResearchRunController
+from .admin.prompt_queue import PromptQueueConfigController
 from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
@@ -34,6 +35,7 @@ from services.agents.teams.note_taker_settings import NoteTakerSettingsControlle
 from .admin.observability import observability_router
 from .admin.rag import RagController
 from .admin.scheduler import SchedulerController
+from .admin.settings import SettingsController
 from .admin.transfer import TransferController
 from .admin.utils import UtilsController
 from .auth import AuthController
@@ -64,6 +66,7 @@ def get_route_handlers(
         CollectionsController,  # Admin / Collections
         DeepResearchConfigController,  # Admin / Deep Research Configs
         DeepResearchRunController,  # Admin / Deep Research Runs
+        PromptQueueConfigController,  # Admin / Prompt Queue
         EvaluationSetsController,  # Admin / Evaluation Sets
         EvaluationsController,  # Admin / Evaluations
         JobsController,  # Admin / Jobs
@@ -78,6 +81,7 @@ def get_route_handlers(
         RagToolsController,  # Admin / RAG Tools
         RetrievalToolsController,  # Admin / Retrieval Tools
         SchedulerController,  # Admin / Scheduler
+        SettingsController,  # Admin / Settings
         TracesController,  # Admin / Traces
         TransferController,  # Admin / Transfer
         UtilsController,  # Admin / Utils

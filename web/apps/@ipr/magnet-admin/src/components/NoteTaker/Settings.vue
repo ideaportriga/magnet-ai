@@ -37,10 +37,30 @@
               .col-auto.full-width
                 .km-heading-6.q-mb-md General Settings
                 .q-gutter-md
-                  .km-field.q-mt-lg
-                    .text-secondary-text.q-pb-xs.km-title Set the subscription for recordings ready
-                    q-toggle(v-model='subscriptionRecordingsReady', color='primary')
+                  .km-field
+                    .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-title Set the subscription for recordings ready
+                      q-toggle(v-model='subscriptionRecordingsReady', color='primary')
                     .km-description.text-secondary-text.q-pt-2 Automatically create recordings-ready subscriptions for meetings.
+
+                  .km-field
+                    .text-secondary-text.q-pb-xs.km-title Transcription model
+                    km-select(
+                      v-model='pipelineId',
+                      :options='pipelineOptions',
+                      option-label='label',
+                      option-value='value',
+                      emit-value,
+                      map-options,
+                      height='30px'
+                    )
+                    .km-description.text-secondary-text.q-pt-2 Model to use for transcription flow.
+
+                  .km-field
+                    .row.items-center.justify-between
+                      .text-secondary-text.q-pb-xs.km-title Send number of speakers
+                      q-toggle(v-model='sendNumberOfSpeakers', color='primary')
+                    .km-description.text-secondary-text.q-pt-2 When enabled, Note Taker sends the invited participants count to the transcription backend (e.g. ElevenLabs num_speakers).
 
                   .km-field
                     .text-secondary-text.q-pb-xs.km-title Keyterms
@@ -345,6 +365,11 @@ const store = useStore()
 const router = useRouter()
 const route = useRoute()
 
+const pipelineOptions = [
+  { label: 'ElevenLabs', value: 'elevenlabs' },
+  { label: 'Voxtral (Mistral)', value: 'mistral' },
+]
+
 const knowledgeGraphs = ref<any[]>([])
 
 const promptTemplates = computed(() => {
@@ -380,6 +405,20 @@ const subscriptionRecordingsReady = computed({
   get: () => store.getters.noteTakerSettings?.subscription_recordings_ready ?? false,
   set: (value: boolean) => {
     store.dispatch('updateNoteTakerSetting', { path: 'subscription_recordings_ready', value })
+  },
+})
+
+const pipelineId = computed({
+  get: () => store.getters.noteTakerSettings?.pipeline_id || 'elevenlabs',
+  set: (value: string) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'pipeline_id', value })
+  },
+})
+
+const sendNumberOfSpeakers = computed({
+  get: () => store.getters.noteTakerSettings?.send_number_of_speakers ?? false,
+  set: (value: boolean) => {
+    store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value })
   },
 })
 

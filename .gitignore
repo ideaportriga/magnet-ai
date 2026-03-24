@@ -9,6 +9,7 @@ env.bak/
 venv.bak/
 
 .vscode
+.zed
 generated_docs/
 specs/
 openshift/
@@ -24,7 +25,7 @@ dist/
 build/
 *.egg-info/
 *.log
-
+.yarn
 
 # Offline static files for Swagger UI and ReDoc
 # api/static/*.js
@@ -32,3 +33,5 @@ build/
 # api/static/*.png
 # api/static/*.map
 recording_test.py
+/research
+/reports

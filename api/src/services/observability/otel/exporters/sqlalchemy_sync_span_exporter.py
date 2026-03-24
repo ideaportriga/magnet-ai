@@ -1,3 +1,4 @@
+import re
 import time
 import traceback
 from dataclasses import dataclass
@@ -46,8 +47,18 @@ logger = getLogger(__name__)
 
 
 def _serialize_for_json(obj: Any) -> Any:
-    """Convert datetime objects and other non-JSON-serializable objects to JSON-compatible format."""
-    if isinstance(obj, datetime):
+    """
+    Convert datetime objects and other non-JSON-serializable objects to JSON-compatible format.
+    Also removes null bytes and control characters that cause issues in SQL databases.
+    Pattern adapted from data_sync/utils.py clean_text function.
+    """
+    if isinstance(obj, str):
+        # Remove invalid or garbage characters (from clean_text)
+        text = obj.replace("\u0e00", " ")
+        text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\xEF\xBF\xBE]", " ", text)
+        text = re.sub(r"[\uf020-\uf074\ufffe]", " ", text)
+        return text
+    elif isinstance(obj, datetime):
         return obj.isoformat()
     elif isinstance(obj, dict):
         return {key: _serialize_for_json(value) for key, value in obj.items()}
@@ -279,7 +290,9 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
 
         trace.name = trace.name or trace_fields.name.value
         trace.type = trace.type or trace_fields.type.value
-        trace.status = "error" if span_status == StatusCode.ERROR else None
+        # Propagate error status: once any span is an error, trace is an error
+        if span_status == "error":
+            trace.status = "error"
         trace.channel = trace.channel or global_fields.channel.value
         trace.source = trace.source or global_fields.source.value
         # TODO: merge extra data
@@ -507,6 +520,7 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
                 .values(
                     name=existing_trace.name or trace_patch.name,
                     type=existing_trace.type or trace_patch.type,
+                    status=trace_patch.status or existing_trace.status or "success",
                     channel=existing_trace.channel or trace_patch.channel,
                     source=existing_trace.source or trace_patch.source,
                     extra_data=_serialize_for_json(

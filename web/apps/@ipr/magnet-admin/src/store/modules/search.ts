@@ -1,4 +1,4 @@
-import { fetchData } from '@shared'
+import { fetchData, convertFiltersToFilterObject } from '@shared'
 
 // state
 const state = () => ({
@@ -86,7 +86,7 @@ const actions = {
   },
   async getAnswerRag({ getters, commit, state }) {
     const prompt = state.searchPrompt
-    const metadataFilter = state.metadataFilter
+    const metadataFilter = convertFiltersToFilterObject(state.metadataFilter)
     const collection = getters.ragVariant?.retrieve?.collection_system_names || {}
     const endpoint = getters.config?.rag?.endpoint
     const service = `${getters.config?.rag?.service}` || ''
@@ -170,7 +170,7 @@ const actions = {
   async getAnswerRetrieval({ getters, commit, state }) {
     const prompt = state.searchPrompt
     const collection = getters.retrievalVariant?.retrieve?.collection_system_names || {}
-    const metadataFilter = state.metadataFilter
+    const metadataFilter = convertFiltersToFilterObject(state.metadataFilter)
     const endpoint = getters.config?.retrieval?.endpoint
     const service = `${getters.config?.retrieval?.service}` || ''
     const credentials = getters.config?.retrieval?.credentials

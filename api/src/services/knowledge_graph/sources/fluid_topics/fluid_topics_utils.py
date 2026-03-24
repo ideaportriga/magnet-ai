@@ -6,7 +6,7 @@ import time
 from typing import TYPE_CHECKING, Any, Iterable, Iterator
 
 import httpx
-from html2text import HTML2Text
+from kreuzberg import ExtractionConfig, extract_bytes
 from litestar.exceptions import ClientException
 
 if TYPE_CHECKING:
@@ -21,27 +21,16 @@ def _log_extra_from_ctx(
     return {"graph_id": pipeline._graph_id, "source_id": pipeline._source_id, **extra}
 
 
-def _extract_text_from_html(html: str) -> str:
-    """Convert HTML to plain text suitable for embeddings."""
+async def _extract_text_from_html(html: str) -> str:
+    """Convert HTML to markdown text suitable for embeddings using kreuzberg."""
 
     if not isinstance(html, str) or not html.strip():
         return ""
 
-    # Fluid Topics returns HTML fragments. Embeddings should be based on *text*, not markup,
-    # so we convert HTML -> "plain-ish" text and normalize whitespace.
     try:
-        h = HTML2Text()
-        # Avoid wrapping lines; embeddings generally prefer raw text
-        if hasattr(h, "body_width"):
-            h.body_width = 0
-        # Keep output more "text-like" than "markdown-like"
-        if hasattr(h, "ignore_links"):
-            h.ignore_links = True
-        if hasattr(h, "ignore_images"):
-            h.ignore_images = True
-        if hasattr(h, "ignore_emphasis"):
-            h.ignore_emphasis = True
-        text_out = h.handle(html)
+        config = ExtractionConfig(output_format="markdown")
+        result = await extract_bytes(html.encode("utf-8"), "text/html", config=config)
+        text_out = result.content
     except Exception:  # noqa: BLE001
         # Worst case: strip tags very naively
         text_out = re.sub(r"<[^>]+>", " ", html)
@@ -389,7 +378,7 @@ async def fetch_topic_content(
         )
         raise
 
-    text = _extract_text_from_html(html)
+    text = await _extract_text_from_html(html)
     logger.debug(
         "Fluid Topics topic fetch completed",
         extra=_log_extra_from_ctx(

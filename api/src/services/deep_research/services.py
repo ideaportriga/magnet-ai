@@ -1,8 +1,12 @@
 import json
 import logging
+import re
 from datetime import datetime
 from typing import Any, Awaitable, Callable
 from uuid import UUID
+
+from opentelemetry import trace as otel_trace
+from opentelemetry.trace.status import StatusCode as OtelStatusCode
 
 from core.config.app import alchemy
 from core.domain.deep_research.schemas import DeepResearchRunUpdateSchema
@@ -32,6 +36,28 @@ from core.db.models.deep_research.run import DeepResearchRun as DeepResearchRunD
 
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_json_data(obj: Any) -> Any:
+    """
+    Recursively remove null bytes and control characters from strings.
+    These characters cause issues in most SQL databases (especially PostgreSQL JSONB).
+    Pattern adapted from data_sync/utils.py clean_text function.
+    """
+    if isinstance(obj, str):
+        # Remove invalid or garbage characters (from clean_text)
+        text = obj.replace("\u0e00", " ")
+        text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\xEF\xBF\xBE]", " ", text)
+        text = re.sub(r"[\uf020-\uf074\ufffe]", " ", text)
+        return text
+    elif isinstance(obj, dict):
+        return {key: _sanitize_json_data(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [_sanitize_json_data(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(_sanitize_json_data(item) for item in obj)
+    else:
+        return obj
 
 
 def _track_usage(run: DeepResearchRun, result_data: Any) -> None:
@@ -124,9 +150,14 @@ async def execute_deep_research(
             if reasoning_step.error:
                 logger.error("Reasoning step failed: %s", reasoning_step.error)
                 run.iterations.append(current_iteration)
+                run.status = DeepResearchStatus.FAILED
+                run.error = reasoning_step.error
                 run.updated_at = datetime.utcnow()
+                otel_trace.get_current_span().set_status(
+                    OtelStatusCode.ERROR, run.error
+                )
                 await persist_state()
-                break
+                return
 
             # Check if agent returned content without tool calls (final report or forced conclusion)
             # We need to get this from the conversation history since steps don't store raw output anymore
@@ -155,10 +186,13 @@ async def execute_deep_research(
                     break
                 else:
                     logger.warning("Reasoning returned no content and no tool calls")
+                    run.iterations.append(current_iteration)
                     run.status = DeepResearchStatus.FAILED
                     run.error = "Reasoning step returned no content and no tool calls"
-                    run.iterations.append(current_iteration)
                     run.updated_at = datetime.utcnow()
+                    otel_trace.get_current_span().set_status(
+                        OtelStatusCode.ERROR, run.error
+                    )
                     await persist_state()
                     break
 
@@ -188,10 +222,13 @@ async def execute_deep_research(
                             % (e, function_info.get("arguments"))
                         )
                         logger.error(error_msg)
+                        run.iterations.append(current_iteration)
                         run.status = DeepResearchStatus.FAILED
                         run.error = error_msg
-                        run.iterations.append(current_iteration)
                         run.updated_at = datetime.utcnow()
+                        otel_trace.get_current_span().set_status(
+                            OtelStatusCode.ERROR, run.error
+                        )
                         await persist_state()
                         return
 
@@ -252,9 +289,16 @@ async def execute_deep_research(
 
     except Exception as e:
         logger.exception("Deep research run %s failed with exception", run.run_id)
+        # Save any in-progress iteration so its steps are visible in the run details.
+        try:
+            if current_iteration not in run.iterations:
+                run.iterations.append(current_iteration)
+        except NameError:
+            pass  # loop never started; current_iteration was never assigned
         run.status = DeepResearchStatus.FAILED
         run.error = str(e)
         run.updated_at = datetime.utcnow()
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, run.error)
         await persist_state()
 
 
@@ -321,9 +365,25 @@ async def _execute_web_search_workflow(
     newly_relevant_results = []
 
     if new_results:
-        relevance_step, newly_relevant_results = await _analyze_search_results(
-            run=run, config=config, memory=memory, query=query, results=new_results
-        )
+        try:
+            relevance_step, newly_relevant_results = await _analyze_search_results(
+                run=run, config=config, memory=memory, query=query, results=new_results
+            )
+        except Exception as _analysis_exc:
+            # Record the failure as a step so it is visible in run details, then propagate.
+            current_iteration.steps.append(
+                DeepResearchStep(
+                    type=StepType.ANALYZE_RESULTS,
+                    title=f"Analysis failed for {len(new_results)} results",
+                    details=AnalyzeResultsStepDetails(
+                        analyzed_count=len(new_results),
+                        relevant_count=0,
+                        relevant_urls=[],
+                    ),
+                    error=str(_analysis_exc),
+                )
+            )
+            raise
         current_iteration.steps.append(relevance_step)
 
         # Mark all new results as analyzed
@@ -462,8 +522,12 @@ async def _execute_reasoning_step(
         )
 
         # Build template_values from input
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         template_values = {
-            **run.input,  # Spread all input variables
+            **run.input,  # Spread all input variables for backward compatibility (e.g., {task})
+            **flattened_input,  # Also provide namespaced access (e.g., {input.task})
             "iteration": iteration,
             "max_iterations": config.max_iterations,
             "search_history": "\n".join(f"- {q}" for q in memory.search_queries),
@@ -698,7 +762,11 @@ async def _analyze_search_results(
             ]
         )
 
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         context = {
+            **flattened_input,  # Namespaced input (e.g., {input.task})
             "query": query,
             "results_count": len(results),
             "results": results_text,
@@ -754,18 +822,7 @@ async def _analyze_search_results(
             # Fail fast: expected JSON format from relevance analysis
             error_msg = f"Relevance analysis must return valid JSON. Parse error: {e}. Content preview: {analysis}"
             logger.error(error_msg)
-            step = DeepResearchStep(
-                type=StepType.ANALYZE_RESULTS,
-                title=f"Analysis failed for {len(results)} results",
-                details=AnalyzeResultsStepDetails(
-                    analyzed_count=len(results), relevant_count=0, relevant_urls=[]
-                ),
-                error=error_msg,
-                cost=result.cost if hasattr(result, "cost") else None,
-                latency=result.latency if hasattr(result, "latency") else None,
-                usage=result.usage if hasattr(result, "usage") else None,
-            )
-            return step, []
+            raise RuntimeError(error_msg) from e
 
         # Update span with output details
         observability_context.update_current_span(
@@ -792,17 +849,9 @@ async def _analyze_search_results(
 
         return step, relevant_results
 
-    except Exception as e:
+    except Exception:
         logger.exception("Analyze search results failed")
-        step = DeepResearchStep(
-            type=StepType.ANALYZE_RESULTS,
-            title=f"Analysis error for {len(results)} results",
-            details=AnalyzeResultsStepDetails(
-                analyzed_count=len(results), relevant_count=0, relevant_urls=[]
-            ),
-            error=str(e),
-        )
-        return step, []
+        raise
 
 
 @observe(name="Process search result")
@@ -853,9 +902,12 @@ async def _process_search_result(
         # Get relevance reasoning from analysis step
         relevance_reasoning = result.get("relevance_reasoning", "")
 
+        # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
+        flattened_input = {f"input.{key}": value for key, value in run.input.items()}
+
         context = {
+            **flattened_input,  # Namespaced input (e.g., {input.task})
             "query": query,
-            "research_query": run.input.get("query", ""),
             "page_title": title,
             "page_url": url,
             "page_content": page_content,
@@ -958,6 +1010,12 @@ def _resolve_webhook_template(
             if value is None:
                 return None
 
+        # Convert non-JSON-serializable types to strings
+        if isinstance(value, datetime):
+            return value.isoformat()
+        elif isinstance(value, UUID):
+            return str(value)
+
         return value
 
     return resolve_path(template)
@@ -1035,7 +1093,7 @@ def _serialize_memory(memory: DeepResearchMemory) -> dict[str, Any]:
 
 def _serialize_run_details(run: DeepResearchRun) -> dict[str, Any]:
     """Build details payload for persistence."""
-    return {
+    details = {
         "memory": _serialize_memory(run.memory),
         "iterations": [
             iteration.model_dump(mode="json") for iteration in run.iterations
@@ -1049,6 +1107,8 @@ def _serialize_run_details(run: DeepResearchRun) -> dict[str, Any]:
         "total_latency": run.total_latency,
         "total_cost": run.total_cost,
     }
+    # Sanitize to remove null bytes and control characters that SQL databases cannot handle
+    return _sanitize_json_data(details)
 
 
 def _map_db_run_to_service(db_run: "DeepResearchRunDB") -> DeepResearchRun:
@@ -1134,6 +1194,7 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
     """Orchestrate deep research execution for a persisted run."""
 
     run_uuid = UUID(str(run_id))
+    run_model: DeepResearchRun | None = None
 
     try:
         async with alchemy.get_session() as session:
@@ -1158,3 +1219,21 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
             await _persist_run_state(run_service, run_model)
     except Exception:
         logger.exception("Failed to execute deep research workflow for run %s", run_id)
+        # Safety net: if the run was not already brought to a terminal state
+        # (e.g. workflow setup failed before execute_deep_research ran, or the
+        # final persist above threw), mark it as FAILED so it never hangs in RUNNING.
+        if run_model is not None and run_model.status not in (
+            DeepResearchStatus.COMPLETED,
+            DeepResearchStatus.FAILED,
+        ):
+            try:
+                async with alchemy.get_session() as session:
+                    run_service = DeepResearchRunService(session=session)
+                    run_model.status = DeepResearchStatus.FAILED
+                    run_model.error = "Workflow execution failed unexpectedly"
+                    run_model.updated_at = datetime.utcnow()
+                    await _persist_run_state(run_service, run_model)
+            except Exception:
+                logger.exception(
+                    "Failed to persist FAILED status for deep research run %s", run_id
+                )

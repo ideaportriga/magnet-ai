@@ -4,15 +4,94 @@ Pydantic schemas for AI models validation.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
     BaseSimpleUpdateSchema,
 )
+
+
+class RoutingConfig(BaseModel):
+    """
+    Routing configuration for LiteLLM integration.
+    Defines rate limits, failover, caching, and load balancing settings.
+    """
+
+    # Rate limiting
+    rpm: Optional[int] = Field(
+        None, description="Requests per minute limit for this model"
+    )
+    tpm: Optional[int] = Field(
+        None, description="Tokens per minute limit for this model"
+    )
+
+    # Failover configuration
+    fallback_models: Optional[list[str]] = Field(
+        None,
+        description="List of model system_names to fallback to on failure",
+    )
+
+    # Caching
+    cache_enabled: Optional[bool] = Field(
+        False, description="Enable in-memory response caching"
+    )
+    cache_ttl: Optional[int] = Field(
+        None, description="Cache TTL in seconds (default: 3600)"
+    )
+
+    # Load balancing
+    priority: Optional[int] = Field(
+        None, description="Priority for load balancing (lower = higher priority)"
+    )
+    weight: Optional[float] = Field(
+        None, description="Weight for weighted load balancing (0.0-1.0)"
+    )
+
+    # Retry settings
+    num_retries: Optional[int] = Field(
+        None, description="Number of retries on failure (default: 3)"
+    )
+    retry_after: Optional[int] = Field(
+        None, description="Seconds to wait before retry (default: 5)"
+    )
+
+    # Timeout
+    timeout: Optional[int] = Field(
+        None, description="Request timeout in seconds (default: 120)"
+    )
+
+    # Additional LiteLLM params
+    litellm_params: Optional[dict[str, Any]] = Field(
+        None,
+        description="Additional LiteLLM parameters (api_version, custom_llm_provider, etc.)",
+    )
+
+    # API path suffix appended to the provider endpoint (e.g. "/v2" for Azure AI Foundry rerank).
+    # Only the path portion is allowed — this prevents redirecting API keys to a different host.
+    api_path: Optional[str] = Field(
+        None,
+        description=(
+            "Path suffix appended to the provider endpoint for this model. "
+            "E.g. '/v2' → provider_endpoint/v2. "
+            "Must start with '/' and must not contain '://' (full URL override is not allowed)."
+        ),
+    )
+
+    class Config:
+        extra = "allow"
+
+    def validate_api_path(self) -> None:
+        if self.api_path is not None:
+            if "://" in self.api_path:
+                raise ValueError(
+                    "api_path must be a path suffix (e.g. '/v2'), not a full URL"
+                )
+            if not self.api_path.startswith("/"):
+                raise ValueError("api_path must start with '/'")
 
 
 # Base mixin for common AI model fields
@@ -42,11 +121,17 @@ class AIModelFieldsMixin(BaseModel):
     is_default: bool = Field(
         default=False, description="Is this the default model for its type"
     )
+    is_active: bool = Field(
+        default=True, description="Whether the model is active and available for use"
+    )
 
     # Pricing information (stored as strings to maintain precision)
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
+    price_reasoning: Optional[str] = Field(
+        None, description="Price per reasoning output unit"
+    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -57,6 +142,9 @@ class AIModelFieldsMixin(BaseModel):
     )
     price_standard_output_unit_count: Optional[int] = Field(
         None, description="Standard output unit count for pricing"
+    )
+    price_reasoning_output_unit_count: Optional[int] = Field(
+        None, description="Reasoning output unit count for pricing"
     )
 
     # Unit names
@@ -76,6 +164,12 @@ class AIModelFieldsMixin(BaseModel):
     configs: Optional[dict] = Field(
         None,
         description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)",
+    )
+
+    # Routing and rate limiting configuration
+    routing_config: Optional[RoutingConfig] = Field(
+        None,
+        description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
 
 
@@ -108,11 +202,17 @@ class AIModelUpdateFieldsMixin(BaseModel):
     is_default: Optional[bool] = Field(
         None, description="Is this the default model for its type"
     )
+    is_active: Optional[bool] = Field(
+        None, description="Whether the model is active and available for use"
+    )
 
     # Pricing information (stored as strings to maintain precision)
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
+    price_reasoning: Optional[str] = Field(
+        None, description="Price per reasoning output unit"
+    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -123,6 +223,9 @@ class AIModelUpdateFieldsMixin(BaseModel):
     )
     price_standard_output_unit_count: Optional[int] = Field(
         None, description="Standard output unit count for pricing"
+    )
+    price_reasoning_output_unit_count: Optional[int] = Field(
+        None, description="Reasoning output unit count for pricing"
     )
 
     # Unit names
@@ -144,6 +247,12 @@ class AIModelUpdateFieldsMixin(BaseModel):
         description="Additional model configurations (e.g., {'vector_size': 1024} for embeddings)",
     )
 
+    # Routing and rate limiting configuration
+    routing_config: Optional[RoutingConfig] = Field(
+        None,
+        description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
+    )
+
 
 # Pydantic schemas for AI Models
 class AIModel(BaseSimpleSchema, AIModelFieldsMixin):
@@ -153,9 +262,21 @@ class AIModel(BaseSimpleSchema, AIModelFieldsMixin):
 class AIModelCreate(BaseSimpleCreateSchema, AIModelFieldsMixin):
     """Schema for creating a new AI model."""
 
+    @model_validator(mode="after")
+    def validate_routing_config_api_path(self) -> "AIModelCreate":
+        if self.routing_config:
+            self.routing_config.validate_api_path()
+        return self
+
 
 class AIModelUpdate(BaseSimpleUpdateSchema, AIModelUpdateFieldsMixin):
     """Schema for updating an existing AI model."""
+
+    @model_validator(mode="after")
+    def validate_routing_config_api_path(self) -> "AIModelUpdate":
+        if self.routing_config:
+            self.routing_config.validate_api_path()
+        return self
 
 
 class AIModelSetDefaultRequest(BaseModel):

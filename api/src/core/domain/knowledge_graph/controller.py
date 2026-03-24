@@ -19,8 +19,11 @@ from litestar.status_codes import (
     HTTP_200_OK,
     HTTP_204_NO_CONTENT,
 )
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
+from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkExternalSchema,
@@ -29,6 +32,10 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphDiscoveredMetadataExternalSchema,
     KnowledgeGraphDocumentDetailSchema,
     KnowledgeGraphDocumentExternalSchema,
+    KnowledgeGraphEntityExtractionRunRequest,
+    KnowledgeGraphEntityRecordListResponse,
+    KnowledgeGraphEntityRecordSchema,
+    KnowledgeGraphEntityTypeSummary,
     KnowledgeGraphExternalSchema,
     KnowledgeGraphExtractedMetadataExternalSchema,
     KnowledgeGraphExtractedMetadataUpsertRequest,
@@ -45,18 +52,30 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphUpdateResponse,
     KnowledgeGraphUploadUrlRequest,
 )
-from core.domain.knowledge_graph.service import (
+from core.domain.knowledge_graph.services import (
     KnowledgeGraphChunkService,
     KnowledgeGraphDocumentService,
+    KnowledgeGraphEdgeService,
+    KnowledgeGraphEntityService,
     KnowledgeGraphMetadataService,
     KnowledgeGraphService,
     KnowledgeGraphSourceService,
 )
+from services.knowledge_graph import (
+    schedule_source_sync,
+    unschedule_source_sync,
+)
+from services.knowledge_graph.llm_entity_extraction import (
+    is_extraction_task_active,
+    run_entity_extraction_background,
+)
+from utils.datetime_utils import utc_now_isoformat
 from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
 )
 from services.knowledge_graph.sources import FileUploadDataSource
+from services.knowledge_graph.sources.sync_services import sync_source_background
 from services.observability import observability_overrides, observe
 
 logger = logging.getLogger(__name__)
@@ -87,6 +106,8 @@ class KnowledgeGraphController(Controller):
         "metadata_service": Provide(
             KnowledgeGraphMetadataService, sync_to_thread=False
         ),
+        "entity_service": Provide(KnowledgeGraphEntityService, sync_to_thread=False),
+        "edge_service": Provide(KnowledgeGraphEdgeService, sync_to_thread=False),
     }
 
     ###########################################################################
@@ -98,6 +119,39 @@ class KnowledgeGraphController(Controller):
         self, graph_service: KnowledgeGraphService, db_session: AsyncSession
     ) -> list[KnowledgeGraphExternalSchema]:
         return await graph_service.list_graphs(db_session)
+
+    @get("/agent_tools", status_code=HTTP_200_OK)
+    async def list_graphs_as_agent_tools(
+        self, graph_service: KnowledgeGraphService, db_session: AsyncSession
+    ) -> list[dict]:
+        """Return knowledge graphs with their individual retriever tools.
+
+        Each knowledge graph is returned as a 'server' whose ``tools``
+        list contains the actual retriever tools (e.g.
+        findChunksBySimilarity, findDocumentsBySummarySimilarity,
+        findDocumentsByMetadata).  This lets the admin pick individual
+        tools per graph, following the same pattern as MCP/API servers.
+        """
+        from services.knowledge_graph.retrievers.agent_retriever.tools import (
+            get_agent_tool_specs,
+        )
+
+        graphs = await graph_service.list_graphs(db_session)
+        tool_specs = get_agent_tool_specs()
+
+        result = []
+        for graph in graphs:
+            result.append(
+                {
+                    "id": graph.id,
+                    "name": graph.name,
+                    "system_name": graph.system_name,
+                    "description": graph.description,
+                    "url": None,
+                    "tools": tool_specs,
+                }
+            )
+        return result
 
     @get("/{graph_id:uuid}", status_code=HTTP_200_OK)
     async def get_graph(
@@ -114,6 +168,7 @@ class KnowledgeGraphController(Controller):
         graph_service: KnowledgeGraphService,
         document_service: KnowledgeGraphDocumentService,
         chunk_service: KnowledgeGraphChunkService,
+        edge_service: KnowledgeGraphEdgeService,
         db_session: AsyncSession,
         data: KnowledgeGraphCreateRequest,
     ) -> KnowledgeGraphCreateResponse:
@@ -122,6 +177,7 @@ class KnowledgeGraphController(Controller):
             data,
             document_service=document_service,
             chunk_service=chunk_service,
+            edge_service=edge_service,
         )
 
     @patch("/{graph_id:uuid}", status_code=HTTP_200_OK)
@@ -148,6 +204,7 @@ class KnowledgeGraphController(Controller):
         graph_service: KnowledgeGraphService,
         document_service: KnowledgeGraphDocumentService,
         chunk_service: KnowledgeGraphChunkService,
+        edge_service: KnowledgeGraphEdgeService,
         db_session: AsyncSession,
         graph_id: UUID,
     ) -> None:
@@ -156,6 +213,7 @@ class KnowledgeGraphController(Controller):
             graph_id,
             document_service=document_service,
             chunk_service=chunk_service,
+            edge_service=edge_service,
         )
 
     @observe(
@@ -349,18 +407,23 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         source_id: UUID,
-        cascade: bool = Parameter(
-            default=False,
-            description="Delete documents and chunks for this source as well",
-        ),
     ) -> None:
-        await source_service.delete_source(db_session, graph_id, source_id, cascade)
+        await source_service.delete_source(db_session, graph_id, source_id)
 
-    @observe(
-        name="Sync knowledge graph source",
-        channel="production",
-        source="production",
+    @delete(
+        "/{graph_id:uuid}/sources/{source_id:uuid}/purge",
+        status_code=HTTP_204_NO_CONTENT,
     )
+    async def purge_source(
+        self,
+        source_service: KnowledgeGraphSourceService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        source_id: UUID,
+    ) -> None:
+        """Delete all documents and chunks for a source, keeping the source itself."""
+        await source_service.purge_source_data(db_session, graph_id, source_id)
+
     @post("/{graph_id:uuid}/sources/{source_id:uuid}/sync", status_code=HTTP_200_OK)
     async def sync_source(
         self,
@@ -374,7 +437,7 @@ class KnowledgeGraphController(Controller):
         await db_session.commit()
 
         # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh
-        asyncio.create_task(source_service.sync_source_background(graph_id, source_id))
+        asyncio.create_task(sync_source_background(graph_id, source_id))
         return {"status": "started", "message": "Sync started in background"}
 
     @observe(
@@ -395,7 +458,7 @@ class KnowledgeGraphController(Controller):
         scheduler: AsyncIOScheduler,
         data: Annotated[KnowledgeGraphSourceScheduleSyncRequest | None, Body()] = None,
     ) -> dict[str, Any]:
-        return await source_service.schedule_source_sync(
+        return await schedule_source_sync(
             db_session, graph_id, source_id, scheduler, data
         )
 
@@ -416,9 +479,7 @@ class KnowledgeGraphController(Controller):
         source_id: UUID,
         scheduler: AsyncIOScheduler,
     ) -> None:
-        await source_service.unschedule_source_sync(
-            db_session, graph_id, source_id, scheduler
-        )
+        await unschedule_source_sync(db_session, graph_id, source_id, scheduler)
 
     ###########################################################################
     # KNOWLEDGE GRAPH DOCUMENT ENDPOINTS #
@@ -460,18 +521,6 @@ class KnowledgeGraphController(Controller):
     # KNOWLEDGE GRAPH CHUNK ENDPOINTS #
     ###########################################################################
 
-    @get("/{graph_id:uuid}/chunks", status_code=HTTP_200_OK)
-    async def list_all_chunks(
-        self,
-        chunk_service: KnowledgeGraphChunkService,
-        db_session: AsyncSession,
-        graph_id: UUID,
-        limit: int = Parameter(default=50, ge=1, le=500),
-        offset: int = Parameter(default=0, ge=0),
-        q: str | None = Parameter(default=None, query="q"),
-    ) -> list[KnowledgeGraphChunkExternalSchema]:
-        return await chunk_service.list_chunks(db_session, graph_id, limit, offset, q)
-
     @get(
         "/{graph_id:uuid}/documents/{document_id:uuid}/chunks",
         status_code=HTTP_200_OK,
@@ -488,6 +537,162 @@ class KnowledgeGraphController(Controller):
         return await chunk_service.list_chunks(
             db_session, graph_id, limit, offset, None, document_id
         )
+
+    ###########################################################################
+    # KNOWLEDGE GRAPH ENTITY ENDPOINTS #
+    ###########################################################################
+
+    @get("/{graph_id:uuid}/entities", status_code=HTTP_200_OK)
+    async def list_entity_types(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+    ) -> list[KnowledgeGraphEntityTypeSummary]:
+        rows = await entity_service.list_entity_types(db_session, graph_id=graph_id)
+        return [KnowledgeGraphEntityTypeSummary(**r) for r in rows]
+
+    @get("/{graph_id:uuid}/entities/records", status_code=HTTP_200_OK)
+    async def list_entity_records(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        entity: str | None = Parameter(default=None, query="entity"),
+        limit: int = Parameter(default=50, ge=1, le=500),
+        offset: int = Parameter(default=0, ge=0),
+    ) -> KnowledgeGraphEntityRecordListResponse:
+        records = await entity_service.list_records(
+            db_session,
+            graph_id=graph_id,
+            entity=entity,
+            limit=limit,
+            offset=offset,
+        )
+        total = await entity_service.count_records(
+            db_session, graph_id=graph_id, entity=entity
+        )
+        return KnowledgeGraphEntityRecordListResponse(
+            records=[KnowledgeGraphEntityRecordSchema(**r.to_json()) for r in records],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    @delete("/{graph_id:uuid}/entities/records", status_code=HTTP_204_NO_CONTENT)
+    async def delete_entity_records(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        entity: str | None = Parameter(default=None, query="entity"),
+    ) -> None:
+        await entity_service.delete_records(
+            db_session,
+            graph_id=graph_id,
+            entity=entity,
+        )
+
+    @delete(
+        "/{graph_id:uuid}/entities/records/{record_id:uuid}",
+        status_code=HTTP_204_NO_CONTENT,
+    )
+    async def delete_entity_record(
+        self,
+        entity_service: KnowledgeGraphEntityService,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        record_id: UUID,
+    ) -> None:
+        await entity_service.delete_record(
+            db_session,
+            graph_id=graph_id,
+            record_id=record_id,
+        )
+
+    @observe(
+        name="Running knowledge graph entity extraction",
+        channel="production",
+        source="production",
+    )
+    @post("/{graph_id:uuid}/entities/extract", status_code=HTTP_200_OK)
+    async def run_entity_extraction(
+        self,
+        db_session: AsyncSession,
+        graph_id: UUID,
+        data: KnowledgeGraphEntityExtractionRunRequest,
+    ) -> dict[str, Any]:
+        # Guard: prevent concurrent runs
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
+        )
+        graph_obj = graph_res.scalar_one_or_none()
+        if not graph_obj:
+            raise ClientException("Graph not found")
+
+        current_state = getattr(graph_obj, "state", None) or {}
+        extraction_state = (
+            current_state.get("entity_extraction")
+            if isinstance(current_state, dict)
+            else {}
+        ) or {}
+        if extraction_state.get("status") in ("running", "cancelling"):
+            raise ClientException("Entity extraction is already running")
+
+        # Pre-set status to "running" before spawning the background task so that
+        # an immediate refresh after this response returns sees the correct state.
+        current_state["entity_extraction"] = {
+            **(extraction_state or {}),
+            "status": "running",
+            "started_at": utc_now_isoformat(),
+        }
+        graph_obj.state = current_state
+        flag_modified(graph_obj, "state")
+        await db_session.commit()
+
+        asyncio.create_task(
+            run_entity_extraction_background(graph_id, data.model_dump())
+        )
+        return {"status": "started"}
+
+    @post("/{graph_id:uuid}/entities/extract/cancel", status_code=HTTP_200_OK)
+    async def cancel_entity_extraction(
+        self, db_session: AsyncSession, graph_id: UUID
+    ) -> dict[str, Any]:
+        """Request cancellation of a running entity extraction."""
+        graph_res = await db_session.execute(
+            select(KnowledgeGraph).where(KnowledgeGraph.id == graph_id)
+        )
+        graph_obj = graph_res.scalar_one_or_none()
+        if not graph_obj:
+            raise ClientException("Graph not found")
+
+        current_state = dict(getattr(graph_obj, "state", None) or {})
+        prev_extraction = (
+            current_state.get("entity_extraction")
+            if isinstance(current_state, dict)
+            else {}
+        ) or {}
+        extraction_state = dict(prev_extraction)
+
+        if extraction_state.get("status") not in ("running", "cancelling"):
+            raise ClientException("Entity extraction is not currently running")
+
+        # If no background task is actually alive (e.g. after a backend restart),
+        # transition directly to "cancelled" instead of waiting for a process
+        # that will never pick up the "cancelling" signal.
+        if is_extraction_task_active(graph_id):
+            extraction_state["status"] = "cancelling"
+        else:
+            extraction_state["status"] = "cancelled"
+            extraction_state["completed_at"] = utc_now_isoformat()
+
+        extraction_state.pop("progress", None)
+        current_state["entity_extraction"] = extraction_state
+        graph_obj.state = current_state
+        flag_modified(graph_obj, "state")
+        await db_session.commit()
+        return {"status": extraction_state["status"]}
 
     ###########################################################################
     # KNOWLEDGE GRAPH METADATA ENDPOINTS #

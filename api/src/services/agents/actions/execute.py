@@ -1,6 +1,9 @@
 from typing import Protocol
 
 from services.agents.actions.action_execute_api_tool import action_execute_api_tool
+from services.agents.actions.action_execute_knowledge_graph import (
+    action_execute_knowledge_graph,
+)
 from services.agents.actions.action_execute_mcp_tool import action_execute_mcp_tool
 from services.agents.actions.action_execute_prompt_template import (
     action_execute_prompt_template,
@@ -45,6 +48,7 @@ EXECUTE_AGENT_PROVIDED_ACTION_FUNCTION_MAP: dict[
 ] = {
     AgentActionType.MCP_TOOL: action_execute_mcp_tool,
     AgentActionType.API: action_execute_api_tool,
+    AgentActionType.KNOWLEDGE_GRAPH: action_execute_knowledge_graph,
 }
 
 
@@ -65,9 +69,10 @@ async def execute_agent_action(
     if execute_agent_action_function := EXECUTE_AGENT_PROVIDED_ACTION_FUNCTION_MAP.get(
         action_type
     ):
-        assert action_call_request.action_tool_provider, (
-            f"Provider is not defined for action {action_call_request.action_system_name}"
-        )
+        if not action_call_request.action_tool_provider:
+            raise ValueError(
+                f"Provider is not defined for action {action_call_request.action_system_name}"
+            )
 
         return await execute_agent_action_function(
             tool_provider=action_call_request.action_tool_provider,

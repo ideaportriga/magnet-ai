@@ -22,6 +22,14 @@
           <div class="text-secondary-text km-button-xs-text">Last Synced:</div>
           <div class="text-secondary-text km-description">{{ modifiedAt }}</div>
         </div>
+        <div>
+          <div class="text-secondary-text km-button-xs-text">Created by:</div>
+          <div class="text-secondary-text km-description">{{ createdBy }}</div>
+        </div>
+        <div>
+          <div class="text-secondary-text km-button-xs-text">Modified by:</div>
+          <div class="text-secondary-text km-description">{{ modifiedBy }}</div>
+        </div>
       </div>
     </q-tooltip>
   </div>
@@ -66,6 +74,8 @@ const $q = useQuasar()
 const graphName = ref('')
 const createdAt = ref('')
 const modifiedAt = ref('')
+const createdBy = ref('')
+const modifiedBy = ref('')
 const showDeleteDialog = ref(false)
 const deleting = ref(false)
 
@@ -78,7 +88,7 @@ const load = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${graphId.value}`,
+      service: `knowledge_graphs/${graphId.value}`,
       method: 'GET',
       credentials: 'include',
     })
@@ -87,6 +97,8 @@ const load = async () => {
       graphName.value = data?.name || ''
       createdAt.value = data?.created_at || ''
       modifiedAt.value = data?.updated_at || ''
+      createdBy.value = data?.created_by ? `${data?.created_by}` : 'Unknown'
+      modifiedBy.value = data?.updated_by ? `${data?.updated_by}` : 'Unknown'
     }
   } catch (e) {
     // noop
@@ -104,7 +116,7 @@ const deleteGraph = async () => {
     const endpoint = store.getters.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
-      service: `knowledge_graphs//${graphId.value}`,
+      service: `knowledge_graphs/${graphId.value}`,
       method: 'DELETE',
       credentials: 'include',
     })

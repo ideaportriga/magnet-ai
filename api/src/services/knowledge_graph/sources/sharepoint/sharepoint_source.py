@@ -106,16 +106,23 @@ class SharePointDataSource(AbstractDataSource):
 
         await self._finalize(db_session, counters=counters)
 
-        summary: dict[str, Any] = {
+        summary = {
+            # Source info
             "source_id": str(self.source.id),
             "site_url": cfg.site_url,
             "library": cfg.library,
             "folder": cfg.folder,
             "recursive": cfg.recursive,
-            "synced": counters.synced,
-            "failed": counters.failed,
-            "skipped": counters.skipped,
-            "total_found": counters.total_found,
+            # Document operations breakdown
+            "documents_created": counters.content_changed,
+            "documents_metadata_updated_only": counters.metadata_only_updated,
+            "documents_content_changed": counters.content_changed,
+            "documents_unchanged": counters.unchanged_skipped,
+            "documents_failed": counters.failed,
+            "documents_deleted": counters.deleted,
+            # Totals
+            "total_in_source": counters.total_found,
+            # Status
             "status": self.source.status,
             "last_sync_at": self.source.last_sync_at,
         }

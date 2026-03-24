@@ -4,14 +4,14 @@
     :title="isEditMode ? 'Edit Smart Extraction Field' : 'Add Smart Extraction Field'"
     :confirm-label="isEditMode ? 'Save Changes' : 'Add Field'"
     :loading="loading"
-    size="md"
+    size="lg"
     @update:model-value="emit('update:showDialog', $event)"
     @cancel="emit('cancel')"
     @confirm="onConfirm"
   >
     <div class="column q-gap-16">
       <!-- Field Name Section -->
-      <kg-dialog-section title="Field Identity" description="Define the field identifier used for smart extraction" icon="edit">
+      <kg-dialog-section title="Field Identity" description="Define the field identifier used for smart extraction" icon="badge">
         <kg-field-row gap="16px">
           <kg-field-row label="Field Name">
             <km-input ref="fieldNameInputRef" v-model="fieldName" height="36px" :rules="fieldNameRules" :disabled="isEditMode" />
@@ -29,18 +29,25 @@
         </kg-field-row>
       </kg-dialog-section>
 
-      <!-- Data Type Section -->
-      <kg-dialog-section title="Data Type" description="Choose the type of values this field will store" icon="tune">
-        <kg-field-row>
-          <kg-dropdown-field v-model="valueTypeModel" :options="valueTypeOptions" placeholder="Select type" dense />
-        </kg-field-row>
-      </kg-dialog-section>
-
-      <!-- Input Constraints Section -->
-      <kg-dialog-section title="Input Constraints" description="Define cardinality and value restrictions" icon="list_alt">
-        <kg-field-row :cols="2" class="q-mb-md">
-          <kg-toggle-field v-model="isMultiple" title="Accept multiple values" />
-          <kg-toggle-field v-model="restrictToAllowedValues" title="Limit to predefined options" />
+      <!-- Type & Constraints Section -->
+      <kg-dialog-section
+        title="Type &amp; Constraints"
+        description="Define the value type, cardinality, restrictions and extraction requirements"
+        icon="rule"
+      >
+        <kg-field-row :cols="4" gap="12px" class="q-mb-md constraints-row">
+          <kg-field-row label="Value Type">
+            <kg-dropdown-field v-model="valueTypeModel" :options="valueTypeOptions" placeholder="Select type" dense />
+          </kg-field-row>
+          <kg-field-row label="Multiple Values">
+            <kg-toggle-field v-model="isMultiple" :title="isMultiple ? 'Multiple values' : 'Allow'" />
+          </kg-field-row>
+          <kg-field-row label="Value Restrictions">
+            <kg-toggle-field v-model="restrictToAllowedValues" :title="restrictToAllowedValues ? 'Values predefined' : 'Predefine values'" />
+          </kg-field-row>
+          <kg-field-row label="Required">
+            <kg-toggle-field v-model="isRequired" :title="isRequired ? 'Required field' : 'Mark as required'" />
+          </kg-field-row>
         </kg-field-row>
 
         <!-- Restricted Values -->
@@ -87,6 +94,7 @@ export interface SmartExtractionFieldDefinition {
   name: string
   value_type: MetadataValueType
   is_multiple: boolean
+  is_required: boolean
   allowed_values?: AllowedValue[]
   llm_extraction_hint?: string
 }
@@ -113,6 +121,7 @@ const valueTypeModel = computed<string | undefined>({
   },
 })
 const isMultiple = ref(false)
+const isRequired = ref(false)
 const restrictToAllowedValues = ref(false)
 const allowedValues = ref<AllowedValue[]>([])
 const newAllowedValue = ref('')
@@ -161,6 +170,7 @@ watch(
         fieldName.value = props.field.name
         valueType.value = props.field.value_type || 'string'
         isMultiple.value = !!props.field.is_multiple
+        isRequired.value = !!props.field.is_required
         restrictToAllowedValues.value = !!props.field.allowed_values?.length
         allowedValues.value = props.field.allowed_values || []
         extractionHint.value = props.field.llm_extraction_hint || DEFAULT_EXTRACTION_TEMPLATE
@@ -170,6 +180,7 @@ watch(
         fieldName.value = ''
         valueType.value = 'string'
         isMultiple.value = false
+        isRequired.value = false
         restrictToAllowedValues.value = false
         allowedValues.value = []
         newAllowedValue.value = ''
@@ -200,6 +211,7 @@ const onConfirm = () => {
     name: fieldName.value.trim(),
     value_type: valueType.value,
     is_multiple: isMultiple.value,
+    is_required: isRequired.value,
     allowed_values: restrictToAllowedValues.value && allowedValues.value.length > 0 ? allowedValues.value : undefined,
     llm_extraction_hint: finalExtractionHint || undefined,
   }
@@ -208,6 +220,25 @@ const onConfirm = () => {
 </script>
 
 <style scoped>
+/* Normalize control height across the constraints row */
+.constraints-row :deep(.q-field__control) {
+  height: 40px !important;
+  min-height: 40px !important;
+  max-height: 40px !important;
+}
+
+.constraints-row :deep(.q-field__native),
+.constraints-row :deep(.q-field__input),
+.constraints-row :deep(.q-field__marginal) {
+  min-height: 40px !important;
+}
+
+.constraints-row :deep(.kg-toggle-field) {
+  min-height: 40px;
+  height: 40px;
+  padding: 0 16px;
+}
+
 /* Value Options Section */
 .value-options-container {
   border: 1px solid var(--q-control-border);

@@ -115,13 +115,31 @@ export default {
     },
     runConfigurationType() {
       const option = jobTypeOptions.find((option) => option.value === this.job?.definition?.run_configuration?.type)
-      return option?.label || 'Not specified'
+      return option?.label || this.job?.definition?.run_configuration?.type || 'Not specified'
     },
     jobStatus() {
       return this.job?.status || 'Not specified'
     },
     systemName() {
-      return this.job?.definition?.run_configuration?.params?.system_name || 'Not specified'
+      const params = this.job?.definition?.run_configuration?.params
+      const type = this.job?.definition?.run_configuration?.type
+
+      if (type === 'evaluation' && params) {
+        const parts = []
+        if (params.type) parts.push(params.type)
+        const testSets = params.config
+          ?.flatMap((c) => c.test_set_system_names || [])
+          ?.join(', ')
+        if (testSets) parts.push(testSets)
+        return parts.join(' · ') || params.system_name || 'Not specified'
+      }
+
+      if (type === 'cleanup_logs' && params) {
+        const days = params.retention_days
+        return days ? `Retention: ${days} days` : params.system_name || 'Not specified'
+      }
+
+      return params?.system_name || 'Not specified'
     },
     jobType() {
       const option = jobRunTypeOptions.find((option) => option.value === this.job?.definition?.job_type)
@@ -265,18 +283,9 @@ export default {
 
     formatDateTime(dateTimeString) {
       if (!dateTimeString) return 'Not specified'
-      try {
-        // Ensure the string is treated as UTC if it doesn't already include a timezone
-        if (!dateTimeString.includes('Z') && !dateTimeString.includes('+') && !dateTimeString.includes('-')) {
-          dateTimeString += 'Z' // Append UTC timezone if missing
-        }
-        // Handle cases where fractional seconds are present
-        const normalizedDateTimeString = dateTimeString.replace(/(\.\d+)(?!Z|[+-])/, '$1Z')
-        const date = new Date(normalizedDateTimeString)
-        return date.toLocaleString()
-      } catch (e) {
-        return dateTimeString
-      }
+      const dt = DateTime.fromISO(dateTimeString, { zone: 'utc' })
+      if (!dt.isValid) return 'Not specified'
+      return dt.toLocal().toLocaleString(DateTime.DATETIME_MED)
     },
     showCancelJobConfirm() {
       this.showCancelConfirm = true

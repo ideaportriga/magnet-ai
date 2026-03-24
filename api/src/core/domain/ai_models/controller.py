@@ -15,6 +15,7 @@ from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.ai_models.service import (
     AIModelsService,
 )
+from core.domain.providers.service import ProvidersService
 from openai_model.utils import clear_model_cache
 
 from .schemas import AIModel, AIModelCreate, AIModelSetDefaultRequest, AIModelUpdate
@@ -34,6 +35,69 @@ class ModelTestResult(BaseModel):
     response_preview: str | None = Field(
         None, description="Preview of model response if successful"
     )
+    # LiteLLM diagnostic info
+    litellm_model_string: str | None = Field(
+        None, description="Full LiteLLM model string used (e.g. 'openai/gpt-4o')"
+    )
+    effective_endpoint: str | None = Field(
+        None, description="Provider endpoint that will be used for API calls"
+    )
+    via_router: bool | None = Field(
+        None, description="Whether the model routes through the global LiteLLM Router"
+    )
+    computed_url: str | None = Field(
+        None, description="Approximate full URL that LiteLLM will send requests to"
+    )
+
+
+class ModelDebugInfo(BaseModel):
+    """LiteLLM routing diagnostic information for a model (no API call made)."""
+
+    model_system_name: str = Field(..., description="Model system_name")
+    model_ai_model: str = Field(..., description="Model identifier (e.g. 'gpt-4o')")
+    provider_system_name: str | None = Field(None, description="Provider system_name")
+    litellm_model_string: str | None = Field(
+        None, description="Full LiteLLM model string (e.g. 'azure/gpt-4o')"
+    )
+    effective_endpoint: str | None = Field(
+        None, description="Endpoint that will be used for API calls"
+    )
+    via_router: bool = Field(
+        ..., description="Whether the model is registered in the global LiteLLM Router"
+    )
+    computed_url: str | None = Field(
+        None, description="Approximate full URL that LiteLLM will send requests to"
+    )
+
+
+class ModelCapabilities(BaseModel):
+    """Model capabilities and supported parameters from LiteLLM."""
+
+    supported_params: list[str] = Field(
+        default_factory=list, description="Supported OpenAI parameters"
+    )
+    max_tokens: int | None = Field(None, description="Maximum total tokens")
+    max_input_tokens: int | None = Field(None, description="Maximum input tokens")
+    max_output_tokens: int | None = Field(None, description="Maximum output tokens")
+    supports_vision: bool = Field(
+        False, description="Whether model supports vision/images"
+    )
+    supports_function_calling: bool = Field(
+        False, description="Whether model supports function calling"
+    )
+    supports_response_schema: bool = Field(
+        False, description="Whether model supports response schema"
+    )
+    supports_audio_input: bool = Field(
+        False, description="Whether model supports audio input"
+    )
+    supports_audio_output: bool = Field(
+        False, description="Whether model supports audio output"
+    )
+    input_cost_per_token: float | None = Field(None, description="Input cost per token")
+    output_cost_per_token: float | None = Field(
+        None, description="Output cost per token"
+    )
 
 
 class AIModelsController(Controller):
@@ -42,17 +106,23 @@ class AIModelsController(Controller):
     path = "/models"
     tags = ["Admin / Models"]
 
-    dependencies = providers.create_service_dependencies(
-        AIModelsService,
-        "ai_models_service",
-        filters={
-            "pagination_type": "limit_offset",
-            "id_filter": UUID,
-            "search": "name",
-            "search_ignore_case": True,
-            "pagination_size": DEFAULT_PAGINATION_SIZE,
-        },
-    )
+    dependencies = {
+        **providers.create_service_dependencies(
+            AIModelsService,
+            "ai_models_service",
+            filters={
+                "pagination_type": "limit_offset",
+                "id_filter": UUID,
+                "search": "name",
+                "search_ignore_case": True,
+                "pagination_size": DEFAULT_PAGINATION_SIZE,
+            },
+        ),
+        **providers.create_service_dependencies(
+            ProvidersService,
+            "providers_service",
+        ),
+    }
 
     @get()
     async def list_ai_models(
@@ -68,11 +138,19 @@ class AIModelsController(Controller):
 
     @post()
     async def create_ai_model(
-        self, ai_models_service: AIModelsService, data: AIModelCreate
+        self,
+        ai_models_service: AIModelsService,
+        data: AIModelCreate,
+        audit_username: str | None,
     ) -> AIModel:
         """Create a new AI model."""
+        from services.ai_services.router import refresh_router
+
+        data.created_by = audit_username
+        data.updated_by = audit_username
         obj = await ai_models_service.create(data)
         clear_model_cache()
+        await refresh_router()  # Refresh LiteLLM router with new model
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
     @get("/code/{code:str}")
@@ -105,12 +183,18 @@ class AIModelsController(Controller):
             title="AI Model ID",
             description="The AI model to update.",
         ),
+        audit_username: str | None = None,
     ) -> AIModel:
         """Update an AI model."""
+        from services.ai_services.router import refresh_router
+
+        update_data = data.model_dump(exclude_unset=True)
+        update_data["updated_by"] = audit_username
         obj = await ai_models_service.update(
-            data, item_id=ai_model_id, auto_commit=True
+            update_data, item_id=ai_model_id, auto_commit=True
         )
         clear_model_cache()
+        await refresh_router()  # Refresh LiteLLM router with updated model
         return ai_models_service.to_schema(obj, schema_type=AIModel)
 
     @delete("/{ai_model_id:uuid}")
@@ -123,8 +207,11 @@ class AIModelsController(Controller):
         ),
     ) -> None:
         """Delete an AI model from the system."""
+        from services.ai_services.router import refresh_router
+
         _ = await ai_models_service.delete(ai_model_id)
         clear_model_cache()
+        await refresh_router()  # Refresh LiteLLM router after model deletion
 
     @post("/set_default", status_code=HTTP_204_NO_CONTENT)
     async def set_default_handler(
@@ -153,6 +240,7 @@ class AIModelsController(Controller):
     async def test_model(
         self,
         ai_models_service: AIModelsService,
+        providers_service: ProvidersService,
         ai_model_id: UUID = Parameter(
             title="AI Model ID",
             description="The AI model to test.",
@@ -165,7 +253,19 @@ class AIModelsController(Controller):
         by attempting to make a request to the model through its provider.
         For chat models, it sends a simple greeting.
         For embedding models, it generates embeddings for test text.
+
+        The response includes LiteLLM diagnostic info:
+        - litellm_model_string: full model string passed to LiteLLM
+        - effective_endpoint: the endpoint used for API calls
+        - via_router: whether the request goes through the global LiteLLM Router
+        - computed_url: approximate full URL LiteLLM will call
         """
+        debug_info: dict = {
+            "litellm_model_string": None,
+            "effective_endpoint": None,
+            "via_router": None,
+            "computed_url": None,
+        }
         try:
             # Get the model from database
             model = await ai_models_service.get(ai_model_id)
@@ -185,6 +285,37 @@ class AIModelsController(Controller):
                     error="Model does not have a provider_system_name configured",
                 )
 
+            # Ensure router is initialized before checking is_model_in_router()
+            from services.ai_services.router import get_router
+
+            await get_router()
+
+            # Compute diagnostic info (read-only, no API call)
+            from services.ai_services.utils import get_litellm_debug_info
+
+            provider = await providers_service.get_one_or_none(
+                system_name=provider_system_name
+            )
+            if provider:
+                debug_info = get_litellm_debug_info(
+                    provider_data={
+                        "type": provider.type,
+                        "endpoint": provider.endpoint,
+                        "connection_config": provider.connection_config or {},
+                    },
+                    model_name=model.ai_model,
+                    model_system_name=model.system_name,
+                    model_routing_config=model.routing_config,
+                    model_type=model.type,
+                )
+            else:
+                debug_info = {
+                    "litellm_model_string": None,
+                    "effective_endpoint": None,
+                    "via_router": None,
+                    "computed_url": None,
+                }
+
             # Try to get the AI provider instance
             try:
                 # Import here to avoid circular import
@@ -196,10 +327,23 @@ class AIModelsController(Controller):
                     success=False,
                     message="Provider configuration error",
                     error=str(e),
+                    **debug_info,
                 )
 
             model_type = model.type or "prompts"
             model_name = model.ai_model
+            rc = model.routing_config
+            routing_config_dict = (
+                rc
+                if isinstance(rc, dict)
+                else rc.model_dump(exclude_none=True)
+                if rc
+                else {}
+            )
+            model_config = {
+                "system_name": model.system_name,
+                "routing_config": routing_config_dict,
+            }
 
             if model_type == "embeddings":
                 # Test embedding model
@@ -207,6 +351,7 @@ class AIModelsController(Controller):
                     response = await ai_provider.get_embeddings(
                         text="Test embedding generation",
                         llm=model_name,
+                        model_config=model_config,
                     )
                     if response and response.data:
                         vector_length = len(response.data)
@@ -215,29 +360,82 @@ class AIModelsController(Controller):
                             message=f"Embedding model '{model.display_name}' is working correctly!",
                             error=None,
                             response_preview=f"Generated embedding with {vector_length} dimensions",
+                            **debug_info,
                         )
                     else:
                         return ModelTestResult(
                             success=False,
                             message="Received empty embedding response",
                             error="No embedding data returned from provider",
+                            **debug_info,
                         )
                 except NotImplementedError:
                     return ModelTestResult(
                         success=False,
                         message="Provider does not support embeddings",
                         error="The configured provider does not implement the get_embeddings method",
+                        **debug_info,
+                    )
+                except Exception as e:
+                    return ModelTestResult(
+                        success=False,
+                        message="Embedding test failed",
+                        error=str(e),
+                        **debug_info,
                     )
 
             elif model_type == "re-ranking":
-                # For re-ranking models, we can't easily test without documents
-                # Just verify the provider is accessible
-                return ModelTestResult(
-                    success=True,
-                    message=f"Re-ranking model '{model.display_name}' configuration verified. Full testing requires documents.",
-                    error=None,
-                    response_preview="Configuration validated (re-ranking requires documents for full test)",
-                )
+                # Test rerank model with minimal synthetic documents
+                from decimal import Decimal
+
+                from models import DocumentSearchResultItem
+
+                test_docs = [
+                    DocumentSearchResultItem(
+                        id="test-1",
+                        content="Python is a programming language.",
+                        metadata={},
+                        score=Decimal("0.5"),
+                        collection_id="test",
+                    ),
+                    DocumentSearchResultItem(
+                        id="test-2",
+                        content="The weather is sunny today.",
+                        metadata={},
+                        score=Decimal("0.5"),
+                        collection_id="test",
+                    ),
+                ]
+                try:
+                    response = await ai_provider.rerank(
+                        query="programming language",
+                        documents=test_docs,
+                        llm=model_name,
+                        top_n=2,
+                        truncation=False,
+                        model_config=model_config,
+                    )
+                    return ModelTestResult(
+                        success=True,
+                        message=f"Re-ranking model '{model.display_name}' is working correctly!",
+                        error=None,
+                        response_preview=f"Reranked {len(response.data)} documents",
+                        **debug_info,
+                    )
+                except NotImplementedError:
+                    return ModelTestResult(
+                        success=False,
+                        message="Provider does not support reranking",
+                        error="The configured provider does not implement the rerank method",
+                        **debug_info,
+                    )
+                except Exception as e:
+                    return ModelTestResult(
+                        success=False,
+                        message="Re-ranking test failed",
+                        error=str(e),
+                        **debug_info,
+                    )
 
             else:
                 # Test chat/prompt model
@@ -251,7 +449,8 @@ class AIModelsController(Controller):
                         model=model_name,
                         temperature=0,
                         top_p=1,
-                        max_tokens=10,  # Minimal tokens to save costs
+                        max_tokens=16,  # Minimal tokens to save costs (Responses API requires >= 16)
+                        model_config=model_config,
                     )
 
                     if response and response.choices:
@@ -265,18 +464,28 @@ class AIModelsController(Controller):
                             message=f"Model '{model.display_name}' is working correctly!",
                             error=None,
                             response_preview=preview,
+                            **debug_info,
                         )
                     else:
                         return ModelTestResult(
                             success=False,
                             message="Connection established but received unexpected response",
                             error="No response choices returned from model",
+                            **debug_info,
                         )
                 except NotImplementedError:
                     return ModelTestResult(
                         success=False,
                         message="Provider does not support chat completions",
                         error="The configured provider does not implement chat completions",
+                        **debug_info,
+                    )
+                except Exception as e:
+                    return ModelTestResult(
+                        success=False,
+                        message="Chat completion test failed",
+                        error=str(e),
+                        **debug_info,
                     )
 
         except Exception as e:
@@ -285,4 +494,129 @@ class AIModelsController(Controller):
                 success=False,
                 message="Model test failed",
                 error=str(e),
+                **debug_info,
             )
+
+    @get(
+        "/{ai_model_id:uuid}/debug-info",
+        summary="Get LiteLLM routing debug info",
+        status_code=HTTP_200_OK,
+    )
+    async def get_model_debug_info(
+        self,
+        ai_models_service: AIModelsService,
+        providers_service: ProvidersService,
+        ai_model_id: UUID = Parameter(
+            title="AI Model ID",
+            description="The AI model to get debug info for.",
+        ),
+    ) -> ModelDebugInfo:
+        """
+        Get LiteLLM routing diagnostic information for a model without making an API call.
+
+        Returns:
+        - litellm_model_string: full model string passed to LiteLLM (e.g. 'azure/gpt-4o')
+        - effective_endpoint: endpoint used for API calls (provider-level or model-level override)
+        - via_router: whether the model is registered in the global LiteLLM Router
+        - computed_url: approximate full URL that LiteLLM will call
+        """
+        from services.ai_services.router import get_router
+        from services.ai_services.utils import get_litellm_debug_info
+
+        await get_router()
+
+        model = await ai_models_service.get(ai_model_id)
+        if not model:
+            raise NotFoundException(f"Model with ID {ai_model_id} not found")
+
+        provider = None
+        if model.provider_system_name:
+            provider = await providers_service.get_one_or_none(
+                system_name=model.provider_system_name
+            )
+
+        if provider:
+            debug_info = get_litellm_debug_info(
+                provider_data={
+                    "type": provider.type,
+                    "endpoint": provider.endpoint,
+                    "connection_config": provider.connection_config or {},
+                },
+                model_name=model.ai_model,
+                model_system_name=model.system_name,
+                model_routing_config=model.routing_config,
+                model_type=model.type,
+            )
+        else:
+            from services.ai_services.router import is_model_in_router
+
+            debug_info = {
+                "litellm_model_string": None,
+                "effective_endpoint": None,
+                "via_router": is_model_in_router(model.system_name),
+                "computed_url": None,
+            }
+
+        return ModelDebugInfo(
+            model_system_name=model.system_name,
+            model_ai_model=model.ai_model,
+            provider_system_name=model.provider_system_name,
+            **debug_info,
+        )
+
+    @get(
+        "/{ai_model_id:uuid}/capabilities",
+        summary="Get model capabilities",
+        status_code=HTTP_200_OK,
+    )
+    async def get_model_capabilities(
+        self,
+        ai_models_service: AIModelsService,
+        ai_model_id: UUID = Parameter(
+            title="AI Model ID",
+            description="The AI model to get capabilities for.",
+        ),
+    ) -> ModelCapabilities:
+        """
+        Get model capabilities and supported parameters from LiteLLM.
+
+        Returns information about what parameters the model supports,
+        token limits, and special capabilities like vision or function calling.
+        """
+        import litellm
+
+        model = await ai_models_service.get(ai_model_id)
+        if not model:
+            raise NotFoundException(f"Model with ID {ai_model_id} not found")
+
+        model_name = model.ai_model
+
+        # Get supported parameters
+        try:
+            supported_params = litellm.get_supported_openai_params(model_name) or []
+        except Exception:
+            supported_params = []
+
+        # Get model info
+        try:
+            info = litellm.get_model_info(model_name)
+        except Exception:
+            info = {}
+
+        return ModelCapabilities(
+            supported_params=supported_params,
+            max_tokens=info.get("max_tokens"),
+            max_input_tokens=info.get("max_input_tokens"),
+            max_output_tokens=info.get("max_output_tokens"),
+            supports_vision=bool(info.get("supports_vision") or False),
+            supports_function_calling=bool(
+                info.get("supports_function_calling") or False
+            ),
+            supports_response_schema=bool(
+                info.get("supports_response_schema") or False
+            ),
+            supports_audio_input=bool(info.get("supports_audio_input") or False),
+            supports_audio_output=bool(info.get("supports_audio_output") or False),
+            input_cost_per_token=info.get("input_cost_per_token"),
+            output_cost_per_token=info.get("output_cost_per_token"),
+        )

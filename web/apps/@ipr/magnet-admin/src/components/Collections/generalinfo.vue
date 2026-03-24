@@ -217,7 +217,8 @@ export default {
     },
     chunkSize: {
       get() {
-        return this.$store.getters.knowledge?.chunking?.chunk_size || ''
+        const val = this.$store.getters.knowledge?.chunking?.chunk_size
+        return val != null ? String(val) : ''
       },
       set(value) {
         this.$store.dispatch('updateKnowledge', { chunking: { chunk_size: parseInt(value) } })
@@ -225,7 +226,8 @@ export default {
     },
     chunkOverlap: {
       get() {
-        return this.$store.getters.knowledge?.chunking?.chunk_overlap || ''
+        const val = this.$store.getters.knowledge?.chunking?.chunk_overlap
+        return val != null ? String(val) : ''
       },
       set(value) {
         this.$store.dispatch('updateKnowledge', { chunking: { chunk_overlap: parseInt(value) } })

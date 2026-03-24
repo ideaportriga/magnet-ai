@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from pathlib import PurePath
 from typing import TYPE_CHECKING, Any, override
 from urllib.parse import urlparse
@@ -9,17 +10,16 @@ from uuid import UUID
 from core.db.session import async_session_maker
 
 from ...content_config_services import get_content_config
-from ...content_load_services import load_content_from_bytes
 from ...metadata_services import accumulate_discovered_metadata_fields
 from ...models import SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
 from .sharepoint_models import (
+    SHAREPOINT_SYSTEM_FOLDERS,
     ProcessDocumentTask,
     SharePointContentFetchTask,
     SharePointListingTask,
     SharePointRuntimeConfig,
     SharePointSharedSyncState,
-    SHAREPOINT_SYSTEM_FOLDERS,
 )
 from .sharepoint_utils import (
     create_sharepoint_context,
@@ -81,11 +81,26 @@ class SharePointSyncPipeline(
 
     @override
     async def run(self) -> SyncCounters:
-        return await self._run_pipeline(
+        counters = await self._run_pipeline(
             listing_worker=self._listing_worker,
             content_fetch_worker=self._content_fetch_worker,
             document_processing_worker=self._document_processing_worker,
         )
+
+        try:
+            counters.deleted = await self.cleanup_orphaned_documents(
+                graph_id=self._graph_uuid,
+                source_id=self._source.source.id,
+                counters=counters,
+                log_extra=self._log_extra(),
+            )
+        except Exception as cleanup_exc:  # noqa: BLE001
+            logger.error(
+                "Orphaned document cleanup failed",
+                extra=self._log_extra(error=str(cleanup_exc)),
+            )
+
+        return counters
 
     async def _listing_worker(
         self, ctx: SharePointPipelineContext, worker_id: int
@@ -116,11 +131,23 @@ class SharePointSyncPipeline(
                         sp_ctx, folder_server_relative_url=folder_url
                     )
 
+                # Fetch metadata for all files in this folder for intelligent sync
                 for f in files:
                     await ctx.inc("total_found")
-                    await ctx.content_fetch_queue.put(
-                        SharePointContentFetchTask(file=f)
+
+                    if f.unique_id:
+                        await self.track_source_document_id(f.unique_id)
+
+                    logger.debug(
+                        "Enqueueing SharePoint file for fetch",
+                        extra=self._log_extra(
+                            worker_id=worker_id,
+                            source_document_id=f.unique_id,
+                            file=f.name,
+                        ),
                     )
+
+                    await ctx.content_fetch_queue.put(SharePointContentFetchTask(f))
 
                 if self._sharepoint_config.recursive:
                     for sub in subfolders:
@@ -207,7 +234,7 @@ class SharePointSyncPipeline(
                     # Best-effort: collect SharePoint list item fields and accumulate as
                     # "discovered metadata" for this knowledge graph. Failures here should
                     # not block ingestion.
-                    file_metadata: dict[str, Any] = {}
+                    source_metadata: dict[str, Any] = {}
                     file_bytes: bytes | None = None
 
                     # For .aspx pages, get HTML content from CanvasContent1 instead of downloading file bytes
@@ -215,7 +242,7 @@ class SharePointSyncPipeline(
 
                     async with ctx.semaphore("sharepoint"):
                         try:
-                            file_metadata = (
+                            source_metadata = (
                                 await fetch_sharepoint_file_list_item_fields(
                                     sp_ctx,
                                     server_relative_url=file_ref.server_relative_url,
@@ -262,13 +289,36 @@ class SharePointSyncPipeline(
                         await ctx.inc("skipped")
                         continue
 
-                    if file_metadata:
+                    # Extract change tracking metadata from file ref or metadata
+                    source_document_id = file_ref.unique_id
+                    source_modified_at_raw = source_metadata.get(
+                        "TimeLastModified"
+                    ) or source_metadata.get("Modified")
+
+                    external_link = self._build_external_link(
+                        file_ref.server_relative_url
+                    )
+
+                    # Parse source_modified_at to datetime
+                    source_modified_at: datetime | None = None
+                    if source_modified_at_raw:
+                        if isinstance(source_modified_at_raw, datetime):
+                            source_modified_at = source_modified_at_raw
+                        elif isinstance(source_modified_at_raw, str):
+                            try:
+                                source_modified_at = datetime.fromisoformat(
+                                    source_modified_at_raw.replace("Z", "+00:00")
+                                )
+                            except Exception:  # noqa: BLE001
+                                pass
+
+                    if source_metadata:
                         try:
                             await accumulate_discovered_metadata_fields(
                                 session,
                                 graph_id=self._graph_uuid,
                                 source_id=self._source.source.id,
-                                metadata=file_metadata,
+                                metadata=source_metadata,
                                 origin="source",
                             )
                             await session.commit()
@@ -284,28 +334,46 @@ class SharePointSyncPipeline(
                                 ),
                             )
 
-                    content = load_content_from_bytes(file_bytes, content_config)
-                    total_pages = content["metadata"].get("total_pages")
-                    external_link = self._build_external_link(
-                        file_ref.server_relative_url
-                    )
-
-                    document = await self._source.create_document_for_source(
+                    result = await self.store_document(
                         session,
+                        self._source.source,
+                        content=file_bytes,
+                        graph_id=self._graph_uuid,
+                        source_document_id=source_document_id,
                         filename=filename,
-                        total_pages=total_pages,
-                        file_metadata=content.get("metadata")
-                        if isinstance(content, dict)
-                        else None,
-                        source_metadata=file_metadata,
-                        default_document_type="pdf",
-                        content_profile=content_config.name if content_config else None,
+                        source_modified_at=source_modified_at,
+                        source_metadata=source_metadata,
+                        default_document_type="aspx" if is_aspx_page else "pdf",
+                        content_config=content_config,
+                        content_reader_context={
+                            "document_url": external_link or "",
+                            "site_url": self._sharepoint_config.site_url or "",
+                            "server_relative_url": file_ref.server_relative_url or "",
+                            "filename": filename,
+                        },
+                        external_link=external_link,
+                    )
+                    if not result.document:
+                        await ctx.inc("metadata_only_updated")
+                        continue
+
+                    await ctx.inc("content_changed")
+
+                    logger.info(
+                        "SharePoint document created/updated for processing",
+                        extra=self._log_extra(
+                            worker_id=worker_id,
+                            doc_filename=filename,
+                            doc_id=result.document.get("id"),
+                            source_doc_id=source_document_id,
+                        ),
                     )
 
                     await ctx.document_processing_queue.put(
                         ProcessDocumentTask(
-                            document=document,
-                            extracted_text=content["text"],
+                            document=result.document,
+                            extracted_text=result.loaded_content["text"],
+                            raw_text=result.loaded_content["raw_text"],
                             content_config=content_config,
                             external_link=external_link,
                         )
@@ -322,6 +390,7 @@ class SharePointSyncPipeline(
                         ),
                     )
                     await ctx.inc("failed")
+
                     try:
                         if filename:
                             await self._source._mark_document_error(
@@ -366,6 +435,7 @@ class SharePointSyncPipeline(
                         session,
                         task.document,
                         extracted_text=task.extracted_text,
+                        raw_text=task.raw_text,
                         config=task.content_config,
                         document_title=PurePath(doc_name).stem
                         if doc_name

@@ -96,6 +96,18 @@ class KnowledgeGraphDocument:
     metadata: KnowledgeGraphDocumentMetadata | None = None
     external_link: str | None = None
 
+    # Change tracking for sync
+    source_document_id: str | None = (
+        None  # Stable ID from source (e.g., SharePoint unique_id)
+    )
+    source_modified_at: datetime | None = None  # Last modified timestamp from source
+    content_hash: str | None = (
+        None  # SHA256 hash of raw file bytes for change detection
+    )
+
+    # Pipeline state tracking (JSONB) – tracks status of various processing pipelines
+    pipeline_state: dict[str, Any] | None = None
+
     # Content
     content_profile: str | None = None
     content_plaintext: str | None = None
@@ -132,6 +144,13 @@ class KnowledgeGraphDocument:
             "updated_at": self.updated_at.isoformat()
             if self.updated_at is not None
             else None,
+            "source_document_id": self.source_document_id,
+            "source_modified_at": self.source_modified_at.isoformat()
+            if self.source_modified_at is not None
+            else None,
+            "content_hash": self.content_hash,
+            "pipeline_state": self.pipeline_state,
+            "external_link": self.external_link,
         }
 
     @classmethod
@@ -176,6 +195,10 @@ class KnowledgeGraphDocument:
             processing_time=ptime,
             created_at=row.get("created_at"),
             updated_at=row.get("updated_at"),
+            source_document_id=row.get("source_document_id"),
+            source_modified_at=row.get("source_modified_at"),
+            content_hash=row.get("content_hash"),
+            pipeline_state=row.get("pipeline_state"),
         )
 
 
@@ -226,4 +249,10 @@ def knowledge_graph_document_table(
             server_default=text("CURRENT_TIMESTAMP"),
             nullable=True,
         ),
+        # Change tracking columns for intelligent sync
+        Column("source_document_id", String(500), nullable=True),
+        Column("source_modified_at", DateTime(timezone=False), nullable=True),
+        Column("content_hash", String(64), nullable=True),  # SHA256 = 64 hex chars
+        # Pipeline state tracking – stores status of processing pipelines (entity extraction, etc.)
+        Column("pipeline_state", JSONB, nullable=True),
     )

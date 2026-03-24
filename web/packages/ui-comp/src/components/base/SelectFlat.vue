@@ -9,7 +9,7 @@
         slot(name='option', :option='option', :modelValue='modelValue', :select='select', :itemProps='itemProps')
           .km-label.q-px-md.q-py-6.cursor-pointer.hover-bg-light.cursor-pointer(
             @click='select(option)',
-            :class='{ "bg-light": option.value === modelValue.value }'
+            :class='{ "bg-light": option.value === modelValue?.value }'
           ) {{ option.label }}
 </template>
 <script>

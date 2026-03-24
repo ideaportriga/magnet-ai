@@ -61,7 +61,7 @@
 
   //- Test Result Dialog
   q-dialog(v-model='showTestDialog')
-    q-card(style='min-width: 400px; max-width: 500px')
+    q-card(style='min-width: 580px; max-width: 720px')
       q-card-section.row.items-center
         .km-heading-7 Test Result
         q-space
@@ -78,11 +78,58 @@
         .q-pa-sm.bg-negative-light.rounded-borders.q-mt-sm(v-if='testResult?.error')
           .km-field.text-negative.q-mb-xs Error Details
           .text-body2.text-negative {{ testResult?.error }}
+
+        //- LiteLLM Diagnostic Info
+        .q-mt-md.q-pa-sm.bg-grey-2.rounded-borders(
+          v-if='testResult?.litellm_model_string || testResult?.effective_endpoint || testResult?.computed_url || testResult?.via_router != null'
+        )
+          .km-field.text-secondary-text.q-mb-sm Connection Details
+          .q-gutter-y-xs
+            .row.items-start(v-if='testResult?.litellm_model_string')
+              .text-caption.text-grey-7.col-3 Model string
+              .text-caption.text-mono.col-9 {{ testResult.litellm_model_string }}
+            .row.items-start(v-if='testResult?.effective_endpoint')
+              .text-caption.text-grey-7.col-3 Endpoint
+              .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.effective_endpoint }}
+            .row.items-start(v-if='testResult?.via_router != null')
+              .text-caption.text-grey-7.col-3 Via Router
+              .col-9
+                q-badge(
+                  :color='testResult.via_router ? "positive" : "grey-6"',
+                  :label='testResult.via_router ? "Yes" : "No (direct call)"',
+                  style='font-size: 11px'
+                )
+            .row.items-start(v-if='testResult?.computed_url')
+              .text-caption.text-grey-7.col-3 Request URL
+              .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.computed_url }}
       q-card-actions(align='right')
         km-btn(flat, label='Close', color='primary', @click='showTestDialog = false')
 
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
+    .row.items-center.q-gap-8.q-mb-md(v-if='recommendedSecretKeys.length')
+      .km-description.text-secondary-text Recommended for {{ formatProviderType(provider.type) }}:
+      q-space
+      km-btn(
+        flat,
+        label='Pre-populate keys',
+        size='sm',
+        icon='o_auto_fix_high',
+        color='primary',
+        @click='prefillRecommendedSecrets',
+        :disable='allRecommendedSecretsExist'
+      )
+    .row.q-gap-4.flex-wrap.q-mb-md(v-if='recommendedSecretKeys.length')
+      q-chip(
+        v-for='rec in recommendedSecretKeys',
+        :key='rec.key',
+        color='primary-light',
+        text-color='primary',
+        size='sm',
+        dense
+      )
+        q-icon.q-mr-xs(:name='secretExists(rec.key) ? "fas fa-check-circle" : "o_key"', size='14px', :color='secretExists(rec.key) ? "positive" : "primary"')
+        | {{ rec.label }}
     km-secrets(v-model:secrets='secrets', :original-secrets='originalProviderSecrets', :remount-value='remountValue')
 </template>
 
@@ -91,6 +138,7 @@ import { computed, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import { onBeforeRouteLeave } from 'vue-router'
 import { useQuasar } from 'quasar'
+import { providerSecretKeys, providerConnectionConfigKeys, formatProviderType } from '../../config/model_providers/providerTypes'
 
 const store = useStore()
 const $q = useQuasar()
@@ -200,6 +248,37 @@ const cancelEndpointChange = () => {
   if (pendingNavigation.value) {
     pendingNavigation.value(false)
     pendingNavigation.value = null
+  }
+}
+
+const recommendedSecretKeys = computed(() => {
+  const type = provider.value?.type
+  return providerSecretKeys[type] || []
+})
+
+const secretExists = (key) => {
+  const s = provider.value?.secrets_encrypted || {}
+  return key in s
+}
+
+const allRecommendedSecretsExist = computed(() => {
+  return recommendedSecretKeys.value.length > 0 && recommendedSecretKeys.value.every(r => secretExists(r.key))
+})
+
+const prefillRecommendedSecrets = () => {
+  const current = { ...(provider.value?.secrets_encrypted || {}) }
+  let changed = false
+  for (const rec of recommendedSecretKeys.value) {
+    if (!(rec.key in current)) {
+      current[rec.key] = ''
+      changed = true
+    }
+  }
+  if (changed) {
+    store.commit('updateProviderProperty', {
+      key: 'secrets_encrypted',
+      value: current,
+    })
   }
 }
 

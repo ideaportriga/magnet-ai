@@ -30,24 +30,151 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.models.knowledge_graph import docs_table_name
 from services.observability import observability_context, observe
 from services.observability.models import SpanType
+from services.prompt_templates import execute_prompt_template
+from services.utils.filter_compiler import BaseFilterCompiler
 
 from ....models import KnowledgeGraphRetrievalWorkflowStep
 
 logger = logging.getLogger(__name__)
 
-# Description of the `filter` parameter shown to the LLM.
-# The value is a JSON-serialized expression language compiled by `_MetadataFilterCompiler`.
-FILTER_PARAM_DESCRIPTION = (
-    "Metadata filter expression serialized as a JSON string.\n"
-    "Supports boolean groups {and/or/not} and predicates.\n\n"
-    "Examples:\n"
-    '  - {"field":"language_2l","op":"eq","value":"en"}\n'
-    '  - {"and":[{"field":"language_2l","op":"in","values":["en","de"]},'
-    '{"field":"candidate_name","op":"contains","value":"John"}]}\n'
-    "\n"
-    "Notes:\n"
-    "- Use `field` for schema-defined metadata fields.\n"
+METADATA_FILTER_TRANSLATION_PROMPT_SYSTEM_NAME = (
+    "KG_AGENT_METADATA_FILTER_TRANSLATION_PROMPT"
 )
+
+DEFAULT_TOOL_DESCRIPTION = (
+    "Find documents by metadata by describing the required filter in plain English."
+)
+
+DETAILS_PARAM_DESCRIPTION = (
+    "Describe in plain English which documents should match. Reference the metadata "
+    "field names and the values or conditions you need."
+)
+
+FILTER_PARAMETER_FORMAT_MARKDOWN = """
+Translate the plain-English details into the following JSON filter DSL before executing the query.
+
+Boolean groups:
+- `{"and": [expr, expr, ...]}`
+- `{"or": [expr, expr, ...]}`
+- `{"not": expr}`
+
+Predicate shape:
+- `{"field": "field_name", "op": "eq", "value": "en"}`
+- `{"field": "field_name", "op": "in", "values": ["en", "de"]}`
+- `{"field": "field_name", "op": "contains", "value": "John"}`
+
+Supported operators:
+- `eq`
+- `ne`
+- `in`
+- `contains`
+- `not_contains`
+- `exists`
+- `not_exists`
+
+Notes:
+- Use only metadata field names listed in `Field Definitions`.
+- Use `value` for single-value operators.
+- Use `values` for `in`.
+""".strip()
+
+
+def _sanitize_markdown_block_text(value: Any) -> str:
+    return str(value or "").replace("```", "'''").strip()
+
+
+def render_metadata_field_definitions_markdown(
+    field_definitions: list[dict[str, Any]] | None,
+) -> str:
+    rendered_fields: list[str] = []
+
+    for field_definition in field_definitions or []:
+        if not isinstance(field_definition, dict):
+            continue
+
+        field_name = str(field_definition.get("name") or "").strip()
+        if not field_name:
+            continue
+
+        field_description = _sanitize_markdown_block_text(
+            field_definition.get("description") or "No description provided."
+        )
+        if not field_description:
+            field_description = "No description provided."
+
+        rendered_fields.append(
+            "\n".join(
+                [
+                    f"### `{field_name}`",
+                    "Description:",
+                    "```text",
+                    field_description,
+                    "```",
+                ]
+            )
+        )
+
+    if not rendered_fields:
+        return "_No metadata fields are configured._"
+
+    return "\n\n".join(rendered_fields)
+
+
+def build_find_documents_by_metadata_description(
+    *,
+    description: str | None = None,
+    metadata_field_definitions: list[dict[str, Any]] | None = None,
+) -> str:
+    description_text = str(description or "").strip() or DEFAULT_TOOL_DESCRIPTION
+    return "\n\n".join(
+        [
+            description_text,
+            "## Field Definitions\n"
+            + render_metadata_field_definitions_markdown(metadata_field_definitions),
+        ]
+    )
+
+
+async def _translate_filter_details_to_filter_object(
+    details: Any,
+    *,
+    field_definitions: list[dict[str, Any]] | None = None,
+) -> Any | None:
+    details_text = str(details or "").strip()
+    if not details_text:
+        return None
+
+    direct_filter_obj = _best_effort_json_value(details_text)
+    if direct_filter_obj is not None:
+        return direct_filter_obj
+
+    try:
+        response = await execute_prompt_template(
+            system_name_or_config=METADATA_FILTER_TRANSLATION_PROMPT_SYSTEM_NAME,
+            template_values={
+                "FILTER_DETAILS": details_text,
+                "FILTER_PARAMETER_FORMAT_MARKDOWN": FILTER_PARAMETER_FORMAT_MARKDOWN,
+                "METADATA_FIELD_DEFINITIONS_MARKDOWN": (
+                    render_metadata_field_definitions_markdown(field_definitions)
+                ),
+            },
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Failed to translate metadata filter details with prompt template "
+            f"'{METADATA_FILTER_TRANSLATION_PROMPT_SYSTEM_NAME}': {exc}"
+        ) from exc
+
+    translated_filter = _best_effort_json_value(response.content)
+    if translated_filter is None:
+        raise ValueError(
+            "Prompt template "
+            f"'{METADATA_FILTER_TRANSLATION_PROMPT_SYSTEM_NAME}' "
+            "returned an invalid metadata filter JSON expression."
+        )
+
+    return translated_filter
+
 
 # OpenAI tool schema (sent to the LLM).
 # `get_available_tools()` may tweak required params based on graph config (searchControl).
@@ -55,7 +182,7 @@ TOOL_SPEC: dict[str, Any] = {
     "type": "function",
     "function": {
         "name": "findDocumentsByMetadata",
-        "description": "Filter documents by their metadata fields",
+        "description": DEFAULT_TOOL_DESCRIPTION,
         "parameters": {
             "type": "object",
             "properties": {
@@ -65,12 +192,12 @@ TOOL_SPEC: dict[str, Any] = {
                         "Why you are using this tool (e.g., 'Restricting to German documents')."
                     ),
                 },
-                "filter": {
+                "details": {
                     "type": "string",
-                    "description": FILTER_PARAM_DESCRIPTION,
+                    "description": DETAILS_PARAM_DESCRIPTION,
                 },
             },
-            "required": ["reasoning", "filter"],
+            "required": ["reasoning", "details"],
         },
     },
 }
@@ -194,22 +321,12 @@ def _extract_external_metadata_filter(
     return ext_cfg
 
 
-class _SqlParamBuilder:
-    """Build SQL parameters with stable, unique names (p0, p1, ...) for safe binding."""
-
-    def __init__(self) -> None:
-        self.params: dict[str, Any] = {}
-        self._idx = 0
-
-    def add(self, value: Any) -> str:
-        name = f"p{self._idx}"
-        self._idx += 1
-        self.params[name] = value
-        return f":{name}"
-
-
-class _MetadataFilterCompiler:
+class _MetadataFilterCompiler(BaseFilterCompiler):
     """Compile a JSON metadata filter expression into SQL WHERE (Postgres).
+
+    Extends :class:`BaseFilterCompiler` with document-specific field resolution
+    that uses graph metadata field definitions and per-source value resolution
+    chains.
 
     Supported expression forms (examples):
 
@@ -231,7 +348,7 @@ class _MetadataFilterCompiler:
     """
 
     def __init__(self, field_definitions: list[dict[str, Any]] | None) -> None:
-        self.builder = _SqlParamBuilder()
+        super().__init__()
         self.fields_by_name: dict[str, dict[str, Any]] = {}
         for fd in field_definitions or []:
             if not isinstance(fd, dict):
@@ -240,55 +357,6 @@ class _MetadataFilterCompiler:
             if not name:
                 continue
             self.fields_by_name[name] = fd
-
-    def compile(self, expr: Any) -> tuple[str, dict[str, Any]]:
-        sql = self._compile_expr(expr)
-        sql = str(sql or "").strip()
-        return (sql, self.builder.params)
-
-    def _compile_expr(self, expr: Any) -> str:
-        # Convenience: a list is treated as an implicit AND group
-        if isinstance(expr, list):
-            return self._compile_expr({"and": expr})
-
-        if not isinstance(expr, dict):
-            return ""
-
-        if "and" in expr:
-            items = expr.get("and")
-            parts = [self._compile_expr(e) for e in (items or []) if e is not None]
-            parts = [p for p in parts if p]
-            if not parts:
-                return ""
-            return "(" + " AND ".join(parts) + ")"
-
-        if "or" in expr:
-            items = expr.get("or")
-            parts = [self._compile_expr(e) for e in (items or []) if e is not None]
-            parts = [p for p in parts if p]
-            if not parts:
-                return ""
-            return "(" + " OR ".join(parts) + ")"
-
-        if "not" in expr:
-            inner = self._compile_expr(expr.get("not"))
-            if not inner:
-                return ""
-            return f"(NOT ({inner}))"
-
-        # Leaf predicates
-        if "field" in expr:
-            field = str(expr.get("field") or "").strip()
-            if not field:
-                return ""
-            return self._compile_field_predicate(
-                field,
-                op=str(expr.get("op") or expr.get("operator") or "eq").strip().lower(),
-                value=expr.get("value"),
-                values=expr.get("values"),
-            )
-
-        return ""
 
     def _compile_field_predicate(
         self, field_name: str, *, op: str, value: Any, values: Any
@@ -464,123 +532,6 @@ class _MetadataFilterCompiler:
             return parts[0]
         return f"COALESCE({', '.join(parts)})"
 
-    def _apply_scalar_op(self, expr: str, *, op: str, value: Any, values: Any) -> str:
-        op = (op or "eq").strip().lower()
-
-        if op in {"exists", "is_set"}:
-            return f"({expr} IS NOT NULL)"
-        if op in {"not_exists", "is_not_set"}:
-            return f"({expr} IS NULL)"
-
-        if op in {"in"}:
-            vals = values
-            if vals is None:
-                vals = value
-            if not isinstance(vals, list):
-                return self._apply_scalar_op(expr, op="eq", value=value, values=None)
-            sub = []
-            for v in vals:
-                if v is None:
-                    sub.append(f"({expr} IS NULL)")
-                else:
-                    p = self.builder.add(str(v))
-                    sub.append(f"({expr} = {p})")
-            if not sub:
-                return "(1=0)"
-            return "(" + " OR ".join(sub) + ")"
-
-        if op in {"contains", "like"}:
-            if value is None:
-                return "(1=0)"
-            p = self.builder.add(str(value))
-            return f"({expr} ILIKE '%' || {p} || '%')"
-
-        if op in {"eq", "=", "=="}:
-            if value is None:
-                return f"({expr} IS NULL)"
-            p = self.builder.add(str(value))
-            return f"({expr} = {p})"
-
-        if op in {"ne", "!=", "<>"}:
-            if value is None:
-                return f"({expr} IS NOT NULL)"
-            p = self.builder.add(str(value))
-            return f"({expr} <> {p})"
-
-        # Unsupported op -> never match
-        return "(1=0)"
-
-    def _apply_array_op(self, expr: str, *, op: str, value: Any, values: Any) -> str:
-        op = (op or "eq").strip().lower()
-        expr_sql = f"({expr})"
-
-        if op in {"exists", "is_set"}:
-            return f"({expr_sql} IS NOT NULL)"
-        if op in {"not_exists", "is_not_set"}:
-            return f"({expr_sql} IS NULL)"
-
-        def _exists(where_sql: str) -> str:
-            return (
-                f"({expr_sql} IS NOT NULL AND EXISTS ("
-                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
-                f"WHERE {where_sql}"
-                f"))"
-            )
-
-        if op in {"in"}:
-            vals = values
-            if vals is None:
-                vals = value
-            if not isinstance(vals, list):
-                return self._apply_array_op(expr, op="eq", value=value, values=None)
-            sub: list[str] = []
-            if any(v is None for v in vals):
-                sub.append(f"({expr_sql} IS NULL)")
-            for v in vals:
-                if v is None:
-                    continue
-                p = self.builder.add(str(v))
-                sub.append(_exists(f"e.val = {p}"))
-            if not sub:
-                return "(1=0)"
-            return "(" + " OR ".join(sub) + ")"
-
-        if op in {"eq", "=", "==", "has"}:
-            if value is None:
-                return f"({expr_sql} IS NULL)"
-            p = self.builder.add(str(value))
-            return _exists(f"e.val = {p}")
-
-        if op in {"contains", "like"}:
-            if value is None:
-                return "(1=0)"
-            p = self.builder.add(str(value))
-            return _exists(f"e.val ILIKE '%' || {p} || '%'")
-
-        if op in {"ne", "!=", "<>"}:
-            if value is None:
-                return f"({expr_sql} IS NOT NULL)"
-            p = self.builder.add(str(value))
-            return (
-                f"({expr_sql} IS NOT NULL AND NOT EXISTS ("
-                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
-                f"WHERE e.val = {p}"
-                f"))"
-            )
-
-        if op in {"not_contains"}:
-            if value is None:
-                return "(1=0)"
-            p = self.builder.add(str(value))
-            return (
-                f"({expr_sql} IS NOT NULL AND NOT EXISTS ("
-                f"SELECT 1 FROM jsonb_array_elements_text({expr_sql}) AS e(val) "
-                f"WHERE e.val ILIKE '%' || {p} || '%'"
-                f"))"
-            )
-
-        return "(1=0)"
-
 
 @observe(name="Find documents by metadata", type=SpanType.SEARCH)
 async def findDocumentsByMetadata(
@@ -605,6 +556,9 @@ async def findDocumentsByMetadata(
     The final filter used is determined by graph config:
     - searchControl: agent | external | collaborative
     - filterMergeStrategy: merge_and | merge_or | agent_priority | external_priority
+
+    Agent-facing tool calls should pass plain-English `details`, while internal/direct
+    callers may still pass a structured JSON `filter` for backward compatibility.
     """
 
     logger.debug(f"Finding documents by metadata for graph {graph_id}")
@@ -618,10 +572,26 @@ async def findDocumentsByMetadata(
     )
 
     ext_filter_raw = _extract_external_metadata_filter(external_tool_inputs)
+    agent_filter_details = str(args.get("details") or "").strip()
     agent_filter_raw = args.get("filter")
+    agent_filter_obj = _best_effort_json_value(agent_filter_raw)
+
+    if (
+        agent_filter_obj is None
+        and search_control in {"agent", "collaborative"}
+        and agent_filter_details
+    ):
+        agent_filter_obj = await _translate_filter_details_to_filter_object(
+            agent_filter_details, field_definitions=field_definitions
+        )
+
+    agent_filter_input = (
+        agent_filter_obj if agent_filter_obj is not None else agent_filter_raw
+    )
 
     logger.debug(f"External filter: {ext_filter_raw}")
-    logger.debug(f"Agent filter: {agent_filter_raw}")
+    logger.debug(f"Agent filter details: {agent_filter_details}")
+    logger.debug(f"Agent filter input: {agent_filter_input}")
     logger.debug(f"Search control: {search_control}")
 
     # Determine the final filter based on the configured control mode.
@@ -632,11 +602,11 @@ async def findDocumentsByMetadata(
         final_filter_obj = _best_effort_json_value(ext_filter_raw)
     elif search_control == "collaborative":
         final_filter_obj = _merge_filters(
-            agent_filter_raw, ext_filter_raw, merge_strategy=merge_strategy
+            agent_filter_input, ext_filter_raw, merge_strategy=merge_strategy
         )
     else:
         # agent
-        final_filter_obj = _best_effort_json_value(agent_filter_raw)
+        final_filter_obj = _best_effort_json_value(agent_filter_input)
 
     final_filter_str: str | None = None
     if final_filter_obj is not None:
@@ -648,8 +618,13 @@ async def findDocumentsByMetadata(
             final_filter_str = None
 
     observability_context.update_current_span(
-        input={"filter": final_filter_str},
+        input={
+            "details": agent_filter_details or None,
+            "filter": final_filter_str,
+        },
     )
+
+    logger.debug(f"Final filter object: {final_filter_obj}")
 
     # Compile + count
     # We execute a COUNT(*) query here so the LLM knows how many docs match its criteria.
@@ -687,6 +662,9 @@ async def findDocumentsByMetadata(
         where_params if doc_filter_where_sql is not None else None
     )
 
+    logger.debug(f"Doc filter where SQL: {doc_filter_where_sql}")
+    logger.debug(f"Doc filter where params: {doc_filter_where_params}")
+
     observability_context.update_current_span(
         output={
             "count": count,
@@ -698,10 +676,16 @@ async def findDocumentsByMetadata(
         "doc_filter_where_sql": doc_filter_where_sql,
         "doc_filter_where_params": doc_filter_where_params,
     }
+    workflow_arguments: dict[str, Any] = {}
+    if agent_filter_details:
+        workflow_arguments["details"] = agent_filter_details
+    if final_filter_str is not None:
+        workflow_arguments["filter"] = final_filter_str
+
     workflow_step = KnowledgeGraphRetrievalWorkflowStep(
         iteration=iteration,
         tool=tool_name,
-        arguments={"filter": final_filter_str},
+        arguments=workflow_arguments,
         call_summary={
             "reasoning": args.get("reasoning"),
             "result_count": count,
