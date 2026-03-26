@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.58](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.57...v0.6.0-dev.58) (2026-03-26)
+
+### ✨ Features
+
+* merge note-taker feature branch into develop ([f10ad43](https://github.com/ideaportriga/magnet-ai/commit/f10ad438be68ffbd94b7276cd635ee609c3805a1))
+* Note Taker complete rebuild ([48b68ff](https://github.com/ideaportriga/magnet-ai/commit/48b68ff9a13e727517b6415fbe87732b239e0ae8))
+
+### 🐛 Bug Fixes
+
+* alembic migrations flow ([aac8ba9](https://github.com/ideaportriga/magnet-ai/commit/aac8ba90450a4fa746498e02bf8a83cf9e4139ba))
+* **api:** reverted litellm to 1.82.2 ([656246b](https://github.com/ideaportriga/magnet-ai/commit/656246bdf8c045dff1e8f88fe3d22679b4b71352))
+* automatically remove a recurring scheduler job if the target ([1a3c142](https://github.com/ideaportriga/magnet-ai/commit/1a3c142bae6b694f6b0ef13676fcb3cca329afc7))
+* gitignore ([9449b00](https://github.com/ideaportriga/magnet-ai/commit/9449b00be5b0d774a4f9d9cfee902ad1f190ee14))
+
 ## [0.6.0-dev.57](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.56...v0.6.0-dev.57) (2026-03-24)
 
 ### ✨ Features
