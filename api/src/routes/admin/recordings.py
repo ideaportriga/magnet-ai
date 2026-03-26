@@ -12,7 +12,6 @@ from litestar.exceptions import HTTPException
 from speech_to_text.transcription import service
 
 MAX_UPLOAD_BYTES = 1000 * 1024 * 1024  # 1GB
-DEFAULT_PIPELINE = "elevenlabs"
 
 
 class RecordingsController(Controller):
@@ -159,8 +158,33 @@ class RecordingsController(Controller):
         return {"status": st or "unknown"}
 
     @get("/{job_id:str}/transcription")
-    async def recording_transcription(self, job_id: str) -> dict[str, Any]:
-        tx = await service.get_transcription(job_id)
+    async def recording_transcription(
+        self, request: Request, job_id: str
+    ) -> dict[str, Any]:
+        meta = await service.get_meta(job_id)
+        if meta is None:
+            raise HTTPException(
+                status_code=404, detail="Transcription not available yet"
+            )
+
+        # If the job was initiated from a Teams meeting, restrict access to the
+        # initiator — unless the caller has an admin role (admin panel users).
+        initiated_by: str | None = meta.get("initiated_by")
+        if initiated_by:
+            auth = request.scope.get("auth")
+            user_roles = (
+                (getattr(auth, "data", None) or {}).get("roles", []) if auth else []
+            )
+            is_admin = "admin" in user_roles
+            if not is_admin:
+                current_user_id: str | None = request.scope.get("user_id")
+                if current_user_id != initiated_by:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Access denied: this transcription belongs to a different user.",
+                    )
+
+        tx = meta.get("transcription")
         if tx is None:
             raise HTTPException(
                 status_code=404, detail="Transcription not available yet"

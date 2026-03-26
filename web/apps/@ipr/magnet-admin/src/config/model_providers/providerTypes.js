@@ -37,12 +37,14 @@ export const providerTypeOptions = [
   // Audio / Multimodal
   { label: 'ElevenLabs', value: 'elevenlabs' },
   { label: 'Azure Speech', value: 'azure_speech' },
-  { label: 'Mistral STT', value: 'mistral_stt' },
+  { label: 'Mistral STT (Voxtral)', value: 'mistral_stt' },
   { label: 'Deepgram', value: 'deepgram' },
   // OCI
   { label: 'OCI', value: 'oci' },
   { label: 'OCI Llama', value: 'oci_llama' },
   { label: 'OCI GenAI', value: 'oci_genai' },
+  // Bots / Agents
+  { label: 'Teams Note Taker', value: 'teams_note_taker' },
   // Custom
   { label: 'Custom (OpenAI-compatible)', value: 'custom' },
 ]
@@ -89,11 +91,12 @@ export const providerEndpointHints = {
   vllm: 'Required. Your vLLM server URL (e.g., http://localhost:8000).',
   lm_studio: 'Required. Your LM Studio server URL (e.g., http://localhost:1234).',
   elevenlabs: 'Leave empty to use official ElevenLabs API.',
-  mistral_stt: 'Leave empty to use official Mistral API for speech-to-text.',
+  mistral_stt: 'Leave empty to use official Mistral API (https://api.mistral.ai).',
   deepgram: 'Leave empty to use official Deepgram API.',
   oci: 'Required. Your OCI endpoint URL.',
   oci_llama: 'Required. Your OCI Llama endpoint URL.',
   oci_genai: 'Required. Your OCI GenAI endpoint URL.',
+  teams_note_taker: 'Not required. Azure Bot Framework does not use a custom endpoint.',
   custom: 'Required. Your OpenAI-compatible API endpoint URL.',
 }
 
@@ -189,6 +192,11 @@ export const providerSecretKeys = {
   oci_genai: [
     { key: 'api_key', label: 'API Key / Token', placeholder: 'Your OCI GenAI auth token' },
   ],
+  teams_note_taker: [
+    { key: 'client_id', label: 'Client ID (App ID)', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+    { key: 'client_secret', label: 'Client Secret', placeholder: 'Azure Bot client secret' },
+    { key: 'tenant_id', label: 'Tenant ID', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+  ],
   custom: [
     { key: 'api_key', label: 'API Key', placeholder: 'Your API key (if required)' },
   ],
@@ -199,6 +207,9 @@ export const providerSecretKeys = {
  * These are non-secret configuration values.
  */
 export const providerConnectionConfigKeys = {
+  teams_note_taker: [
+    { key: 'auth_handler_id', label: 'Auth Handler ID (optional)', placeholder: 'note_taker_my_bot' },
+  ],
   azure_open_ai: [
     { key: 'api_version', label: 'API Version', placeholder: '2024-02-01', defaultValue: '2024-02-01' },
   ],

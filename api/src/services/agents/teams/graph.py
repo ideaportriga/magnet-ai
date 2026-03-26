@@ -101,12 +101,18 @@ async def create_and_persist_recordings_ready_subscription(
     expiration_dt: dt.datetime | None = None
 
     try:
+        import os as _os
+
+        _client_state = (
+            _os.environ.get("TEAMS_GRAPH_WEBHOOK_CLIENT_STATE") or "recordings-ready"
+        )
         payload = await create_recordings_ready_subscription(
             token=delegated_token,
             online_meeting_id=online_meeting_id,
             notification_url=notification_url,
             lifecycle_notification_url=lifecycle_notification_url,
             expiration=expiration,
+            client_state=_client_state,
         )
         subscription_id = payload.get("id")
         exp_raw = payload.get("expirationDateTime")
@@ -531,12 +537,12 @@ async def get_meeting_recordings(
 
             await asyncio.gather(*(_add_size(r) for r in recordings))
 
-            logger.info(
-                "Graph recordings fetched meetingId=%s recordingsCount=%d",
-                online_meeting_id,
-                len(recordings),
-            )
-            return recordings
+        logger.info(
+            "Graph recordings fetched meetingId=%s recordingsCount=%d",
+            online_meeting_id,
+            len(recordings),
+        )
+        return recordings
 
     except httpx.HTTPStatusError as err:
         error_code = None
@@ -547,16 +553,119 @@ async def get_meeting_recordings(
             )
         except Exception:
             body = None
-            logger.warning(
-                "Graph artifacts attempt failed meetingId=%s statusCode=%s code=%s message=%s",
-                online_meeting_id,
-                getattr(err.response, "status_code", None),
-                error_code,
-                str(err),
-            )
-            raise
+        logger.warning(
+            "Graph artifacts attempt failed meetingId=%s statusCode=%s code=%s message=%s",
+            online_meeting_id,
+            getattr(err.response, "status_code", None),
+            error_code,
+            str(err),
+        )
+        raise
 
-    return []
+
+async def get_online_meeting_details(
+    client: GraphClient,
+    online_meeting_id: str,
+) -> dict[str, Any] | None:
+    """Fetch basic metadata (subject, dates) for a single onlineMeeting."""
+    if not online_meeting_id:
+        return None
+    encoded = quote(str(online_meeting_id), safe="")
+    try:
+        return await client.get_json(f"/me/onlineMeetings/{encoded}")
+    except httpx.HTTPStatusError as err:
+        status_code = getattr(err.response, "status_code", None)
+        if status_code == 404:
+            return None
+        logger.warning(
+            "Could not fetch meeting details for %s (HTTP %s): %s",
+            online_meeting_id,
+            status_code,
+            err,
+        )
+        return None
+
+
+async def list_user_meetings_with_recordings(
+    client: GraphClient,
+    *,
+    content_token: str,
+    meeting_ids: list[str],
+    add_size: bool = True,
+) -> list[dict[str, Any]]:
+    """Return meetings (by known IDs) together with their recordings.
+
+    ``meeting_ids`` should come from the ``TeamsMeeting`` database table
+    (``graph_online_meeting_id`` column) so that no calendar permissions
+    are required.
+
+    Each returned dict has the shape::
+
+        {
+            "meeting_id": str,
+            "subject": str,
+            "startDateTime": str | None,
+            "endDateTime": str | None,
+            "recordings": [...]
+        }
+
+    Meetings without recordings are excluded.
+    """
+    results: list[dict[str, Any]] = []
+    semaphore = asyncio.Semaphore(5)
+
+    async def _fetch_for_meeting(mid: str) -> dict[str, Any] | None:
+        async with semaphore:
+            try:
+                recordings = await get_meeting_recordings(
+                    client=client,
+                    online_meeting_id=mid,
+                    add_size=add_size,
+                    content_token=content_token if add_size else None,
+                )
+            except Exception:
+                logger.debug(
+                    "Could not fetch recordings for meeting %s", mid, exc_info=True
+                )
+                return None
+        if not recordings:
+            return None
+
+        # Fetch meeting subject/dates.
+        details = await get_online_meeting_details(client, mid)
+        subject = "Untitled meeting"
+        start_dt = None
+        end_dt = None
+        if details:
+            subject = details.get("subject") or details.get("title") or subject
+            start_dt = details.get("startDateTime")
+            end_dt = details.get("endDateTime")
+
+        return {
+            "meeting_id": mid,
+            "subject": subject,
+            "startDateTime": start_dt,
+            "endDateTime": end_dt,
+            "recordings": recordings,
+        }
+
+    tasks = [_fetch_for_meeting(mid) for mid in meeting_ids]
+    fetched = await asyncio.gather(*tasks)
+    for item in fetched:
+        if item is not None:
+            results.append(item)
+
+    # Sort by meeting start time descending
+    def _ts(value: str | None) -> float:
+        if not value:
+            return 0.0
+        try:
+            return dt.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+        except Exception:
+            return 0.0
+
+    results.sort(key=lambda m: _ts(m.get("startDateTime")), reverse=True)
+    return results
 
 
 async def list_subscriptions(client: GraphClient) -> list[dict[str, Any]]:
@@ -614,8 +723,13 @@ def pick_recordings_ready_subscription(
             for target in target_resources
         ):
             continue
+        import os as _os
+
+        _expected_cs = (
+            _os.environ.get("TEAMS_GRAPH_WEBHOOK_CLIENT_STATE") or "recordings-ready"
+        )
         client_state = item.get("clientState")
-        if client_state and client_state != "recordings-ready":
+        if client_state and client_state != _expected_cs:
             continue
         matches.append(item)
 
@@ -640,5 +754,7 @@ __all__ = [
     "get_meeting_recordings",
     "get_online_meeting_title",
     "list_subscriptions",
+    "get_online_meeting_details",
+    "list_user_meetings_with_recordings",
     "pick_recordings_ready_subscription",
 ]

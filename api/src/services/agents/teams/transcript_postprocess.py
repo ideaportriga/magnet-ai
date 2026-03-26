@@ -126,6 +126,33 @@ def annotate_transcript_speakers(
     return pattern.sub(_replace, transcript)
 
 
+def parse_suggested_keyterms_from_output(text: str) -> list[str]:
+    """
+    Parse suggested keyterms from a post-transcription template output.
+
+    Expected JSON shape (same object that carries speaker_mapping):
+      {"suggested_keyterms": ["term1", "term2", ...]}
+
+    Returns a deduplicated list of non-empty strings.
+    """
+    obj = _try_parse_json_object(text)
+    if not obj:
+        return []
+
+    raw = None
+    for key in ("suggested_keyterms", "keyterms", "terms", "keywords"):
+        if key in obj:
+            raw = obj[key]
+            break
+
+    if isinstance(raw, list):
+        return [str(t).strip() for t in raw if str(t).strip()]
+    if isinstance(raw, str) and raw.strip():
+        # comma-separated fallback
+        return [t.strip() for t in re.split(r"[,;]+", raw) if t.strip()]
+    return []
+
+
 def parse_speaker_mapping_output(text: str) -> dict[str, str]:
     """
     Parse a post-transcription template output that is expected to return ONLY a

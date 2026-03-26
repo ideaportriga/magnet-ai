@@ -29,6 +29,9 @@ class FileData:
     updated_at: datetime = field(default_factory=datetime.utcnow)
     transcription: Optional[dict] = None
     error: Optional[str] = None
+    meeting_id: Optional[str] = None
+    chat_id: Optional[str] = None
+    initiated_by: Optional[str] = None
 
     @property
     def filename_with_ext(self) -> str:

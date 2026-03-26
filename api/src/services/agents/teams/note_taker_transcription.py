@@ -7,6 +7,7 @@ from logging import getLogger
 from typing import Any, Awaitable, Callable
 
 import httpx
+from microsoft_agents.activity import Activity, Attachment
 from microsoft_agents.hosting.core import TurnContext
 
 from core.db.models.knowledge_graph import KnowledgeGraph
@@ -20,13 +21,12 @@ from services.observability import observe
 from stores import get_db_client
 from speech_to_text.transcription import service as transcription_service
 from services.prompt_templates import execute_prompt_template
-from routes.admin.recordings import DEFAULT_PIPELINE
 
 from .note_taker_files import _probe_remote_file_metadata, _upload_stream_to_object
 from .note_taker_utils import (
     _build_note_taker_filename,
     _format_duration,
-    _format_mm_ss,
+    format_transcript_segments,
     _format_recording_date_compact,
     _format_recording_date_iso,
     merge_unique_strings,
@@ -44,7 +44,10 @@ from .note_taker_people import (
 from .transcript_postprocess import (
     annotate_transcript_speakers,
     parse_speaker_mapping_output,
+    parse_suggested_keyterms_from_output,
 )
+from .note_taker_pending_store import save_pending, load_and_delete_pending
+from .note_taker_cards import create_speaker_mapping_card
 
 logger = getLogger(__name__)
 
@@ -92,10 +95,13 @@ async def _start_transcription_from_object_key(
     ext: str,
     object_key: str,
     content_type: str,
-    pipeline_id: str,
+    pipeline_id: str | None,
     keyterms: list[str] | None = None,
     number_of_participants: str | None = None,
     on_submit: Callable[[str], Awaitable[None]] | None = None,
+    meeting_id: str | None = None,
+    chat_id: str | None = None,
+    initiated_by: str | None = None,
 ) -> tuple[str, dict | None]:
     await _ensure_vector_pool_ready()
 
@@ -107,9 +113,12 @@ async def _start_transcription_from_object_key(
         bytes_=None,
         object_key=object_key,
         content_type=content_type,
-        backend=pipeline_id,
+        stt_model_system_name=pipeline_id or None,
         keyterms=keyterms,
         number_of_participants=number_of_participants,
+        meeting_id=meeting_id,
+        chat_id=chat_id,
+        initiated_by=initiated_by,
     )
     if on_submit and job_id:
         try:
@@ -222,16 +231,21 @@ async def _execute_transcription_prompt_templates(
     transcription: str,
     participants: list[str],
     conversation_date: str | None,
+    keyterms: list[str] | None = None,
+    meeting_notes: str | None = None,
 ) -> list[Any]:
     async def _run_template(system_name: str):
+        values: dict[str, Any] = {
+            "transcription": transcription,
+            "participants": participants,
+            "language": "the same as the transcription",
+            "conversation_date": conversation_date or "",
+            "keyterms": ", ".join(keyterms) if keyterms else "",
+            "meeting_notes": meeting_notes or "",
+        }
         return await execute_prompt_template(
             system_name_or_config=system_name,
-            template_values={
-                "transcription": transcription,
-                "participants": participants,
-                "language": "the same as the transcription",
-                "conversation_date": conversation_date or "",
-            },
+            template_values=values,
         )
 
     return await asyncio.gather(
@@ -283,14 +297,10 @@ async def _send_transcription_summary(
     resolve_meeting_details: Callable[[TurnContext], dict[str, Any]],
 ) -> None:
     duration = None
-    transcript_payload = transcription
     participants = None
     if isinstance(transcription, dict):
         duration = transcription.get("duration")
         participants = transcription.get("participants")
-        nested = transcription.get("transcription")
-        if isinstance(nested, dict):
-            transcript_payload = nested
         job_id = job_id or transcription.get("job_id") or transcription.get("id")
 
     duration_str = _format_duration(duration) if duration is not None else None
@@ -298,34 +308,16 @@ async def _send_transcription_summary(
         duration_str = None
 
     if status in {"completed", "transcribed", "diarized"}:
-        segs_count = 0
-        full_text = None
-        seen_participants: set[str] = set()
-        if isinstance(transcript_payload, dict):
-            segs = transcript_payload.get("segments") or []
-            segs_count = len(segs)
-            full_text = transcript_payload.get("text") or ""
-            if segs:
-                lines = []
-                for s in segs:
-                    if not isinstance(s, dict):
-                        continue
-                    speaker = s.get("speaker") or "speaker_0"
-                    if speaker not in seen_participants:
-                        seen_participants.add(speaker)
-                    text = (s.get("text") or "").strip()
-                    if not text:
-                        continue
-                    ts = _format_mm_ss(s.get("start"))
-                    lines.append(f"[{ts}] {speaker}: {text}")
-                if lines:
-                    full_text = "\n".join(lines)
-                elif not full_text:
-                    full_text = " ".join(
-                        (s.get("text") or "").strip()
-                        for s in segs
-                        if isinstance(s, dict)
-                    ).strip()
+        full_text, sorted_speakers = format_transcript_segments(
+            transcription if isinstance(transcription, dict) else {}
+        )
+        # Determine segment count for status message.
+        _tp = transcription
+        if isinstance(_tp, dict):
+            _nested = _tp.get("transcription")
+            if isinstance(_nested, dict):
+                _tp = _nested
+        segs_count = len((_tp.get("segments") if isinstance(_tp, dict) else None) or [])
 
         duration_part = f", duration={duration_str}" if duration_str else ""
         speakers_count: int | None = None
@@ -340,8 +332,8 @@ async def _send_transcription_summary(
                 keys.add(str(key))
             if keys:
                 speakers_count = len(keys)
-        if speakers_count is None and seen_participants:
-            speakers_count = len(seen_participants)
+        if speakers_count is None and sorted_speakers:
+            speakers_count = len(sorted_speakers)
         speakers_part = f", speakers={speakers_count}" if speakers_count else ""
         await context.send_activity(
             f"Transcription completed (job={job_id or 'n/a'}, segments={segs_count}{speakers_part}{duration_part})."
@@ -379,8 +371,27 @@ async def _send_transcription_summary(
 
         participant_names = invited_people_to_names(invited_people)
 
+        # --- Speaker mapping confirmation card ---
+        # Build a speaker mapping from transcription output.  If the AI
+        # post-transcription prompt is enabled, use its suggestions to
+        # pre-fill speaker names.  Otherwise, use raw labels from the STT
+        # output so the user can rename / merge speakers manually.
+
+        speaker_mapping: dict[str, str] = {}
+        suggested_keyterms: list[str] = []
+
+        # Step 1: extract raw speaker labels from the transcript.
+        if sorted_speakers and len(sorted_speakers) >= 2:
+            speaker_mapping = {sp: "" for sp in sorted_speakers}
+
+        # Step 2: optionally call AI prompt to pre-fill names.
         post_cfg = (
             settings.get("post_transcription") if isinstance(settings, dict) else None
+        )
+        logger.debug(
+            "Speaker mapping check: speakers=%r, post_transcription config=%r",
+            sorted_speakers,
+            post_cfg,
         )
         if isinstance(post_cfg, dict) and post_cfg.get("enabled"):
             template_system_name = str(post_cfg.get("prompt_template") or "").strip()
@@ -397,24 +408,21 @@ async def _send_transcription_summary(
                         content = str(result)
                     processed = str(content or "").strip()
                     if processed:
-                        speaker_mapping = parse_speaker_mapping_output(processed)
-                        if speaker_mapping:
-                            full_text = annotate_transcript_speakers(
-                                full_text, speaker_mapping
-                            )
-                            max_chars = 4000
-                            snippet = processed[:max_chars]
-                            suffix = "..." if len(processed) > len(snippet) else ""
-                            await send_expandable_section(
-                                context,
-                                title="Post-transcription output",
-                                content=f"{snippet}{suffix}",
-                                preserve_newlines=True,
-                            )
-                        else:
-                            await context.send_activity(
-                                "Post-transcription output ignored (expected speaker_mapping JSON)."
-                            )
+                        ai_mapping = parse_speaker_mapping_output(processed)
+                        suggested_keyterms = parse_suggested_keyterms_from_output(
+                            processed
+                        )
+                        logger.debug(
+                            "Post-transcription result: ai_mapping=%r, keyterms=%r",
+                            ai_mapping,
+                            suggested_keyterms,
+                        )
+                        if ai_mapping:
+                            # Merge AI suggestions into the raw mapping.
+                            # Only accept keys that look like speaker labels.
+                            for key, name in ai_mapping.items():
+                                if key in speaker_mapping or key.startswith("speaker"):
+                                    speaker_mapping[key] = name
                 except Exception as err:
                     err_msg = _format_prompt_template_error(err)
                     logger.warning(
@@ -424,8 +432,82 @@ async def _send_transcription_summary(
                         err_msg,
                     )
                     await context.send_activity(
-                        f"Post-transcription processing failed: {err_msg}"
+                        f"Post-transcription processing failed (speaker mapping will use raw labels): {err_msg}"
                     )
+
+        # Step 3: if we have speakers, show transcript first, then confirmation card.
+        logger.debug(
+            "Speaker mapping card decision: speaker_mapping=%r, will_show_card=%s",
+            speaker_mapping,
+            bool(speaker_mapping),
+        )
+        if speaker_mapping:
+            # Show transcript snippet so the user has context for remapping.
+            max_chars = 4000
+            snippet = full_text[:max_chars]
+            suffix = "..." if len(full_text) > len(snippet) else ""
+            await send_expandable_section(
+                context,
+                title="Transcript",
+                content=f"{snippet}{suffix}",
+                preserve_newlines=True,
+            )
+            _mc = meeting_context or resolve_meeting_details(context)
+            _activity = getattr(context, "activity", None)
+            _conv = getattr(_activity, "conversation", None)
+            _chat_id = _mc.get("conversationId") if _mc else getattr(_conv, "id", None)
+            _recipient = getattr(_activity, "recipient", None)
+            _bot_id = getattr(_recipient, "id", None)
+            _settings_keyterms = str((settings or {}).get("keyterms") or "").strip()
+            try:
+                pending_id = await save_pending(
+                    job_id=job_id or "",
+                    chat_id=_chat_id,
+                    bot_id=_bot_id,
+                    full_text=full_text,
+                    raw_speaker_mapping=speaker_mapping,
+                    suggested_keyterms=suggested_keyterms,
+                    settings_system_name=settings_system_name,
+                    settings_snapshot=settings,
+                    meeting_context=_mc,
+                    invited_people=invited_people,
+                    conversation_reference=None,
+                    pipeline_id=pipeline_id,
+                    conversation_date=conversation_date,
+                    conversation_time=conversation_time,
+                )
+                card = create_speaker_mapping_card(
+                    pending_id=pending_id,
+                    speaker_mapping=speaker_mapping,
+                    suggested_keyterms=suggested_keyterms,
+                    settings_keyterms=_settings_keyterms or None,
+                )
+                attachment = Attachment(
+                    content_type="application/vnd.microsoft.card.adaptive",
+                    content=card,
+                )
+                logger.debug(
+                    "Sending speaker mapping card: pending_id=%s, speakers=%d",
+                    pending_id,
+                    len(speaker_mapping),
+                )
+                await context.send_activity(
+                    Activity(type="message", attachments=[attachment])
+                )
+                logger.debug("Speaker mapping card sent successfully, pipeline paused.")
+                # Pipeline paused — return. Continuation happens in
+                # handle_confirm_speaker_mapping() after user submits the card.
+                return
+            except Exception as save_err:
+                logger.exception(
+                    "Failed to save pending confirmation for job %s: %s",
+                    job_id,
+                    save_err,
+                )
+                # Fall through: apply mapping automatically with whatever we have.
+                named = {k: v for k, v in speaker_mapping.items() if v}
+                if named:
+                    full_text = annotate_transcript_speakers(full_text, named)
 
         max_chars = 4000
         snippet = full_text[:max_chars]
@@ -475,6 +557,7 @@ async def _send_transcription_summary(
             transcription=full_text,
             participants=participant_names,
             conversation_date=conversation_date,
+            keyterms=keyterms,
         )
 
         knowledge_graph_sections: dict[str, str] = {}
@@ -568,6 +651,175 @@ async def _send_transcription_summary(
     )
 
 
+async def run_postprocessing_pipeline(
+    context: TurnContext,
+    *,
+    pending_id: str,
+    speaker_mapping: dict[str, str],
+    extra_keyterms: list[str] | None = None,
+    meeting_notes: str | None = None,
+    send_expandable_section: Callable[..., Awaitable[None]],
+    load_settings_by_system_name: Callable[[str], Awaitable[dict[str, Any]]],
+    load_settings_for_context: Callable[[TurnContext], Awaitable[dict[str, Any]]],
+    resolve_meeting_details: Callable[[TurnContext], dict[str, Any]],
+) -> None:
+    """
+    Stage 2 of the transcription pipeline: called after the user confirms speaker mapping.
+
+    Loads the pending state, applies the confirmed mapping, then runs summary / chapters /
+    insights / Confluence / Knowledge Graph — everything that was paused in stage 1.
+    """
+    state = await load_and_delete_pending(pending_id)
+    if state is None:
+        await context.send_activity(
+            "The speaker mapping confirmation has expired or was already processed. "
+            "Please re-run transcription if needed."
+        )
+        return
+
+    full_text: str = state.get("full_text") or ""
+    if not full_text:
+        await context.send_activity("No transcript text found for this confirmation.")
+        return
+
+    # Apply the confirmed speaker mapping
+    if speaker_mapping:
+        full_text = annotate_transcript_speakers(full_text, speaker_mapping)
+
+    # Send annotated transcript snippet
+    max_chars = 4000
+    snippet = full_text[:max_chars]
+    suffix = "..." if len(full_text) > len(snippet) else ""
+    await send_expandable_section(
+        context,
+        title="Transcript",
+        content=f"{snippet}{suffix}",
+        preserve_newlines=True,
+    )
+
+    settings: dict[str, Any] | None = state.get("settings_snapshot")
+    if not isinstance(settings, dict):
+        settings = None
+
+    if settings is None:
+        settings_system_name: str | None = state.get("settings_system_name")
+        try:
+            settings = (
+                await load_settings_by_system_name(settings_system_name)
+                if settings_system_name
+                else await load_settings_for_context(context)
+            )
+        except Exception as err:
+            logger.warning("run_postprocessing_pipeline: cannot load settings: %s", err)
+            settings = None
+
+    if not isinstance(settings, dict):
+        return
+
+    invited_people: list[dict[str, str]] = state.get("invited_people") or []
+    participant_names = invited_people_to_names(invited_people)
+
+    job_id: str | None = state.get("job_id") or None
+    pipeline_id: str | None = state.get("pipeline_id")
+    conversation_date: str | None = state.get("conversation_date")
+    conversation_time: str | None = state.get("conversation_time")
+    meeting_context: dict[str, Any] | None = state.get("meeting_context")
+
+    # Merge keyterms: config + user-provided extras
+    keyterms = _build_transcription_keyterms(
+        settings=settings, invited_people=invited_people
+    )
+    if extra_keyterms:
+        for t in extra_keyterms:
+            if t and t not in keyterms:
+                keyterms.append(t)
+
+    templates: list[tuple[str, str, str]] = []
+    for key, title in (
+        ("summary", "Summary"),
+        ("chapters", "Chapters"),
+        ("insights", "Insights"),
+    ):
+        section = settings.get(key)
+        if not isinstance(section, dict) or not section.get("enabled"):
+            continue
+        template_name = str(section.get("prompt_template") or "").strip()
+        if template_name:
+            templates.append((template_name, title, key))
+
+    if not templates:
+        return
+
+    results = await _execute_transcription_prompt_templates(
+        [system_name for system_name, _, _ in templates],
+        transcription=full_text,
+        participants=participant_names,
+        conversation_date=conversation_date,
+        keyterms=keyterms,
+        meeting_notes=meeting_notes,
+    )
+
+    knowledge_graph_sections: dict[str, str] = {}
+    for (system_name, title, key), result in zip(templates, results):
+        if isinstance(result, Exception):
+            err_msg = _format_prompt_template_error(result)
+            logger.warning(
+                "Prompt template %s failed (postprocessing): %s", system_name, err_msg
+            )
+            await context.send_activity(f"{title} generation failed: {err_msg}")
+            continue
+        content = getattr(result, "content", None)
+        if content is None:
+            content = str(result)
+        knowledge_graph_sections[key] = str(content)
+        await send_expandable_section(
+            context, title=f"Meeting {title.lower()}", content=str(content)
+        )
+
+    confluence_sections = {
+        key: knowledge_graph_sections[key]
+        for key in ("summary", "chapters")
+        if key in knowledge_graph_sections
+    }
+    if not confluence_sections:
+        return
+
+    _mc = meeting_context or resolve_meeting_details(context)
+    await maybe_publish_confluence_notes(
+        context,
+        settings=settings,
+        job_id=job_id,
+        pipeline_id=pipeline_id,
+        meeting_context=_mc,
+        participants=participant_names,
+        conversation_date=conversation_date,
+        conversation_time=conversation_time,
+        duration=None,
+        sections=confluence_sections,
+        transcript=full_text,
+        keyterms=keyterms,
+        invited_people=invited_people,
+        send_expandable_section=send_expandable_section,
+    )
+
+    knowledge_graph_name = str(
+        settings.get("knowledge_graph_system_name") or ""
+    ).strip()
+    embedding_enabled = bool(settings.get("create_knowledge_graph_embedding"))
+    if embedding_enabled and knowledge_graph_name and knowledge_graph_sections:
+        ingested = await _ingest_knowledge_graph_sections(
+            graph_system_name=knowledge_graph_name,
+            meeting=_mc,
+            job_id=job_id,
+            conversation_date=conversation_date,
+            sections=knowledge_graph_sections,
+        )
+        if ingested:
+            await context.send_activity(
+                f"Embedded {ingested} item(s) into knowledge graph {knowledge_graph_name}."
+            )
+
+
 async def run_transcription_pipeline(
     context: TurnContext,
     *,
@@ -587,7 +839,7 @@ async def run_transcription_pipeline(
         [str, str, str], Awaitable[Callable[[str], Awaitable[None]] | None]
     ]
     | None = None,
-    pipeline_id: str = DEFAULT_PIPELINE,
+    pipeline_id: str | None = None,
     # job mode:
     job_id: str | None = None,
     build_on_submit_callback: Callable[
@@ -709,6 +961,13 @@ async def run_transcription_pipeline(
                     )
                     return
 
+        _mc = meeting_context or resolve_meeting_details(context)
+        _activity = getattr(context, "activity", None)
+        _from = getattr(_activity, "from_property", None) or getattr(
+            _activity, "from", None
+        )
+        _initiated_by: str | None = getattr(_from, "aad_object_id", None)
+
         try:
             status, result = await _start_transcription_from_object_key(
                 name=name,
@@ -719,6 +978,9 @@ async def run_transcription_pipeline(
                 keyterms=keyterms,
                 number_of_participants=number_of_participants,
                 on_submit=submit_cb,
+                meeting_id=_mc.get("id") if _mc else None,
+                chat_id=_mc.get("conversationId") if _mc else None,
+                initiated_by=_initiated_by,
             )
         except Exception as err:
             logger.exception("Failed to start transcription for streamed file")

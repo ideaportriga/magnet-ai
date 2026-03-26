@@ -31,6 +31,7 @@ from .admin.knowledge_sources import (
     knowledge_sources_router,
     knowledge_sources_router_deprecated,
 )
+from core.domain.note_taker_jobs import NoteTakerJobsController
 from services.agents.teams.note_taker_settings import NoteTakerSettingsController
 from .admin.observability import observability_router
 from .admin.rag import RagController
@@ -73,7 +74,8 @@ def get_route_handlers(
         knowledge_sources_router_deprecated,  # Admin / Knowledge Sources
         MCPServersController,  # Admin / MCP Servers
         MetricsController,  # Admin / Metrics
-        NoteTakerSettingsController,  # Admin / Note Taker
+        NoteTakerSettingsController,  # Admin / Note Taker Settings
+        NoteTakerJobsController,  # Admin / Note Taker Preview Jobs
         AIModelsController,  # Admin / Models
         observability_router,  # Admin / Observability
         PromptsController,  # Admin / Prompt Templates
@@ -101,6 +103,13 @@ def get_route_handlers(
                 UploadSessionsController,  # Admin / Upload Sessions
             ]
         )
+
+    if os.getenv("DEBUG_MODE", "").lower() in ("true", "1"):
+        from routes.admin.test_utils import TestUtilsController
+
+        route_handlers_admin.append(
+            TestUtilsController
+        )  # Admin / Test Utils (debug only)
 
     route_handlers_user: list[ControllerRouterHandler] = [
         AskMagnetController,  # User / Ask Magnet (form submissions)

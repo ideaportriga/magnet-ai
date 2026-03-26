@@ -64,9 +64,47 @@ def _extract_first_url_from_attachments(activity: Any) -> str | None:
     return None
 
 
+_TEAMS_FILE_CONTENT_TYPE = "application/vnd.microsoft.teams.file.download.info"
+
+
+def extract_teams_file_attachment_url(activity: Any) -> str | None:
+    """
+    Extract the download URL from a Teams file attachment.
+
+    Teams sends file attachments with content_type
+    'application/vnd.microsoft.teams.file.download.info' and the download
+    URL in ``content.downloadUrl``.  Falls back to ``content_url`` if the
+    content dict is absent.
+    """
+    attachments = getattr(activity, "attachments", None) or []
+    for attachment in attachments:
+        content_type = getattr(attachment, "content_type", None) or ""
+        if content_type.lower() != _TEAMS_FILE_CONTENT_TYPE:
+            continue
+
+        content = getattr(attachment, "content", None)
+        if isinstance(content, dict):
+            url = (
+                content.get("downloadUrl")
+                or content.get("download_url")
+                or content.get("url")
+            )
+            if isinstance(url, str) and url.lower().startswith(("http://", "https://")):
+                return url
+
+        # Fallback: content_url on the attachment itself
+        content_url = getattr(attachment, "content_url", None)
+        if isinstance(content_url, str) and content_url.lower().startswith(
+            ("http://", "https://")
+        ):
+            return content_url
+
+    return None
+
+
 _DEFAULT_NOTE_TAKER_SETTINGS: dict[str, Any] = {
     "subscription_recordings_ready": False,
-    "pipeline_id": "elevenlabs",
+    "pipeline_id": "",  # empty = use transcription service default (ELEVENLABS2_SCRIBE_V1)
     "send_number_of_speakers": False,
     "create_knowledge_graph_embedding": False,
     "knowledge_graph_system_name": "",
@@ -170,6 +208,51 @@ def _format_mm_ss(seconds: float | int | None) -> str:
     total_seconds = max(total_seconds, 0)
     minutes, secs = divmod(total_seconds, 60)
     return f"{minutes:02d}:{secs:02d}"
+
+
+def format_transcript_segments(transcription: dict) -> tuple[str, list[str]]:
+    """Format transcription segments into text and extract speaker labels.
+
+    Returns (full_text, sorted_speaker_labels).
+    """
+    transcript_payload = transcription
+    nested = transcription.get("transcription")
+    if isinstance(nested, dict):
+        transcript_payload = nested
+
+    segs = (
+        transcript_payload.get("segments")
+        if isinstance(transcript_payload, dict)
+        else None
+    ) or []
+    speakers: set[str] = set()
+    lines: list[str] = []
+    for s in segs:
+        if not isinstance(s, dict):
+            continue
+        speaker = s.get("speaker") or "speaker_0"
+        speakers.add(speaker)
+        text = (s.get("text") or "").strip()
+        if not text:
+            continue
+        ts = _format_mm_ss(s.get("start"))
+        lines.append(f"[{ts}] {speaker}: {text}")
+
+    if lines:
+        full_text = "\n".join(lines)
+    elif segs:
+        full_text = " ".join(
+            (s.get("text") or "").strip() for s in segs if isinstance(s, dict)
+        ).strip()
+    else:
+        fallback = (
+            transcript_payload.get("text")
+            if isinstance(transcript_payload, dict)
+            else None
+        )
+        full_text = fallback or ""
+
+    return full_text, sorted(speakers)
 
 
 def _format_file_size(size_bytes: int | None) -> str:

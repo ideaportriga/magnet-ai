@@ -41,16 +41,21 @@ class PgDataStorage:
         await store.client.execute_command(
             """
             INSERT INTO transcriptions
-                (file_id, filename, file_ext, content_type, object_key, status, created_at, updated_at)
+                (file_id, filename, file_ext, content_type, object_key, status,
+                 meeting_id, chat_id, initiated_by, created_at, updated_at)
             VALUES
-                ($1,      $2,       $3,       $4,           $5,         'started', $6,         $7)
+                ($1,      $2,       $3,       $4,           $5,         'started',
+                 $6,         $7,      $8,           $9,          $10)
             ON CONFLICT (file_id) DO NOTHING
             """,
             data.file_id,
-            data.file_name,  # or data.filename_with_ext
-            data.file_ext,  # be consistent (e.g., ".mp3")
+            data.file_name,
+            data.file_ext,
             data.content_type or "application/octet-stream",
             data.object_key,
+            data.meeting_id,
+            data.chat_id,
+            data.initiated_by,
             now,
             now,
         )
@@ -101,7 +106,8 @@ class PgDataStorage:
             """
             SELECT id::text, file_id, filename, file_ext, content_type,
                    status, error, participants, transcription, full_text,
-                   duration_seconds, created_at, updated_at
+                   duration_seconds, meeting_id, chat_id, initiated_by,
+                   created_at, updated_at
             FROM transcriptions
             WHERE file_id = $1
             """,
@@ -202,6 +208,9 @@ class PgDataStorage:
                 "error": row.get("error"),
                 "participants": row.get("participants"),
                 "transcription": row.get("transcription"),
+                "meeting_id": row.get("meeting_id"),
+                "chat_id": row.get("chat_id"),
+                "initiated_by": row.get("initiated_by"),
                 "created_at": row.get("created_at").isoformat()
                 if row.get("created_at")
                 else None,

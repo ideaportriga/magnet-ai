@@ -140,9 +140,47 @@ async def _load_note_taker_settings_by_system_name(
     return _merge_note_taker_settings(config if isinstance(config, dict) else None)
 
 
+async def get_superuser_id_for_bot(bot_app_id: str | None) -> str | None:
+    """Return the superuser_id configured for the note-taker settings that owns this bot."""
+    if not bot_app_id:
+        return None
+    try:
+        async with async_session_maker() as session:
+            # bot_app_id is the client_id stored in Provider.secrets_encrypted.
+            # Find the NoteTakerSettings record via provider_system_name.
+            from core.db.models.provider.provider import Provider as _Provider
+
+            stmt = select(NoteTakerSettingsModel).join(
+                _Provider,
+                NoteTakerSettingsModel.provider_system_name == _Provider.system_name,
+            )
+            result = await session.execute(stmt)
+            for record in result.scalars().all():
+                if record.superuser_id:
+                    return record.superuser_id
+    except Exception:
+        logger.debug("Failed to resolve superuser_id for bot_app_id=%s", bot_app_id)
+    return None
+
+
 async def _load_note_taker_settings_for_context(context: TurnContext) -> dict[str, Any]:
     if not _is_meeting_conversation(context):
-        raise ValueError("Note taker settings can only be loaded in a meeting context.")
+        # Personal chat: check if user has selected a config via /config.
+        from .note_taker_people import personal_config_store
+
+        personal_system_name = personal_config_store.get(context)
+        if personal_system_name:
+            try:
+                return await _load_note_taker_settings_by_system_name(
+                    personal_system_name
+                )
+            except Exception:
+                logger.debug(
+                    "Personal config %r not found; falling back to defaults.",
+                    personal_system_name,
+                )
+        # No config chosen or not found — return defaults so pipeline can still run.
+        return _merge_note_taker_settings(None)
 
     meeting = _resolve_meeting_details(context)
     logger.info("[teams note-taker] meeting: %s", meeting)
@@ -290,6 +328,7 @@ class NoteTakerSettings:
     client_secret: str
     tenant_id: str
     auth_handler_id: str
+    provider_system_name: str = ""
 
     @classmethod
     def from_env(cls) -> "NoteTakerSettings | None":
@@ -509,6 +548,7 @@ def _register_note_taker_handlers(
     adapter: CloudAdapter,
     bot_app_id: str,
     bot_tenant_id: str,
+    provider_system_name: str = "",
 ) -> None:
     from .note_taker_handlers import (
         register_conversation_updates,
@@ -524,6 +564,7 @@ def _register_note_taker_handlers(
         auth_handler_id=auth_handler_id,
         bot_app_id=bot_app_id,
         bot_tenant_id=bot_tenant_id,
+        provider_system_name=provider_system_name,
         is_meeting_conversation=_is_meeting_conversation,
         is_personal_conversation=_is_personal_teams_conversation,
         resolve_meeting_details=_resolve_meeting_details,
@@ -620,6 +661,7 @@ def build_note_taker_runtime(settings: NoteTakerSettings) -> NoteTakerRuntime:
         adapter=adapter,
         bot_app_id=settings.client_id,
         bot_tenant_id=settings.tenant_id,
+        provider_system_name=settings.provider_system_name,
     )
 
     return NoteTakerRuntime(
@@ -684,20 +726,31 @@ async def handle_recordings_ready_notifications(
         organizer_aad = extract_user_from_resource(notification)
         try:
             async with async_session_maker() as session:
-                conditions = [TeamsMeeting.subscription_id == subscription_id]
-                conditions.append(
-                    and_(
-                        TeamsMeeting.graph_online_meeting_id == meeting_id_hint,
-                        TeamsMeeting.bot_id == normalized_bot_id,
+                conditions = []
+                if subscription_id:
+                    sub_cond = TeamsMeeting.subscription_id == subscription_id
+                    if normalized_bot_id:
+                        sub_cond = and_(
+                            sub_cond, TeamsMeeting.bot_id == normalized_bot_id
+                        )
+                    conditions.append(sub_cond)
+                if meeting_id_hint and normalized_bot_id:
+                    conditions.append(
+                        and_(
+                            TeamsMeeting.graph_online_meeting_id == meeting_id_hint,
+                            TeamsMeeting.bot_id == normalized_bot_id,
+                        )
                     )
-                )
-                stmt = (
-                    select(TeamsMeeting)
-                    .where(or_(*conditions))
-                    .order_by(TeamsMeeting.updated_at.desc())
-                )
-                result = await session.execute(stmt)
-                meeting_row = result.scalars().first()
+                if not conditions:
+                    meeting_row = None
+                else:
+                    stmt = (
+                        select(TeamsMeeting)
+                        .where(or_(*conditions))
+                        .order_by(TeamsMeeting.updated_at.desc())
+                    )
+                    result = await session.execute(stmt)
+                    meeting_row = result.scalars().first()
 
                 if meeting_row is None:
                     logger.info(
@@ -1004,3 +1057,174 @@ async def _process_recording_notification_for_meeting(
     )
 
     return
+
+
+# ---------------------------------------------------------------------------
+# NoteTakerRegistry — manages multiple bot runtimes per DB settings record
+# ---------------------------------------------------------------------------
+
+
+class NoteTakerRegistry:
+    """
+    Registry that manages multiple NoteTakerRuntime instances, each driven by
+    its own Azure Bot credentials stored in the linked Provider record.
+
+    All mutating operations are guarded by an ``asyncio.Lock`` so that
+    concurrent ``register`` / ``load_all_from_db`` calls don't produce
+    inconsistent snapshots.
+
+    Usage:
+        registry = NoteTakerRegistry()
+        await registry.load_all_from_db()
+        runtime = registry.get(bot_app_id)
+    """
+
+    def __init__(self) -> None:
+        import asyncio
+
+        self._lock = asyncio.Lock()
+        # Keyed by normalized bot_app_id (client_id)
+        self._runtimes: dict[str, NoteTakerRuntime] = {}
+        # Keyed by provider_system_name — one runtime per Azure Bot Provider
+        self._by_provider_system_name: dict[str, NoteTakerRuntime] = {}
+
+    async def load_all_from_db(self) -> int:
+        """Load runtimes for all note_taker_settings that reference a Provider
+        (via ``provider_system_name``).
+
+        Returns the number of successfully loaded runtimes.
+        """
+        from core.db.models.teams.note_taker_settings import NoteTakerSettings as _Model
+        from core.db.models.provider.provider import Provider as _Provider
+
+        loaded = 0
+        try:
+            async with async_session_maker() as session:
+                result = await session.execute(select(_Model))
+                records = result.scalars().all()
+
+                # Pre-fetch referenced providers so secrets are decrypted in-session.
+                provider_names = [
+                    r.provider_system_name for r in records if r.provider_system_name
+                ]
+                providers_map: dict[str, _Provider] = {}
+                if provider_names:
+                    prov_result = await session.execute(
+                        select(_Provider).where(
+                            _Provider.system_name.in_(provider_names)
+                        )
+                    )
+                    for p in prov_result.scalars().all():
+                        providers_map[p.system_name] = p
+        except Exception:
+            logger.exception("[NoteTakerRegistry] Failed to load settings from DB.")
+            return 0
+
+        async with self._lock:
+            # Deduplicate: build one runtime per unique provider (Azure Bot).
+            # Multiple settings records may share the same provider_system_name.
+            seen_providers: set[str] = set()
+            for record in records:
+                provider_sn = str(record.provider_system_name or "").strip()
+                if not provider_sn or provider_sn in seen_providers:
+                    continue
+
+                creds = self._resolve_credentials(record, providers_map)
+                if creds is None:
+                    continue
+
+                client_id = str(creds.get("client_id") or "").strip()
+                client_secret = str(creds.get("client_secret") or "").strip()
+                tenant_id = str(creds.get("tenant_id") or "").strip()
+                auth_handler_id = str(
+                    creds.get("auth_handler_id") or f"note_taker_{provider_sn}"
+                ).strip()
+
+                if not (client_id and client_secret and tenant_id):
+                    logger.warning(
+                        "[NoteTakerRegistry] Skipping provider %s — incomplete credentials.",
+                        provider_sn,
+                    )
+                    continue
+
+                try:
+                    settings_obj = NoteTakerSettings(
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        tenant_id=tenant_id,
+                        auth_handler_id=auth_handler_id,
+                        provider_system_name=provider_sn,
+                    )
+                    runtime = build_note_taker_runtime(settings_obj)
+                    self._runtimes[normalize_bot_id(client_id) or client_id] = runtime
+                    self._by_provider_system_name[provider_sn] = runtime
+                    seen_providers.add(provider_sn)
+                    loaded += 1
+                    logger.info(
+                        "[NoteTakerRegistry] Loaded runtime for provider=%s client_id=%s",
+                        provider_sn,
+                        client_id,
+                    )
+                except Exception:
+                    logger.exception(
+                        "[NoteTakerRegistry] Failed to build runtime for provider %s.",
+                        provider_sn,
+                    )
+
+        return loaded
+
+    @staticmethod
+    def _resolve_credentials(record, providers_map: dict) -> dict | None:
+        """Resolve bot credentials from the linked Provider."""
+        if not record.provider_system_name:
+            return None
+
+        provider = providers_map.get(record.provider_system_name)
+        if provider is None:
+            logger.warning(
+                "[NoteTakerRegistry] Provider %r not found for %s.",
+                record.provider_system_name,
+                record.system_name,
+            )
+            return None
+
+        secrets = provider.secrets_encrypted or {}
+        conn = provider.connection_config or {}
+        return {
+            "client_id": secrets.get("client_id") or conn.get("client_id") or "",
+            "client_secret": secrets.get("client_secret") or "",
+            "tenant_id": secrets.get("tenant_id") or conn.get("tenant_id") or "",
+            "auth_handler_id": conn.get("auth_handler_id") or "",
+        }
+
+    async def register(
+        self,
+        bot_app_id: str,
+        runtime: NoteTakerRuntime,
+        *,
+        provider_system_name: str = "",
+    ) -> None:
+        """Register a runtime under a bot_app_id (and optionally provider_system_name)."""
+        async with self._lock:
+            self._runtimes[normalize_bot_id(bot_app_id) or bot_app_id] = runtime
+            if provider_system_name:
+                self._by_provider_system_name[provider_system_name] = runtime
+
+    def get(self, bot_app_id: str) -> NoteTakerRuntime | None:
+        """Look up a runtime by bot_app_id (client_id)."""
+        return self._runtimes.get(normalize_bot_id(bot_app_id) or bot_app_id)
+
+    def get_by_provider_system_name(
+        self, provider_system_name: str
+    ) -> NoteTakerRuntime | None:
+        return self._by_provider_system_name.get(provider_system_name)
+
+    async def reload(self, bot_app_id: str, runtime: NoteTakerRuntime) -> None:
+        """Replace an existing runtime (hot-reload)."""
+        await self.register(bot_app_id, runtime)
+
+    def all_runtimes(self) -> list[tuple[str, NoteTakerRuntime]]:
+        return list(self._runtimes.items())
+
+    def __len__(self) -> int:
+        return len(self._runtimes)

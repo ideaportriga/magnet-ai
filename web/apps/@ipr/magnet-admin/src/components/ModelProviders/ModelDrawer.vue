@@ -354,6 +354,13 @@ q-dialog(v-model='showTestDialog')
       .q-pa-sm.bg-grey-2.rounded-borders(v-if='testResult?.response_preview')
         .km-field.text-secondary-text.q-mb-xs Response Preview
         .text-body2 {{ testResult?.response_preview }}
+      .q-pa-sm.bg-grey-2.rounded-borders.q-mt-sm(v-if='testResult?.response_audio_base64')
+        .km-field.text-secondary-text.q-mb-xs Audio Playback
+        audio(
+          controls,
+          style='width: 100%',
+          :src='`data:audio/${testResult.response_audio_format || "mp3"};base64,${testResult.response_audio_base64}`'
+        )
       .q-pa-sm.bg-negative-light.rounded-borders.q-mt-sm(v-if='testResult?.error')
         .km-field.text-negative.q-mb-xs Error Details
         .text-body2.text-negative {{ testResult?.error }}
