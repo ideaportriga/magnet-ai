@@ -35,3 +35,7 @@ build/
 recording_test.py
 /research
 /reports
+.pnp.cjs
+.pnp.loader.mjs
+/docs
+/cli
