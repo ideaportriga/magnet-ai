@@ -50,5 +50,11 @@ class Transcription(
     transcription: Mapped[Optional[dict]] = mapped_column(JsonB, nullable=True)
     full_text: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
 
+    meeting_id: Mapped[Optional[str]] = mapped_column(Text(), nullable=True, index=True)
+    chat_id: Mapped[Optional[str]] = mapped_column(Text(), nullable=True)
+    initiated_by: Mapped[Optional[str]] = mapped_column(
+        Text(), nullable=True, index=True
+    )
+
     def __repr__(self) -> str:
         return f"<Transcription file_id={self.file_id} status={self.status}>"

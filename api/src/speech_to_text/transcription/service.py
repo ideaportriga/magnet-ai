@@ -94,6 +94,9 @@ async def submit(
     number_of_participants: str | None = None,
     keyterms: list[str] | None = None,
     entity_detection: str | list[str] | None = None,
+    meeting_id: str | None = None,
+    chat_id: str | None = None,
+    initiated_by: str | None = None,
 ) -> str:
     if bytes_ is None and object_key is None:
         raise ValueError("submit(): supply either bytes_ or object_key")
@@ -106,6 +109,9 @@ async def submit(
         file_ext=f".{ext}",
         content_type=content_type,
         object_key=object_key,
+        meeting_id=meeting_id,
+        chat_id=chat_id,
+        initiated_by=initiated_by,
     )
 
     # Decide where to read the bytes from
@@ -135,6 +141,10 @@ async def submit(
 
 
 # convenience accessors (unchanged) -----------------------------------------
+async def get_meta(file_id: str) -> dict | None:
+    return await storage.get_meta(file_id)
+
+
 async def get_status(file_id: str) -> str | None:
     meta = await storage.get_meta(file_id)
     return (meta or {}).get("status")

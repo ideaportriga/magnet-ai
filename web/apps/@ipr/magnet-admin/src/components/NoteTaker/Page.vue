@@ -5,26 +5,47 @@
       .col-auto.collection-container
         .full-height.q-pb-md.relative-position.q-px-md
           .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width
-            .row.q-mb-12
-              .col-auto.center-flex-y
-                km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
-              q-space
-              .col-auto.center-flex-y
-                km-btn.q-mr-12(label='New', @click='showNewDialog = true')
-            .row
-              km-table(
-                @selectRow='openDetails',
-                selection='single',
-                row-key='key',
-                :selected='selectedConfig ? [selectedConfig] : []',
-                :columns='columns',
-                :rows='visibleRows',
-                :visibleColumns='visibleColumns',
-                style='min-width: 1100px',
-                v-model:pagination='pagination',
-                :loading='loading',
-                binary-state-sort
-              )
+
+            //- ── Tabs ───────────────────────────────────────────────
+            q-tabs.bb-border.q-mb-md(
+              v-model='tab',
+              narrow-indicator,
+              dense,
+              align='left',
+              active-color='primary',
+              indicator-color='primary',
+              no-caps,
+              content-class='km-tabs'
+            )
+              q-tab(name='configurations', label='Configurations')
+              q-tab(name='providers', label='Bot Providers')
+
+            //- ── Configurations tab ─────────────────────────────────
+            template(v-if='tab === "configurations"')
+              .row.q-mb-12
+                .col-auto.center-flex-y
+                  km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
+                q-space
+                .col-auto.center-flex-y
+                  km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+              .row
+                km-table(
+                  @selectRow='openDetails',
+                  selection='single',
+                  row-key='key',
+                  :selected='selectedConfig ? [selectedConfig] : []',
+                  :columns='columns',
+                  :rows='visibleRows',
+                  :visibleColumns='visibleColumns',
+                  style='min-width: 1100px',
+                  v-model:pagination='pagination',
+                  :loading='loading',
+                  binary-state-sort
+                )
+
+            //- ── Providers tab ──────────────────────────────────────
+            note-taker-providers(v-if='tab === "providers"')
+
     note-taker-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @created='onConfigCreated')
 </template>
 
@@ -36,10 +57,12 @@ import { ChipCopy } from '@ui'
 import { markRaw } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
 import NoteTakerCreateNew from './CreateNew.vue'
+import NoteTakerProviders from './NoteTakerProviders.vue'
 
 const store = useStore()
 const router = useRouter()
 
+const tab = ref('configurations')
 const searchString = ref('')
 const showNewDialog = ref(false)
 const selectedConfig = ref<any>(null)
@@ -52,6 +75,20 @@ const pagination = ref({
   sortBy: 'name',
   descending: false,
   rowsNumber: 0,
+})
+
+const BotStatusChip = markRaw({
+  props: ['value'],
+  template: `
+    <q-chip
+      v-if="value"
+      :color="value.client_id ? 'positive' : 'grey-4'"
+      :text-color="value.client_id ? 'white' : 'grey-7'"
+      dense
+      icon="smart_toy"
+    >{{ value.client_id ? 'Configured' : 'Not set' }}</q-chip>
+    <span v-else class="text-grey-5">—</span>
+  `,
 })
 
 const columns = [
@@ -78,6 +115,15 @@ const columns = [
     align: 'left' as const,
     sortable: true,
     classes: 'km-button-xs-text',
+  },
+  {
+    name: 'bot',
+    label: 'Bot',
+    field: 'bot_credentials',
+    type: 'component',
+    component: BotStatusChip,
+    align: 'left' as const,
+    sortable: false,
   },
   {
     name: 'created',

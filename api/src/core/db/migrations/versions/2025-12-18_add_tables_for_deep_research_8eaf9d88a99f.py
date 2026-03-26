@@ -2,7 +2,7 @@
 """add tables for deep research
 
 Revision ID: 8eaf9d88a99f
-Revises: 1c3d5e7f9a0b
+Revises: ca19414774ee
 Create Date: 2025-12-18 16:01:22.017379+00:00
 
 """
@@ -50,7 +50,7 @@ sa.Text = Text
 
 # revision identifiers, used by Alembic.
 revision = "8eaf9d88a99f"
-down_revision = "1c3d5e7f9a0b"
+down_revision = "ca19414774ee"
 branch_labels = None
 depends_on = None
 

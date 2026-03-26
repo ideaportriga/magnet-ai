@@ -1,6 +1,7 @@
 import asyncio
 import html
 import json
+import os
 from datetime import datetime, timezone
 from http.cookies import SimpleCookie
 from logging import getLogger
@@ -38,6 +39,7 @@ from api.tags import TagNames
 
 from services.agents.teams.note_taker import (
     NoteTakerRuntime,
+    NoteTakerRegistry,
     handle_recordings_ready_notifications,
 )
 from services.agents.teams.runtime_cache import TeamsRuntimeCache
@@ -55,6 +57,12 @@ from .agents_utils.whatsapp_utils import (
 )
 
 logger = getLogger(__name__)
+
+# clientState secret used when creating Microsoft Graph recording subscriptions.
+# Override via TEAMS_GRAPH_WEBHOOK_CLIENT_STATE env var for production deployments.
+_GRAPH_WEBHOOK_CLIENT_STATE: str = (
+    os.environ.get("TEAMS_GRAPH_WEBHOOK_CLIENT_STATE") or "recordings-ready"
+)
 
 
 async def _get_slack_runtime_cache(app: Any) -> SlackRuntimeCache:
@@ -599,6 +607,107 @@ class UserAgentsController(Controller):
         return Response(status_code=status, content=content, headers=headers)
 
     @post(
+        "/teams/note-taker/{provider_system_name:str}/messages",
+        status_code=HTTP_200_OK,
+        exclude_from_auth=True,
+        summary="Messaging endpoint for a named Teams note-taker bot",
+        description=(
+            "Routes an Azure Bot Service activity to the note-taker runtime identified by "
+            "`provider_system_name` in the NoteTakerRegistry. Falls back to the env-var runtime "
+            "when the registry has no match."
+        ),
+    )
+    async def handle_note_taker_message_by_name(
+        self,
+        provider_system_name: str,
+        request: Request,
+        data: Dict[str, Any] | None = Body(),
+    ) -> Response:
+        # Try registry first
+        registry: NoteTakerRegistry | None = getattr(
+            request.app.state, "note_taker_registry", None
+        )
+        runtime: NoteTakerRuntime | None = None
+        if registry is not None:
+            runtime = registry.get_by_provider_system_name(provider_system_name)
+
+        # Fall back to the legacy single-runtime
+        if runtime is None:
+            runtime = getattr(request.app.state, "teams_note_taker_runtime", None)
+
+        if runtime is None:
+            return _error(
+                HTTP_503_SERVICE_UNAVAILABLE,
+                f"No note-taker runtime found for provider_system_name={provider_system_name!r}",
+            )
+
+        auth_header = request.headers.get("authorization", "")
+        if not auth_header.lower().startswith("bearer "):
+            return _error(HTTP_401_UNAUTHORIZED, "Missing Bearer token")
+
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            jwt_payload = read_jwt_payload_noverify(token)
+        except ValidationException:
+            return _error(HTTP_400_BAD_REQUEST, "Invalid JWT")
+
+        audience = pick_audience(jwt_payload)
+        if not audience:
+            return _error(HTTP_400_BAD_REQUEST, "Invalid audience/appid")
+        expected_app_id = getattr(runtime.validation_config, "CLIENT_ID", None)
+        if audience != expected_app_id:
+            return _error(HTTP_403_FORBIDDEN, "Invalid audience/appid")
+
+        if data is None:
+            data = {}
+
+        fake_request = AiohttpLikeRequest(
+            method="POST",
+            url=str(request.url),
+            headers=dict(request.headers),
+            json_body=data,
+            app_state={"agent_configuration": runtime.validation_config},
+            auth_header=auth_header,
+        )
+
+        aiohttp_response = None
+        try:
+
+            async def _next(req: AiohttpLikeRequest):
+                return await start_agent_process(
+                    req, runtime.agent_app, runtime.adapter
+                )
+
+            aiohttp_response = await jwt_authorization_middleware(fake_request, _next)
+        except (ExpiredSignatureError, InvalidTokenError):
+            return _error(HTTP_401_UNAUTHORIZED, "Unauthorized")
+        except Exception:
+            logger.exception(
+                "Error while processing activity for Teams note-taker bot provider_system_name=%s",
+                provider_system_name,
+            )
+            return _error(
+                HTTP_500_INTERNAL_SERVER_ERROR,
+                "Internal error while processing activity",
+            )
+
+        if aiohttp_response is None:
+            return Response(status_code=HTTP_200_OK)
+
+        status = getattr(aiohttp_response, "status", HTTP_200_OK)
+        resp_headers = {
+            str(k): str(v) for k, v in getattr(aiohttp_response, "headers", {}).items()
+        }
+        response_body = getattr(aiohttp_response, "body", b"")
+        if isinstance(response_body, (bytes, bytearray)):
+            content: Any = bytes(response_body)
+        elif response_body is None:
+            content = ""
+        else:
+            content = response_body
+        return Response(status_code=status, content=content, headers=resp_headers)
+
+    @post(
         "/teams/webhooks/recordings-ready",
         status_code=HTTP_200_OK,
         exclude_from_auth=True,
@@ -627,10 +736,29 @@ class UserAgentsController(Controller):
                 payload = {}
         logger.info("Teams recordings-ready webhook payload: %s", payload or {})
 
-        runtime: NoteTakerRuntime | None = getattr(
+        # Verify clientState on every notification item — rejects spoofed requests.
+        # Microsoft Graph always echoes back the clientState set at subscription creation.
+        for item in (payload or {}).get("value", []):
+            cs = item.get("clientState") if isinstance(item, dict) else None
+            if cs != _GRAPH_WEBHOOK_CLIENT_STATE:
+                logger.warning(
+                    "Teams recordings-ready webhook: invalid clientState %r, rejecting notification",
+                    cs,
+                )
+                return Response(status_code=HTTP_400_BAD_REQUEST, content=b"")
+
+        runtimes_to_notify: list[NoteTakerRuntime] = []
+        main_runtime: NoteTakerRuntime | None = getattr(
             request.app.state, "teams_note_taker_runtime", None
         )
-        if runtime:
+        if main_runtime:
+            runtimes_to_notify.append(main_runtime)
+        registry = getattr(request.app.state, "note_taker_registry", None)
+        if registry is not None:
+            for _, reg_runtime in registry.all_runtimes():
+                if reg_runtime is not main_runtime:
+                    runtimes_to_notify.append(reg_runtime)
+        for runtime in runtimes_to_notify:
             asyncio.create_task(
                 handle_recordings_ready_notifications(runtime, payload or {})
             )
@@ -664,6 +792,17 @@ class UserAgentsController(Controller):
             except Exception:
                 payload = {}
         logger.info("Teams recordings-lifecycle webhook payload: %s", payload or {})
+
+        # Verify clientState to reject spoofed lifecycle notifications.
+        for item in (payload or {}).get("value", []):
+            cs = item.get("clientState") if isinstance(item, dict) else None
+            if cs != _GRAPH_WEBHOOK_CLIENT_STATE:
+                logger.warning(
+                    "Teams recordings-lifecycle webhook: invalid clientState %r, rejecting notification",
+                    cs,
+                )
+                return Response(status_code=HTTP_400_BAD_REQUEST, content=b"")
+
         return Response(status_code=HTTP_202_ACCEPTED, content=b"")
 
     @post(

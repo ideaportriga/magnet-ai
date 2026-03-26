@@ -275,6 +275,7 @@ export default {
   width: auto;
   margin-bottom: 0;
 }
+
 .dropzone {
   border: 2px dashed #ccc;
   border-radius: 8px;

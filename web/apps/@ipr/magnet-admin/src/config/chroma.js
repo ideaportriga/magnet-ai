@@ -762,7 +762,7 @@ const modelProviders = {
       endpoint,
       credentials: 'include',
       service: `providers`,
-      body: payload,
+      body: JSON.stringify(payload),
       headers: {
         'Content-Type': 'application/json',
       },

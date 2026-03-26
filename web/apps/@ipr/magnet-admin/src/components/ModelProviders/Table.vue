@@ -52,9 +52,14 @@ const debouncedUpdateSearch = debounce((value) => {
   searchString.value = value
 }, 300)
 
+const EXCLUDED_PROVIDER_TYPES = ['teams_note_taker']
+
 const visibleRows = computed(() => {
-  // Filter providers by category 'llm' for Model Providers
-  return (providers.value || []).filter((provider) => provider.category === 'llm' || !provider.category) // Include undefined for backward compatibility
+  return (providers.value || []).filter(
+    (provider) =>
+      (provider.category === 'llm' || !provider.category) &&
+      !EXCLUDED_PROVIDER_TYPES.includes(provider.type)
+  )
 })
 
 const openDetails = async (row) => {

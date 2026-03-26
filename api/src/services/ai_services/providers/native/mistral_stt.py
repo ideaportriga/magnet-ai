@@ -30,10 +30,11 @@ Configuration:
     }
 """
 
+import asyncio
 import logging
 from typing import Any, BinaryIO
 
-import httpx
+import requests as req_lib
 
 from services.ai_services.models import TranscriptionResponse
 from services.ai_services.providers.native.base import BaseNativeProvider
@@ -65,35 +66,50 @@ class NativeMistralSTTProvider(BaseNativeProvider):
         prompt: str | None = None,
         response_format: str | None = None,
         timestamp_granularities: list[str] | None = None,
+        diarize: bool = False,
+        **kwargs,
     ) -> TranscriptionResponse:
-        """Transcribe audio using Mistral Voxtral with diarization."""
+        """Transcribe audio using Mistral Voxtral."""
         model = model or self.default_model or "mistral-small-latest"
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-        }
+        headers = {"Authorization": f"Bearer {self.api_key}"}
 
-        # Build form data
-        data: dict[str, str] = {
-            "model": model,
-            "diarize": "true",  # Mistral-specific: enable speaker diarization
-        }
+        fields: list[tuple[str, str]] = [("model", model)]
         if language:
-            data["language"] = language
+            fields.append(("language", language))
         if response_format:
-            data["response_format"] = response_format
+            fields.append(("response_format", response_format))
+        # diarize requires timestamp_granularities=segment — enforce it together
+        if diarize:
+            fields.append(("diarize", "true"))
+            for g in timestamp_granularities or ["segment"]:
+                fields.append(("timestamp_granularities[]", g))
+
+        filename = getattr(file, "name", "audio.wav")
+        file_bytes = file.read()
 
         url = f"{self.endpoint}/v1/audio/transcriptions"
+        logger.warning("[mistral-stt] POST %s model=%s", url, model)
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
+        def _sync_post() -> dict:
+            response = req_lib.post(
                 url,
                 headers=headers,
-                data=data,
-                files={"file": file},
+                data=dict(fields),
+                files={"file": (filename, file_bytes, "audio/wav")},
+                timeout=self.timeout,
             )
-            response.raise_for_status()
-            result = response.json()
+            logger.warning("[mistral-stt] response status=%s", response.status_code)
+            if not response.ok:
+                raise RuntimeError(
+                    f"{response.status_code} {response.reason}: {response.text}"
+                )
+            return response.json()
+
+        result = await asyncio.to_thread(_sync_post)
+        logger.warning(
+            "[mistral-stt] transcription text=%r", result.get("text", "")[:100]
+        )
 
         return TranscriptionResponse(
             text=result.get("text", ""),

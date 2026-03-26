@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from logging import getLogger
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, desc
 import json
 
 from microsoft_agents.activity import Activity, Attachment, ConversationReference
@@ -19,6 +19,7 @@ from ..teams_user_store import normalize_bot_id
 
 from core.db.session import async_session_maker
 from core.db.models.teams import TeamsMeeting
+from core.db.models.transcription.transcription import Transcription
 from core.db.models.teams.note_taker_settings import (
     NoteTakerSettings as NoteTakerSettingsModel,
 )
@@ -33,13 +34,17 @@ from ..note_taker_files import _download_file_from_link
 from ..note_taker_cards import (
     create_note_taker_welcome_card,
     create_note_taker_config_picker_card,
+    create_my_meetings_card,
+    create_user_recordings_card,
 )
 from ..graph import (
     create_graph_client_with_token,
     get_meeting_recordings,
+    get_online_meeting_title,
     get_recording_by_id,
     get_recording_file_size,
     list_subscriptions,
+    list_user_meetings_with_recordings,
     pick_recordings_ready_subscription,
     create_and_persist_recordings_ready_subscription,
     resolve_recordings_lifecycle_webhook_url,
@@ -53,8 +58,17 @@ from ..note_taker_utils import (
     _format_file_size,
     _format_recording_datetime,
     _format_iso_datetime,
+    extract_teams_file_attachment_url,
 )
-from ..note_taker_transcription import run_transcription_pipeline
+from ..note_taker_people import ManualParticipantStore, personal_config_store
+from ..note_taker_transcription import (
+    run_transcription_pipeline,
+    run_postprocessing_pipeline,
+)
+from speech_to_text.transcription import service as transcription_service
+
+# Singleton participant store — lives for the duration of the process.
+_manual_participant_store = ManualParticipantStore()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +78,6 @@ class NoteTakerHandlerDeps:
     auth_handler_id: str
     bot_app_id: str
     bot_tenant_id: str
-
     is_meeting_conversation: Callable[[TurnContext], bool]
     is_personal_conversation: Callable[[TurnContext], bool]
     resolve_meeting_details: Callable[[TurnContext], dict[str, Any]]
@@ -80,6 +93,8 @@ class NoteTakerHandlerDeps:
     transcribe_stream_and_notify: Callable[..., Awaitable[None]]
     send_stt_recording_to_salesforce: Callable[..., Awaitable[None]]
     upsert_teams_user_record: Callable[[TurnContext], Awaitable[None]]
+
+    provider_system_name: str = ""
 
 
 class NoteTakerHandlerState:
@@ -163,7 +178,8 @@ class NoteTakerHandlerState:
             "name",
             None,
         )
-        card = create_note_taker_welcome_card(bot_name)
+        is_personal = self.deps.is_personal_conversation(context)
+        card = create_note_taker_welcome_card(bot_name, is_personal=is_personal)
         attachment = Attachment(
             content_type="application/vnd.microsoft.card.adaptive",
             content=card,
@@ -189,7 +205,6 @@ class NoteTakerHandlerState:
         self,
         context: TurnContext,
         recordings: list,
-        token: str,
     ) -> None:
         if not recordings:
             await context.send_activity("No recordings found.")
@@ -446,10 +461,6 @@ class NoteTakerHandlerState:
         )
 
     async def _handle_note_taker_config_set_picker(self, context: TurnContext) -> None:
-        if not self.deps.is_meeting_conversation(context):
-            await context.send_activity("This command works only in meeting chats.")
-            return
-
         await self.deps.send_typing(context)
 
         meeting_context = self.deps.resolve_meeting_details(context)
@@ -472,6 +483,12 @@ class NoteTakerHandlerState:
                     NoteTakerSettingsModel.system_name,
                     NoteTakerSettingsModel.description,
                 ).order_by(NoteTakerSettingsModel.created_at.asc())
+                # Filter to configs belonging to this bot's provider when known
+                if self.deps.provider_system_name:
+                    stmt = stmt.where(
+                        NoteTakerSettingsModel.provider_system_name
+                        == self.deps.provider_system_name
+                    )
                 result = await session.execute(stmt)
                 rows = result.all()
         except Exception as err:
@@ -515,6 +532,11 @@ class NoteTakerHandlerState:
                     NoteTakerSettingsModel.system_name,
                     NoteTakerSettingsModel.description,
                 ).order_by(NoteTakerSettingsModel.created_at.asc())
+                if self.deps.provider_system_name:
+                    stmt = stmt.where(
+                        NoteTakerSettingsModel.provider_system_name
+                        == self.deps.provider_system_name
+                    )
                 result = await session.execute(stmt)
                 rows = result.all()
         except Exception as err:
@@ -595,6 +617,11 @@ class NoteTakerHandlerState:
         if config_row is None:
             await context.send_activity("Note taker config not found.")
             return False
+
+        # In personal chats, store the config in the in-process store.
+        if self.deps.is_personal_conversation(context):
+            personal_config_store.set(context, config_row.system_name)
+            return True
 
         meeting_context = self.deps.resolve_meeting_details(context)
         chat_id = meeting_context.get("conversationId")
@@ -764,6 +791,83 @@ class NoteTakerHandlerState:
             await context.send_activity("I couldn't find a meeting record to update.")
             return
 
+    async def _handle_recordings_list_personal(
+        self,
+        context: TurnContext,
+    ) -> None:
+        """List recordings across the user's recent meetings (personal chat).
+
+        Fetches known meeting IDs from the ``TeamsMeeting`` database table
+        (meetings where this bot was installed), then queries Graph for
+        recordings using the user's delegated token.  Only meetings whose
+        recordings are accessible to the signed-in user are returned.
+        """
+        delegated_token = await self._get_delegated_token(
+            context,
+            self.deps.auth_handler_id,
+            "Please sign in with **/sign-in** so I can fetch your recordings.",
+        )
+        if not delegated_token:
+            return
+
+        await self.deps.send_typing(context)
+
+        # Resolve the bot id so we can scope the DB query.
+        recipient = getattr(getattr(context, "activity", None), "recipient", None)
+        bot_id = normalize_bot_id(getattr(recipient, "id", None))
+
+        # Fetch recent meetings from DB that have a Graph meeting id.
+        try:
+            async with async_session_maker() as session:
+                stmt = (
+                    select(TeamsMeeting.graph_online_meeting_id)
+                    .where(
+                        TeamsMeeting.graph_online_meeting_id.isnot(None),
+                        TeamsMeeting.is_bot_installed.is_(True),
+                    )
+                    .order_by(desc(TeamsMeeting.last_seen_at))
+                    .limit(30)
+                )
+                if bot_id:
+                    stmt = stmt.where(TeamsMeeting.bot_id == bot_id)
+                result = await session.execute(stmt)
+                meeting_ids: list[str] = [row[0] for row in result.all() if row[0]]
+        except Exception:
+            self._logger.exception("Failed to query TeamsMeeting for recordings-list")
+            await context.send_activity(
+                "Could not retrieve meeting list from the database."
+            )
+            return
+
+        if not meeting_ids:
+            await context.send_activity(
+                "No meetings found yet. The bot needs to be added to a meeting first "
+                "so that recordings become available."
+            )
+            return
+
+        try:
+            async with create_graph_client_with_token(delegated_token) as graph_client:
+                meetings_with_recs = await list_user_meetings_with_recordings(
+                    graph_client,
+                    content_token=delegated_token,
+                    meeting_ids=meeting_ids,
+                    add_size=True,
+                )
+        except Exception as err:
+            self._logger.exception("Failed to list user meetings with recordings")
+            await context.send_activity(
+                f"Could not retrieve your meetings: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        card = create_user_recordings_card(meetings_with_recs)
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        await context.send_activity(Activity(type="message", attachments=[attachment]))
+
     async def _handle_recordings_list(
         self,
         context: TurnContext,
@@ -773,6 +877,11 @@ class NoteTakerHandlerState:
         delegated_token: str | None = None,
         transcribe_latest: bool = False,
     ) -> None:
+        # In personal chat, delegate to the personal-chat handler.
+        if self.deps.is_personal_conversation(context):
+            await self._handle_recordings_list_personal(context)
+            return
+
         meeting = meeting or self.deps.resolve_meeting_details(context)
         online_meeting_id: str | None = None
         if recordings is None:
@@ -822,16 +931,7 @@ class NoteTakerHandlerState:
                 )
                 return
 
-        if not delegated_token:
-            delegated_token = await self._get_delegated_token(
-                context,
-                self.deps.auth_handler_id,
-                "Please sign in (Recordings connection) so I can fetch recordings with delegated Graph permissions.",
-            )
-            if not delegated_token:
-                return
-
-        await self._send_recordings_summary(context, recordings, delegated_token)
+        await self._send_recordings_summary(context, recordings)
 
         if transcribe_latest and recordings:
             await self.deps.send_typing(context)
@@ -978,6 +1078,155 @@ class NoteTakerHandlerState:
             ),
         )
 
+    async def _handle_process_recording_by_meeting_id(
+        self,
+        context: TurnContext,
+        turn_state: Optional[TurnState],
+        *,
+        meeting_id: str,
+        recording_id: str,
+    ) -> None:
+        """Process a recording identified by online meeting id + recording id.
+
+        Used from personal chat when the user picks a recording from the
+        ``create_user_recordings_card`` adaptive card.
+        """
+        delegated_token = await self._get_delegated_token(
+            context,
+            self.deps.auth_handler_id,
+            "Please sign in with **/sign-in** so I can fetch the recording.",
+        )
+        if not delegated_token:
+            return
+
+        await self.deps.send_typing(context)
+
+        try:
+            async with create_graph_client_with_token(delegated_token) as graph_client:
+                recording = await get_recording_by_id(
+                    client=graph_client,
+                    online_meeting_id=meeting_id,
+                    recording_id=recording_id,
+                )
+        except Exception as err:
+            self._logger.exception("Failed to fetch recording by id (personal)")
+            await context.send_activity(
+                f"Could not retrieve recording {recording_id}: {getattr(err, 'message', str(err))}"
+            )
+            return
+
+        if not recording:
+            await context.send_activity(f"No recording found with id {recording_id}.")
+            return
+
+        if not recording.get("contentUrl") and recording.get("recordingContentUrl"):
+            recording["contentUrl"] = recording["recordingContentUrl"]
+
+        content_url = recording.get("contentUrl")
+        if not content_url:
+            await context.send_activity("Recording did not include a downloadable URL.")
+            return
+
+        # Build a minimal meeting context for the transcription pipeline.
+        meeting: dict[str, Any] = {"id": meeting_id}
+        try:
+            async with create_graph_client_with_token(delegated_token) as graph_client:
+                title = await get_online_meeting_title(
+                    client=graph_client, online_meeting_id=meeting_id
+                )
+            if title:
+                meeting["title"] = title
+        except Exception:
+            pass
+
+        filename = _build_recording_filename(meeting, recording, content_url)
+        name = Path(filename).stem
+        ext = Path(filename).suffix
+
+        await context.send_activity("Streaming the recording for transcription...")
+        await self.deps.send_typing(context)
+
+        headers = {"Authorization": f"Bearer {delegated_token}"}
+        conversation_date = _format_recording_date_iso(recording.get("createdDateTime"))
+        conversation_time = _format_recording_datetime_utc_label(
+            recording.get("createdDateTime")
+        )
+
+        await self.deps.transcribe_stream_and_notify(
+            context,
+            download_url=content_url,
+            headers=headers,
+            name_resolver=lambda *_: (name, ext),
+            known_size=recording.get("size")
+            or await get_recording_file_size(content_url, delegated_token),
+            meeting_context=meeting,
+            conversation_date=conversation_date,
+            conversation_time=conversation_time,
+            on_submit_factory=self._make_salesforce_on_submit_factory(
+                context,
+                conversation_date=conversation_date,
+            ),
+        )
+
+    async def _handle_participants_command(
+        self, context: TurnContext, text: str
+    ) -> None:
+        """Handle /participants add|list|clear in personal chat."""
+        parts = text.strip().split(maxsplit=2)
+        sub = parts[1].lower() if len(parts) > 1 else ""
+
+        if sub == "add":
+            raw_name = parts[2].strip() if len(parts) > 2 else ""
+            if not raw_name:
+                await context.send_activity(
+                    "Usage: /participants add Full Name [<email@example.com>]"
+                )
+                return
+            person = _manual_participant_store.add(context, raw_name)
+            if person:
+                display = (
+                    (person.get("first_name") or "")
+                    + " "
+                    + (person.get("last_name") or "")
+                ).strip()
+                await context.send_activity(f"Added participant: **{display}**")
+            else:
+                await context.send_activity("Name was empty — nothing added.")
+            return
+
+        if sub == "list":
+            people = _manual_participant_store.list(context)
+            if not people:
+                await context.send_activity(
+                    "No participants added yet. Use **/participants add Full Name** to add one."
+                )
+                return
+            lines = ["**Participants:**"]
+            for i, p in enumerate(people, 1):
+                display = (
+                    (p.get("first_name") or "") + " " + (p.get("last_name") or "")
+                ).strip()
+                email = p.get("email") or ""
+                lines.append(f"{i}. {display}" + (f" <{email}>" if email else ""))
+            await context.send_activity("\n".join(lines))
+            return
+
+        if sub == "clear":
+            count = _manual_participant_store.clear(context)
+            await context.send_activity(
+                f"Cleared {count} participant(s)."
+                if count
+                else "No participants to clear."
+            )
+            return
+
+        await context.send_activity(
+            "Commands:\n"
+            "- **/participants add Full Name** — add a participant\n"
+            "- **/participants list** — show current participants\n"
+            "- **/participants clear** — remove all participants"
+        )
+
     async def _handle_process_file(
         self,
         context: TurnContext,
@@ -1013,13 +1262,23 @@ class NoteTakerHandlerState:
             )
             return
 
+        # In personal chat, merge manually-entered participants into meeting_context
+        # so the pipeline can use them for speaker hints.
+        if self.deps.is_personal_conversation(context):
+            manual_people = _manual_participant_store.list(context)
+            if manual_people:
+                meeting = dict(meeting or {})
+                meeting.setdefault("invited_people", manual_people)
+
         await context.send_activity("Streaming the file for transcription...")
         await self.deps.transcribe_stream_and_notify(
             context,
             download_url=download_url,
             headers=headers,
             name_resolver=name_resolver,
-            meeting_context=meeting,
+            meeting_context=meeting
+            if (meeting.get("id") or meeting.get("conversationId"))
+            else None,
             on_submit_factory=self._make_salesforce_on_submit_factory(
                 context,
                 conversation_date=None,
@@ -1220,6 +1479,160 @@ class NoteTakerHandlerState:
         ]
         await context.send_activity("\n".join(lines))
 
+    async def _handle_card_action(
+        self,
+        context: TurnContext,
+        turn_state: Optional[TurnState],
+        submit_value: dict[str, Any],
+    ) -> None:
+        """Handle Adaptive Card submit actions (magnet_action dispatching)."""
+        magnet_action = submit_value.get("magnet_action")
+
+        if magnet_action == "note_taker_config_set":
+            config_system_name = (submit_value.get("config_system_name") or "").strip()
+            if not config_system_name:
+                await context.send_activity("Please pick a valid config.")
+                return
+            if self.deps.is_meeting_conversation(context):
+                allowed = await self._ensure_meeting_organizer_and_signed_in(
+                    context, self.deps.auth_handler_id
+                )
+                if not allowed:
+                    return
+            account_name = (submit_value.get("account_name") or "").strip()
+            salesforce_enabled, _ = await self._load_config_picker_metadata(
+                config_system_name
+            )
+            ok = await self._handle_note_taker_config_set(
+                context, config_system_name, show_typing=False
+            )
+            if not ok:
+                return
+            if salesforce_enabled and account_name:
+                try:
+                    await self._handle_sf_account_set(
+                        context, account_name, show_typing=False
+                    )
+                except Exception:
+                    self._logger.exception(
+                        "Failed to save Salesforce account from config picker."
+                    )
+            keyterms = str(submit_value.get("keyterms") or "")
+            await self._handle_note_taker_keyterms_set(
+                context,
+                config_system_name=config_system_name,
+                keyterms=keyterms,
+                show_typing=False,
+                notify_user=False,
+            )
+            await self._refresh_note_taker_config_picker_card(
+                context, selected_system_name=config_system_name
+            )
+            return
+
+        if magnet_action == "confirm_speaker_mapping":
+            pending_id = str(submit_value.get("pending_id") or "").strip()
+            if not pending_id:
+                await context.send_activity("Invalid confirmation: missing pending_id.")
+                return
+            skip = bool(submit_value.get("skip"))
+            if skip:
+                confirmed_mapping: dict[str, str] = {}
+                extra_keyterms: list[str] = []
+                meeting_notes: str = ""
+            else:
+                confirmed_mapping = {}
+                for k, v in submit_value.items():
+                    if k.startswith("speaker__") and v:
+                        speaker_key = k[len("speaker__") :]
+                        confirmed_mapping[speaker_key] = str(v).strip()
+                keyterms_raw = str(submit_value.get("keyterms") or "").strip()
+                import re as _re
+
+                extra_keyterms = (
+                    [
+                        t.strip()
+                        for t in _re.split(r"[,;\n]+", keyterms_raw)
+                        if t.strip()
+                    ]
+                    if keyterms_raw
+                    else []
+                )
+                meeting_notes = str(submit_value.get("meeting_notes") or "").strip()
+
+            await context.send_activity(
+                "Speaker mapping confirmed. Processing summary and chapters..."
+            )
+            await run_postprocessing_pipeline(
+                context,
+                pending_id=pending_id,
+                speaker_mapping=confirmed_mapping,
+                extra_keyterms=extra_keyterms,
+                meeting_notes=meeting_notes or None,
+                send_expandable_section=self.deps.send_expandable_section,
+                load_settings_by_system_name=self.deps.load_settings_by_system_name,
+                load_settings_for_context=self.deps.load_settings_for_context,
+                resolve_meeting_details=self.deps.resolve_meeting_details,
+            )
+            return
+
+        if magnet_action == "note_taker_keyterms_set":
+            config_system_name = (submit_value.get("config_system_name") or "").strip()
+            if not config_system_name:
+                await context.send_activity("Please pick a valid config.")
+                return
+            if self.deps.is_meeting_conversation(context):
+                allowed = await self._ensure_meeting_organizer_and_signed_in(
+                    context, self.deps.auth_handler_id
+                )
+                if not allowed:
+                    return
+            keyterms = str(submit_value.get("keyterms") or "")
+            await self._handle_note_taker_keyterms_set(
+                context,
+                config_system_name=config_system_name,
+                keyterms=keyterms,
+                show_typing=False,
+                notify_user=True,
+            )
+            await self._refresh_note_taker_config_picker_card(
+                context, selected_system_name=config_system_name
+            )
+            return
+
+        if magnet_action == "view_transcript":
+            job_id = str(submit_value.get("job_id") or "").strip()
+            if not job_id:
+                await context.send_activity("Invalid job ID.")
+                return
+            await self.deps.send_typing(context)
+            await self._handle_view_transcript(context, job_id=job_id)
+            return
+
+        if magnet_action == "reprocess_meeting":
+            job_id = str(submit_value.get("job_id") or "").strip()
+            if not job_id:
+                await context.send_activity("Invalid job ID.")
+                return
+            await self.deps.send_typing(context)
+            await self._process_transcription_job_and_notify(context, job_id=job_id)
+            return
+
+        if magnet_action == "process_recording_from_list":
+            meeting_id = str(submit_value.get("meeting_id") or "").strip()
+            recording_id = str(submit_value.get("recording_id") or "").strip()
+            if not meeting_id or not recording_id:
+                await context.send_activity("Missing meeting or recording id.")
+                return
+            await self.deps.send_typing(context)
+            await self._handle_process_recording_by_meeting_id(
+                context,
+                turn_state,
+                meeting_id=meeting_id,
+                recording_id=recording_id,
+            )
+            return
+
     async def _handle_message(
         self, context: TurnContext, turn_state: TurnState
     ) -> None:
@@ -1230,78 +1643,9 @@ class NoteTakerHandlerState:
         await self.deps.upsert_teams_user_record(context)
 
         submit_value = getattr(activity, "value", None)
-        if isinstance(submit_value, dict):
-            magnet_action = submit_value.get("magnet_action")
-            if magnet_action == "note_taker_config_set":
-                config_system_name = (
-                    submit_value.get("config_system_name") or ""
-                ).strip()
-                if not config_system_name:
-                    await context.send_activity("Please pick a valid config.")
-                    return
-                if self.deps.is_meeting_conversation(context):
-                    allowed = await self._ensure_meeting_organizer_and_signed_in(
-                        context, self.deps.auth_handler_id
-                    )
-                    if not allowed:
-                        return
-                account_name = (submit_value.get("account_name") or "").strip()
-                salesforce_enabled, _ = await self._load_config_picker_metadata(
-                    config_system_name
-                )
-
-                ok = await self._handle_note_taker_config_set(
-                    context, config_system_name, show_typing=False
-                )
-                if not ok:
-                    return
-                if salesforce_enabled and account_name:
-                    try:
-                        await self._handle_sf_account_set(
-                            context, account_name, show_typing=False
-                        )
-                    except Exception:
-                        self._logger.exception(
-                            "Failed to save Salesforce account from config picker."
-                        )
-                keyterms = str(submit_value.get("keyterms") or "")
-                await self._handle_note_taker_keyterms_set(
-                    context,
-                    config_system_name=config_system_name,
-                    keyterms=keyterms,
-                    show_typing=False,
-                    notify_user=False,
-                )
-                await self._refresh_note_taker_config_picker_card(
-                    context, selected_system_name=config_system_name
-                )
-                return
-
-            if magnet_action == "note_taker_keyterms_set":
-                config_system_name = (
-                    submit_value.get("config_system_name") or ""
-                ).strip()
-                if not config_system_name:
-                    await context.send_activity("Please pick a valid config.")
-                    return
-                if self.deps.is_meeting_conversation(context):
-                    allowed = await self._ensure_meeting_organizer_and_signed_in(
-                        context, self.deps.auth_handler_id
-                    )
-                    if not allowed:
-                        return
-                keyterms = str(submit_value.get("keyterms") or "")
-                await self._handle_note_taker_keyterms_set(
-                    context,
-                    config_system_name=config_system_name,
-                    keyterms=keyterms,
-                    show_typing=False,
-                    notify_user=True,
-                )
-                await self._refresh_note_taker_config_picker_card(
-                    context, selected_system_name=config_system_name
-                )
-                return
+        if isinstance(submit_value, dict) and submit_value.get("magnet_action"):
+            await self._handle_card_action(context, turn_state, submit_value)
+            return
 
         if not text:
             return
@@ -1392,6 +1736,10 @@ class NoteTakerHandlerState:
             await self._handle_note_taker_config_set_picker(context)
             return
 
+        if normalized_text.startswith("/participants"):
+            await self._handle_participants_command(context, text)
+            return
+
         if normalized_text.startswith("/process-file"):
             link = self.deps.extract_process_file_link(context, text)
             if not link:
@@ -1418,6 +1766,11 @@ class NoteTakerHandlerState:
             await self._handle_recordings_find(context, turn_state)
             return
 
+        if normalized_text.startswith("/my-meetings"):
+            await self.deps.send_typing(context)
+            await self._handle_my_meetings(context)
+            return
+
         if normalized_text.startswith("/process-transcript-job"):
             parts = normalized_text.split(maxsplit=1)
             if len(parts) < 2 or not parts[1].strip():
@@ -1426,8 +1779,62 @@ class NoteTakerHandlerState:
                 )
                 return
             job_id = parts[1].strip()
+
+            # Verify the job belongs to the current context to prevent cross-access.
+            current_meeting = self.deps.resolve_meeting_details(context)
+            current_meeting_id: str | None = (current_meeting or {}).get("id")
+            if current_meeting_id:
+                # Meeting chat: verify the job belongs to THIS meeting.
+                job_meta = await transcription_service.get_meta(job_id)
+                if job_meta is not None:
+                    job_meeting_id: str | None = job_meta.get("meeting_id")
+                    if job_meeting_id and job_meeting_id != current_meeting_id:
+                        await context.send_activity(
+                            "This transcription job does not belong to the current meeting."
+                        )
+                        return
+            elif self.deps.is_personal_conversation(context):
+                # Personal chat: verify the job was initiated by THIS user
+                # OR the user is a designated superuser for this note-taker.
+                job_meta = await transcription_service.get_meta(job_id)
+                if job_meta is not None:
+                    job_initiated_by: str | None = job_meta.get("initiated_by")
+                    if job_initiated_by:
+                        _activity = getattr(context, "activity", None)
+                        _from = getattr(_activity, "from_property", None) or getattr(
+                            _activity, "from", None
+                        )
+                        current_aad_id: str | None = getattr(
+                            _from, "aad_object_id", None
+                        )
+                        if current_aad_id and job_initiated_by != current_aad_id:
+                            # Check superuser before rejecting
+                            from services.agents.teams.note_taker import (
+                                get_superuser_id_for_bot,
+                            )
+
+                            _bot_id = getattr(
+                                getattr(_activity, "recipient", None), "id", None
+                            )
+                            superuser = await get_superuser_id_for_bot(_bot_id)
+                            if not (superuser and current_aad_id == superuser):
+                                await context.send_activity(
+                                    "This transcription job does not belong to you."
+                                )
+                                return
+
             await self._process_transcription_job_and_notify(context, job_id=job_id)
             return
+
+        # In personal chat, allow users to drop a file attachment for transcription.
+        if self.deps.is_personal_conversation(context):
+            attachment_url = extract_teams_file_attachment_url(
+                getattr(context, "activity", None)
+            )
+            if attachment_url:
+                await self.deps.send_typing(context)
+                await self._handle_process_file(context, turn_state, attachment_url)
+                return
 
         await context.send_activity("...not implemented yet...")
 
@@ -1623,6 +2030,32 @@ class NoteTakerHandlerState:
             )
             return
 
+        # Skip if there's already an active, non-expired subscription for this meeting.
+        if chat_id and bot_id:
+            try:
+                async with async_session_maker() as session:
+                    existing = await session.scalar(
+                        select(TeamsMeeting).where(
+                            TeamsMeeting.chat_id == chat_id,
+                            TeamsMeeting.bot_id == bot_id,
+                            TeamsMeeting.subscription_is_active.is_(True),
+                            TeamsMeeting.subscription_expires_at
+                            > dt.datetime.now(dt.timezone.utc),
+                        )
+                    )
+                if existing is not None:
+                    self._logger.info(
+                        "[teams note-taker] active subscription %s already exists for chat %s; skipping.",
+                        existing.subscription_id,
+                        chat_id,
+                    )
+                    return
+            except Exception:
+                self._logger.debug(
+                    "[teams note-taker] failed to check existing subscription; proceeding with creation.",
+                    exc_info=True,
+                )
+
         delegated_token = await self._get_organizer_delegated_token_from_cache(context)
         if not delegated_token:
             self._logger.info(
@@ -1679,3 +2112,118 @@ class NoteTakerHandlerState:
         await context.send_activity(
             f"Recording subscription set (id={subscription_id}, duration={duration_note})."
         )
+
+    async def _handle_view_transcript(
+        self,
+        context: TurnContext,
+        *,
+        job_id: str,
+    ) -> None:
+        """Send the stored transcript for a transcription job."""
+        try:
+            async with async_session_maker() as session:
+                stmt = select(
+                    Transcription.full_text,
+                    Transcription.filename,
+                    Transcription.status,
+                ).where(Transcription.file_id == job_id)
+                result = await session.execute(stmt)
+                row = result.first()
+        except Exception:
+            self._logger.exception("Failed to fetch transcript for job %s", job_id)
+            await context.send_activity("Failed to fetch transcript. Please try again.")
+            return
+
+        if not row:
+            await context.send_activity(f"No transcription found for job `{job_id}`.")
+            return
+
+        full_text = row.full_text
+        status = row.status or "unknown"
+        filename = row.filename or job_id
+
+        if not full_text:
+            await context.send_activity(
+                f"Transcription `{filename}` (status: {status}) has no text content."
+            )
+            return
+
+        title = filename.rsplit(".", 1)[0] if "." in filename else filename
+        max_chars = 4000
+        snippet = full_text[:max_chars]
+        suffix = "..." if len(full_text) > max_chars else ""
+        await self.deps.send_expandable_section(
+            context,
+            title=f"Transcript: {title}",
+            content=f"{snippet}{suffix}",
+            preserve_newlines=True,
+        )
+
+    async def _handle_my_meetings(
+        self,
+        context: TurnContext,
+    ) -> None:
+        """List processed meetings for the current user from Magnet's database."""
+        user_info = self.deps.resolve_user_info(context)
+        aad_object_id: str | None = user_info.get("aad_object_id")
+        if not aad_object_id:
+            await context.send_activity(
+                "Could not determine your identity. Please sign in first with /sign-in."
+            )
+            return
+
+        try:
+            async with async_session_maker() as session:
+                stmt = (
+                    select(
+                        Transcription.file_id,
+                        Transcription.filename,
+                        Transcription.status,
+                        Transcription.duration_seconds,
+                        Transcription.created_at,
+                        Transcription.meeting_id,
+                    )
+                    .where(Transcription.initiated_by == aad_object_id)
+                    .order_by(desc(Transcription.created_at))
+                    .limit(10)
+                )
+                result = await session.execute(stmt)
+                rows = result.all()
+        except Exception:
+            self._logger.exception(
+                "Failed to fetch meetings for user %s", aad_object_id
+            )
+            await context.send_activity(
+                "Failed to fetch your meetings. Please try again later."
+            )
+            return
+
+        if not rows:
+            await context.send_activity(
+                "No processed meetings found yet. "
+                "Meetings will appear here after the bot has transcribed a recording."
+            )
+            return
+
+        meetings = [
+            {
+                "file_id": row.file_id,
+                "filename": row.filename,
+                "status": row.status,
+                "duration_seconds": row.duration_seconds,
+                "created_at": row.created_at,
+                "meeting_id": row.meeting_id,
+            }
+            for row in rows
+        ]
+
+        card = create_my_meetings_card(meetings)
+        attachment = Attachment(
+            content_type="application/vnd.microsoft.card.adaptive",
+            content=card,
+        )
+        activity = Activity(
+            type="message",
+            attachments=[attachment],
+        )
+        await context.send_activity(activity)

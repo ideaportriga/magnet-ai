@@ -53,6 +53,9 @@ class StartupPlugin(InitPluginProtocol):
         # Preload Teams note-taker bot if configured via environment
         await self._initialize_teams_note_taker_runtime(app)
 
+        # Load additional note-taker runtimes from DB provider references
+        await self._initialize_note_taker_registry(app)
+
     @staticmethod
     def _register_litellm_callbacks() -> None:
         """Register LiteLLM callback logger for failure/success observability."""
@@ -114,6 +117,26 @@ class StartupPlugin(InitPluginProtocol):
         except Exception as e:
             logger.warning("Failed to register upload cleanup job: %s", e)
 
+        # Register TTL cleanup for expired note-taker pending confirmations
+        try:
+            from apscheduler.triggers.interval import IntervalTrigger
+            from services.agents.teams.note_taker_pending_store import cleanup_expired
+
+            pending_job_id = "note_taker_pending_cleanup"
+            if scheduler.get_job(pending_job_id):
+                scheduler.remove_job(pending_job_id)
+
+            scheduler.add_job(
+                cleanup_expired,
+                trigger=IntervalTrigger(hours=1),
+                id=pending_job_id,
+                name="Cleanup expired note-taker speaker-mapping confirmations",
+                replace_existing=True,
+            )
+            logger.info("Registered note_taker_pending_cleanup job (every 1h)")
+        except Exception as e:
+            logger.warning("Failed to register note_taker_pending_cleanup job: %s", e)
+
     async def _refresh_api_keys(self) -> None:
         """Refresh API keys cache."""
         try:
@@ -173,3 +196,17 @@ class StartupPlugin(InitPluginProtocol):
             logger.info("Teams note-taker runtime initialized.")
         except Exception as exc:
             logger.exception("Failed to initialize Teams note-taker runtime: %s", exc)
+
+    async def _initialize_note_taker_registry(self, app: Litestar) -> None:
+        """Load all note-taker runtimes from DB records that reference a Provider."""
+        try:
+            from services.agents.teams.note_taker import NoteTakerRegistry
+
+            registry = NoteTakerRegistry()
+            loaded = await registry.load_all_from_db()
+            app.state.note_taker_registry = registry
+            logger.info(
+                "NoteTakerRegistry initialized with %d runtime(s) from DB.", loaded
+            )
+        except Exception as exc:
+            logger.exception("Failed to initialize NoteTakerRegistry: %s", exc)

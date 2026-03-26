@@ -677,6 +677,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         prompt: str | None = None,
         response_format: str | None = None,
         timestamp_granularities: list[str] | None = None,
+        model_config: dict | None = None,
     ) -> TranscriptionResponse:
         """Transcribe audio using LiteLLM atranscription()."""
         model = model or self.config.get("defaults", {}).get("stt_model")

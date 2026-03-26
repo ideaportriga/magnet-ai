@@ -48,6 +48,12 @@ class ModelTestResult(BaseModel):
     computed_url: str | None = Field(
         None, description="Approximate full URL that LiteLLM will send requests to"
     )
+    response_audio_base64: str | None = Field(
+        None, description="Base64-encoded audio for TTS test playback"
+    )
+    response_audio_format: str | None = Field(
+        None, description="Audio format for TTS test (e.g. 'mp3', 'wav')"
+    )
 
 
 class ModelDebugInfo(BaseModel):
@@ -129,11 +135,17 @@ class AIModelsController(Controller):
         self,
         ai_models_service: AIModelsService,
         filters: Annotated[list[filters.FilterTypes], Dependency(skip_validation=True)],
+        type: Annotated[str | None, Parameter(query="type", required=False)] = None,
     ) -> service.OffsetPagination[AIModel]:
         """List AI models with pagination and filtering."""
-        results, total = await ai_models_service.list_and_count(*filters)
+        active_filters = list(filters)
+        if type is not None:
+            from advanced_alchemy.filters import CollectionFilter
+
+            active_filters.append(CollectionFilter(field_name="type", values=[type]))
+        results, total = await ai_models_service.list_and_count(*active_filters)
         return ai_models_service.to_schema(
-            results, total, filters=filters, schema_type=AIModel
+            results, total, filters=active_filters, schema_type=AIModel
         )
 
     @post()
@@ -433,6 +445,118 @@ class AIModelsController(Controller):
                     return ModelTestResult(
                         success=False,
                         message="Re-ranking test failed",
+                        error=str(e),
+                        **debug_info,
+                    )
+
+            elif model_type == "stt":
+                # Test speech-to-text model with a WAV containing a 440 Hz tone
+                import io
+                import math
+                import struct
+
+                def _make_tone_wav(
+                    duration_sec: int = 2, sample_rate: int = 16000, freq: float = 440.0
+                ) -> io.BytesIO:
+                    num_samples = sample_rate * duration_sec
+                    samples = [
+                        int(32767 * math.sin(2 * math.pi * freq * i / sample_rate))
+                        for i in range(num_samples)
+                    ]
+                    data = struct.pack(f"<{num_samples}h", *samples)
+                    data_size = len(data)
+                    buf = io.BytesIO()
+                    buf.write(b"RIFF")
+                    buf.write(struct.pack("<I", 36 + data_size))
+                    buf.write(b"WAVE")
+                    buf.write(b"fmt ")
+                    buf.write(struct.pack("<I", 16))
+                    buf.write(struct.pack("<H", 1))  # PCM
+                    buf.write(struct.pack("<H", 1))  # mono
+                    buf.write(struct.pack("<I", sample_rate))
+                    buf.write(struct.pack("<I", sample_rate * 2))
+                    buf.write(struct.pack("<H", 2))
+                    buf.write(struct.pack("<H", 16))
+                    buf.write(b"data")
+                    buf.write(struct.pack("<I", data_size))
+                    buf.write(data)
+                    buf.seek(0)
+                    buf.name = "test.wav"
+                    return buf
+
+                try:
+                    test_audio = _make_tone_wav()
+                    logger.warning(
+                        "[stt-test] provider_class=%s model=%s",
+                        type(ai_provider).__name__,
+                        model_name,
+                    )
+                    response = await ai_provider.transcribe(
+                        file=test_audio,
+                        model=model_name,
+                        model_config=model_config,
+                    )
+                    preview = (
+                        f'Transcription: "{response.text}"'
+                        if response.text
+                        else "Transcription returned empty text (silent audio)"
+                    )
+                    if response.duration is not None:
+                        preview += f" | Duration: {response.duration:.1f}s"
+                    return ModelTestResult(
+                        success=True,
+                        message=f"STT model '{model.display_name}' is working correctly!",
+                        error=None,
+                        response_preview=preview,
+                        **debug_info,
+                    )
+                except NotImplementedError:
+                    return ModelTestResult(
+                        success=False,
+                        message="Provider does not support speech-to-text",
+                        error="The configured provider does not implement the transcribe method",
+                        **debug_info,
+                    )
+                except Exception as e:
+                    return ModelTestResult(
+                        success=False,
+                        message="STT test failed",
+                        error=str(e),
+                        **debug_info,
+                    )
+
+            elif model_type == "tts":
+                # Test text-to-speech model
+                import base64
+
+                test_text = "Hello! This is a test of the text to speech model."
+                try:
+                    audio_bytes = await ai_provider.speech(
+                        input=test_text,
+                        model=model_name,
+                    )
+                    audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+                    size_kb = len(audio_bytes) / 1024
+                    return ModelTestResult(
+                        success=True,
+                        message=f"TTS model '{model.display_name}' is working correctly!",
+                        error=None,
+                        response_preview=f"Generated {size_kb:.1f} KB of audio",
+                        response_audio_base64=audio_b64,
+                        response_audio_format="mp3",
+                        **debug_info,
+                    )
+                except NotImplementedError:
+                    return ModelTestResult(
+                        success=False,
+                        message="Provider does not support text-to-speech",
+                        error="The configured provider does not implement the speech method",
+                        **debug_info,
+                    )
+                except Exception as e:
+                    return ModelTestResult(
+                        success=False,
+                        message="TTS test failed",
                         error=str(e),
                         **debug_info,
                     )
