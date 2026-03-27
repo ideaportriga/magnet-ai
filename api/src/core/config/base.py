@@ -294,9 +294,12 @@ class SchedulerSettings:
     )
     """Scheduler connection pool recycle time."""
     SCHEDULER_POOL_PRE_PING: bool = field(
-        default_factory=get_env("SCHEDULER_POOL_PRE_PING", True)
+        default_factory=get_env("SCHEDULER_POOL_PRE_PING", False)
     )
-    """Scheduler connection pool pre-ping."""
+    """Scheduler connection pool pre-ping. Disabled by default to avoid blocking
+    the asyncio event loop — APScheduler 3.x calls jobstore methods synchronously,
+    and pool_pre_ping adds a blocking SELECT 1 on every connection checkout.
+    Stale connections are handled by pool_recycle instead."""
 
     def get_scheduler_database_url(self, db_settings: DatabaseSettings) -> str:
         """Get synchronous database URL for APScheduler jobstore."""
