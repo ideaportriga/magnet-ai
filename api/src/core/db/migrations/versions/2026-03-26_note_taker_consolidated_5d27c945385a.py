@@ -348,10 +348,14 @@ def schema_upgrades() -> None:
             participants JSONB,
             status VARCHAR(50) NOT NULL DEFAULT 'pending',
             result JSONB,
+            sa_orm_sentinel INTEGER,
             created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
             updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
         )
         """
+    )
+    op.execute(
+        "ALTER TABLE note_taker_jobs ADD COLUMN IF NOT EXISTS sa_orm_sentinel INTEGER"
     )
     op.execute(
         "CREATE INDEX IF NOT EXISTS ix_note_taker_jobs_settings_id ON note_taker_jobs (settings_id)"
