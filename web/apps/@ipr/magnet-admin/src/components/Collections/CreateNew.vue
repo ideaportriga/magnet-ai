@@ -391,6 +391,12 @@ export default defineComponent({
   mounted() {
     this.isMounted = true
 
+    // Clear knowledge store to prevent stale data (e.g. uploaded_files) from
+    // a previously viewed knowledge source leaking into the new creation form.
+    if (!this.copy) {
+      this.$store.commit('setKnowledge', { name: '', system_name: '', description: '' })
+    }
+
     // Set provider_system_name from providerSystemName prop if provided
     if (this.providerSystemName) {
       this.provider_system_name = this.providerSystemName
