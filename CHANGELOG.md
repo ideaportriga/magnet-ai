@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.61](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.60...v0.6.0-dev.61) (2026-03-27)
+
+### 🐛 Bug Fixes
+
+* apscheduler sync callbacks isolation ([86eecf8](https://github.com/ideaportriga/magnet-ai/commit/86eecf8a3ec15d65cc7ff6de52d1c6a90fd217b4))
+* clear knowledge store on new collection mount ([80647cc](https://github.com/ideaportriga/magnet-ai/commit/80647cc81d7d4acca6aee4d86e8e346312e495ed))
+
 ## [0.6.0-dev.60](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.59...v0.6.0-dev.60) (2026-03-27)
 
 ### 🐛 Bug Fixes
