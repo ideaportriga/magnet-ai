@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.60](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.59...v0.6.0-dev.60) (2026-03-27)
+
+### 🐛 Bug Fixes
+
+* note taker tables ([e079c82](https://github.com/ideaportriga/magnet-ai/commit/e079c828706051eea453c55305605d323ab9edc7))
+
 ## [0.6.0-dev.59](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.58...v0.6.0-dev.59) (2026-03-26)
 
 ### 🐛 Bug Fixes
