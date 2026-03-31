@@ -146,6 +146,10 @@
               <span class="section-title">{{ chunk.title || chunk.name || 'Chunk Content' }}</span>
               <q-space />
               <q-badge v-if="chunk.page" color="secondary" text-color="white" class="chunk-page-badge">Page {{ chunk.page }}</q-badge>
+              <q-badge v-if="chunk.content" color="grey-4" text-color="grey-8" class="chunk-page-badge chunk-length-badge" style="margin-left: 4px">
+                {{ formatContentLength(chunk.content) }}
+                <q-tooltip>{{ chunk.content.length.toLocaleString() }} characters</q-tooltip>
+              </q-badge>
             </div>
             <div class="section-body section-body--chunk">
               <div class="chunk-content-wrapper">
@@ -268,9 +272,7 @@ const markdown = new MarkdownIt({ html: true, breaks: true, linkify: true })
 const documentChunkContentType = computed<string>(() => {
   const profileName = document.value?.content_profile
   if (!profileName) return ''
-  const profile = contentProfiles.value.find(
-    (p) => p.name === profileName,
-  )
+  const profile = contentProfiles.value.find((p) => p.name === profileName)
   return profile?.chunker?.options?.chunk_content_type || ''
 })
 
@@ -304,6 +306,12 @@ const getRenderedContent = (chunk: Chunk): string => {
 
   renderedContentCache.set(cacheKey, rendered)
   return rendered
+}
+
+const formatContentLength = (content: string): string => {
+  const len = content.length
+  if (len >= 1000) return `${(len / 1000).toFixed(1)}K`
+  return `${len}`
 }
 
 const hasToc = computed(() => {
@@ -395,12 +403,10 @@ function formatMetadataValue(val: unknown): { kind: MetadataValueKind; value: an
   }
 
   if (Array.isArray(val)) {
-    const validItems = val
-      .filter((x) => x !== null && x !== undefined && x !== '')
-      .map((x) => (typeof x === 'string' ? x : JSON.stringify(x)))
-    
+    const validItems = val.filter((x) => x !== null && x !== undefined && x !== '').map((x) => (typeof x === 'string' ? x : JSON.stringify(x)))
+
     if (validItems.length === 0) return { kind: 'string', value: '' }
-    
+
     return { kind: 'list', value: validItems }
   }
 
