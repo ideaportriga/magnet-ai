@@ -44,6 +44,7 @@ class ChunkerStrategy(StrEnum):
     NONE = "none"
     LLM = "llm"
     RECURSIVE = "recursive_character_text_splitting"
+    KREUZBERG = "kreuzberg"
 
 
 class DocumentMetadata(BaseModel):
@@ -96,7 +97,6 @@ class ContentConfig(BaseModel):
                 "llm_batch_overlap": 0.1,
                 "llm_last_segment_increase": 0.0,
                 # Recursive splitter settings (direct deterministic chunking)
-                "recursive_chunk_size": 18000,
                 "recursive_chunk_overlap": 0.1,
                 # Chunk-level constraints (applies to all strategies)
                 "chunk_max_size": 18000,
