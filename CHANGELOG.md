@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.62](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.61...v0.6.0-dev.62) (2026-03-31)
+
+### ✨ Features
+
+* **api:** added keyterm checkbox option to stt models ([242166f](https://github.com/ideaportriga/magnet-ai/commit/242166f46515ddc669f8e802190759d1c1bca6b7))
+* **api:** added keyterm checkbox option to stt models ([0b3b14d](https://github.com/ideaportriga/magnet-ai/commit/0b3b14d446fbc838605f45c02507c01701e42253))
+
 ## [0.6.0-dev.61](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.60...v0.6.0-dev.61) (2026-03-27)
 
 ### 🐛 Bug Fixes
