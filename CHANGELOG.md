@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.63](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.62...v0.6.0-dev.63) (2026-03-31)
+
+### ✨ Features
+
+* **kg:** added liteparse library as default document reader for knowledge graphs ([2986d90](https://github.com/ideaportriga/magnet-ai/commit/2986d9060f4f2465c410aa27ec2f4a669eb3335d))
+
 ## [0.6.0-dev.62](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.61...v0.6.0-dev.62) (2026-03-31)
 
 ### ✨ Features
