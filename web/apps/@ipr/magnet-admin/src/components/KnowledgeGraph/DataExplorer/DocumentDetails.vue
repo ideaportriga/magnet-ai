@@ -149,7 +149,7 @@
             </div>
             <div class="section-body section-body--chunk">
               <div class="chunk-content-wrapper">
-                <div class="chunk-content markdown-content" v-html="getRenderedContent(chunk)" />
+                <div :class="['chunk-content', chunkContentClass]" v-html="getRenderedContent(chunk)" />
               </div>
             </div>
           </div>
@@ -222,6 +222,7 @@ const documentId = computed(() => route.params.documentId as string)
 
 const document = ref<Document | null>(null)
 const chunks = ref<Chunk[]>([])
+const contentProfiles = ref<Record<string, any>[]>([])
 const loading = ref(true)
 const selectedChunk = ref<Chunk | null>(null)
 const metadataPanelOpen = ref(false)
@@ -263,20 +264,40 @@ const markdown = new MarkdownIt({ html: true, breaks: true, linkify: true })
   .use(MarkdownItTasklists)
   .use(MarkdownItTOC)
 
+// Resolve chunk content type from the document's content profile
+const documentChunkContentType = computed<string>(() => {
+  const profileName = document.value?.content_profile
+  if (!profileName) return ''
+  const profile = contentProfiles.value.find(
+    (p) => p.name === profileName,
+  )
+  return profile?.chunker?.options?.chunk_content_type || ''
+})
+
+const chunkContentClass = computed(() => {
+  const contentType = documentChunkContentType.value
+  if (contentType === 'html') return 'html-content'
+  if (contentType === 'plain_text') return 'plain-text-content'
+  return 'markdown-content'
+})
+
 // Cache for rendered chunk content
 const renderedContentCache = new Map<string, string>()
 
 const getRenderedContent = (chunk: Chunk): string => {
   if (!chunk?.content) return ''
 
-  const cacheKey = `${chunk.id}-${chunk.content_format}`
+  const contentType = documentChunkContentType.value
+  const cacheKey = `${chunk.id}-${contentType}`
   if (renderedContentCache.has(cacheKey)) {
     return renderedContentCache.get(cacheKey)!
   }
 
   let rendered: string
-  if (chunk.content_format === 'html') {
+  if (contentType === 'html') {
     rendered = chunk.content
+  } else if (contentType === 'plain_text') {
+    rendered = chunk.content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   } else {
     rendered = markdown.render(chunk.content)
   }
@@ -495,6 +516,24 @@ const treeNodes = computed<TreeNode[]>(() => {
 
   return nodes
 })
+
+const fetchContentProfiles = async () => {
+  try {
+    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const response = await fetchData({
+      endpoint,
+      service: `knowledge_graphs/${graphId.value}`,
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (response.ok) {
+      const data = await response.json()
+      contentProfiles.value = data.settings?.chunking?.content_settings || []
+    }
+  } catch (error) {
+    console.error('Error fetching content profiles:', error)
+  }
+}
 
 const fetchDocument = async () => {
   try {
@@ -884,6 +923,7 @@ watch(metadataPanelOpen, () => {
 })
 
 onMounted(async () => {
+  await fetchContentProfiles()
   await fetchDocument()
   await fetchAllChunks()
   if (hasToc.value) {
@@ -1432,5 +1472,58 @@ onBeforeUnmount(() => {
   max-width: 100%;
   height: auto;
   border-radius: 6px;
+}
+
+/* ============================================
+   Plain Text Content
+   ============================================ */
+.plain-text-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #374151;
+}
+
+/* ============================================
+   HTML Content
+   ============================================ */
+.html-content {
+  line-height: 1.7;
+  color: #374151;
+}
+
+.html-content :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+
+.html-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+}
+
+.html-content :deep(th) {
+  background: #f9fafb;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  font-weight: 600;
+  text-align: left;
+}
+
+.html-content :deep(td) {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.html-content :deep(a) {
+  color: var(--q-primary);
+  text-decoration: none;
+}
+
+.html-content :deep(a:hover) {
+  text-decoration: underline;
 }
 </style>
