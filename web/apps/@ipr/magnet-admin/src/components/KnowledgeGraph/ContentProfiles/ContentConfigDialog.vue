@@ -321,7 +321,7 @@
               These settings apply to each chunk produced by the chunker. Use it to configure chunk-level information.
             </div>
             <div class="row q-col-gutter-lg q-mb-md">
-              <div class="col-8">
+              <div class="col-6">
                 <div class="km-input-label q-pb-xs">Chunk Title</div>
                 <km-input
                   v-model="form.chunker.options.chunk_title_pattern"
@@ -364,8 +364,18 @@
                   </template>
                 </km-input>
               </div>
-              <div class="col-4">
-                <div class="km-input-label q-pb-xs">Chunk Max Size (characters)</div>
+              <div class="col-3">
+                <div class="km-input-label q-pb-xs">Content Type</div>
+                <km-select
+                  v-model="form.chunker.options.chunk_content_type"
+                  :options="chunkContentTypeOptions"
+                  :disable="isReadonlyProfile"
+                  emit-value
+                  map-options
+                />
+              </div>
+              <div class="col-3">
+                <div class="km-input-label q-pb-xs">Max Size (chars)</div>
                 <km-input v-model.number="form.chunker.options.chunk_max_size" :readonly="isReadonlyProfile" type="number" min="100" required />
               </div>
             </div>
@@ -392,6 +402,7 @@ import KgInlineField from '../common/KgInlineField.vue'
 import type { SourceRow } from '../Sources/models'
 import type { ContentConfigRow } from './models'
 import {
+  chunkContentTypeOptions,
   chunkingStrategyOptions,
   FLUID_TOPICS_NATIVE_PROFILE_NAME,
   FLUID_TOPICS_SOURCE_TYPE,
@@ -504,6 +515,7 @@ const applyReadonlyFallbackConstraints = (target: ReturnType<typeof getDefaultFo
       prompt_template_system_name: '',
       document_title_pattern: '',
       chunk_title_pattern: '',
+      chunk_content_type: 'plain_text',
     },
   }
 }
@@ -606,6 +618,8 @@ const getDefaultForm = () => ({
       document_title_pattern: '',
       // Optional pattern for chunk title generation
       chunk_title_pattern: '',
+      // Chunk content type
+      chunk_content_type: 'plain_text',
     },
   },
 })
@@ -732,16 +746,14 @@ const initForm = () => {
       llm_batch_size: chunkerOptions.llm_batch_size ?? chunkerOptions.batch_size ?? 18000,
       llm_batch_overlap: chunkerOptions.llm_batch_overlap ?? chunkerOptions.batch_overlap ?? 0.1,
       llm_last_segment_increase: typeof chunkerOptions.llm_last_segment_increase !== 'undefined' ? chunkerOptions.llm_last_segment_increase : 0,
-      chunk_max_size:
-        typeof chunkerOptions.chunk_max_size !== 'undefined'
-          ? chunkerOptions.chunk_max_size
-          : (chunkerOptions.llm_batch_size ?? 18000),
+      chunk_max_size: typeof chunkerOptions.chunk_max_size !== 'undefined' ? chunkerOptions.chunk_max_size : (chunkerOptions.llm_batch_size ?? 18000),
       // prefer new recursive_*; fall back to legacy rc_* and old batch_* keys
       recursive_chunk_overlap: chunkerOptions.recursive_chunk_overlap ?? chunkerOptions.rc_chunk_overlap ?? chunkerOptions.batch_overlap ?? 0.1,
       splitters: chunkerOptions.splitters || ['\n\n', '\n', ' ', ''],
       prompt_template_system_name: chunkerOptions.prompt_template_system_name,
       document_title_pattern: chunkerOptions.document_title_pattern || '',
       chunk_title_pattern: chunkerOptions.chunk_title_pattern || '',
+      chunk_content_type: chunkerOptions.chunk_content_type || 'plain_text',
     }
 
     // Backward compatibility:

@@ -47,6 +47,14 @@ class ChunkerStrategy(StrEnum):
     KREUZBERG = "kreuzberg"
 
 
+class ChunkContentType(StrEnum):
+    """Chunk content type for knowledge graph chunks."""
+
+    PLAIN_TEXT = "plain_text"
+    MARKDOWN = "markdown"
+    HTML = "html"
+
+
 class DocumentMetadata(BaseModel):
     """Document-level metadata extracted during chunking."""
 
@@ -107,6 +115,8 @@ class ContentConfig(BaseModel):
                 "document_title_pattern": "",
                 # Optional pattern for chunk title generation
                 "chunk_title_pattern": "",
+                # Chunk content type (plain_text, markdown, html)
+                "chunk_content_type": "",
             },
         },
         description="Chunker configuration with strategy and options",

@@ -11,7 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.models.knowledge_graph import KnowledgeGraph
 
 from .content_load_services import USE_KREUZBERG
-from .models import ChunkerStrategy, ContentConfig, ContentReaderName, SourceType
+from .models import (
+    ChunkContentType,
+    ChunkerStrategy,
+    ContentConfig,
+    ContentReaderName,
+    SourceType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +40,7 @@ FLUID_TOPICS_STRUCTURED_EDITABLE_CHUNKER_OPTION_KEYS = (
     "document_title_pattern",
     "chunk_title_pattern",
     "chunk_max_size",
+    "chunk_content_type",
 )
 
 
@@ -250,6 +257,7 @@ def build_virtual_last_resort_content_config() -> ContentConfig:
                 "prompt_template_system_name": "",
                 "document_title_pattern": "",
                 "chunk_title_pattern": "",
+                "chunk_content_type": ChunkContentType.PLAIN_TEXT,
             },
         },
     )
@@ -371,6 +379,7 @@ def build_fluid_topics_structured_content_config() -> ContentConfig:
                 "prompt_template_system_name": "",
                 "document_title_pattern": "",
                 "chunk_title_pattern": "",
+                "chunk_content_type": ChunkContentType.HTML,
             },
         },
     )
@@ -395,6 +404,7 @@ def build_sharepoint_pages_content_config() -> ContentConfig:
                 "prompt_template_system_name": SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME,
                 "document_title_pattern": "",
                 "chunk_title_pattern": "",
+                "chunk_content_type": ChunkContentType.HTML,
             },
         },
     )
@@ -609,6 +619,11 @@ def _pdf_reader_name() -> str:
     return ContentReaderName.KREUZBERG if USE_KREUZBERG else ContentReaderName.PDF
 
 
+def _pdf_chunk_content_type() -> str:
+    """Return the chunk content type for PDF based on the USE_KREUZBERG feature flag."""
+    return ChunkContentType.MARKDOWN if USE_KREUZBERG else ChunkContentType.PLAIN_TEXT
+
+
 def get_default_content_configs() -> list[ContentConfig]:
     return [
         ContentConfig(
@@ -629,6 +644,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "prompt_template_system_name": "PDF_DOCUMENT_CHUNKING",
                     "document_title_pattern": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": _pdf_chunk_content_type(),
                 },
             },
         ),
@@ -648,6 +664,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.MARKDOWN,
                 },
             },
         ),
@@ -669,6 +686,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "prompt_template_system_name": "",
                     "document_title_pattern": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.PLAIN_TEXT,
                 },
             },
         ),
@@ -688,6 +706,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.MARKDOWN,
                 },
             },
         ),
@@ -707,6 +726,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.MARKDOWN,
                 },
             },
         ),
@@ -726,6 +746,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.MARKDOWN,
                 },
             },
         ),
@@ -745,6 +766,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.MARKDOWN,
                 },
             },
         ),
@@ -764,6 +786,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.MARKDOWN,
                 },
             },
         ),
@@ -785,6 +808,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "prompt_template_system_name": "",
                     "document_title_pattern": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.PLAIN_TEXT,
                 },
             },
         ),
@@ -805,6 +829,7 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "prompt_template_system_name": "",
                     "document_title_pattern": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.PLAIN_TEXT,
                 },
             },
         ),

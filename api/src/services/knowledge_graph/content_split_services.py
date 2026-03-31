@@ -24,4 +24,14 @@ async def split_content(
         case _:
             raise ValueError(f"Unsupported strategy: {strategy!r}")
 
-    return await chunker.chunk_text(content, document_title=document_title)
+    result = await chunker.chunk_text(content, document_title=document_title)
+
+    # Apply chunk_content_type from profile options to each chunk's content_format
+    options = config.chunker.get("options", {}) if config.chunker else {}
+    chunk_content_type = options.get("chunk_content_type") or None
+    if chunk_content_type:
+        for chunk in result.chunks:
+            if not chunk.content_format:
+                chunk.content_format = chunk_content_type
+
+    return result

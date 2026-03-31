@@ -168,6 +168,12 @@ export const getContentMatchingSentence = (config?: ContentConfigLike, sources: 
   return `Applies to ${patternLabel} from ${sourceLabel}.`
 }
 
+export const chunkContentTypeOptions = [
+  { label: 'Plain Text', value: 'plain_text' },
+  { label: 'Markdown', value: 'markdown' },
+  { label: 'HTML', value: 'html' },
+]
+
 export const chunkingStrategyOptions = [
   {
     label: 'None',
