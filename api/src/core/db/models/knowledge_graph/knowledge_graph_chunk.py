@@ -49,6 +49,7 @@ class KnowledgeGraphChunk:
 
     # Content
     content: str | None = None
+    # TODO: remove this field, it was replaced by Content Profile's content type field
     content_format: str | None = None
     embedded_content: str | None = None
     content_embedding: list[float] | None = None

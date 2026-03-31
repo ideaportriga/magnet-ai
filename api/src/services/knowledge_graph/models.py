@@ -33,6 +33,7 @@ class ContentReaderName(StrEnum):
     PDF = "pdf"
     PLAIN_TEXT = "plain_text"
     KREUZBERG = "kreuzberg"
+    LITEPARSE = "liteparse"
     SHAREPOINT_PAGE = "sharepoint_page"
     FLUID_TOPICS_STRUCTURED_DOCUMENTS = "fluid_topics_structured_documents"
 
@@ -43,6 +44,15 @@ class ChunkerStrategy(StrEnum):
     NONE = "none"
     LLM = "llm"
     RECURSIVE = "recursive_character_text_splitting"
+    KREUZBERG = "kreuzberg"
+
+
+class ChunkContentType(StrEnum):
+    """Chunk content type for knowledge graph chunks."""
+
+    PLAIN_TEXT = "plain_text"
+    MARKDOWN = "markdown"
+    HTML = "html"
 
 
 class DocumentMetadata(BaseModel):
@@ -95,7 +105,6 @@ class ContentConfig(BaseModel):
                 "llm_batch_overlap": 0.1,
                 "llm_last_segment_increase": 0.0,
                 # Recursive splitter settings (direct deterministic chunking)
-                "recursive_chunk_size": 18000,
                 "recursive_chunk_overlap": 0.1,
                 # Chunk-level constraints (applies to all strategies)
                 "chunk_max_size": 18000,
@@ -106,6 +115,8 @@ class ContentConfig(BaseModel):
                 "document_title_pattern": "",
                 # Optional pattern for chunk title generation
                 "chunk_title_pattern": "",
+                # Chunk content type (plain_text, markdown, html)
+                "chunk_content_type": "",
             },
         },
         description="Chunker configuration with strategy and options",

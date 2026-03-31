@@ -10,8 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import KnowledgeGraph
 
-from .content_load_services import USE_KREUZBERG
-from .models import ChunkerStrategy, ContentConfig, ContentReaderName, SourceType
+from .models import (
+    ChunkContentType,
+    ChunkerStrategy,
+    ContentConfig,
+    ContentReaderName,
+    SourceType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +32,14 @@ FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_VALUE = str(
     ContentReaderName.FLUID_TOPICS_STRUCTURED_DOCUMENTS
 )
 FLUID_TOPICS_SOURCE_SELECTOR = f"{GROUP_KEY_PREFIX}{SourceType.FLUID_TOPICS}"
-SHAREPOINT_PAGES_PROFILE_NAME = "SharePoint Pages (LLM Splitting)"
+SHAREPOINT_PAGES_PROFILE_NAME = "SharePoint Pages (LLM Chunking)"
 SHAREPOINT_SOURCE_SELECTOR = f"{GROUP_KEY_PREFIX}{SourceType.SHAREPOINT}"
 SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME = "SHAREPOINT_PAGE_CHUNKING"
 FLUID_TOPICS_STRUCTURED_EDITABLE_CHUNKER_OPTION_KEYS = (
     "document_title_pattern",
     "chunk_title_pattern",
     "chunk_max_size",
+    "chunk_content_type",
 )
 
 
@@ -244,13 +250,13 @@ def build_virtual_last_resort_content_config() -> ContentConfig:
                 "llm_batch_size": 15000,
                 "llm_batch_overlap": 0.1,
                 "llm_last_segment_increase": 0.0,
-                "recursive_chunk_size": 15000,
                 "recursive_chunk_overlap": 0.1,
                 "chunk_max_size": 15000,
                 "splitters": ["\n\n", "\n", " ", ""],
                 "prompt_template_system_name": "",
                 "document_title_pattern": "",
                 "chunk_title_pattern": "",
+                "chunk_content_type": ChunkContentType.PLAIN_TEXT,
             },
         },
     )
@@ -366,13 +372,13 @@ def build_fluid_topics_structured_content_config() -> ContentConfig:
                 "llm_batch_size": 18000,
                 "llm_batch_overlap": 0.1,
                 "llm_last_segment_increase": 0.0,
-                "recursive_chunk_size": 18000,
                 "recursive_chunk_overlap": 0.1,
                 "chunk_max_size": 18000,
                 "splitters": ["\n\n", "\n", " ", ""],
                 "prompt_template_system_name": "",
                 "document_title_pattern": "",
                 "chunk_title_pattern": "",
+                "chunk_content_type": ChunkContentType.HTML,
             },
         },
     )
@@ -391,13 +397,13 @@ def build_sharepoint_pages_content_config() -> ContentConfig:
                 "llm_batch_size": 18000,
                 "llm_batch_overlap": 0.1,
                 "llm_last_segment_increase": 0.0,
-                "recursive_chunk_size": 18000,
                 "recursive_chunk_overlap": 0.1,
                 "chunk_max_size": 18000,
                 "splitters": ["\n\n", "\n", " ", ""],
                 "prompt_template_system_name": SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME,
                 "document_title_pattern": "",
                 "chunk_title_pattern": "",
+                "chunk_content_type": ChunkContentType.HTML,
             },
         },
     )
@@ -607,60 +613,34 @@ def sanitize_graph_settings_content_profiles(settings: dict[str, Any]) -> bool:
     return True
 
 
-def _pdf_reader_name() -> str:
-    """Return the reader name for PDF based on the USE_KREUZBERG feature flag."""
-    return ContentReaderName.KREUZBERG if USE_KREUZBERG else ContentReaderName.PDF
-
-
 def get_default_content_configs() -> list[ContentConfig]:
     return [
         ContentConfig(
-            name="PDF (LLM Splitting)",
+            name="PDF (LLM Chunking)",
             enabled=True,
             glob_pattern="*.pdf",
-            reader={"name": _pdf_reader_name(), "options": {}},
+            reader={"name": ContentReaderName.LITEPARSE, "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.LLM,
                 "options": {
-                    # LLM and recursive have separate semantics
                     "llm_batch_size": 18000,
                     "llm_batch_overlap": 0.1,
                     "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 18000,
                     "recursive_chunk_overlap": 0.1,
                     "chunk_max_size": 18000,
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "PDF_DOCUMENT_CHUNKING",
                     "document_title_pattern": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.MARKDOWN,
                 },
             },
         ),
         ContentConfig(
-            name="Word",
-            enabled=True,
-            glob_pattern="*.docx",
-            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
-            chunker={
-                "strategy": ChunkerStrategy.RECURSIVE,
-                "options": {
-                    "llm_batch_size": 18000,
-                    "llm_batch_overlap": 0.1,
-                    "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 18000,
-                    "recursive_chunk_overlap": 0.1,
-                    "chunk_max_size": 18000,
-                    "splitters": ["\n\n", "\n", " ", ""],
-                    "prompt_template_system_name": "",
-                    "chunk_title_pattern": "",
-                },
-            },
-        ),
-        ContentConfig(
-            name="PDF (Deterministic Splitting)",
+            name="PDF (Recursive Splitting)",
             enabled=True,
             glob_pattern="*.pdf",
-            reader={"name": ContentReaderName.PDF, "options": {}},
+            reader={"name": ContentReaderName.LITEPARSE, "options": {}},
             chunker={
                 "strategy": ChunkerStrategy.RECURSIVE,
                 "options": {
@@ -668,117 +648,58 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "llm_batch_size": 18000,
                     "llm_batch_overlap": 0.1,
                     "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 18000,
                     "recursive_chunk_overlap": 0.1,
                     "chunk_max_size": 18000,
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "document_title_pattern": "",
                     "chunk_title_pattern": "",
-                },
-            },
-        ),
-        ContentConfig(
-            name="PowerPoint",
-            enabled=True,
-            glob_pattern="*.pptx",
-            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
-            chunker={
-                "strategy": ChunkerStrategy.RECURSIVE,
-                "options": {
-                    "llm_batch_size": 18000,
-                    "llm_batch_overlap": 0.1,
-                    "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 18000,
-                    "recursive_chunk_overlap": 0.1,
-                    "chunk_max_size": 18000,
-                    "splitters": ["\n\n", "\n", " ", ""],
-                    "prompt_template_system_name": "",
-                    "chunk_title_pattern": "",
-                },
-            },
-        ),
-        ContentConfig(
-            name="Excel",
-            enabled=True,
-            glob_pattern="*.xlsx",
-            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
-            chunker={
-                "strategy": ChunkerStrategy.RECURSIVE,
-                "options": {
-                    "llm_batch_size": 18000,
-                    "llm_batch_overlap": 0.1,
-                    "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 18000,
-                    "recursive_chunk_overlap": 0.1,
-                    "chunk_max_size": 18000,
-                    "splitters": ["\n\n", "\n", " ", ""],
-                    "prompt_template_system_name": "",
-                    "chunk_title_pattern": "",
-                },
-            },
-        ),
-        ContentConfig(
-            name="HTML",
-            enabled=True,
-            glob_pattern="*.html",
-            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
-            chunker={
-                "strategy": ChunkerStrategy.RECURSIVE,
-                "options": {
-                    "llm_batch_size": 15000,
-                    "llm_batch_overlap": 0.1,
-                    "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 15000,
-                    "recursive_chunk_overlap": 0.1,
-                    "chunk_max_size": 15000,
-                    "splitters": ["\n\n", "\n", " ", ""],
-                    "prompt_template_system_name": "",
-                    "chunk_title_pattern": "",
-                },
-            },
-        ),
-        ContentConfig(
-            name="Images",
-            enabled=True,
-            glob_pattern="*.png,*.jpg,*.jpeg,*.gif,*.webp,*.bmp,*.tiff",
-            reader={"name": ContentReaderName.KREUZBERG, "options": {"ocr": True}},
-            chunker={
-                "strategy": ChunkerStrategy.RECURSIVE,
-                "options": {
-                    "llm_batch_size": 15000,
-                    "llm_batch_overlap": 0.1,
-                    "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 15000,
-                    "recursive_chunk_overlap": 0.1,
-                    "chunk_max_size": 15000,
-                    "splitters": ["\n\n", "\n", " ", ""],
-                    "prompt_template_system_name": "",
-                    "chunk_title_pattern": "",
-                },
-            },
-        ),
-        ContentConfig(
-            name="Email",
-            enabled=True,
-            glob_pattern="*.eml,*.msg",
-            reader={"name": ContentReaderName.KREUZBERG, "options": {}},
-            chunker={
-                "strategy": ChunkerStrategy.RECURSIVE,
-                "options": {
-                    "llm_batch_size": 15000,
-                    "llm_batch_overlap": 0.1,
-                    "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 15000,
-                    "recursive_chunk_overlap": 0.1,
-                    "chunk_max_size": 15000,
-                    "splitters": ["\n\n", "\n", " ", ""],
-                    "prompt_template_system_name": "",
-                    "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.PLAIN_TEXT,
                 },
             },
         ),
         build_sharepoint_pages_content_config(),
+        ContentConfig(
+            name="LiteParse",
+            enabled=True,
+            glob_pattern="*.pdf,*.docx,*.pptx,*.xlsx,*.odt,*.ods,*.odp,*.png,*.jpg,*.jpeg,*.tiff",
+            reader={"name": ContentReaderName.LITEPARSE, "options": {}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 18000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 18000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "document_title_pattern": "",
+                    "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.PLAIN_TEXT,
+                },
+            },
+        ),
+        ContentConfig(
+            name="Kreuzberg",
+            enabled=True,
+            glob_pattern="*.pdf,*.docx,*.pptx,*.xlsx,*.html,*.png,*.jpg,*.jpeg,*.gif,*.webp,*.bmp,*.tiff,*.eml,*.msg",
+            reader={"name": ContentReaderName.KREUZBERG, "options": {"ocr": True}},
+            chunker={
+                "strategy": ChunkerStrategy.KREUZBERG,
+                "options": {
+                    "llm_batch_size": 18000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 18000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.MARKDOWN,
+                },
+            },
+        ),
         ContentConfig(
             name="Plain Text",
             enabled=True,
@@ -790,13 +711,13 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "llm_batch_size": 15000,
                     "llm_batch_overlap": 0.1,
                     "llm_last_segment_increase": 0.0,
-                    "recursive_chunk_size": 15000,
                     "recursive_chunk_overlap": 0.1,
                     "chunk_max_size": 15000,
                     "splitters": ["\n\n", "\n", " ", ""],
                     "prompt_template_system_name": "",
                     "document_title_pattern": "",
                     "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.PLAIN_TEXT,
                 },
             },
         ),
@@ -871,12 +792,14 @@ async def get_content_config(
         if _is_structured_content_reader(config):
             continue
 
-        # Check glob pattern match
+        # Check glob pattern match (supports comma-separated patterns)
         glob_pattern = (config.glob_pattern or "").strip()
-        if glob_pattern and not fnmatch.fnmatch(
-            normalized_filename, glob_pattern.lower()
-        ):
-            continue
+        if glob_pattern:
+            patterns = [p.strip() for p in glob_pattern.split(",") if p.strip()]
+            if patterns and not any(
+                fnmatch.fnmatch(normalized_filename, p.lower()) for p in patterns
+            ):
+                continue
 
         # Check source match (AND logic)
         # - Prefer matching by explicit source_ids

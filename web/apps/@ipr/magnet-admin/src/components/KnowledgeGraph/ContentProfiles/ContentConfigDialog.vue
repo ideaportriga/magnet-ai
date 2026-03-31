@@ -185,10 +185,10 @@
             </div>
           </template>
 
-          <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isRecursiveStrategy">
+          <template v-if="!isLockedNativeProfile && !isReadonlyProfile && (isRecursiveStrategy || isKreuzbergStrategy)">
             <div class="q-mb-lg">
               <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Settings</div>
-              <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+              <div v-if="isRecursiveStrategy" class="km-description text-secondary-text q-mt-xs q-mb-md">
                 Adjust how content is divided into chunks when using the recursive character text splitting strategy.
                 <b>Splitters</b>
                 control where content is split into smaller parts; each splitter is tried in order of priority, until content fits into the chunk max
@@ -196,9 +196,14 @@
                 <b>Chunk Overlap</b>
                 allows a portion of content to be repeated between consecutive chunks to provide better context continuity.
               </div>
+              <div v-else class="km-description text-secondary-text q-mt-xs q-mb-md">
+                Adjust how content is divided into chunks when using the Kreuzberg Markdown-aware splitting strategy.
+                <b>Chunk Overlap</b>
+                allows a portion of content to be repeated between consecutive chunks to provide better context continuity.
+              </div>
 
               <div class="row q-col-gutter-lg">
-                <div class="col-8">
+                <div v-if="isRecursiveStrategy" class="col-8">
                   <div class="km-input-label q-pb-xs">Splitters</div>
                   <div class="splitters-container q-py-xs" style="border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px">
                     <div class="row items-center q-gutter-xs">
@@ -252,7 +257,7 @@
                     or escape sequences (\n, \t, ...).
                   </div>
                 </div>
-                <div class="col-4">
+                <div :class="isRecursiveStrategy ? 'col-4' : 'col-12'">
                   <div class="km-input-label q-pb-xs">Chunk Overlap (%)</div>
                   <div class="row items-center q-pr-sm" style="height: 36px">
                     <q-slider
@@ -316,7 +321,7 @@
               These settings apply to each chunk produced by the chunker. Use it to configure chunk-level information.
             </div>
             <div class="row q-col-gutter-lg q-mb-md">
-              <div class="col-8">
+              <div class="col-6">
                 <div class="km-input-label q-pb-xs">Chunk Title</div>
                 <km-input
                   v-model="form.chunker.options.chunk_title_pattern"
@@ -359,8 +364,18 @@
                   </template>
                 </km-input>
               </div>
-              <div class="col-4">
-                <div class="km-input-label q-pb-xs">Chunk Max Size (characters)</div>
+              <div class="col-3">
+                <div class="km-input-label q-pb-xs">Content Type</div>
+                <km-select
+                  v-model="form.chunker.options.chunk_content_type"
+                  :options="chunkContentTypeOptions"
+                  :disable="isReadonlyProfile"
+                  emit-value
+                  map-options
+                />
+              </div>
+              <div class="col-3">
+                <div class="km-input-label q-pb-xs">Max Size (chars)</div>
                 <km-input v-model.number="form.chunker.options.chunk_max_size" :readonly="isReadonlyProfile" type="number" min="100" required />
               </div>
             </div>
@@ -387,6 +402,7 @@ import KgInlineField from '../common/KgInlineField.vue'
 import type { SourceRow } from '../Sources/models'
 import type { ContentConfigRow } from './models'
 import {
+  chunkContentTypeOptions,
   chunkingStrategyOptions,
   FLUID_TOPICS_NATIVE_PROFILE_NAME,
   FLUID_TOPICS_SOURCE_TYPE,
@@ -493,13 +509,13 @@ const applyReadonlyFallbackConstraints = (target: ReturnType<typeof getDefaultFo
       llm_batch_size: 15000,
       llm_batch_overlap: 0.1,
       llm_last_segment_increase: 0,
-      recursive_chunk_size: 15000,
       recursive_chunk_overlap: 0.1,
       chunk_max_size: 15000,
       splitters: ['\n\n', '\n', ' ', ''],
       prompt_template_system_name: '',
       document_title_pattern: '',
       chunk_title_pattern: '',
+      chunk_content_type: 'plain_text',
     },
   }
 }
@@ -592,8 +608,7 @@ const getDefaultForm = () => ({
       llm_batch_size: 18000,
       llm_batch_overlap: 0.1,
       llm_last_segment_increase: 0,
-      // Recursive strategy chunk sizing
-      recursive_chunk_size: 18000,
+      // Recursive strategy
       recursive_chunk_overlap: 0.1,
       // Chunk-level constraints (applies to all strategies)
       chunk_max_size: 18000,
@@ -603,6 +618,8 @@ const getDefaultForm = () => ({
       document_title_pattern: '',
       // Optional pattern for chunk title generation
       chunk_title_pattern: '',
+      // Chunk content type
+      chunk_content_type: 'plain_text',
     },
   },
 })
@@ -622,6 +639,7 @@ const isLockedNativeProfile = computed(() => isEditing.value && isLockedFluidTop
 const isSharePointPageReader = computed(() => form.value.reader.name === SHAREPOINT_PAGE_READER)
 const isLLMStrategy = computed(() => form.value.chunker.strategy === 'llm')
 const isRecursiveStrategy = computed(() => form.value.chunker.strategy === 'recursive_character_text_splitting')
+const isKreuzbergStrategy = computed(() => form.value.chunker.strategy === 'kreuzberg')
 const isDirty = computed(() => JSON.stringify(form.value) !== JSON.stringify(initialFormState.value))
 const selectedChunkingStrategyDescription = computed(() => {
   if (isReadonlyProfile.value) {
@@ -728,17 +746,14 @@ const initForm = () => {
       llm_batch_size: chunkerOptions.llm_batch_size ?? chunkerOptions.batch_size ?? 18000,
       llm_batch_overlap: chunkerOptions.llm_batch_overlap ?? chunkerOptions.batch_overlap ?? 0.1,
       llm_last_segment_increase: typeof chunkerOptions.llm_last_segment_increase !== 'undefined' ? chunkerOptions.llm_last_segment_increase : 0,
-      chunk_max_size:
-        typeof chunkerOptions.chunk_max_size !== 'undefined'
-          ? chunkerOptions.chunk_max_size
-          : (chunkerOptions.recursive_chunk_size ?? chunkerOptions.llm_batch_size ?? 18000),
+      chunk_max_size: typeof chunkerOptions.chunk_max_size !== 'undefined' ? chunkerOptions.chunk_max_size : (chunkerOptions.llm_batch_size ?? 18000),
       // prefer new recursive_*; fall back to legacy rc_* and old batch_* keys
-      recursive_chunk_size: chunkerOptions.recursive_chunk_size ?? chunkerOptions.rc_chunk_size ?? chunkerOptions.batch_size ?? 18000,
       recursive_chunk_overlap: chunkerOptions.recursive_chunk_overlap ?? chunkerOptions.rc_chunk_overlap ?? chunkerOptions.batch_overlap ?? 0.1,
       splitters: chunkerOptions.splitters || ['\n\n', '\n', ' ', ''],
       prompt_template_system_name: chunkerOptions.prompt_template_system_name,
       document_title_pattern: chunkerOptions.document_title_pattern || '',
       chunk_title_pattern: chunkerOptions.chunk_title_pattern || '',
+      chunk_content_type: chunkerOptions.chunk_content_type || 'plain_text',
     }
 
     // Backward compatibility:

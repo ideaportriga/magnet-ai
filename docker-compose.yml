@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   postgres:
@@ -19,7 +19,11 @@ services:
       # Initialize pgvector extension
       - ./api/scripts/sql/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-magnet_dev}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-magnet_dev}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -70,7 +74,6 @@ services:
       - WEB_AUTH_POPUP_WIDTH=${WEB_AUTH_POPUP_WIDTH:-600}
       - WEB_AUTH_POPUP_HEIGHT=${WEB_AUTH_POPUP_HEIGHT:-400}
       # Kreuzberg / OCR configuration
-      - USE_KREUZBERG=${USE_KREUZBERG:-true}
       - KREUZBERG_OCR_BACKEND=${KREUZBERG_OCR_BACKEND:-tesseract}
       - KREUZBERG_OCR_LANGUAGE=${KREUZBERG_OCR_LANGUAGE:-eng}
     ports:
