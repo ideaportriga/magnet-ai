@@ -116,6 +116,7 @@ class AIModelFieldsMixin(BaseModel):
     tool_calling: bool = Field(default=False, description="Supports tool calling")
     reasoning: bool = Field(default=False, description="Supports reasoning")
     diarization: bool = Field(default=False, description="Supports speaker diarization")
+    keyterms: bool = Field(default=False, description="Supports keyterms")
 
     # Type and default settings
     type: str = Field(..., description="Model type (e.g., prompts)")
@@ -199,6 +200,7 @@ class AIModelUpdateFieldsMixin(BaseModel):
     diarization: Optional[bool] = Field(
         None, description="Supports speaker diarization"
     )
+    keyterms: Optional[bool] = Field(None, description="Supports keyterms")
     reasoning: Optional[bool] = Field(None, description="Supports reasoning")
 
     # Type and default settings

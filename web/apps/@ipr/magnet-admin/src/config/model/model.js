@@ -21,6 +21,7 @@ const featureOptions = [
   { label: 'Tool Calling', value: 'tool_calling' },
   { label: 'Reasoning', value: 'reasoning' },
   { label: 'Diarization', value: 'diarization' },
+  { label: 'Keyterms', value: 'keyterms' },
 ]
 
 const controls = {
@@ -147,6 +148,16 @@ const controls = {
     display: false,
     label: 'Diarization',
     field: 'diarization',
+    component: markRaw(Check),
+    align: 'center',
+    sortable: true,
+  },
+  keyterms: {
+    name: 'keyterms',
+    type: 'component',
+    display: false,
+    label: 'Keyterms',
+    field: 'keyterms',
     component: markRaw(Check),
     align: 'center',
     sortable: true,

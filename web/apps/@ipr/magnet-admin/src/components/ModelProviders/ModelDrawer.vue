@@ -69,6 +69,7 @@
       template(v-if='type === "stt"')
         .km-title Features
         km-checkbox(label='Diarization', :model-value='diarization', @update:model-value='diarization = $event')
+        km-checkbox(label='Keyterms', :model-value='keyterms', @update:model-value='keyterms = $event')
 
     .column.q-gap-16.q-pa-16(v-if='tab == "pricing"')
       .km-title Inputs
@@ -553,6 +554,14 @@ export default {
       },
       set(value) {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'diarization', value })
+      },
+    },
+    keyterms: {
+      get() {
+        return this.modelConfig?.keyterms || false
+      },
+      set(value) {
+        this.$store.commit('modelConfig/updateEntityProperty', { key: 'keyterms', value })
       },
     },
     tool_calling: {
