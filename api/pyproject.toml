@@ -11,7 +11,7 @@ python = "^3.12"
 langchain = "0.3.27"
 office365-rest-python-client = "2.6.2"
 requests = "2.32.3"
-pypdf = "6.1.1"  # Kept as fallback when USE_KREUZBERG=false
+pypdf = "6.1.1"
 aiofiles = "23.2.1"
 atlassian-python-api = "3.41.9"
 pymongo = "4.12.0"

@@ -38,6 +38,38 @@
         :rows-per-page-options="[10]"
         @row-click="onCellClick"
       >
+        <template #body-cell-name="slotProps">
+          <q-td :props="slotProps">
+            <div class="truncate-text">
+              {{ slotProps.value }}
+              <q-tooltip v-if="slotProps.value">{{ slotProps.value }}</q-tooltip>
+            </div>
+          </q-td>
+        </template>
+        <template #body-cell-content_matching="slotProps">
+          <q-td :props="slotProps">
+            <div class="truncate-text">
+              {{ slotProps.value }}
+              <q-tooltip v-if="slotProps.value">{{ slotProps.value }}</q-tooltip>
+            </div>
+          </q-td>
+        </template>
+        <template #body-cell-content_reader="slotProps">
+          <q-td :props="slotProps">
+            <div class="truncate-text">
+              {{ slotProps.value }}
+              <q-tooltip v-if="slotProps.row?.reader?.name">{{ slotProps.value }}</q-tooltip>
+            </div>
+          </q-td>
+        </template>
+        <template #body-cell-chunk_strategy="slotProps">
+          <q-td :props="slotProps">
+            <div class="truncate-text">
+              {{ slotProps.value }}
+              <q-tooltip v-if="slotProps.row?.chunker?.strategy">{{ slotProps.value }}</q-tooltip>
+            </div>
+          </q-td>
+        </template>
         <template #body-cell-order="slotProps">
           <q-td :props="slotProps" class="reorder-cell" @click.stop>
             <div class="reorder-buttons">
@@ -133,6 +165,7 @@ import {
   getContentMatchingSentence,
   isProtectedContentProfile,
   isVirtualFallbackContentProfile,
+  readerOptions,
 } from './models'
 
 interface Props {
@@ -183,6 +216,7 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
     label: 'Name',
     field: 'name',
     align: 'left' as const,
+    style: 'max-width: 160px',
   },
   {
     name: 'content_matching',
@@ -190,14 +224,23 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
     field: (row) => getContentMatchingSentence(row, sources.value),
     align: 'left' as const,
     sortable: false,
-    style: 'white-space: normal; min-width: 320px; max-width: 420px',
+    style: 'min-width: 200px; max-width: 360px',
+  },
+  {
+    name: 'content_reader',
+    label: 'Content Reader',
+    field: (row) => row?.reader?.name,
+    format: (value) => readerOptions.find((o) => o.value === value)?.label || value || '-',
+    align: 'left' as const,
+    style: 'max-width: 200px',
   },
   {
     name: 'chunk_strategy',
-    label: 'Chunk Strategy',
+    label: 'Chunking Strategy',
     field: (row) => row?.chunker?.strategy,
     format: (value) => chunkingStrategyOptions.find((o) => o.value === value)?.label || value || '-',
     align: 'left' as const,
+    style: 'max-width: 200px',
   },
   {
     name: 'enabled',
@@ -455,6 +498,12 @@ watch(
   right: 0;
   z-index: 2;
   background: inherit;
+}
+
+.truncate-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reorder-cell {

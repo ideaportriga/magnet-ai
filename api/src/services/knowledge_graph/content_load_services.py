@@ -1,4 +1,3 @@
-import os
 
 from .models import (
     ContentConfig,
@@ -9,8 +8,6 @@ from .models import (
 from .readers import DefaultPdfReader, DefaultSharePointPageReader
 from .readers.kreuzberg_reader import KreuzbergReader, mime_type_from_filename
 from .readers.liteparse_reader import LiteParseReader
-
-USE_KREUZBERG = os.environ.get("USE_KREUZBERG", "true").lower() in ("true", "1", "yes")
 
 
 def load_content_from_bytes(
