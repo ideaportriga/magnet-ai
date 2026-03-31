@@ -40,7 +40,7 @@ RUN poetry install --no-interaction --no-root --only main
 # Stage 3: Create a smaller image with just the application
 FROM python:3.12-slim as final
 
-# Install netcat for database connectivity checks, ffmpeg, and Tesseract OCR
+# Install netcat for database connectivity checks, ffmpeg, Tesseract OCR, and Node.js
 RUN apt-get update && apt-get install -y \
     netcat-traditional \
     ffmpeg \
@@ -49,7 +49,11 @@ RUN apt-get update && apt-get install -y \
     tesseract-ocr-deu \
     tesseract-ocr-fra \
     tesseract-ocr-rus \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
+
+RUN npm i -g @llamaindex/liteparse
 
 WORKDIR /app
 
