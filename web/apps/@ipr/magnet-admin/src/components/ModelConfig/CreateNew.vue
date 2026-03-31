@@ -131,6 +131,7 @@ export default {
         tool_calling: false,
         reasoning: false,
         diarization: false,
+        keyterms: false,
         configs: {},
       }),
       stepper: ref(0),

@@ -76,6 +76,8 @@ km-popup-confirm(
     .row.q-col-gutter-md.q-px-8.q-mb-md
       .col-6
         km-checkbox(label='Diarization', v-model='newRow.diarization', dense)
+      .col-6
+        km-checkbox(label='Keyterms', v-model='newRow.keyterms', dense)
 </template>
 
 <script>
@@ -114,6 +116,7 @@ export default {
         tool_calling: false,
         reasoning: false,
         diarization: false,
+        keyterms: false,
         price_input: '',
         price_output: '',
         price_cached: '',

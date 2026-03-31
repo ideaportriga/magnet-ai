@@ -82,6 +82,10 @@ class AIModel(UUIDAuditSimpleBase):
         Boolean, nullable=False, default=False, comment="Supports speaker diarization"
     )
 
+    keyterms: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, comment="Supports keyterms"
+    )
+
     # Type and default settings
     type: Mapped[str] = mapped_column(
         String(50), nullable=False, comment="Model type (e.g., prompts)", index=True
