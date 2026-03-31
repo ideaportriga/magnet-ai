@@ -780,6 +780,27 @@ def get_default_content_configs() -> list[ContentConfig]:
         ),
         build_sharepoint_pages_content_config(),
         ContentConfig(
+            name="LiteParse",
+            enabled=False,
+            glob_pattern="*.pdf,*.docx,*.pptx,*.xlsx,*.odt,*.ods,*.odp,*.png,*.jpg,*.jpeg,*.tiff",
+            reader={"name": ContentReaderName.LITEPARSE, "options": {}},
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 18000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_size": 18000,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 18000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "document_title_pattern": "",
+                    "chunk_title_pattern": "",
+                },
+            },
+        ),
+        ContentConfig(
             name="Plain Text",
             enabled=True,
             glob_pattern="",
@@ -871,12 +892,14 @@ async def get_content_config(
         if _is_structured_content_reader(config):
             continue
 
-        # Check glob pattern match
+        # Check glob pattern match (supports comma-separated patterns)
         glob_pattern = (config.glob_pattern or "").strip()
-        if glob_pattern and not fnmatch.fnmatch(
-            normalized_filename, glob_pattern.lower()
-        ):
-            continue
+        if glob_pattern:
+            patterns = [p.strip() for p in glob_pattern.split(",") if p.strip()]
+            if patterns and not any(
+                fnmatch.fnmatch(normalized_filename, p.lower()) for p in patterns
+            ):
+                continue
 
         # Check source match (AND logic)
         # - Prefer matching by explicit source_ids

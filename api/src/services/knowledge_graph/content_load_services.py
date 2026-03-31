@@ -8,6 +8,7 @@ from .models import (
 )
 from .readers import DefaultPdfReader, DefaultSharePointPageReader
 from .readers.kreuzberg_reader import KreuzbergReader, mime_type_from_filename
+from .readers.liteparse_reader import LiteParseReader
 
 USE_KREUZBERG = os.environ.get("USE_KREUZBERG", "true").lower() in ("true", "1", "yes")
 
@@ -40,6 +41,10 @@ def load_content_from_bytes(
             raise ValueError(
                 "Kreuzberg reader requires async. Use load_content_from_bytes_async()."
             )
+        case ContentReaderName.LITEPARSE:
+            raise ValueError(
+                "LiteParse reader requires async. Use load_content_from_bytes_async()."
+            )
         case ContentReaderName.SHAREPOINT_PAGE:
             raw_text, text, metadata = (
                 DefaultSharePointPageReader().extract_text_from_bytes(
@@ -63,6 +68,12 @@ async def load_content_from_bytes_async(
     Falls back to synchronous readers for PDF/plain_text/sharepoint_page.
     """
     reader_name = config.reader.get("name", "").lower() if config.reader else ""
+
+    if reader_name == ContentReaderName.LITEPARSE:
+        options = config.reader.get("options", {}) if config.reader else {}
+        reader = LiteParseReader(reader_options=options)
+        text, metadata = await reader.extract_from_bytes(file_bytes, filename=filename)
+        return {"raw_text": text, "text": text, "metadata": metadata}
 
     if reader_name == ContentReaderName.KREUZBERG:
         options = config.reader.get("options", {}) if config.reader else {}

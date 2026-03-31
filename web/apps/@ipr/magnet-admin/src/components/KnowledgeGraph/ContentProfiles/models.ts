@@ -33,11 +33,14 @@ export const VIRTUAL_FALLBACK_PROFILE_VALUE = 'fallback_plain_text'
 
 export const KREUZBERG_READER = 'kreuzberg'
 export const KREUZBERG_READER_LABEL = 'Kreuzberg Reader'
+export const LITEPARSE_READER = 'liteparse'
+export const LITEPARSE_READER_LABEL = 'LiteParse Reader'
 
 export const readerOptions = [
   { label: 'Plain Text Reader', value: 'plain_text' },
   { label: 'PDF Reader', value: 'pdf' },
   { label: KREUZBERG_READER_LABEL, value: KREUZBERG_READER },
+  { label: LITEPARSE_READER_LABEL, value: LITEPARSE_READER },
   { label: SHAREPOINT_PAGE_READER_LABEL, value: SHAREPOINT_PAGE_READER },
   {
     label: FLUID_TOPICS_STRUCTURED_READER_LABEL,
