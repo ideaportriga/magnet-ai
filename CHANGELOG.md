@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.1](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0...v0.7.0-dev.1) (2026-04-01)
+
+### ✨ Features
+
+* **agents:** set up observability for async conversations ([8a25510](https://github.com/ideaportriga/magnet-ai/commit/8a25510b24121f4a5f40838cd9ba5870b5026fa4))
+* **agents:** use variables in topic processing prompt ([ede700d](https://github.com/ideaportriga/magnet-ai/commit/ede700df8b91369824064228a182cde6303efdb5))
+* **api:** added diarization option to stt provider creation ([900f07c](https://github.com/ideaportriga/magnet-ai/commit/900f07c8b1e229643b99c30abfb38e44a09a37d2))
+* **api:** added diarization option to stt provider creation, added mistral stt provider support ([6c726a4](https://github.com/ideaportriga/magnet-ai/commit/6c726a4c9a1ae6fcb6d1a5c2d61791433b79e9ff))
+* **api:** added keyterm checkbox option to stt models ([242166f](https://github.com/ideaportriga/magnet-ai/commit/242166f46515ddc669f8e802190759d1c1bca6b7))
+* **api:** added keyterm checkbox option to stt models ([0b3b14d](https://github.com/ideaportriga/magnet-ai/commit/0b3b14d446fbc838605f45c02507c01701e42253))
+* **api:** added mistral stt provider support ([14ccd81](https://github.com/ideaportriga/magnet-ai/commit/14ccd81faefeef977d63852c5ee6fe1e774f7292))
+* **kg:** added liteparse library as default document reader for knowledge graphs ([2986d90](https://github.com/ideaportriga/magnet-ai/commit/2986d9060f4f2465c410aa27ec2f4a669eb3335d))
+* merge note-taker feature branch into develop ([f10ad43](https://github.com/ideaportriga/magnet-ai/commit/f10ad438be68ffbd94b7276cd635ee609c3805a1))
+* Note Taker complete rebuild ([48b68ff](https://github.com/ideaportriga/magnet-ai/commit/48b68ff9a13e727517b6415fbe87732b239e0ae8))
+
+### 🐛 Bug Fixes
+
+* alembic migrations flow ([aac8ba9](https://github.com/ideaportriga/magnet-ai/commit/aac8ba90450a4fa746498e02bf8a83cf9e4139ba))
+* **api:** fixed lock file ([00606bf](https://github.com/ideaportriga/magnet-ai/commit/00606bfff7c88f20c7f75e05b30d74d3abd798d5))
+* **api:** fixed lock file ([f4dd00b](https://github.com/ideaportriga/magnet-ai/commit/f4dd00b446a0581b3c9b90b1f624fcb7d30f1e91))
+* **api:** fixed migration file, so it changes only diarization column ([7d57f27](https://github.com/ideaportriga/magnet-ai/commit/7d57f27f75f871e8b035939e6c07ab8dd874b027))
+* **api:** litellm was on quarantine, so changed to github link ([ba9b7f1](https://github.com/ideaportriga/magnet-ai/commit/ba9b7f15c336462b267a7f7eadd8fc7fc6c8148d))
+* **api:** reverted litellm to 1.82.2 ([656246b](https://github.com/ideaportriga/magnet-ai/commit/656246bdf8c045dff1e8f88fe3d22679b4b71352))
+* apscheduler sync callbacks isolation ([86eecf8](https://github.com/ideaportriga/magnet-ai/commit/86eecf8a3ec15d65cc7ff6de52d1c6a90fd217b4))
+* automatically remove a recurring scheduler job if the target ([1a3c142](https://github.com/ideaportriga/magnet-ai/commit/1a3c142bae6b694f6b0ef13676fcb3cca329afc7))
+* clear knowledge store on new collection mount ([80647cc](https://github.com/ideaportriga/magnet-ai/commit/80647cc81d7d4acca6aee4d86e8e346312e495ed))
+* gitignore ([9449b00](https://github.com/ideaportriga/magnet-ai/commit/9449b00be5b0d774a4f9d9cfee902ad1f190ee14))
+* migration sequence ([57c185f](https://github.com/ideaportriga/magnet-ai/commit/57c185f27d21c1c0bcc605af4e1c210718ee7560))
+* note taker tables ([e079c82](https://github.com/ideaportriga/magnet-ai/commit/e079c828706051eea453c55305605d323ab9edc7))
+* safe migrations ([230936f](https://github.com/ideaportriga/magnet-ai/commit/230936f12885f587e083600bc8263ea4c073fdcc))
+
 ## [0.6.0-dev.65](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.64...v0.6.0-dev.65) (2026-04-01)
 
 ### 🐛 Bug Fixes
