@@ -12,7 +12,7 @@ Mapping:
   - all others             -> "plain_text"
 
 Revision ID: a7b8c9d0e1f2
-Revises: 5d27c945385a
+Revises: 2ebc230ac555
 Create Date: 2026-03-31 00:00:00.000000+00:00
 
 """
@@ -35,7 +35,7 @@ __all__ = [
 
 # revision identifiers, used by Alembic.
 revision = "a7b8c9d0e1f2"
-down_revision = "5d27c945385a"
+down_revision = "2ebc230ac555"
 branch_labels = None
 depends_on = None
 
