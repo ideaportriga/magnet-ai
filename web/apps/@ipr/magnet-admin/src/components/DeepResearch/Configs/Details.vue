@@ -58,6 +58,42 @@
 
             q-separator
 
+            //- Content Processing Section
+            .col-auto.full-width
+              .km-heading-6.q-mb-md Content Processing
+              .q-gutter-md
+                .km-field
+                  .text-secondary-text.q-pb-xs Chunk Size (characters)
+                  div(style='max-width: 200px')
+                    km-input(
+                      v-model='chunkSize',
+                      type='number',
+                      height='30px'
+                    )
+                  .km-description.text-secondary-text.q-pt-2 Max characters per chunk. Pages under this size are processed in one pass.
+
+                .km-field
+                  .text-secondary-text.q-pb-xs Chunk Overlap
+                  div(style='max-width: 200px')
+                    km-input(
+                      v-model='chunkOverlap',
+                      type='number',
+                      height='30px'
+                    )
+                  .km-description.text-secondary-text.q-pt-2 Overlap ratio between chunks (0.1 = 10%)
+
+                .km-field
+                  .text-secondary-text.q-pb-xs Max Chunks
+                  div(style='max-width: 200px')
+                    km-input(
+                      v-model='maxChunks',
+                      type='number',
+                      height='30px'
+                    )
+                  .km-description.text-secondary-text.q-pt-2 Maximum number of chunks to process per page (hard cost cap)
+
+            q-separator
+
             //- Prompts Section
             .col-auto.full-width
               .km-heading-6.q-mb-md Prompts
@@ -260,6 +296,40 @@ const maxResults = computed({
     if (config.value?.config) {
       config.value.config.max_results = parseInt(value) || 0
     }
+  }
+})
+
+// Content processing configuration
+const chunkSize = computed({
+  get: () => config.value?.config?.content_processing?.chunk_size?.toString() || '20000',
+  set: (value) => {
+    if (!config.value?.config) return
+    if (!config.value.config.content_processing) {
+      config.value.config.content_processing = { chunk_size: 20000, chunk_overlap: 0.1, max_chunks: 5 }
+    }
+    config.value.config.content_processing.chunk_size = parseInt(value) || 20000
+  }
+})
+
+const chunkOverlap = computed({
+  get: () => config.value?.config?.content_processing?.chunk_overlap?.toString() || '0.1',
+  set: (value) => {
+    if (!config.value?.config) return
+    if (!config.value.config.content_processing) {
+      config.value.config.content_processing = { chunk_size: 20000, chunk_overlap: 0.1, max_chunks: 5 }
+    }
+    config.value.config.content_processing.chunk_overlap = parseFloat(value) || 0.1
+  }
+})
+
+const maxChunks = computed({
+  get: () => config.value?.config?.content_processing?.max_chunks?.toString() || '5',
+  set: (value) => {
+    if (!config.value?.config) return
+    if (!config.value.config.content_processing) {
+      config.value.config.content_processing = { chunk_size: 20000, chunk_overlap: 0.1, max_chunks: 5 }
+    }
+    config.value.config.content_processing.max_chunks = parseInt(value) || 5
   }
 })
 

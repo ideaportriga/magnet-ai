@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any, Awaitable, Callable
 from uuid import UUID
 
+from kreuzberg import ChunkingConfig, ExtractionConfig, extract_bytes
 from opentelemetry import trace as otel_trace
 from opentelemetry.trace.status import StatusCode as OtelStatusCode
 
@@ -18,6 +19,7 @@ from services.prompt_templates import execute_prompt_template
 
 from .models import (
     AnalyzeResultsStepDetails,
+    ChunkDetail,
     DeepResearchConfig,
     DeepResearchIteration,
     DeepResearchMemory,
@@ -854,6 +856,24 @@ async def _analyze_search_results(
         raise
 
 
+async def _split_into_chunks(
+    text: str, chunk_size: int, chunk_overlap: float
+) -> list[str]:
+    """Split text into chunks using kreuzberg's markdown-aware chunker."""
+    if len(text) <= chunk_size:
+        return [text]
+
+    overlap = int(chunk_size * chunk_overlap)
+    config = ExtractionConfig(
+        chunking=ChunkingConfig(
+            max_chars=chunk_size,
+            max_overlap=overlap,
+        ),
+    )
+    result = await extract_bytes(text.encode("utf-8"), "text/markdown", config=config)
+    return [chunk.content for chunk in result.chunks] or [text]
+
+
 @observe(name="Process search result")
 async def _process_search_result(
     run: DeepResearchRun,
@@ -865,6 +885,7 @@ async def _process_search_result(
     """
     Process individual search result page content.
     Uses the process_search_result_prompt to extract relevant information.
+    Content is split into chunks and each chunk is processed independently.
     """
     url = result.get("url", "")
     title = result.get("title", "Unknown")
@@ -896,35 +917,68 @@ async def _process_search_result(
                 ),
             )
 
-        # Limit content length
-        page_content = page_content
-
         # Get relevance reasoning from analysis step
         relevance_reasoning = result.get("relevance_reasoning", "")
 
         # Flatten input with 'input.' prefix for namespaced access (e.g., {input.task})
         flattened_input = {f"input.{key}": value for key, value in run.input.items()}
 
-        context = {
-            **flattened_input,  # Namespaced input (e.g., {input.task})
-            "query": query,
-            "page_title": title,
-            "page_url": url,
-            "page_content": page_content,
-            "relevance_reasoning": relevance_reasoning,
-            "extracted_info": "\n".join(f"- {info}" for info in memory.extracted_info),
-        }
+        # Split content into chunks
+        cp = config.content_processing
+        chunks = (
+            await _split_into_chunks(page_content, cp.chunk_size, cp.chunk_overlap)
+        )[: cp.max_chunks]
 
-        # Execute process search result prompt
-        result_data = await execute_prompt_template(
-            system_name_or_config=config.process_search_result_prompt,
-            template_values=context,
+        chunk_details_list: list[ChunkDetail] = []
+
+        for i, chunk in enumerate(chunks):
+            try:
+                context = {
+                    **flattened_input,
+                    "query": query,
+                    "page_title": title,
+                    "page_url": url,
+                    "page_content": chunk,
+                    "relevance_reasoning": relevance_reasoning,
+                    "chunk_number": str(i + 1),
+                    "total_chunks": str(len(chunks)),
+                }
+
+                result_data = await execute_prompt_template(
+                    system_name_or_config=config.process_search_result_prompt,
+                    template_values=context,
+                )
+
+                _track_usage(run, result_data)
+
+                chunk_details_list.append(
+                    ChunkDetail(
+                        chunk_number=i + 1,
+                        findings=result_data.content,
+                        cost=result_data.cost if hasattr(result_data, "cost") else None,
+                        latency=result_data.latency
+                        if hasattr(result_data, "latency")
+                        else None,
+                        usage=result_data.usage
+                        if hasattr(result_data, "usage")
+                        else None,
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    f"Chunk {i + 1}/{len(chunks)} failed for {url}, "
+                    f"preserving {len(chunk_details_list)} successful chunks"
+                )
+                break
+
+        chunk_findings = [
+            cd.findings for cd in chunk_details_list if cd.findings.strip()
+        ]
+        summary = (
+            "\n\n".join(chunk_findings)
+            if chunk_findings
+            else "No relevant findings from this source."
         )
-
-        # Track usage and latency
-        _track_usage(run, result_data)
-
-        summary = result_data.content
 
         # Update url_analysis in memory
         if url in memory.url_analysis:
@@ -936,6 +990,8 @@ async def _process_search_result(
             output={
                 "Summary": summary[:300] + "..." if len(summary) > 300 else summary,
                 "Summary length": len(summary),
+                "Chunks total": len(chunks),
+                "Chunks processed": len(chunk_details_list),
             }
         )
 
@@ -945,11 +1001,11 @@ async def _process_search_result(
             details=ProcessPageStepDetails(
                 url=url,
                 page_title=title,
-                summary=summary if len(summary) > 500 else summary,  # Limit for display
+                summary=summary,
+                chunks_total=len(chunks),
+                chunks_processed=len(chunk_details_list),
+                chunk_details=chunk_details_list if len(chunks) > 1 else None,
             ),
-            cost=result_data.cost if hasattr(result_data, "cost") else None,
-            latency=result_data.latency if hasattr(result_data, "latency") else None,
-            usage=result_data.usage if hasattr(result_data, "usage") else None,
         )
 
     except Exception as e:
