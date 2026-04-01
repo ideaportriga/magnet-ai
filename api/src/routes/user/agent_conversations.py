@@ -290,6 +290,11 @@ class AgentConversationsController(Controller):
         await update_conversation_status(conversation_id, "Closed")
 
     ## Asynchronously
+    @observe(
+        name="New conversation started by user",
+        description="User initiated a new conversation with an agent by writing a first message.",
+        channel="production",
+    )
     @post(
         "/async",
         summary="Create a new conversation asynchronously",
@@ -298,18 +303,50 @@ class AgentConversationsController(Controller):
         self,
         data: AgentConversationCreateRequest,
         db_session: AsyncSession,
+        request: Request,
+        user_id: Annotated[
+            str | None,
+            Parameter(
+                description="The unique identifier of the user creating the conversation.",
+            ),
+        ],
     ) -> AgentConversationWithMessagesPublic:
+        agent_config = await get_agent_by_system_name(data.agent)
+
+        observability_context.update_current_baggage(
+            source=request.headers.get("x-source") or "Runtime AI App",
+            consumer_type=request.headers.get("x-consumer-type") or "agent",
+            consumer_name=(
+                request.headers.get("x-consumer-name") or agent_config.system_name
+            ),
+            user_id=user_id,
+        )
+
+        observability_context.update_current_trace(
+            name=agent_config.name, type="agent", user_id=user_id
+        )
+
         conversation = await create_conversation(
-            data.agent,
+            agent_config,
             data.user_message_content,
             data.client_id,
             data.variables,
             db_session,
             is_async=True,
         )  ### is_async=True means that agent message wont be processed immediately
-        asyncio.create_task(add_assistant_message(str(conversation.id)))
+        asyncio.create_task(
+            add_assistant_message(
+                str(conversation.id),
+                **observability_overrides(trace_id=conversation.trace_id),
+            )
+        )
         return conversation
 
+    @observe(
+        name="New user message",
+        description="User posted a new message to an existing conversation.",
+        channel="production",
+    )
     @post(
         "/{conversation_id:str}/messages/async",
         status_code=HTTP_200_OK,

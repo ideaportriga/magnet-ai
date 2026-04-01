@@ -30,7 +30,11 @@ from services.agents.models import (
 from services.agents.post_process.utils import extract_analytics_from_conversation
 from services.agents.services import execute_agent, get_agent_by_system_name
 from services.common.models import ConversationMessageFeedback
-from services.observability import observability_context, observability_overrides
+from services.observability import (
+    observability_context,
+    observability_overrides,
+    observe,
+)
 from services.observability.models import FeatureType, ObservedFeature
 from services.telemetry.services import (
     record_tool_response_copy,
@@ -477,6 +481,11 @@ async def update_conversation_status(
     return updated
 
 
+@observe(
+    name="New conversation started by user",
+    description="User initiated a new conversation with an agent by writing a first message.",
+    channel="production",
+)
 async def add_assistant_message(
     conversation_or_id: dict[str, Any] | str,
 ):
@@ -488,6 +497,8 @@ async def add_assistant_message(
         conversation_record = conversation_or_id
 
     conversation = AgentConversationDataWithMessages(**conversation_record)
+    agent_config = await get_agent_by_system_name(conversation.agent)
+    observability_context.update_current_trace(name=agent_config.name, type="agent")
     assistant_message = await execute_agent(
         system_name_or_config=conversation.agent,
         messages=conversation.messages,
