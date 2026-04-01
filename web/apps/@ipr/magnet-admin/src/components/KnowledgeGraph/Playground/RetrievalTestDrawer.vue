@@ -262,7 +262,7 @@ interface Message {
 const props = withDefaults(
   defineProps<{
     graphId: string
-    outputFormat?: 'plain' | 'markdown'
+    outputFormat?: 'plain' | 'markdown' | 'html'
     isActive?: boolean
   }>(),
   {

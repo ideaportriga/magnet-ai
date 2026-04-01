@@ -130,6 +130,7 @@ const strategyOptions: TileOption[] = [
 const outputFormatOptions = [
   { label: 'Markdown', value: 'markdown' },
   { label: 'Plain Text', value: 'plain' },
+  { label: 'HTML', value: 'html' },
 ]
 
 const answerModeOptions = [

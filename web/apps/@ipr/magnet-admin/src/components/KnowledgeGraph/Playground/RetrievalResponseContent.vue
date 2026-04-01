@@ -1,5 +1,6 @@
 <template>
   <div v-if="format === 'plain'" class="markdown-content markdown-content--plain">{{ content }}</div>
+  <div v-else-if="format === 'html'" class="markdown-content" v-html="content" />
   <div v-else class="markdown-content" v-html="rendered" />
 </template>
 
@@ -10,7 +11,7 @@ import { computed } from 'vue'
 const props = withDefaults(
   defineProps<{
     content: string
-    format?: 'plain' | 'markdown'
+    format?: 'plain' | 'markdown' | 'html'
   }>(),
   {
     format: 'markdown',

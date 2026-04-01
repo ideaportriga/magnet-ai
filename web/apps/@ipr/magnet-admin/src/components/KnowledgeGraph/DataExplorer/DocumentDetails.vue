@@ -1514,14 +1514,16 @@ onBeforeUnmount(() => {
 .html-content :deep(th) {
   background: #f9fafb;
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
   font-weight: 600;
   text-align: left;
 }
 
+.html-content :deep(tr) {
+  display: table-row;
+}
+
 .html-content :deep(td) {
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
 }
 
 .html-content :deep(a) {

@@ -32,6 +32,8 @@ from ...models import (
     KnowledgeGraphRetrievalSource,
     KnowledgeGraphRetrievalWorkflowStep,
 )
+from .image_utils import restore_images
+from .tool_payload_formatter import format_tool_payload
 from .tools import get_available_tools
 from .tools.exit_tool import exit_tool
 from .tools.find_chunks_by_similarity import findChunksBySimilarity
@@ -97,6 +99,8 @@ def _build_output_instr(output_format: str) -> str:
         return "# Output Instructions:\n- Return answer formatted as Markdown"
     elif output_format == "plain":
         return "# Output Instructions:\n- Return answer formatted as Plain Text"
+    elif output_format == "html":
+        return "# Output Instructions:\n- Return answer formatted as HTML"
     return ""
 
 
@@ -401,6 +405,7 @@ async def run_agentic_retrieval(
     workflow_steps: list[KnowledgeGraphRetrievalWorkflowStep] = []
     last_metadata_doc_where_sql: str | None = None
     last_metadata_doc_where_params: dict[str, Any] | None = None
+    image_registry: dict[str, str] = {}
 
     # If the caller supplied a metadata filter externally, apply it immediately when
     # the graph config delegates filter control to external/collaborative modes.
@@ -468,7 +473,9 @@ async def run_agentic_retrieval(
                 {
                     "role": "tool",
                     "tool_call_id": tool_call_id,
-                    "content": json.dumps(tool_payload, ensure_ascii=False),
+                    "content": format_tool_payload(
+                        "findDocumentsByMetadata", tool_payload
+                    ),
                 }
             )
     except Exception as exc:
@@ -648,7 +655,9 @@ async def run_agentic_retrieval(
                     {
                         "role": "tool",
                         "tool_call_id": tool_call.id,
-                        "content": json.dumps(tool_payload),
+                        "content": format_tool_payload(
+                            tool_name, tool_payload, image_registry
+                        ),
                     }
                 )
             except Exception as exc:
@@ -686,6 +695,8 @@ async def run_agentic_retrieval(
         )
 
     final_content = successful_answer or ""
+    if image_registry and final_content:
+        final_content = restore_images(final_content, image_registry)
     final_sources = sources
 
     if answer_mode == "answer_only":

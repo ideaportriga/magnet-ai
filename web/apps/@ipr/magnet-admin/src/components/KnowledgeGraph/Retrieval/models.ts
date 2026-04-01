@@ -25,7 +25,7 @@ export interface Tool {
   strategy?: string
   maxIterations?: number
   additionalOutputInstructions?: string
-  outputFormat?: 'plain' | 'markdown'
+  outputFormat?: 'plain' | 'markdown' | 'html'
   sourceAttribution?: string
   answerMode?: 'answer_only' | 'sources_only' | 'answer_with_sources'
 }
