@@ -26,7 +26,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from core.db.models.knowledge_graph import KnowledgeGraph
 from core.domain.agent_conversation.service import AgentConversationService
 from core.domain.knowledge_graph.schemas import (
-    KnowledgeGraphChunkExternalSchema,
+    KnowledgeGraphChunkListResponse,
     KnowledgeGraphCreateRequest,
     KnowledgeGraphCreateResponse,
     KnowledgeGraphDiscoveredMetadataExternalSchema,
@@ -69,7 +69,6 @@ from services.knowledge_graph.llm_entity_extraction import (
     is_extraction_task_active,
     run_entity_extraction_background,
 )
-from utils.datetime_utils import utc_now_isoformat
 from services.knowledge_graph.retrievers.agent_retriever.agent import (
     continue_conversation,
     start_conversation,
@@ -77,6 +76,7 @@ from services.knowledge_graph.retrievers.agent_retriever.agent import (
 from services.knowledge_graph.sources import FileUploadDataSource
 from services.knowledge_graph.sources.sync_services import sync_source_background
 from services.observability import observability_overrides, observe
+from utils.datetime_utils import utc_now_isoformat
 
 logger = logging.getLogger(__name__)
 
@@ -533,7 +533,7 @@ class KnowledgeGraphController(Controller):
         document_id: UUID,
         limit: int = Parameter(default=50, ge=1, le=500),
         offset: int = Parameter(default=0, ge=0),
-    ) -> list[KnowledgeGraphChunkExternalSchema]:
+    ) -> KnowledgeGraphChunkListResponse:
         return await chunk_service.list_chunks(
             db_session, graph_id, limit, offset, None, document_id
         )

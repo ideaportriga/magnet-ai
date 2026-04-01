@@ -314,11 +314,7 @@ class KnowledgeGraphChunkService:
                 docs_tbl.c.external_link.label("document_external_link"),
             )
             .select_from(join_from)
-            .order_by(
-                docs_tbl.c.created_at.desc(),
-                chunks_tbl.c.page.nullsfirst(),
-                chunks_tbl.c.created_at,
-            )
+            .order_by(docs_tbl.c.created_at.desc(), chunks_tbl.c.index)
             .limit(int(limit))
             .offset(int(offset))
         )
