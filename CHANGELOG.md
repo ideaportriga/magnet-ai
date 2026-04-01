@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.2](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.1...v0.7.0-dev.2) (2026-04-01)
+
+### ✨ Features
+
+* **kg:** added html output format for knowledge graph retrieval ([9b2912e](https://github.com/ideaportriga/magnet-ai/commit/9b2912e9192d451c64cf93321eeea654bbe9d8df))
+
+### 🐛 Bug Fixes
+
+* **kg:** fixed chunk ordering when view document details ([9d13cc0](https://github.com/ideaportriga/magnet-ai/commit/9d13cc0763a2fe25f25e30e58fda943c41eab586))
+
 ## [0.7.0-dev.1](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0...v0.7.0-dev.1) (2026-04-01)
 
 ### ✨ Features
