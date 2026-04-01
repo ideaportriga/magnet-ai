@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - develop
+      - alpha
   workflow_dispatch:
 
 jobs:
@@ -253,6 +254,7 @@ jobs:
         run: |
           git fetch origin --force main:main || echo "Branch main does not exist yet"
           git fetch origin --force develop:develop || echo "Branch develop does not exist yet"
+          git fetch origin --force alpha:alpha || echo "Branch alpha does not exist yet"
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -343,8 +345,13 @@ jobs:
           TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${VERSION}"
           
           if [[ "$IS_PRERELEASE" == "true" ]]; then
-            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
-            echo "📦 Building prerelease: ${VERSION}"
+            if [[ "$VERSION" == *"-alpha."* ]]; then
+              TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:alpha"
+              echo "📦 Building alpha prerelease: ${VERSION}"
+            else
+              TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
+              echo "📦 Building dev prerelease: ${VERSION}"
+            fi
           else
             TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
             echo "📦 Building stable release: ${VERSION}"

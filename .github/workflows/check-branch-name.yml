@@ -22,7 +22,7 @@ jobs:
           # - hotfix/*
           # - release/*
           # - experiment/*
-          REGEX='^(feature|fix|hotfix|release|experiment)\/.+|(main|develop)$'
+          REGEX='^(feature|fix|hotfix|release|experiment)\/.+|(main|develop|alpha)$'
           
           if [[ ! $BRANCH_NAME =~ $REGEX ]]; then
             echo "❌ Error: Branch name '$BRANCH_NAME' does not match the allowed pattern."
