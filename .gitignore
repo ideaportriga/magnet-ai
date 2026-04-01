@@ -14,7 +14,6 @@ generated_docs/
 specs/
 openshift/
 node_modules/
-package-lock.json
 .DS_Store
 __pycache__/
 *.pyc
@@ -35,3 +34,7 @@ build/
 recording_test.py
 /research
 /reports
+.pnp.cjs
+.pnp.loader.mjs
+/docs
+/cli
