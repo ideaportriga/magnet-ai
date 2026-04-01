@@ -25,13 +25,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useTemplateRef } from 'vue'
-import { useChroma } from '@shared'
+import { computed, useTemplateRef, inject, ref } from 'vue'
 import type { Filter } from '@shared/types'
 import _ from 'lodash'
 
-// States & Stores
-const { publicItems: allKnowledgeSources } = useChroma('collections')
+// Parent provides 'collectionsList' ref via provide/inject
+const allKnowledgeSources = inject<any>('collectionsList', ref([]))
 
 // Models & Props
 const filters = defineModel<Filter[]>({ default: [] })
@@ -46,20 +45,21 @@ const newFilterPopup = useTemplateRef('newFilterPopup')
 const editFilterPopup = useTemplateRef('editFilterPopup')
 
 const availableMetadataFields = computed(() => {
+  const items = allKnowledgeSources?.value || []
   const filteredSources = !sources
-    ? allKnowledgeSources.value || []
-    : (allKnowledgeSources.value || []).filter((source) => (sources || []).includes(source?.system_name))
-  const fields: string[] = filteredSources.flatMap((source) =>
+    ? items
+    : items.filter((source: any) => (sources || []).includes(source?.system_name))
+  const fields: string[] = filteredSources.flatMap((source: any) =>
     (source?.metadata_config || [])
-      .filter((config) => config.enabled)
-      .map((config) => config.name)
+      .filter((config: any) => config.enabled)
+      .map((config: any) => config.name)
       .filter((field: string) => !filters.value.find((filter) => filter.field === field))
   )
   return [...new Set(fields)].sort()
 })
 
 const showNewFilterPopup = (field: string) => {
-  newFilterPopup.value.show({
+  ;(newFilterPopup as any).value?.show({
     field: field,
     operator: 'equal',
     conditions: [],
@@ -67,7 +67,7 @@ const showNewFilterPopup = (field: string) => {
 }
 
 const showEditFilterPopup = (filter: Filter) => {
-  editFilterPopup.value.show(filter)
+  ;(editFilterPopup as any).value?.show(filter)
 }
 
 const addFilter = (newFilter: Filter) => {

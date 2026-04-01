@@ -1,18 +1,6 @@
 <template lang="pug">
+km-inner-loading(:showing='!tool')
 layouts-details-layout(v-if='tool')
-  template(#breadcrumbs)
-    .row.q-pb-md.relative-position.q-px-md
-      q-breadcrumbs.text-grey(active-color='text-grey', gutter='lg')
-        template(v-slot:separator)
-          q-icon(size='12px', name='fas fa-chevron-right', color='text-grey')
-        q-breadcrumbs-el
-          .column
-            .km-small-chip.text-grey.text-capitalize MCP Server
-            .km-chip.text-grey-8.text-capitalize.breadcrumb-link(@click='navigate(`/mcp/${mcp_server.id}`)') {{ mcp_server.name }}
-        q-breadcrumbs-el
-          .column
-            .km-small-chip.text-grey.text-capitalize MCP Tool
-            .km-chip.text-grey-8.text-capitalize.breadcrumb-link {{ tool.name }}
   template(#header)
     .col
       .row.items-center
@@ -37,13 +25,11 @@ layouts-details-layout(v-if='tool')
     .column.q-gap-16.overflow-auto.q-pt-lg.q-pb-lg
       template(v-if='tab == "parameters"')
         .row
-          km-table(
-            :columns='columns',
-            :visibleColumns='visibleColumns',
-            :rows='rows',
+          km-data-table(
+            :table='table',
             row-key='name',
-            @selectRow='handleRowClick',
-            :selected='[selectedRow]'
+            :activeRowId='selectedRow?.name',
+            @row-click='handleRowClick'
           )
       template(v-if='tab == "definition"')
         km-input.full-width(rows='18', border-radius='8px', height='36px', type='textarea', :model-value='JSON.stringify(tool, null, 2)', readonly)
@@ -52,14 +38,18 @@ layouts-details-layout(v-if='tool')
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useStore } from 'vuex'
 import { useRoute, useRouter } from 'vue-router'
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { textColumn } from '@/utils/columnHelpers'
 
-const store = useStore()
+const mcpStore = useMcpServerDetailStore()
 const route = useRoute()
 const router = useRouter()
-const { items: mcp_servers } = useChroma('mcp_servers')
+const queries = useEntityQueries()
+const { data: mcpServersData } = queries.mcp_servers.useList()
+const mcp_servers = computed(() => mcpServersData.value?.items ?? [])
 
 const tab = ref('parameters')
 const tabs = ref([
@@ -73,32 +63,18 @@ const tabs = ref([
   },
 ])
 
-const visibleColumns = ref(['name', 'description'])
 const drawer = ref(null)
-const columns = ref([
-  {
-    name: 'name',
-    label: 'Name',
-    align: 'left',
-    field: 'name',
-  },
-  {
-    name: 'description',
-    label: 'Description',
-    field: 'description',
-    align: 'left',
-    style: 'white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis;',
-  },
-])
+
 const mcp_server = computed(() => {
   return mcp_servers.value.find((item) => item.id === route.params.id)
 })
 
 const tool = computed(() => {
-  return store.getters.mcp_tool(route.params.name)
+  return mcpStore.entity?.tools?.find((t) => t.name === route.params.name)
 })
 
 const rows = computed(() => {
+  if (!tool.value?.inputSchema?.properties) return []
   return Object.keys(tool.value.inputSchema.properties).map((key) => {
     return {
       name: key,
@@ -107,11 +83,17 @@ const rows = computed(() => {
   })
 })
 
+const columns = [
+  textColumn('name', 'Name'),
+  textColumn('description', 'Description'),
+]
+
+const { table } = useLocalDataTable(rows, columns)
+
 const selectedRow = ref(null)
 
 const handleRowClick = (row) => {
-  drawer.value.setTab('details')
-  console.log(tool.value.inputSchema.properties[row.name])
+  drawer.value?.setTab('details')
   selectedRow.value = {
     name: row.name,
     ...tool.value.inputSchema.properties[row.name],
@@ -123,13 +105,13 @@ const navigate = (path) => {
 }
 
 watch(tab, (newVal) => {
-  drawer.value.regulateTabs(newVal)
+  drawer.value?.regulateTabs(newVal)
 })
 watch(
   () => mcp_server.value,
   (newVal) => {
     if (!newVal) return
-    store.dispatch('setMcpServer', newVal)
+    mcpStore.setEntity(newVal)
   },
   { immediate: true, deep: true }
 )

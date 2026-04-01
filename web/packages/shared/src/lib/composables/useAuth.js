@@ -1,47 +1,77 @@
 import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useSharedAuthStore } from '../stores/authStore'
+import { createAuthClient } from '../auth'
 
 export default function useAuth() {
-  const store = useStore()
+  const authStore = useSharedAuthStore()
 
-  const authEnabled = computed(() => store.getters.config.auth?.enabled ?? true)
-  const authenticated = computed(() => store.getters.authenticated)
-  const apiBaseUrl = store.getters.config.api.aiBridge.baseUrl
+  const authEnabled = computed(() => authStore.authEnabled)
+  const authenticated = computed(() => authStore.authenticated)
+  const apiBaseUrl = computed(() => authStore.apiBaseUrl)
 
   const authRequired = computed(() => {
     return authEnabled.value && !authenticated.value
   })
   const authCheckInProgress = ref(false)
 
+  // Reactive auth client — recreated when baseUrl changes
+  const client = computed(() => {
+    const url = apiBaseUrl.value
+    if (!url) return null
+    return createAuthClient(url)
+  })
+
   async function getAuthData() {
+    if (!client.value) return
+
     authCheckInProgress.value = true
-    const response = await fetch(`${apiBaseUrl}/auth/me`, { credentials: 'include' })
+    const userInfo = await client.value.me()
 
-    if (response.ok) {
-      store.commit('set', { authenticated: true })
-
-      const data = await response.json()
-
-      store.commit('setUserInfo', data)
-
-      console.log('User info:', data)
+    if (userInfo) {
+      authStore.setAuthenticated(true)
+      authStore.setUserInfo(userInfo)
     }
 
     authCheckInProgress.value = false
   }
 
-  async function logout() {
-    const response = await fetch(`${apiBaseUrl}/auth/logout`, { method: 'POST', credentials: 'include' })
+  async function loginLocal(email, password) {
+    if (!client.value) throw new Error('Auth client not initialized')
 
-    if (response.ok) {
-      store.commit('set', { authenticated: false })
+    const result = await client.value.loginLocal(email, password)
+    if (result.mfa_required) {
+      return { mfaRequired: true }
     }
+    authStore.setAuthenticated(true)
+    await getAuthData()
+    return { mfaRequired: false }
+  }
+
+  async function verifyMfa(code) {
+    if (!client.value) throw new Error('Auth client not initialized')
+
+    await client.value.verifyMfa(code)
+    authStore.setAuthenticated(true)
+    await getAuthData()
+  }
+
+  async function logout() {
+    if (client.value) {
+      await client.value.logout()
+    }
+    authStore.setAuthenticated(false)
+    authStore.clearUserInfo()
   }
 
   return {
     authCheckInProgress,
     authRequired,
+    authEnabled,
+    authenticated,
+    client,
     getAuthData,
+    loginLocal,
+    verifyMfa,
     logout,
   }
 }

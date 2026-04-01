@@ -1,5 +1,6 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(style='min-width: 1200px')
+km-inner-loading(:showing='loading')
+.row.no-wrap.overflow-hidden.full-height(v-if='!loading', style='min-width: 1200px')
   .col.row.no-wrap.full-height.justify-center.fit
     .col(style='max-width: 1200px; min-width: 600px')
       .full-height.q-pb-md.relative-position.q-px-md
@@ -24,6 +25,42 @@
                 @blur='showInfo = false'
               )
             .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
+          .col-auto.row.items-center.no-wrap.q-gap-8.q-ml-md
+            km-btn(label='Record info', flat, icon='info', iconSize='16px')
+              q-tooltip.bg-white.block-shadow
+                .q-pa-sm
+                  .q-mb-sm
+                    .text-secondary-text.km-button-xs-text Created:
+                    .text-secondary-text.km-description {{ created_at }}
+                  .q-mb-sm
+                    .text-secondary-text.km-button-xs-text Modified:
+                    .text-secondary-text.km-description {{ modified_at }}
+                  .q-mb-sm
+                    .text-secondary-text.km-button-xs-text Created by:
+                    .text-secondary-text.km-description {{ created_by }}
+                  div
+                    .text-secondary-text.km-button-xs-text Modified by:
+                    .text-secondary-text.km-description {{ updated_by }}
+            km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='aiAppStore.revert()', v-if='aiAppStore.isChanged')
+            km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !aiAppStore.isChanged')
+            q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
+              q-menu(anchor='bottom right', self='top right')
+                q-item(clickable, @click='showNewDialog = true', dense)
+                  q-item-section
+                    .km-heading-3 Clone
+                q-item(clickable, @click='showDeleteDialog = true', dense)
+                  q-item-section
+                    .km-heading-3 Delete
+            km-popup-confirm(
+              :visible='showDeleteDialog',
+              confirmButtonLabel='Delete AI App',
+              cancelButtonLabel='Cancel',
+              notificationIcon='fas fa-triangle-exclamation',
+              @confirm='confirmDelete',
+              @cancel='showDeleteDialog = false'
+            )
+              .row.item-center.justify-center.km-heading-7 You are about to delete the AI App
+              .row.text-center.justify-center This action will permanently delete the AI App and its AI Tabs.
 
         .ba-border.bg-white.border-radius-12.q-pa-16(style='min-width: 300px')
           q-tabs.bb-border.full-width(
@@ -39,7 +76,7 @@
           )
             template(v-for='t in folderTabs')
               q-tab(:name='t.name', :label='t.label')
-          .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-my-md(style='max-height: calc(100vh - 360px) !important')
+          .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-my-md.km-scroll-area-lg
             .row.q-gap-16.full-height.full-width
               .col.full-height.full-width
                 .column.items-center.full-height.full-width.q-gap-16.overflow-auto
@@ -49,21 +86,39 @@
                     template(v-if='folderTab == "settings"')
                       ai-apps-settings
 
-  .col-auto(style='width: 520px', v-if='tabs.length > 0')
+  .col-auto(v-if='tabs.length > 0')
     ai-apps-drawer(v-model:open='openTest')
+ai-apps-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
 </template>
 
 <script>
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
 import { VueDraggable } from 'vue-draggable-plus'
+import { useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useSearchStore } from '@/stores/searchStore'
+import { storeToRefs } from 'pinia'
 
 export default {
   components: {
     VueDraggable,
   },
+  emits: ['update:closeDrawer'],
   setup() {
-    const { selected, visibleRows, selectedRow, ...useCollection } = useChroma('ai_apps')
+    const route = useRoute()
+    const queries = useEntityQueries()
+    const aiAppStore = useAiAppDetailStore()
+    const searchStore = useSearchStore()
+    const { semanticSearchAnswers } = storeToRefs(searchStore)
+    function clearSemanticSearchAnswers() {
+      semanticSearchAnswers.value = []
+    }
+    const id = ref(route.params.id)
+    const { data: selectedRow } = queries.ai_apps.useDetail(id)
+    const removeMutation = queries.ai_apps.useRemove()
+    const { mutateAsync: updateEntity } = queries.ai_apps.useUpdate()
+    const { mutateAsync: createEntity } = queries.ai_apps.useCreate()
 
     return {
       activeAIApp: ref({}),
@@ -73,10 +128,12 @@ export default {
       showInfo: ref(false),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
-      visibleRows,
+      saving: ref(false),
+      id,
       selectedRow,
-      selected,
-      useCollection,
+      removeMutation,
+      updateEntity,
+      createEntity,
       searchString: ref(''),
       hovered: ref({}),
       isMoving: ref(false),
@@ -86,39 +143,41 @@ export default {
         { name: 'records', label: 'AI Tabs' },
         { name: 'settings', label: 'Settings' },
       ]),
+      aiAppStore,
+      clearSemanticSearchAnswers,
     }
   },
   computed: {
     name: {
       get() {
-        return this.$store.getters.ai_app?.name || ''
+        return this.aiAppStore.entity?.name || ''
       },
       set(value) {
-        this.$store.commit('updateAIAppProperty', { key: 'name', value })
+        this.aiAppStore.updateProperty({ key: 'name', value })
       },
     },
     description: {
       get() {
-        return this.$store.getters.ai_app?.description || ''
+        return this.aiAppStore.entity?.description || ''
       },
       set(value) {
-        this.$store.commit('updateAIAppProperty', { key: 'description', value })
+        this.aiAppStore.updateProperty({ key: 'description', value })
       },
     },
     system_name: {
       get() {
-        return this.$store.getters.ai_app?.system_name || ''
+        return this.aiAppStore.entity?.system_name || ''
       },
       set(value) {
-        this.$store.commit('updateAIAppProperty', { key: 'system_name', value })
+        this.aiAppStore.updateProperty({ key: 'system_name', value })
       },
     },
     tabs: {
       get() {
-        return this.$store.getters.ai_app?.tabs || []
+        return this.aiAppStore.entity?.tabs || []
       },
       set(value) {
-        this.$store.commit('updateAIAppProperty', { key: 'tabs', value })
+        this.aiAppStore.updateProperty({ key: 'tabs', value })
       },
     },
     searchedTabs: {
@@ -133,22 +192,44 @@ export default {
       return this.$route.params?.id
     },
     loading() {
-      return !this.$store?.getters?.ai_app?.id
+      return !this.aiAppStore.entity?.id
+    },
+    entity() {
+      return this.aiAppStore.entity
+    },
+    created_at() {
+      return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
+    },
+    modified_at() {
+      return this.entity?.updated_at ? this.formatDate(this.entity.updated_at) : ''
+    },
+    created_by() {
+      return this.entity?.created_by || 'Unknown'
+    },
+    updated_by() {
+      return this.entity?.updated_by || 'Unknown'
     },
   },
   watch: {
     selectedRow(newVal, oldVal) {
       if (newVal?.id !== oldVal?.id) {
-        this.$store.commit('setAIApp', newVal)
+        this.aiAppStore.setEntity(newVal)
         this.tab = 'retrieve'
-        this.$store.commit('clearSemanticSeacrhAnswers')
+        this.clearSemanticSearchAnswers()
       }
     },
   },
   mounted() {
-    if (this.activeAIAppId != this.$store.getters.ai_app?.id) {
-      this.$store.commit('setAIApp', this.selectedRow)
-      this.$store.commit('clearSemanticSeacrhAnswers')
+    if (this.activeAIAppId != this.aiAppStore.entity?.id) {
+      this.aiAppStore.setEntity(this.selectedRow)
+      this.clearSemanticSearchAnswers()
+    }
+  },
+  activated() {
+    this.id = this.$route.params.id
+    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
+    if (this.selectedRow && this.activeAIAppId != this.aiAppStore.entity?.id) {
+      this.aiAppStore.setEntity(this.selectedRow)
     }
   },
   methods: {
@@ -158,9 +239,37 @@ export default {
       }
     },
     openTabDetails(row) {
-      console.log(row)
-      this.$store.commit('setAIAppTab', row)
+      // Tab context passed via URL param; no Vuex needed
       this.navigate(`${this.$route.path}/items/${row.system_name}`)
+    },
+    async save() {
+      this.saving = true
+      try {
+        if (this.entity?.created_at) {
+          const data = this.aiAppStore.buildPayload()
+          await this.updateEntity({ id: this.entity.id, data })
+        } else {
+          await this.createEntity(this.entity)
+        }
+        this.aiAppStore.setInit()
+        // Pinia store already tracks the entity; refresh the iframe
+        window.postMessage({ type: 'reload_iframe' })
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+      } catch (error) {
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
+      } finally {
+        this.saving = false
+      }
+    },
+    async confirmDelete() {
+      await this.removeMutation.mutateAsync(this.$route.params.id)
+      this.$emit('update:closeDrawer', null)
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'AI App has been deleted.', timeout: 1000 })
+      this.navigate('/ai-apps')
+    },
+    formatDate(date) {
+      const d = new Date(date)
+      return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
     },
   },
 }
@@ -168,7 +277,7 @@ export default {
 
 <style lang="stylus">
 .gradient {
-  background: linear-gradient(121.5deg, #6840C2 9.69%, #E30052 101.29%);
+  background: linear-gradient(121.5deg, var(--q-primary) 9.69%, var(--q-error) 101.29%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }

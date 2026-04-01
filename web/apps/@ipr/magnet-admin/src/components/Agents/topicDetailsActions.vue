@@ -3,11 +3,11 @@ div
   .km-heading-4.q-mb-md Topic Actions
   .row.q-mb-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
+      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     .col-auto.center-flex-y
       km-btn.q-mr-12(
-        v-if='selected.length > 0',
+        v-if='selectedRows.length > 0',
         icon='delete',
         label='Delete',
         @click='showDeleteDialog = true',
@@ -20,16 +20,11 @@ div
       )
       km-btn.q-mr-12(label='New', @click='openNewDetails')
   .row
-    km-table-new(
-      @selectRow='selectRecord',
-      selection='multiple',
+    km-data-table(
+      :table='table',
       row-key='system_name',
-      :active-record-id='activeTopic?.action',
-      v-model:selected='selected',
-      :columns='columns',
-      :rows='agentDetailTopicActions ?? []',
-      :pagination='agentPagination',
-      binary-state-sort
+      :activeRowId='activeTopic?.action',
+      @row-click='selectRecord'
     )
   agents-create-new-action(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', v-if='showNewDialog')
 km-popup-confirm(
@@ -41,103 +36,93 @@ km-popup-confirm(
   @cancel='showDeleteDialog = false'
 )
   .row.item-center.justify-center.km-heading-7 Delete Topic Action Records
-  .row.text-center.justify-center {{ `You are going to delete ${selected?.length} selected records. Are you sure?` }}
+  .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected records. Are you sure?` }}
 </template>
 
-<script>
-import { agentTopicActionsColumns, agentPagination } from '@/config/agents/topics'
-import { ref } from 'vue'
+<script setup>
+import { ref, computed, markRaw } from 'vue'
+import { useRoute } from 'vue-router'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
+import NameDescription from '@/config/agents/component/NameDescription.vue'
+import Type from '@/config/agents/component/Type.vue'
 
-export default {
-  emits: ['openTest'],
-  setup() {
-    return {
-      columns: Object.values(agentTopicActionsColumns)
-        .filter((col) => col.name != 'topic')
-        .sort((a, b) => a.columnNumber - b.columnNumber),
-      showNewDialog: ref(false),
-      selected: ref([]),
-      showDeleteDialog: ref(false),
-      searchString: ref(''),
-      agentPagination,
-    }
-  },
-  computed: {
-    routeParams() {
-      return this.$route.params
-    },
-    topic() {
-      return (this.$store.getters.agentDetailVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
-    },
-    system_name: {
-      get() {
-        return this.topic?.system_name || ''
-      },
-      set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
-          arrayPath: 'topics',
-          itemSystemName: this.system_name,
-          data: {
-            system_name: value,
-          },
-        })
-      },
-    },
-    agentDetailTopicActions: {
-      get() {
-        const actions = this.topic?.actions ?? []
-        return actions.filter((item) => {
-          return (
-            item.name.toLowerCase().includes(this.searchString.toLowerCase()) ||
-            item.system_name.toLowerCase().includes(this.searchString.toLowerCase())
-          )
-        })
-      },
-      // set(value) {
-      //   this.$store.commit('updateAgentDetailProperty', { key: 'items', value })
-      // },
-    },
-    activeTopic: {
-      get() {
-        return this.$store.getters.activeTopic
-      },
-      set(value) {
-        this.$store.commit('setActiveTopic', value)
-      },
-    },
-  },
-  methods: {
-    deleteSelected() {
-      this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
-        arrayPath: 'topics',
-        itemSystemName: this.topic?.system_name,
-        data: {
-          actions: (this.topic.actions || []).filter((action) => !this.selected.map((el) => el?.system_name).includes(action.system_name)),
-        },
-      })
+const emit = defineEmits(['openTest'])
 
-      this.selected = []
-      this.showDeleteDialog = false
-    },
-    selectRecord(row) {
-      this.activeTopic = {
-        ...(this.activeTopic ? this.activeTopic : {}),
-        topic: this.routeParams?.topicId,
-        action: row.system_name,
-      }
-      // this.navigate(`agents/${this.routeParams?.id}/topics/${this.routeParams.topicId}/actions/${row.system_name}`)
-    },
-    openNewDetails() {
-      this.showNewDialog = true
-    },
-    navigate(path = '') {
-      if (this.$route.path !== `/${path}`) {
-        this.$router.push(`/${path}`)
-      }
-    },
-    openDetails() {
-      this.navigate('evaluation-sets/details')
-    },
+const route = useRoute()
+const agentStore = useAgentDetailStore()
+const showNewDialog = ref(false)
+const showDeleteDialog = ref(false)
+
+const routeParams = computed(() => route.params)
+
+const topic = computed(() => {
+  return (agentStore.activeVariant?.value?.topics || [])?.find(
+    (topic) => topic?.system_name === routeParams.value?.topicId
+  )
+})
+
+const data = computed(() => {
+  const actions = topic.value?.actions ?? []
+  return actions
+})
+
+const columns = [
+  selectionColumn(),
+  componentColumn('nameDescription', 'Name & Description for LLM', markRaw(NameDescription), {
+    accessorKey: 'name',
+    sortable: true,
+    props: (row) => ({
+      row: {
+        name: row.function_name,
+        description: row.function_description,
+      },
+    }),
+  }),
+  componentColumn('type', 'Type', markRaw(Type), {
+    accessorKey: 'type',
+    sortable: true,
+  }),
+]
+
+const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(data, columns, {
+  enableRowSelection: true,
+})
+
+const activeTopic = computed({
+  get() {
+    return agentStore.activeTopic
   },
+  set(value) {
+    agentStore.activeTopic = value
+  },
+})
+
+const deleteSelected = () => {
+  agentStore.updateNestedListItemBySystemName({
+    arrayPath: 'topics',
+    itemSystemName: topic.value?.system_name,
+    data: {
+      actions: (topic.value.actions || []).filter(
+        (action) => !selectedRows.value.map((el) => el?.system_name).includes(action.system_name)
+      ),
+    },
+  })
+
+  clearSelection()
+  showDeleteDialog.value = false
+}
+
+const selectRecord = (row) => {
+  activeTopic.value = {
+    ...(activeTopic.value ? activeTopic.value : {}),
+    topic: routeParams.value?.topicId,
+    action: row.system_name,
+  }
+}
+
+const openNewDetails = () => {
+  showNewDialog.value = true
 }
 </script>

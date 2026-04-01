@@ -1,70 +1,79 @@
 <template lang="pug">
-div(style='min-width: 300px')
+.column.full-height(style='min-height: 0')
   .row.q-mb-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
-  .row
-    km-table(
-      @selectRow='selectRecord',
-      selection='multiple',
+      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+  .col(style='min-height: 0')
+    km-data-table(
+      fill-height,
+      :table='table',
       row-key='id',
-      :active-record-id='selectedRow?.id',
-      v-model:selected='selected',
-      :columns='columns',
-      :rows='filteredEvaluationSetItems ?? []',
-      :pagination='pagination',
-      binary-state-sort
+      :activeRowId='selectedRow?.id',
+      @row-click='selectRecord'
     )
 </template>
 
-<script>
-import { columnsSettings, evaluationRecord } from '@/config/evaluation_jobs/evaluation_job_records'
-import { ref } from 'vue'
+<script setup>
+import { ref, computed, onMounted, markRaw } from 'vue'
+import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
+import { useEvaluationStore } from '@/stores/evaluationStore'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
+import TextWrap from '@/config/evaluation_jobs/component/TextWrap.vue'
 
-export default {
-  emits: ['openTest'],
-  setup() {
-    return {
-      columns: Object.values(columnsSettings).sort((a, b) => a.columnNumber - b.columnNumber),
-      selected: ref([]),
-      evaluationRecord,
-      searchString: ref(''),
-      pagination: ref({
-        rowsPerPage: 10,
-        sortBy: 'user_message',
-        descending: false,
-      }),
-    }
+const emit = defineEmits(['openTest'])
+
+const evalSetStore = useEvaluationSetDetailStore()
+const evalStore = useEvaluationStore()
+
+const selectedRow = computed(() => evalStore.evaluationJobRecord)
+
+const evaluationSetItems = computed({
+  get() {
+    return evalStore.evaluation?.results || []
   },
-  computed: {
-    selectedRow() {
-      return this.$store.getters.evaluation_job_record
-    },
-    evaluationSetItems: {
-      get() {
-        return this.$store.getters.evaluation?.results || []
-      },
-      set(value) {
-        this.$store.commit('updateEvaluationSetProperty', { key: 'items', value })
-      },
-    },
-    filteredEvaluationSetItems() {
-      if (!this.searchString) return this.evaluationSetItems
-      const lowerCaseSearch = this.searchString.toLowerCase()
-      return this.evaluationSetItems.filter((item) => {
-        return Object.values(item).some((value) => typeof value === 'string' && value.toLowerCase().includes(lowerCaseSearch))
-      })
-    },
+  set(value) {
+    evalSetStore.updateProperty({ key: 'items', value })
   },
-  mounted() {
-    this.selected = [this.selectedRow]
-  },
-  methods: {
-    selectRecord(row) {
-      this.selected = []
-      this.selected = [row]
-      this.$store.commit('setEvaluationJobRecord', row)
-    },
-  },
+})
+
+const data = computed(() => evaluationSetItems.value)
+
+const columns = [
+  selectionColumn(),
+  textColumn('iteration', 'Iteration'),
+  componentColumn('user_message', 'Evaluation input', markRaw(TextWrap), {
+    accessorKey: 'user_message',
+    sortable: true,
+    props: (row) => ({ name: 'user_message' }),
+  }),
+  componentColumn('generated_output', 'Generated output', markRaw(TextWrap), {
+    accessorKey: 'generated_output',
+    sortable: true,
+    props: (row) => ({ name: 'generated_output' }),
+  }),
+  componentColumn('expected_output', 'Expected output', markRaw(TextWrap), {
+    accessorKey: 'expected_output',
+    sortable: true,
+    props: (row) => ({ name: 'expected_output' }),
+  }),
+  textColumn('score', 'Score'),
+]
+
+const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(data, columns, {
+  enableRowSelection: true,
+  defaultPageSize: 5,
+  defaultSort: [{ id: 'user_message', desc: false }],
+})
+
+onMounted(() => {
+  if (selectedRow.value) {
+    // Pre-select the current row
+  }
+})
+
+const selectRecord = (row) => {
+  clearSelection()
+  evalStore.evaluationJobRecord = row
 }
 </script>

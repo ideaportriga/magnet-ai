@@ -106,8 +106,8 @@ export default {
 
 <style scoped>
 .card-style {
-  width: 676px;
-  padding: 32px;
+  width: var(--dialog-width-lg);
+  padding: var(--dialog-padding);
 }
 
 .card-section-style {
@@ -115,7 +115,7 @@ export default {
 }
 
 .card-actions-style {
-  padding: 32px 0 0 0 !important;
+  padding: var(--dialog-padding) 0 0 0 !important;
 }
 
 .notification {

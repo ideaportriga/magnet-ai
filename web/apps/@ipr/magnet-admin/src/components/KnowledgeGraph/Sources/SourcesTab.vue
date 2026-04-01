@@ -185,8 +185,10 @@ import { fetchData } from '@shared'
 import { formatRelative } from '@shared/utils'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import { KgConfirmDialog, KgStatusBadge, KgTableToolbar } from '../common'
+import type { KnowledgeGraphDetails } from '../types'
 import { fetchKnowledgeGraphSources } from './api'
 import { formatAdded, getSourceTypeName, type SourceRow, type SourceSchedule } from './models'
 import SourceTypeDialog from './SourceTypeDialog.vue'
@@ -194,15 +196,16 @@ import { getDialogComponentFor, isSyncable, type SourceTypeKey } from './SourceT
 
 const props = defineProps<{
   graphId: string
-  graphDetails: Record<string, any>
+  graphDetails: KnowledgeGraphDetails
 }>()
 
 const emit = defineEmits<{
   refresh: []
 }>()
 
-const store = useStore()
+const appStore = useAppStore()
 const $q = useQuasar()
+const { notifySuccess, notifyError, notifyWarning, notifyInfo } = useNotify()
 
 const loading = ref(false)
 const showSourceTypeDialog = ref(false)
@@ -298,7 +301,7 @@ const columns: QTableColumn<SourceRow>[] = [
 const fetchSources = async (force = false) => {
   loading.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     rows.value = await fetchKnowledgeGraphSources({
       endpoint,
       graphId: props.graphId,
@@ -310,7 +313,7 @@ const fetchSources = async (force = false) => {
       selectedRow.value = rows.value.find((r) => r.id === selectedRow.value?.id) || null
     }
   } catch (error) {
-    console.error('Error fetching sources:', error)
+
   } finally {
     loading.value = false
   }
@@ -400,7 +403,7 @@ const handleSourceCancelled = () => {
 
 const syncSource = async (source: SourceRow, showNotification = true): Promise<boolean> => {
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/sources/${source.id}/sync`,
@@ -410,34 +413,20 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
 
     if (response.ok) {
       if (showNotification) {
-        $q.notify({
-          message: `Sync started for ${source.name}. Click Refresh to see progress.`,
-          position: 'top',
-          color: 'info',
-          textColor: 'white',
-          timeout: 2500,
-        })
+        notifyInfo(`Sync started for ${source.name}. Click Refresh to see progress.`)
       }
       // Don't auto-refresh - user clicks Refresh button to see updated status
       return true
     } else {
       if (showNotification) {
-        $q.notify({
-          message: `Failed to start sync for ${source.name}`,
-          position: 'top',
-          color: 'error-text',
-          timeout: 1000,
-        })
+        notifyError(`Failed to start sync for ${source.name}`)
       }
       return false
     }
   } catch (error) {
-    console.error('Error syncing source:', error)
+
     if (showNotification) {
-      $q.notify({
-        type: 'negative',
-        message: 'Error starting sync',
-      })
+      notifyError('Error starting sync')
     }
     return false
   } finally {
@@ -468,14 +457,14 @@ function onConfirmSyncAll() {
 
 const handleSyncAll = async () => {
   if (!rows.value?.length) {
-    $q.notify({ type: 'info', message: 'No sources to sync', position: 'top', timeout: 1000 })
+    notifyInfo('No sources to sync')
     return
   }
   syncAllInProgress.value = true
   try {
     const syncable = rows.value.filter((r) => isSyncable(r.type))
     if (syncable.length === 0) {
-      $q.notify({ type: 'info', message: 'No syncable sources found', position: 'top', timeout: 1000 })
+      notifyInfo('No syncable sources found')
       return
     }
     let anySuccess = false
@@ -491,17 +480,11 @@ const handleSyncAll = async () => {
     }
     // Show single notification for Sync All
     if (anySuccess && !anyFailure) {
-      $q.notify({
-        type: 'info',
-        message: 'Sync started for all sources. Click Refresh to see progress.',
-        position: 'top',
-        textColor: 'white',
-        timeout: 2500,
-      })
+      notifyInfo('Sync started for all sources. Click Refresh to see progress.')
     } else if (anySuccess && anyFailure) {
-      $q.notify({ type: 'warning', message: 'Sync started with some errors', position: 'top', timeout: 2000 })
+      notifyWarning('Sync started with some errors')
     } else {
-      $q.notify({ type: 'negative', message: 'Failed to start sync', position: 'top', timeout: 2000 })
+      notifyError('Failed to start sync')
     }
   } finally {
     syncAllInProgress.value = false
@@ -523,7 +506,7 @@ const performDelete = async () => {
   try {
     deleteInProgress.value = true
     deletingIds.value.add(source.id)
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/sources/${source.id}`,
@@ -532,22 +515,16 @@ const performDelete = async () => {
     })
 
     if (response.ok) {
-      $q.notify({
-        type: 'positive',
-        message: 'Source and related content deleted',
-        position: 'top',
-        textColor: 'black',
-        timeout: 1200,
-      })
+      notifySuccess('Source and related content deleted')
       showDeleteDialog.value = false
       fetchSources(true)
       emit('refresh')
     } else {
-      $q.notify({ type: 'negative', message: 'Failed to delete source', position: 'top' })
+      notifyError('Failed to delete source')
     }
   } catch (error) {
-    console.error('Error deleting source:', error)
-    $q.notify({ type: 'negative', message: 'Error deleting source', position: 'top' })
+
+    notifyError('Error deleting source')
   } finally {
     deleteInProgress.value = false
     deletingIds.value.delete(selectedRow.value.id)
@@ -564,7 +541,7 @@ const performPurge = async () => {
   const source = selectedRow.value
   try {
     purgeInProgress.value = true
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/sources/${source.id}/purge`,
@@ -573,22 +550,16 @@ const performPurge = async () => {
     })
 
     if (response.ok) {
-      $q.notify({
-        type: 'positive',
-        message: 'Documents and chunks purged',
-        position: 'top',
-        textColor: 'black',
-        timeout: 1200,
-      })
+      notifySuccess('Documents and chunks purged')
       showPurgeDialog.value = false
       fetchSources(true)
       emit('refresh')
     } else {
-      $q.notify({ type: 'negative', message: 'Failed to purge source data', position: 'top' })
+      notifyError('Failed to purge source data')
     }
   } catch (error) {
-    console.error('Error purging source data:', error)
-    $q.notify({ type: 'negative', message: 'Error purging source data', position: 'top' })
+
+    notifyError('Error purging source data')
   } finally {
     purgeInProgress.value = false
   }
@@ -611,7 +582,7 @@ onMounted(() => {
 
 <style scoped>
 :deep(.q-table thead th) {
-  font-size: 14px;
+  font-size: var(--km-body-sm-size, 14px);
   font-weight: 600;
 }
 
@@ -620,25 +591,25 @@ onMounted(() => {
 }
 
 .kg-sync-meta-label {
-  font-size: 12px;
-  color: var(--q-secondary-text, rgba(0, 0, 0, 0.5));
+  font-size: var(--km-caption-size, 12px);
+  color: var(--q-secondary-text);
 }
 
 .kg-sync-meta-value {
-  font-size: 12px;
-  color: var(--q-secondary-text, rgba(0, 0, 0, 0.75));
+  font-size: var(--km-caption-size, 12px);
+  color: var(--q-secondary-text);
 }
 
 .kg-sync-schedule-interval {
-  font-size: 13px;
+  font-size: var(--km-body-sm-size, 13px);
   font-weight: 600;
   color: var(--q-primary);
   text-transform: capitalize;
 }
 
 .kg-sync-schedule-time {
-  font-size: 12px;
-  color: var(--q-secondary-text, rgba(0, 0, 0, 0.6));
+  font-size: var(--km-caption-size, 12px);
+  color: var(--q-secondary-text);
 }
 
 /* Row menu: keep compact/default, without hover highlighting */

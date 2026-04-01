@@ -11,7 +11,10 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@shared": ["../../../packages/shared/src/index.ts"]
+      "@shared": ["../../../packages/shared/src/index.ts"],
+      "@shared/api": ["../../../packages/shared/src/lib/api/index.ts"],
+      "@shared/queries": ["../../../packages/shared/src/lib/queries/index.ts"],
+      "@shared/*": ["../../../packages/shared/src/lib/*"]
     }
   },
   "files": [],

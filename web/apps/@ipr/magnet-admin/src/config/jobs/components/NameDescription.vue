@@ -1,6 +1,7 @@
 <template lang="pug">
-.km-title.text-lef.ellipsis {{ typeLabel }}
-.km-field.text-left.ellipsis {{ description }}
+div
+  .km-title.text-lef.ellipsis {{ typeLabel }}
+  .km-field.text-left.ellipsis {{ description }}
 </template>
 
 <script>

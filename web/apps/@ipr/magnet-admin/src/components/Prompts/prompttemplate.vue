@@ -45,21 +45,20 @@ div
 <script>
 import { isEqual, orderBy, pickBy } from 'lodash'
 import { ref } from 'vue'
-import { useChroma } from '@shared'
 import MarkdownIt from 'markdown-it'
+import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import chromaConfig from '@/config/entityFieldConfig'
 
 export default {
   props: ['prompt', 'selectedRow'],
   emits: ['setProp', 'save', 'cancel', 'remove', 'openTest'],
 
   setup() {
-    const { publicItems, publicSelected, publicSelectedOptionsList } = useChroma('collections')
     const md = new MarkdownIt({ html: false, breaks: true })
+    const promptStore = usePromptTemplateDetailStore()
     return {
+      promptStore,
       markdownRenderer: md,
-      publicItems,
-      publicSelected,
-      publicSelectedOptionsList,
       test: ref(true),
       iconPicker: ref(false),
       showError: ref(false),
@@ -80,10 +79,10 @@ export default {
   computed: {
     text: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.text || ''
+        return this.promptStore.activeVariant?.text || ''
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'text', value })
+        this.promptStore.updateNestedVariantProperty({ path: 'text', value })
       },
     },
 
@@ -160,17 +159,14 @@ export default {
     },
 
     promptMetadata() {
-      const views = this.$store.getters.views
-      return Object.values(views).reduce((res, { entities }) => {
-        Object.keys(entities).forEach((name) => {
-          let controls = this.$store.getters.controls?.[name] ?? {}
-          controls = pickBy(controls, (o) => o.fieldName || o.dataType)
-          controls = orderBy(controls, ['label'])
-
-          res[name] = { applet: entities[name], controls }
-        })
-        return res
-      }, {})
+      const res = {}
+      Object.keys(chromaConfig).forEach((name) => {
+        let controls = chromaConfig[name]?.config ?? {}
+        controls = pickBy(controls, (o) => o.fieldName || o.dataType)
+        controls = orderBy(Object.values(controls), ['label'])
+        res[name] = { applet: chromaConfig[name], controls }
+      })
+      return res
     },
 
     metadataFields() {
@@ -201,20 +197,20 @@ export default {
 
 <style lang="stylus" scoped>
 .prompt-locked
-  background: #f7f7f9
-  border-radius: 8px
+  background: var(--q-light)
+  border-radius: var(--radius-lg)
   padding: 12px 16px
   min-height: 160px
   // Align with km-description (12px) from base typography
-  font-size: 12px
+  font-size: var(--km-caption-size, 12px)
 
 .prompt-locked :deep(.prompt-var-chip)
   display: inline-flex
   align-items: center
   padding: 2px 8px
   margin: 2px 2px
-  border-radius: 4px
-  font-size: 12px
+  border-radius: var(--radius-sm)
+  font-size: var(--km-caption-size, 12px)
   font-weight: 500
   border: 1px solid var(--q-primary)
   color: var(--q-primary)
@@ -234,24 +230,24 @@ export default {
 
 .prompt-locked :deep(table)
   border-collapse: collapse
-  border: 1px solid rgba(0, 0, 0, 0.12)
+  border: 1px solid var(--q-border)
   margin: 0 0 8px 0
   width: auto
   font-size: inherit
 
 .prompt-locked :deep(th),
 .prompt-locked :deep(td)
-  border: 1px solid rgba(0, 0, 0, 0.12)
+  border: 1px solid var(--q-border)
   padding: 6px 10px
   text-align: left
   font-size: inherit
 
 .prompt-locked :deep(pre),
 .prompt-locked :deep(code)
-  background: rgba(0, 0, 0, 0.06)
-  border-radius: 4px
+  background: var(--q-border-2)
+  border-radius: var(--radius-sm)
   padding: 2px 6px
-  font-size: 12px
+  font-size: var(--km-caption-size, 12px)
 
 .prompt-locked :deep(pre)
   padding: 12px
@@ -267,23 +263,23 @@ export default {
   margin: 12px 0 6px 0
   line-height: 1.3
   // Keep headings modest; at most +6px over body
-  font-size: 18px
+  font-size: 1.5em
   font-weight: 600
 
 .prompt-locked :deep(h2)
-  font-size: 16px
+  font-size: 1.33em
 
 .prompt-locked :deep(h3)
-  font-size: 15px
+  font-size: 1.25em
 
 .prompt-locked :deep(h4)
-  font-size: 14px
+  font-size: 1.17em
 
 .prompt-locked :deep(h5)
-  font-size: 13px
+  font-size: 1.08em
 
 .prompt-locked :deep(h6)
-  font-size: 12px
+  font-size: 1em
 
 .prompt-locked :deep(h1:first-child),
 .prompt-locked :deep(h2:first-child),

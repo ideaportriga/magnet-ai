@@ -1,27 +1,10 @@
 <template lang="pug">
 .row.no-wrap.overflow-hidden.full-height(v-if='loading')
-  q-inner-loading(:showing='loading')
-    q-spinner-gears(size='50px', color='primary')
+  km-inner-loading(:showing='loading')
 .row.no-wrap.overflow-hidden.full-height(v-else)
   .col.row.no-wrap.full-height.justify-center.fit
     .col(style='max-width: 1200px; min-width: 600px')
       .full-height.q-pb-md.relative-position.q-px-md
-        .q-mt-lg
-          q-breadcrumbs.text-grey(active-color='text-grey', gutter='lg')
-            template(v-slot:separator)
-              q-icon(size='12px', name='fas fa-chevron-right', color='text-grey')
-            q-breadcrumbs-el
-              .column
-                .km-small-chip.text-grey.text-capitalize Agent
-                .km-chip.text-grey-8.text-capitalize.breadcrumb-link(@click='navigate(`/agents/${routeParams?.id}`)') {{ agentName }}
-            q-breadcrumbs-el
-              .column
-                .km-small-chip.text-grey.text-capitalize Topic
-                .km-chip.text-grey-8.text-capitalize.breadcrumb-link(@click='navigate(`/agents/${routeParams?.id}/topics/${routeParams.topicId}`)') {{ topicName }}
-            q-breadcrumbs-el
-              .column
-                .km-small-chip.text-grey.text-capitalize Action
-                .km-chip.text-grey-8.text-capitalize {{ name }}
         .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
           .col
             .row.items-center
@@ -49,7 +32,7 @@
             template(v-for='t in tabs')
               q-tab(:name='t.name', :label='t.label')
 
-          .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='max-height: calc(100vh - 300px) !important')
+          .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
             .row.q-gap-16.full-height.full-width
               .col.full-height.full-width
                 .column.items-center.full-height.full-width.q-gap-16.overflow-auto
@@ -62,14 +45,24 @@
 </template>
 
 <script>
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed, onActivated } from 'vue'
+import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
-    const { visibleRows, selectedRow } = useChroma('agents')
+    const route = useRoute()
+    const queries = useEntityQueries()
+    const id = ref(route.params.id)
+    onActivated(() => { id.value = route.params.id })
+    const { data: listData } = queries.agents.useList()
+    const visibleRows = computed(() => listData.value?.items ?? [])
+    const { data: selectedRow } = queries.agents.useDetail(id)
+    const agentStore = useAgentDetailStore()
     return {
+      agentStore,
       tab: ref('general-settings'),
       activeAgentDetail: ref({}),
       visibleRows,
@@ -88,7 +81,7 @@ export default {
       return this.$route.params
     },
     topic() {
-      return (this.$store.getters.agentDetailVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     action() {
       return this.topic?.actions?.find((action) => action?.system_name == this.routeParams?.actionId)
@@ -97,17 +90,17 @@ export default {
       return this.topic?.name
     },
     agentName() {
-      return this.$store.getters.agent_detail?.name
+      return this.agentStore.entity?.name
     },
     agentId() {
-      return this.$store.getters.agent_detail?.id
+      return this.agentStore.entity?.id
     },
     name: {
       get() {
         return this.action?.name || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -123,7 +116,7 @@ export default {
         return this.action?.description || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -139,7 +132,7 @@ export default {
         return this.action?.system_name || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -160,21 +153,21 @@ export default {
       return this.items?.map((item) => item.name)
     },
     loading() {
-      return !this.$store?.getters?.agent_detail?.id
+      return !this.agentStore.entity?.id
     },
   },
 
   watch: {
     selectedRow(newVal, oldVal) {
       if (newVal?.id !== oldVal?.id) {
-        this.$store.commit('setAgentDetail', newVal)
+        this.agentStore.setEntity(newVal)
         this.tab = 'general-settings'
       }
     },
   },
   mounted() {
     if (this.activeAgentDetailId != this.agentId) {
-      this.$store.commit('setAgentDetail', this.selectedRow)
+      this.agentStore.setEntity(this.selectedRow)
       this.tab = 'general-settings'
     }
   },

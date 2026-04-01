@@ -69,7 +69,12 @@ class PgVectorStore(DocumentStore):
 
     def _get_documents_table_name(self, collection_id: str) -> str:
         """Get the documents table name for a collection."""
-        return f"{self.DOCUMENTS_TABLE_PREFIX}{collection_id.replace('-', '_')}"
+        import re
+
+        name = f"{self.DOCUMENTS_TABLE_PREFIX}{collection_id.replace('-', '_')}"
+        if not re.match(r"^[a-z_][a-z0-9_]{0,62}$", name):
+            raise ValueError(f"Unsafe dynamic table name: {name!r}")
+        return name
 
     async def _get_vector_size_from_model(self, model_system_name: str) -> int:
         """Get vector size from model configuration.
@@ -713,22 +718,34 @@ class PgVectorStore(DocumentStore):
         # Ensure the documents table exists before querying
         await self._ensure_documents_table_exists(collection_id)
 
-        # Count total documents
-        total_count = await self.client.fetchval(f"""
-            SELECT COUNT(*) FROM {table_name}
-        """)
-
         # Get paginated documents
         offset = data.offset or 0
         limit = data.limit or 10
 
+        # Build search WHERE clause (matches advanced-alchemy SearchFilter pattern)
+        search = getattr(data, "search", None)
+        where_clause = ""
+        query_params: list = []
+        if search:
+            where_clause = " WHERE (metadata->>'title' ILIKE $1 OR content ILIKE $1)"
+            query_params.append(f"%{search}%")
+
+        # Count total documents (with search applied)
+        total_count = await self.client.fetchval(
+            f"SELECT COUNT(*) FROM {table_name}{where_clause}",
+            *query_params,
+        )
+
+        next_param = len(query_params) + 1
         rows = await self.client.execute_query(
             f"""
             SELECT id::text, content, metadata, created_at, updated_at
             FROM {table_name}
+            {where_clause}
             ORDER BY created_at DESC
-            LIMIT $1 OFFSET $2
+            LIMIT ${next_param} OFFSET ${next_param + 1}
         """,
+            *query_params,
             limit,
             offset,
         )
@@ -851,13 +868,8 @@ class PgVectorStore(DocumentStore):
         # This avoids the asyncpg parameter type confusion with bulk operations
         inserted_ids = []
 
-        # Ensure pool is initialized
-        await self.client._ensure_pool_initialized()
-        if not self.client.pool:
-            raise RuntimeError("Connection pool is not initialized")
-
         # Use a transaction to ensure all inserts succeed or all fail
-        async with self.client.pool.acquire() as connection:
+        async with self.client._acquire() as connection:
             async with connection.transaction():
                 for doc, embedding in zip(documents, embeddings):
                     document_id = await connection.fetchval(

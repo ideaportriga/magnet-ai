@@ -6,6 +6,7 @@ from litestar.static_files import create_static_files_router
 from litestar.types import ControllerRouterHandler
 
 from core.domain.ai_apps import AiAppsController
+from core.domain.catalog import CatalogController
 from core.domain.ai_models.controller import AIModelsController
 from core.domain.api_servers import ApiServersController
 from core.domain.collections import CollectionsController
@@ -22,9 +23,13 @@ from core.domain.retrieval_tools import RetrievalToolsController
 from core.domain.traces import TracesController
 from guards.role import UserRole, create_role_guard
 from routes.admin.api_keys import ApiKeysController
+from routes.admin.groups import GroupsController
+from routes.admin.roles import RolesController
+from routes.admin.users import UsersController
 from routes.user.telemetry import TelemetryController
 
 from .admin.agents import AgentsController
+from .admin.files import FilesController
 from .admin.deep_research import DeepResearchConfigController, DeepResearchRunController
 from .admin.prompt_queue import PromptQueueConfigController
 from .admin.knowledge_sources import (
@@ -40,6 +45,9 @@ from .admin.settings import SettingsController
 from .admin.transfer import TransferController
 from .admin.utils import UtilsController
 from .auth import AuthController
+from .local_auth import LocalAuthController
+from .mfa import MfaController
+from .oauth import OAuthController
 from .static import serve_static_file
 from .user.agent_conversations import AgentConversationsController
 from .user.agents import UserAgentsController
@@ -56,13 +64,40 @@ def get_route_handlers(
     @get("/health", exclude_from_auth=True, tags=["health"])
     async def health_route_handler() -> dict[str, Any]:
         """Health Check endpoint"""
-        return {}
+        import os
+        import resource
+
+        from core.server.background_tasks import active_task_count
+
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        rss_bytes = rusage.ru_maxrss
+        # macOS reports in bytes, Linux in kilobytes
+        if os.uname().sysname == "Darwin":
+            rss_mb = rss_bytes / (1024 * 1024)
+        else:
+            rss_mb = rss_bytes / 1024
+
+        return {
+            "status": "ok",
+            "memory_rss_mb": round(rss_mb, 1),
+            "background_tasks_active": active_task_count(),
+        }
+
+    @get("/health/db", exclude_from_auth=True, tags=["health"])
+    async def db_health_route_handler() -> dict[str, Any]:
+        """Database connection pool health check"""
+        from core.db.monitoring import get_db_pool_status
+
+        return await get_db_pool_status()
 
     route_handlers_admin: list[ControllerRouterHandler] = [
         # Admin routes (alphabetically sorted)
         AgentsController,  # Admin / Agents
         AiAppsController,  # Admin / AI Apps
+        CatalogController,  # Admin / Catalog (global search)
         ApiKeysController,  # Admin / API Keys
+        GroupsController,  # Admin / Groups
+        RolesController,  # Admin / Roles
         ApiServersController,  # Admin / API Servers
         CollectionsController,  # Admin / Collections
         DeepResearchConfigController,  # Admin / Deep Research Configs
@@ -70,6 +105,7 @@ def get_route_handlers(
         PromptQueueConfigController,  # Admin / Prompt Queue
         EvaluationSetsController,  # Admin / Evaluation Sets
         EvaluationsController,  # Admin / Evaluations
+        FilesController,  # Admin / Files
         JobsController,  # Admin / Jobs
         knowledge_sources_router_deprecated,  # Admin / Knowledge Sources
         MCPServersController,  # Admin / MCP Servers
@@ -86,6 +122,7 @@ def get_route_handlers(
         SettingsController,  # Admin / Settings
         TracesController,  # Admin / Traces
         TransferController,  # Admin / Transfer
+        UsersController,  # Admin / Users
         UtilsController,  # Admin / Utils
         KnowledgeGraphController,  # Admin / Knowledge Graph
         # Deprecated routes first (with [Deprecated] prefix)
@@ -124,9 +161,11 @@ def get_route_handlers(
 
     route_handlers_public: list[ControllerRouterHandler] = [
         health_route_handler,
+        db_health_route_handler,
         serve_static_file,
     ]
 
+    # OIDC endpoints (existing flow, under / not /api)
     if auth_enabled:
         route_handlers_public.append(AuthController)
 
@@ -148,11 +187,19 @@ def get_route_handlers(
         route_handlers=route_handlers_public,
     )
 
+    # New auth endpoints under /api (local auth, MFA, OAuth social)
+    route_handlers_api_auth: list[ControllerRouterHandler] = [
+        LocalAuthController,
+        MfaController,
+        OAuthController,
+    ]
+
     router_api = Router(
         path="/api",
         route_handlers=[
             router_api_admin,
             router_api_user,
+            *route_handlers_api_auth,
         ],
     )
 

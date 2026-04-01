@@ -9,9 +9,7 @@ from typing import TYPE_CHECKING, Any, Final, cast
 from litestar.data_extractors import RequestExtractorField
 from litestar.serialization import decode_json, encode_json
 from litestar.utils.module_loader import module_to_os_path
-from sqlalchemy import event
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from ._utils import get_env
 
@@ -20,13 +18,38 @@ def json_serializer_for_sqlalchemy(obj: Any) -> str:
     """
     Wrapper for encode_json that returns str instead of bytes for SQLAlchemy.
     SQLAlchemy expects json_serializer to return str, not bytes.
+
+    Idempotent: if obj is already a JSON string, returns it as-is to prevent
+    double-encoding when SQLAlchemy's bind_processor and asyncpg's codec
+    both try to serialize the value.
     """
+    if isinstance(obj, str):
+        return obj
     result = encode_json(obj)
     if isinstance(result, bytes):
         return result.decode("utf-8")
     elif isinstance(result, (bytearray, memoryview)):
         return bytes(result).decode("utf-8")
     return str(result)
+
+
+def json_deserializer_for_sqlalchemy(s: str | bytes) -> Any:
+    """Deserializer that unwraps double-encoded JSONB values.
+
+    asyncpg decodes the outer JSONB layer automatically, but if the stored
+    value was double-encoded (a JSON string literal inside JSONB), asyncpg
+    returns a Python ``str`` instead of a ``dict``/``list``.  This function
+    detects that case and parses the inner string.
+    """
+    value = decode_json(s)
+    # If the JSONB column contained a string literal (double-encoded),
+    # decode_json returns a str.  Parse it once more to get the real object.
+    if isinstance(value, str):
+        try:
+            return decode_json(value)
+        except Exception:
+            return value
+    return value
 
 
 DEFAULT_MODULE_NAME = "app"
@@ -62,7 +85,9 @@ class GeneralSettings:
         default_factory=get_env("CORS_OVERRIDE_ALLOWED_ORIGINS", "")
     )
 
-    """Key used for encrypting secrets."""
+    """Key used for encrypting secrets. Must be set via env in production.
+    The insecure default is kept for local development only — production
+    startup validation in config/config.py will reject it."""
     SECRET_ENCRYPTION_KEY: str = field(
         default_factory=get_env("SECRET_ENCRYPTION_KEY", "my-secret-key-tsmh5r")
     )
@@ -73,29 +98,27 @@ class GeneralSettings:
 class DatabaseSettings:
     """Enable SQLAlchemy engine logs."""
 
-    ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", True))
+    ECHO: bool = field(default_factory=get_env("DATABASE_ECHO", False))
     """Enable SQLAlchemy connection pool logs."""
-    ECHO_POOL: bool = field(default_factory=get_env("DATABASE_ECHO_POOL", True))
+    ECHO_POOL: bool = field(default_factory=get_env("DATABASE_ECHO_POOL", False))
     """Enable detailed SQLAlchemy error logs."""
-    ECHO_ERRORS: bool = field(default_factory=get_env("DATABASE_ECHO_ERRORS", True))
+    ECHO_ERRORS: bool = field(default_factory=get_env("DATABASE_ECHO_ERRORS", False))
     """Disable SQLAlchemy pool configuration."""
     POOL_DISABLED: bool = field(
         default_factory=get_env("DATABASE_POOL_DISABLED", False)
     )
     """Max overflow for SQLAlchemy connection pool"""
     POOL_MAX_OVERFLOW: int = field(
-        default_factory=get_env("DATABASE_MAX_POOL_OVERFLOW", 10)
+        default_factory=get_env("DATABASE_MAX_POOL_OVERFLOW", 15)
     )
     """Pool size for SQLAlchemy connection pool"""
-    POOL_SIZE: int = field(default_factory=get_env("DATABASE_POOL_SIZE", 5))
+    POOL_SIZE: int = field(default_factory=get_env("DATABASE_POOL_SIZE", 10))
     """Time in seconds for timing connections out of the connection pool."""
     POOL_TIMEOUT: int = field(default_factory=get_env("DATABASE_POOL_TIMEOUT", 30))
     """Amount of time to wait before recycling connections."""
     POOL_RECYCLE: int = field(default_factory=get_env("DATABASE_POOL_RECYCLE", 300))
     """Optionally ping database before fetching a session from the connection pool."""
-    POOL_PRE_PING: bool = field(
-        default_factory=get_env("DATABASE_PRE_POOL_PING", False)
-    )
+    POOL_PRE_PING: bool = field(default_factory=get_env("DATABASE_PRE_POOL_PING", True))
     """SQLAlchemy Database URL."""
     URL: str = field(default_factory=get_env("DATABASE_URL", ""))
     """Database type (postgresql, mysql, sqlite, etc.)."""
@@ -201,77 +224,21 @@ class DatabaseSettings:
     def engine(self) -> AsyncEngine:
         return self.get_engine()
 
+    def _json_serializer(self):
+        return json_serializer_for_sqlalchemy
+
+    def _json_deserializer(self):
+        return json_deserializer_for_sqlalchemy
+
     def get_engine(self) -> AsyncEngine:
         if self._engine_instance is not None:
             return self._engine_instance
 
+        from core.db.engine_factory import get_engine_factory
+
         effective_url = self.effective_url
-        if effective_url.startswith("postgresql+asyncpg"):
-            engine = create_async_engine(
-                url=effective_url,
-                future=True,
-                json_serializer=json_serializer_for_sqlalchemy,
-                json_deserializer=decode_json,
-                echo=self.ECHO,
-                echo_pool=self.ECHO_POOL,
-                max_overflow=self.POOL_MAX_OVERFLOW,
-                pool_size=self.POOL_SIZE,
-                pool_timeout=self.POOL_TIMEOUT,
-                pool_recycle=self.POOL_RECYCLE,
-                pool_pre_ping=self.POOL_PRE_PING,
-                pool_use_lifo=True,  # use lifo to reduce the number of idle connections
-                poolclass=NullPool if self.POOL_DISABLED else None,
-            )
-            """Database session factory.
-
-            See [`async_sessionmaker()`][sqlalchemy.ext.asyncio.async_sessionmaker].
-            """
-
-        elif effective_url.startswith("sqlite+aiosqlite"):
-            engine = create_async_engine(
-                url=effective_url,
-                future=True,
-                json_serializer=json_serializer_for_sqlalchemy,
-                json_deserializer=decode_json,
-                echo=self.ECHO,
-                echo_pool=self.ECHO_POOL,
-                pool_recycle=self.POOL_RECYCLE,
-                pool_pre_ping=self.POOL_PRE_PING,
-            )
-            """Database session factory.
-
-            See [`async_sessionmaker()`][sqlalchemy.ext.asyncio.async_sessionmaker].
-            """
-
-            @event.listens_for(engine.sync_engine, "connect")
-            def _sqla_on_connect(
-                dbapi_connection: Any, _: Any
-            ) -> Any:  # pragma: no cover
-                """Override the default begin statement.  The disables the built in begin execution."""
-                dbapi_connection.isolation_level = None
-
-            @event.listens_for(engine.sync_engine, "begin")
-            def _sqla_on_begin(dbapi_connection: Any) -> Any:  # pragma: no cover
-                """Emits a custom begin"""
-                dbapi_connection.exec_driver_sql("BEGIN")
-        else:
-            engine = create_async_engine(
-                url=effective_url,
-                future=True,
-                json_serializer=json_serializer_for_sqlalchemy,
-                json_deserializer=decode_json,
-                echo=self.ECHO,
-                echo_pool=self.ECHO_POOL,
-                max_overflow=self.POOL_MAX_OVERFLOW,
-                pool_size=self.POOL_SIZE,
-                pool_timeout=self.POOL_TIMEOUT,
-                pool_recycle=self.POOL_RECYCLE,
-                pool_pre_ping=self.POOL_PRE_PING,
-                pool_use_lifo=True,  # use lifo to reduce the number of idle connections
-                poolclass=NullPool if self.POOL_DISABLED else None,
-            )
-        self._engine_instance = engine
-
+        factory = get_engine_factory(effective_url)
+        self._engine_instance = factory.create(effective_url, self)
         return self._engine_instance
 
 
@@ -327,45 +294,8 @@ class LogSettings:
     """Enable debug mode and event loop debugging."""
     DEBUG_MODE: bool = field(default_factory=get_env("DEBUG_MODE", False))
 
-    # https://stackoverflow.com/a/1845097/6560549
-    """Regex to exclude paths from logging."""
-    EXCLUDE_PATHS: str = r"\A(?!x)x"  # Not used
-    """Log event name for logs from Litestar handlers."""
-    HTTP_EVENT: str = "HTTP"  # Not used
-    """Include 'body' of compressed responses in log output."""
-    INCLUDE_COMPRESSED_BODY: bool = False  # Not used
-    """Stdlib log levels.
-
-    Only emit logs at this level, or higher.
-    """
-    LEVEL: int = field(default_factory=get_env("LOG_LEVEL", 10))
-    """Request cookie keys to obfuscate."""
-    OBFUSCATE_COOKIES: set[str] = field(
-        default_factory=lambda: {"session", "XSRF-TOKEN"}
-    )  # Not used
-    """Request header keys to obfuscate."""
-    OBFUSCATE_HEADERS: set[str] = field(
-        default_factory=lambda: {"Authorization", "X-API-KEY", "X-XSRF-TOKEN"}
-    )  # Not used
-    """Attributes of the SAQ.
-
-    [`Job`](https://github.com/tobymao/saq/blob/master/saq/job.py) to be
-    logged.
-    """
-    JOB_FIELDS: list[str] = field(
-        default_factory=lambda: [
-            "function",
-            "kwargs",
-            "key",
-            "scheduled",
-            "attempts",
-            "completed",
-            "queued",
-            "started",
-            "result",
-            "error",
-        ],
-    )  # Not used
+    """Stdlib log levels. Only emit logs at this level, or higher."""
+    LEVEL: int = field(default_factory=get_env("LOG_LEVEL", 20))
     """Attributes of the [Request][litestar.connection.request.Request] to be
     logged."""
     REQUEST_FIELDS: list[RequestExtractorField] = field(
@@ -391,10 +321,6 @@ class LogSettings:
             ),
         )
     )
-    """Log event name for logs from SAQ worker."""
-    WORKER_EVENT: str = "Worker"  # Not used
-    """Level to log SAQ logs."""
-    SAQ_LEVEL: int = field(default_factory=get_env("SAQ_LOG_LEVEL", 50))  # Not used
     """Level to log SQLAlchemy logs."""
     SQLALCHEMY_LEVEL: int = field(default_factory=get_env("SQLALCHEMY_LOG_LEVEL", 10))
     """Level to log uvicorn access logs."""
@@ -460,6 +386,27 @@ class AuthSettings:
 
     AUTH_ENABLED: bool = field(default_factory=get_env("AUTH_ENABLED", False))
     """Enable authentication."""
+
+    SECRET_KEY: str = field(default_factory=get_env("SECRET_KEY", ""))
+    """Secret key for signing internal JWT tokens (HS256).
+    Separate from SECRET_ENCRYPTION_KEY which is used for encrypting data at rest.
+    Must be set in production — empty string disables local JWT auth."""
+
+    JWT_ENCRYPTION_ALGORITHM: str = field(
+        default_factory=get_env("JWT_ENCRYPTION_ALGORITHM", "HS256")
+    )
+    """Algorithm for signing internal JWT tokens."""
+
+    ACCESS_TOKEN_EXPIRATION_MINUTES: int = field(
+        default_factory=get_env("ACCESS_TOKEN_EXPIRATION_MINUTES", 15)
+    )
+    """Access token expiration in minutes."""
+
+    REFRESH_TOKEN_EXPIRATION_DAYS: int = field(
+        default_factory=get_env("REFRESH_TOKEN_EXPIRATION_DAYS", 7)
+    )
+    """Refresh token expiration in days."""
+
     MICROSOFT_ENTRA_ID_TENANT_ID: str = field(
         default_factory=get_env("MICROSOFT_ENTRA_ID_TENANT_ID", "")
     )
@@ -476,6 +423,28 @@ class AuthSettings:
         default_factory=get_env("MICROSOFT_ENTRA_ID_REDIRECT_URI", "")
     )
     """Microsoft Entra ID redirect URI."""
+
+    # OAuth Social Login providers
+    GOOGLE_OAUTH2_CLIENT_ID: str = field(
+        default_factory=get_env("GOOGLE_OAUTH2_CLIENT_ID", "")
+    )
+    """Google OAuth2 client ID."""
+    GOOGLE_OAUTH2_CLIENT_SECRET: str = field(
+        default_factory=get_env("GOOGLE_OAUTH2_CLIENT_SECRET", "")
+    )
+    """Google OAuth2 client secret."""
+    GITHUB_OAUTH2_CLIENT_ID: str = field(
+        default_factory=get_env("GITHUB_OAUTH2_CLIENT_ID", "")
+    )
+    """GitHub OAuth2 client ID."""
+    GITHUB_OAUTH2_CLIENT_SECRET: str = field(
+        default_factory=get_env("GITHUB_OAUTH2_CLIENT_SECRET", "")
+    )
+    """GitHub OAuth2 client secret."""
+    OAUTH2_REDIRECT_BASE_URL: str = field(
+        default_factory=get_env("OAUTH2_REDIRECT_BASE_URL", "http://localhost:8000")
+    )
+    """Base URL for OAuth2 callback redirects."""
 
 
 ### VECTOR DATABASE SETTINGS ###

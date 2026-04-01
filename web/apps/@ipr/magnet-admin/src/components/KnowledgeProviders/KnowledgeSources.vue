@@ -1,21 +1,19 @@
 <template lang="pug">
-.row
-  .col-auto.center-flex-y
-    km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
-  q-space
-  .col-auto.center-flex-y
-    km-btn.q-mr-12(label='New', @click='showNewDialog = true')
-.row
-  km-table(
-    @selectRow='openDetails',
-    selection='single',
-    row-key='id',
-    :columns='columns',
-    :visibleColumns='visibleColumns',
-    :rows='filteredRows',
-    :pagination='pagination',
-    binary-state-sort
-  )
+.column.full-height(style='min-height: 0')
+  .row.q-mb-12
+    .col-auto.center-flex-y
+      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+    q-space
+    .col-auto.center-flex-y
+      km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+  .col(style='min-height: 0')
+    km-data-table(
+      :table='table',
+      :loading='isLoading',
+      fill-height,
+      row-key='id',
+      @row-click='openDetails'
+    )
 collections-create-new(
   v-if='showNewDialog',
   :showNewDialog='showNewDialog',
@@ -24,47 +22,45 @@ collections-create-new(
 )
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useChroma } from '@shared'
 import { useRouter } from 'vue-router'
+import { useDataTable } from '@/composables/useDataTable'
+import { nameDescriptionColumn, chipCopyColumn, dateColumn, textColumn } from '@/utils/columnHelpers'
+import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import type { Collection } from '@/types'
 
-export default {
-  setup() {
-    const { searchString, pagination, columns, visibleColumns, visibleRows } = useChroma('collections')
+const router = useRouter()
+const providerStore = useProviderDetailStore()
+const showNewDialog = ref(false)
 
-    const router = useRouter()
+const providerSystemName = computed(() => providerStore.entity?.system_name as string | undefined)
 
-    return {
-      searchString,
-      pagination,
-      columns,
-      visibleColumns,
-      visibleRows,
-      showNewDialog: ref(false),
-      router,
-    }
+const columns = [
+  nameDescriptionColumn<Collection>('Name'),
+  textColumn<Collection>('source_type' as keyof Collection, 'Source', {
+    format: (val) => {
+      if (val && typeof val === 'object') return (val as Record<string, unknown>)?.source_type as string ?? '-'
+      return val ? String(val) : '-'
+    },
+  }),
+  chipCopyColumn<Collection>('System name'),
+  dateColumn<Collection>('created_at', 'Created'),
+]
+
+const { table, rows, isLoading, globalFilter } = useDataTable<Collection>('collections', columns, {
+  defaultSort: [{ id: 'created_at', desc: true }],
+  manualPagination: false,
+  manualSorting: false,
+  manualFiltering: false,
+  dataFilter: (items) => {
+    const psn = providerSystemName.value
+    if (!psn) return []
+    return items.filter((item) => (item as Record<string, unknown>).provider_system_name === psn)
   },
-  computed: {
-    provider() {
-      return this.$store.getters.provider
-    },
-    providerSystemName() {
-      return this.provider?.system_name
-    },
-    filteredRows() {
-      if (!this.provider?.system_name) {
-        return []
-      }
-      // Filter collections by provider_system_name
-      return this.visibleRows.filter((item) => item.provider_system_name === this.provider.system_name)
-    },
-  },
-  methods: {
-    async openDetails(row) {
-      // Navigate to collection details
-      await this.router.push(`/knowledge-sources/${row.id}`)
-    },
-  },
+})
+
+const openDetails = async (row: Collection) => {
+  await router.push(`/knowledge-sources/${row.id}`)
 }
 </script>

@@ -58,13 +58,18 @@ export default defineConfig({
       host: 'localhost',
     },
     https: true,
-    port: 7000,
+    port: 7001,
     cors: {
-      origin: ['http://localhost:7000', 'http://locahost:7002'],
+      origin: ['http://localhost:7001', 'https://localhost:7001', 'http://localhost:7002'],
     },
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/loki': {
+        target: 'http://localhost:3100',
         changeOrigin: true,
         secure: false,
       },

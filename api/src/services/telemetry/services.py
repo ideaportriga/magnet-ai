@@ -1,8 +1,8 @@
-import json
-
-from sqlalchemy import text
+from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 
 from core.config.app import alchemy
+from core.db.models.metric.metric import Metric
 from services.common.models import LlmResponseFeedback
 
 
@@ -12,27 +12,22 @@ async def record_tool_response_feedback(
     analytics_id: str | None,
     feedback: LlmResponseFeedback,
 ) -> None:
-    """Record feedback for a tool response using SQLAlchemy."""
+    """Record feedback for a tool response."""
     if not analytics_id:
         return
 
     async with alchemy.get_session() as session:
         try:
-            # Convert feedback to JSON string to ensure proper type handling
-            feedback_json = json.dumps(feedback.model_dump())
+            metric = (
+                await session.execute(select(Metric).where(Metric.id == analytics_id))
+            ).scalar_one_or_none()
 
-            # Update the extra_data JSONB field with the feedback information
-            sql = """
-                UPDATE metrics 
-                SET extra_data = COALESCE(extra_data, '{}'::jsonb) || 
-                    jsonb_build_object('answer_feedback', CAST(:feedback AS jsonb))
-                WHERE id = :analytics_id
-            """
+            if metric is not None:
+                extra = dict(metric.extra_data or {})
+                extra["answer_feedback"] = feedback.model_dump()
+                metric.extra_data = extra
+                flag_modified(metric, "extra_data")
 
-            await session.execute(
-                text(sql),
-                {"analytics_id": analytics_id, "feedback": feedback_json},
-            )
             await session.commit()
         except Exception:
             await session.rollback()
@@ -44,21 +39,22 @@ async def record_tool_response_copy(
     trace_id: str | None,
     analytics_id: str | None,
 ) -> None:
-    """Record that a tool response was copied using SQLAlchemy."""
+    """Record that a tool response was copied."""
     if not analytics_id:
         return
 
     async with alchemy.get_session() as session:
         try:
-            # Update the extra_data JSONB field with the copy flag
-            sql = """
-                UPDATE metrics 
-                SET extra_data = COALESCE(extra_data, '{}'::jsonb) || 
-                    jsonb_build_object('answer_copy', true)
-                WHERE id = :analytics_id
-            """
+            metric = (
+                await session.execute(select(Metric).where(Metric.id == analytics_id))
+            ).scalar_one_or_none()
 
-            await session.execute(text(sql), {"analytics_id": analytics_id})
+            if metric is not None:
+                extra = dict(metric.extra_data or {})
+                extra["answer_copy"] = True
+                metric.extra_data = extra
+                flag_modified(metric, "extra_data")
+
             await session.commit()
         except Exception:
             await session.rollback()

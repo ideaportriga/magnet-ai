@@ -1,6 +1,5 @@
 """Shutdown plugin for handling application cleanup."""
 
-import asyncio
 import atexit
 import os
 from logging import getLogger
@@ -36,8 +35,11 @@ class ShutdownPlugin(InitPluginProtocol):
         # Shutdown scheduler
         await self._shutdown_scheduler(app)
 
-        # Give a brief moment for any ongoing operations to complete
-        await asyncio.sleep(0.5)
+        # Wait for tracked background tasks to finish (or cancel after timeout)
+        from core.server.background_tasks import shutdown_background_tasks
+
+        timeout = float(os.environ.get("GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS", "30"))
+        await shutdown_background_tasks(shutdown_timeout=timeout)
 
         # Close database connection pools
         await self._close_database_connections()

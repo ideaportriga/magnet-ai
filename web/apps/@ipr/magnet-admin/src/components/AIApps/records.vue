@@ -59,17 +59,25 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useStore } from 'vuex'
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
 import { VueDraggable } from 'vue-draggable-plus'
+import { useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useSearchStore } from '@/stores/searchStore'
 
 // Composables
 const route = useRoute()
 const router = useRouter()
-const store = useStore()
-const { selected, visibleRows, selectedRow, ...useCollection } = useChroma('ai_apps')
+const aiAppStore = useAiAppDetailStore()
+const searchStore = useSearchStore()
+const selected = ref([])
+const queries = useEntityQueries()
+const routeId = ref(route.params?.id)
+onActivated(() => { routeId.value = route.params?.id })
+const { data: selectedRow } = queries.ai_apps.useDetail(routeId)
+const { data: aiAppsListData } = queries.ai_apps.useList()
+const aiAppsItems = computed(() => aiAppsListData.value?.items ?? [])
 
 // Reactive state
 const activeAIApp = ref({})
@@ -87,24 +95,24 @@ const draggedRow = ref({})
 
 // Computed properties
 const name = computed({
-  get: () => store.getters.ai_app?.name || '',
-  set: (value) => store.commit('updateAIAppProperty', { key: 'name', value }),
+  get: () => aiAppStore.entity?.name || '',
+  set: (value) => aiAppStore.updateProperty({ key: 'name', value }),
 })
 
 const description = computed({
-  get: () => store.getters.ai_app?.description || '',
-  set: (value) => store.commit('updateAIAppProperty', { key: 'description', value }),
+  get: () => aiAppStore.entity?.description || '',
+  set: (value) => aiAppStore.updateProperty({ key: 'description', value }),
 })
 
 const system_name = computed({
-  get: () => store.getters.ai_app?.system_name || '',
-  set: (value) => store.commit('updateAIAppProperty', { key: 'system_name', value }),
+  get: () => aiAppStore.entity?.system_name || '',
+  set: (value) => aiAppStore.updateProperty({ key: 'system_name', value }),
 })
 
 const tabs = computed({
-  get: () => store.getters.ai_app?.tabs || [],
+  get: () => aiAppStore.entity?.tabs || [],
   set: (value) => {
-    store.commit('updateAIAppProperty', { key: 'tabs', value })
+    aiAppStore.updateProperty({ key: 'tabs', value })
   },
 })
 
@@ -117,11 +125,11 @@ const searchedTabs = computed({
 
 const activeAIAppId = computed(() => route.params?.id)
 
-const activeAIAppName = computed(() => useCollection.items?.find((item) => item?.id == activeAIAppId.value)?.name)
+const activeAIAppName = computed(() => aiAppsItems.value?.find((item) => item?.id == activeAIAppId.value)?.name)
 
-const options = computed(() => useCollection.items?.map((item) => item?.name))
+const options = computed(() => aiAppsItems.value?.map((item) => item?.name))
 
-const loading = computed(() => !store?.getters?.ai_app?.id)
+const loading = computed(() => !aiAppStore.entity?.id)
 
 // Methods
 const navigate = (path = '') => {
@@ -141,7 +149,21 @@ const openTabDetails = (row, parent = null) => {
 }
 
 const deleteTab = (payload) => {
-  store.commit('deleteAIAppTab', payload)
+  const currentTabs = aiAppStore.entity?.tabs || []
+  let newTabs
+  if (typeof payload === 'string') {
+    newTabs = currentTabs.filter((el) => el.system_name !== payload)
+  } else {
+    const parentName = payload[0]
+    const systemName = payload[1]
+    newTabs = currentTabs.map((el) => {
+      if (el.system_name === parentName) {
+        return { ...el, children: el.children.filter((c) => c.system_name !== systemName) }
+      }
+      return el
+    })
+  }
+  aiAppStore.updateProperty({ key: 'tabs', value: newTabs })
   showDeleteDialog.value = false
 }
 
@@ -178,16 +200,16 @@ const handleRemoveInnerRecord = (parentSystemName, innerSystemName) => {
 // Watchers
 watch(selectedRow, (newVal, oldVal) => {
   if (newVal?.id !== oldVal?.id) {
-    store.commit('setAIApp', newVal)
-    store.commit('clearSemanticSeacrhAnswers')
+    aiAppStore.setEntity(newVal)
+    searchStore.clearAnswers()
   }
 })
 
 // Lifecycle
 onMounted(() => {
-  if (activeAIAppId.value != store.getters.ai_app?.id) {
-    store.commit('setAIApp', selectedRow.value)
-    store.commit('clearSemanticSeacrhAnswers')
+  if (activeAIAppId.value != aiAppStore.entity?.id) {
+    aiAppStore.setEntity(selectedRow.value)
+    searchStore.clearAnswers()
   }
 })
 </script>
@@ -213,7 +235,7 @@ onMounted(() => {
 
 // Utility classes (commented out for future use)
 .gradient
-  background linear-gradient(121.5deg, #6840C2 9.69%, #E30052 101.29%)
+  background linear-gradient(121.5deg, var(--q-primary) 9.69%, var(--q-error) 101.29%)
   -webkit-background-clip text
   -webkit-text-fill-color transparent
 

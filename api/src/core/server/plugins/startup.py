@@ -47,6 +47,9 @@ class StartupPlugin(InitPluginProtocol):
 
         logger.info("SQLAlchemy engine initialized via plugin")
 
+        # Initialize unified file storage
+        await self._initialize_storage(app)
+
         # Preload Slack runtimes
         await self._initialize_slack_runtime_cache(app)
 
@@ -137,6 +140,33 @@ class StartupPlugin(InitPluginProtocol):
         except Exception as e:
             logger.warning("Failed to register note_taker_pending_cleanup job: %s", e)
 
+        # Recovery job for stuck syncing knowledge-graph sources
+        try:
+            from apscheduler.triggers.interval import IntervalTrigger
+            from services.knowledge_graph.sources.sync_recovery import (
+                recover_stuck_syncing_sources,
+            )
+
+            recovery_job_id = "kg_sync_recovery"
+            if scheduler.get_job(recovery_job_id):
+                scheduler.remove_job(recovery_job_id)
+
+            scheduler.add_job(
+                recover_stuck_syncing_sources,
+                trigger=IntervalTrigger(minutes=15),
+                id=recovery_job_id,
+                name="Recover stuck syncing KG sources",
+                replace_existing=True,
+            )
+            logger.info("Registered kg_sync_recovery job (every 15 min)")
+        except Exception as e:
+            logger.warning("Failed to register kg_sync_recovery job: %s", e)
+
+        # NOTE: Storage GC job (Phase 9) requires db_session injection.
+        # APScheduler 3.x does not support async functions with DI.
+        # GC will be triggered via a dedicated admin endpoint or manual CLI call.
+        # See storage/gc.py for the implementation.
+
     async def _refresh_api_keys(self) -> None:
         """Refresh API keys cache."""
         try:
@@ -148,9 +178,22 @@ class StartupPlugin(InitPluginProtocol):
             logger.error(f"Failed to refresh API keys cache: {e}")
 
     async def _initialize_database_connections(self) -> None:
-        """Initialize database connection pools based on VECTOR_DB_TYPE."""
+        """Initialize database connection pools and register vector stores."""
         if self.db_type == "PGVECTOR":
             await self._initialize_pgvector()
+
+        # Register the default vector store in the registry
+        try:
+            from stores.registry import (
+                _initialize_default_store,
+                get_vector_store_registry,
+            )
+
+            registry = get_vector_store_registry()
+            _initialize_default_store(registry)
+            logger.info("Vector store registry initialized: %s", registry.list_stores())
+        except Exception as e:
+            logger.error(f"Failed to initialize vector store registry: {e}")
 
     async def _initialize_pgvector(self) -> None:
         """Initialize PgVector connection pool."""
@@ -165,6 +208,28 @@ class StartupPlugin(InitPluginProtocol):
         except Exception as e:
             logger.error(f"Failed to initialize PgVector connection pool: {e}")
             raise
+
+    @staticmethod
+    async def _initialize_storage(app: Litestar) -> None:
+        """Initialize unified file storage backends and service."""
+        try:
+            from storage import FileLimits, StorageConfig, StorageService, setup_storage
+            from storage.lifecycle import register_storage_listeners
+
+            cfg = StorageConfig()
+            resolver = await setup_storage(cfg=cfg)
+
+            file_limits = FileLimits(resolver=resolver, cfg=cfg)
+            storage_service = StorageService()
+
+            app.state.storage_service = storage_service
+            app.state.file_limits = file_limits
+
+            register_storage_listeners(storage_service)
+
+            logger.info("Storage module initialized")
+        except Exception as e:
+            logger.error("Failed to initialize storage module: %s", e)
 
     async def _initialize_slack_runtime_cache(self, app: Litestar) -> None:
         """Initialize Slack runtime"""

@@ -27,7 +27,7 @@ withDefaults(defineProps<Props>(), {
   max-width: 320px;
   min-width: 0;
   overflow: hidden;
-  border-bottom: 1px dashed rgba(104, 64, 194, 0.35);
+  border-bottom: 1px dashed var(--q-primary-transparent);
   padding: 0 4px 1px;
   color: var(--q-primary);
   font-weight: 500;
@@ -55,13 +55,13 @@ withDefaults(defineProps<Props>(), {
   font-size: inherit;
   font-weight: 500;
   color: var(--q-primary);
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: var(--km-font-mono);
   padding: 0;
   text-align: center;
 }
 
 .kg-inline-field :deep(.kg-inline-field__input::placeholder) {
-  color: rgba(104, 64, 194, 0.4);
+  color: var(--q-primary-transparent);
   font-style: italic;
 }
 </style>

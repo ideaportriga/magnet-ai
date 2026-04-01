@@ -54,19 +54,24 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 const promptSearchFields = ['name', 'description']
 export default {
   props: ['selected'],
   emits: ['update:selected', 'create', 'setPin'],
   setup() {
+    const queries = useEntityQueries()
+    const { data: promptTemplateListData } = queries.promptTemplates.useList()
+    const promptItems = computed(() => promptTemplateListData.value?.items ?? [])
     return {
       search: ref(''),
+      promptItems,
     }
   },
   computed: {
     prompts() {
-      return this.$store.getters.prompts ?? []
+      return this.promptItems
     },
 
     displayPrompts() {

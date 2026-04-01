@@ -1,18 +1,18 @@
 <template>
   <div class="column q-gap-12">
     <div v-for="(toolCall, index) in tools" :key="getToolKey(toolCall, index)" class="col-auto ba-border border-radius-8 overflow-hidden">
-      <div class="row q-pa-sm bg-light justify-between items-center cursor-pointer" style="font-size: 13px" @click="toggleExpand(index)">
+      <div class="row q-pa-sm bg-light justify-between items-center cursor-pointer km-body-sm" @click="toggleExpand(index)">
         <span>{{ getFunctionName(toolCall) }}</span>
         <q-icon :name="expanded[index] ? 'expand_less' : 'expand_more'" size="16px" />
       </div>
 
       <div v-if="expanded[index]" class="column bt-border">
-        <div v-if="getDescription(toolCall)" class="q-pa-sm text-grey-8" style="font-size: 12px; white-space: pre-line">
+        <div v-if="getDescription(toolCall)" class="q-pa-sm text-grey-8 km-caption" style="white-space: pre-line">
           {{ getDescription(toolCall) }}
         </div>
 
         <div v-if="hasParameters(toolCall)" class="column bt-border">
-          <div class="params-header">Parameters</div>
+          <div class="params-header km-tiny">Parameters</div>
           <div class="params-list">
             <div
               v-for="(param, paramIdx) in getParameters(toolCall)"
@@ -21,18 +21,18 @@
               :class="{ 'param-item--bordered': paramIdx > 0 }"
             >
               <div class="row items-center q-gap-6" style="flex-wrap: wrap">
-                <code class="param-name">{{ param.name }}</code>
-                <span class="param-type">{{ param.type }}</span>
-                <span v-if="param.required" class="param-required">required</span>
-                <span v-if="param.enum" class="param-enum">enum</span>
+                <code class="param-name km-tiny">{{ param.name }}</code>
+                <span class="param-type km-tiny">{{ param.type }}</span>
+                <span v-if="param.required" class="param-required km-tiny">required</span>
+                <span v-if="param.enum" class="param-enum km-tiny">enum</span>
               </div>
-              <div v-if="param.description" class="param-description">
+              <div v-if="param.description" class="param-description km-tiny">
                 {{ param.description }}
               </div>
               <div v-if="param.enum" class="row q-gap-4" style="flex-wrap: wrap; margin-top: 4px">
-                <code v-for="val in param.enum" :key="val" class="param-enum-value">{{ val }}</code>
+                <code v-for="val in param.enum" :key="val" class="param-enum-value km-tiny">{{ val }}</code>
               </div>
-              <div v-if="param.items" class="param-items-type">
+              <div v-if="param.items" class="param-items-type km-tiny">
                 items:
                 <code>{{ param.items }}</code>
               </div>
@@ -143,18 +143,17 @@ const getParameters = (toolCall: Tool): ParsedParam[] => {
 
 <style scoped>
 .params-header {
-  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #757575;
+  color: var(--q-label);
   padding: 10px 12px 6px;
-  background: #fafafa;
+  background: var(--q-background);
 }
 
 .params-list {
   padding: 0 12px 10px;
-  background: #fafafa;
+  background: var(--q-background);
 }
 
 .param-item {
@@ -162,7 +161,7 @@ const getParameters = (toolCall: Tool): ParsedParam[] => {
 }
 
 .param-item--bordered {
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--q-border);
 }
 
 .param-name,
@@ -173,43 +172,41 @@ const getParameters = (toolCall: Tool): ParsedParam[] => {
   align-items: center;
   height: 20px;
   padding: 0 6px;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
   line-height: 1;
 }
 
 .param-name {
   font-weight: 600;
-  color: #1a1a1a;
-  background: #fff;
-  border: 1px solid #e0e0e0;
+  color: var(--q-black);
+  background: var(--q-white);
+  border: 1px solid var(--q-border);
 }
 
 .param-type {
-  color: #7c4dff;
-  background: #ede7f6;
+  color: var(--q-primary);
+  background: var(--q-primary-bg);
 }
 
 .param-required {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  color: #e65100;
-  background: #fff3e0;
+  color: var(--q-warning);
+  background: var(--q-warning-bg);
 }
 
 .param-enum {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  color: #00695c;
-  background: #e0f2f1;
+  color: var(--q-success-text);
+  background: var(--q-success);
 }
 
 .param-description {
-  font-size: 11px;
   line-height: 1.5;
-  color: #616161;
+  color: var(--q-secondary-text);
   margin-top: 4px;
 }
 
@@ -218,20 +215,17 @@ const getParameters = (toolCall: Tool): ParsedParam[] => {
   align-items: center;
   height: 18px;
   padding: 0 6px;
-  font-size: 10px;
-  color: #00695c;
-  background: #e0f2f1;
-  border-radius: 4px;
+  color: var(--q-success-text);
+  background: var(--q-success);
+  border-radius: var(--radius-sm);
 }
 
 .param-items-type {
-  font-size: 11px;
-  color: #9e9e9e;
+  color: var(--q-icon);
   margin-top: 4px;
 }
 
 .param-items-type code {
-  font-size: 10px;
-  color: #7c4dff;
+  color: var(--q-primary);
 }
 </style>

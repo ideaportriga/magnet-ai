@@ -71,8 +71,7 @@
           <!-- Missing Embedding Model Warning -->
           <div
             v-if="!hasEmbeddingModel && !loading"
-            class="row items-center no-wrap q-mt-md bg-red-1 text-red-9 q-px-sm q-py-md border-radius-8 cursor-pointer q-mb-md"
-            style="border: 1px solid #ffcdd2"
+            class="row items-center no-wrap q-mt-md bg-red-1 text-red-9 q-px-sm q-py-md border-radius-8 cursor-pointer q-mb-md ba-error"
             @click="goToSettings"
           >
             <q-icon name="o_warning" size="xs" class="q-mr-sm" />
@@ -108,68 +107,60 @@
               </q-tabs>
             </div>
 
-            <div class="column no-wrap q-gap-16 full-height full-width overflow-auto q-mt-lg">
-              <div class="row q-gap-16 full-height full-width no-wrap">
-                <div class="col full-height full-width">
-                  <div class="column items-center full-height full-width q-gap-16 overflow-auto">
-                    <div class="col-auto full-width">
-                      <sources-tab
-                        v-show="activeTab === 'sources'"
-                        v-if="graphDetails"
-                        ref="sourcesRef"
-                        :graph-id="graphId"
-                        :graph-details="graphDetails"
-                        @refresh="handleSourcesRefresh"
-                      />
-                      <settings-tab
-                        v-show="activeTab === 'settings'"
-                        v-if="graphDetails"
-                        :graph-id="graphId"
-                        :graph-details="graphDetails"
-                        @refresh="fetchGraphDetails"
-                      />
-                      <content-profiles-tab
-                        v-show="activeTab === 'contentProfiles'"
-                        v-if="graphDetails"
-                        :graph-id="graphId"
-                        :graph-details="graphDetails"
-                        @refresh="fetchGraphDetails"
-                      />
-                      <data-explorer-tab
-                        v-if="graphDetails && activeTab === 'explorer'"
-                        ref="explorerRef"
-                        :graph-id="graphId"
-                        :graph-details="graphDetails"
-                      />
-                      <retrieval-tab
-                        v-show="activeTab === 'retrieval'"
-                        v-if="graphDetails"
-                        ref="retrievalRef"
-                        :graph-id="graphId"
-                        :graph-details="graphDetails"
-                        @unsaved-change="retrievalUnsaved = $event"
-                        @update-graph="updateGraph"
-                      />
-                      <metadata-tab
-                        v-show="activeTab === 'metadata'"
-                        v-if="graphDetails"
-                        ref="metadataRef"
-                        :graph-id="graphId"
-                        :graph-details="graphDetails"
-                        @unsaved-change="metadataUnsaved = $event"
-                        @refresh="fetchGraphDetails"
-                      />
-                      <entity-extraction-tab
-                        v-show="activeTab === 'entityExtraction'"
-                        v-if="graphDetails"
-                        :graph-id="graphId"
-                        :graph-details="graphDetails"
-                        @refresh="fetchGraphDetails"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div class="col overflow-auto q-mt-lg" style="min-height: 0">
+              <sources-tab
+                v-show="activeTab === 'sources'"
+                v-if="graphDetails"
+                ref="sourcesRef"
+                :graph-id="graphId"
+                :graph-details="graphDetails"
+                @refresh="handleSourcesRefresh"
+              />
+              <settings-tab
+                v-show="activeTab === 'settings'"
+                v-if="graphDetails"
+                :graph-id="graphId"
+                :graph-details="graphDetails"
+                @refresh="fetchGraphDetails"
+              />
+              <content-profiles-tab
+                v-show="activeTab === 'contentProfiles'"
+                v-if="graphDetails"
+                :graph-id="graphId"
+                :graph-details="graphDetails"
+                @refresh="fetchGraphDetails"
+              />
+              <data-explorer-tab
+                v-if="graphDetails && activeTab === 'explorer'"
+                ref="explorerRef"
+                :graph-id="graphId"
+                :graph-details="graphDetails"
+              />
+              <retrieval-tab
+                v-show="activeTab === 'retrieval'"
+                v-if="graphDetails"
+                ref="retrievalRef"
+                :graph-id="graphId"
+                :graph-details="graphDetails"
+                @unsaved-change="retrievalUnsaved = $event"
+                @update-graph="updateGraph"
+              />
+              <metadata-tab
+                v-show="activeTab === 'metadata'"
+                v-if="graphDetails"
+                ref="metadataRef"
+                :graph-id="graphId"
+                :graph-details="graphDetails"
+                @unsaved-change="metadataUnsaved = $event"
+                @refresh="fetchGraphDetails"
+              />
+              <entity-extraction-tab
+                v-show="activeTab === 'entityExtraction'"
+                v-if="graphDetails"
+                :graph-id="graphId"
+                :graph-details="graphDetails"
+                @refresh="fetchGraphDetails"
+              />
             </div>
           </div>
         </div>
@@ -232,10 +223,11 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { useQuasar } from 'quasar'
-import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useEntityQueries } from '@/queries/entities'
+import { useNotify } from '@/composables/useNotify'
 import ContentProfilesTab from './ContentProfiles/ContentProfilesTab.vue'
 import DataExplorerTab from './DataExplorer/DataExplorerTab.vue'
 import EntityExtractionTab from './EntityExtraction/EntityExtractionTab.vue'
@@ -244,15 +236,50 @@ import RetrievalTestDrawer from './Playground/RetrievalTestDrawer.vue'
 import RetrievalTab from './Retrieval/RetrievalTab.vue'
 import SettingsTab from './Settings/SettingsTab.vue'
 import SourcesTab from './Sources/SourcesTab.vue'
+import type { KnowledgeGraphDetails } from './types'
 
 const route = useRoute()
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const queries = useEntityQueries()
+const { notifySuccess, notifyError, notifyWarning } = useNotify()
 
-const graphId = computed(() => route.params.id as string)
-const graphDetails = ref<any>(null)
+const graphId = ref(route.params.id)
+const graphDetails = ref<KnowledgeGraphDetails | null>(null)
 const activeTab = ref<'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata' | 'entityExtraction'>('sources')
-const loading = ref(false)
+const name = ref('')
+const description = ref('')
+const systemName = ref('')
+const showInfo = ref(false)
+
+// TanStack Query: fetch graph detail (auto-fetches when graphId changes)
+const { data: graphData, isLoading: loading, refetch: refetchGraph } = queries.knowledge_graph.useDetail(graphId)
+// Sync TQ data into local refs consumed by child components
+watch(
+  graphData,
+  (newData) => {
+    if (newData) {
+      graphDetails.value = newData as KnowledgeGraphDetails
+      name.value = newData.name || ''
+      systemName.value = newData.system_name || ''
+      description.value = newData.description || ''
+    }
+  },
+  { immediate: true }
+)
+
+onActivated(() => {
+  graphId.value = route.params.id
+  // Re-sync local refs from TanStack Query data when KeepAlive reactivates this component (multi-tab support)
+  if (graphData.value) {
+    graphDetails.value = graphData.value as KnowledgeGraphDetails
+    name.value = graphData.value.name || ''
+    systemName.value = graphData.value.system_name || ''
+    description.value = graphData.value.description || ''
+  }
+})
+
+// TanStack Query: update mutation
+const { mutateAsync: updateGraphMutation } = queries.knowledge_graph.useUpdate()
 
 // Check if the knowledge graph has an embedding model configured
 const hasEmbeddingModel = computed(() => {
@@ -268,10 +295,6 @@ const retrievalOutputFormat = computed(() => {
 const goToSettings = () => {
   activeTab.value = 'settings'
 }
-const name = ref('')
-const description = ref('')
-const systemName = ref('')
-const showInfo = ref(false)
 const retrievalUnsaved = ref(false)
 const metadataUnsaved = ref(false)
 const intendedTab = ref<'sources' | 'settings' | 'contentProfiles' | 'explorer' | 'retrieval' | 'metadata' | 'entityExtraction' | null>(null)
@@ -347,6 +370,9 @@ const explorerRef = ref<any>(null)
 const drawerOpen = ref(false)
 const drawerType = ref<'source' | 'retrieval'>('source')
 
+// Kept as thin wrapper so child components can still call @refresh="fetchGraphDetails"
+const fetchGraphDetails = () => refetchGraph()
+
 const handleSourcesRefresh = async () => {
   await fetchGraphDetails()
   explorerRef.value?.refresh?.()
@@ -399,47 +425,13 @@ const openRetrievalDrawer = () => {
   drawerOpen.value = true
 }
 
-const fetchGraphDetails = async () => {
-  if (!graphId.value) return
-  loading.value = true
-  try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
-    const response = await fetchData({
-      endpoint,
-      service: `knowledge_graphs/${graphId.value}`,
-      method: 'GET',
-      credentials: 'include',
-    })
-
-    if (response.ok) {
-      graphDetails.value = await response.json()
-      name.value = graphDetails.value?.name || ''
-      systemName.value = graphDetails.value?.system_name || ''
-      description.value = graphDetails.value?.description || ''
-    }
-  } catch (error) {
-    console.error('Error fetching graph details:', error)
-  } finally {
-    loading.value = false
-  }
-}
-
 const updateGraph = async (payload: Record<string, any>) => {
   if (!graphId.value) return
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
-    await fetchData({
-      endpoint,
-      service: `knowledge_graphs/${graphId.value}`,
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    // Refresh details to reflect latest server state
-    await fetchGraphDetails()
+    await updateGraphMutation({ id: graphId.value, data: payload })
+    // TanStack Query invalidates + refetches the detail query automatically on success
   } catch (e) {
-    console.error('Failed to update graph:', e)
+    notifyError('Failed to save changes. Please try again.')
   }
 }
 
@@ -459,7 +451,6 @@ const onSystemNameChange = async (val: string) => {
 }
 
 onMounted(() => {
-  fetchGraphDetails()
   // Check if tab query parameter is set
   if (route.query.tab === 'explorer') {
     activeTab.value = 'explorer'
@@ -484,23 +475,6 @@ onBeforeUnmount(() => {
     window.clearTimeout(dragHideTimeout)
   }
 })
-
-watch(graphId, () => {
-  if (graphId.value) {
-    fetchGraphDetails()
-  }
-})
-
-watch(
-  graphDetails,
-  () => {
-    if (graphDetails.value) {
-      name.value = graphDetails.value?.name || ''
-      systemName.value = graphDetails.value?.system_name || ''
-    }
-  },
-  { deep: true }
-)
 
 // Drag and Drop Helpers + Handlers
 const eventHasFiles = (e: DragEvent) => {
@@ -554,7 +528,7 @@ const uploadFiles = async (files: File[]) => {
   kgUploading.value = true
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const results: any[] = []
     let successCount = 0
     let errorCount = 0
@@ -584,7 +558,7 @@ const uploadFiles = async (files: File[]) => {
           }
         } else {
           errorCount++
-          console.error(`Failed to upload: ${file.name}`)
+
           const error = JSON.parse(response.error.message).error
           if (error && !errorMessage) {
             errorMessage = error
@@ -594,33 +568,16 @@ const uploadFiles = async (files: File[]) => {
         }
       } catch (err) {
         errorCount++
-        console.error(`Upload error for ${file.name}:`, err)
       }
     }
 
     // Show success or error notification
     if (errorCount === 0) {
-      $q.notify({
-        message: `Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}`,
-        position: 'top',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 3000,
-      })
+      notifySuccess(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}`)
     } else if (successCount > 0) {
-      $q.notify({
-        type: 'warning',
-        message: `Uploaded ${successCount} file${successCount > 1 ? 's' : ''}, ${errorCount} failed`,
-        position: 'top',
-        timeout: 5000,
-      })
+      notifyWarning(`Uploaded ${successCount} file${successCount > 1 ? 's' : ''}, ${errorCount} failed`)
     } else {
-      $q.notify({
-        message: errorMessage || 'Failed to upload files. Please try again.',
-        position: 'top',
-        color: 'error-text',
-        timeout: 5000,
-      })
+      notifyError(errorMessage || 'Failed to upload files. Please try again.')
     }
 
     // Refresh sources, explorer, and details to reflect uploaded docs
@@ -630,13 +587,7 @@ const uploadFiles = async (files: File[]) => {
       fetchGraphDetails()
     }
   } catch (error) {
-    console.error('Upload error:', error)
-    $q.notify({
-      message: 'Failed to upload files. Please try again.',
-      position: 'top',
-      color: 'error-text',
-      timeout: 5000,
-    })
+    notifyError('Failed to upload files. Please try again.')
   } finally {
     kgUploading.value = false
   }
@@ -669,7 +620,7 @@ const onDrop = async (event: DragEvent) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(7, 14, 30, 0.45);
+  background: rgba(7, 14, 30, 0.45); /* intentional dark overlay */
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   pointer-events: none;
@@ -695,13 +646,13 @@ const onDrop = async (event: DragEvent) => {
   max-width: calc(100vw - 48px);
   padding: 48px 32px;
   border-radius: 20px;
-  background: white;
+  background: var(--q-white);
   border: none;
-  outline: 3px dashed rgba(25, 118, 210, 0.6);
+  outline: 3px dashed color-mix(in srgb, var(--q-primary) 60%, transparent);
   outline-offset: -12px;
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.2),
-    inset 0 0 0 1px rgba(240, 245, 250, 1);
+    inset 0 0 0 1px var(--q-primary-light);
   animation: kg-content-scale-in 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-origin: center;
   will-change: transform, opacity;
@@ -725,20 +676,24 @@ const onDrop = async (event: DragEvent) => {
   justify-content: center;
   width: 96px;
   height: 96px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(25, 118, 210, 0.08) 0%, rgba(25, 118, 210, 0.15) 100%);
+  border-radius: var(--radius-full);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--q-primary) 8%, transparent) 0%,
+    color-mix(in srgb, var(--q-primary) 15%, transparent) 100%
+  );
   margin-bottom: 8px;
 }
 
 .kg-dnd-icon {
   font-size: 48px !important;
-  color: #1976d2;
+  color: var(--q-primary);
 }
 
 .kg-dnd-title {
   font-size: 26px;
   font-weight: 600;
-  color: #0b132b;
+  color: var(--q-black);
   letter-spacing: -0.3px;
   margin: 0;
   line-height: 1.2;
@@ -746,7 +701,7 @@ const onDrop = async (event: DragEvent) => {
 
 .kg-dnd-subtitle {
   font-size: 15px;
-  color: #6b7b8a;
+  color: var(--q-label);
   margin: 0;
   font-weight: 400;
   letter-spacing: 0.1px;
@@ -757,9 +712,9 @@ const onDrop = async (event: DragEvent) => {
    ============================================ */
 
 .kg-header-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfd 100%);
+  background: linear-gradient(135deg, var(--q-white) 0%, var(--q-background) 100%);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 14px;
+  border-radius: var(--radius-xl);
   padding: 16px 24px;
   transition: border-color 0.25s ease;
 }
@@ -785,7 +740,7 @@ const onDrop = async (event: DragEvent) => {
   flex-shrink: 0;
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   background: var(--q-primary-bg);
   display: flex;
   align-items: center;
@@ -853,11 +808,11 @@ const onDrop = async (event: DragEvent) => {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--km-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #8b95a5;
+  color: var(--q-label);
   padding-right: 4px;
 }
 .kg-system-name-label .kg-info-icon {
@@ -871,10 +826,10 @@ const onDrop = async (event: DragEvent) => {
 
 .kg-system-name-input {
   text-align: right;
-  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
-  font-size: 12px !important;
+  font-family: var(--km-font-mono);
+  font-size: var(--km-font-size-caption) !important;
   letter-spacing: 0.2px;
-  color: #5a6779 !important;
+  color: var(--q-secondary-text) !important;
 }
 .kg-system-name-input :deep(input) {
   text-align: right;
@@ -889,8 +844,8 @@ const onDrop = async (event: DragEvent) => {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
-  color: #f59e0b;
+  font-size: var(--km-font-size-xs);
+  color: var(--q-warning);
   padding-right: 4px;
   margin-top: 4px;
   white-space: nowrap;
@@ -923,10 +878,10 @@ const onDrop = async (event: DragEvent) => {
   gap: 10px;
   padding: 10px 18px;
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   background-color: var(--q-primary);
-  color: #ffffff;
-  font-size: 13px;
+  color: var(--q-white);
+  font-size: var(--km-font-size-label);
   font-weight: 600;
   letter-spacing: 0.2px;
   cursor: pointer;

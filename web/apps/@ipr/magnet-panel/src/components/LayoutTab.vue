@@ -8,7 +8,14 @@
 
     .col-auto.header-select(:style='{ minWidth: $theme === "salesforce" ? "150px" : "240px" }')
       km-select(height='30px', :options='panels', option-value='value', v-model='tab', @update:model-value='changePanel')
-    //close button
+    //close button and user menu
+    .row.items-center.no-wrap
+      user-menu.q-mr-sm(
+        v-if='auth.authenticated',
+        :user-info='auth.userInfo',
+        @logout='handleLogout',
+        @navigate='handleNavigate'
+      )
     .flex.items-center.justify-center(:style='{ width: "32px", height: "32px", borderRadius: "50%" }')
       q-item(clickable, dense, v-if='show_close_button')
         q-icon.q-pa-xs.rounded-borders(name='close', rounded, size='20px', color='white', @click='hidePanel')
@@ -32,19 +39,35 @@
 </template>
 
 <script>
-import { ref, getCurrentInstance } from 'vue'
+import { ref, getCurrentInstance, defineAsyncComponent } from 'vue'
+import { useRouter } from 'vue-router'
 import getTabComponent from '@shared/utils/getTabComponent'
-import { useMainStore, useAiApps } from '@/pinia'
+import { useMainStore, useAiApps, useAuth } from '@/pinia'
+
+const UserMenu = defineAsyncComponent(() => import('@ui/components/user/UserMenu.vue'))
 export default {
+  components: { UserMenu },
   setup() {
     const mainStore = useMainStore()
     const aiAppsStore = useAiApps()
+    const auth = useAuth()
+    const router = useRouter()
 
     const tab = ref('')
     const { appContext } = getCurrentInstance()
     const isIframe = appContext.config.globalProperties.$iframe
     const parentApp = ref(null)
-    return { tab, isIframe, parentApp, appContext, mainStore, aiAppsStore }
+
+    async function handleLogout() {
+      await auth.logout()
+      router.push('/login')
+    }
+
+    function handleNavigate(path) {
+      router.push(path)
+    }
+
+    return { tab, isIframe, parentApp, appContext, mainStore, aiAppsStore, auth, handleLogout, handleNavigate }
   },
   computed: {
     loading() {
@@ -120,10 +143,8 @@ export default {
       window.addEventListener(
         'message',
         (event) => {
-          debugger
-          console.log('event', event)
           if (event.origin !== this.baseUrl?.admin) return
-          this.parentApp = JSON.parse(event.data.app) // JSON.parse(event.data.app)
+          this.parentApp = JSON.parse(event.data.app)
         },
         true
       )

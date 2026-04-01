@@ -38,7 +38,10 @@ km-popup-confirm(
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useStore } from 'vuex'
+import { fetchData } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useAppStore } from '@/stores/appStore'
+import { useQueryClient } from '@tanstack/vue-query'
 
 const props = defineProps({
   title: {
@@ -51,7 +54,10 @@ const props = defineProps({
   },
 })
 
-const store = useStore()
+const queries = useEntityQueries()
+const appStore = useAppStore()
+const queryClient = useQueryClient()
+const { data: modelListData } = queries.model.useList()
 const hover = ref(false)
 const editMode = ref(false)
 const showDialog = ref(false)
@@ -59,7 +65,7 @@ const selectedModel = ref(null)
 
 // Get all models of the specified type
 const modelOptions = computed(() => {
-  const models = store.getters['chroma/model']?.items || []
+  const models = modelListData.value?.items ?? []
   return models.filter((model) => model.type === props.modelType)
 })
 
@@ -99,7 +105,19 @@ const confirmChange = async () => {
   const modelToSet = modelOptions.value.find((m) => m.system_name === selectedModel.value)
 
   if (modelToSet) {
-    await store.dispatch('modelConfig/setDefault', modelToSet)
+    const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
+    await fetchData({
+      method: 'POST',
+      endpoint,
+      service: 'model/set_default',
+      credentials: 'include',
+      body: JSON.stringify({
+        type: modelToSet.type,
+        system_name: modelToSet.system_name,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    await queryClient.invalidateQueries({ queryKey: ['model'] })
   }
 
   showDialog.value = false

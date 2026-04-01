@@ -1,4 +1,5 @@
-import store from '@/store'
+import { getCachedItems } from '@/queries/getCachedItems'
+import { useDashboardStore } from '@/stores/dashboardStore'
 
 const filter = {
   start_time: {
@@ -13,7 +14,7 @@ const filter = {
     label: 'RAG Tool',
     key: 'feature_system_name',
     get options() {
-      return store.getters.chroma.rag_tools.items?.map((item) => ({ label: item.name, value: item.system_name })) ?? []
+      return getCachedItems('rag_tools').map((item) => ({ label: item.name, value: item.system_name })) ?? []
     },
     search: true,
     // overviewFilter: true,
@@ -36,7 +37,8 @@ const filter = {
     label: 'Consumer name',
     key: 'consumer_name',
     get options() {
-      return store.getters.ragDashboardOptions?.consumer_names?.map((name) => ({ label: name, value: name })) ?? []
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.ragDashboardOptions?.consumer_names?.map((name) => ({ label: name, value: name })) ?? []
     },
     search: true,
     multiple: true,
@@ -49,7 +51,8 @@ const filter = {
     //is_hideable: true,
     componentKey: 'topicOptions',
     options: () => {
-      return store.getters.ragDashboardOptions?.topics?.map((topic) => ({ label: topic, value: topic }))
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.ragDashboardOptions?.topics?.map((topic) => ({ label: topic, value: topic }))
     },
   },
   ['extra_data.is_answered']: {
@@ -78,7 +81,8 @@ const filter = {
     //is_hideable: true,
     componentKey: 'languageOptions',
     options: () => {
-      return store.getters.ragDashboardOptions?.languages?.map((language) => ({ label: language, value: language }))
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.ragDashboardOptions?.languages?.map((language) => ({ label: language, value: language }))
     },
   },
   ['x_attributes.org-id']: {
@@ -86,7 +90,8 @@ const filter = {
     key: 'x_attributes.org-id',
     search: true,
     get options() {
-      return store.getters.ragDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.ragDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
     },
   },
 }

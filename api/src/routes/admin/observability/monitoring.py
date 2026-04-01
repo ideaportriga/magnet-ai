@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+import os
 from logging import getLogger
 from typing import Annotated
+
+from storage import StorageService
 
 from litestar import Controller, post, put
 from litestar.params import Parameter
@@ -125,6 +130,7 @@ class MetricsController(Controller):
         db_session: AsyncSession,
         data: OffsetPaginationRequest | None = None,
         format: str = "csv",
+        storage_service: StorageService | None = None,
     ) -> File | None:
         try:
             metrics = await get_metrics_by_feature_type(
@@ -134,7 +140,10 @@ class MetricsController(Controller):
                 metrics["items"],
                 format,
             )
-            # Optionally use aiofiles for file existence check or manipulation
+
+            # Persist export in StorageService (if available)
+            await _persist_export(storage_service, db_session, filename, "rag_export")
+
             return File(path=filename)
         except Exception as e:
             logger.error(f"Error in rag_tool_export: {e}")
@@ -260,6 +269,7 @@ class MetricsController(Controller):
         db_session: AsyncSession,
         data: OffsetPaginationRequest | None = None,
         format: str = "csv",
+        storage_service: StorageService | None = None,
     ) -> File | None:
         try:
             metrics = await get_metrics_by_feature_type(
@@ -269,6 +279,10 @@ class MetricsController(Controller):
                 metrics["items"],
                 format,
             )
+
+            # Persist export in StorageService (if available)
+            await _persist_export(storage_service, db_session, filename, "agent_export")
+
             return File(path=filename)
         except Exception as e:
             logger.error(f"Error in agent_export: {e}")
@@ -337,3 +351,36 @@ class MetricsController(Controller):
         await set_message_custom_feedback(
             conversation_id=conversation_id, message_id=message_id, data=data
         )
+
+
+async def _persist_export(
+    storage_service: StorageService | None,
+    db_session: AsyncSession | None,
+    filepath: str,
+    entity_type: str,
+) -> None:
+    """Best-effort: persist an export file in StorageService for later retrieval."""
+    if not storage_service or not db_session:
+        return
+    try:
+        import mimetypes
+
+        from uuid_utils import uuid7
+
+        import aiofiles
+
+        async with aiofiles.open(filepath, "rb") as f:
+            content = await f.read()
+        filename = os.path.basename(filepath)
+        content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+        await storage_service.save_file(
+            db_session,
+            content=content,
+            filename=filename,
+            content_type=content_type,
+            entity_type="export",
+            entity_id=uuid7(),
+            sub_path=f"exports/{entity_type}",
+        )
+    except Exception:
+        logger.exception("Failed to persist export file in StorageService")

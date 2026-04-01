@@ -14,6 +14,7 @@
 
 <script>
 import { defineComponent } from 'vue'
+import { getCachedItems } from '@/queries/getCachedItems'
 
 export default defineComponent({
   props: {
@@ -27,7 +28,7 @@ export default defineComponent({
       return this.row?.tool?.name || ''
     },
     model() {
-      return this.$store.getters['chroma/model'].items?.find((model) => model.system_name === this.modelSystemName) || {}
+      return getCachedItems('model')?.find((model) => model.system_name === this.modelSystemName) || {}
     },
     modelSystemName() {
       return this.row?.tool?.variant_object?.system_name_for_model || ''

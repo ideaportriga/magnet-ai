@@ -94,10 +94,9 @@
             .row.items-start(v-if='testResult?.via_router != null')
               .text-caption.text-grey-7.col-3 Via Router
               .col-9
-                q-badge(
+                q-badge.km-tiny(
                   :color='testResult.via_router ? "positive" : "grey-6"',
-                  :label='testResult.via_router ? "Yes" : "No (direct call)"',
-                  style='font-size: 11px'
+                  :label='testResult.via_router ? "Yes" : "No (direct call)"'
                 )
             .row.items-start(v-if='testResult?.computed_url')
               .text-caption.text-grey-7.col-3 Request URL
@@ -135,15 +134,19 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
 import { onBeforeRouteLeave } from 'vue-router'
-import { useQuasar } from 'quasar'
 import { providerSecretKeys, providerConnectionConfigKeys, formatProviderType } from '../../config/model_providers/providerTypes'
+import { useEntityQueries } from '@/queries/entities'
+import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import { useNotify } from '@/composables/useNotify'
 
-const store = useStore()
-const $q = useQuasar()
+const providerStore = useProviderDetailStore()
+const { notifySuccess, notifyError, notifyWarning } = useNotify()
+const queries = useEntityQueries()
+const { mutateAsync: updateProvider } = queries.provider.useUpdate()
+const { mutateAsync: testProvider } = queries.provider.useTest()
 
-const provider = computed(() => store.getters.provider)
+const provider = computed(() => providerStore.entity)
 
 const isEditingEndpoint = ref(false)
 const tempEndpoint = ref('')
@@ -197,36 +200,31 @@ const saveEndpoint = () => {
 
 const confirmEndpointChange = async () => {
   // Update endpoint
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'endpoint',
     value: tempEndpoint.value,
   })
   // Clear secrets as backend will do
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'secrets_encrypted',
     value: {},
   })
 
   try {
-    // Save provider
-    await store.dispatch('saveProvider')
+    // Save provider via TanStack mutation
+    const providerData = providerStore.entity
+    const data = { ...providerData }
+    delete data.id
+    delete data.created_at
+    delete data.updated_at
+    delete data.created_by
+    delete data.updated_by
+    await updateProvider({ id: providerData.id, data })
+    providerStore.setInit()
 
-    $q.notify({
-      position: 'top',
-      message: 'Endpoint updated successfully.',
-      color: 'positive',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    notifySuccess('Endpoint updated successfully.')
   } catch (error) {
-    console.error('Error saving provider:', error)
-    $q.notify({
-      position: 'top',
-      message: 'Failed to save endpoint changes.',
-      color: 'negative',
-      textColor: 'white',
-      timeout: 2000,
-    })
+    notifyError('Failed to save endpoint changes.')
   }
 
   showEndpointWarning.value = false
@@ -275,7 +273,7 @@ const prefillRecommendedSecrets = () => {
     }
   }
   if (changed) {
-    store.commit('updateProviderProperty', {
+    providerStore.updateProperty({
       key: 'secrets_encrypted',
       value: current,
     })
@@ -287,7 +285,11 @@ const connectionEntries = computed(() => {
   return Object.entries(config)
 })
 
-const originalProviderSecrets = computed(() => store.getters.originalProviderSecrets)
+const originalProviderSecrets = computed(() => {
+  const secrets = providerStore.initEntity?.secrets_encrypted
+  if (!secrets) return []
+  return Object.keys(secrets)
+})
 const remountValue = computed(() => provider.value?.updated_at)
 
 const secrets = computed({
@@ -299,7 +301,7 @@ const secrets = computed({
     return encryptedSecrets
   },
   set(value) {
-    store.commit('updateProviderProperty', {
+    providerStore.updateProperty({
       key: 'secrets_encrypted',
       value,
     })
@@ -308,7 +310,7 @@ const secrets = computed({
 
 const addConnection = () => {
   const newConfig = { ...provider.value.connection_config, '': '' }
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'connection_config',
     value: newConfig,
   })
@@ -317,7 +319,7 @@ const addConnection = () => {
 const removeConnection = (key) => {
   const newConfig = { ...provider.value.connection_config }
   delete newConfig[key]
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'connection_config',
     value: newConfig,
   })
@@ -328,7 +330,7 @@ const updateConnectionKey = (oldKey, newKey) => {
   const value = config[oldKey]
   delete config[oldKey]
   config[newKey] = value
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'connection_config',
     value: config,
   })
@@ -337,7 +339,7 @@ const updateConnectionKey = (oldKey, newKey) => {
 const updateConnectionValue = (key, newValue) => {
   const config = { ...provider.value.connection_config }
   config[key] = newValue
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'connection_config',
     value: config,
   })
@@ -346,13 +348,7 @@ const updateConnectionValue = (key, newValue) => {
 // Test provider connection
 const testProviderConnection = async () => {
   if (!provider.value?.id) {
-    $q.notify({
-      position: 'top',
-      message: 'Please save the provider first before testing.',
-      color: 'warning',
-      textColor: 'black',
-      timeout: 2000,
-    })
+    notifyWarning('Please save the provider first before testing.')
     return
   }
 
@@ -360,11 +356,10 @@ const testProviderConnection = async () => {
   testResult.value = null
 
   try {
-    const result = await store.dispatch('chroma/test', { payload: provider.value.id, entity: 'provider' })
+    const result = await testProvider({ id: provider.value.id })
     testResult.value = result
     showTestDialog.value = true
   } catch (error) {
-    console.error('Error testing provider:', error)
     testResult.value = {
       success: false,
       message: 'Failed to test connection',

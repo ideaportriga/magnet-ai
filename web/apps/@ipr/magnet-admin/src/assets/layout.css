@@ -1,0 +1,83 @@
+/* ============================================
+   Global layout classes for magnet-admin
+   ============================================ */
+
+/* Page container — centers content with standard width constraints */
+.km-page-container {
+  min-width: 450px;
+  max-width: 1200px;
+  width: 100%;
+}
+
+/* White card wrapper with standard border and padding */
+.km-page-card {
+  background: white;
+  border: 1px solid var(--q-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* Detail page content area — standard max-height for scrollable content */
+.km-detail-content {
+  max-height: calc(100vh - 360px);
+  overflow: auto;
+}
+
+/* ============================================
+   Sticky header/footer for fill-height tables
+   ============================================ */
+
+/* The table wrapper must be a flex column to let middle section grow */
+.sticky-virtscroll-table {
+  height: 100%;
+  display: flex !important;
+  flex-direction: column;
+}
+
+/* Make the inner scroll container fill the remaining space */
+.sticky-virtscroll-table .q-table__middle {
+  flex: 1;
+  overflow: auto;
+}
+
+/* Sticky table header — opaque background so rows don't bleed through.
+   var(--q-secondary-bg) may be semi-transparent (e.g. rgba(149,158,164,0.2)),
+   so we use background-color on a pseudo-element behind the actual bg. */
+.sticky-virtscroll-table thead tr th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background-color: var(--q-primary-light);
+}
+
+/* Footer shows record count, stays at bottom */
+.sticky-virtscroll-table .q-table__bottom {
+  flex-shrink: 0;
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+/* Hide the pagination arrows and rows-per-page selector, keep the record count */
+.sticky-virtscroll-table .q-table__bottom .q-table__separator {
+  display: none;
+}
+.sticky-virtscroll-table .q-table__bottom .q-table__control + .q-table__separator,
+.sticky-virtscroll-table .q-table__bottom .q-table__control + .q-table__separator + .q-table__control {
+  display: none;
+}
+
+/* Textarea with proper padding and min-height (overrides dense theme resets) */
+.km-textarea-relaxed .q-textarea .q-field__control-container {
+  padding: 8px 0;
+}
+.km-textarea-relaxed .q-textarea .q-field__native {
+  min-height: 70px !important;
+  padding: 8px 12px !important;
+}
+
+/* Backward compat alias */
+.collection-container {
+  min-width: 450px;
+  max-width: 1200px;
+  width: 100%;
+}

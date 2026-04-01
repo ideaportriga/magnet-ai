@@ -704,9 +704,9 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 .board-lane {
   display: flex;
   flex-direction: column;
-  background: #fafafa;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  background: var(--q-background);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   min-height: 300px;
   max-height: 500px;
@@ -723,8 +723,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .board-lane--discarded {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  background: var(--q-light);
+  border-color: var(--q-border-2);
   transition:
     width 0.25s ease,
     min-width 0.25s ease;
@@ -776,7 +776,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .lane-header--clickable:hover {
-  background: #f9fafb;
+  background: var(--q-light);
 }
 
 .lane-header__subtitle--collapsed {
@@ -809,7 +809,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 /* Lane header */
 .lane-header {
   padding: 12px 14px;
-  background: white;
+  background: var(--q-white);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   position: relative;
 }
@@ -818,9 +818,9 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   font-weight: 600;
-  color: #1f2937;
+  color: var(--q-black);
   min-width: 0;
   overflow: hidden;
 }
@@ -838,17 +838,17 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   min-width: 20px;
   height: 18px;
   padding: 0 6px;
-  background: #e5e7eb;
-  border-radius: 9px;
-  font-size: 11px;
+  background: var(--q-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--km-font-size-sm);
   font-weight: 600;
-  color: #6b7280;
+  color: var(--q-label);
   flex-shrink: 0;
 }
 
 .lane-header__subtitle {
-  font-size: 11px;
-  color: #9ca3af;
+  font-size: var(--km-font-size-sm);
+  color: var(--q-label);
   margin-top: 2px;
 }
 
@@ -888,15 +888,15 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   justify-content: center;
   gap: 8px;
   flex: 1;
-  color: #9ca3af;
-  font-size: 12px;
+  color: var(--q-label);
+  font-size: var(--km-font-size-caption);
   text-align: center;
   padding: 24px;
 }
 
 .lane-empty__hint {
-  font-size: 11px;
-  color: #b5b5b5;
+  font-size: var(--km-font-size-sm);
+  color: var(--q-label);
   max-width: 180px;
   line-height: 1.4;
   margin-top: 4px;
@@ -904,9 +904,9 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 
 /* Field card */
 .field-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  background: var(--q-white);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   cursor: default;
   transition:
@@ -916,12 +916,12 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 
 .field-card:hover {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border-color: #d1d5db;
+  border-color: var(--q-border-2);
 }
 
 .field-card--defined {
   opacity: 0.6;
-  background: #f9fafb;
+  background: var(--q-light);
 }
 
 .field-card--schema {
@@ -934,7 +934,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 
 .field-card--discarded {
   opacity: 0.7;
-  background: #f9fafb;
+  background: var(--q-light);
 }
 
 .field-card__header {
@@ -955,9 +955,9 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .field-card__name {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 600;
-  color: #1f2937;
+  color: var(--q-black);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -971,14 +971,14 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .field-card__type-delimiter {
-  font-size: 10px;
-  color: #9ca3af;
+  font-size: var(--km-font-size-xs);
+  color: var(--q-label);
   margin: 0 2px;
 }
 
 .field-card__type {
-  font-size: 10px;
-  color: #9ca3af;
+  font-size: var(--km-font-size-xs);
+  color: var(--q-label);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -992,8 +992,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .field-card__source {
-  font-size: 11px;
-  color: #6b7280;
+  font-size: var(--km-font-size-sm);
+  color: var(--q-secondary-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1007,7 +1007,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   flex-wrap: wrap;
   margin-top: 4px;
   padding-top: 6px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--q-light);
   position: relative;
   min-height: 24px;
 }
@@ -1035,10 +1035,10 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 .sample-chip {
   display: inline-block;
   padding: 2px 6px;
-  background: #f3f4f6;
-  border-radius: 4px;
-  font-size: 10px;
-  color: #4b5563;
+  background: var(--q-light);
+  border-radius: var(--radius-sm);
+  font-size: var(--km-font-size-xs);
+  color: var(--q-secondary-text);
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1046,8 +1046,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .sample-more {
-  font-size: 10px;
-  color: #9ca3af;
+  font-size: var(--km-font-size-xs);
+  color: var(--q-label);
 }
 
 /* Constraint chips */
@@ -1055,8 +1055,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: inline-block;
   padding: 2px 6px;
   background: #dbeafe;
-  border-radius: 4px;
-  font-size: 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--km-font-size-xs);
   color: #1e40af;
 }
 
@@ -1066,8 +1066,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--km-font-size-xs);
   font-weight: 500;
 }
 
@@ -1087,13 +1087,13 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .origin-chip--muted {
-  background: #e5e7eb;
-  color: #6b7280;
+  background: var(--q-border);
+  color: var(--q-secondary-text);
 }
 
 .origin-chip--type-style {
-  font-size: 10px;
-  color: #9ca3af;
+  font-size: var(--km-font-size-xs);
+  color: var(--q-label);
   text-transform: uppercase;
   letter-spacing: 0.3px;
   background: transparent !important;
@@ -1108,10 +1108,10 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   max-width: 140px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--q-border-2);
 }
 
 .source-badge--top-right {
@@ -1121,9 +1121,9 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .source-badge__name {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   font-weight: 500;
-  color: #374151;
+  color: var(--q-black);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1133,7 +1133,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 .action-btn {
   padding: 2px 10px;
   min-height: 24px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .action-btn:deep(.q-btn__content) {
@@ -1145,8 +1145,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   opacity: 0.35;
   transform: scale(0.97);
   box-shadow: none;
-  border-color: #cbd5e1 !important;
-  background: #f8fafc;
+  border-color: var(--q-border-2) !important;
+  background: var(--q-light);
 }
 
 .field-card[draggable='true'] {
@@ -1169,22 +1169,22 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 .lane-content--drag-over {
   background: rgba(59, 130, 246, 0.06);
   border: 2px dashed #3b82f6;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 /* Schema field drop target - instant feedback */
 .field-card--drop-target {
-  border-color: #3b82f6 !important;
+  border-color: var(--q-primary) !important;
   box-shadow:
     0 0 0 3px rgba(59, 130, 246, 0.25),
     0 4px 12px rgba(59, 130, 246, 0.15);
-  background: #eff6ff;
+  background: var(--q-primary-bg);
 }
 
 /* Discard lane drop zone - instant feedback */
 .board-lane--discarded.board-lane--drag-over {
-  background: rgba(239, 68, 68, 0.06);
-  border-color: #ef4444;
+  background: var(--q-error-bg);
+  border-color: var(--q-error);
   box-shadow:
     inset 0 0 0 2px rgba(239, 68, 68, 0.15),
     0 0 20px rgba(239, 68, 68, 0.1);
@@ -1214,7 +1214,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   pointer-events: none;
 }
 
@@ -1237,7 +1237,7 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .lane-icon-btn :deep(.q-icon) {
-  font-size: 24px !important;
+  font-size: var(--km-font-size-display) !important;
 }
 
 /* AI lane buttons - Purple theme */
@@ -1252,29 +1252,29 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 
 /* Run button - Green accent */
 .lane-icon-btn--run {
-  color: #10b981 !important;
+  color: var(--q-success) !important;
 }
 
 .lane-icon-btn--run:hover {
   background: rgba(16, 185, 129, 0.1) !important;
-  color: #059669 !important;
+  color: var(--q-success) !important;
 }
 
 /* Schema lane button - Blue theme */
 .lane-icon-btn--schema {
-  color: #3b82f6 !important;
+  color: var(--q-primary) !important;
 }
 
 .lane-icon-btn--schema:hover {
-  background: rgba(59, 130, 246, 0.1) !important;
-  color: #2563eb !important;
+  background: var(--q-primary-bg) !important;
+  color: var(--q-primary) !important;
 }
 
 /* Source resolution status indicator */
 .field-card__sources {
   margin-top: 6px;
   padding-top: 6px;
-  border-top: 1px solid #f0f1f3;
+  border-top: 1px solid var(--q-light);
 }
 
 .field-card__sources--top-right {
@@ -1290,30 +1290,30 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   cursor: help;
 }
 
 .source-status--resolved {
-  color: #059669;
+  color: var(--q-success);
 }
 
 .source-status--unresolved {
-  color: #dc2626;
+  color: var(--q-error);
 }
 </style>
 
 <!-- Unscoped styles for tooltip (teleported to body) -->
 <style>
 .source-tooltip.q-tooltip {
-  background: #ffffff !important;
+  background: var(--q-white) !important;
   padding: 0 !important;
-  border-radius: 8px !important;
-  border: 1px solid #e5e7eb !important;
+  border-radius: var(--radius-lg) !important;
+  border: 1px solid var(--q-border) !important;
   box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.1),
     0 1px 4px rgba(0, 0, 0, 0.06) !important;
-  color: #374151 !important;
+  color: var(--q-black) !important;
   max-width: 240px !important;
 }
 
@@ -1331,8 +1331,8 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #6b7280;
-  border-bottom: 1px solid #e5e7eb;
+  color: var(--q-secondary-text);
+  border-bottom: 1px solid var(--q-border);
   margin-bottom: 4px;
 }
 
@@ -1340,13 +1340,13 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.2px;
-  color: #374151;
+  color: var(--q-black);
 }
 
 .source-tooltip .source-tooltip__wildcard {
   padding: 6px 12px;
   font-size: 11px;
-  color: #047857;
+  color: var(--q-success-text);
 }
 
 .source-tooltip .source-tooltip__list {
@@ -1363,15 +1363,15 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
   column-gap: 12px;
   padding: 6px 12px;
   font-size: 12px;
-  color: #1f2937;
+  color: var(--q-black);
 }
 
 .source-tooltip .source-tooltip__row:hover {
-  background: #f3f4f6;
+  background: var(--q-light);
 }
 
 .source-tooltip .source-tooltip__row--missing {
-  color: #9ca3af;
+  color: var(--q-label);
 }
 
 .source-tooltip .source-tooltip__name {
@@ -1381,10 +1381,10 @@ const editDefinedField = (row: MetadataDiscoveredField) => {
 }
 
 .source-tooltip .source-tooltip__status {
-  color: #10b981;
+  color: var(--q-success);
 }
 
 .source-tooltip .source-tooltip__row--missing .source-tooltip__status {
-  color: #d1d5db;
+  color: var(--q-border-2);
 }
 </style>

@@ -8,18 +8,21 @@
 </template>
 
 <script>
-import { ref, computed, onUnmounted } from 'vue'
-import { useStore } from 'vuex'
+import { ref, computed, onUnmounted, inject } from 'vue'
 import { useAuth } from '@shared'
 
 export default {
   emits: ['auth-completed'],
   setup(props, { emit }) {
-    const store = useStore()
-    const apiBaseUrl = store.getters.config.api.aiBridge?.baseUrl ?? ''
-    const oAuthProvider = store.getters.config.auth?.provider ?? 'Microsoft'
-    const oAuthPopupWidth = store.getters.config.auth?.popup?.width ?? '600'
-    const oAuthPopupHeight = store.getters.config.auth?.popup?.width ?? '400'
+    // Try Pinia appStore (magnet-admin), fall back to Vuex (magnet-panel)
+    const appStore = inject('appStore', null)
+    let config
+    config = appStore?.config ?? {}
+
+    const apiBaseUrl = config?.api?.aiBridge?.baseUrl ?? ''
+    const oAuthProvider = config?.auth?.provider ?? 'Microsoft'
+    const oAuthPopupWidth = config?.auth?.popup?.width ?? '600'
+    const oAuthPopupHeight = config?.auth?.popup?.height ?? '400'
     const auth = useAuth()
 
     const loginWindow = ref()
@@ -33,7 +36,6 @@ export default {
     function receiveMessageFromPopup(event) {
       const eventData = JSON.parse(event.data)
 
-      // TODO - identify message
       window.removeEventListener('message', receiveMessageFromPopup)
 
       tokenReceived.value = true
@@ -51,7 +53,6 @@ export default {
         loginInProgress.value = false
 
         if (!response.ok) {
-          // TODO - display error
           throw new Error('Auth failed')
         }
 
@@ -88,7 +89,7 @@ export default {
           return
         }
 
-        if (loginWindow.value.closed) {
+        if (loginWindow.value?.closed) {
           loginInProgress.value = false
           clearInterval(loginWindowClosedCheckInterval)
           window.removeEventListener('message', receiveMessageFromPopup)

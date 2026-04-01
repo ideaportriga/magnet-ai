@@ -1,62 +1,33 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import ApplicationPage from '@/components/AIApps/Page.vue'
-import ApplicationDetailsPage from '@/components/AIApps/details.vue'
-import ApplicationDetailsTabsPage from '@/components/AIAppTabs/details.vue'
-import PromptsPage from '@/components/Prompts/Page.vue'
-import PromptsDetailPage from '@/components/Prompts/details.vue'
-import ConfigurationPage from '@/components/Configuration/Page.vue'
-import ConfigurationDetailPage from '@/components/Configuration/details.vue'
-import CollectionsPage from '@/components/Collections/Page.vue'
-import CollectionsDetailPage from '@/components/Collections/details.vue'
-import CollectionItemsPage from '@/components/CollectionItems/Page.vue'
-import { TracesPage, TracesDetailPage } from '@/components/Observability/Traces'
-import EvaluationSetsPage from '@/components/EvaluationSets/Page.vue'
-import EvaluationSetsDetailsPage from '@/components/EvaluationSets/details.vue'
-import EvaluationJobsPage from '@/components/EvaluationJobs/Page.vue'
-import EvaluationDetails from '@/components/EvaluationJobs/details.vue'
-import RetrievalPage from '@/components/Retrieval/Page.vue'
-import RetrievalDetailPage from '@/components/Retrieval/details.vue'
-import DeepResearchPage from '@/components/DeepResearch/Configs/Page.vue'
-import DeepResearchRunsPage from '@/components/DeepResearch/Runs/Page.vue'
-import DeepResearchDetailPage from '@/components/DeepResearch/Configs/Details.vue'
-import DeepResearchRunDetailsPage from '@/components/DeepResearch/Runs/Details.vue'
-import ModelPage from '@/components/ModelConfig/Page.vue'
-import ModelDetailPage from '@/components/ModelConfig/details.vue'
-import AssistantToolsPage from '@/components/AssistantTools/Page.vue'
-import AssistantToolsDetailPage from '@/components/AssistantTools/details.vue'
-import EvaluationDetailsCompare from '@/components/EvaluationJobs/detailsCompare.vue'
-import AgentsPage from '@/components/Agents/Page.vue'
-import AgentsDetailPage from '@/components/Agents/details.vue'
-import AgentsTopicDetailPage from '@/components/Agents/topicDetails.vue'
-import AgentsTopicActionDetailPage from '@/components/Agents/actionDetails.vue'
-import ApiToolsPage from '@/components/ApiTools/Page.vue'
-import ApiToolsDetailPage from '@/components/ApiTools/details.vue'
-import DashboardPage from '@/components/Dashboard/Page.vue'
-import ConversationPage from '@/components/Conversation/Page.vue'
-import JobsPage from '@/components/Jobs/Page.vue'
-import McpPage from '@/components/Mcp/Page.vue'
-import McpDetailsPage from '@/components/Mcp/Details.vue'
-import McpToolsDetailPage from '@/components/Mcp/Tools.vue'
-import ApiKeysPage from '@/components/ApiKeys/Page.vue'
-import ApiServersPage from '@/components/ApiServers/Page.vue'
-import ApiServersDetailsPage from '@/components/ApiServers/Details.vue'
-import ModelProvidersPage from '@/components/ModelProviders/Page.vue'
-import ModelProvidersDetails from '@/components/ModelProviders/Details.vue'
-import KnowledgeProvidersPage from '@/components/KnowledgeProviders/Page.vue'
-import KnowledgeProvidersDetails from '@/components/KnowledgeProviders/Details.vue'
-import KnowledgeGraphPage from '@/components/KnowledgeGraph/Page.vue'
-import NoteTakerPage from '@/components/NoteTaker/Page.vue'
-import NoteTakerSettingsPage from '@/components/NoteTaker/Settings.vue'
-import PromptQueuePage from '@/components/PromptQueue/Page.vue'
-import PromptQueueDetailsPage from '@/components/PromptQueue/Details.vue'
-import SettingsPage from '@/components/Settings/Page.vue'
-import store from '@/store/index'
+import { useEvaluationSetDetailStore, useAiAppDetailStore, useApiToolDetailStore, useMcpServerDetailStore, useApiServerDetailStore, useModelConfigDetailStore, useRagDetailStore, useRetrievalDetailStore, usePromptTemplateDetailStore, useProviderDetailStore } from '@/stores/entityDetailStores'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { usePopupStore } from '@/stores/popupStore'
+import { useKnowledgeGraphPageStore } from '@/stores/entityDetailStores'
+
+// Entity label map for workspace tabs
+const entityLabelMap = {
+  provider: 'Model Provider',
+  model: 'Model',
+  agents: 'Agent',
+  ai_apps: 'AI App',
+  promptTemplates: 'Prompt Template',
+  rag_tools: 'RAG Tool',
+  retrieval: 'Retrieval Tool',
+  collections: 'Knowledge Source',
+  evaluation_sets: 'Test Set',
+  evaluation_jobs: 'Evaluation',
+  assistant_tools: 'Assistant Tool',
+  api_servers: 'API Server',
+  mcp_servers: 'MCP Server',
+  knowledge_graph: 'Knowledge Graph',
+  observability_traces: 'Trace',
+}
 
 const routes = [
   {
     path: '/',
     name: 'main',
-    component: ApplicationPage,
+    component: () => import('@/components/AIApps/Page.vue'),
     meta: {
       pageLabel: 'AI App',
     },
@@ -64,17 +35,18 @@ const routes = [
   {
     path: '/ai-apps/:id/items/:tab',
     name: 'AIAppTabsDetail',
-    component: ApplicationDetailsTabsPage,
+    component: () => import('@/components/AIAppTabs/details.vue'),
     meta: {
       pageLabel: 'AI App',
       chroma: true,
       entity: 'ai_apps',
+      headerComponent: 'ai-apps-header',
     },
   },
   {
     path: '/ai-apps/:id?',
     name: 'AIApp',
-    component: ApplicationPage,
+    component: () => import('@/components/AIApps/Page.vue'),
     meta: {
       pageLabel: 'AI App',
       chroma: true,
@@ -84,17 +56,18 @@ const routes = [
   {
     path: '/ai-apps/:id',
     name: 'AIAppDetail',
-    component: ApplicationDetailsPage,
+    component: () => import('@/components/AIApps/details.vue'),
     meta: {
       pageLabel: 'AI App',
       chroma: true,
       entity: 'ai_apps',
+      headerComponent: 'ai-apps-header',
     },
   },
   {
     path: '/ai-apps',
     name: 'AI App',
-    component: ApplicationPage,
+    component: () => import('@/components/AIApps/Page.vue'),
     meta: {
       pageLabel: 'AI App',
       chroma: true,
@@ -104,7 +77,7 @@ const routes = [
   {
     path: '/prompt-templates/:id?',
     name: 'PromptTemplates',
-    component: PromptsPage,
+    component: () => import('@/components/Prompts/Page.vue'),
     meta: {
       pageLabel: 'Prompt Templates',
     },
@@ -112,28 +85,30 @@ const routes = [
   {
     path: '/prompt-templates/:id',
     name: 'PromptTemplatesItem',
-    component: PromptsDetailPage,
+    component: () => import('@/components/Prompts/details.vue'),
     meta: {
       pageLabel: 'Prompt Templates',
       chroma: true,
       entity: 'promptTemplates',
+      headerComponent: 'prompts-header',
     },
   },
 
   {
     path: '/knowledge-sources/:id/items/:chunk?',
     name: 'CollectionItems',
-    component: CollectionItemsPage,
+    component: () => import('@/components/CollectionItems/Page.vue'),
     meta: {
       pageLabel: 'Knowledge sources',
       chroma: true,
       entity: 'documents',
+      headerComponent: 'collections-header',
     },
   },
   {
     path: '/knowledge-sources/',
     name: 'Collections',
-    component: CollectionsPage,
+    component: () => import('@/components/Collections/Page.vue'),
     meta: {
       pageLabel: 'Knowledge sources',
       //chroma: true,
@@ -143,17 +118,18 @@ const routes = [
   {
     path: '/knowledge-sources/:id',
     name: 'CollectionDetail',
-    component: CollectionsDetailPage,
+    component: () => import('@/components/Collections/details.vue'),
     meta: {
       pageLabel: 'Knowledge sources',
       chroma: true,
       entity: 'collections',
+      headerComponent: 'collections-header',
     },
   },
   {
     path: '/rag-tools/:id?',
     name: 'Configuration',
-    component: ConfigurationPage,
+    component: () => import('@/components/Configuration/Page.vue'),
     meta: {
       pageLabel: 'RAG Tools',
     },
@@ -161,17 +137,18 @@ const routes = [
   {
     path: '/rag-tools/:id',
     name: 'ConfigurationItems',
-    component: ConfigurationDetailPage,
+    component: () => import('@/components/Configuration/details.vue'),
     meta: {
       pageLabel: 'RAG Tools',
       chroma: true,
       entity: 'rag_tools',
+      headerComponent: 'configuration-header',
     },
   },
   {
     path: '/retrieval/:id?',
     name: 'Retrieval',
-    component: RetrievalPage,
+    component: () => import('@/components/Retrieval/Page.vue'),
     meta: {
       pageLabel: 'Retrieval Tools',
     },
@@ -179,17 +156,18 @@ const routes = [
   {
     path: '/retrieval/:id',
     name: 'RetrievalItems',
-    component: RetrievalDetailPage,
+    component: () => import('@/components/Retrieval/details.vue'),
     meta: {
       pageLabel: 'Retrieval Tools',
       chroma: true,
       entity: 'retrieval',
+      headerComponent: 'retrieval-header',
     },
   },
   {
     path: '/deep-research/configs',
     name: 'DeepResearchConfigs',
-    component: DeepResearchPage,
+    component: () => import('@/components/DeepResearch/Configs/Page.vue'),
     meta: {
       pageLabel: 'Deep Research Configs',
     },
@@ -197,7 +175,7 @@ const routes = [
   {
     path: '/deep-research/runs',
     name: 'DeepResearchRuns',
-    component: DeepResearchRunsPage,
+    component: () => import('@/components/DeepResearch/Runs/Page.vue'),
     meta: {
       pageLabel: 'Deep Research Runs',
     },
@@ -205,15 +183,16 @@ const routes = [
   {
     path: '/deep-research/configs/:id',
     name: 'DeepResearchDetails',
-    component: DeepResearchDetailPage,
+    component: () => import('@/components/DeepResearch/Configs/Details.vue'),
     meta: {
       pageLabel: 'Deep Research Config',
+      headerComponent: 'deep-research-configs-header',
     },
   },
   {
     path: '/deep-research/runs/:id',
     name: 'DeepResearchRunDetails',
-    component: DeepResearchRunDetailsPage,
+    component: () => import('@/components/DeepResearch/Runs/Details.vue'),
     meta: {
       pageLabel: 'Deep Research Run',
     },
@@ -221,7 +200,7 @@ const routes = [
   {
     path: '/model-providers',
     name: 'ModelProviders',
-    component: ModelProvidersPage,
+    component: () => import('@/components/ModelProviders/Page.vue'),
     meta: {
       pageLabel: 'Model Providers',
     },
@@ -229,17 +208,18 @@ const routes = [
   {
     path: '/model-providers/:id',
     name: 'ModelProvidersDetails',
-    component: ModelProvidersDetails,
+    component: () => import('@/components/ModelProviders/Details.vue'),
     meta: {
       pageLabel: 'Model Providers',
       chroma: true,
       entity: 'provider',
+      headerComponent: 'model-providers-header',
     },
   },
   {
     path: '/model/:id?',
     name: 'Model',
-    component: ModelPage,
+    component: () => import('@/components/ModelConfig/Page.vue'),
     meta: {
       pageLabel: 'Models',
     },
@@ -247,17 +227,18 @@ const routes = [
   {
     path: '/model/:id',
     name: 'ModelItems',
-    component: ModelDetailPage,
+    component: () => import('@/components/ModelConfig/details.vue'),
     meta: {
       pageLabel: 'Models',
       chroma: true,
       entity: 'model',
+      headerComponent: 'model-config-header',
     },
   },
   {
     path: '/observability-traces',
     name: 'ObservabilityTraces',
-    component: TracesPage,
+    component: () => import('@/components/Observability/Traces/Page.vue'),
     meta: {
       pageLabel: 'Traces',
       chroma: true,
@@ -267,18 +248,19 @@ const routes = [
   {
     path: '/observability-traces/:id',
     name: 'ObservabilityTracesDetail',
-    component: TracesDetailPage,
+    component: () => import('@/components/Observability/Traces/details.vue'),
     meta: {
       pageLabel: 'Traces',
       chroma: true,
       detail: true,
       entity: 'observability_traces',
+      headerComponent: 'observability-traces-header',
     },
   },
   {
     path: '/evaluation-sets/',
     name: 'EvaluationSets',
-    component: EvaluationSetsPage,
+    component: () => import('@/components/EvaluationSets/Page.vue'),
     meta: {
       pageLabel: 'Test Sets',
       //chroma: true,
@@ -288,17 +270,18 @@ const routes = [
   {
     path: '/evaluation-sets/:id',
     name: 'EvaluationSetDetails',
-    component: EvaluationSetsDetailsPage,
+    component: () => import('@/components/EvaluationSets/details.vue'),
     meta: {
       pageLabel: 'Test Sets',
       chroma: true,
       entity: 'evaluation_sets',
+      headerComponent: 'evaluation-sets-header',
     },
   },
   {
     path: '/evaluation-jobs/:id?',
     name: 'EvaluationEvaluationJobs',
-    component: EvaluationJobsPage,
+    component: () => import('@/components/EvaluationJobs/Page.vue'),
     meta: {
       pageLabel: 'Evaluations',
       chroma: true,
@@ -308,7 +291,7 @@ const routes = [
   {
     path: '/evaluation-jobs/:id',
     name: 'Evaluation',
-    component: EvaluationDetails,
+    component: () => import('@/components/EvaluationJobs/details.vue'),
     meta: {
       pageLabel: 'Evaluations',
       chroma: true,
@@ -318,7 +301,7 @@ const routes = [
   {
     path: '/evaluation/compare',
     name: 'EvaluationCompare',
-    component: EvaluationDetailsCompare,
+    component: () => import('@/components/EvaluationJobs/detailsCompare.vue'),
     meta: {
       pageLabel: 'Evaluations',
       chroma: true,
@@ -328,7 +311,7 @@ const routes = [
   {
     path: '/assistant-tools/:id?',
     name: 'Assistant',
-    component: AssistantToolsPage,
+    component: () => import('@/components/AssistantTools/Page.vue'),
     meta: {
       pageLabel: 'Assistant Tools',
     },
@@ -336,26 +319,19 @@ const routes = [
   {
     path: '/assistant-tools/:id',
     name: 'AssistantItems',
-    component: AssistantToolsDetailPage,
+    component: () => import('@/components/AssistantTools/details.vue'),
     meta: {
       pageLabel: 'Assistant Tools',
       chroma: true,
       entity: 'assistant_tools',
+      headerComponent: 'assistant-tools-header',
     },
   },
   {
     path: '/api-tools',
     name: 'ApiTools',
-    component: ApiToolsPage,
+    component: () => import('@/components/ApiTools/Page.vue'),
   },
-  // {
-  //   path: '/usage',
-  //   name: 'Usage',
-  //   component: DashboardPage,
-  //   meta: {
-  //     pageLabel: 'Usage',
-  //   },
-  // },
   {
     path: '/usage',
     redirect: '/usage/rag',
@@ -363,7 +339,7 @@ const routes = [
   {
     path: '/usage/:tab',
     name: 'Usage',
-    component: DashboardPage,
+    component: () => import('@/components/Dashboard/Page.vue'),
     meta: {
       pageLabel: 'Usage',
     },
@@ -372,7 +348,7 @@ const routes = [
   {
     path: '/agents/:id?',
     name: 'Agents',
-    component: AgentsPage,
+    component: () => import('@/components/Agents/Page.vue'),
     meta: {
       pageLabel: 'Agents',
       chroma: true,
@@ -383,32 +359,35 @@ const routes = [
   {
     path: '/agents/:id',
     name: 'AgentDetail',
-    component: AgentsDetailPage,
+    component: () => import('@/components/Agents/details.vue'),
     meta: {
       pageLabel: 'Agent',
       chroma: true,
       entity: 'agents',
+      headerComponent: 'agents-header',
     },
     children: [
       // Child routes under AgentDetail
       {
         path: 'topics/:topicId',
         name: 'AgentTopicDetail',
-        component: AgentsTopicDetailPage,
+        component: () => import('@/components/Agents/topicDetails.vue'),
         meta: {
           pageLabel: 'Agent',
           chroma: true,
           entity: 'agents',
+          headerComponent: 'agents-header',
         },
       },
       {
         path: 'topics/:topicId/actions/:actionId',
         name: 'AgentTopicActionDetail',
-        component: AgentsTopicActionDetailPage,
+        component: () => import('@/components/Agents/actionDetails.vue'),
         meta: {
           pageLabel: 'Agent',
           chroma: true,
           entity: 'agents',
+          headerComponent: 'agents-header',
         },
       },
     ],
@@ -416,7 +395,7 @@ const routes = [
   {
     path: '/jobs',
     name: 'Jobs',
-    component: JobsPage,
+    component: () => import('@/components/Jobs/Page.vue'),
     meta: {
       pageLabel: 'Jobs',
       chroma: true,
@@ -424,17 +403,26 @@ const routes = [
     },
   },
   {
+    path: '/files',
+    name: 'Files',
+    component: () => import('@/components/Files/Page.vue'),
+    meta: {
+      pageLabel: 'File Storage',
+    },
+  },
+  {
     path: '/conversation/:id?',
     name: 'Conversation',
-    component: ConversationPage,
+    component: () => import('@/components/Conversation/Page.vue'),
     meta: {
       pageLabel: 'Conversation',
+      headerComponent: 'conversation-header',
     },
   },
   {
     path: '/mcp',
     name: 'Mcp',
-    component: McpPage,
+    component: () => import('@/components/Mcp/Page.vue'),
     meta: {
       pageLabel: 'MCP Servers',
     },
@@ -442,25 +430,29 @@ const routes = [
   {
     path: '/mcp/:id',
     name: 'McpDetail',
-    component: McpDetailsPage,
+    component: () => import('@/components/Mcp/Details.vue'),
     meta: {
       pageLabel: 'MCP Servers',
       chroma: true,
       entity: 'mcp_servers',
+      headerComponent: 'mcp-header',
     },
   },
   {
     path: '/mcp/:id/tools/:name',
     name: 'McpToolsDetail',
-    component: McpToolsDetailPage,
+    component: () => import('@/components/Mcp/Tools.vue'),
     meta: {
-      pageLabel: 'MCP Tools',
+      pageLabel: 'MCP Servers',
+      chroma: true,
+      entity: 'mcp_servers',
+      headerComponent: 'mcp-header',
     },
   },
   {
     path: '/api-keys',
     name: 'ApiKeys',
-    component: ApiKeysPage,
+    component: () => import('@/components/ApiKeys/Page.vue'),
     meta: {
       pageLabel: 'API Keys',
     },
@@ -468,7 +460,7 @@ const routes = [
   {
     path: '/api-servers',
     name: 'ApiServers',
-    component: ApiServersPage,
+    component: () => import('@/components/ApiServers/Page.vue'),
     meta: {
       pageLabel: 'API Servers',
       chroma: true,
@@ -478,27 +470,29 @@ const routes = [
   {
     path: '/api-servers/:id',
     name: 'ApiServersDetail',
-    component: ApiServersDetailsPage,
+    component: () => import('@/components/ApiServers/Details.vue'),
     meta: {
       pageLabel: 'API Server',
       chroma: true,
       entity: 'api_servers',
+      headerComponent: 'api-servers-header',
     },
   },
   {
     path: '/api-servers/:id/tools/:name',
     name: 'ApiToolsDetails',
-    component: ApiToolsDetailPage,
+    component: () => import('@/components/ApiTools/details.vue'),
     meta: {
       pageLabel: 'API Server',
       chroma: true,
       entity: 'api_servers',
+      headerComponent: 'api-servers-header',
     },
   },
   {
     path: '/knowledge-providers',
     name: 'KnowledgeProviders',
-    component: KnowledgeProvidersPage,
+    component: () => import('@/components/KnowledgeProviders/Page.vue'),
     meta: {
       pageLabel: 'Knowledge Source Providers',
     },
@@ -506,17 +500,18 @@ const routes = [
   {
     path: '/knowledge-providers/:id',
     name: 'KnowledgeProvidersDetails',
-    component: KnowledgeProvidersDetails,
+    component: () => import('@/components/KnowledgeProviders/Details.vue'),
     meta: {
       pageLabel: 'Knowledge Source Providers',
       chroma: true,
       entity: 'provider',
+      headerComponent: 'knowledge-providers-header',
     },
   },
   {
     path: '/knowledge-graph',
     name: 'KnowledgeGraph',
-    component: KnowledgeGraphPage,
+    component: () => import('@/components/KnowledgeGraph/Page.vue'),
     meta: {
       pageLabel: 'Knowledge Graph',
     },
@@ -529,6 +524,7 @@ const routes = [
       pageLabel: 'Knowledge Graph',
       chroma: true,
       entity: 'knowledge_graph',
+      headerComponent: 'knowledge-graph-header',
     },
   },
   {
@@ -540,6 +536,7 @@ const routes = [
       chroma: true,
       entity: 'knowledge_graph',
       detail: true,
+      headerComponent: 'knowledge-graph-header',
     },
   },
   {
@@ -549,7 +546,7 @@ const routes = [
   {
     path: '/settings/:tab',
     name: 'Settings',
-    component: SettingsPage,
+    component: () => import('@/components/Settings/Page.vue'),
     meta: {
       pageLabel: 'Settings',
     },
@@ -557,7 +554,7 @@ const routes = [
   {
     path: '/prompt-queue',
     name: 'PromptQueue',
-    component: PromptQueuePage,
+    component: () => import('@/components/PromptQueue/Page.vue'),
     meta: {
       pageLabel: 'Prompt Queue',
     },
@@ -565,15 +562,16 @@ const routes = [
   {
     path: '/prompt-queue/:id',
     name: 'PromptQueueDetails',
-    component: PromptQueueDetailsPage,
+    component: () => import('@/components/PromptQueue/Details.vue'),
     meta: {
       pageLabel: 'Prompt Queue',
+      headerComponent: 'prompt-queue-header',
     },
   },
   {
     path: '/note-taker',
     name: 'NoteTakerConfigs',
-    component: NoteTakerPage,
+    component: () => import('@/components/NoteTaker/Page.vue'),
     meta: {
       pageLabel: 'Note Taker',
     },
@@ -581,12 +579,22 @@ const routes = [
   {
     path: '/note-taker/:id',
     name: 'NoteTakerSettings',
-    component: NoteTakerSettingsPage,
+    component: () => import('@/components/NoteTaker/details.vue'),
     meta: {
       pageLabel: 'Note Taker',
+      chroma: true,
+      entity: 'note_taker',
+      headerComponent: 'note-taker-header',
     },
   },
-  
+  {
+    path: '/profile/:tab?',
+    name: 'profile',
+    component: () => import('@/components/Profile/ProfilePage.vue'),
+    meta: {
+      pageLabel: 'Profile',
+    },
+  },
 ]
 
 const router = createRouter({
@@ -595,76 +603,110 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  if (store.getters.showLeaveConfirm) {
-    store.commit('setIsNavigationCancelled', false)
-    next()
+  const popupStore = usePopupStore()
+
+  if (popupStore.showLeaveConfirm) {
+    popupStore.setIsNavigationCancelled(false)
+    return next()
   }
 
+  const evalSetStore = useEvaluationSetDetailStore()
+  const aiAppStore = useAiAppDetailStore()
+  const apiToolStore = useApiToolDetailStore()
+  const mcpStore = useMcpServerDetailStore()
+  const apiServerStore = useApiServerDetailStore()
+  const modelConfigStore = useModelConfigDetailStore()
+  const ragStore = useRagDetailStore()
+  const retrievalStore = useRetrievalDetailStore()
+  const promptStore = usePromptTemplateDetailStore()
+  const agentStore = useAgentDetailStore()
+  const providerStore = useProviderDetailStore()
+
+  let kgChanged = false
+  try { kgChanged = useKnowledgeGraphPageStore().isRetrievalChanged } catch { /* not initialized */ }
+
   if (
-    (from.name === 'ModelItems' && store.getters['modelConfig/isEntityChanged']) ||
-    (from.name === 'ConfigurationItems' && store.getters.isRagChanged) ||
-    (from.name === 'RetrievalItems' && store.getters.isRetrievalChanged) ||
-    (from.name === 'EvaluationSetDetails' && store.getters.isEvaluationSetChanged) ||
-    (from.name === 'PromptTemplatesItem' && store.getters.isPromptTemplateChanged) ||
+    (from.name === 'ModelItems' && modelConfigStore.isChanged) ||
+    (from.name === 'ConfigurationItems' && ragStore.isChanged) ||
+    (from.name === 'RetrievalItems' && retrievalStore.isChanged) ||
+    (from.name === 'EvaluationSetDetails' && evalSetStore.isChanged) ||
+    (from.name === 'PromptTemplatesItem' && promptStore.isChanged) ||
     ((from.name === 'AIAppDetail' || from.name === 'AIAppTabsDetail') &&
-      store.getters.isAIAppChanged &&
+      aiAppStore.isChanged &&
       to.name !== 'AIAppDetail' &&
       to.name !== 'AIAppTabsDetail') ||
-    (from.name === 'ApiToolsDetails' && store.getters.isApiToolChanged) ||
+    (from.name === 'ApiToolsDetails' && apiToolStore.isChanged) ||
     ((from.name === 'AgentDetail' || from.name === 'AgentTopicDetail' || from.name === 'AgentTopicActionDetail') &&
-      store.getters.isAgentDetailChanged &&
+      agentStore.isChanged &&
       to.name !== 'AgentDetail' &&
       to.name !== 'AgentTopicDetail' &&
       to.name !== 'AgentTopicActionDetail') ||
-    (from.name === 'McpDetail' && store.getters.isMcpServerChanged) ||
-    (from.name === 'ApiServersDetail' && store.getters.isApiServerChanged) ||
-    (from.name === 'ApiToolsDetails' && store.getters.isApiServerChanged) ||
-    (from.name === 'ModelProvidersDetails' && store.getters.isProviderChanged) ||
-    (from.name === 'KnowledgeProvidersDetails' && store.getters.isProviderChanged) ||
-    (from.name === 'KnowledgeGraphDetail' && store.getters.isKnowledgeGraphRetrievalChanged)
+    (from.name === 'McpDetail' && mcpStore.isChanged) ||
+    (from.name === 'ApiServersDetail' && apiServerStore.isChanged) ||
+    (from.name === 'ApiToolsDetails' && apiServerStore.isChanged) ||
+    (from.name === 'ModelProvidersDetails' && providerStore.isChanged) ||
+    (from.name === 'KnowledgeProvidersDetails' && providerStore.isChanged) ||
+    (from.name === 'KnowledgeGraphDetail' && kgChanged)
   ) {
-    store.commit('setNextRoute', to.fullPath)
-    store.commit('showPopup')
-    store.commit('setIsNavigationCancelled', true)
+    popupStore.setNextRoute(to.fullPath)
+    popupStore.showPopup()
+    popupStore.setIsNavigationCancelled(true)
     next(false)
   } else {
-    store.commit('setIsNavigationCancelled', false)
+    popupStore.setIsNavigationCancelled(false)
     next()
   }
 })
 
 router.afterEach(async (to) => {
-  if (store.getters.isNavigationCancelled) {
+  const popupStore = usePopupStore()
+  if (popupStore.isNavigationCancelled) {
     return
   }
 
   const query = to.query ?? {}
 
-  store.commit('set', {
-    ...(query.sourceSystem ? { sourceSystem: query.sourceSystem } : {}),
-    ...(query.viewMode ? { viewMode: query.viewMode } : {}),
-    ...(query.agentRecordId ? { agentRecordId: query.agentRecordId } : {}),
-    ...(query.agentObjectType ? { agentObjectType: query.agentObjectType } : {}),
-    ...(query.sourceSystemUserName ? { sourceSystemUserName: query.sourceSystemUserName } : {}),
-  })
+  // Query params are now read directly from route where needed
 
-  if (to.meta.chroma) {
-    console.log('after each', to)
-    store.dispatch(`chroma/selectFromRouter`, { payload: to.params, entity: to.meta.entity, detail: to.meta?.detail })
-    if (to.meta.entity === 'observability_traces') {
-      store.dispatch(`chroma/reset`, { entity: to.meta.entity })
+  // Open workspace tab for detail pages (routes with :id param and entity meta)
+  if (to.params.id && to.meta.entity && to.meta.headerComponent) {
+    try {
+      const { useWorkspaceStore } = await import('@/stores/workspaceStore')
+      const workspace = useWorkspaceStore()
+      const entityType = to.meta.entity
+      const entityId = to.params.id
+      const typeLabel = entityLabelMap[entityType] || entityType
+
+      // Try to get entity name from TanStack Query cache or entity-specific store
+      let entityName = ''
+      try {
+        if (entityType === 'note_taker') {
+          const { useNoteTakerStore } = await import('@/stores/noteTakerStore')
+          const ntStore = useNoteTakerStore()
+          entityName = ntStore.activeRecord?.name || ''
+        } else {
+          const { getCachedItems } = await import('@/queries/getCachedItems')
+          const cachedItems = getCachedItems(entityType)
+          if (cachedItems) {
+            const entity = cachedItems.find((i) => i.id === entityId)
+            entityName = entity?.name || entity?.system_name || ''
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      const label = entityName || `${entityId.slice(0, 8)}...`
+      workspace.openTab(entityType, entityId, label)
+    } catch {
+      // workspace store not initialized yet — ignore
     }
   }
 
-  if (to.meta.templates) {
-    console.log('after each', to)
-    store.dispatch(`strapi/selectFromRouter`, { payload: to.params, entity: to.meta.entity })
-  }
+  // Update browser tab title
+  const pageLabel = to.meta?.pageLabel || 'Magnet AI'
+  document.title = to.params.id ? `${pageLabel} — Magnet AI` : `${pageLabel} — Magnet AI`
 
-  if (to.meta.prompts) {
-    console.log('after each', to)
-    store.dispatch('selectPromptFromRouter', { payload: to.params })
-  }
 })
 
 export default router

@@ -16,7 +16,7 @@ logger = getLogger(__name__)
 def encrypt_secrets(secrets: dict[str, str]) -> str:
     if not SECRET_ENCRYPTION_KEY:
         logger.error("Cannot encrypt secrets - SECRET_ENCRYPTION_KEY is not set.")
-        raise Exception()
+        raise ValueError("SECRET_ENCRYPTION_KEY is not set. Cannot encrypt secrets.")
 
     fernet = Fernet(SECRET_ENCRYPTION_KEY)
     secrets_string = json.dumps(secrets).encode(SECRET_ENCRYPTION_ENCODING)
@@ -30,7 +30,7 @@ def encrypt_secrets(secrets: dict[str, str]) -> str:
 def decrypt_secrets(secrets_encrypted: str) -> dict[str, str]:
     if not SECRET_ENCRYPTION_KEY:
         logger.error("Cannot decrypt secrets - SECRET_ENCRYPTION_KEY is not set.")
-        raise Exception()
+        raise ValueError("SECRET_ENCRYPTION_KEY is not set. Cannot decrypt secrets.")
 
     fernet = Fernet(SECRET_ENCRYPTION_KEY)
     decrypted_data_str = fernet.decrypt(

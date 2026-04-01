@@ -37,9 +37,9 @@ km-popup-confirm(
 
 <script setup>
 import { ref, watch } from 'vue'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
 import { required, toUpperCaseWithUnderscores } from '@shared'
+import { usePromptQueueStore } from '@/stores/promptQueueStore'
+import { useNotify } from '@/composables/useNotify'
 
 const props = defineProps({
   showNewDialog: {
@@ -49,8 +49,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['cancel', 'created'])
-const store = useStore()
-const $q = useQuasar()
+const pqStore = usePromptQueueStore()
+const { notifySuccess, notifyError } = useNotify()
 
 const name = ref('')
 const system_name = ref('')
@@ -72,32 +72,21 @@ const createConfig = async () => {
   if (!validateFields()) return
 
   try {
-    const result = await store.dispatch('createPromptQueueConfigFromForm', {
+    const result = await pqStore.createPromptQueueConfig({
       name: name.value,
       system_name: system_name.value,
       description: '',
       config: { steps: [] },
     })
 
-    $q.notify({
-      position: 'top',
-      message: 'Prompt Queue Config has been created',
-      color: 'positive',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    notifySuccess('Prompt Queue Config has been created')
 
     name.value = ''
     system_name.value = ''
 
     emit('created', result.id)
   } catch (error) {
-    $q.notify({
-      position: 'top',
-      message: error?.message || 'Failed to create configuration',
-      color: 'negative',
-      timeout: 2000,
-    })
+    notifyError(error?.message || 'Failed to create configuration')
   }
 }
 </script>

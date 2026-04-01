@@ -117,8 +117,8 @@ export default {
         { label: 'Development', value: 'development' },
       ]),
       data: ref([
-        { title: 'Liked', value: 12222, action: () => console.log('liked') },
-        { title: 'Disliked', value: 1121, action: () => console.log('disliked') },
+        { title: 'Liked', value: 12222, action: () => {} },
+        { title: 'Disliked', value: 1121, action: () => {} },
       ]),
       filter: ref(filter),
     }

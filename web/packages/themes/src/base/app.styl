@@ -1,3 +1,7 @@
+// Load Geist font (primary) and Geist Mono (code)
+@import url('https://cdn.jsdelivr.net/npm/geist@1.4.1/dist/fonts/geist-sans/style.min.css')
+@import url('https://cdn.jsdelivr.net/npm/geist@1.4.1/dist/fonts/geist-mono/style.min.css')
+
 @import './openui_overrides.styl'
 @import './factory.styl'
 @import './typography.styl'
@@ -19,21 +23,29 @@
 
 #km-app, [id^=q-portal--], #q-notify
   box-sizing: border-box !important
-  --font-default: "Inter"
-  font-size: 14px
+  --font-default: var(--km-font-default)
+  font-size: var(--km-font-size-body)
   font-family: var(--font-default);
 
+// Thin scrollbars — consistent across all browsers
+*
+  scrollbar-width: thin
+  scrollbar-color: rgba(0,0,0,0.2) transparent
+  scrollbar-gutter: stable
+
 ::-webkit-scrollbar
-  width: 10px
+  width: 8px
+  height: 8px
 ::-webkit-scrollbar-track
   background: transparent
 ::-webkit-scrollbar-thumb
-  margin: 4px;
-  background: #0001;
-  border-radius: 3px
-  transition: opacity .3s;
-::-webkit-scrollbar-thumb:hover
-  background: #0002;
+  background: rgba(0,0,0,0.2)
+  border-radius: 10px
+  border: 2px solid transparent
+  background-clip: padding-box
+  &:hover
+    background: rgba(0,0,0,0.35)
+    background-clip: padding-box
 .round
   border-radius: 50%
 .overflow-hidden
@@ -75,6 +87,7 @@
   width: 1px;
 
 .logo-text
+  font-size: 18px
   background: linear-gradient(270deg, #6840C2 24.5%, #E30052 92%);
   background-clip: text;
   -webkit-background-clip: text;
@@ -108,6 +121,53 @@
   gap: 8px
   border-radius: 10px
 
+
+// Sidebar transitions
+.q-drawer
+  transition: width 0.2s ease
+
+.km-nav-section-header
+  min-height: 20px
+  &:hover
+    .text-secondary
+      color: var(--q-primary) !important
+
+// Nav popup menu items (collapsed sidebar)
+.km-nav-popup-item
+  &:hover
+    background: var(--q-primary-bg) !important
+    color: var(--q-primary) !important
+    .q-icon
+      color: var(--q-primary) !important
+
+// Resizable side drawer
+.km-side-drawer
+  position: relative
+
+.km-drawer-resize-handle
+  position: absolute
+  left: 0
+  top: 0
+  bottom: 0
+  width: 4px
+  cursor: col-resize
+  z-index: 10
+  transition: background-color 0.15s ease
+
+  &:hover
+    background-color: var(--q-primary)
+
+// Disable text selection and pointer events on content while resizing
+body.km-drawer-resizing
+  user-select: none
+  cursor: col-resize
+
+  *
+    pointer-events: none
+
+  .km-drawer-resize-handle
+    pointer-events: auto
+    background-color: var(--q-primary)
 
 .km-grid
     display: grid

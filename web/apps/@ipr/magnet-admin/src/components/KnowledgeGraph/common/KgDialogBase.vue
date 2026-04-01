@@ -151,8 +151,8 @@ const onClose = () => {
 }
 
 .kg-dialog__subtitle {
-  font-size: 14px;
-  color: #6b6b6b;
+  font-size: var(--km-font-size-body);
+  color: var(--q-label);
   font-weight: 400;
   line-height: 1.4;
   margin-top: 4px;
@@ -177,7 +177,6 @@ const onClose = () => {
 }
 
 .kg-dialog__action__button {
-  font-size: 13px;
   font-family: var(--font-default) !important;
   height: 34px !important;
   min-height: 34px !important;

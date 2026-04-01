@@ -19,9 +19,11 @@ km-popup-confirm(
 
 <script>
 import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
-import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { useEntityConfig } from '@/composables/useEntityConfig'
+import { cloneDeep } from 'lodash'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 
 export default {
   props: {
@@ -36,16 +38,19 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { searchString, create, requiredFields, config, ...useCollection } = useChroma('agents')
+    const { config, requiredFields } = useEntityConfig('agents')
+    const queries = useEntityQueries()
+    const { mutateAsync: createAgent } = queries.agents.useCreate()
+    const { data: modelListData } = queries.model.useList()
 
+    const agentStore = useAgentDetailStore()
     return {
-      searchString,
-      useCollection,
+      agentStore,
+      modelListData,
       requiredFields,
       config,
-      create,
+      createAgent,
       createNew: ref(false),
-      loadingRefresh: ref(false),
       newRow: reactive({
         name: '',
         description: '',
@@ -72,7 +77,7 @@ export default {
   },
   computed: {
     defaultModel() {
-      return this.$store.getters['chroma/model']?.items?.find((el) => el.is_default)
+      return (this.modelListData?.items ?? []).find((el) => el.is_default)
     },
     name: {
       get() {
@@ -93,7 +98,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.$store.getters.agent_detail
+      return this.agentStore.entity
     },
     collectionSystemNames: {
       get() {
@@ -112,8 +117,6 @@ export default {
     },
   },
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.name = this.newRow.name + '_COPY'
@@ -137,14 +140,13 @@ export default {
       if (!this.validateFields()) return
 
       this.createNew = false
-      const result = await this.create(JSON.stringify(this.newRow))
+      const result = await this.createAgent(this.newRow)
 
       if (!result.id) {
         return
       }
 
-      await this.useCollection.selectRecord(result.id)
-      await this.$store.commit('setAgentDetail', this.newRow)
+      this.agentStore.setEntity(this.newRow)
       this.$router.push(`/agents/${result.id}`)
     },
 
@@ -152,21 +154,11 @@ export default {
       await this.$router.push(`/agents/${row.id}`)
     },
 
-    async refreshTable() {
-      this.loadingRefresh = true
-      this.useCollection.get()
-      this.loadingRefresh = false
-    },
   },
 }
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

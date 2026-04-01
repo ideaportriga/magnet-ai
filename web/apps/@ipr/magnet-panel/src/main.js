@@ -11,6 +11,7 @@ import 'quasar/src/css/index.sass'
 import { setTheme, registerComponents, registerGlobalProperties, errorHandler, registerDirectives, mountLog } from '@shared/utils/mountUtils'
 import { getComponentList } from '@shared'
 
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import uiComps from '@ui'
 
 import App from './App.vue'
@@ -46,6 +47,20 @@ const app = {
     appInstance.use(createPinia())
     store = useMainStore()
     appInstance.use(router)
+
+    // Initialize TanStack Query + shared entity queries
+    const { installVueQuery } = await import('@/plugins/vueQuery')
+    installVueQuery(appInstance)
+
+    // Load config first, then init entity APIs
+    await store.loadConfig()
+
+    if (store.endpoint?.admin) {
+      const { createPanelEntityApis } = await import('@/api/entityApis')
+      const { initPanelEntityQueries } = await import('@/queries/entities')
+      const apis = createPanelEntityApis(store.endpoint.admin, store.config?.credentials ?? 'include')
+      initPanelEntityQueries(apis)
+    }
     appInstance.use(Quasar, quasarConf)
     appInstance.use(uiComps)
 

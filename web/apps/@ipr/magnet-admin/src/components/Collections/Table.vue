@@ -100,7 +100,7 @@ export default defineComponent({
       if (this.$refs.table && typeof this.$refs.table.requestServerInteraction === 'function') {
         return this.$refs.table.requestServerInteraction(...args)
       }
-      console.warn("Inner <q-table> doesn't have requestServerInteraction or is not yet mounted")
+
       return Promise.resolve() // Return a resolved promise instead of undefined
     },
   },

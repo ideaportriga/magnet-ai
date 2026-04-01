@@ -7,7 +7,7 @@
     "prepare": "husky || true",
     "setup": "node scripts/check-env.js && node scripts/setup-web-config.js && npm run setup:api && npm run setup:web",
     "setup:api": "cd api && poetry install",
-    "setup:web": "cd web && yarn install",
+    "setup:web": "cd web && yarn install --frozen-lockfile",
     "dev": "concurrently \"npm run dev:api:reload\" \"npm run dev:web\"",
     "dev:docker": "npm run docker:up && npm run dev",
     "dev:api": "cd api && poetry run python run.py",

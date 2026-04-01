@@ -6,14 +6,20 @@ div
 </template>
 
 <script>
+import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+
 export default {
+  setup() {
+    const promptStore = usePromptTemplateDetailStore()
+    return { promptStore }
+  },
   computed: {
     sampleText: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.sample_text || ''
+        return this.promptStore.activeVariant?.sample_text || ''
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'sample_text', value })
+        this.promptStore.updateNestedVariantProperty({ path: 'sample_text', value })
       },
     },
   },

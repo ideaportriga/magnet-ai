@@ -686,6 +686,7 @@ class KnowledgeGraphDocumentService:
             source.documents_count = int(res.scalar_one() or 0)
             await db_session.commit()
         except Exception:
+            await db_session.rollback()
             logger.warning(
                 "Failed to update documents_count for source %s", str(source.id)
             )

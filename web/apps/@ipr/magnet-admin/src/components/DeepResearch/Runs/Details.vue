@@ -1,7 +1,6 @@
 <template lang="pug">
 .row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  q-inner-loading(:showing='loading')
-    q-spinner-gears(size='50px', color='primary')
+  km-inner-loading(:showing='loading')
 .row.no-wrap.overflow-hidden.full-height(v-if='!loading && run', style='min-width: 1200px')
   .col.row.no-wrap.full-height.justify-center.fit
     .col(style='max-width: 1400px; min-width: 600px')
@@ -61,7 +60,7 @@
                 .report-content.q-pa-md.bg-grey-1.border-radius-8
                   //- Display JSON nicely or plain text
                   template(v-if='isJsonReport')
-                    pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 13px') {{ JSON.stringify(finalReport, null, 2) }}
+                    pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: var(--km-font-mono); font-size: 13px') {{ JSON.stringify(finalReport, null, 2) }}
                   template(v-else)
                     .text-body1(v-html='renderMarkdown(finalReportText)')
 
@@ -101,7 +100,7 @@
                       )
                         q-card.q-mt-xs
                           q-card-section.bg-grey-2
-                            pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 12px') {{ JSON.stringify(webhookCall.request_payload, null, 2) }}
+                            pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: var(--km-font-mono); font-size: 12px') {{ JSON.stringify(webhookCall.request_payload, null, 2) }}
                   
                   .row.items-start(v-if='webhookCall.response_body')
                     .col-3.text-weight-medium.text-grey-8 Response:
@@ -115,7 +114,7 @@
                       )
                         q-card.q-mt-xs
                           q-card-section.bg-grey-2
-                            pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: monospace; font-size: 12px') {{ JSON.stringify(webhookCall.response_body, null, 2) }}
+                            pre.q-ma-none(style='white-space: pre-wrap; word-wrap: break-word; font-family: var(--km-font-mono); font-size: 12px') {{ JSON.stringify(webhookCall.response_body, null, 2) }}
                   
                   .row.items-start(v-if='webhookCall.error_message')
                     .col-3.text-weight-medium.text-grey-8 Error:
@@ -313,18 +312,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { ref, computed, onMounted, onActivated } from 'vue'
 import { useRoute } from 'vue-router'
 import { date, openURL } from 'quasar'
+import { useDeepResearchStore } from '@/stores/deepResearchStore'
 
-const store = useStore()
+const drStore = useDeepResearchStore()
 const route = useRoute()
 
 const loading = ref(true)
 const run = ref<any>(null)
 
-const runId = computed(() => route.params.id as string)
+const runId = ref(route.params.id)
 
 const configName = computed(() => {
   if (!run.value) return null
@@ -341,7 +340,7 @@ const configName = computed(() => {
     return run.value.config.system_name
   }
 
-  const configs = store.getters.configs || []
+  const configs = drStore.configs || []
   const matchedConfig = configs.find((c: any) => c.id === run.value?.config_id)
   if (matchedConfig) {
     return matchedConfig.name || matchedConfig.system_name || null
@@ -648,14 +647,27 @@ const openUrl = (url: string) => {
 onMounted(async () => {
   loading.value = true
   try {
-    if (!store.getters.configs?.length) {
-      await store.dispatch('fetchConfigs')
+    if (!drStore.configs?.length) {
+      await drStore.fetchConfigs()
     }
 
-    const fetchedRun = await store.dispatch('fetchRun', runId.value)
-    run.value = fetchedRun || store.getters.selectedRun
+    const fetchedRun = await drStore.fetchRun(runId.value)
+    run.value = fetchedRun || drStore.selectedRun
   } finally {
     loading.value = false
+  }
+})
+
+onActivated(async () => {
+  runId.value = route.params.id
+  if (runId.value && runId.value !== run.value?.id) {
+    loading.value = true
+    try {
+      const fetchedRun = await drStore.fetchRun(runId.value)
+      run.value = fetchedRun || drStore.selectedRun
+    } finally {
+      loading.value = false
+    }
   }
 })
 </script>
@@ -664,8 +676,8 @@ onMounted(async () => {
 pre {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-family: var(--km-font-mono);
+  font-size: var(--km-font-size-caption);
 }
 
 .report-content {
@@ -702,7 +714,7 @@ pre {
 }
 
 .step-details {
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
 }
 
 .summary-text {

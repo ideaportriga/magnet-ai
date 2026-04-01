@@ -128,7 +128,8 @@
         )
 </template>
 <script>
-import { defineComponent, ref } from 'vue'
+import { defineComponent, ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 
 export default defineComponent({
   props: {
@@ -140,15 +141,20 @@ export default defineComponent({
   },
   emits: ['update:open', 'update:record'],
   setup() {
+    const queries = useEntityQueries()
+    const { data: modelListData } = queries.model.useList()
+    const modelItems = computed(() => modelListData.value?.items ?? [])
+
     return {
       text: ref(undefined),
       loading: ref(false),
+      modelItems,
     }
   },
   computed: {
     model() {
       const toolModel = this.currentRecord?.inputs?.system_name_for_model
-      const objModel = this.$store.getters['chroma/model'].items?.find((model) => model.system_name == toolModel)
+      const objModel = this.modelItems?.find((model) => model.system_name == toolModel)
       return objModel
     },
     modelLabel() {

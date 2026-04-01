@@ -1,126 +1,121 @@
 <template lang="pug">
-.q-gutter-md
-  //- ── Salesforce ────────────────────────────────────────────────────
-  .km-heading-8 Salesforce
-  .km-field
+div
+  km-section(title='Salesforce', subTitle='Send Note Taker transcripts to a Salesforce org')
     .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Send transcript to Salesforce
+      .km-field.text-secondary-text.q-pl-8 Send Transcript to Salesforce
       q-toggle(v-model='sendTranscriptToSalesforce', color='primary')
-    .km-description.text-secondary-text.q-pt-2 Push completed transcripts to Salesforce.
+    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Push completed transcripts to Salesforce
 
-  .q-gutter-md(v-if='sendTranscriptToSalesforce')
-    .km-field
-      .text-secondary-text.q-pb-xs API Server
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='salesforceApiServer',
-            :options='apiServers',
-            option-label='name',
-            option-value='system_name',
-            emit-value, map-options, height='30px', clearable
-          )
-        .col-auto(v-if='salesforceApiServer')
-          km-btn(icon='open_in_new', flat, dense, @click='navigateToApiServer(salesforceApiServer)')
-      .km-description.text-secondary-text.q-pt-2 API server for Salesforce tool calls.
+    .q-gutter-md.q-mt-md(v-if='sendTranscriptToSalesforce')
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Server
+        .row.items-center.q-gutter-sm
+          .col
+            km-select(
+              v-model='salesforceApiServer',
+              :options='apiServers',
+              option-label='name',
+              option-value='system_name',
+              emit-value, map-options, height='auto', minHeight='36px', clearable
+            )
+          .col-auto(v-if='salesforceApiServer')
+            km-btn(icon='open_in_new', flat, dense, @click='navigateToApiServer(salesforceApiServer)')
+        .km-description.text-secondary-text.q-pt-xs.q-pl-8 API server for Salesforce tool calls.
 
-    .km-field
-      .text-secondary-text.q-pb-xs STT Recording Tool
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='salesforceSttRecordingTool',
-            :options='salesforceAvailableTools',
-            option-label='label',
-            option-value='value',
-            emit-value, map-options, height='30px', clearable
-          )
-        .col-auto(v-if='salesforceSttRecordingTool')
-          km-btn(icon='open_in_new', flat, dense, @click='navigateToTool(salesforceApiServer, salesforceSttRecordingTool)')
-      .km-description.text-secondary-text.q-pt-2 Tool for creating STT recordings in Salesforce.
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 STT Recording Tool
+        .row.items-center.q-gutter-sm
+          .col
+            km-select(
+              v-model='salesforceSttRecordingTool',
+              :options='salesforceAvailableTools',
+              option-label='label',
+              option-value='value',
+              emit-value, map-options, height='auto', minHeight='36px', clearable
+            )
+          .col-auto(v-if='salesforceSttRecordingTool')
+            km-btn(icon='open_in_new', flat, dense, @click='navigateToTool(salesforceApiServer, salesforceSttRecordingTool)')
+        .km-description.text-secondary-text.q-pt-xs.q-pl-8 Tool for creating STT recordings in Salesforce.
 
-  q-separator
+  q-separator.q-my-lg
 
-  //- ── Confluence ────────────────────────────────────────────────────
-  .km-heading-8 Confluence
-  .km-field
+  km-section(title='Confluence', subTitle='Publish Note Taker output to a Confluence space')
     .row.items-center.justify-between
-      .text-secondary-text.q-pb-xs.km-title Publish meeting notes to Confluence
+      .km-field.text-secondary-text.q-pl-8 Publish Transcript Summary to Confluence
       q-toggle(v-model='confluenceEnabled', color='primary')
-    .km-description.text-secondary-text.q-pt-2 Create a Confluence page containing the generated Summary and Chapters.
+    .km-description.text-secondary-text.q-pt-xs.q-pl-8 Push completed summaries to Confluence
 
-  .q-gutter-md(v-if='confluenceEnabled')
-    .km-field
-      .text-secondary-text.q-pb-xs API Server
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='confluenceApiServer',
-            :options='apiServers',
-            option-label='name',
-            option-value='system_name',
-            emit-value, map-options, height='30px', clearable
-          )
-        .col-auto(v-if='confluenceApiServer')
-          km-btn(icon='open_in_new', flat, dense, @click='navigateToApiServer(confluenceApiServer)')
-      .km-description.text-secondary-text.q-pt-2 API server used to call Confluence tools.
+    .q-gutter-md.q-mt-md(v-if='confluenceEnabled')
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Server
+        .row.items-center.q-gutter-sm
+          .col
+            km-select(
+              v-model='confluenceApiServer',
+              :options='apiServers',
+              option-label='name',
+              option-value='system_name',
+              emit-value, map-options, height='auto', minHeight='36px', clearable
+            )
+          .col-auto(v-if='confluenceApiServer')
+            km-btn(icon='open_in_new', flat, dense, @click='navigateToApiServer(confluenceApiServer)')
 
-    .km-field
-      .text-secondary-text.q-pb-xs Create Page Tool
-      .row.items-center.q-gutter-sm
-        .col
-          km-select(
-            v-model='confluenceCreatePageTool',
-            :options='confluenceAvailableTools',
-            option-label='label',
-            option-value='value',
-            emit-value, map-options, height='30px', clearable
-          )
-        .col-auto(v-if='confluenceCreatePageTool')
-          km-btn(icon='open_in_new', flat, dense, @click='navigateToTool(confluenceApiServer, confluenceCreatePageTool)')
-      .km-description.text-secondary-text.q-pt-2 API tool used to create the Confluence page.
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Create Page Tool
+        .row.items-center.q-gutter-sm
+          .col
+            km-select(
+              v-model='confluenceCreatePageTool',
+              :options='confluenceAvailableTools',
+              option-label='label',
+              option-value='value',
+              emit-value, map-options, height='auto', minHeight='36px', clearable
+            )
+          .col-auto(v-if='confluenceCreatePageTool')
+            km-btn(icon='open_in_new', flat, dense, @click='navigateToTool(confluenceApiServer, confluenceCreatePageTool)')
 
-    .km-field
-      .text-secondary-text.q-pb-xs Space ID
-      km-input-flat.full-width(
-        placeholder='e.g. 10387460',
-        :modelValue='confluenceSpaceKey',
-        @input='confluenceSpaceKey = $event'
-      )
-      .km-description.text-secondary-text.q-pt-2 Confluence REST v2 spaceId where the page will be created.
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Space ID
+        km-input.full-width(
+          v-model='confluenceSpaceKey',
+          placeholder='e.g. 10387460',
+          height='30px'
+        )
 
-    .km-field
-      .text-secondary-text.q-pb-xs Parent Page ID (optional)
-      km-input-flat.full-width(
-        placeholder='e.g. 123456',
-        :modelValue='confluenceParentId',
-        @input='confluenceParentId = $event'
-      )
-      .km-description.text-secondary-text.q-pt-2 If set, the page will be created under the specified parent.
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Parent Page ID (optional)
+        km-input.full-width(
+          v-model='confluenceParentId',
+          placeholder='e.g. 123456',
+          height='30px'
+        )
 
-    .km-field
-      .text-secondary-text.q-pb-xs Title Template
-      km-input-flat.full-width(
-        placeholder='Meeting notes: {meeting_title} ({date})',
-        :modelValue='confluenceTitleTemplate',
-        @input='confluenceTitleTemplate = $event'
-      )
-      .km-description.text-secondary-text.q-pt-2 Available placeholders: {meeting_title}, {date}, {job_id}, {meeting_id}.
+      div
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title Template
+        km-input.full-width(
+          v-model='confluenceTitleTemplate',
+          placeholder='Meeting notes: {meeting_title} ({date})',
+          height='30px'
+        )
+        .km-description.text-secondary-text.q-pt-xs.q-pl-8 Available placeholders: {meeting_title}, {date}, {job_id}, {meeting_id}.
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useStore } from 'vuex'
+import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import { useRouter } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
 
-const store = useStore()
+const ntStore = useNoteTakerStore()
 const router = useRouter()
+const queries = useEntityQueries()
 
-const apiServers = computed(() => store.getters['chroma/api_servers']?.items || [])
+const { data: apiServersListData } = queries.api_servers.useList()
+const apiServers = computed(() => apiServersListData.value?.items || [])
 
 const setting = (path: string, fallback: any = false) => computed({
-  get: () => path.split('.').reduce((o: any, k) => o?.[k], store.getters.noteTakerSettings) ?? fallback,
-  set: (v: any) => store.dispatch('updateNoteTakerSetting', { path, value: v }),
+  get: () => path.split('.').reduce((o: any, k) => o?.[k], ntStore.settings) ?? fallback,
+  set: (v: any) => ntStore.updateSetting( { path, value: v }),
 })
 
 const sendTranscriptToSalesforce = setting('integration.salesforce.send_transcript_to_salesforce')

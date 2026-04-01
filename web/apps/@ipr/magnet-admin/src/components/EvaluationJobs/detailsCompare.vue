@@ -1,7 +1,6 @@
 <template lang="pug">
 .row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  q-inner-loading(:showing='loading')
-    q-spinner-gears(size='50px', color='primary')
+  km-inner-loading(:showing='loading')
 layouts-details-layout.q-mx-auto(v-else, noHeader)
   template(#breadcrumbs)
     .column.q-px-16.q-mb-16
@@ -28,16 +27,30 @@ configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @
 </template>
 
 <script>
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
 import _ from 'lodash'
+import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
+import { useEvaluationStore } from '@/stores/evaluationStore'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
-    const { selectedRow, loading, ...useCollection } = useChroma('evaluation_jobs')
+    const route = useRoute()
+    const queries = useEntityQueries()
+    const evalSetStore = useEvaluationSetDetailStore()
+    const evalStore = useEvaluationStore()
+    const routeId = computed(() => route.params.id)
+    const { data: selectedRow } = queries.evaluation_jobs.useDetail(routeId)
+    const { data: evalJobsData } = queries.evaluation_jobs.useList()
+    const { data: modelData } = queries.model.useList()
+    const evalJobsItems = computed(() => evalJobsData.value?.items ?? [])
+    const modelItems = computed(() => modelData.value?.items ?? [])
 
     return {
+      evalSetStore,
+      evalStore,
       tab: ref('records'),
       tabs: ref([
         { name: 'records', label: 'Records' },
@@ -48,11 +61,12 @@ export default {
       prompt: ref(null),
       showInfo: ref(false),
       selectedRow,
-      useCollection,
       evaluationSetRecord: ref({}),
-      loadingChroma: loading,
+      loadingChroma: ref(false),
       loading: ref(false),
       evalInputIndex: ref(0),
+      evalJobsItems,
+      modelItems,
     }
   },
   computed: {
@@ -75,11 +89,11 @@ export default {
       return _.uniqWith(pairs, _.isEqual)
     },
     row() {
-      const row = (this.$store.getters['chroma/evaluation_jobs'].items || []).find((item) => item._id == this.evaluation.id)
+      const row = (this.evalJobsItems || []).find((item) => item._id == this.evaluation.id)
       return row || {}
     },
     model() {
-      return this.$store.getters['chroma/model'].items?.find((model) => model.system_name === this.modelSystemName) || {}
+      return this.modelItems?.find((model) => model.system_name === this.modelSystemName) || {}
     },
     modelSystemName() {
       return this.row?.tool?.variant_object?.system_name_for_model || ''
@@ -164,7 +178,7 @@ export default {
       return this.evaluation?.tool?.name || ''
     },
     evaluation_list() {
-      return this.$store.getters.evaluation_list || []
+      return this.evalStore.evaluationList || []
     },
     evaluation: {
       get() {
@@ -175,34 +189,34 @@ export default {
       return this.evaluation?.type || ''
     },
     openDrawer() {
-      return this.tab === 'records' && Object.keys(this.$store.getters.evaluation_job_record).length > 0
+      return this.tab === 'records' && Object.keys(this.evalStore.evaluationJobRecord).length > 0
     },
     name: {
       get() {
-        return this.$store.getters.evaluation_set?.name || ''
+        return this.evalSetStore.entity?.name || ''
       },
       set(value) {
-        this.$store.commit('updateEvaluationSetProperty', { key: 'name', value })
+        this.evalSetStore.updateProperty({ key: 'name', value })
       },
     },
     description: {
       get() {
-        return this.$store.getters.evaluation_set?.description || ''
+        return this.evalSetStore.entity?.description || ''
       },
       set(value) {
-        this.$store.commit('updateEvaluationSetProperty', { key: 'description', value })
+        this.evalSetStore.updateProperty({ key: 'description', value })
       },
     },
     system_name: {
       get() {
-        return this.$store.getters.evaluation_set?.system_name || ''
+        return this.evalSetStore.entity?.system_name || ''
       },
       set(value) {
-        this.$store.commit('updateEvaluationSetProperty', { key: 'system_name', value })
+        this.evalSetStore.updateProperty({ key: 'system_name', value })
       },
     },
     isEvaluationSetChanged() {
-      return this.$store.getters?.isEvaluationSetChanged
+      return this.evalSetStore.isChanged
     },
     activeEvaluationSetId() {
       return this.$route.params.id
@@ -226,7 +240,7 @@ export default {
   watch: {
     selectedRow(newVal, oldVal) {
       if (newVal?.id !== oldVal?.id) {
-        this.$store.commit('setEvaluationSet', newVal)
+        this.evalSetStore.setEntity(newVal)
       }
     },
   },
@@ -237,7 +251,7 @@ export default {
     async getEvaluation() {
       this.loading = true
       const ids = this.$route.query.ids ? this.$route.query.ids.split(',') : []
-      await this.$store.dispatch('getListOfEvaluations', { ids })
+      await this.evalStore.getListOfEvaluations({ ids })
       this.loading = false
     },
     navigate(path = '') {

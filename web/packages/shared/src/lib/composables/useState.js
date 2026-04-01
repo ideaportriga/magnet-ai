@@ -1,14 +1,19 @@
 import { computed } from 'vue'
-import store from '@/store/index'
+import { useSharedAuthStore } from '../stores/authStore'
 
-//useState
+/**
+ * Reactive getter/setter for shared app state.
+ * Previously backed by Vuex; now uses Pinia sharedAuthStore.
+ */
 export default function useState(propertyName) {
+  const store = useSharedAuthStore()
+
   const flag = computed({
     get() {
-      return store.getters[propertyName]
+      return store[propertyName]
     },
     set(value) {
-      store.commit('set', { [propertyName]: value })
+      store[propertyName] = value
     },
   })
 

@@ -1,9 +1,10 @@
 from logging import getLogger
-from sqlalchemy import text
+
+from sqlalchemy import func, select
+
 from core.config.app import alchemy
-
+from core.db.models.agent.agent import Agent
 from utils.secrets import decrypt_string
-
 
 logger = getLogger(__name__)
 
@@ -16,21 +17,21 @@ async def resolve_whatsapp_by_phone_number_id(
     Returns (agent_system_name, token, app_secret).
     Secrets are returned for internal use (e.g., logging), do not expose in API responses.
     """
-    sql = text(
-        """
-        SELECT
-            a.system_name AS agent_system_name,
-            a.channels #>> '{whatsapp,token}'  AS token,
-            a.channels #>> '{whatsapp,app_secret}' AS app_secret
-        FROM agents a
-            WHERE COALESCE(a.channels -> 'whatsapp' ->> 'phone_number_id', '') = :phone_number_id
-            AND COALESCE((a.channels -> 'whatsapp' -> 'enabled')::boolean, false ) = true
-        LIMIT 1
-        """
+    wa = Agent.channels["whatsapp"]
+
+    stmt = (
+        select(
+            Agent.system_name.label("agent_system_name"),
+            wa["token"].astext.label("token"),
+            wa["app_secret"].astext.label("app_secret"),
+        )
+        .where(func.coalesce(wa["phone_number_id"].astext, "") == phone_number_id)
+        .where(func.coalesce(wa["enabled"].as_boolean(), False).is_(True))
+        .limit(1)
     )
 
     async with alchemy.get_session() as session:
-        result = await session.execute(sql, {"phone_number_id": phone_number_id})
+        result = await session.execute(stmt)
         row = result.first()
 
     if not row:

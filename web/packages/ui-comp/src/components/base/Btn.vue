@@ -115,7 +115,7 @@ export default {
   },
   computed: {
     buttonHeight() {
-      return this.size === 'sm' ? 'var(--button-sm)' : this.size === 'xs' ? 'var(--button-xs)' : this.size === 'auto' ? 'auto' : '34px'
+      return this.size === 'sm' ? 'var(--btn-height-sm)' : this.size === 'xs' ? 'var(--btn-height-xs)' : this.size === 'lg' ? 'var(--btn-height-lg)' : this.size === 'auto' ? 'auto' : 'var(--btn-height-md)'
     },
     labelTypographyClass() {
       return this.labelClass ?? (this.size === 'sm' ? 'km-button-sm-text' : 'km-button-text')
@@ -222,7 +222,7 @@ $btn-height = v-bind(buttonHeight);
   -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   color: v-bind(colorVar)
-  font-size: 14px
+  font-size: var(--km-font-size-body)
   font-family: var(--font-default) !important
   width: 100%
   // box-shadow: 2px 3px 10px #aaa;
@@ -255,7 +255,7 @@ $btn-height = v-bind(buttonHeight);
     top: 0;
     left: 0;
     display: block;
-    border-radius: 4px;
+    border-radius: var(--btn-radius);
     background: v-bind(bgVar);
     width: 100%;
     height: 100%;

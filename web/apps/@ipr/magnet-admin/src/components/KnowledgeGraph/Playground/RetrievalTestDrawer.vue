@@ -1,7 +1,6 @@
 <template>
-  <div class="retrieval-test-drawer">
-    <!-- Header -->
-    <div class="drawer-header">
+  <km-drawer-layout storage-key="drawer-kg-retrieval" :default-width="420" :min-width="360" :max-width="800" no-scroll>
+    <template #header>
       <div class="header-content">
         <div class="header-title">
           <div class="km-heading-7">Test Retrieval</div>
@@ -12,9 +11,7 @@
           <q-btn flat round dense icon="close" size="sm" @click="$emit('close')" />
         </div>
       </div>
-    </div>
-
-    <q-separator />
+    </template>
 
     <!-- Messages Area -->
     <div ref="messagesContainer" class="messages-area">
@@ -221,13 +218,13 @@
         </q-card-section>
       </q-card>
     </q-dialog>
-  </div>
+  </km-drawer-layout>
 </template>
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
 import { tools } from '../Retrieval/models'
 import RetrievalResponseContent from './RetrievalResponseContent.vue'
 
@@ -275,7 +272,7 @@ defineEmits<{
   close: []
 }>()
 
-const store = useStore()
+const appStore = useAppStore()
 
 // State
 const userInput = ref('')
@@ -403,7 +400,7 @@ const sendMessage = async () => {
   await scrollToBottom()
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const requestBody: Record<string, any> = { query: userMessage.content }
 
     // Include conversation_id if we have one (for multi-turn conversation)
@@ -492,22 +489,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.retrieval-test-drawer {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 420px;
-  min-width: 420px;
-  max-width: 420px;
-  background: #f8f9fa;
-  border-left: 1px solid var(--border-color, #e0e0e0);
-}
-
 /* Header */
 .drawer-header {
   flex-shrink: 0;
-  padding: 16px 20px;
-  background: #fff;
 }
 
 .header-content {
@@ -634,13 +618,13 @@ onMounted(() => {
 }
 
 .message-time {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   color: #9e9e9e;
 }
 
 /* Response Content */
 .response-content {
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   line-height: 1.65;
   color: #2d3436;
 }
@@ -702,7 +686,7 @@ onMounted(() => {
 }
 
 .workflow-toggle-text {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 500;
   color: #616161;
   flex: 1;
@@ -789,7 +773,7 @@ onMounted(() => {
 }
 
 .workflow-step-tool {
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   font-weight: 600;
   color: #1a1a1a;
   line-height: 1.3;
@@ -804,7 +788,7 @@ onMounted(() => {
 }
 
 .workflow-args-label {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   font-weight: 600;
   color: #757575;
   text-transform: uppercase;
@@ -815,7 +799,7 @@ onMounted(() => {
 .workflow-arg {
   display: flex;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   line-height: 1.6;
   margin-bottom: 4px;
 }
@@ -851,7 +835,7 @@ onMounted(() => {
 }
 
 .sources-label {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   font-weight: 500;
   color: #757575;
   transition: color 0.15s ease;
@@ -892,7 +876,7 @@ onMounted(() => {
 }
 
 .source-document-group-title {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   font-weight: 600;
   color: #424242;
   flex: 1;
@@ -949,7 +933,7 @@ onMounted(() => {
 }
 
 .source-chip-title {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   color: #424242;
   flex: 1;
   min-width: 0;
@@ -995,7 +979,7 @@ onMounted(() => {
 }
 
 .source-full-text {
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   line-height: 1.7;
   color: #424242;
   word-wrap: break-word;

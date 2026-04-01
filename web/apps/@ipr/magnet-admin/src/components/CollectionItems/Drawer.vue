@@ -1,10 +1,9 @@
 <template lang="pug">
-.column.no-wrap.q-pa-16.bg-white.fit.bl-border.height-100.fit(v-if='!!selectedRow', style='min-width: 500px; max-width: 500px')
-  .row.items-center
-    km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
-
-  q-separator.q-mb-md
-  .km-heading-4.q-mb-lg Chunk details
+km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
+  template(#header)
+    .row.items-center
+      km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
+    .km-heading-4 Chunk details
   //- .col-auto
   //-   .row.items-center
   //-     .km-heading-7.q-mb-xs Chunk details
@@ -14,101 +13,97 @@
       .km-heading-4
     .col-auto.center-flex-y
       km-btn(icon='fas fa-external-link-alt', label='View document', iconSize='16px', flat, @click='openDocument')
-  .col
-    q-scroll-area.fit
-      .row.justify-between.q-pt-8.q-pl-8.q-pr-24
-        .col-12.q-py-8
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title
-          km-input(:model-value='selectedRow?.metadata.title ?? "-"', :readonly='true', autogrow)
-        .col-12.q-py-8
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
-          km-input(:model-value='selectedRow?.metadata.type ?? "-"', :readonly='true')
-        .col-12.q-py-8
-          .row.items-center
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8.col
-              span(
-                v-if='(selectedRow?.content == selectedRow?.metadata?.content_override || !selectedRow?.metadata?.content_override) && (selectedRow?.content == selectedRow?.metadata?.content?.retrieval || !selectedRow?.metadata?.content?.retrieval)'
-              ) Indexed & retrieval content
-              span(v-else) Indexed content
-            .col-auto
-              q-btn(
-                flat,
-                ripple='false',
-                round,
-                color='secondary',
-                :icon='indexedContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
-                @click='indexedContentExpanded = !indexedContentExpanded',
-                size='xs'
-              )
-          km-input(:model-value='indexedContent', :readonly='true', autogrow)
-        .col-12.q-py-8(v-if='selectedRow?.metadata?.content_override && selectedRow?.content != selectedRow?.metadata?.content_override')
-          .row.items-center
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Retrieval content
-            .col-auto
-              q-btn(
-                flat,
-                ripple='false',
-                round,
-                color='secondary',
-                :icon='retrievalContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
-                @click='retrievalContentExpanded = !retrievalContentExpanded',
-                size='xs'
-              )
-          km-input(:model-value='retrievalContent', :readonly='true', autogrow)
-        .col-12.q-py-8(v-else-if='selectedRow?.metadata?.content?.retrieval && selectedRow?.content != selectedRow?.metadata?.content?.retrieval')
-          .row.items-center
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Retrieval content
-            .col-auto
-              q-btn(
-                flat,
-                ripple='false',
-                round,
-                color='secondary',
-                :icon='retrievalContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
-                @click='retrievalContentExpanded = !retrievalContentExpanded',
-                size='xs'
-              )
-          km-input(:model-value='retrievalContent', :readonly='true', autogrow)
-        .col-12.q-py-8(
-          v-if='selectedRow?.metadata?.content?.unmodified && selectedRow?.content != selectedRow?.metadata?.content?.unmodified && selectedRow?.metadata?.content?.unmodified != selectedRow?.metadata?.content?.retrieval'
-        )
-          .row.items-center
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Original unmodified content
-            .col-auto
-              q-btn(
-                flat,
-                ripple='false',
-                round,
-                color='secondary',
-                :icon='unmodifiedContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
-                @click='unmodifiedContentExpanded = !unmodifiedContentExpanded',
-                size='xs'
-              )
-          km-input(:model-value='unmodifiedContent', :readonly='true', autogrow)
-        .col-12.q-py-8
-          .km-field.text-secondary-text.q-pl-8 Metadata
-          km-codemirror.fit(v-model='metadata', :readonly='true')
-        .col-6.q-py-8
-          .km-field.text-secondary-text.q-pl-8 Created
-          km-input(:model-value='createdTime', :readonly='true')
-        .col-6.q-py-8.q-pl-8
-          .km-field.text-secondary-text.q-pl-8 Modified
-          km-input(:model-value='modifiedTime', :readonly='true')
+  .row.justify-between.q-pt-8.q-pl-8.q-pr-24
+    .col-12.q-py-8
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title
+      km-input(:model-value='selectedRow?.metadata.title ?? "-"', :readonly='true', autogrow)
+    .col-12.q-py-8
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
+      km-input(:model-value='selectedRow?.metadata.type ?? "-"', :readonly='true')
+    .col-12.q-py-8
+      .row.items-center
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8.col
+          span(
+            v-if='(selectedRow?.content == selectedRow?.metadata?.content_override || !selectedRow?.metadata?.content_override) && (selectedRow?.content == selectedRow?.metadata?.content?.retrieval || !selectedRow?.metadata?.content?.retrieval)'
+          ) Indexed & retrieval content
+          span(v-else) Indexed content
+        .col-auto
+          q-btn(
+            flat,
+            ripple='false',
+            round,
+            color='secondary',
+            :icon='indexedContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
+            @click='indexedContentExpanded = !indexedContentExpanded',
+            size='xs'
+          )
+      km-input(:model-value='indexedContent', :readonly='true', autogrow)
+    .col-12.q-py-8(v-if='selectedRow?.metadata?.content_override && selectedRow?.content != selectedRow?.metadata?.content_override')
+      .row.items-center
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Retrieval content
+        .col-auto
+          q-btn(
+            flat,
+            ripple='false',
+            round,
+            color='secondary',
+            :icon='retrievalContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
+            @click='retrievalContentExpanded = !retrievalContentExpanded',
+            size='xs'
+          )
+      km-input(:model-value='retrievalContent', :readonly='true', autogrow)
+    .col-12.q-py-8(v-else-if='selectedRow?.metadata?.content?.retrieval && selectedRow?.content != selectedRow?.metadata?.content?.retrieval')
+      .row.items-center
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Retrieval content
+        .col-auto
+          q-btn(
+            flat,
+            ripple='false',
+            round,
+            color='secondary',
+            :icon='retrievalContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
+            @click='retrievalContentExpanded = !retrievalContentExpanded',
+            size='xs'
+          )
+      km-input(:model-value='retrievalContent', :readonly='true', autogrow)
+    .col-12.q-py-8(
+      v-if='selectedRow?.metadata?.content?.unmodified && selectedRow?.content != selectedRow?.metadata?.content?.unmodified && selectedRow?.metadata?.content?.unmodified != selectedRow?.metadata?.content?.retrieval'
+    )
+      .row.items-center
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Original unmodified content
+        .col-auto
+          q-btn(
+            flat,
+            ripple='false',
+            round,
+            color='secondary',
+            :icon='unmodifiedContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
+            @click='unmodifiedContentExpanded = !unmodifiedContentExpanded',
+            size='xs'
+          )
+      km-input(:model-value='unmodifiedContent', :readonly='true', autogrow)
+    .col-12.q-py-8
+      .km-field.text-secondary-text.q-pl-8 Metadata
+      km-codemirror.fit(v-model='metadata', :readonly='true')
+    .col-6.q-py-8
+      .km-field.text-secondary-text.q-pl-8 Created
+      km-input(:model-value='createdTime', :readonly='true')
+    .col-6.q-py-8.q-pl-8
+      .km-field.text-secondary-text.q-pl-8 Modified
+      km-input(:model-value='modifiedTime', :readonly='true')
 </template>
 <script>
 import { defineComponent, ref } from 'vue'
 import { formatDateTime } from '@shared'
-import { useChroma } from '@shared'
+import { useEntityConfig } from '@/composables/useEntityConfig'
 
 export default defineComponent({
   props: ['selectedRow'],
   emits: ['close'],
   setup() {
-    const { selected, config, ...useDocuments } = useChroma('documents')
+    const { config } = useEntityConfig('documents')
     return {
-      selected,
       config,
-      useDocuments,
       indexedContentExpanded: ref(false),
       retrievalContentExpanded: ref(false),
       unmodifiedContentExpanded: ref(false),
@@ -173,7 +168,7 @@ export default defineComponent({
       if (this.selectedRow && this.selectedRow?.source) {
         window.open(this.selectedRow?.source, '_blank')
       } else {
-        console.error('Document source URL is undefined.')
+
       }
     },
   },

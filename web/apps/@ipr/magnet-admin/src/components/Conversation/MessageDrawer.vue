@@ -1,81 +1,80 @@
 <template lang="pug">
-.column.bg-white.fit.bl-border.height-100.fit.no-wrap.q-pt-16(style='min-width: 500px; max-width: 500px')
-  .row.no-wrap.full-width.q-px-16.q-py-6
-    .row.cursor-pointer.q-gap-8.items-center(@click='$emit("close")')
-      q-icon(name='fas fa-arrow-left', size='14px', color='secondary')
-      .km-title.text-secondary-text Back to conversation
-  .bb-border
-  .row.no-wrap.full-width.q-px-16.q-py-6
-    q-tabs(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      active-bg-color='white',
-      no-caps,
-      content-class='km-tabs-dense'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-      .fit
-  .column.q-px-8.no-wrap.fit
-    q-scroll-area.fit
-      .column.full-height.q-py-6.q-px-16.q-gap-16
-        .column.q-gap-16(v-if='tab === "details"')
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Message Time
-            .row
-              .km-label {{ time }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6.text-capitalize Latency
-            .row
-              .km-label {{ responseTime }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6.text-capitalize Role
-            .row
-              .km-label.text-capitalize {{ message?.role }}
-          //- .col-6
-          //-   .km-description.text-secondary-text.q-pb-6 Message
-          //-   .row
-          //-     dashboard-markdown(:source='message?.content')
-          .col-6
-            .km-description.text-secondary-text.q-pb-6.text-capitalize Agent Topic
-            .row
-              .km-label {{ topic }}
-          .km-button-text.bb-border.q-pb-4 User satisfaction
-          .col-6
-            .km-description.text-secondary-text.q-pb-6.text-capitalize User feedback
-            .row
-              .km-label.text-capitalize {{ message?.feedback?.type || '-' }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6.text-capitalize Feedback reason
-            .row
-              .km-label.text-capitalize {{ feedbackReason }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6.text-capitalize User comment
-            .row
-              .km-label {{ message?.feedback?.comment || '-' }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6.text-capitalize Copied
-            .row
-              .km-label {{ message?.copied ? 'Yes' : 'No' }}
-        template(v-if='tab == "insights"')
-          .km-button-text.bb-border.q-pb-4 Substandard Result analysis
-          .col-6
-            .km-description.text-secondary-text Substandard Result Reason
-            .row
-              km-select.full-width(v-model='resultReason', :options='substandartResultReasons')
-          .col-6
-            .km-description.text-secondary-text Comment
-            .row
-              km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='comment')
-        .column.q-gap-16(v-if='tab === "costs-latency"')
+km-drawer-layout(storageKey="drawer-conversation-message")
+  template(#tabs)
+    .row.no-wrap.full-width.q-px-16.q-py-6
+      .row.cursor-pointer.q-gap-8.items-center(@click='$emit("close")')
+        q-icon(name='fas fa-arrow-left', size='14px', color='secondary')
+        .km-title.text-secondary-text Back to conversation
+    .bb-border
+    .row.no-wrap.full-width.q-px-16.q-py-6
+      q-tabs(
+        v-model='tab',
+        narrow-indicator,
+        dense,
+        align='left',
+        active-color='primary',
+        indicator-color='primary',
+        active-bg-color='white',
+        no-caps,
+        content-class='km-tabs-dense'
+      )
+        template(v-for='t in tabs')
+          q-tab(:name='t.name', :label='t.label')
+        .fit
+  .column.full-height.q-gap-16
+    .column.q-gap-16(v-if='tab === "details"')
+      .col-6
+        .km-description.text-secondary-text.q-pb-6 Message Time
+        .row
+          .km-label {{ time }}
+      .col-6
+        .km-description.text-secondary-text.q-pb-6.text-capitalize Latency
+        .row
+          .km-label {{ responseTime }}
+      .col-6
+        .km-description.text-secondary-text.q-pb-6.text-capitalize Role
+        .row
+          .km-label.text-capitalize {{ message?.role }}
+      //- .col-6
+      //-   .km-description.text-secondary-text.q-pb-6 Message
+      //-   .row
+      //-     dashboard-markdown(:source='message?.content')
+      .col-6
+        .km-description.text-secondary-text.q-pb-6.text-capitalize Agent Topic
+        .row
+          .km-label {{ topic }}
+      .km-button-text.bb-border.q-pb-4 User satisfaction
+      .col-6
+        .km-description.text-secondary-text.q-pb-6.text-capitalize User feedback
+        .row
+          .km-label.text-capitalize {{ message?.feedback?.type || '-' }}
+      .col-6
+        .km-description.text-secondary-text.q-pb-6.text-capitalize Feedback reason
+        .row
+          .km-label.text-capitalize {{ feedbackReason }}
+      .col-6
+        .km-description.text-secondary-text.q-pb-6.text-capitalize User comment
+        .row
+          .km-label {{ message?.feedback?.comment || '-' }}
+      .col-6
+        .km-description.text-secondary-text.q-pb-6.text-capitalize Copied
+        .row
+          .km-label {{ message?.copied ? 'Yes' : 'No' }}
+    template(v-if='tab == "insights"')
+      .km-button-text.bb-border.q-pb-4 Substandard Result analysis
+      .col-6
+        .km-description.text-secondary-text Substandard Result Reason
+        .row
+          km-select.full-width(v-model='resultReason', :options='substandartResultReasons')
+      .col-6
+        .km-description.text-secondary-text Comment
+        .row
+          km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='comment')
+    .column.q-gap-16(v-if='tab === "costs-latency"')
 
-        .column.q-gap-16(v-if='tab === "steps"')
-          q-timeline
-            agents-timeline-step(v-for='(step, index) in selectedMessagePrepared', :key='`${message.id}-${index}`', :step='step', :index='index')
+    .column.q-gap-16(v-if='tab === "steps"')
+      q-timeline
+        agents-timeline-step(v-for='(step, index) in selectedMessagePrepared', :key='`${message.id}-${index}`', :step='step', :index='index')
   q-separator
   .row.items-center.q-pa-16.justify-between.bt-border(v-if='selectedRow?.trace_id || isUpdated')
     .row.items-center.q-gap-8.cursor-pointer(@click='openDetails', v-if='selectedRow?.trace_id')
@@ -197,7 +196,7 @@ export default {
       return this.message.feedback.reason.replace(/_/g, ' ').replace(/^\w/, (l) => l.toUpperCase())
     },
     endpoint() {
-      return this.$store.getters.config.api.aiBridge?.urlAdmin
+      return this.$appConfig.api.aiBridge?.urlAdmin
     },
   },
   watch: {
@@ -228,7 +227,6 @@ export default {
         const message_id = this.message?.id
 
         if (!conversation_id || !message_id) {
-          console.error('Conversation ID or Message ID is missing')
           this.loading = false
           return
         }
@@ -250,7 +248,6 @@ export default {
       }
     },
     formatDelay(milliseconds) {
-      console.log(milliseconds)
       if (milliseconds < 1000) {
         return new Intl.NumberFormat(undefined, {
           style: 'unit',

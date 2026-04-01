@@ -3,29 +3,91 @@
   .col-12
     km-filter-bar(v-model:config='currentFilter', v-model:filterObject='activeFilters', ref='filterRef')
     .column.q-gap-16.full-width
-      km-table.q-mt-md(
-        @selectRow='selectRow',
-        selection='single',
+      km-data-table.q-mt-md(
+        :table='detailsTable',
         row-key='start_time',
-        :rows='detailedList',
-        :selected='selectedRow ? [selectedRow] : []',
-        :columns='agentDetailsColumns',
-        v-model:pagination='pagination',
-        @cellAction='cellAction',
-        @request='getDetailedList'
+        hide-pagination,
+        @row-click='selectRow'
       )
+      .row.items-center.q-px-md.q-py-sm.text-grey.ba-border(v-if='pagination.rowsNumber')
+        .km-description {{ pagination.rowsNumber }} record{{ pagination.rowsNumber !== 1 ? 's' : '' }}
+        q-space
+        .row.items-center.q-gap-8
+          span.km-description Rows per page: {{ pagination.rowsPerPage }}
+        .row.items-center.q-ml-md.q-gap-4
+          q-btn(flat, dense, round, icon='first_page', size='sm', :disable='pagination.page <= 1', @click='goToPage(1)')
+          q-btn(flat, dense, round, icon='chevron_left', size='sm', :disable='pagination.page <= 1', @click='goToPage(pagination.page - 1)')
+          span.km-description {{ pagination.page }} / {{ totalPages }}
+          q-btn(flat, dense, round, icon='chevron_right', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(pagination.page + 1)')
+          q-btn(flat, dense, round, icon='last_page', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(totalPages)')
 </template>
 <script>
 import { fetchData } from '@shared'
+import { ref, h } from 'vue'
 import agentDetailsControls from '@/config/dashboard/agent-details-table'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 
 export default {
   props: ['selectedRow'],
+
+  setup() {
+    const agentStore = useAgentDetailStore()
+    const detailedList = ref([])
+
+    // Details table columns
+    const detailsControlsObj = agentDetailsControls
+    const detailsColumnsArr = Object.values(detailsControlsObj).filter((col) => col.display)
+
+    const detailsColumns = detailsColumnsArr.map((col) => {
+      const colDef = {
+        id: col.name,
+        header: col.label,
+        enableSorting: col.sortable ?? false,
+        meta: { align: col.align ?? 'left' },
+      }
+
+      if (col.type === 'component' && col.component) {
+        colDef.accessorFn = typeof col.field === 'function' ? col.field : (row) => row[col.field] ?? null
+        colDef.cell = ({ row }) => {
+          if (typeof col.component === 'function' && !col.component.__vccOpts && !col.component.setup && !col.component.render) {
+            return col.component({ row: row.original })
+          }
+          return h(col.component, { row: row.original })
+        }
+        colDef.meta.component = col.component
+      } else {
+        colDef.accessorFn = typeof col.field === 'function' ? col.field : (row) => row[col.field]
+        if (col.format) {
+          colDef.cell = ({ getValue }) => {
+            const val = getValue()
+            return val != null ? col.format(val) : '-'
+          }
+        }
+      }
+
+      if (col.sort) {
+        colDef.sortingFn = (a, b) => {
+          const aVal = typeof col.field === 'function' ? col.field(a.original) : a.original[col.field]
+          const bVal = typeof col.field === 'function' ? col.field(b.original) : b.original[col.field]
+          return col.sort(aVal, bVal)
+        }
+      }
+
+      return colDef
+    })
+
+    const { table: detailsTable } = useLocalDataTable(detailedList, detailsColumns, {
+      defaultPageSize: 999,
+      defaultSort: [{ id: 'start_time', desc: true }],
+    })
+
+    return { agentStore, detailedList, detailsTable }
+  },
+
   data() {
-    const store = this?.$store
     return {
       activeFilters: {},
-      detailedList: [],
       agentDetailsControls,
       searchString: '',
       listFilter: {
@@ -59,6 +121,10 @@ export default {
     }
   },
   computed: {
+    totalPages() {
+      if (!this.pagination.rowsNumber) return 1
+      return Math.ceil(this.pagination.rowsNumber / this.pagination.rowsPerPage)
+    },
     visibleRows() {
       if (!this.searchString) return this.detailedList
       const searchTerms = this.searchString.includes(',')
@@ -91,7 +157,7 @@ export default {
       return Object.values(this.agentDetailsControls).filter((column) => column.display)
     },
     endpoint() {
-      return this.$store.getters.config.api.aiBridge.urlAdmin
+      return this.$appConfig.api.aiBridge.urlAdmin
     },
   },
   watch: {
@@ -103,14 +169,18 @@ export default {
     },
   },
   methods: {
+    goToPage(page) {
+      this.pagination.page = page
+      this.getDetailedList({ pagination: this.pagination })
+    },
     async getDetailedList(input) {
-      console.log('input', input?.pagination?.sortBy, input?.pagination?.descending)
+
       const props = input?.pagination ?? this.pagination
       const body = {
         limit: props.rowsPerPage,
         sort: props.sortBy,
         order: props.descending ? -1 : 1,
-        filters: { ...this.activeFilters, feature_system_name: { eq: this.$store.getters.agent_detail?.system_name } },
+        filters: { ...this.activeFilters, feature_system_name: { eq: this.agentStore.entity?.system_name } },
         fields: [],
         exclude_fields: [],
         offset: (props.page - 1) * props.rowsPerPage,

@@ -57,54 +57,61 @@ q-separator.q-my-sm
     km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariant', :disable='variants?.length === 1')
 
   prompts-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
-  q-inner-loading(:showing='loading')
+  km-inner-loading(:showing='loading')
 </template>
 
 <script>
-import { useChroma } from '@shared'
-import { ref } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { ref, computed } from 'vue'
 
 export default {
   props: ['activeRow'],
   emits: ['update:closeDrawer'],
   setup() {
-    const { items, update, create, selectedRow, ...useCollection } = useChroma('promptTemplates')
+    const queries = useEntityQueries()
+    const promptStore = usePromptTemplateDetailStore()
+    const { data: listData } = queries.promptTemplates.useList()
+    const { mutateAsync: updateEntity } = queries.promptTemplates.useUpdate()
+    const { mutateAsync: createEntity } = queries.promptTemplates.useCreate()
+    const { mutateAsync: removeEntity } = queries.promptTemplates.useRemove()
+    const items = computed(() => listData.value?.items ?? [])
 
     return {
+      promptStore,
       items,
-      update,
-      create,
-      selectedRow,
+      updateEntity,
+      createEntity,
+      removeEntity,
       loading: ref(false),
-      useCollection,
       showNewDialog: ref(false),
     }
   },
   computed: {
     isActive() {
-      return this.$store.getters.selectedPromptTemplateVariant == this.$store.getters.promptTemplate?.active_variant
+      return this.promptStore.selectedVariant == this.promptStore.entity?.active_variant
     },
     selected_variant: {
       get() {
-        return this.getVariantLabel(this.$store.getters.selectedPromptTemplateVariant)
+        return this.getVariantLabel(this.promptStore.selectedVariant)
       },
       set(value) {
-        this.$store.commit('setSelectedPromptTemplateVariant', value.value)
+        this.promptStore.setSelectedVariant(value.value)
       },
     },
     variants() {
-      return this.$store.getters.promptTemplate?.variants?.map((el) => ({
+      return this.promptStore.entity?.variants?.map((el) => ({
         label: el.display_name || this.getVariantLabel(el.variant),
         value: el.variant,
-        active_variant: el.variant == this.$store.getters.promptTemplate?.active_variant,
+        active_variant: el.variant == this.promptStore.entity?.active_variant,
       }))
     },
     variant_description: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.description
+        return this.promptStore.activeVariant?.description
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'description', value })
+        this.promptStore.updateNestedVariantProperty({ path: 'description', value })
       },
     },
     created_at() {
@@ -116,7 +123,7 @@ export default {
       return `${this.formatDate(this.activeRowDB.updated_at)}`
     },
     currentRow() {
-      return this.$store.getters.promptTemplate
+      return this.promptStore.entity
     },
     route() {
       return this.$route
@@ -145,7 +152,7 @@ export default {
 
   methods: {
     getVariantLabel(variant) {
-      const v = this.$store.getters.promptTemplate?.variants?.find((el) => el.variant === variant)
+      const v = this.promptStore.entity?.variants?.find((el) => el.variant === variant)
       if (v?.display_name) return v.display_name
 
       const match = variant?.match(/variant_(\d+)/)
@@ -153,35 +160,24 @@ export default {
       return `Variant ${match?.[1]}`
     },
     activateVariant() {
-      this.$store.commit('activatePromptTemplateVariant')
-      this.$q.notify({
-        position: 'top',
-        message: 'Variant has been activated.',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
+      this.promptStore.activateVariant()
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Variant has been activated.', timeout: 1000 })
     },
     addVariant() {
-      this.$store.commit('createPromptTemplateVariant')
-      this.$q.notify({
-        position: 'top',
-        message: 'New variant has been added.',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
+      this.promptStore.createVariant()
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'New variant has been added.', timeout: 1000 })
     },
     deleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.$store.commit('deletePromptTemplateVariant'))
+      this.confirm('Are you sure you want to delete this variant?', () => this.promptStore.deleteVariant())
     },
 
     confirm(message, callback) {
       // notify with confirmation
       this.$q.notify({
         message,
-        color: 'error-text',
-        position: 'top',
+        color: 'red-9', textColor: 'white',
+        icon: 'error',
+        group: 'error',
         timeout: 0,
         actions: [
           {
@@ -197,13 +193,7 @@ export default {
             handler: () => {
               // notify with success
               callback()
-              this.$q.notify({
-                position: 'top',
-                message: 'Variant has been deleted.',
-                color: 'positive',
-                textColor: 'black',
-                timeout: 1000,
-              })
+              this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Variant has been deleted.', timeout: 1000 })
             },
           },
         ],
@@ -212,9 +202,10 @@ export default {
 
     deletePromptTemplate() {
       this.$q.notify({
-        message: `Are you sure you want to delete ${this.selectedRow?.name}?`,
-        color: 'error-text',
-        position: 'top',
+        message: `Are you sure you want to delete this prompt template?`,
+        color: 'red-9', textColor: 'white',
+        icon: 'error',
+        group: 'error',
         timeout: 0,
         actions: [
           {
@@ -229,15 +220,9 @@ export default {
             color: 'white',
             handler: () => {
               this.loadingDelelete = true
-              this.useCollection.delete({ id: this.selectedRow?.id })
+              this.removeEntity(this.$route.params.id)
               this.$emit('update:closeDrawer', null)
-              this.$q.notify({
-                position: 'top',
-                message: 'Prompt has been deleted.',
-                color: 'positive',
-                textColor: 'black',
-                timeout: 1000,
-              })
+              this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Prompt has been deleted.', timeout: 1000 })
               this.navigate('/prompt-templates')
             },
           },
@@ -257,12 +242,12 @@ export default {
       if (this.currentRow?.created_at) {
         const obj = { ...this.currentRow }
         delete obj._metadata
-        console.log(obj)
-        await this.update({ id: obj.id, data: JSON.stringify(obj) })
+
+        await this.updateEntity({ id: obj.id, data: obj })
       } else {
-        await this.create(JSON.stringify(this.currentRow))
+        await this.createEntity(this.currentRow)
       }
-      this.$store.commit('setInitPromptTemplate')
+      this.promptStore.setInit()
       this.loading = false
     },
     formatDate(date) {

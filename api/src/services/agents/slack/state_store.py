@@ -3,16 +3,13 @@
 import asyncio
 import logging
 from contextlib import contextmanager
-from functools import lru_cache
 from datetime import datetime, timedelta, timezone
 from typing import Iterator, Optional
 from uuid import uuid4
 
 from slack_sdk.oauth.state_store.async_state_store import AsyncOAuthStateStore
-from sqlalchemy import Engine, create_engine, delete, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.orm import Session, sessionmaker
-
-from core.config.base import get_settings, json_serializer_for_sqlalchemy
 from core.db.models.slack import SlackOAuthState
 
 logger = logging.getLogger(__name__)
@@ -30,16 +27,10 @@ def _ensure_table(engine: Engine) -> None:
     SlackOAuthState.__table__.create(bind=engine, checkfirst=True)
 
 
-@lru_cache(maxsize=1)
 def _get_sync_engine() -> Engine:
-    settings = get_settings()
-    return create_engine(
-        settings.db.sync_url,
-        json_serializer=json_serializer_for_sqlalchemy,
-        pool_pre_ping=True,
-        pool_recycle=3600,
-        echo=settings.db.ECHO if isinstance(settings.db.ECHO, bool) else False,
-    )
+    from core.db.sync_engine import get_shared_sync_engine
+
+    return get_shared_sync_engine()
 
 
 class SlackOAuthStateStore(AsyncOAuthStateStore):

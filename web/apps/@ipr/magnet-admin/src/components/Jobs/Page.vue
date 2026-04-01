@@ -8,7 +8,7 @@ layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", m
         km-btn.q-mr-12(
           icon='refresh',
           label='Refresh list',
-          @click='refreshTable',
+          @click='refetch',
           iconColor='icon',
           hoverColor='primary',
           labelClass='km-title',
@@ -17,153 +17,126 @@ layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", m
           hoverBg='primary-bg'
         )
         km-btn(data-test='new-btn', label='New', @click='showNewDialog = true')
-      .row.q-pt-16
-        km-table(
-          ref='tableJobsRef',
-          @selectRow='openDetails',
-          selection='single',
-          row-key='id',
-          :selected='selectedJob ? [selectedJob] : []',
-          :columns='columns',
-          :visibleColumns='visibleColumns',
-          :rows='visibleRows',
-          style='min-width: 1100px',
-          binary-state-sort,
-          :loading='loading',
+      .col.q-pt-16(style='min-height: 0')
+        km-data-table(
+          :table='table',
+          :loading='isLoading',
+          fill-height,
           dense,
-          @request='getPaginated',
-          v-model:pagination='pagination',
-          :filter='filterObject'
+          row-key='id',
+          @row-click='openDetails'
         )
   template(#drawer)
     jobs-drawer(:show-drawer='showDrawer', :job='selectedJob', @cancel='showDrawer = false')
 jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false')
-q-inner-loading(:showing='loading')
 </template>
 
-<script>
-import { useChroma } from '@shared'
-import { ref } from 'vue'
-import _ from 'lodash'
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { useDataTable } from '@/composables/useDataTable'
+import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
+import type { Job } from '@/types'
 
-export default {
-  setup() {
-    const { loading, pagination, visibleColumns, columns, visibleRows, get, getPaginated } = useChroma('jobs')
-    const tableJobsRef = ref()
+const route = useRoute()
+const showDrawer = ref(false)
+const selectedJob = ref<Job | null>(null)
+const showNewDialog = ref(false)
+const filterObject = ref<Record<string, unknown>>({})
 
-    return {
-      loading,
-      searchString: ref(''),
-      pagination,
-      visibleColumns,
-      columns,
-      visibleRows,
-      get,
-      tableJobsRef,
-      getPaginated,
-      filterConfig: ref({
-        'definition.job_type': {
-          label: 'Job type',
-          key: 'definition.job_type',
-          options: [
-            { label: 'One time immmidiate', value: 'one_time_immediate' },
-            { label: 'Recurring', value: 'recurring' },
-          ],
-          // default: ['recurring'],
-          multiple: true,
-        },
-        status: {
-          label: 'Status',
-          key: 'status',
-          options: [
-            { label: 'Processing', value: 'Processing' },
-            { label: 'Error', value: 'Error' },
-            { label: 'Waiting', value: 'Waiting' },
-            { label: 'Canceled', value: 'Canceled' },
-          ],
-          multiple: true,
-        },
-        type: {
-          label: 'Type',
-          key: 'type',
-          options: [
-            { label: 'Sync knowledge source', value: 'sync_collection' },
-            { label: 'Custom', value: 'custom' },
-          ],
-        },
-        created_at: {
-          label: 'Created',
-          key: 'created_at',
-          type: 'timePeriod',
-          default: 'P1D',
-        },
-        'definition.interval': {
-          label: 'Interval',
-          key: 'definition.interval',
-          options: [
-            { label: 'Hourly', value: 'hourly' },
-            { label: 'Daily', value: 'daily' },
-            { label: 'Weekly', value: 'weekly' },
-          ],
-          multiple: true,
-        },
-      }),
-      filterObject: ref({}),
-      selectedJob: ref(null),
-      showDrawer: ref(false),
-      showNewDialog: ref(false),
-    }
+const filterConfig = ref({
+  'definition.job_type': {
+    label: 'Job type',
+    key: 'definition.job_type',
+    options: [
+      { label: 'One time immmidiate', value: 'one_time_immediate' },
+      { label: 'Recurring', value: 'recurring' },
+    ],
+    multiple: true,
   },
-  computed: {},
-  beforeMount() {
-    if (this.$route.query.job_id) {
-      const routeJobId = this.$route.query.job_id
-      const newFilterConfig = {}
-      // Remove default from all existing fields
-      for (let key in this.filterConfig) {
-        newFilterConfig[key] = { ...this.filterConfig[key] }
-        delete newFilterConfig[key].default
-      }
-      // Add id field with value from query (Jobs API uses 'id', not '_id')
-      newFilterConfig.id = {
-        label: 'ID',
-        key: 'id',
-        options: [{ label: routeJobId, value: routeJobId }],
-        default: routeJobId,
-      }
-      this.filterConfig = newFilterConfig
-      // Also set filterObject to apply the filter immediately
-      this.filterObject = { id: routeJobId }
-    }
+  status: {
+    label: 'Status',
+    key: 'status',
+    options: [
+      { label: 'Processing', value: 'Processing' },
+      { label: 'Error', value: 'Error' },
+      { label: 'Waiting', value: 'Waiting' },
+      { label: 'Canceled', value: 'Canceled' },
+    ],
+    multiple: true,
   },
-  async mounted() {
-    await this.$nextTick()
-    if (this.tableJobsRef) {
-      this.tableJobsRef.requestServerInteraction()
-    }
+  type: {
+    label: 'Type',
+    key: 'type',
+    options: [
+      { label: 'Sync knowledge source', value: 'sync_collection' },
+      { label: 'Custom', value: 'custom' },
+    ],
   },
-  methods: {
-    debounceSearch: _.debounce(function (search) {
-      this.searchString = search
-    }, 500),
+  created_at: {
+    label: 'Created',
+    key: 'created_at',
+    type: 'timePeriod',
+    default: 'P1D',
+  },
+  'definition.interval': {
+    label: 'Interval',
+    key: 'definition.interval',
+    options: [
+      { label: 'Hourly', value: 'hourly' },
+      { label: 'Daily', value: 'daily' },
+      { label: 'Weekly', value: 'weekly' },
+    ],
+    multiple: true,
+  },
+})
 
-    async refreshTable() {
-      this.tableJobsRef.requestServerInteraction()
-    },
-    async openDetails(row) {
-      this.selectedJob = row
-      this.showDrawer = true
-    },
-  },
+// Handle job_id query parameter
+if (route.query.job_id) {
+  const routeJobId = route.query.job_id as string
+  const newConfig = { ...filterConfig.value } as Record<string, unknown>
+  for (const key in newConfig) {
+    newConfig[key] = { ...(newConfig[key] as Record<string, unknown>) }
+    delete (newConfig[key] as Record<string, unknown>).default
+  }
+  ;(newConfig as Record<string, unknown>).id = {
+    label: 'ID',
+    key: 'id',
+    options: [{ label: routeJobId, value: routeJobId }],
+    default: routeJobId,
+  }
+  filterConfig.value = newConfig as typeof filterConfig.value
+  filterObject.value = { id: routeJobId }
+}
+
+const columns = [
+  textColumn<Job>('name', 'Name'),
+  textColumn<Job>('status', 'Status'),
+  textColumn<Job>('job_type', 'Type'),
+  dateColumn<Job>('last_run', 'Last run'),
+  dateColumn<Job>('next_run', 'Next run'),
+  textColumn<Job>('job_interval', 'Interval'),
+  dateColumn<Job>('created_at', 'Created'),
+]
+
+const { table, isLoading, refetch } = useDataTable<Job>('jobs', columns, {
+  defaultSort: [{ id: 'created_at', desc: true }],
+  manualPagination: true,
+  manualSorting: true,
+  manualFiltering: true,
+  extraParams: filterObject,
+})
+
+// Re-fetch when filter changes
+watch(filterObject, () => refetch(), { deep: true })
+
+const openDetails = (row: Job) => {
+  selectedJob.value = row
+  showDrawer.value = true
 }
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before {
   background: #fff !important;
 }

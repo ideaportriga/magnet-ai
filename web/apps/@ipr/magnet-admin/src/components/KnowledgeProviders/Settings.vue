@@ -55,11 +55,11 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useStore } from 'vuex'
+import { useProviderDetailStore } from '@/stores/entityDetailStores'
 
-const store = useStore()
+const providerStore = useProviderDetailStore()
 
-const provider = computed(() => store.getters.provider)
+const provider = computed(() => providerStore.entity)
 
 const isEditingEndpoint = ref(false)
 const tempEndpoint = ref('')
@@ -92,12 +92,12 @@ const saveEndpoint = () => {
 
 const confirmEndpointChange = () => {
   // Update endpoint
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'endpoint',
     value: tempEndpoint.value,
   })
   // Clear secrets as backend will do
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'secrets_encrypted',
     value: {},
   })
@@ -116,7 +116,11 @@ const connectionEntries = computed(() => {
   return Object.entries(config)
 })
 
-const originalProviderSecrets = computed(() => store.getters.originalProviderSecrets)
+const originalProviderSecrets = computed(() => {
+  const secrets = providerStore.initEntity?.secrets_encrypted
+  if (!secrets) return []
+  return Object.keys(secrets)
+})
 const remountValue = computed(() => provider.value?.updated_at)
 
 const secrets = computed({
@@ -128,7 +132,7 @@ const secrets = computed({
     return { ...encryptedSecrets }
   },
   set(value) {
-    store.commit('updateProviderProperty', {
+    providerStore.updateProperty({
       key: 'secrets_encrypted',
       value,
     })
@@ -137,7 +141,7 @@ const secrets = computed({
 
 const addConnection = () => {
   const newConfig = { ...provider.value.connection_config, '': '' }
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'connection_config',
     value: newConfig,
   })
@@ -146,7 +150,7 @@ const addConnection = () => {
 const removeConnection = (key) => {
   const newConfig = { ...provider.value.connection_config }
   delete newConfig[key]
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'connection_config',
     value: newConfig,
   })
@@ -157,7 +161,7 @@ const updateConnectionKey = (oldKey, newKey) => {
   const value = config[oldKey]
   delete config[oldKey]
   config[newKey] = value
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'connection_config',
     value: config,
   })
@@ -166,7 +170,7 @@ const updateConnectionKey = (oldKey, newKey) => {
 const updateConnectionValue = (key, newValue) => {
   const config = { ...provider.value.connection_config }
   config[key] = newValue
-  store.commit('updateProviderProperty', {
+  providerStore.updateProperty({
     key: 'connection_config',
     value: config,
   })

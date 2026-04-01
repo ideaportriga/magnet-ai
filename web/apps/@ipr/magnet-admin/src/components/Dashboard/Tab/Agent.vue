@@ -77,7 +77,7 @@
                     tooltip='The percentage of positive feedback out of all user feedback'
                   )
               .row
-                dashboard-board-label-value(label='Feedback ratio') 
+                dashboard-board-label-value(label='Feedback ratio')
               .col.full-width
                 template(v-if='data.likes + data.dislikes > 0')
                   dashboard-board-box-diagram(
@@ -111,61 +111,142 @@
           template(v-slot:body)
             .column.q-gap-16
               dashboard-board-label-value(label='Copy answer rate', :value='data.copyRate')
-        //- dashboard-board-card(header='Most frequent next actions')
-        //-   template(v-slot:body)
-        //-     .column.q-gap-16
-        //-       dashboard-board-bars(:data='data.nextActions')
-        //- dashboard-board-card(header='Most frequent products')
-        //-   template(v-slot:body)
-        //-     .column.q-gap-16
-        //-       dashboard-board-bars(:data='data.products')
-        //- dashboard-board-card(header='Script completion rate')
-        //-   template(v-slot:body)
-        //-     .column.q-gap-16
-        //-       dashboard-board-label-value(label='Script completion rate', :value='data.scriptCompletionRate')
       .km-grid-1.q-mt-16(v-else)
         dashboard-board-card(header='Agent overview')
           template(v-slot:body)
             .column.q-gap-16
               .km-table-compact
-                km-table(row-key='name', :rows='rags', :columns='columns', :pagination='{ rowsPerPage: 10 }', @cellAction='cellAction')
+                km-data-table(:table='overviewTable', row-key='name', hide-pagination, @row-click='overviewRowClick')
   template(v-if='tab === "list"')
     .column.q-gap-16.full-width
       .row
         .col-auto.center-flex-y.full-width
-          //km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
+          //km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
           q-space
           .col-auto
             dashboard-board-export-button(@exportToCsv='exportToFile("csv")', @exportToJson='exportToFile("json")')
         q-space
-      km-table(
-        @selectRow='navigateToConversation($event)',
-        selection='single',
+      km-data-table(
+        :table='detailsTable',
         row-key='start_time',
-        :rows='visibleRows',
-        :selected='selectedRow ? [selectedRow] : []',
-        :columns='agentDetailsColumns',
-        v-model:pagination='pagination',
-        @cellAction='cellAction',
-        @request='getDetailedList',
-        dense,
-        binary-state-sort,
-        :filter='activeFilters'
+        :loading='detailsLoading',
+        hide-pagination,
+        @row-click='detailsRowClick'
       )
+      .row.items-center.q-px-md.q-py-sm.text-grey.ba-border(v-if='pagination.rowsNumber')
+        .km-description {{ pagination.rowsNumber }} record{{ pagination.rowsNumber !== 1 ? 's' : '' }}
+        q-space
+        .row.items-center.q-gap-8
+          span.km-description Rows per page: {{ pagination.rowsPerPage }}
+        .row.items-center.q-ml-md.q-gap-4
+          q-btn(flat, dense, round, icon='first_page', size='sm', :disable='pagination.page <= 1', @click='goToPage(1)')
+          q-btn(flat, dense, round, icon='chevron_left', size='sm', :disable='pagination.page <= 1', @click='goToPage(pagination.page - 1)')
+          span.km-description {{ pagination.page }} / {{ totalPages }}
+          q-btn(flat, dense, round, icon='chevron_right', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(pagination.page + 1)')
+          q-btn(flat, dense, round, icon='last_page', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(totalPages)')
 </template>
 <script>
 import { fetchData } from '@shared'
-import { ref } from 'vue'
+import { ref, computed, h, markRaw } from 'vue'
 import filter from '@/config/dashboard/agent-filters'
 import controls from '@/config/dashboard/agent-table'
 import agentDetailsControls from '@/config/dashboard/agent-details-table'
 import { formatDuration } from '@shared/utils'
+import { formatDateTime } from '@shared/utils/dateTime'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 
 const naTooltip = 'Data not available because post-processing was not done for this conversation yet'
 
 export default {
   props: ['selectedRow'],
   emits: ['selectRow'],
+
+  setup(props, { emit }) {
+    const rags = ref([])
+    const detailedList = ref([])
+    const detailsLoading = ref(false)
+
+    // Overview table columns (Agent overview)
+    const overviewControlsObj = controls
+    const overviewColumnsArr = Object.values(overviewControlsObj)
+
+    const overviewColumns = overviewColumnsArr.map((col) => {
+      const colDef = {
+        id: col.name,
+        accessorKey: col.field,
+        header: col.label,
+        enableSorting: col.sortable ?? false,
+        meta: { align: col.align ?? 'left' },
+      }
+      if (col.format) {
+        colDef.cell = ({ getValue }) => {
+          const val = getValue()
+          return val != null ? col.format(val) : ''
+        }
+      }
+      return colDef
+    })
+
+    const { table: overviewTable } = useLocalDataTable(rags, overviewColumns, {
+      defaultPageSize: 10,
+    })
+
+    // Details table columns (Agent details list)
+    const detailsControlsObj = agentDetailsControls
+    const detailsColumnsArr = Object.values(detailsControlsObj).filter((col) => col.display)
+
+    const detailsColumns = detailsColumnsArr.map((col) => {
+      const colDef = {
+        id: col.name,
+        header: col.label,
+        enableSorting: col.sortable ?? false,
+        meta: { align: col.align ?? 'left' },
+      }
+
+      if (col.type === 'component' && col.component) {
+        colDef.accessorFn = typeof col.field === 'function' ? col.field : (row) => row[col.field] ?? null
+        colDef.cell = ({ row }) => {
+          if (typeof col.component === 'function' && !col.component.__vccOpts && !col.component.setup && !col.component.render) {
+            return col.component({ row: row.original })
+          }
+          return h(col.component, { row: row.original })
+        }
+        colDef.meta.component = col.component
+      } else {
+        colDef.accessorFn = typeof col.field === 'function' ? col.field : (row) => row[col.field]
+        if (col.format) {
+          colDef.cell = ({ getValue }) => {
+            const val = getValue()
+            return val != null ? col.format(val) : '-'
+          }
+        }
+      }
+
+      if (col.sort) {
+        colDef.sortingFn = (a, b) => {
+          const aVal = typeof col.field === 'function' ? col.field(a.original) : a.original[col.field]
+          const bVal = typeof col.field === 'function' ? col.field(b.original) : b.original[col.field]
+          return col.sort(aVal, bVal)
+        }
+      }
+
+      return colDef
+    })
+
+    const { table: detailsTable } = useLocalDataTable(detailedList, detailsColumns, {
+      defaultPageSize: 999,
+      defaultSort: [{ id: 'start_time', desc: true }],
+    })
+
+    return {
+      rags,
+      detailedList,
+      detailsLoading,
+      overviewTable,
+      detailsTable,
+    }
+  },
+
   data() {
     return {
       filter: ref(filter),
@@ -176,12 +257,11 @@ export default {
         { name: 'list', label: 'List' },
         { name: 'overview', label: 'Summary' },
       ]),
-      rags: ref([]),
       controls: ref(controls),
       observability: ref({}),
-      detailedList: ref([]),
       agentDetailsControls: ref(agentDetailsControls),
       searchString: ref(''),
+      dashboardOptions: ref({}),
       summaryFilter: ref(Object.fromEntries(Object.entries(filter))),
       listFilter: ref(filter),
       pagination: ref({
@@ -193,6 +273,10 @@ export default {
     }
   },
   computed: {
+    totalPages() {
+      if (!this.pagination.rowsNumber) return 1
+      return Math.ceil(this.pagination.rowsNumber / this.pagination.rowsPerPage)
+    },
     visibleRows() {
       if (!this.searchString) return this.detailedList
       const searchTerms = this.searchString.includes(',')
@@ -230,7 +314,7 @@ export default {
       },
     },
     endpoint() {
-      return this.$store.getters.config.api.aiBridge.urlAdmin
+      return this.$appConfig.api.aiBridge.urlAdmin
     },
     columns() {
       return Object.values(this.controls)
@@ -239,7 +323,8 @@ export default {
       return Object.values(this.agentDetailsControls).filter((column) => column.display)
     },
     ragTools() {
-      return this.$store.getters.chroma.rag_tools.publicItems
+      // Legacy getter removed — rag tools list not needed for dashboard
+      return []
     },
     data() {
       return {
@@ -253,25 +338,25 @@ export default {
         resolutionStatus: this.mapResolutionStatus(),
         sentiment: this.mapCaseDeflectionStatus(),
         topics: [
-          { title: 'Customer Portal', value: 1222, action: () => console.log('liked') },
-          { title: 'Mobile App', value: 400, action: () => console.log('disliked') },
-          { title: 'Other', value: 100, action: () => console.log('disliked') },
+          { title: 'Customer Portal', value: 1222, action: () => {} },
+          { title: 'Mobile App', value: 400, action: () => {} },
+          { title: 'Other', value: 100, action: () => {} },
         ],
         languages: [
-          { title: 'English', value: 1222, action: () => console.log('liked') },
-          { title: 'Spanish', value: 400, action: () => console.log('disliked') },
-          { title: 'French', value: 100, action: () => console.log('disliked') },
+          { title: 'English', value: 1222, action: () => {} },
+          { title: 'Spanish', value: 400, action: () => {} },
+          { title: 'French', value: 100, action: () => {} },
         ],
         copyRate: this.observability?.copy_rate ? `${this.observability.copy_rate.toFixed(2)}%` : '-',
         nextActions: [
-          { title: 'Customer Portal', value: 1222, action: () => console.log('liked') },
-          { title: 'Mobile App', value: 400, action: () => console.log('disliked') },
-          { title: 'Other', value: 100, action: () => console.log('disliked') },
+          { title: 'Customer Portal', value: 1222, action: () => {} },
+          { title: 'Mobile App', value: 400, action: () => {} },
+          { title: 'Other', value: 100, action: () => {} },
         ],
         products: [
-          { title: 'Customer Portal', value: 1222, action: () => console.log('liked') },
-          { title: 'Mobile App', value: 400, action: () => console.log('disliked') },
-          { title: 'Other', value: 100, action: () => console.log('disliked') },
+          { title: 'Customer Portal', value: 1222, action: () => {} },
+          { title: 'Mobile App', value: 400, action: () => {} },
+          { title: 'Other', value: 100, action: () => {} },
         ],
         scriptCompletionRate: '80.22%',
       }
@@ -314,7 +399,6 @@ export default {
       return `${((resolved / total) * 100).toFixed(2)}%`
     },
     feedbackProcessRate() {
-      console.log('observability', this.observability)
       const totalFeedback = this.observability?.feedback_rate
       if (totalFeedback > 0) {
         return `${(totalFeedback * 100).toFixed(2)}%`
@@ -341,14 +425,7 @@ export default {
     tab(newVal) {
       this.$emit('selectRow', false)
       if (newVal === 'overview') {
-        // this.$refs.filterRef.clearFilter([
-        //   'conversation_data.resolution_status',
-        //   'conversation_data.dislikes',
-        //   'feedback',
-        //   'conversation_data.sentiment',
-        //   'conversation_data.language',
-        //   'conversation_data.topics',
-        // ])
+        // this.$refs.filterRef.clearFilter([])
       }
     },
     activeFilters: {
@@ -362,6 +439,16 @@ export default {
     },
   },
   methods: {
+    goToPage(page) {
+      this.pagination.page = page
+      this.getDetailedList({ pagination: this.pagination })
+    },
+    overviewRowClick(row) {
+      this.setFilter('feature_system_name', { label: row.name, value: row.system_name })
+    },
+    detailsRowClick(row) {
+      this.navigateToConversation(row)
+    },
     mapCaseDeflectionStatus() {
       //- setntiment (positive, negative, neutral)
       const status = {
@@ -483,7 +570,6 @@ export default {
       this.observability = await response.json()
     },
     async getDetailedList(input) {
-      console.log('input', input?.pagination?.sortBy, input?.pagination?.descending)
       const props = input?.pagination ?? this.pagination
       const body = {
         limit: props.rowsPerPage,
@@ -564,13 +650,13 @@ export default {
       })
       const data = await response.json()
       if (data) {
-        this.$store.dispatch('setAgentDashboardOptions', data)
+        // Dashboard options stored locally — no longer dispatched to Vuex
+        this.dashboardOptions = data
       }
     },
 
     cellAction(e) {
       if (e.action === 'filterAgent') {
-        console.log('filterAgent', e.row)
         this.setFilter('feature_system_name', { label: e.row.name, value: e.row.system_name })
       }
     },

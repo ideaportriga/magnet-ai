@@ -21,23 +21,18 @@
 
   .row.q-mt-16
     km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
-  .column.no-wrap.q-gap-16.full-height.full-width.q-mb-md.q-mt-16(
-    style='max-height: calc(100vh - 560px) !important; height: 100% !important',
+  .column.no-wrap.q-gap-16.full-height.full-width.q-mb-md.q-mt-16.km-scroll-area-lg(
+    style='height: 100% !important',
     :class='{ "overflow-auto": tab == "mcp_tool" || tab == "api" || tab == "knowledge_graph" }'
   )
     .column.full-height.full-width(v-if='tab != "mcp_tool" && tab != "api" && tab != "knowledge_graph"')
-      km-table-new.no-header.full-height(
-        style='',
-        @selectRow='selectRecord',
-        selection='multiple',
+      km-data-table.full-height(
+        :table='toolTable',
+        fill-height,
         row-key='id',
-        :active-record-id='selectedRow?.id',
-        :selected='selected',
-        @update:selected='emit("update:selected", $event)',
-        :columns='columns',
-        :rows='rows ?? []',
-        binary-state-sort,
-        :infinite-scroll='true'
+        :activeRowId='selectedRow?.id',
+        hide-pagination,
+        @row-click='selectRecord'
       )
     .column.full-width(v-else)
       template(v-if='tab == "mcp_tool"')
@@ -80,10 +75,13 @@
         )
 </template>
 <script setup>
-import { useChroma, fetchData } from '@shared'
-import { ref, computed, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { fetchData } from '@shared'
+import { ref, computed, onMounted, markRaw, h } from 'vue'
+import { useAppStore } from '@/stores/appStore'
 import { agentTopicActionsPopupColumns } from '@/config/agents/topics'
+import { useEntityQueries } from '@/queries/entities'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import NameDescription from '@/config/agents/component/NameDescription.vue'
 
 const props = defineProps({
   selected: {
@@ -94,19 +92,29 @@ const props = defineProps({
 
 const emit = defineEmits(['update:selected'])
 
-const store = useStore()
+const appStore = useAppStore()
+const queries = useEntityQueries()
 
-const { visibleRows: api_servers } = useChroma('api_servers')
-const { visibleRows: rag_tools } = useChroma('rag_tools')
-const { visibleRows: prompt_templates } = useChroma('promptTemplates')
-const { visibleRows: mcp_servers } = useChroma('mcp_servers')
-const { visibleRows: retrieval_tools } = useChroma('retrieval')
+const { data: apiServersData } = queries.api_servers.useList()
+const api_servers = computed(() => apiServersData.value?.items ?? [])
+
+const { data: ragToolsData } = queries.rag_tools.useList()
+const rag_tools = computed(() => ragToolsData.value?.items ?? [])
+
+const { data: promptTemplatesData } = queries.promptTemplates.useList()
+const prompt_templates = computed(() => promptTemplatesData.value?.items ?? [])
+
+const { data: mcpServersData } = queries.mcp_servers.useList()
+const mcp_servers = computed(() => mcpServersData.value?.items ?? [])
+
+const { data: retrievalData } = queries.retrieval.useList()
+const retrieval_tools = computed(() => retrievalData.value?.items ?? [])
 
 const knowledge_graphs = ref([])
 
 const fetchKnowledgeGraphs = async () => {
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: 'knowledge_graphs/agent_tools',
@@ -117,7 +125,7 @@ const fetchKnowledgeGraphs = async () => {
       knowledge_graphs.value = await response.json()
     }
   } catch (error) {
-    console.error('Error fetching knowledge graphs:', error)
+
   }
 }
 
@@ -147,8 +155,25 @@ const rows = computed(() => {
     )
   return []
 })
-const columns = computed(() => {
-  return Object.values(agentTopicActionsPopupColumns)
+
+// Tool table columns using TanStack column definitions
+const toolColumns = [
+  {
+    id: 'nameDescription',
+    accessorKey: 'name',
+    header: 'Name & Description',
+    cell: ({ row }) => h(markRaw(NameDescription), { row: row.original }),
+    enableSorting: true,
+    meta: {
+      align: 'left',
+      width: '100%',
+      component: markRaw(NameDescription),
+    },
+  },
+]
+
+const { table: toolTable } = useLocalDataTable(rows, toolColumns, {
+  defaultPageSize: 999,
 })
 
 const getList = (list, type) => {
@@ -175,7 +200,7 @@ const getSelectedQtyByType = (tab) => {
 }
 
 const selectRecord = (row) => {
-  console.log('row', row.id)
+
   // console.log('props.selected', props.selected)
   const index = props.selected.findIndex((item) => item?.id === row?.id)
   if (index === -1) {
@@ -189,7 +214,7 @@ const selectRecord = (row) => {
 }
 
 const selectMultiple = (rows) => {
-  console.log('rows', rows)
+
   const newRows = [...props.selected]
   rows.forEach((row) => {
     const index = newRows.findIndex((item) => item?.id === row?.id)
@@ -199,7 +224,7 @@ const selectMultiple = (rows) => {
       newRows.splice(index, 1)
     }
   })
-  console.log('newRows', newRows)
+
   emit('update:selected', newRows)
 }
 

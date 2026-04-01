@@ -49,7 +49,7 @@ export default {
       default: '',
     },
   },
-  emits: ['onLoad'],
+  emits: ['onLoad', 'search', 'searchRag', 'searchRagExecute'],
   setup() {
     const prompt = useState('searchPrompt')
     const loading = useState('answersLoading')
@@ -84,9 +84,9 @@ export default {
     },
     async getAnswer() {
       if (this.rag) {
-        await this.$store.dispatch('getAnswerRag')
+        this.$emit('searchRag')
       } else {
-        await this.$store.dispatch('getAnswerRagExecute', this.rag_code)
+        this.$emit('searchRagExecute', this.rag_code)
       }
 
       this.prompt = ''
@@ -104,7 +104,7 @@ export default {
   // opacity: 0.5;
 
   .q-icon
-    font-size: 16px;
+    font-size: var(--km-font-size-body-lg);
 </style>
 
 <style lang="stylus" scoped>

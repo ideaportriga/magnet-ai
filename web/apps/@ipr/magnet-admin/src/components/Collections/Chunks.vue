@@ -1,125 +1,189 @@
 <template lang="pug">
-div
-  template(v-if='true')
-    .row.q-mb-12
-      .col-auto.center-flex
-        km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
-      .col
-      .col-auto
-        km-btn(label='Delete all chunks', :loading='deleteLoading', @click='onDeleteAll')
-    .row
-      km-table(
-        ref='tableRef',
-        :loading='loadingItems',
-        row-key='id',
-        :columns='columns',
-        :rows='visibleRows',
-        selection='single',
-        @selectRow='$emit("selectRow", $event)',
-        :selected='selectedRow ? [selectedRow] : []',
-        :visibleColumns='visibleColumns',
-        @request='getPaginatedLocal',
-        v-model:pagination='pagination',
-        :filter='filterObject',
-        binary-state-sort
+.column.full-height.full-width.no-wrap
+  //- Toolbar
+  .row.q-mb-12.items-center
+    .col-auto
+      km-input(
+        placeholder='Search chunks...',
+        iconBefore='search',
+        :model-value='searchText',
+        @input='onSearchInput',
+        @keydown.enter='applySearch',
+        clearable
       )
-  template(v-else-if='loadingItems')
-    .column.flex-center
-      q-spinner.text-primary(size='40px')
-  template(v-else)
-    .column.flex-center
-      .km-title.q-py-16.text-label Nothing in this knowledge sources yet!
-    km-icon(name='empty-collection', width='250', height='250')
+    .col
+    .col-auto
+      km-btn(label='Delete all chunks', :loading='deleteLoading', @click='showDeleteConfirm = true', flat, icon='fas fa-trash', iconSize='14px')
 
+  //- Table
+  .col(style='min-height: 0')
+    km-data-table(
+      :table='table',
+      :loading='isLoading',
+      fillHeight,
+      rowKey='id',
+      :activeRowId='selectedRow?.id',
+      @row-click='onRowClick'
+    )
+      template(#empty-state)
+        .column.flex-center.q-py-xl
+          km-icon(name='empty-collection', width='200', height='200')
+          .km-title.q-py-16.text-label Nothing in this knowledge source yet!
+
+  //- Delete confirmation
   km-popup-confirm(
     :visible='showDeleteConfirm',
     notificationIcon='fas fa-triangle-exclamation',
     confirmButtonLabel='Yes, delete all',
     cancelButtonLabel='Cancel',
     @confirm='confirmDelete',
-    @cancel='cancelDelete'
+    @cancel='showDeleteConfirm = false'
   )
     .row.item-center.justify-center.km-heading-7.q-mb-md Delete Chunks Confirmation
     .row.text-center.justify-center Are you sure you want to delete all embedded chunks?
 </template>
-<script>
-import { useChroma } from '@shared'
-import { defineComponent, ref } from 'vue'
 
-export default defineComponent({
-  props: ['selectedRow'],
-  emits: ['selectRow'],
-  setup() {
-    const { items, searchString, pagination, visibleColumns, columns, getPaginated, visibleRows, ...useDocuments } = useChroma('documents')
-    const { items: collections, selectedRow: selectedCollectionRow, get } = useChroma('collections')
-    const loadingItems = ref(false)
-    const showDeleteConfirm = ref(false)
-    const tableRef = ref()
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/vue-query'
+import {
+  useVueTable,
+  getCoreRowModel,
+  type ColumnDef,
+  type PaginationState,
+  type SortingState,
+  type Updater,
+} from '@tanstack/vue-table'
+import { getApiClient } from '@/api'
+import { formatDateTime } from '@shared/utils/dateTime'
+import type { Document } from '@/types'
 
-    return {
-      items,
-      searchString,
-      pagination,
-      visibleColumns,
-      columns,
-      visibleRows,
-      loadingItems,
-      showDeleteConfirm,
-      useDocuments,
-      collections,
-      selectedCollectionRow,
-      get,
-      getPaginated,
-      tableRef,
-    }
-  },
-  computed: {
-    deleteLoading() {
-      return this.$store.getters?.knowledge?.deleteAllLoading
-    },
-    filterObject: {
-      get() {
-        if (this.searchString) {
-          return {
-            $or: [{ 'metadata.title': { $txt: this.searchString } }, { content: { $txt: this.searchString } }],
-          }
-        }
-        return {}
-      },
-      set() {},
-    },
-  },
+const props = defineProps<{ selectedRow?: Document | null }>()
+const emit = defineEmits<{ selectRow: [row: Document | null] }>()
 
-  mounted() {
-    this.requestItems()
-  },
-  methods: {
-    async getPaginatedLocal(input) {
-      this.loadingItems = true
-      console.log('getPaginatedLocal', input)
-      input.collection_id = this.$route.params.id
-      await this.getPaginated(input)
-      this.loadingItems = false
-    },
-    async requestItems() {
-      this.loadingItems = true
+const route = useRoute()
+const queryClient = useQueryClient()
+const showDeleteConfirm = ref(false)
+const deleteLoading = ref(false)
+const searchText = ref('')
+const appliedSearch = ref('')
 
-      this.tableRef.requestServerInteraction()
-      this.loadingItems = false
-    },
-    onDeleteAll() {
-      this.showDeleteConfirm = true
-    },
-    async confirmDelete() {
-      this.showDeleteConfirm = false
-      await this.$store.dispatch('deleteAllDocuments', this.$route.params.id)
-      await this.requestItems()
-      await this.get()
-      // await this.$store.commit('setKnowledge', this.selectedCollectionRow)
-    },
-    cancelDelete() {
-      this.showDeleteConfirm = false
-    },
+const collectionId = computed(() => route.params.id as string)
+
+// Pagination & sorting state
+const pagination = ref<PaginationState>({ pageIndex: 0, pageSize: 20 })
+const sorting = ref<SortingState>([])
+
+// Query params → POST body for server-side pagination
+const queryParams = computed(() => ({
+  collectionId: collectionId.value,
+  limit: pagination.value.pageSize,
+  offset: pagination.value.pageIndex * pagination.value.pageSize,
+  sort: sorting.value[0]?.id ?? 'created_at',
+  order: sorting.value[0]?.desc ? -1 : 1,
+  search: appliedSearch.value || undefined,
+}))
+
+// TanStack Query — server-side paginated fetch
+const { data, isLoading } = useQuery({
+  queryKey: computed(() => ['documents', 'list', queryParams.value]),
+  queryFn: async () => {
+    const { collectionId: cid, ...body } = queryParams.value
+    const client = getApiClient()
+    return client.post<{ items: Document[]; total: number }>(
+      `collections/${cid}/documents/paginate/offset`,
+      body,
+    )
   },
+  enabled: computed(() => !!collectionId.value),
+  placeholderData: keepPreviousData,
 })
+
+const rows = computed(() => data.value?.items ?? [])
+const totalRows = computed(() => data.value?.total ?? 0)
+const pageCount = computed(() => Math.ceil(totalRows.value / pagination.value.pageSize))
+
+// Columns
+const columns: ColumnDef<Document, unknown>[] = [
+  {
+    id: 'title',
+    header: 'Title',
+    accessorFn: (row) => row.metadata?.title ?? '-',
+    meta: { width: '40%' },
+  },
+  {
+    id: 'type',
+    header: 'Type',
+    accessorFn: (row) => row.metadata?.type ?? '-',
+    meta: { width: '15%' },
+  },
+  {
+    id: 'created_at',
+    header: 'Created',
+    accessorFn: (row) => row.metadata?.createdTime ?? row.created_at ?? '',
+    cell: (info) => formatDate(info.getValue() as string),
+    meta: { width: '20%' },
+  },
+  {
+    id: 'updated_at',
+    header: 'Modified',
+    accessorFn: (row) => row.metadata?.modifiedTime ?? row.updated_at ?? '',
+    cell: (info) => formatDate(info.getValue() as string),
+    meta: { width: '20%' },
+  },
+]
+
+function applyUpdater<T>(updater: Updater<T>, current: T): T {
+  return typeof updater === 'function' ? (updater as (old: T) => T)(current) : updater
+}
+
+// TanStack Table — manual (server-side) pagination & sorting
+const table = useVueTable({
+  get data() { return rows.value },
+  columns,
+  getCoreRowModel: getCoreRowModel(),
+  manualPagination: true,
+  manualSorting: true,
+  get pageCount() { return pageCount.value },
+  get rowCount() { return totalRows.value },
+  state: {
+    get pagination() { return pagination.value },
+    get sorting() { return sorting.value },
+  },
+  onPaginationChange: (updater) => { pagination.value = applyUpdater(updater, pagination.value) },
+  onSortingChange: (updater) => { sorting.value = applyUpdater(updater, sorting.value) },
+})
+
+const formatDate = (val?: string) => (val ? formatDateTime(val) : '-')
+
+function onRowClick(row: Document) {
+  emit('selectRow', row)
+}
+
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+
+function onSearchInput(value: string) {
+  searchText.value = value
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => applySearch(), 400)
+}
+
+function applySearch() {
+  appliedSearch.value = searchText.value
+  pagination.value = { ...pagination.value, pageIndex: 0 }
+}
+
+async function confirmDelete() {
+  showDeleteConfirm.value = false
+  deleteLoading.value = true
+  try {
+    const client = getApiClient()
+    await client.delete(`collections/${collectionId.value}/documents/all`)
+  } finally {
+    deleteLoading.value = false
+  }
+  await queryClient.invalidateQueries({ queryKey: ['documents'] })
+  await queryClient.invalidateQueries({ queryKey: ['collections'] })
+}
 </script>

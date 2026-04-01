@@ -1,155 +1,45 @@
 <template lang="pug">
-.col-auto.q-py-auto
-  .km-heading-4 {{ activeRagName }}
-.col
-.col-auto.q-mr-sm
-  km-btn(label='Record info', icon='info', iconSize='16px') 
-  q-tooltip.bg-white.block-shadow
-    .q-pa-sm
-      .q-mb-sm
-        .text-secondary-text.km-button-xs-text Created:
-        .text-secondary-text.km-description {{ created_at }}
-      .q-mb-sm
-        .text-secondary-text.km-button-xs-text Modified:
-        .text-secondary-text.km-description {{ modified_at }}
-      .q-mb-sm
-        .text-secondary-text.km-button-xs-text Created by:
-        .text-secondary-text.km-description {{ created_by }}
-      div
-        .text-secondary-text.km-button-xs-text Modified by:
-        .text-secondary-text.km-description {{ updated_by }}
-q-separator(vertical, color='white')
-.col-auto.text-white.q-mx-md
-  km-btn(label='Save', icon='far fa-save', color='primary', bg='background', iconSize='16px', @click='save')
-.col-auto.text-white.q-mr-md
-  q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
-    q-menu(anchor='bottom right', self='top right')
-      q-item(clickable, @click='showNewDialog = true', dense)
-        q-item-section
-          .km-heading-3 Clone
-      q-item(clickable, @click='showDeleteDialog = true', dense)
-        q-item-section
-          .km-heading-3 Delete
-
-ai-apps-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
-q-inner-loading(:showing='loading')
-km-popup-confirm(
-  :visible='showDeleteDialog',
-  confirmButtonLabel='Delete AI App',
-  cancelButtonLabel='Cancel',
-  notificationIcon='fas fa-triangle-exclamation',
-  @confirm='deleteRag',
-  @cancel='showDeleteDialog = false'
-)
-  .row.item-center.justify-center.km-heading-7 You are about to delete the AI App
-  .row.text-center.justify-center This action will permanently delete the AI App and its AI Tabs.
+.col-auto.q-py-auto.row.items-center.no-wrap.q-gap-8
+  template(v-if='activeTabName')
+    .km-body.text-primary.km-breadcrumb-link(@click='navigateToApp') {{ activeRagName }}
+    q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
+    .km-body {{ activeTabName }}
+  template(v-else)
+    .km-body {{ activeRagName }}
 </template>
 
 <script>
-import { useChroma } from '@shared'
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useAiAppDetailStore } from '@/stores/entityDetailStores'
 
 export default {
-  emits: ['update:closeDrawer'],
   setup() {
-    const { items, update, create, selectedRow, ...useCollection } = useChroma('ai_apps')
-
-    return {
-      items,
-      update,
-      create,
-      selectedRow,
-      useCollection,
-      loading: ref(false),
-      showNewDialog: ref(false),
-      showDeleteDialog: ref(false),
-    }
+    const queries = useEntityQueries()
+    const aiAppStore = useAiAppDetailStore()
+    const { data: listData } = queries.ai_apps.useList()
+    const items = computed(() => listData.value?.items ?? [])
+    return { items, aiAppStore }
   },
-
   computed: {
-    created_at() {
-      if (!this.activeAIAppDB?.created_at) return ''
-      return `${this.formatDate(this.activeAIAppDB?.created_at)}`
-    },
-    modified_at() {
-      if (!this.activeAIAppDB?.updated_at) return ''
-      return `${this.formatDate(this.activeAIAppDB?.updated_at)}`
-    },
-    created_by() {
-      if (!this.activeAIAppDB?.created_by) return 'Unknown'
-      return `${this.activeAIAppDB?.created_by}`
-    },
-    updated_by() {
-      if (!this.activeAIAppDB?.updated_by) return 'Unknown'
-      return `${this.activeAIAppDB?.updated_by}`
-    },
-    currentRow() {
-      return this.$store.getters.ai_app
-    },
-    route() {
-      return this.$route
-    },
     activeRagId() {
       return this.$route.params.id
     },
     activeAIAppDB() {
       return this.items.find((item) => item.id == this.activeRagId)
     },
-    activeRagName: {
-      get() {
-        return this.activeAIAppDB?.name
-      },
-      set(val) {
-        this.openDetails(val.value)
-      },
+    activeRagName() {
+      return this.activeAIAppDB?.name
     },
-    options() {
-      return this.items.map((item) => ({ label: item.name, value: item }))
+    activeTabName() {
+      if (!this.$route.params?.tab) return ''
+      const tab = this.aiAppStore.entity?.tabs?.find((t) => t.system_name === this.$route.params.tab)
+      return tab?.name || this.$route.params.tab
     },
   },
-  watch: {},
-  created() {},
-
   methods: {
-    deleteRag() {
-      this.useCollection.delete({ id: this.selectedRow?.id })
-      this.$emit('update:closeDrawer', null)
-      this.$q.notify({
-        position: 'top',
-        message: 'AI App has been deleted.',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
-      this.navigate('/ai-apps')
-    },
-    async openDetails(row) {
-      await this.$router.push(`/ai-apps/${row.id}`)
-    },
-    navigate(path = '') {
-      if (this.$route.path !== `/${path}`) {
-        this.$router.push(`${path}`)
-      }
-    },
-    async save() {
-      this.loading = true
-      if (this.currentRow?.created_at) {
-        const obj = { ...this.currentRow }
-        delete obj.id
-        await this.update({ id: this.currentRow.id, data: obj })
-      } else {
-        await this.create(this.currentRow)
-      }
-      await this.$store.commit('setInitAIApp')
-      window.postMessage({ type: 'reload_iframe' })
-      this.loading = false
-    },
-
-    formatDate(date) {
-      const dateObject = new Date(date)
-      const localeDateString = dateObject.toLocaleDateString()
-      const localeTimeString = dateObject.toLocaleTimeString()
-      return `${localeDateString} ${localeTimeString}`
+    navigateToApp() {
+      if (this.activeRagId) this.$router?.push(`/ai-apps/${this.activeRagId}`)
     },
   },
 }

@@ -8,7 +8,8 @@
         km-input(:model-value='selectedRow.name', readonly)
       .col-12.q-py-8
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
-        km-input(v-model='description', type='textarea', rows='1', autogrow)
+        .km-textarea-relaxed
+          km-input(v-model='description', type='textarea', rows='3', autogrow)
       .row.q-gap-16.no-wrap.full-width
         .col
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
@@ -32,16 +33,19 @@
 </template>
 <script>
 import { ref } from 'vue'
+import { useApiServerDetailStore } from '@/stores/entityDetailStores'
 export default {
   props: {
     selectedRow: {
       type: Object,
-      required: true,
+      default: null,
     },
   },
   setup() {
+    const apiServerStore = useApiServerDetailStore()
     return {
       list: ref([]),
+      apiServerStore,
     }
   },
 
@@ -59,7 +63,7 @@ export default {
       return []
     },
     apiTool() {
-      return this.$store.getters.toolByName(this.$route.params.name)
+      return this.apiServerStore.entity?.tools?.find((tool) => tool.system_name === this.$route.params.name)
     },
     input: {
       get() {
@@ -111,7 +115,7 @@ export default {
     setInputProp(value, key) {
       // .parameters?.input?.properties[this.selectedRow.in].properties[this.selectedRow.name]
       const target = `parameters.input.properties.${this.selectedRow.in}.properties.${this.selectedRow.name}.${key}`
-      this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: target, value })
+      this.apiServerStore.updateNestedProperty({ system_name: this.apiTool.system_name, path: target, value })
     },
     newEnum(value) {
       const array = this.enum || []

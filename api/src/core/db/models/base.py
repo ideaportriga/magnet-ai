@@ -4,6 +4,8 @@ Base classes for SQLAlchemy models.
 
 from __future__ import annotations
 
+import json
+import logging
 from collections.abc import Hashable
 from typing import Any, Optional
 
@@ -11,8 +13,10 @@ from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.mixins import UniqueMixin
 from advanced_alchemy.types import JsonB
 from sqlalchemy import String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 from sqlalchemy.sql.elements import ColumnElement
+
+logger = logging.getLogger(__name__)
 
 
 class UUIDAuditSimpleBase(UUIDv7AuditBase, UniqueMixin):
@@ -84,3 +88,17 @@ class UUIDAuditEntityBase(UUIDAuditSimpleBase):
     variants: Mapped[Optional[list[Any]]] = mapped_column(
         JsonB, nullable=True, comment="List of variants in JSON format"
     )
+
+    @validates("variants")
+    def _coerce_variants(self, key: str, value: Any) -> Any:
+        """Prevent double-encoding: if a JSON string is passed, parse it to a Python object."""
+        if isinstance(value, str):
+            import traceback
+
+            logger.warning(
+                "variants received as str instead of list — auto-parsing.\n"
+                "Caller traceback:\n%s",
+                "".join(traceback.format_stack()),
+            )
+            return json.loads(value)
+        return value

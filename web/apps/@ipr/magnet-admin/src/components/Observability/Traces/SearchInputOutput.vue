@@ -29,21 +29,20 @@
     </div>
     <div class="km-button-text bb-border q-pb-4 q-pl-sm q-mt-lg">Search results</div>
     <template v-if="Array.isArray(span?.output)">
-      <div v-for="(document, index) in span?.output" :key="index" class="col-auto ba-border border-radius-8" style="max-width: 463px">
-        <div class="row q-gap-12 q-pa-sm bg-light no-wrap cursor-pointer" style="border-radius: 8px 8px 0 0" @click="toggleCollapse(index)">
-          <div class="row" style="font-size: 13px">
+      <div v-for="(document, index) in span?.output" :key="index" class="col-auto ba-border border-radius-8 search-result-card">
+        <div class="row q-gap-12 q-pa-sm bg-light no-wrap cursor-pointer search-result-header" @click="toggleCollapse(index)">
+          <div class="row km-body-sm">
             {{ document?.metadata?.title ?? document?.metadata?.name ?? document?.title }}
           </div>
           <q-space />
-          <div class="row" style="font-size: 13px">
+          <div class="row km-body-sm">
             {{ formatScore(document?.score) }}
           </div>
           <q-icon v-if="document?.content" :name="collapsed[index] ? 'expand_less' : 'expand_more'" size="16px" />
         </div>
         <div
           v-if="collapsed[index] && document?.content"
-          class="row q-pa-sm bt-border"
-          style="min-height: 50px; font-size: 13px; white-space: pre-wrap; word-break: break-all"
+          class="row q-pa-sm bt-border km-body-sm search-result-content"
         >
           {{ document?.content }}
         </div>
@@ -78,3 +77,17 @@ const toggleCollapse = (index: string | number) => {
   collapsed.value[index] = !collapsed.value[index]
 }
 </script>
+
+<style scoped>
+.search-result-card {
+  max-width: 463px;
+}
+.search-result-header {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.search-result-content {
+  min-height: 50px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+</style>

@@ -356,6 +356,76 @@ class ProvidersController(Controller):
                 error=str(e),
             )
 
+    @post(
+        "/{provider_id:uuid}/test-storage",
+        summary="Test storage provider connection",
+        status_code=HTTP_200_OK,
+    )
+    async def test_storage_connection(
+        self,
+        providers_service: ProvidersService,
+        provider_id: UUID = Parameter(
+            title="Provider ID",
+            description="The storage Provider to test.",
+        ),
+    ) -> ProviderTestResult:
+        """Test connection to a storage provider by writing/reading/deleting a test file."""
+        try:
+            provider = await providers_service.get(provider_id)
+            if not provider:
+                return ProviderTestResult(
+                    success=False,
+                    message="Provider not found",
+                    error=f"Provider with ID {provider_id} does not exist",
+                )
+            if provider.category != "storage":
+                return ProviderTestResult(
+                    success=False,
+                    message="Not a storage provider",
+                    error=f"Provider category is '{provider.category}', expected 'storage'",
+                )
+
+            from storage.backends import _register_from_provider
+            from advanced_alchemy.types.file_object import storages
+            from uuid_utils import uuid7
+
+            # Build and register a temporary backend
+            test_key = f"__test_{uuid7()}"
+            try:
+                _register_from_provider(test_key, provider)
+                backend = storages.get_backend(test_key)
+
+                # Write → read → delete
+                test_path = f"__healthcheck/{uuid7()}.txt"
+                await backend.fs.put_async(test_path, b"healthcheck")
+                obj = await backend.fs.get_async(test_path)
+                data = (await obj.bytes_async()).to_bytes()
+                await backend.fs.delete_async([test_path])
+
+                if data != b"healthcheck":
+                    return ProviderTestResult(
+                        success=False,
+                        message="Data integrity check failed",
+                        error=f"Expected b'healthcheck', got {data!r}",
+                    )
+
+                return ProviderTestResult(
+                    success=True,
+                    message=f"Storage connection to '{provider.name}' is working correctly.",
+                )
+            finally:
+                try:
+                    storages.unregister_backend(test_key)
+                except Exception:
+                    pass
+
+        except Exception as e:
+            return ProviderTestResult(
+                success=False,
+                message="Storage connection test failed",
+                error=str(e),
+            )
+
     @get(
         "/{provider_id:uuid}/available-models",
         summary="Get available models from provider",

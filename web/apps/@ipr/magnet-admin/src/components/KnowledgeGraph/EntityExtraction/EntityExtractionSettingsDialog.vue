@@ -152,9 +152,9 @@ function onConfirm() {
 
 <style scoped>
 .overlap-value {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 500;
-  color: #4b5563;
+  color: var(--q-label);
   min-width: 40px;
   text-align: right;
 }

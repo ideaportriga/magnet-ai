@@ -1,187 +1,98 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height
-  q-scroll-area.fit
-    .row.no-wrap.full-height.justify-center.fit
-      .col-auto.collection-container
-        .full-height.q-pb-md.relative-position.q-px-md
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width
+.column.no-wrap.full-height
+  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
 
-            //- ── Tabs ───────────────────────────────────────────────
-            q-tabs.bb-border.q-mb-md(
-              v-model='tab',
-              narrow-indicator,
-              dense,
-              align='left',
-              active-color='primary',
-              indicator-color='primary',
-              no-caps,
-              content-class='km-tabs'
-            )
-              q-tab(name='configurations', label='Configurations')
-              q-tab(name='providers', label='Bot Providers')
+    //- ── Tabs ───────────────────────────────────────────────
+    q-tabs.bb-border.q-mb-md(
+      v-model='tab',
+      narrow-indicator,
+      dense,
+      align='left',
+      active-color='primary',
+      indicator-color='primary',
+      no-caps,
+      content-class='km-tabs'
+    )
+      q-tab(name='configurations', label='Configurations')
+      q-tab(name='providers', label='Bot Providers')
 
-            //- ── Configurations tab ─────────────────────────────────
-            template(v-if='tab === "configurations"')
-              .row.q-mb-12
-                .col-auto.center-flex-y
-                  km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
-                q-space
-                .col-auto.center-flex-y
-                  km-btn.q-mr-12(label='New', @click='showNewDialog = true')
-              .row
-                km-table(
-                  @selectRow='openDetails',
-                  selection='single',
-                  row-key='key',
-                  :selected='selectedConfig ? [selectedConfig] : []',
-                  :columns='columns',
-                  :rows='visibleRows',
-                  :visibleColumns='visibleColumns',
-                  style='min-width: 1100px',
-                  v-model:pagination='pagination',
-                  :loading='loading',
-                  binary-state-sort
-                )
+    //- ── Configurations tab ─────────────────────────────────
+    template(v-if='tab === "configurations"')
+      .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
+        .row.q-mb-12
+          .col-auto.center-flex-y
+            km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+          q-space
+          .col-auto.center-flex-y
+            km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+        .col(style='min-height: 0')
+          km-data-table(
+            fill-height,
+            :table='table',
+            row-key='key',
+            @row-click='openDetails'
+          )
 
-            //- ── Providers tab ──────────────────────────────────────
-            note-taker-providers(v-if='tab === "providers"')
+    //- ── Providers tab ──────────────────────────────────────
+    note-taker-providers(v-if='tab === "providers"')
 
     note-taker-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @created='onConfigCreated')
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { ref, computed, onMounted, markRaw, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChipCopy } from '@ui'
-import { markRaw } from 'vue'
-import { formatDateTime } from '@shared/utils/dateTime'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { textColumn, chipCopyColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
+import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import NoteTakerCreateNew from './CreateNew.vue'
 import NoteTakerProviders from './NoteTakerProviders.vue'
 
-const store = useStore()
+const ntStore = useNoteTakerStore()
 const router = useRouter()
 
 const tab = ref('configurations')
-const searchString = ref('')
 const showNewDialog = ref(false)
-const selectedConfig = ref<any>(null)
-
-const loading = computed(() => store.getters.noteTakerLoading)
-
-const pagination = ref({
-  rowsPerPage: 10,
-  page: 1,
-  sortBy: 'name',
-  descending: false,
-  rowsNumber: 0,
-})
 
 const BotStatusChip = markRaw({
-  props: ['value'],
-  template: `
-    <q-chip
-      v-if="value"
-      :color="value.client_id ? 'positive' : 'grey-4'"
-      :text-color="value.client_id ? 'white' : 'grey-7'"
-      dense
-      icon="smart_toy"
-    >{{ value.client_id ? 'Configured' : 'Not set' }}</q-chip>
-    <span v-else class="text-grey-5">—</span>
-  `,
+  props: ['row'],
+  setup(props: any) {
+    return () => {
+      const value = props.row?.bot_credentials
+      if (!value) return h('span', { class: 'text-grey-5' }, '\u2014')
+      return h('q-chip', {
+        color: value.client_id ? 'positive' : 'grey-4',
+        textColor: value.client_id ? 'white' : 'grey-7',
+        dense: true,
+        icon: 'smart_toy',
+      }, value.client_id ? 'Configured' : 'Not set')
+    }
+  },
 })
 
-const columns = [
-  {
-    name: 'name',
-    label: 'Name',
-    field: 'name',
-    align: 'left' as const,
-    sortable: true,
-  },
-  {
-    name: 'description',
-    label: 'Description',
-    field: 'description',
-    align: 'left' as const,
-    sortable: true,
-  },
-  {
-    name: 'system_name',
-    label: 'System name',
-    field: 'system_name',
-    type: 'component',
-    component: markRaw(ChipCopy),
-    align: 'left' as const,
-    sortable: true,
-    classes: 'km-button-xs-text',
-  },
-  {
-    name: 'bot',
-    label: 'Bot',
-    field: 'bot_credentials',
-    type: 'component',
-    component: BotStatusChip,
-    align: 'left' as const,
-    sortable: false,
-  },
-  {
-    name: 'created',
-    label: 'Created',
-    field: 'created_at',
-    align: 'left' as const,
-    sortable: true,
-    format: (val: string) => (val ? formatDateTime(val) : ''),
-    sort: (a: string, b: string) => {
-      const dateA = new Date(a)
-      const dateB = new Date(b)
-      return dateA.getTime() - dateB.getTime()
-    },
-  },
-  {
-    name: 'last_updated',
-    label: 'Last updated',
-    field: 'updated_at',
-    align: 'left' as const,
-    sortable: true,
-    format: (val: string) => (val ? formatDateTime(val) : ''),
-    sort: (a: string, b: string) => {
-      const dateA = new Date(a)
-      const dateB = new Date(b)
-      return dateA.getTime() - dateB.getTime()
-    },
-  },
-]
-
-const visibleColumns = computed(() => columns.map((c) => c.name))
-
 const configs = computed(() => {
-  const configsData = store.getters.noteTakerSettingsRecords
+  const configsData = ntStore.settingsRecords
   return Array.isArray(configsData) ? configsData : []
 })
 
-const visibleRows = computed(() => {
-  let rows = configs.value
+const columns = [
+  textColumn('name', 'Name'),
+  textColumn('description', 'Description'),
+  chipCopyColumn('System name'),
+  componentColumn('bot', 'Bot', BotStatusChip, {
+    accessorKey: 'bot_credentials',
+  }),
+  dateColumn('created_at', 'Created'),
+  dateColumn('updated_at', 'Last updated'),
+]
 
-  if (searchString.value) {
-    const search = searchString.value.toLowerCase()
-    rows = rows.filter((item: any) => {
-      return (
-        item.name?.toLowerCase().includes(search) ||
-        item.description?.toLowerCase().includes(search)
-      )
-    })
-  }
-
-  return rows
-})
+const { table, globalFilter } = useLocalDataTable(configs, columns)
 
 onMounted(async () => {
-  await store.dispatch('fetchNoteTakerSettings', true)
+  await ntStore.fetchSettings(true)
 })
 
 const openDetails = (row: any) => {
-  selectedConfig.value = row
   const id = row?.id || row?.system_name || row?.key
   router.push(`/note-taker/${id}`)
 }
@@ -190,11 +101,3 @@ const onConfigCreated = (configId: string) => {
   router.push(`/note-taker/${configId}`)
 }
 </script>
-
-<style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
-</style>

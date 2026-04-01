@@ -29,8 +29,8 @@ export default {
     const comment = ref('')
     const reason = ref([])
     const reasonsList = ref([
-      { label: 'It isn’t relevant', value: 'It isn’t relevant' },
-      { label: 'It isn’t correct', value: 'It isn’t correct' },
+      { label: "It isn't relevant", value: "It isn't relevant" },
+      { label: "It isn't correct", value: "It isn't correct" },
     ])
     return {
       feedbackModal,

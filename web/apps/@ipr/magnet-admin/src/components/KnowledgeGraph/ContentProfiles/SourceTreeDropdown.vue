@@ -268,7 +268,7 @@ const toggleSource = (id: string) => {
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   transition: background 0.12s ease;
 }
 
@@ -277,7 +277,7 @@ const toggleSource = (id: string) => {
 }
 
 .source-item--clickable:hover {
-  background: #f8f5fb;
+  background: var(--q-primary-bg);
 }
 
 .source-item--disabled {
@@ -290,9 +290,9 @@ const toggleSource = (id: string) => {
 }
 
 .source-item--root .source-item-label {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 600;
-  color: #2d2438;
+  color: var(--q-black);
 }
 
 .source-item--type {
@@ -300,9 +300,9 @@ const toggleSource = (id: string) => {
 }
 
 .source-item--type .source-item-label {
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   font-weight: 500;
-  color: #4a3d5c;
+  color: var(--q-secondary-text);
 }
 
 .source-item--source {
@@ -310,28 +310,28 @@ const toggleSource = (id: string) => {
 }
 
 .source-item--source .source-item-label {
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   font-weight: 400;
-  color: #6b5d7a;
+  color: var(--q-label);
 }
 
 .source-item-checkbox {
   width: 14px;
   height: 14px;
-  border-radius: 3px;
-  border: 1.5px solid #c4b8d4;
+  border-radius: var(--radius-xs);
+  border: 1.5px solid var(--q-border-2);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: #fff;
+  background: var(--q-white);
   transition:
     border-color 0.15s ease,
     background 0.15s ease;
 }
 
 .source-item--clickable:hover .source-item-checkbox {
-  border-color: #9b8ab0;
+  border-color: var(--q-secondary);
 }
 
 .source-item-checkbox--active {
@@ -340,16 +340,16 @@ const toggleSource = (id: string) => {
 }
 
 .source-item-checkbox-icon {
-  color: #fff;
+  color: var(--q-white);
 }
 
 .source-item--disabled .source-item-checkbox {
-  border-color: #d8d0e2;
+  border-color: var(--q-border);
 }
 
 .source-item--disabled .source-item-checkbox--active {
-  background: #b8a8cc;
-  border-color: #b8a8cc;
+  background: var(--q-secondary-bg);
+  border-color: var(--q-secondary-bg);
 }
 
 .source-item-label {
@@ -363,11 +363,11 @@ const toggleSource = (id: string) => {
 
 <style>
 .source-dropdown-menu {
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   box-shadow:
-    0 4px 20px rgba(104, 64, 194, 0.1),
+    0 4px 20px var(--q-primary-transparent),
     0 8px 40px rgba(45, 36, 56, 0.12);
-  border: 1px solid #e8e2f0;
-  background: #fff;
+  border: 1px solid var(--q-border);
+  background: var(--q-white);
 }
 </style>

@@ -42,7 +42,7 @@ export default {
       default: '',
     },
   },
-  emits: ['onLoad'],
+  emits: ['onLoad', 'searchRetrieval', 'searchRetrievalExecute'],
   setup() {
     const prompt = useState('searchPrompt')
     const loading = useState('answersLoading')
@@ -77,9 +77,9 @@ export default {
     },
     async getAnswer() {
       if (this.retrieval) {
-        await this.$store.dispatch('getAnswerRetrieval')
+        this.$emit('searchRetrieval')
       } else {
-        await this.$store.dispatch('getAnswerRetrievalExecute', this.retrieval_tool)
+        this.$emit('searchRetrievalExecute', this.retrieval_tool)
       }
 
       this.prompt = ''
@@ -97,7 +97,7 @@ export default {
   // opacity: 0.5;
 
   .q-icon
-    font-size: 16px;
+    font-size: var(--km-font-size-body-lg);
 </style>
 
 <style lang="stylus" scoped>

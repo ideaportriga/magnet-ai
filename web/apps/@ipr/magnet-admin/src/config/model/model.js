@@ -3,7 +3,7 @@ import Check from './component/Check.vue'
 import Features from './component/Features.vue'
 import TypeChip from './component/TypeChip.vue'
 import { markRaw } from 'vue'
-import store from '@/store'
+import { getCachedItems } from '@/queries/getCachedItems'
 import { formatDateTime } from '@shared/utils/dateTime'
 
 const categoryOptions = [
@@ -52,7 +52,7 @@ const controls = {
     label: 'Provider',
     field: (row) => {
       const providerSystemName = row?.provider_system_name || row?.provider_name
-      const providerLabel = (store.getters['chroma/provider'].items || []).find(
+      const providerLabel = (getCachedItems('provider') || []).find(
         (option) => option.system_name === providerSystemName || option.id === providerSystemName
       )
       return providerLabel ? providerLabel.label : providerSystemName // Fallback to the system_name if label not found
@@ -197,6 +197,8 @@ const controls = {
     display: true,
     label: 'Active',
     field: 'is_active',
+    type: 'component',
+    component: markRaw(Check),
     readonly: false,
     columnNumber: 0,
     fromMetadata: false,

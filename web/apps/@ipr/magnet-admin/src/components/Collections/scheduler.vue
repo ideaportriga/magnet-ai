@@ -62,7 +62,7 @@ div
         km-btn.q-mr-12(
           icon='refresh',
           label='Refresh list',
-          @click='refreshTable',
+          @click='refetchTraces',
           iconColor='icon',
           hoverColor='primary',
           labelClass='km-title',
@@ -70,56 +70,89 @@ div
           iconSize='16px',
           hoverBg='primary-bg'
         )
-    km-table(
-      ref='tableRef',
-      @selectRow='openDetails',
-      selection='single',
+    km-data-table(
+      :table='table',
+      :loading='isLoadingTraces',
       row-key='id',
-      :columns='Object.values(traceKsControls)',
-      :visibleColumns='visibleColumnsCalc',
-      :rows='visibleRows',
-      style='min-width: 500px',
-      binary-state-sort,
-      :loading='loadinTraces',
       dense,
-      @request='getPaginated',
-      v-model:pagination='pagination',
-      :filter='filterObject'
+      @row-click='openDetails',
+      style='min-width: 500px'
     )
-q-inner-loading(:showing='loading')
+km-inner-loading(:showing='loading')
 jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false', @finish='finish', :formDefault='formDefault')
 </template>
 
 <script>
-import { ref, nextTick, watch } from 'vue'
-import { useChroma } from '@shared'
+import { ref, nextTick, computed, markRaw } from 'vue'
 import { DateTime } from 'luxon'
 import { formatDateTime } from '@shared/utils/dateTime'
-import { traceKsControls } from '@/config/observability/traces'
+import { formatDuration } from '@shared/utils'
+import { useEntityQueries } from '@/queries/entities'
+import { useCollectionDetailStore } from '@/stores/entityDetailStores'
+import { useDataTable } from '@/composables/useDataTable'
+import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
+import { StatusField } from '@/config/observability/traces/components'
+import { jobRunTypeOptions } from '@/config/jobs/jobs'
 
 export default {
   setup() {
-    const { update, create } = useChroma('collections')
-    const { getDetail } = useChroma('jobs')
-    const { pagination, visibleColumns, columns, visibleRows, get, getPaginated, loading: loadinTraces } = useChroma('observability_traces')
+    const queries = useEntityQueries()
+    const collectionStore = useCollectionDetailStore()
+    const { mutateAsync: updateCollection } = queries.collections.useUpdate()
+    const { mutateAsync: createCollection } = queries.collections.useCreate()
 
-    const tableRef = ref()
+    const jobId = computed(() => collectionStore.entity?.job_id)
+    const { data: jobDetailData, refetch: refetchJobDetail } = queries.jobs.useDetail(jobId)
+
+    const systemName = computed(() => collectionStore.entity?.system_name)
+    const extraParams = computed(() => ({
+      system_name_in: systemName.value,
+    }))
+
+    const columns = [
+      componentColumn('status', 'Status', markRaw(StatusField), {
+        accessorKey: 'status',
+        sortable: true,
+        align: 'center',
+      }),
+      dateColumn('start_time', 'Start Time'),
+      textColumn('latency', 'Latency', {
+        format: (val) => (val ? formatDuration(val) : '-'),
+      }),
+      {
+        id: 'type',
+        accessorFn: (row) => jobRunTypeOptions?.find((el) => el.value === row?.extra_data?.job_definition?.job_type)?.label || '-',
+        header: 'Type',
+        enableSorting: true,
+        meta: { align: 'left' },
+      },
+    ]
+
+    const { table, isLoading: isLoadingTraces, refetch: refetchTraces } = useDataTable(
+      'observability_traces',
+      columns,
+      {
+        defaultPageSize: 20,
+        defaultSort: [{ id: 'start_time', desc: true }],
+        manualPagination: true,
+        manualSorting: true,
+        manualFiltering: true,
+        extraParams,
+      }
+    )
+
     return {
-      loadinTraces,
-      getDetail,
+      table,
+      isLoadingTraces,
+      refetchTraces,
+      jobDetailData,
+      refetchJobDetail,
       loading: ref(false),
       formatDateTime,
-      pagination,
-      visibleColumns,
-      columns,
-      visibleRows,
-      get,
-      getPaginated,
-      tableRef,
       showNewDialog: ref(false),
-      update,
-      create,
-      traceKsControls,
+      updateCollection,
+      createCollection,
+      collectionStore,
     }
   },
   computed: {
@@ -132,25 +165,16 @@ export default {
       }
     },
     currentRow() {
-      return this.$store.getters.knowledge
-    },
-    filterObject: {
-      get() {
-        return { system_name_in: this.currentRow?.system_name }
-      },
-      set() {},
-    },
-    visibleColumnsCalc() {
-      return ['status', 'start_time', 'latency', 'type']
+      return this.collectionStore.entity
     },
     jobId() {
-      return this.$store.getters.knowledge?.job_id
+      return this.collectionStore.entity?.job_id
     },
     jobName() {
       return this.job?.definition.name || this.jobId || 'N/A'
     },
     job() {
-      return this.$store.getters['chroma/jobs'].items.find((j) => j.id === this.jobId)
+      return this.jobDetailData ?? null
     },
     jobStatus() {
       return this.job?.status || 'N/A'
@@ -158,8 +182,7 @@ export default {
     jobInterval() {
       const interval = this.job?.definition?.interval
       if (!interval) return 'N/A'
-      
-      // Map interval values to human-readable labels
+
       const intervalLabels = {
         'every_5_minutes': 'Every 5 minutes',
         'hourly': 'Hourly',
@@ -168,14 +191,13 @@ export default {
         'monthly': 'Monthly',
         'custom': this.customCronDisplay,
       }
-      
+
       return intervalLabels[interval] || interval
     },
     customCronDisplay() {
       const cron = this.job?.definition?.cron
       if (!cron) return 'Custom'
-      
-      // Build cron string from cron object
+
       const parts = [
         cron.minute || '*',
         cron.hour || '*',
@@ -183,37 +205,32 @@ export default {
         cron.month || '*',
         cron.day_of_week || '*',
       ]
-      
+
       return `Custom (${parts.join(' ')})`
     },
     startDate() {
       if (!this.job?.definition?.scheduled_start_time) return 'N/A'
-      
+
       const startTime = this.job.definition.scheduled_start_time
       const jobTimezone = this.job?.definition?.timezone || 'UTC'
-      
-      // Parse the datetime and convert to local timezone for display
+
       let dateObj = DateTime.fromISO(startTime)
-      
-      // If the datetime doesn't have timezone info, assume it's in job's timezone
+
       if (!dateObj.isValid) {
         return 'N/A'
       }
-      
-      // If no zone info in the string, set it to job's timezone first
+
       if (!startTime.includes('+') && !startTime.includes('Z') && !startTime.includes('-', 10)) {
         dateObj = DateTime.fromISO(startTime, { zone: jobTimezone })
       }
-      
-      // Convert to local timezone for display
+
       const localDate = dateObj.toLocal()
       return `${localDate.toLocaleString(DateTime.DATE_SHORT)} ${localDate.toLocaleString(DateTime.TIME_SIMPLE)}`
     },
     repeatAt() {
       const cron = this.job?.definition?.cron
       if (!cron) return 'N/A'
-      
-      // Convert cron object to human-readable format
+
       return this.cronToHumanReadable(cron)
     },
     formattedLastRun() {
@@ -225,32 +242,13 @@ export default {
       return this.formatDateTime(this.job.next_run)
     },
   },
-  watch: {
-    // Watch for jobId changes and fetch job details when it becomes available
-    jobId: {
-      async handler(newJobId, oldJobId) {
-        if (newJobId && newJobId !== oldJobId) {
-          try {
-            await this.getDetail({ id: newJobId })
-          } catch (error) {
-            console.error('Error fetching job details:', error)
-          }
-        }
-      },
-      immediate: true,
-    },
-  },
+  watch: {},
   async mounted() {
     this.loading = true
     try {
-      if (this.jobId) {
-        await this.getDetail({ id: this.jobId })
-      }
-      // Wait for the next tick to ensure the table is mounted
       await nextTick()
-      await this.refreshTable()
+      // Data is now fetched reactively via useDataTable
     } catch (error) {
-      console.error('Error in mounted:', error)
     } finally {
       this.loading = false
     }
@@ -263,34 +261,33 @@ export default {
           const obj = { ...this.currentRow }
           delete obj._metadata
           delete obj.id
-          console.log(obj)
-          await this.update({ id: this.currentRow.id, data: obj })
+
+          await this.updateCollection({ id: this.currentRow.id, data: obj })
         } else {
-          await this.create(JSON.stringify(this.currentRow))
+          await this.createCollection(this.currentRow)
         }
       } catch (error) {
-        console.error('Error saving:', error)
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Failed to save. Please try again.', timeout: 5000 })
       } finally {
         this.loading = false
       }
     },
     setJobId(id) {
-      this.$store.commit('updateKnowledge', { job_id: id })
+      this.collectionStore.updateProperty({ key: 'job_id', value: id })
     },
     cronToHumanReadable(cron) {
       if (!cron) return 'N/A'
-      
+
       const { minute, hour, day, day_of_month, month, day_of_week } = cron
       const dayField = day || day_of_month
-      
+
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-      
-      // Helper to format time with timezone conversion
+
       const formatTime = (h, m) => {
         const parsedHour = parseInt(h)
         const parsedMinute = parseInt(m)
         if (isNaN(parsedHour) || isNaN(parsedMinute)) return null
-        
+
         const jobTimezone = this.job?.definition?.timezone || 'UTC'
         const jobTime = DateTime.now()
           .setZone(jobTimezone)
@@ -298,8 +295,7 @@ export default {
         const localTime = jobTime.toLocal()
         return `${localTime.toFormat('HH:mm')} (${localTime.toFormat('ZZZZ')})`
       }
-      
-      // Check for step patterns like */5
+
       if (minute && minute.startsWith('*/')) {
         const stepValue = parseInt(minute.substring(2))
         if (!isNaN(stepValue)) {
@@ -307,8 +303,7 @@ export default {
           return `Every ${stepValue} minutes`
         }
       }
-      
-      // Check for hourly pattern: specific minute, any hour
+
       if (minute && !minute.includes('*') && (hour === '*' || !hour)) {
         const parsedMinute = parseInt(minute)
         if (!isNaN(parsedMinute)) {
@@ -316,8 +311,7 @@ export default {
           return `Every hour at :${minStr}`
         }
       }
-      
-      // Check for hour step patterns like */2
+
       if (hour && hour.startsWith('*/')) {
         const stepValue = parseInt(hour.substring(2))
         if (!isNaN(stepValue)) {
@@ -325,23 +319,20 @@ export default {
           return `Every ${stepValue} hours at :${minStr}`
         }
       }
-      
-      // Daily pattern: specific hour and minute, any day
-      if (minute && hour && !minute.includes('*') && !hour.includes('*') && 
+
+      if (minute && hour && !minute.includes('*') && !hour.includes('*') &&
           (dayField === '*' || !dayField) && (day_of_week === '*' || !day_of_week)) {
         const timeStr = formatTime(hour, minute)
         if (timeStr) return `Daily at ${timeStr}`
       }
-      
-      // Weekly pattern: specific day_of_week
+
       if (minute && hour && day_of_week && day_of_week !== '*' && !minute.includes('*') && !hour.includes('*')) {
         const timeStr = formatTime(hour, minute)
         const dayNum = parseInt(day_of_week)
         const dayName = !isNaN(dayNum) && dayNum >= 0 && dayNum <= 6 ? dayNames[dayNum] : day_of_week
         if (timeStr) return `Every ${dayName} at ${timeStr}`
       }
-      
-      // Monthly pattern: specific day of month
+
       if (minute && hour && dayField && dayField !== '*' && !minute.includes('*') && !hour.includes('*')) {
         const timeStr = formatTime(hour, minute)
         const dayNum = parseInt(dayField)
@@ -350,8 +341,7 @@ export default {
           return `Monthly on the ${dayNum}${suffix} at ${timeStr}`
         }
       }
-      
-      // Fallback: show cron expression
+
       const parts = [minute || '*', hour || '*', dayField || '*', month || '*', day_of_week || '*']
       return parts.join(' ')
     },
@@ -360,24 +350,9 @@ export default {
         this.setJobId(job.job_id)
         await this.save()
         this.showNewDialog = false
-        await this.getDetail({ id: this.jobId })
-        await this.refreshTable()
+        await this.refetchJobDetail()
+        this.refetchTraces()
       } catch (error) {
-        console.error('Error in finish:', error)
-      }
-    },
-    async refreshTable() {
-      this.loading = true
-      try {
-        if (this.tableRef) {
-          await this.tableRef.requestServerInteraction()
-        } else {
-          console.warn('Table reference is not available yet')
-        }
-      } catch (error) {
-        console.error('Error refreshing table:', error)
-      } finally {
-        this.loading = false
       }
     },
     navigate(path = '') {
@@ -390,19 +365,17 @@ export default {
     },
     openJob() {
       if (!this.jobId) return
-      // Navigate to job details page
       this.$router.push({
         name: 'Jobs',
         query: { job_id: this.jobId },
       })
     },
     createJob() {
-      // Logic to create a new job for this Knowledge Source
       this.$router.push({
         name: 'Jobs',
         query: {
           create: true,
-          knowledge_source_id: this.$store.getters.knowledge?.id,
+          knowledge_source_id: this.collectionStore.entity?.id,
         },
       })
     },

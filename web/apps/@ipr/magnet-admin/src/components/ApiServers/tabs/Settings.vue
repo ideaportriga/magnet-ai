@@ -61,11 +61,11 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useStore } from 'vuex'
+import { useApiServerDetailStore } from '@/stores/entityDetailStores'
 
-const store = useStore()
+const apiServerStore = useApiServerDetailStore()
 
-const server = computed(() => store.getters.api_server)
+const server = computed(() => apiServerStore.entity)
 const parsingError = ref(false)
 
 const serverSecurityScheme = computed({
@@ -83,7 +83,6 @@ const serverSecurityScheme = computed({
     } catch (e) {
       server.value.security_scheme = newValue
       parsingError.value = true
-      console.log('failed to parse JSON for security_scheme')
     }
   },
 })
@@ -104,18 +103,25 @@ const securityValues = computed({
   set(value) {
     // Convert Map to object for sending
     const objectValue = value instanceof Map ? Object.fromEntries(value) : value
-    store.dispatch('updateApiServerProperty', { key: 'security_values', value: objectValue })
+    apiServerStore.updateProperty({ key: 'security_values', value: objectValue })
   },
 })
 
 const verifySsl = computed({
   get: () => server.value.verify_ssl,
   set: (value) => {
-    store.dispatch('updateApiServerProperty', { key: 'verify_ssl', value })
+    apiServerStore.updateProperty({ key: 'verify_ssl', value })
   },
 })
 
-const originalApiSecrets = computed(() => store.getters.originalApiSecrets)
+const originalApiSecrets = computed(() => {
+  const secrets = apiServerStore.initEntity?.secrets_encrypted
+  if (!secrets) return []
+  if (secrets instanceof Map) {
+    return Array.from(secrets.keys())
+  }
+  return Object.keys(secrets)
+})
 const remountValue = computed(() => server.value?.updated_at)
 
 const secrets = computed({
@@ -130,14 +136,14 @@ const secrets = computed({
     return encryptedSecrets
   },
   set(value) {
-    store.dispatch('updateApiServerProperty', { key: 'secrets_encrypted', value })
+    apiServerStore.updateProperty({ key: 'secrets_encrypted', value })
   },
 })
 
 const customHeaders = computed({
   get: () => server.value.custom_headers || new Map(),
   set: (value) => {
-    store.dispatch('updateApiServerProperty', { key: 'custom_headers', value })
+    apiServerStore.updateProperty({ key: 'custom_headers', value })
   },
 })
 

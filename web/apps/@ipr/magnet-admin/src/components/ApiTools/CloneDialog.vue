@@ -20,16 +20,23 @@ km-popup-confirm(
     km-input(v-model='newTool.system_name', :rules='[uniqueSystemName]', ref='systemNameInput')
 </template>
 <script>
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 export default {
   props: ['show', 'tool'],
   emits: ['cancel'],
   setup() {
     const newTool = ref(null)
     const loading = ref(false)
-    const { items, create } = useChroma('api_tools')
-    return { newTool, loading, items, create }
+    const queries = useEntityQueries()
+    const { data: apiToolsListData } = queries.api_tools.useList()
+    const { mutateAsync: createApiTool } = queries.api_tools.useCreate()
+    return { newTool, loading, apiToolsListData, createApiTool }
+  },
+  computed: {
+    items() {
+      return this.apiToolsListData?.items ?? []
+    },
   },
   watch: {
     tool(newVal) {
@@ -42,10 +49,9 @@ export default {
 
       const systemName = this.$refs.systemNameInput.validate()
       if (systemName) {
-        const res = await this.create(JSON.stringify(this.newTool))
-        if (res.ok) {
-          const data = await res.json()
-          this.$router?.push(`/api-tools/${data?.id}`)
+        const data = await this.createApiTool(this.newTool)
+        if (data?.id) {
+          this.$router?.push(`/api-tools/${data.id}`)
           this.$emit('cancel')
         }
       }

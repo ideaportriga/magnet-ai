@@ -19,6 +19,17 @@ from .metric import Metric
 from .provider import Provider
 from .teams.note_taker_settings import NoteTakerSettings
 from .trace import Trace
+from .user import (
+    EmailVerificationToken,
+    Group,
+    PasswordResetToken,
+    RefreshToken,
+    Role,
+    User,
+    UserGroup,
+    UserOAuthAccount,
+    UserRole,
+)
 
 __all__ = [
     "UUIDAuditEntityBase",
@@ -43,4 +54,13 @@ __all__ = [
     # "Prompt",
     # "RagTool",
     # "RetrievalTools",
+    "EmailVerificationToken",
+    "Group",
+    "PasswordResetToken",
+    "RefreshToken",
+    "Role",
+    "User",
+    "UserGroup",
+    "UserOAuthAccount",
+    "UserRole",
 ]

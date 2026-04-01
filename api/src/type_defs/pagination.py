@@ -135,3 +135,6 @@ class CursorPaginationRequest(PaginationBase):
 
 class OffsetPaginationRequest(PaginationBase):
     offset: int = Field(0, ge=0, description="Offset for pagination")
+    search: str | None = Field(
+        None, description="Text search (matches title and content, case-insensitive)"
+    )

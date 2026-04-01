@@ -45,9 +45,9 @@ km-popup-confirm(
 
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
-import { useChroma, required, toUpperCaseWithUnderscores } from '@shared'
+import { required, toUpperCaseWithUnderscores } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
-import { useStore } from 'vuex'
 
 export default {
   props: {
@@ -58,9 +58,10 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { create, ...useCollection } = useChroma('provider')
+    const queries = useEntityQueries()
+    const { mutateAsync: createEntity } = queries.provider.useCreate()
+    const { data: pluginsData } = queries.plugins.useList()
     const router = useRouter()
-    const store = useStore()
 
     // Static fallback options
     const staticTypeOptions = [
@@ -73,10 +74,10 @@ export default {
       { label: 'Fluid Topics', value: 'fluid_topics' },
     ]
 
-    // Get plugins from store
-    const plugins = computed(() => store.state.chroma?.plugins?.items || [])
+    // Get plugins from TanStack Query
+    const plugins = computed(() => pluginsData.value?.items ?? [])
 
-    // Build type options from plugins in store
+    // Build type options from plugins
     const typeOptions = computed(() => {
       if (plugins.value.length > 0) {
         return plugins.value.map((plugin) => ({
@@ -88,8 +89,7 @@ export default {
     })
 
     return {
-      create,
-      useCollection,
+      createEntity,
       router,
       required,
       newRow: reactive({
@@ -143,13 +143,12 @@ export default {
     async createKnowledgeProvider() {
       if (!this.validateFields()) return
 
-      const result = await this.create(JSON.stringify(this.newRow))
+      const result = await this.createEntity(this.newRow)
 
       if (!result?.id) {
         return
       }
 
-      await this.useCollection.selectRecord(result.id)
       this.$router.push(`/knowledge-providers/${result.id}`)
     },
   },

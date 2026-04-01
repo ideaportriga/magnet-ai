@@ -32,6 +32,10 @@ class DependenciesPlugin(InitPluginProtocol):
         # Add preferred_username for audit fields (created_by, updated_by)
         dependencies["audit_username"] = Provide(self._get_audit_username)
 
+        # Add storage dependencies
+        dependencies["storage_service"] = Provide(self._get_storage_service)
+        dependencies["file_limits"] = Provide(self._get_file_limits)
+
         app_config.dependencies = dependencies
         return app_config
 
@@ -49,3 +53,11 @@ class DependenciesPlugin(InitPluginProtocol):
     async def _get_db_session(self, request: Request) -> AsyncSession:
         """Get database session from request state."""
         return request.state.db_session
+
+    async def _get_storage_service(self, request: Request):  # noqa: ANN201
+        """Get StorageService from app state."""
+        return getattr(request.app.state, "storage_service", None)
+
+    async def _get_file_limits(self, request: Request):  # noqa: ANN201
+        """Get FileLimits from app state."""
+        return getattr(request.app.state, "file_limits", None)

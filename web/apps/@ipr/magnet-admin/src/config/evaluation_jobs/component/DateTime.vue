@@ -1,6 +1,7 @@
 <template lang="pug">
-.km-button-xs-text {{ dateTimeLabel.date }}
-.km-button-xs-text {{ dateTimeLabel.time }}
+div
+  .km-button-xs-text {{ dateTimeLabel.date }}
+  .km-button-xs-text {{ dateTimeLabel.time }}
 </template>
 
 <script>

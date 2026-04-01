@@ -1,38 +1,17 @@
-import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 
 /**
  * Composable for loading and managing knowledge source plugins from backend
  *
- * This composable fetches available plugins from the API and transforms them
+ * This composable fetches available plugins from the TanStack Query cache and transforms them
  * into the format expected by the frontend forms.
  */
 export function useKnowledgeSourcePlugins() {
-  const store = useStore()
-  const entity = 'plugins'
+  const queries = useEntityQueries()
+  const { data: pluginsData, isLoading: loading, refetch: fetchPlugins } = queries.plugins.useList()
 
-  const plugins = computed(() => store.state.chroma?.[entity]?.items || [])
-  const loading = computed(() => store.state.chroma?.[entity]?.loading || false)
-  const error = ref(null)
-
-  /**
-   * Fetch plugins from backend using standard chroma approach
-   */
-  async function fetchPlugins() {
-    try {
-      error.value = null
-      await store.dispatch('chroma/get', { entity })
-
-      console.log('Fetched plugins from API:', plugins.value.length, 'plugins')
-      console.log(
-        'Plugin source types:',
-        plugins.value.map((p) => p.source_type)
-      )
-    } catch (err) {
-      error.value = err.message
-      console.error('Error fetching knowledge source plugins:', err)
-    }
-  }
+  const plugins = computed(() => pluginsData.value?.items || [])
 
   /**
    * Get list of source type options for dropdown
@@ -118,7 +97,7 @@ export function useKnowledgeSourcePlugins() {
   return {
     plugins,
     loading,
-    error,
+    error: computed(() => null),
     fetchPlugins,
     sourceTypeOptions,
     sourceTypeChildren,

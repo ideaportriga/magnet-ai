@@ -113,7 +113,7 @@ class AgentsController(AgentsControllerBase):
         return AgentExecuteResponse(**result.model_dump())
 
     @get(
-        "/{id:str}",
+        "/conversations/{id:str}",
         summary="RetrieveConversation",
         description="Retrieves the details of a specific conversation by id.",
     )

@@ -105,20 +105,25 @@ km-section(title='Chunk limits', subTitle='Configure how chunks of content are r
 
 <script>
 import { isEqual, orderBy, pickBy } from 'lodash'
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import chromaConfig from '@/config/entityFieldConfig'
 
 export default {
   props: ['prompt', 'selectedRow'],
   emits: ['setProp', 'save', 'cancel', 'remove', 'openTest'],
 
   setup() {
-    const { publicItems, publicSelected, publicSelectedOptionsList } = useChroma('collections')
+    const queries = useEntityQueries()
+    const retrievalStore = useRetrievalDetailStore()
+    const { data: collectionsListData } = queries.collections.useList()
+    const { data: modelListData } = queries.model.useList()
 
     return {
-      publicItems,
-      publicSelected,
-      publicSelectedOptionsList,
+      retrievalStore,
+      collectionsListData,
+      modelListData,
       test: ref(true),
       iconPicker: ref(false),
       showError: ref(false),
@@ -131,82 +136,87 @@ export default {
       reRankingLlmModel: ref(''),
       cacheCollection: ref('Helpdesk Cache'),
       allowBypassCache: ref(false),
-      collections: publicItems,
     }
   },
   computed: {
+    collections() {
+      return (this.collectionsListData?.items ?? []).map((item) => ({
+        ...item,
+        value: item.id,
+        label: item.name,
+      }))
+    },
     modelOptions() {
-      return (this.$store.getters['chroma/model'].items || []).filter((el) => el.type === 're-ranking')
+      return (this.modelListData?.items ?? []).filter((el) => el.type === 're-ranking')
     },
     allowMetadataFilter: {
       get() {
-        return this.$store.getters.retrievalVariant?.retrieve?.allow_metadata_filter || false
+        return this.retrievalStore.activeVariant?.retrieve?.allow_metadata_filter || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.allow_metadata_filter', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.allow_metadata_filter', value })
       },
     },
     useKeywordSearch: {
       get() {
-        return this.$store.getters.retrievalVariant?.retrieve?.use_keyword_search || false
+        return this.retrievalStore.activeVariant?.retrieve?.use_keyword_search || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.use_keyword_search', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.use_keyword_search', value })
       },
     },
     isReRanking: {
       get() {
-        return this.$store.getters.retrievalVariant?.retrieve?.rerank?.enabled || false
+        return this.retrievalStore.activeVariant?.retrieve?.rerank?.enabled || false
       },
       set(value) {
-        console.log('value', value)
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.rerank.enabled', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.rerank.enabled', value })
       },
     },
     reRankingModel: {
       get() {
-        return this.$store.getters.retrievalVariant?.retrieve?.rerank?.model || ''
+        return this.retrievalStore.activeVariant?.retrieve?.rerank?.model || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.rerank.model', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.rerank.model', value })
       },
     },
     similarityScoreThreshold: {
       get() {
-        return this.$store.getters.retrievalVariant?.retrieve?.similarity_score_threshold
+        return this.retrievalStore.activeVariant?.retrieve?.similarity_score_threshold
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.similarity_score_threshold', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.similarity_score_threshold', value })
       },
     },
     chunkContextWindowExpansionSize: {
       get() {
-        return this.$store.getters.retrievalVariant?.retrieve?.chunk_context_window_expansion_size || ''
+        return this.retrievalStore.activeVariant?.retrieve?.chunk_context_window_expansion_size || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.chunk_context_window_expansion_size', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.chunk_context_window_expansion_size', value })
       },
     },
     reRankingMaxChankRetrieve: {
       get() {
-        return this.$store.getters.retrievalVariant?.retrieve?.rerank?.max_chunks_retrieved || ''
+        return this.retrievalStore.activeVariant?.retrieve?.rerank?.max_chunks_retrieved || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.rerank.max_chunks_retrieved', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.rerank.max_chunks_retrieved', value })
       },
     },
     maxChunksRetrieved: {
       get() {
-        return this.$store.getters.retrievalVariant?.retrieve?.max_chunks_retrieved || ''
+        return this.retrievalStore.activeVariant?.retrieve?.max_chunks_retrieved || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.max_chunks_retrieved', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.max_chunks_retrieved', value })
       },
     },
     collectionSystemNames: {
       get() {
         return this.collections.filter((el) =>
-          (this.$store.getters.retrievalVariant?.retrieve?.collection_system_names || []).includes(el?.system_name)
+          (this.retrievalStore.activeVariant?.retrieve?.collection_system_names || []).includes(el?.system_name)
         )
       },
       set(value) {
@@ -217,7 +227,7 @@ export default {
             return el?.system_name
           }
         })
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'retrieve.collection_system_names', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.collection_system_names', value })
       },
     },
 
@@ -236,17 +246,14 @@ export default {
     },
 
     promptMetadata() {
-      const views = this.$store.getters.views
-      return Object.values(views).reduce((res, { entities }) => {
-        Object.keys(entities).forEach((name) => {
-          let controls = this.$store.getters.controls?.[name] ?? {}
-          controls = pickBy(controls, (o) => o.fieldName || o.dataType)
-          controls = orderBy(controls, ['label'])
-
-          res[name] = { applet: entities[name], controls }
-        })
-        return res
-      }, {})
+      const res = {}
+      Object.keys(chromaConfig).forEach((name) => {
+        let controls = chromaConfig[name]?.config ?? {}
+        controls = pickBy(controls, (o) => o.fieldName || o.dataType)
+        controls = orderBy(Object.values(controls), ['label'])
+        res[name] = { applet: chromaConfig[name], controls }
+      })
+      return res
     },
 
     metadataFields() {

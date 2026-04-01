@@ -81,8 +81,11 @@
     "@codemirror/lang-python": "^6.1.7",
     "@elevenlabs/client": "^0.15.0",
     "@quasar/extras": "^1.16.17",
+    "@tanstack/vue-query": "^5.95.2",
+    "@tanstack/vue-table": "^8.21.3",
     "animate.css": "^4.1.1",
     "codemirror": "^6.0.1",
+    "fuse.js": "^7.1.0",
     "lodash": "^4.17.21",
     "luxon": "^3.5.0",
     "markdown-it": "^14.1.0",
@@ -103,8 +106,6 @@
     "vue-codemirror": "^6.1.1",
     "vue-draggable-plus": "^0.6.0",
     "vue-router": "^4.5.0",
-    "vuedraggable": "^2.24.3",
-    "vuex": "^4.1.0",
-    "vuex-persistedstate": "^4.1.0"
+    "vuedraggable": "^2.24.3"
   }
 }

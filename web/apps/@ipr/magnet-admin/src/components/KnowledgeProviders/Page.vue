@@ -1,12 +1,14 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(style='max-width: 1200px; margin: 0 auto')
-  q-scroll-area.fit
-    .row.no-wrap.full-height.justify-center.fit
-      .col-auto.collection-container.full-width
-        .full-height.q-pb-md.relative-position.q-px-md.q-mt-lg
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width
-            knowledge-providers-table
+.column.no-wrap.full-height
+  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
+    template(v-if='loading')
+      .flex.flex-center.full-height
+        q-spinner(size='40px', color='primary')
+    template(v-else)
+      .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
+        knowledge-providers-table
 </template>
 <script setup>
 import { ref } from 'vue'
+const loading = ref(false)
 </script>

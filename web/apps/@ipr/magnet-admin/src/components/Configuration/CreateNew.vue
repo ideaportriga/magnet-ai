@@ -31,6 +31,8 @@ km-popup-confirm(
       multiple,
       :options='collections',
       v-model='collectionSystemNames',
+      option-label='name',
+      option-value='system_name',
       use-chips,
       hasDropdownSearch,
       ref='sourecesRef',
@@ -39,9 +41,11 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
-import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { useEntityConfig } from '@/composables/useEntityConfig'
+import { cloneDeep } from 'lodash'
+import { useEntityQueries } from '@/queries/entities'
+import { useRagDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: {
@@ -56,17 +60,18 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { items, searchString, create, config, requiredFields, ...useCollection } = useChroma('rag_tools')
-    const { publicItems } = useChroma('collections')
+    const { config, requiredFields } = useEntityConfig('rag_tools')
+    const queries = useEntityQueries()
+    const ragStore = useRagDetailStore()
+    const { mutateAsync: createRagTool } = queries.rag_tools.useCreate()
+    const { data: collectionsData } = queries.collections.useList()
 
     return {
-      items,
-      searchString,
+      ragStore,
       config,
-      useCollection,
-      create,
+      createRagTool,
       createNew: ref(false),
-      collections: publicItems,
+      collectionsData,
       requiredFields,
       newRow: reactive({
         name: '',
@@ -114,6 +119,9 @@ export default {
     }
   },
   computed: {
+    collections() {
+      return this.collectionsData?.items ?? []
+    },
     name: {
       get() {
         return this.newRow?.name || ''
@@ -133,7 +141,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.$store.getters.rag
+      return this.ragStore.entity
     },
     collectionSystemNames: {
       get() {
@@ -153,8 +161,6 @@ export default {
   },
   watch: {},
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.name = this.newRow.name + '_COPY'
@@ -178,14 +184,13 @@ export default {
       if (!this.validateFields()) return
 
       this.createNew = false
-      const { id } = await this.create(JSON.stringify(this.newRow))
+      const { id } = await this.createRagTool(this.newRow)
 
       if (!id) {
         return
       }
 
-      await this.useCollection.selectRecord(id)
-      this.$store.commit('setRag', this.newRow)
+      this.ragStore.setEntity(this.newRow)
       this.$router.push(`/rag-tools/${id}`)
     },
   },
@@ -193,11 +198,6 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

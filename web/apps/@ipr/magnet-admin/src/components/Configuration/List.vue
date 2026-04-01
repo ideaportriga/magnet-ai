@@ -54,19 +54,24 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 const promptSearchFields = ['name', 'description']
 export default {
   props: ['selected'],
   emits: ['update:selected', 'create', 'setPin'],
   setup() {
+    const queries = useEntityQueries()
+    const { data: promptListData } = queries.promptTemplates.useList()
+    const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
       search: ref(''),
+      promptItems,
     }
   },
   computed: {
     prompts() {
-      return this.$store.getters.prompts ?? []
+      return this.promptItems ?? []
     },
 
     displayPrompts() {
@@ -99,9 +104,9 @@ export default {
 .prompt-card:hover
   background: var(--q-table-active)
   .pin-not-selected
-    color: grey !important
+    color: var(--q-icon) !important
   .pin-not-selected:hover
     color: var(--q-primary) !important
   .pin-selected:hover
-    color: lightgrey !important
+    color: var(--q-border) !important
 </style>

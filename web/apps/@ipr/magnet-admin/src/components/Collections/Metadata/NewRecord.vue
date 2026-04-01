@@ -45,19 +45,19 @@
 </template>
 
 <script setup lang="ts">
-import { useQuasar } from 'quasar'
 import { onUnmounted, ref } from 'vue'
-import { useStore } from 'vuex'
+import { useCollectionDetailStore } from '@/stores/entityDetailStores'
+import { useNotify } from '@/composables/useNotify'
 
 // States & Stores
-const store = useStore()
+const collectionStore = useCollectionDetailStore()
 
 defineProps<{
   showNewDialog: boolean
 }>()
 const emit = defineEmits(['cancel'])
 
-const $q = useQuasar()
+const { notifyError } = useNotify()
 
 const newRecord = ref({
   id: crypto.randomUUID(),
@@ -72,21 +72,15 @@ onUnmounted(() => {
 })
 
 const create = () => {
-  const metadataConfig = store.getters.knowledge?.metadata_config || []
+  const metadataConfig = collectionStore.entity?.metadata_config || []
   const newName = (newRecord.value?.name || '').trim()
   const isDuplicate = metadataConfig.some((item) => (item?.name || '').trim() === newName)
   if (isDuplicate) {
-    $q.notify({
-      position: 'top',
-      message: `Metadata field ${newName} already exists`,
-      color: 'negative',
-      textColor: 'black',
-      timeout: 1500,
-    })
+    notifyError(`Metadata field ${newName} already exists`)
     return
   }
   metadataConfig.push(newRecord.value)
-  store.dispatch('updateKnowledge', { metadata_config: metadataConfig })
+  collectionStore.updateProperty({ key: 'metadata_config', value: metadataConfig })
   emit('cancel')
 }
 </script>

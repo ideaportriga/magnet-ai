@@ -13,7 +13,7 @@
             <div class="km-heading-8 text-weight-medium">{{ label }}</div>
             <q-badge v-if="badge" :color="badgeColor" :text-color="badgeTextColor" :label="badge" class="text-weight-medium" />
           </div>
-          <div class="q-mt-2 text-secondary-text" style="font-size: 0.8rem">{{ description || 'No description configured' }}</div>
+          <div class="q-mt-2 text-secondary-text km-body-sm">{{ description || 'No description configured' }}</div>
 
           <!-- Stats Slot -->
           <div v-if="$slots.stats" class="row q-gutter-x-md q-mt-xs">
@@ -70,14 +70,14 @@ const variantClass = computed(() => `tool-card--${props.variant}`)
 
 <style scoped>
 .tool-card {
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   transition: all 0.2s ease;
 }
 
 /* Search Tool Cards (Filter & Retrieval) */
 .tool-card--search {
-  border-color: #c5cae9;
-  background: linear-gradient(135deg, #f5f7ff 0%, #ffffff 100%);
+  border-color: var(--q-border-2);
+  background: linear-gradient(135deg, var(--q-primary-bg) 0%, var(--q-white) 100%);
 }
 
 .tool-card--search:hover {
@@ -85,22 +85,22 @@ const variantClass = computed(() => `tool-card--${props.variant}`)
 }
 
 .tool-card--search.tool-disabled {
-  background: linear-gradient(135deg, #fafafa 0%, #ffffff 100%);
-  border-color: #e0e0e0;
+  background: linear-gradient(135deg, var(--q-background) 0%, var(--q-white) 100%);
+  border-color: var(--q-border);
 }
 
 .tool-card--search.tool-disabled:hover {
-  border-color: #bdbdbd;
+  border-color: var(--q-border-2);
 }
 
 /* Exit Tool Cards */
 .tool-card--exit {
-  border-color: #ffccbc;
-  background: linear-gradient(135deg, #fff8f5 0%, #ffffff 100%);
+  border-color: var(--q-error-bg);
+  background: linear-gradient(135deg, var(--q-error-bg) 0%, var(--q-white) 100%);
 }
 
 .tool-card--exit:hover {
-  border-color: #ff7043;
+  border-color: var(--q-error);
 }
 
 /* Disabled state for all variants */

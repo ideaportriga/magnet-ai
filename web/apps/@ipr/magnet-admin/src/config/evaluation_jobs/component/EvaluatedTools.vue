@@ -25,7 +25,6 @@ export default defineComponent({
   },
   computed: {
     tool() {
-      console.log(this.row)
       return this.row?.tool.name || ''
     },
   },

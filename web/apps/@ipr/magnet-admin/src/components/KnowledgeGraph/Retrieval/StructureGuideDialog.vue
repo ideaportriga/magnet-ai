@@ -93,9 +93,9 @@
 </template>
 
 <script setup lang="ts">
-import { useQuasar } from 'quasar'
 import { computed } from 'vue'
 import type { ValidationError } from './promptConfigConverter'
+import { useNotify } from '@/composables/useNotify'
 
 const props = defineProps<{
   modelValue: boolean
@@ -107,7 +107,7 @@ defineEmits<{
   (e: 'update:modelValue', value: boolean): void
 }>()
 
-const $q = useQuasar()
+const { notifyCopied } = useNotify()
 
 const hasErrors = computed(() => (props.validationErrors?.length ?? 0) > 0)
 const errorCount = computed(() => props.validationErrors?.length ?? 0)
@@ -161,12 +161,7 @@ function formatSectionName(section: string): string {
 function copyTemplate() {
   if (!props.promptText) return
   navigator.clipboard.writeText(props.promptText)
-  $q.notify({
-    type: 'positive',
-    message: 'Copied to clipboard',
-    position: 'bottom',
-    timeout: 1500,
-  })
+  notifyCopied('Copied to clipboard')
 }
 </script>
 
@@ -204,21 +199,21 @@ function copyTemplate() {
   gap: 6px;
   padding: 4px 10px;
   margin-right: 24px;
-  border-radius: 16px;
-  font-size: 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--km-font-size-caption);
   font-weight: 600;
 }
 
 .status-error {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background: var(--q-error-bg);
+  color: var(--q-error-text);
+  border: 1px solid var(--q-error-bg);
 }
 
 .status-success {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+  background: var(--q-success);
+  color: var(--q-success-text);
+  border: 1px solid var(--q-success);
 }
 
 /* Errors Container */
@@ -234,9 +229,9 @@ function copyTemplate() {
   gap: 12px;
   padding: 12px;
   margin-bottom: 8px;
-  background: #fafafa;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
+  background: var(--q-background);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-lg);
   animation: slideIn 0.3s ease forwards;
   opacity: 0;
   transform: translateY(-8px);
@@ -251,7 +246,7 @@ function copyTemplate() {
 
 .error-stripe {
   width: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
   align-self: stretch;
 }
@@ -265,7 +260,7 @@ function copyTemplate() {
 }
 
 .stripe-purple {
-  background: #9c27b0;
+  background: var(--q-secondary);
 }
 
 .stripe-info {
@@ -273,7 +268,7 @@ function copyTemplate() {
 }
 
 .stripe-grey {
-  background: #9e9e9e;
+  background: var(--q-icon);
 }
 
 .error-body {
@@ -282,37 +277,37 @@ function copyTemplate() {
 }
 
 .error-type-badge {
-  font-size: 10px;
+  font-size: var(--km-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
 .section-tag {
-  font-size: 11px;
-  color: #666;
+  font-size: var(--km-font-size-sm);
+  color: var(--q-label);
   padding: 2px 6px;
-  background: #eee;
-  border-radius: 4px;
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  background: var(--q-light);
+  border-radius: var(--radius-sm);
+  font-family: var(--km-font-mono);
 }
 
 .error-message {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   line-height: 1.4;
-  color: #333;
+  color: var(--q-black);
 }
 
 .error-details {
   display: flex;
   align-items: flex-start;
-  font-size: 11px;
-  color: #9a3412;
+  font-size: var(--km-font-size-sm);
+  color: var(--q-error-text);
   padding: 0 8px;
   margin-top: 10px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: 4px;
+  background: var(--q-warning-bg);
+  border: 1px solid var(--q-warning);
+  border-radius: var(--radius-sm);
 }
 
 .error-details pre {
@@ -355,9 +350,9 @@ function copyTemplate() {
 .code-preview {
   display: flex;
   flex-direction: column;
-  background: #f8f9fa;
-  border: 1px solid #e8e8e8;
-  border-radius: 8px;
+  background: var(--q-background);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-lg);
   max-height: 420px;
   overflow-y: auto;
 }
@@ -378,20 +373,20 @@ function copyTemplate() {
 }
 
 .code-row:hover {
-  background-color: #f1f2f3;
+  background-color: var(--q-light);
 }
 
 .line-number {
   padding: 0 6px;
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-  font-size: 12px;
+  font-family: var(--km-font-mono);
+  font-size: var(--km-font-size-caption);
   line-height: 1.5;
-  color: #999;
+  color: var(--q-icon);
   text-align: right;
   min-width: 32px;
   user-select: none;
-  border-right: 1px solid #e8e8e8;
-  background: #f0f1f2;
+  border-right: 1px solid var(--q-border);
+  background: var(--q-light);
   flex-shrink: 0;
 }
 
@@ -399,10 +394,10 @@ function copyTemplate() {
   flex: 1;
   margin: 0;
   padding: 0 16px;
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-  font-size: 12px;
+  font-family: var(--km-font-mono);
+  font-size: var(--km-font-size-caption);
   line-height: 1.5;
-  color: #333;
+  color: var(--q-black);
   white-space: pre-wrap;
   word-break: break-word;
   background: transparent;
@@ -411,11 +406,11 @@ function copyTemplate() {
 /* Footer hint code */
 code {
   padding: 2px 6px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-  font-size: 11px;
-  color: #666;
+  background: var(--q-light);
+  border-radius: var(--radius-sm);
+  font-family: var(--km-font-mono);
+  font-size: var(--km-font-size-sm);
+  color: var(--q-label);
 }
 
 /* Transitions */
@@ -447,12 +442,12 @@ code {
 
 .errors-container::-webkit-scrollbar-thumb,
 .code-preview::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
-  border-radius: 3px;
+  background: var(--q-border-2);
+  border-radius: var(--radius-xs);
 }
 
 .errors-container::-webkit-scrollbar-thumb:hover,
 .code-preview::-webkit-scrollbar-thumb:hover {
-  background: #b0b0b0;
+  background: var(--q-icon);
 }
 </style>

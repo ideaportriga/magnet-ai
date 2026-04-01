@@ -40,13 +40,13 @@ const emit = defineEmits<{
   width: 130px;
   height: 130px;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 12px;
-  border: 1px solid #e0e0e0;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--q-border);
 
   &:hover:not(.source-type-card--disabled) {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    background-color: #fafafa;
-    border-color: #bdbdbd;
+    background-color: var(--q-background);
+    border-color: var(--q-border-2);
     transform: translateY(-4px);
   }
 
@@ -65,11 +65,11 @@ const emit = defineEmits<{
   position: absolute;
   top: -7px;
   right: 20px;
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   z-index: 1;
 }
 
 .border-radius-12 {
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
 }
 </style>

@@ -21,6 +21,10 @@ from .utils import (
     edges_table_name,
     entities_index_prefix,
     entities_table_name,
+    get_cached_chunks_table,
+    get_cached_docs_table,
+    get_cached_edges_table,
+    get_cached_entities_table,
     resolve_vector_size_for_embedding_model,
 )
 
@@ -46,4 +50,8 @@ __all__ = [
     "edges_index_prefix",
     "entities_table_name",
     "entities_index_prefix",
+    "get_cached_docs_table",
+    "get_cached_chunks_table",
+    "get_cached_entities_table",
+    "get_cached_edges_table",
 ]

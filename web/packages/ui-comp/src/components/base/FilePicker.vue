@@ -203,7 +203,7 @@ export default defineComponent({
   margin-bottom: 8px
 
 .file-picker__hint
-  font-size: 13px
+  font-size: var(--km-font-size-label)
   color: rgba(0, 0, 0, 0.5)
   text-align: center
 
@@ -220,7 +220,7 @@ export default defineComponent({
   padding: 6px 10px
   background: rgba(0, 0, 0, 0.06)
   border-radius: 8px
-  font-size: 13px
+  font-size: var(--km-font-size-label)
   max-width: 180px
 
 .file-picker__filename

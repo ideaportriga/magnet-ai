@@ -1,12 +1,10 @@
 <template lang="pug">
 transition(appear, enter-active-class='animated fadeIn', leave-active-class='animated fadeOut')
-  .column.no-wrap.full-height.justify-start.q-pa-16.bg-white.fit.relative-position.bl-border(
-    v-if='open',
-    style='max-width: 500px; min-width: 500px !important'
-  )
-    .row.items-center.justify-between.q-mb-sm
-      .col-auto.km-heading-7 Execute
-      q-btn(icon='close', flat, dense, @click='$emit("update:open", false)')
+  km-drawer-layout(v-if='open', storageKey="drawer-prompt-queue", noScroll)
+    template(#header)
+      .row.items-center.justify-between
+        .col-auto.km-heading-7 Execute
+        q-btn(icon='close', flat, dense, @click='$emit("update:open", false)')
     .km-description.text-secondary-text.q-mb-sm Run the queue with the input values below
     .q-gutter-sm.q-mb-sm(v-if='testInputs.length')
       .km-field.text-secondary-text.q-pb-xs Test input set
@@ -49,8 +47,8 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
+import { usePromptQueueStore } from '@/stores/promptQueueStore'
+import { useNotify } from '@/composables/useNotify'
 
 const props = defineProps({
   open: Boolean,
@@ -67,8 +65,8 @@ const props = defineProps({
 
 const emit = defineEmits(['update:open'])
 
-const store = useStore()
-const $q = useQuasar()
+const pqStore = usePromptQueueStore()
+const { notifySuccess, notifyError } = useNotify()
 
 const executing = ref(false)
 const executeInput = ref({})
@@ -113,24 +111,14 @@ const execute = async () => {
       const val = executeInput.value[param]
       if (val != null && val !== '') input[param] = String(val)
     }
-    const result = await store.dispatch('executePromptQueue', {
+    const result = await pqStore.executePromptQueue({
       configId: props.configId,
       input,
     })
     executeResult.value = result
-    $q.notify({
-      position: 'top',
-      message: 'Execution completed',
-      color: 'positive',
-      timeout: 1000,
-    })
+    notifySuccess('Execution completed')
   } catch (error) {
-    $q.notify({
-      position: 'top',
-      message: error?.message || 'Execution failed',
-      color: 'negative',
-      timeout: 2000,
-    })
+    notifyError(error?.message || 'Execution failed')
     executeResult.value = { error: error?.message || 'Execution failed' }
   } finally {
     executing.value = false

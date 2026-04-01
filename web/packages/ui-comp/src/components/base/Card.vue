@@ -50,8 +50,7 @@ export default {
 }
 
 .card:hover {
-  // #C5BFEC 30%
-  background-color: rgba(197, 191, 236, 0.3);
+  background-color: var(--q-primary-bg);
   cursor: pointer;
 }
 </style>

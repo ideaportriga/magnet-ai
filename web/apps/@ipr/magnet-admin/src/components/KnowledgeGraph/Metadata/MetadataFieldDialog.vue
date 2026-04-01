@@ -723,14 +723,14 @@ const onConfirm = () => {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  border: 1px solid #e2e5e9;
-  border-radius: 4px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  background: #e2e5e9;
+  background: var(--q-border);
 }
 
 .source-section {
-  background: #fff;
+  background: var(--q-white);
 }
 
 .source-section__header {
@@ -743,12 +743,12 @@ const onConfirm = () => {
 }
 
 .source-section__header:hover {
-  background: #f8f9fa;
+  background: var(--q-background);
 }
 
 .source-section--expanded .source-section__header {
-  background: #f4f5f7;
-  border-bottom: 1px solid #e2e5e9;
+  background: var(--q-light);
+  border-bottom: 1px solid var(--q-border);
 }
 
 .source-section__left {
@@ -764,21 +764,21 @@ const onConfirm = () => {
 }
 
 .source-section__type {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   font-weight: 600;
-  color: #666;
+  color: var(--q-label);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 2px 6px;
-  background: #f0f0f0;
-  border-radius: 3px;
+  background: var(--q-light);
+  border-radius: var(--radius-xs);
   flex-shrink: 0;
 }
 
 .source-section__name {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 500;
-  color: #2d3748;
+  color: var(--q-black);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -789,17 +789,17 @@ const onConfirm = () => {
 }
 
 .source-section__badge {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   font-weight: 500;
   padding: 4px 10px;
-  border-radius: 10px;
-  background: #e8f4ea;
-  color: #2e7d42;
+  border-radius: var(--radius-xl);
+  background: #e8f4ea; /* intentional semantic success badge color */
+  color: #2e7d42; /* intentional semantic success badge color */
 }
 
 .source-section__badge--empty {
-  background: #f5f5f5;
-  color: #888;
+  background: var(--q-light);
+  color: var(--q-label);
 }
 
 .source-section__content {
@@ -807,7 +807,7 @@ const onConfirm = () => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: #fafbfc;
+  background: var(--q-background);
 }
 
 .source-section__toolbar {
@@ -819,8 +819,8 @@ const onConfirm = () => {
 }
 
 .source-section__hint {
-  font-size: 11px;
-  color: #888;
+  font-size: var(--km-font-size-sm);
+  color: var(--q-label);
   flex-shrink: 0;
 }
 
@@ -835,9 +835,9 @@ const onConfirm = () => {
   display: flex;
   align-items: stretch;
   gap: 0;
-  border: 1px solid #e2e5e9;
-  border-radius: 6px;
-  background: #fff;
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
+  background: var(--q-white);
   overflow: hidden;
 }
 
@@ -872,12 +872,12 @@ const onConfirm = () => {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: var(--km-font-size-xs);
   font-weight: 600;
-  color: #666;
-  background: #fff;
-  border: 1px solid #d0d5dd;
-  border-radius: 50%;
+  color: var(--q-label);
+  background: var(--q-white);
+  border: 1px solid var(--q-border-2);
+  border-radius: var(--radius-full);
 }
 
 .value-chain__kind {
@@ -888,17 +888,17 @@ const onConfirm = () => {
   width: 144px;
   height: 32px;
   padding: 0 10px;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--km-font-size-sm);
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  background: #f6f7f8;
-  color: #555;
+  background: var(--q-light);
+  color: var(--q-label);
 }
 
 .value-chain__kind-label {
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -915,12 +915,12 @@ const onConfirm = () => {
   display: flex;
   align-items: center;
   height: 32px;
-  font-size: 12px;
-  color: #888;
+  font-size: var(--km-font-size-caption);
+  color: var(--q-label);
 }
 
 .value-chain__error {
-  font-size: 10px;
+  font-size: var(--km-font-size-xs);
   color: var(--q-error-text);
   padding-left: 2px;
 }
@@ -933,7 +933,7 @@ const onConfirm = () => {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: #aaa;
+  color: var(--q-icon);
   cursor: pointer;
 }
 
@@ -942,7 +942,7 @@ const onConfirm = () => {
 }
 
 .value-chain__close:hover {
-  color: #c00;
+  color: var(--q-error);
 }
 
 .value-chain__empty {
@@ -951,11 +951,11 @@ const onConfirm = () => {
   justify-content: center;
   gap: 8px;
   padding: 16px;
-  border: 1px dashed #d8dce0;
-  border-radius: 6px;
-  background: #fff;
-  font-size: 12px;
-  color: #888;
+  border: 1px dashed var(--q-border);
+  border-radius: var(--radius-md);
+  background: var(--q-white);
+  font-size: var(--km-font-size-caption);
+  color: var(--q-label);
 }
 
 /* Origin Buttons */
@@ -971,12 +971,12 @@ const onConfirm = () => {
   gap: 4px;
   padding: 3px 8px;
   border: 1px solid;
-  border-radius: 4px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--km-font-size-sm);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
-  background: #fff;
+  background: var(--q-white);
 }
 
 .origin-btn--file {
@@ -1012,7 +1012,7 @@ const onConfirm = () => {
 }
 
 .origin-btn--constant:hover:not(:disabled) {
-  background: #f5f5f5;
+  background: var(--q-light);
 }
 
 .origin-btn--disabled {

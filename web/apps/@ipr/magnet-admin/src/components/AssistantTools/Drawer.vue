@@ -1,26 +1,28 @@
 <template lang="pug">
-.row.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(style='max-width: 500px; min-width: 500px !important')
+km-drawer-layout(storageKey="drawer-assistant-tools")
+  template(#header)
+    .km-heading-7(v-if='!showChunkInfo') Assistant tool definition
   .column(v-if='!showChunkInfo')
-    .col-auto.km-heading-7.q-mb-xs
-      .row
-        .col Assistant tool definition
-    q-separator.q-mb-xs
-    .col.full-width.scroll-container(style='max-height: calc(100vh - 100px); overflow-y: auto')
-      km-codemirror(:modelValue='definition', :readonly='true', language='json')
+    km-codemirror(:modelValue='definition', :readonly='true', language='json')
 </template>
 
 <script>
-import { useState } from '@shared'
 import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useAssistantToolDetailStore } from '@/stores/entityDetailStores'
+import { useSearchStore } from '@/stores/searchStore'
 
 export default {
   props: ['open'],
   setup() {
-    const answers = useState('answers')
-    const loading = useState('answersLoading')
+    const assistToolStore = useAssistantToolDetailStore()
+    const searchStore = useSearchStore()
+    const { answers, answersLoading: loading } = storeToRefs(searchStore)
     return {
       loading,
       answers,
+      assistToolStore,
+      searchStore,
       showHints: ref(true),
       selectedAnswer: ref({}),
       showChunkInfo: ref(false),
@@ -32,7 +34,7 @@ export default {
   computed: {
     definition: {
       get() {
-        return JSON.stringify(this.$store.getters.assistant_tool?.definition, null, 2) || ''
+        return JSON.stringify(this.assistToolStore.entity?.definition, null, 2) || ''
       },
     },
   },
@@ -50,12 +52,11 @@ export default {
       }
     },
     setDetailInfo(info) {
-      console.log('setDetailInfo', info)
       this.selectedAnswer = info
       this.showChunkInfo = true
     },
     clearAnswers() {
-      this.$store.commit('clearAnswers')
+      this.searchStore.clearAnswers()
     },
     refine(question) {
       this.$refs?.prompt?.refine(question)

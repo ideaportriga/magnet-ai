@@ -1,4 +1,3 @@
-import asyncio
 from logging import getLogger
 from typing import Annotated, Any
 
@@ -307,7 +306,12 @@ class AgentConversationsController(Controller):
             db_session,
             is_async=True,
         )  ### is_async=True means that agent message wont be processed immediately
-        asyncio.create_task(add_assistant_message(str(conversation.id)))
+        from core.server.background_tasks import spawn_background_task
+
+        spawn_background_task(
+            add_assistant_message(str(conversation.id)),
+            name=f"add-assistant-msg-{conversation.id}",
+        )
         return conversation
 
     @post(
@@ -345,13 +349,16 @@ class AgentConversationsController(Controller):
             str(conversation["id"]), AgentConversationMessageProcessingStatus.PROCESSING
         )
 
-        asyncio.create_task(
+        from core.server.background_tasks import spawn_background_task
+
+        spawn_background_task(
             self._add_message_route(
                 conversation,
                 data,
                 user_id,
                 **observability_overrides(trace_id=trace_id),
-            )
+            ),
+            name=f"add-message-{conversation['id']}",
         )
         return message_processing_status
 

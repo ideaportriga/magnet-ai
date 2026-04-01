@@ -16,17 +16,28 @@
 </template>
 
 <script>
+import { computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+
 export default {
   emits: ['openTest'],
+  setup() {
+    const queries = useEntityQueries()
+    const retrievalStore = useRetrievalDetailStore()
+    const { data: promptListData } = queries.promptTemplates.useList()
+    const promptItems = computed(() => promptListData.value?.items ?? [])
+    return { retrievalStore, promptItems }
+  },
   computed: {
     promptsWithId() {
-      return (this.$store.getters.prompts ?? []).map((item) => ({ label: item.name, value: item.system_name, id: item.id }))
+      return (this.promptItems ?? []).map((item) => ({ label: item.name, value: item.system_name, id: item.id }))
     },
     generatePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.$store.getters.retrievalVariant?.generate?.prompt_template)?.id
+      return this.promptsWithId.find((el) => el.value == this.retrievalStore.activeVariant?.generate?.prompt_template)?.id
     },
     prompts() {
-      return (this.$store.getters.prompts ?? [])
+      return (this.promptItems ?? [])
         .map((item) => ({
           label: item.name,
           value: item.id,
@@ -36,17 +47,17 @@ export default {
         .filter((el) => el.category === 'RAG')
     },
     propmt_name() {
-      return (this.$store.getters.prompts ?? []).find((el) => el.system_name === this.prompt_template)?.name
+      return (this.promptItems ?? []).find((el) => el.system_name === this.prompt_template)?.name
     },
     prompt_template() {
-      return this.$store.getters.retrievalVariant?.generate?.prompt_template
+      return this.retrievalStore.activeVariant?.generate?.prompt_template
     },
     generatePromptTemplate: {
       get() {
         return this.propmt_name
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'generate.prompt_template', value: value.system_name })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'generate.prompt_template', value: value.system_name })
       },
     },
   },

@@ -1,8 +1,8 @@
 <template lang="pug">
 template(v-if='span?.input')
   .col-auto.ba-border.border-radius-8
-    .row.bb-border.q-pa-sm.bg-light(style='font-size: 13px') Text
-    .row.q-pa-sm(style='min-height: 30px; font-size: 13px; white-space: pre-wrap') {{ span?.input }}
+    .row.bb-border.q-pa-sm.bg-light.km-body-sm Text
+    .row.q-pa-sm.km-body-sm(style='min-height: 30px; white-space: pre-wrap') {{ span?.input }}
 </template>
 
 <script>

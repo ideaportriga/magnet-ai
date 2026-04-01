@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import json
+import logging
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -10,6 +13,12 @@ from litestar.params import Body
 from litestar.status_codes import HTTP_200_OK, HTTP_204_NO_CONTENT
 
 from services.transfer import export_entities, import_entities
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from storage import StorageService
+
+logger = logging.getLogger(__name__)
 
 
 class TransferController(Controller):
@@ -32,15 +41,36 @@ class TransferController(Controller):
         self,
         data: dict[str, Any] | None = None,
         skip_chunks: bool = False,
+        storage_service: StorageService | None = None,
+        db_session: AsyncSession | None = None,
     ) -> Response[bytes]:
-        """Export data as downloadable JSON file"""
+        """Export data as downloadable JSON file (also persisted as snapshot)."""
         result = await export_entities(data or {}, skip_chunks)
 
         timestamp = datetime.now().strftime("%Y_%m-%d:%H:%M:%S")
         filename = f"data_transfer_{timestamp}.json"
+        content = json.dumps(result).encode("utf-8")
+
+        # Persist snapshot in StorageService
+        if storage_service and db_session:
+            try:
+                from uuid_utils import uuid7
+
+                await storage_service.save_file(
+                    db_session,
+                    content=content,
+                    filename=filename,
+                    content_type="application/json",
+                    entity_type="config_snapshot",
+                    entity_id=uuid7(),
+                    sub_path="snapshots/config",
+                    extra={"trigger": "manual_export"},
+                )
+            except Exception:
+                logger.exception("Failed to persist config snapshot")
 
         return Response(
-            content=json.dumps(result).encode("utf-8"),
+            content=content,
             media_type="application/octet-stream",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
@@ -60,17 +90,41 @@ class TransferController(Controller):
     async def import_file(
         self,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
+        storage_service: StorageService | None = None,
+        db_session: AsyncSession | None = None,
     ) -> None:
-        """Import data from uploaded JSON file"""
+        """Import data from uploaded JSON file (auto-snapshots current state before import)."""
         if not data:
             raise ClientException("No file uploaded")
 
         try:
-            # TODO ASYNCMIGRATION - use await when the route handler is async
             file_content = await data.read()
-            # file_content = data.file.read()
             import_data = json.loads(file_content)
         except json.JSONDecodeError:
             raise ClientException("Invalid JSON file")
+
+        # Auto-snapshot current state before import (for rollback)
+        if storage_service and db_session:
+            try:
+                from uuid_utils import uuid7
+
+                current_state = await export_entities({}, skip_chunks=True)
+                snapshot_content = json.dumps(current_state).encode("utf-8")
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                await storage_service.save_file(
+                    db_session,
+                    content=snapshot_content,
+                    filename=f"pre_import_snapshot_{timestamp}.json",
+                    content_type="application/json",
+                    entity_type="config_snapshot",
+                    entity_id=uuid7(),
+                    sub_path="snapshots/config",
+                    extra={
+                        "trigger": "pre_import",
+                        "import_filename": data.filename,
+                    },
+                )
+            except Exception:
+                logger.exception("Failed to create pre-import snapshot")
 
         await import_entities(import_data)

@@ -1,12 +1,12 @@
 <template lang="pug">
-div
+.column.full-height(style='min-height: 0')
   .row.q-mb-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
+      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     .col-auto.center-flex-y
       km-btn.q-mr-12(
-        v-if='selected.length > 0',
+        v-if='selectedRows.length > 0',
         icon='delete',
         label='Delete',
         @click='showDeleteDialog = true',
@@ -22,17 +22,13 @@ div
 
     .col-auto.center-flex-y
       km-btn.q-mr-12(label='Add record', @click='openNewDetails')
-  .row
-    km-table-new(
-      @selectRow='selectRecord',
-      selection='multiple',
+  .col(style='min-height: 0')
+    km-data-table(
+      fill-height,
+      :table='table',
       row-key='index',
-      :active-record-id='selectedRow?.id',
-      v-model:selected='selected',
-      :columns='columns',
-      :rows='filteredEvaluationSetItems ?? []',
-      :pagination='evaluationRecord',
-      binary-state-sort
+      :activeRowId='selectedRow?.index',
+      @row-click='selectRecord'
     )
 
 evaluation-sets-create-new-record(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @addRecord='addRecord', v-if='showNewDialog')
@@ -45,75 +41,90 @@ km-popup-confirm(
   @cancel='showDeleteDialog = false'
 )
   .row.item-center.justify-center.km-heading-7 Delete Test Set Records
-  .row.text-center.justify-center {{ `You are going to delete ${selected?.length} selected records. Are you sure?` }}
+  .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected records. Are you sure?` }}
 </template>
 
-<script>
-import { columnsSettings, evaluationRecord } from '@/config/evaluation_sets/evaluation_set_records'
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+<script setup>
+import { ref, computed, h, markRaw } from 'vue'
+import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
+import { useEvaluationSetDetailStore, useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
+import TextWrap from '@/config/evaluation_sets/component/TextWrap.vue'
+import RetrievalMetadataFilterChipList from '@ui/components/Retrieval/MetadataFilterChipList.vue'
 
-export default {
-  emits: ['openTest', 'record:update'],
-  setup() {
-    const { selectedRow: selectedEvaluationSet } = useChroma('evaluation_sets')
+const emit = defineEmits(['openTest', 'record:update'])
 
-    return {
-      columns: Object.values(columnsSettings)
-        .filter((column) => column.name != 'metadata_filter' || selectedEvaluationSet.value?.type === 'rag_tool')
-        .sort((a, b) => a.columnNumber - b.columnNumber),
-      showNewDialog: ref(false),
-      selected: ref([]),
-      showDeleteDialog: ref(false),
-      searchString: ref(''),
-      evaluationRecord,
-    }
+const route = useRoute()
+const queries = useEntityQueries()
+const evalSetStore = useEvaluationSetDetailStore()
+const evalSetRecordStore = useEvaluationSetRecordStore()
+const routeId = computed(() => route.params.id)
+const { data: selectedEvaluationSet } = queries.evaluation_sets.useDetail(routeId)
+
+const showNewDialog = ref(false)
+const showDeleteDialog = ref(false)
+
+const evaluationSetItems = computed({
+  get() {
+    return evalSetStore.entity?.items?.map((item, index) => ({ ...item, index })) || []
   },
-  computed: {
-    selectedRow() {
-      return this.$store.getters.evaluation_set_record
-    },
-    evaluationSetItems: {
-      get() {
-        return this.$store.getters.evaluation_set?.items?.map((item, index) => ({ ...item, index })) || []
-      },
-      set(value) {
-        this.$store.commit('updateEvaluationSetProperty', { key: 'items', value })
-      },
-    },
-    filteredEvaluationSetItems() {
-      if (!this.searchString) return this.evaluationSetItems
-      return this.evaluationSetItems.filter((item) => item.user_input.toLowerCase().includes(this.searchString.toLowerCase()))
-    },
+  set(value) {
+    evalSetStore.updateProperty({ key: 'items', value })
   },
-  methods: {
-    deleteSelected() {
-      const indexToDelete = this.selected.map((item) => item.index)
-      const value = this.evaluationSetItems.filter((item, index) => !indexToDelete.includes(index))
-      this.$store.commit('updateEvaluationSetProperty', {
-        key: 'items',
-        value,
-      })
-      this.selected = []
-      this.showDeleteDialog = false
-    },
-    selectRecord(row) {
-      this.$store.commit('setEvaluationSetRecord', row)
-    },
-    addRecord(newRow) {
-      this.$store.commit('updateEvaluationSetProperty', { key: 'items', value: [newRow, ...this.evaluationSetItems] })
-    },
-    openNewDetails() {
-      this.showNewDialog = true
-    },
-    navigate(path = '') {
-      if (this.$route.path !== `/${path}`) {
-        this.$router.push(`/${path}`)
-      }
-    },
-    openDetails() {
-      this.navigate('evaluation-sets/details')
-    },
-  },
+})
+
+const selectedRow = computed(() => evalSetRecordStore.record)
+
+const data = computed(() => evaluationSetItems.value)
+
+const columns = [
+  selectionColumn(),
+  ...(selectedEvaluationSet.value?.type === 'rag_tool'
+    ? [
+        componentColumn('metadata_filter', 'Evaluation metadata filter', markRaw(RetrievalMetadataFilterChipList), {
+          accessorKey: 'metadata_filter',
+          props: (row) => ({ readonly: true, modelValue: row.metadata_filter }),
+        }),
+      ]
+    : []),
+  componentColumn('user_input', 'Evaluation input', markRaw(TextWrap), {
+    accessorKey: 'user_input',
+    sortable: true,
+    props: (row) => ({ name: 'user_input' }),
+  }),
+  componentColumn('expected_result', 'Expected output', markRaw(TextWrap), {
+    accessorKey: 'expected_result',
+    sortable: true,
+    props: (row) => ({ name: 'expected_result' }),
+  }),
+]
+
+const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(data, columns, {
+  enableRowSelection: true,
+})
+
+const deleteSelected = () => {
+  const indexToDelete = selectedRows.value.map((item) => item.index)
+  const value = evaluationSetItems.value.filter((item, index) => !indexToDelete.includes(index))
+  evalSetStore.updateProperty({
+    key: 'items',
+    value,
+  })
+  clearSelection()
+  showDeleteDialog.value = false
+}
+
+const selectRecord = (row) => {
+  evalSetRecordStore.setRecord(row)
+}
+
+const addRecord = (newRow) => {
+  evalSetStore.updateProperty({ key: 'items', value: [newRow, ...evaluationSetItems.value] })
+}
+
+const openNewDetails = () => {
+  showNewDialog.value = true
 }
 </script>

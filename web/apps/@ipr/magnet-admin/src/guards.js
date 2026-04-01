@@ -21,8 +21,6 @@ const beforeRouteEnter = (to, from, next) => {
         f(from.params.id)
       } else if (table) {
         table.goToRow(from.params.id)
-      } else {
-        console.log('goToRow not found')
       }
     })
   } else next()

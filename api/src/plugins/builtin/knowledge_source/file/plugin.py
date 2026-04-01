@@ -38,12 +38,13 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
                     },
                     "uploaded_files": {
                         "type": "array",
-                        "description": "Files uploaded from the filesystem",
+                        "description": "Files uploaded via StorageService or legacy filesystem",
                         "x-hidden": True,
                         "items": {
                             "type": "object",
                             "properties": {
                                 "filename": {"type": "string"},
+                                "file_id": {"type": "string"},
                                 "storage_path": {"type": "string"},
                             },
                         },
@@ -63,19 +64,7 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
         collection_config: Dict[str, Any],
         store: Any,
     ) -> DataProcessor:
-        """Create File URL processor
-
-        Args:
-            source_config: Source configuration containing file URL(s)
-            collection_config: Full collection configuration
-            store: Database store instance
-
-        Returns:
-            UrlDataProcessor instance
-
-        Raises:
-            ClientException: If file_url is missing
-        """
+        """Create File URL processor."""
         file_url = source_config.get("file_url") or []
         uploaded_files = source_config.get("uploaded_files") or []
 
@@ -85,12 +74,27 @@ class FileUrlPlugin(KnowledgeSourcePlugin):
                 "or upload files in the knowledge source settings"
             )
 
-        # Ensure file_url is a list (can be string or list)
         if isinstance(file_url, str):
             file_url = [file_url]
 
-        # Create data source with URLs and local files
-        data_source = UrlDataSource(file_url, local_files=uploaded_files)
+        # Split uploaded files: new-style (file_id) vs legacy (storage_path)
+        stored_files = [uf for uf in uploaded_files if "file_id" in uf]
+        local_files = [uf for uf in uploaded_files if "storage_path" in uf]
 
-        # Return processor
-        return UrlDataProcessor(data_source, collection_config)
+        data_source = UrlDataSource(
+            file_url,
+            local_files=local_files,
+            stored_files=stored_files,
+        )
+
+        # Get StorageService and shared db_session from store
+        # (both injected by _inject_storage_into_store in sync_collection_standalone)
+        storage_service = getattr(store, "storage_service", None)
+        db_session = getattr(store, "storage_db_session", None)
+
+        return UrlDataProcessor(
+            data_source,
+            collection_config,
+            storage_service=storage_service,
+            db_session=db_session,
+        )

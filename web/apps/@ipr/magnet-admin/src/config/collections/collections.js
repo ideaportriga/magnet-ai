@@ -3,7 +3,7 @@ import NameDescription from '@/config/rag-tools/component/NameDescription.vue'
 import { markRaw, ref } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { ChipCopy } from '@ui'
-import store from '@/store'
+import { getCachedItems } from '@/queries/getCachedItems'
 
 /**
  * Transform plugin field schema to frontend component config
@@ -175,12 +175,9 @@ export const sourceTypeOptions = ref(staticSourceTypeOptions)
  * Call this function after plugins have been loaded into the store
  */
 export function initializePlugins() {
-  const plugins = store.state?.chroma?.plugins?.items || []
-
-  console.log('Initializing plugins from store:', plugins.length, 'plugins')
+  const plugins = getCachedItems('plugins') || []
 
   if (plugins.length === 0) {
-    console.warn('No plugins found in store. Using static configuration.')
     return
   }
 
@@ -201,15 +198,13 @@ export function initializePlugins() {
   sourceTypeChildren.value = children
   sourceTypeOptions.value = options
 
-  console.log('Updated sourceTypeOptions to:', sourceTypeOptions.value)
-  console.log('Updated sourceTypeChildren keys to:', Object.keys(sourceTypeChildren.value))
 }
 
 /**
  * Get provider fields configuration for a specific plugin type
  */
 export function getProviderFields(pluginType) {
-  const plugins = store.state?.chroma?.plugins?.items || []
+  const plugins = getCachedItems('plugins') || []
   const plugin = plugins.find((p) => p.source_type === pluginType)
 
   if (!plugin) return []

@@ -1,7 +1,7 @@
 <template>
   <div class="row items-center q-gutter-x-sm no-wrap">
     <!-- Variant selector -->
-    <div class="bg-grey-2 row items-center no-wrap" style="border-radius: 4px">
+    <div class="bg-grey-2 row items-center no-wrap" style="border-radius: var(--radius-sm)">
       <!-- Inline validation indicator near the selected variant -->
       <q-btn
         v-if="validationErrors.length > 0"
@@ -73,8 +73,8 @@
       no-caps
       unelevated
       color="primary"
-      class="q-px-12"
-      style="font-size: 13px; height: 36px"
+      class="q-px-12 km-body-sm"
+      style="height: 36px"
       :loading="saving"
       label="Save"
       :disable="!hasUnsavedChanges"
@@ -201,7 +201,7 @@
           <div class="bg-yellow-1 q-pa-md rounded-borders text-grey-9 q-mb-md" style="border: 1px solid var(--q-warning)">
             <div class="row items-start no-wrap">
               <q-icon name="warning" color="yellow-8" size="26px" class="q-mr-sm q-mt-xs" />
-              <div style="font-size: 13px; line-height: 1.4">
+              <div class="km-body-sm" style="line-height: 1.4">
                 This change will affect
                 <strong>all knowledge graphs</strong>
                 that use the default configuration and do not have a specific variant selected.
@@ -327,7 +327,7 @@ function saveAsNewVariant() {
 
 /* Variant Dropdown Styles */
 .variant-selector {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 500;
 }
 
@@ -351,11 +351,11 @@ function saveAsNewVariant() {
 <style>
 /* Variant Dropdown Menu - Global styles for portal-rendered content */
 .variant-dropdown-menu {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--q-border);
   overflow: hidden;
   min-width: 240px;
 }
@@ -372,26 +372,26 @@ function saveAsNewVariant() {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6b7280;
+  color: var(--q-label);
 }
 
 .variant-dropdown-item {
   padding: 10px 16px;
   margin: 2px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   transition: all 0.15s ease;
 }
 
 .variant-dropdown-item:hover {
-  background-color: #f3f4f6;
+  background-color: var(--q-light);
 }
 
 .variant-dropdown-item.variant-active {
-  background-color: #eff6ff;
+  background-color: var(--q-primary-bg);
 }
 
 .variant-dropdown-item.variant-active:hover {
-  background-color: #dbeafe;
+  background-color: var(--q-primary-light);
 }
 
 .variant-icon-section {
@@ -404,46 +404,46 @@ function saveAsNewVariant() {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 6px;
-  background-color: #f3f4f6;
-  color: #6b7280;
+  border-radius: var(--radius-md);
+  background-color: var(--q-light);
+  color: var(--q-label);
   transition: all 0.15s ease;
 }
 
 .variant-dropdown-item:hover .variant-icon-wrapper {
-  background-color: #e5e7eb;
+  background-color: var(--q-border);
 }
 
 .variant-icon-wrapper.variant-icon-active {
-  background-color: #dbeafe;
-  color: #2563eb;
+  background-color: var(--q-primary-light);
+  color: var(--q-primary);
 }
 
 .variant-label {
   font-size: 13px;
   font-weight: 500;
-  color: #1f2937;
+  color: var(--q-black);
   line-height: 1.3;
 }
 
 .variant-caption {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--q-label);
   margin-top: 2px;
   line-height: 1.3;
 }
 
 .variant-active .variant-label {
-  color: #1d4ed8;
+  color: var(--q-primary);
 }
 
 /* Save Dropdown Menu Styles */
 .save-dropdown-menu {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--q-border);
   overflow: hidden;
   min-width: 240px;
 }
@@ -460,18 +460,18 @@ function saveAsNewVariant() {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #6b7280;
+  color: var(--q-label);
 }
 
 .save-dropdown-item {
   padding: 10px 16px;
   margin: 2px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   transition: all 0.15s ease;
 }
 
 .save-dropdown-item:hover {
-  background-color: #f3f4f6;
+  background-color: var(--q-light);
 }
 
 .save-dropdown-item.disabled {
@@ -488,38 +488,38 @@ function saveAsNewVariant() {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   transition: all 0.15s ease;
 }
 
 .save-icon-current {
-  background-color: #dbeafe;
-  color: #2563eb;
+  background-color: var(--q-primary-light);
+  color: var(--q-primary);
 }
 
 .save-dropdown-item:hover .save-icon-current {
-  background-color: #bfdbfe;
+  background-color: var(--q-primary-bg);
 }
 
 .save-icon-new {
-  background-color: #d1fae5;
-  color: #059669;
+  background-color: var(--q-success-text);
+  color: var(--q-success);
 }
 
 .save-dropdown-item:hover .save-icon-new {
-  background-color: #a7f3d0;
+  background-color: var(--q-success-text);
 }
 
 .save-label {
   font-size: 13px;
   font-weight: 500;
-  color: #1f2937;
+  color: var(--q-black);
   line-height: 1.3;
 }
 
 .save-caption {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--q-label);
   margin-top: 2px;
   line-height: 1.3;
 }

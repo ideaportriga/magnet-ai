@@ -27,9 +27,9 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import { KgDialogSection, KgDialogSourceBase, ScheduleFormState } from '../../common'
 import type { SourceRow } from '../models'
 
@@ -49,8 +49,8 @@ const emit = defineEmits<{
   (e: 'update:showDialog', value: boolean): void
 }>()
 
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifyError } = useNotify()
 const error = ref('')
 const loading = ref(false)
 const jsonFilter = ref('[\n\n]')
@@ -90,7 +90,7 @@ async function applySchedule(sourceId: string, schedule: ScheduleFormState) {
   const shouldCall = schedule.interval !== 'none' || (props.source?.schedule !== null && props.source?.schedule !== undefined)
   if (!shouldCall) return
 
-  const endpoint = store.getters.config.api.aiBridge.urlAdmin
+  const endpoint = appStore.config.api.aiBridge.urlAdmin
   const payload: any = { interval: schedule.interval }
   if (schedule.interval !== 'none') {
     payload.timezone = schedule.timezone
@@ -134,7 +134,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
       throw new Error('Invalid JSON format')
     }
 
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
 
     const payload = {
       type: 'fluid_topics',
@@ -159,11 +159,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
         try {
           await applySchedule(result.id, schedule)
         } catch (e: any) {
-          $q.notify({
-            type: 'negative',
-            message: e?.message || 'Source created, but schedule could not be saved',
-            position: 'top',
-          })
+          notifyError(e?.message || 'Source created, but schedule could not be saved')
         }
       }
       emit('created', result)
@@ -172,7 +168,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
       error.value = errorData.detail || errorData.error || 'Failed to connect to Fluid Topics'
     }
   } catch (err: any) {
-    console.error('Fluid Topics connection error:', err)
+
     error.value = err.message || 'Failed to connect to Fluid Topics. Please try again.'
   } finally {
     loading.value = false
@@ -192,7 +188,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
       throw new Error('Invalid JSON format')
     }
 
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const payload = {
       name: sourceName.trim() || null,
       config: { filters: parsedFilter },
@@ -214,7 +210,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
       error.value = errorData.detail || errorData.error || 'Failed to save Fluid Topics source'
     }
   } catch (err: any) {
-    console.error('Fluid Topics update error:', err)
+
     error.value = err.message || 'Failed to save Fluid Topics source. Please try again.'
   } finally {
     loading.value = false
@@ -237,12 +233,12 @@ watch([jsonFilter], () => {
 
 <style scoped>
 :deep(.ͼ1.cm-focused) {
-  background: white !important;
+  background: var(--q-white) !important;
   border: 1px solid var(--q-primary) !important;
   outline: none !important;
 }
 :deep(.cm-editor) {
-  background: white !important;
+  background: var(--q-white) !important;
 }
 :deep(.cm-line) {
   background: transparent !important;

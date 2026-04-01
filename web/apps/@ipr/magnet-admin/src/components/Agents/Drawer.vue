@@ -8,11 +8,15 @@ div(v-if='showAction')
   agents-drawer-action
 </template>
 <script>
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 export default {
-  setup() {},
+  setup() {
+    const agentStore = useAgentDetailStore()
+    return { agentStore }
+  },
   computed: {
     activeTopic() {
-      return this.$store.getters.activeTopic
+      return this.agentStore.activeTopic
     },
     routeName() {
       return this.$route.name

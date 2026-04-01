@@ -102,9 +102,11 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
 </template>
 
 <script>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import _ from 'lodash'
-import { useChroma } from '@shared'
+import { fetchData } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useAppStore } from '@/stores/appStore'
 
 const intervals = [
   { label: 'Every 5 minutes', value: 'every_5_minutes' },
@@ -158,7 +160,9 @@ export default {
   setup(props) {
     const job = _.cloneDeep(props.job)
 
-    const { items: agents } = useChroma('agents')
+    const queries = useEntityQueries()
+    const { data: agentsData } = queries.agents.useList()
+    const agents = computed(() => agentsData.value?.items ?? [])
 
     const form = reactive({
       ...{
@@ -206,6 +210,8 @@ export default {
       }
     )
 
+    const appStore = useAppStore()
+
     return {
       form,
       intervals,
@@ -214,6 +220,7 @@ export default {
       executionTypes,
       times,
       agents,
+      appStore,
     }
   },
   computed: {
@@ -223,7 +230,6 @@ export default {
   },
   methods: {
     async createJob() {
-      console.log('form=', this.form)
 
       let params
       // Only add params if not is_system
@@ -291,7 +297,18 @@ export default {
         jobData.interval = this.form.interval
       }
 
-      const job = await this.$store.dispatch('createAndRunJobScheduler', jobData)
+      const endpoint = this.appStore.config?.scheduler?.endpoint
+      const service = this.appStore.config?.scheduler?.service
+      const credentials = this.appStore.config?.scheduler?.credentials
+      const response = await fetchData({
+        endpoint,
+        service: `${service}/create-job`,
+        method: 'POST',
+        body: JSON.stringify(jobData),
+        credentials,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const job = await response.json()
       this.$emit('finish', job)
     },
 

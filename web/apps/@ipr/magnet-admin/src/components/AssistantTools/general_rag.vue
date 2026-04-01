@@ -50,24 +50,35 @@ div
 </template>
 
 <script>
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useAssistantToolDetailStore } from '@/stores/entityDetailStores'
+import { computed } from 'vue'
 
 export default {
   emits: ['openTest'],
 
   setup() {
-    const { items: ragItems } = useChroma('rag_tools')
+    const queries = useEntityQueries()
+    const assistToolStore = useAssistantToolDetailStore()
+    const { data: ragToolsListData } = queries.rag_tools.useList()
+    const { data: promptListData } = queries.promptTemplates.useList()
+    const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
-      ragItems,
+      ragToolsListData,
+      assistToolStore,
+      promptItems,
     }
   },
   computed: {
+    ragItems() {
+      return this.ragToolsListData?.items ?? []
+    },
     rag: {
       get() {
-        return this.$store.getters.assistant_tool?.rag?.rag_tool || ''
+        return this.assistToolStore.entity?.rag?.rag_tool || ''
       },
       set(value) {
-        this.$store.dispatch('updateRetrievalProperty', { path: 'rag.rag_tool', value })
+        this.assistToolStore.updateNestedProperty({ path: 'rag.rag_tool', value })
       },
     },
     typeOptions() {
@@ -84,26 +95,26 @@ export default {
     },
     type: {
       get() {
-        return this.$store.getters.assistant_tool?.type || ''
+        return this.assistToolStore.entity?.type || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedAssistantToolProperty', { path: 'type', value })
+        this.assistToolStore.updateNestedProperty({ path: 'type', value })
       },
     },
     descriptionForLLM: {
       get() {
-        return this.$store.getters.assistant_tool?.definition?.function?.description || ''
+        return this.assistToolStore.entity?.definition?.function?.description || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedAssistantToolProperty', { path: 'definition.function.description', value })
+        this.assistToolStore.updateNestedProperty({ path: 'definition.function.description', value })
       },
     },
     nameForLLM: {
       get() {
-        return this.$store.getters.assistant_tool?.definition?.function?.name || ''
+        return this.assistToolStore.entity?.definition?.function?.name || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedAssistantToolProperty', { path: 'definition.function.name', value })
+        this.assistToolStore.updateNestedProperty({ path: 'definition.function.name', value })
       },
     },
     languages() {
@@ -111,71 +122,71 @@ export default {
     },
     isDetectLanguage: {
       get() {
-        return this.$store.getters.assistant_tool?.language?.detect_question_language?.enabled || false
+        return this.assistToolStore.entity?.language?.detect_question_language?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'language.detect_question_language.enabled', value })
+        this.assistToolStore.updateNestedProperty({ path: 'language.detect_question_language.enabled', value })
       },
     },
     isMultiLingualRAG: {
       get() {
-        return this.$store.getters.assistant_tool?.language?.multilanguage?.enabled || false
+        return this.assistToolStore.entity?.language?.multilanguage?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'language.multilanguage.enabled', value })
+        this.assistToolStore.updateNestedProperty({ path: 'language.multilanguage.enabled', value })
       },
     },
     promptsWithId() {
-      return (this.$store.getters.prompts ?? []).map((item) => ({ label: item.name, value: item.system_name, id: item.id }))
+      return (this.promptItems ?? []).map((item) => ({ label: item.name, value: item.system_name, id: item.id }))
     },
     detectLanguagePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.$store.getters.assistant_tool?.language?.detect_question_language?.prompt_template)?.id
+      return this.promptsWithId.find((el) => el.value == this.assistToolStore.entity?.language?.detect_question_language?.prompt_template)?.id
     },
     prompts() {
-      return (this.$store.getters.prompts ?? [])
+      return (this.promptItems ?? [])
         .map((item) => ({ label: item.name, value: item.id, system_name: item.system_name, category: item?.category }))
         .filter((el) => el.category === 'rag')
     },
     propmt_name() {
-      return (this.$store.getters.prompts ?? []).find((el) => el.system_name === this.prompt_template)?.name
+      return (this.promptItems ?? []).find((el) => el.system_name === this.prompt_template)?.name
     },
     prompt_template() {
-      return this.$store.getters.assistant_tool?.language?.detect_question_language?.prompt_template || ''
+      return this.assistToolStore.entity?.language?.detect_question_language?.prompt_template || ''
     },
     detectLanguagePromptTemplate: {
       get() {
         return this.propmt_name
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'language.detect_question_language.prompt_template', value: value.system_name })
+        this.assistToolStore.updateNestedProperty({ path: 'language.detect_question_language.prompt_template', value: value.system_name })
       },
     },
     prompt_template_multilingual() {
-      return this.$store.getters.assistant_tool?.language?.multilanguage?.prompt_template_translation || ''
+      return this.assistToolStore.entity?.language?.multilanguage?.prompt_template_translation || ''
     },
     propmt_name_multilingual() {
-      return (this.$store.getters.prompts ?? []).find((el) => el.system_name === this.prompt_template_multilingual)?.name
+      return (this.promptItems ?? []).find((el) => el.system_name === this.prompt_template_multilingual)?.name
     },
     translatePromptTemplate: {
       get() {
         return this.propmt_name_multilingual
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', {
+        this.assistToolStore.updateNestedProperty({
           path: 'language.multilanguage.prompt_template_translation',
           value: value.system_name,
         })
       },
     },
     TranslatePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.$store.getters.assistant_tool?.language?.multilanguage?.prompt_template_translation)?.id
+      return this.promptsWithId.find((el) => el.value == this.assistToolStore.entity?.language?.multilanguage?.prompt_template_translation)?.id
     },
     RetrievalToolSourceLangualge: {
       get() {
-        return this.$store.getters.assistant_tool.language.multilanguage.source_language || ''
+        return this.assistToolStore.entity.language.multilanguage.source_language || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'language.multilanguage.source_language', value: value.value })
+        this.assistToolStore.updateNestedProperty({ path: 'language.multilanguage.source_language', value: value.value })
       },
     },
   },

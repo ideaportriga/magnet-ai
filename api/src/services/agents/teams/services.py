@@ -1,9 +1,10 @@
 from logging import getLogger
-from sqlalchemy import text
+
+from sqlalchemy import func, select
+
 from core.config.app import alchemy
-
+from core.db.models.agent.agent import Agent
 from utils.secrets import decrypt_string
-
 
 logger = getLogger(__name__)
 
@@ -16,21 +17,21 @@ async def resolve_teams_by_client_id(
     Returns (agent_system_name, tenant_id, secret_value).
     secret_value is returned for internal use (e.g., logging), do not expose in API responses.
     """
-    sql = text(
-        """
-        SELECT
-            a.system_name AS agent_system_name,
-            a.channels #>> '{ms_teams,tenant_id}'  AS tenant_id,
-            a.channels #>> '{ms_teams,secret_value}' AS secret_value
-        FROM agents a
-            WHERE COALESCE(a.channels -> 'ms_teams' ->> 'client_id', '') = :client_id
-            AND COALESCE((a.channels -> 'ms_teams' -> 'enabled')::boolean, false ) = true
-        LIMIT 1
-        """
+    ms = Agent.channels["ms_teams"]
+
+    stmt = (
+        select(
+            Agent.system_name.label("agent_system_name"),
+            ms["tenant_id"].astext.label("tenant_id"),
+            ms["secret_value"].astext.label("secret_value"),
+        )
+        .where(func.coalesce(ms["client_id"].astext, "") == client_id)
+        .where(func.coalesce(ms["enabled"].as_boolean(), False).is_(True))
+        .limit(1)
     )
 
     async with alchemy.get_session() as session:
-        result = await session.execute(sql, {"client_id": client_id})
+        result = await session.execute(stmt)
         row = result.first()
 
     if not row:

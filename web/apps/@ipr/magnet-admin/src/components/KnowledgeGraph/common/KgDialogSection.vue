@@ -42,8 +42,8 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   icon: '',
   iconColor: 'primary',
-  borderColor: '#e8e8e8',
-  backgroundColor: '#fafafa',
+  borderColor: 'var(--q-border)',
+  backgroundColor: 'var(--q-background)',
   description: '',
   focusHighlight: false,
   disabled: false,
@@ -77,11 +77,11 @@ const headerStyle = computed(() => ({
 
 <style scoped>
 .kg-dialog-section {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
 }
 
 .kg-dialog-section__inner {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   position: relative;
   margin: -1px;
   border: 2px solid transparent;
@@ -97,7 +97,7 @@ const headerStyle = computed(() => ({
 }
 
 .kg-dialog-section__description {
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   color: var(--q-secondary-text);
   line-height: 1.4;
   margin-top: 4px;
@@ -113,11 +113,11 @@ const headerStyle = computed(() => ({
 /* Ensure form controls inside section have white background */
 :deep(.km-control),
 :deep(.km-select.km-open-popup) {
-  background-color: white !important;
+  background-color: var(--q-white) !important;
 }
 
 :deep(.km-input:not(.q-field--readonly).q-field--outlined.q-field--highlighted .q-field__control::before) {
-  background-color: white !important;
+  background-color: var(--q-white) !important;
 }
 
 :deep(.q-field--outlined .q-field__control:before) {

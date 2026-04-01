@@ -1,17 +1,18 @@
 <template lang="pug">
-.no-wrap.full-height(:style='!selectedMessage ? "max-width:500px; min-width:500px !important" : "max-width:1000px; min-width:1000px !important"')
-  .row.full-height
-    .col.full-height(v-if='selectedMessage')
-      .column.full-height.q-py-16.bg-white.bl-border
-        .col-auto.q-pl-16.q-pr-8
-          .row
-            .col.km-field.text-secondary-text
-            .col-auto.q-ml-sm
-              q-btn(icon='close', flat, dense, @click='selectedMessage = null')
-          q-separator.q-mb-xs
-        .col
-          .column.fit.no-wrap.bg-white
-            .fit.column.no-wrap.text-scroll.q-pl-16.q-pr-8(ref='messagesContainer', style='overflow-y: auto; max-height: 100%')
+km-drawer-layout(storageKey="drawer-agents-preview", :defaultWidth="500", :maxWidth="1200", noScroll)
+  template(#header)
+    .row
+      .col.km-field.text-secondary-text
+      .col-auto.q-ml-sm(v-if='selectedMessage')
+        q-btn(icon='close', flat, dense, @click='selectedMessage = null')
+    .row
+      .col.km-heading-7 Agent Preview
+  .row.full-height.no-wrap
+    .col.full-height(v-if='selectedMessage', style='overflow: hidden')
+      .column.full-height
+        .col(style='min-height: 0')
+          .column.full-height.no-wrap.bg-white
+            .full-height.column.no-wrap.text-scroll.q-pl-sm(style='overflow-y: auto; overflow-x: hidden')
               q-timeline
                 q-timeline-entry(
                   v-for='(step, index) in selectedMessagePrepared',
@@ -106,15 +107,11 @@
     .col-auto(v-if='selectedMessage')
       .row.items-center.full-height
         .bg-white(style='width: 10px; height: 12px')
-    .col.q-pa-16.bg-white.full-height
+    .col.full-height
       .column.full-height
-        .col-auto.km-heading-7.q-mb-xs
-          .row
-            .col Agent Preview
-          q-separator.q-mb-md
-        .col
-          .column.fit.no-wrap.bg-white
-            .fit.q-py-16.column.reverse.no-wrap.text-scroll(ref='messagesContainer', style='overflow-y: auto; max-height: 100%')
+        .col(style='min-height: 0')
+          .column.full-height.no-wrap.bg-white
+            .full-height.q-py-16.column.reverse.no-wrap.text-scroll(ref='messagesContainer', style='overflow-y: auto; max-height: 100%')
               template(v-if='processing')
                 .column.justify-center.items-center
                   q-spinner-dots(size='62px', color='primary')
@@ -164,7 +161,7 @@
                     .col.km-heading-3 You can ask like this...
                     .col-auto
                       km-btn(flat, color='primary', @click='showHints = false')
-                        .km-button-text Don’t show hints
+                        .km-button-text Don't show hints
                   template(v-for='(item, index) in sampleQuestion', :key='index')
                     km-btn(flat, @click='refine(item)')
                       .wrapped-text {{ item }}
@@ -178,18 +175,18 @@
                         q-icon(name='fas fa-paper-plane', size='16px')
 </template>
 <script>
-import { useChroma } from '@shared'
 import { copyToClipboard } from 'quasar'
 import _ from 'lodash'
 import { uid } from 'quasar'
 import { ref, computed } from 'vue'
+import { fetchData } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAppStore } from '@/stores/appStore'
 
 export default {
   props: {
     ragTools: {
-      type: Array,
-    },
-    assistantTools: {
       type: Array,
     },
     promptTemplate: {
@@ -204,10 +201,11 @@ export default {
     },
   },
   setup(props) {
-    const { items: ragList } = useChroma('rag_tools')
-    const { items: promptTemplatesList } = useChroma('promptTemplates')
-    const { items: assistantToolsList } = useChroma('assistant_tools')
-
+    const queries = useEntityQueries()
+    const { data: ragData } = queries.rag_tools.useList()
+    const ragList = computed(() => ragData.value?.items ?? [])
+    const { data: promptTemplatesListData } = queries.promptTemplates.useList()
+    const promptTemplatesList = computed(() => promptTemplatesListData.value?.items ?? [])
     const userMessage = ref('')
     const showAllMessages = ref(false)
     const allMessages = ref([])
@@ -225,15 +223,18 @@ export default {
     }
     const selectedMessage = ref(null)
 
+    const agentStore = useAgentDetailStore()
+    const appStore = useAppStore()
     const isUserMode = computed(() => props.endUserMode === 'true')
     return {
+      agentStore,
+      appStore,
       ragList,
       promptTemplatesList,
       userMessage,
       showAllMessages,
       allMessages,
       processing,
-      assistantToolsList,
       messageToEdit,
       messageToEditContent,
       hoverMessage,
@@ -280,29 +281,20 @@ export default {
       return (
         this.allMessages?.length <= 1 &&
         this.showHints &&
-        this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.enabled &&
-        (!!this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.questions?.question1 ||
-          !!this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.questions?.question2 ||
-          !!this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.questions?.question3)
+        this.agentStore.activeVariant?.value?.settings?.sample_questions?.enabled &&
+        (!!this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question1 ||
+          !!this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question2 ||
+          !!this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question3)
       )
     },
     sampleQuestion() {
-      return this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.questions
+      return this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions
     },
     welcomeMessage() {
-      return this.$store.getters.agentDetailVariant?.value?.settings?.welcome_message
+      return this.agentStore.activeVariant?.value?.settings?.welcome_message
     },
     systemPromptTemplate() {
       return this.promptTemplatesList.find((template) => template.system_name == this.promptTemplate)
-    },
-    assistantToolsNames() {
-      //filter through list to verify tool exists
-      return this.assistantToolsList.filter((tool) => this.assistantTools?.includes(tool.system_name))
-    },
-    //TODO: remove this
-    assistantToolsDefinitions() {
-      const assistantTools = this.assistantToolsList.filter((tool) => this.assistantTools?.includes(tool.system_name))
-      return assistantTools.map((tool) => tool.definition)
     },
     messages() {
       if (this.showAllMessages) return this.allMessages
@@ -316,7 +308,7 @@ export default {
       return false
     },
     agentTestSetItem() {
-      return this.$store.getters.agentTestSetItem
+      return this.agentStore.testSetItem
     },
   },
   watch: {
@@ -351,7 +343,7 @@ export default {
       this.userMessage = question
     },
     formatDelay(milliseconds) {
-      console.log(milliseconds)
+
       if (milliseconds < 1000) {
         return new Intl.NumberFormat(undefined, {
           style: 'unit',
@@ -412,7 +404,7 @@ export default {
         this.allMessages = updatedMessages
       } catch (error) {
         if (error?.technicalError?.name === 'AbortError') {
-          console.warn('Request was aborted')
+
         } else {
           throw ('Request failed:', error)
         }
@@ -423,13 +415,27 @@ export default {
     async processChat() {
       this.abortController = new AbortController()
       const data = {
-        name: this.$store.getters.agent_detail?.name,
-        system_name: this.$store.getters.agent_detail?.system_name,
-        agent_config: this.$store.getters.agentDetailVariant?.value,
+        name: this.agentStore.entity?.name,
+        system_name: this.agentStore.entity?.system_name,
+        agent_config: this.agentStore.activeVariant?.value,
         messages: this.allMessages,
         trace_id: this.traceId,
       }
-      const { trace_id, ...completionResult } = await this.$store.dispatch('testAgent', data)
+      const endpoint = this.appStore.config?.agent?.endpoint
+      const service = this.appStore.config?.agent?.service
+      const credentials = this.appStore.config?.agent?.credentials
+      const { trace_id: traceIdParam, ...payload } = data
+      const response = await fetchData({
+        method: 'POST',
+        endpoint,
+        service: `${service}/test` + (traceIdParam ? '?trace_id=' + traceIdParam : ''),
+        credentials,
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+        signal: this.abortController.signal,
+      })
+      const result = await response.json()
+      const { trace_id, ...completionResult } = result
 
       this.traceId = trace_id
 
@@ -445,17 +451,30 @@ export default {
       })
       try {
         const data = {
-          name: this.$store.getters.agent_detail?.name,
-          system_name: this.$store.getters.agent_detail?.system_name,
-          agent_config: this.$store.getters.agentDetailVariant?.value,
+          name: this.agentStore.entity?.name,
+          system_name: this.agentStore.entity?.system_name,
+          agent_config: this.agentStore.activeVariant?.value,
           messages: this.allMessages,
           trace_id: this.traceId,
         }
-        const { trace_id, ...completionResult } = await this.$store.dispatch('testAgent', data)
+        const confirmEndpoint = this.appStore.config?.agent?.endpoint
+        const confirmService = this.appStore.config?.agent?.service
+        const confirmCredentials = this.appStore.config?.agent?.credentials
+        const { trace_id: confirmTraceId, ...confirmPayload } = data
+        const confirmResponse = await fetchData({
+          method: 'POST',
+          endpoint: confirmEndpoint,
+          service: `${confirmService}/test` + (confirmTraceId ? '?trace_id=' + confirmTraceId : ''),
+          credentials: confirmCredentials,
+          body: JSON.stringify(confirmPayload),
+          headers: { 'Content-Type': 'application/json' },
+        })
+        const confirmResult = await confirmResponse.json()
+        const { trace_id, ...completionResult } = confirmResult
         this.traceId = trace_id
         this.allMessages = [...this.allMessages, completionResult]
       } catch (error) {
-        console.error(error)
+
       } finally {
         this.processing = false
       }
@@ -492,8 +511,9 @@ export default {
       copyToClipboard(message.content)
       this.$q.notify({
         message: 'Copied to clipboard',
-        color: 'primary',
-        icon: 'fas fa-copy',
+        color: 'dark',
+        icon: 'content_copy',
+        group: 'copied',
         timeout: 1000,
       })
     },

@@ -1,9 +1,18 @@
+from __future__ import annotations
+
 import logging  # Logging has been uncommented as per requirement
 import os
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
+from uuid import UUID
 
 import aiofiles
 import httpx
+
+if TYPE_CHECKING:
+    from storage import StorageService
+
+    from sqlalchemy.ext.asyncio import AsyncSession
 from kreuzberg import ExtractionConfig, PageConfig, extract_bytes
 from langchain.schema import Document
 from langchain_text_splitters import (
@@ -39,17 +48,27 @@ class UrlDataProcessor(DataProcessor):
     __urls: list[str]
     __basic_metadata_cache: list[SourceBasicMetadata]
 
-    def __init__(self, data_source: UrlDataSource, collection_config: dict) -> None:
+    def __init__(
+        self,
+        data_source: UrlDataSource,
+        collection_config: dict,
+        storage_service: StorageService | None = None,
+        db_session: AsyncSession | None = None,
+    ) -> None:
         """Initializes UrlDataProcessor with a UrlDataSource data source.
 
         Args:
-            data_source (UrlDataSource): Data source with public URLs.
+            data_source: Data source with public URLs.
+            storage_service: Optional StorageService for reading stored:// files.
+            db_session: Optional DB session for StorageService queries.
 
         """
         logger.info("Initializing UrlDataProcessor with provided data source.")
         self.__data_source = data_source
         self.__collection_config = collection_config
         self.__basic_metadata_cache = []
+        self._storage_service = storage_service
+        self._db_session = db_session
 
     async def load_data(self) -> None:
         """Loads data from the data source and stores it in self.__urls."""
@@ -93,8 +112,18 @@ class UrlDataProcessor(DataProcessor):
         for entry in self.__urls:
             logger.debug(f"Processing entry: {entry}")
             is_local = entry.startswith("local://")
+            is_stored = entry.startswith("stored://")
 
-            if is_local:
+            if is_stored:
+                file_id = entry[len("stored://") :]
+                stored_file = await self._get_stored_file(file_id)
+                file_name = stored_file.filename if stored_file else file_id
+                last_modified = (
+                    stored_file.created_at.isoformat()
+                    if stored_file and stored_file.created_at
+                    else ""
+                )
+            elif is_local:
                 storage_path = entry[len("local://") :]
                 file_name = os.path.basename(storage_path)
                 last_modified = ""
@@ -133,8 +162,15 @@ class UrlDataProcessor(DataProcessor):
             raise Exception(f"Entry with id {id} not found")
 
         is_local = id.startswith("local://")
+        is_stored = id.startswith("stored://")
 
-        if is_local:
+        if is_stored:
+            file_id = id[len("stored://") :]
+            stored_file = await self._get_stored_file(file_id)
+            if not stored_file:
+                raise Exception(f"Stored file {file_id} not found")
+            file_name = stored_file.filename
+        elif is_local:
             storage_path = id[len("local://") :]
             file_name = os.path.basename(storage_path)
         else:
@@ -148,7 +184,18 @@ class UrlDataProcessor(DataProcessor):
         logger.debug(f"Base metadata created: {base_metadata}")
 
         # Download or read file bytes
-        if is_local:
+        if is_stored:
+            logger.info(f"Reading stored file: {file_id}")
+            try:
+                file_bytes = await self._storage_service.get_file_content(stored_file)
+            except FileNotFoundError:
+                raise FileNotFoundError(
+                    f"Stored file '{file_name}' (id={file_id}) is missing from backend "
+                    f"'{stored_file.backend_key}' at path '{stored_file.path}'. "
+                    "The file may have been deleted or the storage was cleared."
+                )
+            logger.info(f"Read {len(file_bytes)} bytes from stored file: {file_name}")
+        elif is_local:
             logger.info(f"Reading local file: {storage_path}")
             async with aiofiles.open(storage_path, "rb") as f:
                 file_bytes = await f.read()
@@ -187,21 +234,27 @@ class UrlDataProcessor(DataProcessor):
 
         """
         logger.debug(f"Creating base metadata for: {url}")
-        file_unique_id = url
-        file_path = url
         file_title = os.path.splitext(file_name)[0]
 
-        if url.startswith("local://"):
+        if url.startswith(("local://", "stored://")):
             modified_time = ""
         else:
             modified_time = await self.__get_last_modified(url)
         created_time = modified_time
 
+        # For stored files, provide a browser-accessible download URL
+        # instead of the internal stored:// protocol for sourceId/path/source.
+        if url.startswith("stored://"):
+            file_id = url[len("stored://") :]
+            download_url = f"/api/admin/files/{file_id}/download"
+        else:
+            download_url = url
+
         metadata = {
-            "sourceId": file_unique_id,
+            "sourceId": download_url,
             "name": file_title,
-            "path": file_path,
-            "source": file_path,
+            "path": download_url,
+            "source": download_url,
             "title": file_title,
             "createdTime": created_time,
             "modifiedTime": modified_time,
@@ -209,6 +262,14 @@ class UrlDataProcessor(DataProcessor):
 
         logger.debug(f"Base metadata created: {metadata}")
         return metadata
+
+    async def _get_stored_file(self, file_id: str):  # noqa: ANN201
+        """Fetch a StoredFile by its UUID string."""
+        if not self._storage_service or not self._db_session:
+            raise RuntimeError(
+                "StorageService and db_session are required for stored:// files"
+            )
+        return await self._storage_service.get(self._db_session, UUID(file_id))
 
     def __get_file_name(self, url: str) -> str:
         """Extracts the file name from the URL.
@@ -221,8 +282,10 @@ class UrlDataProcessor(DataProcessor):
 
         """
         logger.debug(f"Extracting file name from URL: {url}")
-        path = urlparse(url).path
-        file_name = os.path.basename(path)
+        parsed = urlparse(url)
+        file_name = os.path.basename(parsed.path)
+        if not file_name:
+            file_name = parsed.hostname or ""
         logger.debug(f"Extracted file name: {file_name}")
         return file_name
 
@@ -290,10 +353,15 @@ class UrlDataProcessor(DataProcessor):
         page_documents: list[Document] = []
         if result.pages and len(result.pages) > 1:
             for i, page in enumerate(result.pages):
+                page_num = i + 1  # PDF pages are 1-indexed
+                page_meta = {**base_metadata, "page": i}
+                # Append #page=N so browser opens PDF at the right page
+                if base_metadata.get("source", "").startswith("/api/"):
+                    page_meta["source"] = f"{base_metadata['source']}#page={page_num}"
                 page_documents.append(
                     Document(
                         page_content=clean_text(page["content"]),
-                        metadata={**base_metadata, "page": i},
+                        metadata=page_meta,
                     )
                 )
         else:

@@ -39,48 +39,63 @@ div
 </template>
 
 <script>
+import { computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+
 export default {
+  setup() {
+    const queries = useEntityQueries()
+    const promptStore = usePromptTemplateDetailStore()
+    const { data: modelListData } = queries.model.useList()
+    const modelItems = computed(() => modelListData.value?.items ?? [])
+
+    return {
+      promptStore,
+      modelItems,
+    }
+  },
   computed: {
     modelOptions() {
-      return (this.$store.getters['chroma/model'].items || []).filter((el) => el.type === 'prompts')
+      return (this.modelItems || []).filter((el) => el.type === 'prompts')
     },
     currentModelObject() {
-      return (this.modelOptions ?? []).find((el) => el.system_name === this.$store.getters.promptTemplateVariant?.system_name_for_model)
+      return (this.modelOptions ?? []).find((el) => el.system_name === this.promptStore.activeVariant?.system_name_for_model)
     },
     responseWithJSON: {
       get() {
         return (
-          this.$store.getters.promptTemplateVariant?.response_format?.type == 'json_object' ||
-          this.$store.getters.promptTemplateVariant?.response_format?.type == 'json_schema'
+          this.promptStore.activeVariant?.response_format?.type == 'json_object' ||
+          this.promptStore.activeVariant?.response_format?.type == 'json_schema'
         )
       },
       set(value) {
         if (value) {
-          this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.type', value: 'json_object' })
+          this.promptStore.updateNestedVariantProperty({ path: 'response_format.type', value: 'json_object' })
         } else {
-          this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.type', value: 'text' })
-          this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.json_schema', value: null })
+          this.promptStore.updateNestedVariantProperty({ path: 'response_format.type', value: 'text' })
+          this.promptStore.updateNestedVariantProperty({ path: 'response_format.json_schema', value: null })
         }
       },
     },
     isMatchSchema: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.response_format?.type == 'json_schema'
+        return this.promptStore.activeVariant?.response_format?.type == 'json_schema'
       },
       set(value) {
         if (value) {
-          this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.type', value: 'json_schema' })
+          this.promptStore.updateNestedVariantProperty({ path: 'response_format.type', value: 'json_schema' })
         } else {
-          this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.type', value: 'json_object' })
+          this.promptStore.updateNestedVariantProperty({ path: 'response_format.type', value: 'json_object' })
         }
       },
     },
     schemaName: {
       get() {
-        return 'NAME_' + this.$store.getters.promptTemplate?.system_name || 'NAME'
+        return 'NAME_' + this.promptStore.entity?.system_name || 'NAME'
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.json_schema.name', value })
+        this.promptStore.updateNestedVariantProperty({ path: 'response_format.json_schema.name', value })
       },
     },
     modelName() {
@@ -89,14 +104,14 @@ export default {
 
     matchSchema: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.response_format?.json_schema?.schema || ''
+        return this.promptStore.activeVariant?.response_format?.json_schema?.schema || ''
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', {
+        this.promptStore.updateNestedVariantProperty({
           path: 'response_format.json_schema',
           value: { strict: true, schema: {}, name: this.schemaName },
         })
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'response_format.json_schema.schema', value: value })
+        this.promptStore.updateNestedVariantProperty({ path: 'response_format.json_schema.schema', value: value })
       },
     },
   },

@@ -72,8 +72,9 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("
 <script>
 import { ref, computed } from 'vue'
 import { fetchData } from '@shared'
-import { useStore } from 'vuex'
-import { useChroma } from '@shared'
+import { useAppStore } from '@/stores/appStore'
+import { useEntityQueries } from '@/queries/entities'
+import { useQueryClient } from '@tanstack/vue-query'
 import _ from 'lodash'
 export default {
   props: {
@@ -84,14 +85,20 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const store = useStore()
-    const { items, ...useApiTools } = useChroma('api_tools')
-    const { items: apiProviders } = useChroma('api_tool_providers')
+    const appStore = useAppStore()
+    const queries = useEntityQueries()
+    const queryClient = useQueryClient()
+    const { data: apiToolsData } = queries.api_tools.useList()
+    const { mutateAsync: updateApiTool } = queries.api_tools.useUpdate()
 
+    const items = computed(() => apiToolsData.value?.items ?? [])
+
+    const { data: apiToolProvidersData } = queries.api_tool_providers.useList()
     const apiProviderOptions = computed(() => {
-      return apiProviders.value.map((apiProvider) => ({
-        label: apiProvider.systemName,
-        value: apiProvider.systemName,
+      const providers = apiToolProvidersData.value?.items || []
+      return providers.map((apiProvider) => ({
+        label: apiProvider.systemName || apiProvider.system_name || apiProvider.name,
+        value: apiProvider.systemName || apiProvider.system_name || apiProvider.name,
       }))
     })
 
@@ -101,10 +108,11 @@ export default {
       stepper: ref(0),
       apiTools: ref([]),
       addAsVariant: ref(false),
-      store,
+      appStore,
       items,
-      useApiTools,
+      queryClient,
       apiProviderOptions,
+      updateApiTool,
     }
   },
   computed: {
@@ -137,7 +145,7 @@ export default {
       const body = new FormData()
       body.append('file', this.file)
       const response = await fetchData({
-        endpoint: this.store.getters.config.api.aiBridge.urlAdmin,
+        endpoint: this.appStore.config.api.aiBridge.urlAdmin,
         service: `api_tools/generate_from_openapi`,
 
         method: 'POST',
@@ -148,7 +156,6 @@ export default {
         body,
       })
       if (response?.error) {
-        console.log(response?.error)
       } else {
         const res = await response.json()
         res.forEach((tool) => {
@@ -159,7 +166,6 @@ export default {
           tool.selected = true
         })
         this.apiTools = res
-        console.log(res)
         this.proceed()
       }
     },
@@ -192,7 +198,7 @@ export default {
         await this.createTool(newTools)
       }
       this.$emit('cancel')
-      this.useApiTools.get()
+      this.queryClient.invalidateQueries({ queryKey: ['api_tools'] })
     },
     async createTool(tools) {
       if (tools.length === 0) return
@@ -204,7 +210,7 @@ export default {
         return tool
       })
       await fetchData({
-        endpoint: this.store.getters.config.api.aiBridge.urlAdmin,
+        endpoint: this.appStore.config.api.aiBridge.urlAdmin,
         service: `sql_api_tools/bulk`,
         method: 'POST',
         credentials: 'include',
@@ -224,8 +230,7 @@ export default {
           ...parent,
           variants: [...parent.variants, variant],
         }
-        console.log(updatedTool)
-        this.$store.dispatch('chroma/update', { payload: { id: parent.id, data: updatedTool }, entity: 'api_tools' })
+        this.updateApiTool({ id: parent.id, data: updatedTool })
       })
     },
     updateAllTools(value) {

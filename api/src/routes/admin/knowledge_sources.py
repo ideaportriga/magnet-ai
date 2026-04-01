@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from typing import Any
 
@@ -35,9 +37,188 @@ from type_defs.pagination import (
 from utils.datetime_utils import utc_now
 from services.file_cleanup import KS_UPLOAD_DIR
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from storage import FileLimits, StorageService
+
 store = get_db_store()
 
 DOCUMENT_COLLECTION_PREFIX = "documents_"
+
+
+async def _preserve_file_ids(
+    collection_id: str, data: dict[str, Any]
+) -> dict[str, Any]:
+    """Merge file_id/storage_path from existing metadata into incoming data.
+
+    The frontend sends ``uploaded_files`` with only ``filename`` keys.  This
+    helper re-attaches ``file_id`` or ``storage_path`` from the current DB
+    state so they are not lost on save.
+    """
+    incoming_source = data.get("source")
+    if not isinstance(incoming_source, dict):
+        return data
+
+    incoming_files = incoming_source.get("uploaded_files")
+    if not incoming_files:
+        return data
+
+    try:
+        existing = await store.get_collection_metadata(collection_id)
+    except LookupError:
+        return data
+
+    existing_source = existing.get("source", {})
+    if not isinstance(existing_source, dict):
+        return data
+
+    existing_files = existing_source.get("uploaded_files", [])
+    lookup = {f["filename"]: f for f in existing_files if "filename" in f}
+
+    merged = []
+    for f in incoming_files:
+        name = f.get("filename", "")
+        existing_entry = lookup.get(name, {})
+        entry = {**existing_entry, **f}
+        merged.append(entry)
+
+    incoming_source["uploaded_files"] = merged
+    data["source"] = incoming_source
+    return data
+
+
+def _inject_storage_into_store(store_obj: Any) -> None:
+    """Attach StorageService and a shared db_session to the DocumentStore so plugins can use it."""
+    if getattr(store_obj, "storage_service", None) is not None:
+        return
+    try:
+        from storage import StorageService
+
+        store_obj.storage_service = StorageService()
+    except Exception:
+        pass
+
+    if getattr(store_obj, "storage_db_session", None) is None:
+        try:
+            from core.config.base import get_settings
+            from sqlalchemy.ext.asyncio import AsyncSession as _AS
+
+            settings = get_settings()
+            store_obj.storage_db_session = _AS(
+                settings.db.get_engine(), expire_on_commit=False
+            )
+        except Exception:
+            pass
+
+
+async def _claim_temp_files(
+    collection_id: str,
+    data: dict[str, Any],
+    storage_service: StorageService,
+    db_session: AsyncSession,
+) -> None:
+    """Reassign temp-uploaded files (entity_type='ks_source_temp') to this collection.
+
+    When a file is uploaded before the KS exists, it is stored with
+    entity_type='ks_source_temp'.  Once the KS is created we update the
+    entity_type to 'ks_source' and set entity_id to the new collection UUID so
+    the file is properly managed (quota, enrichment, cleanup).
+    """
+    from uuid import UUID as _UUID
+
+    uploaded_files = data.get("source", {}).get("uploaded_files", [])
+    file_ids = [uf["file_id"] for uf in uploaded_files if "file_id" in uf]
+    if not file_ids:
+        return
+
+    try:
+        entity_id = _UUID(str(collection_id))
+    except ValueError:
+        return
+
+    for fid in file_ids:
+        try:
+            stored = await storage_service.get(db_session, _UUID(fid))
+            if stored and stored.entity_type == "ks_source_temp":
+                stored.entity_type = "ks_source"
+                stored.entity_id = entity_id
+                db_session.add(stored)
+        except Exception:
+            pass
+
+    await db_session.flush()
+
+
+async def _enrich_uploaded_files(
+    collection_id: str,
+    source_config: dict[str, Any],
+    db_session: AsyncSession | None = None,
+) -> dict[str, Any]:
+    """Enrich uploaded_files in source_config from stored_files DB table.
+
+    The stored_files table is the source of truth for files managed by
+    StorageService.  Metadata ``uploaded_files`` may be stale (frontend can
+    overwrite it), so we rebuild the list from the DB.
+    """
+    try:
+        from sqlalchemy import select
+        from storage.models import StoredFile
+        from uuid import UUID as _UUID
+
+        try:
+            entity_id = _UUID(collection_id)
+        except ValueError:
+            return source_config
+
+        # Use provided session or create a temporary one
+        if db_session:
+            session_to_use = db_session
+            stmt = select(StoredFile).where(
+                StoredFile.entity_type == "ks_source",
+                StoredFile.entity_id == entity_id,
+                StoredFile.deleted_at.is_(None),
+            )
+            result = await session_to_use.execute(stmt)
+            stored = list(result.scalars().all())
+        else:
+            from core.config.base import get_settings
+            from sqlalchemy.ext.asyncio import AsyncSession as _AS
+
+            settings = get_settings()
+            engine = settings.db.get_engine()
+            async with _AS(engine, expire_on_commit=False) as tmp_session:
+                stmt = select(StoredFile).where(
+                    StoredFile.entity_type == "ks_source",
+                    StoredFile.entity_id == entity_id,
+                    StoredFile.deleted_at.is_(None),
+                )
+                result = await tmp_session.execute(stmt)
+                stored = list(result.scalars().all())
+
+        if not stored:
+            return source_config
+
+        db_files = [{"filename": sf.filename, "file_id": str(sf.id)} for sf in stored]
+
+        existing = source_config.get("uploaded_files", [])
+        legacy = [f for f in existing if "storage_path" in f]
+
+        source_config["uploaded_files"] = db_files + legacy
+
+        logger.info(
+            "Enriched uploaded_files from stored_files table",
+            collection_id=collection_id,
+            db_files=len(db_files),
+            legacy_files=len(legacy),
+        )
+    except Exception:
+        logger.exception(
+            "Failed to enrich uploaded_files from DB",
+            collection_id=collection_id,
+        )
+
+    return source_config
+
 
 # Load all knowledge source plugins on module import
 PluginRegistry.auto_load()
@@ -150,6 +331,17 @@ async def sync_collection_standalone(collection_id: str, **kwargs) -> None:
         raise ClientException(
             f"Plugin '{source_type}' is not a valid KnowledgeSourcePlugin"
         )
+
+    # Inject StorageService + shared db_session into store so plugins can access it
+    _inject_storage_into_store(store)
+
+    # Enrich uploaded_files from stored_files table (source of truth).
+    # Frontend may lose file_id from metadata, but the DB always has it.
+    merged_source_config = await _enrich_uploaded_files(
+        collection_id,
+        merged_source_config,
+        db_session=getattr(store, "storage_db_session", None),
+    )
 
     # Create processor using the plugin with merged configuration
     processor = await plugin.create_processor(
@@ -329,10 +521,19 @@ class KnowledgeSourcesController(Controller):
         return {"plugins": result}
 
     @post()
-    async def create_collection(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def create_collection(
+        self,
+        data: dict[str, Any],
+        storage_service: StorageService | None = None,
+        db_session: AsyncSession | None = None,
+    ) -> dict[str, Any]:
         """Create a new collection"""
         data["created"] = utc_now()
         inserted_id = await store.create_collection(data)
+
+        # Reassign any temp-uploaded files to this collection
+        if storage_service and db_session:
+            await _claim_temp_files(inserted_id, data, storage_service, db_session)
 
         return {"inserted_id": inserted_id}
 
@@ -347,6 +548,7 @@ class KnowledgeSourcesController(Controller):
     @patch("/{collection_id:str}", status_code=HTTP_204_NO_CONTENT)
     async def update_collection(self, collection_id: str, data: dict[str, Any]) -> None:
         """Update collection metadata"""
+        data = await _preserve_file_ids(collection_id, data)
         await store.update_collection_metadata(
             collection_id=collection_id, metadata=data
         )
@@ -356,6 +558,7 @@ class KnowledgeSourcesController(Controller):
         self, collection_id: str, data: dict[str, Any]
     ) -> None:
         """Replace collection metadata"""
+        data = await _preserve_file_ids(collection_id, data)
         await store.replace_collection_metadata(
             collection_id=collection_id, metadata=data
         )
@@ -567,6 +770,9 @@ class KnowledgeSourceFileUploadController(Controller):
         self,
         collection_id: str,
         data: UploadFile = Body(media_type=RequestEncodingType.MULTI_PART),
+        storage_service: StorageService | None = None,
+        file_limits: FileLimits | None = None,
+        db_session: AsyncSession | None = None,
     ) -> dict[str, Any]:
         """Upload a file for a File-type knowledge source."""
         collection_id = await self._validate_collection_id(collection_id)
@@ -577,13 +783,6 @@ class KnowledgeSourceFileUploadController(Controller):
 
         if not file_bytes:
             raise ClientException("Empty file")
-
-        # Validate file size
-        max_bytes = self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
-        if len(file_bytes) > max_bytes:
-            raise ClientException(
-                f"File exceeds maximum size of {self.MAX_UPLOAD_SIZE_MB} MB"
-            )
 
         # Sanitize filename to prevent path traversal
         safe_filename = os.path.basename(filename)
@@ -596,6 +795,16 @@ class KnowledgeSourceFileUploadController(Controller):
                 f"Allowed: {', '.join(sorted(self.ALLOWED_EXTENSIONS))}"
             )
 
+        # Validate file size
+        if file_limits:
+            file_limits.check_file_size(len(file_bytes), "ks_source")
+        else:
+            max_bytes = self.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+            if len(file_bytes) > max_bytes:
+                raise ClientException(
+                    f"File exceeds maximum size of {self.MAX_UPLOAD_SIZE_MB} MB"
+                )
+
         # Validate MIME type via magic bytes
         from kreuzberg import detect_mime_type
 
@@ -607,14 +816,6 @@ class KnowledgeSourceFileUploadController(Controller):
                 extension=ext,
             )
 
-        # Store file in temporary directory (auto-cleaned by periodic job)
-        collection_dir = os.path.join(KS_UPLOAD_DIR, collection_id)
-        await aiofiles.os.makedirs(collection_dir, exist_ok=True)
-        storage_path = os.path.join(collection_dir, safe_filename)
-
-        async with aiofiles.open(storage_path, "wb") as f:
-            await f.write(file_bytes)
-
         # Update source config with uploaded file reference
         source = config.get("source", {})
         if not isinstance(source, dict):
@@ -625,7 +826,70 @@ class KnowledgeSourceFileUploadController(Controller):
         uploaded_files = [
             uf for uf in uploaded_files if uf["filename"] != safe_filename
         ]
-        uploaded_files.append({"filename": safe_filename, "storage_path": storage_path})
+
+        # Store file via StorageService (primary) or legacy /tmp fallback
+        if storage_service and db_session:
+            if file_limits:
+                from uuid import UUID as _UUID
+
+                try:
+                    entity_id = _UUID(collection_id)
+                except ValueError:
+                    from uuid_utils import uuid7
+
+                    entity_id = uuid7()
+
+                await file_limits.check_quota(
+                    db_session,
+                    storage_service,
+                    "ks_source",
+                    entity_id,
+                    len(file_bytes),
+                )
+                stored_file = await storage_service.save_file(
+                    db_session,
+                    content=file_bytes,
+                    filename=safe_filename,
+                    content_type=detected_mime or "application/octet-stream",
+                    entity_type="ks_source",
+                    entity_id=entity_id,
+                    backend_key=file_limits.backend_key_for("ks_source"),
+                    sub_path=f"ks/{collection_id}",
+                )
+            else:
+                from uuid_utils import uuid7
+
+                stored_file = await storage_service.save_file(
+                    db_session,
+                    content=file_bytes,
+                    filename=safe_filename,
+                    content_type=detected_mime or "application/octet-stream",
+                    entity_type="ks_source",
+                    entity_id=uuid7(),
+                    sub_path=f"ks/{collection_id}",
+                )
+
+            uploaded_files.append(
+                {
+                    "filename": safe_filename,
+                    "file_id": str(stored_file.id),
+                }
+            )
+        else:
+            # Legacy fallback: write to /tmp
+            collection_dir = os.path.join(KS_UPLOAD_DIR, collection_id)
+            await aiofiles.os.makedirs(collection_dir, exist_ok=True)
+            storage_path = os.path.join(collection_dir, safe_filename)
+
+            async with aiofiles.open(storage_path, "wb") as f:
+                await f.write(file_bytes)
+
+            uploaded_files.append(
+                {
+                    "filename": safe_filename,
+                    "storage_path": storage_path,
+                }
+            )
 
         source["uploaded_files"] = uploaded_files
         config["source"] = source
@@ -642,7 +906,6 @@ class KnowledgeSourceFileUploadController(Controller):
 
         return {
             "filename": safe_filename,
-            "storage_path": storage_path,
             "size": len(file_bytes),
         }
 
@@ -657,7 +920,13 @@ class KnowledgeSourceFileUploadController(Controller):
         return source.get("uploaded_files", [])
 
     @delete("/{filename:str}", status_code=HTTP_204_NO_CONTENT)
-    async def delete_uploaded_file(self, collection_id: str, filename: str) -> None:
+    async def delete_uploaded_file(
+        self,
+        collection_id: str,
+        filename: str,
+        storage_service: StorageService | None = None,
+        db_session: AsyncSession | None = None,
+    ) -> None:
         """Delete an uploaded file from a knowledge source."""
         collection_id = await self._validate_collection_id(collection_id)
         config = await store.get_collection_metadata(collection_id)
@@ -676,11 +945,20 @@ class KnowledgeSourceFileUploadController(Controller):
         if not target:
             raise NotFoundException(f"File '{safe_filename}' not found")
 
-        # Delete from disk
-        try:
-            await aiofiles.os.remove(target["storage_path"])
-        except FileNotFoundError:
-            pass
+        # Delete file — StorageService (soft-delete) or legacy disk removal
+        if "file_id" in target and storage_service and db_session:
+            from uuid import UUID as _UUID
+
+            stored_file = await storage_service.get(
+                db_session, _UUID(target["file_id"])
+            )
+            if stored_file:
+                await storage_service.delete_file(db_session, stored_file)
+        elif "storage_path" in target:
+            try:
+                await aiofiles.os.remove(target["storage_path"])
+            except FileNotFoundError:
+                pass
 
         # Update config
         uploaded_files = [

@@ -153,7 +153,7 @@ const handleDocumentClick = (_event: Event, row: Document) => {
 
 <style scoped>
 :deep(.q-table thead th) {
-  font-size: 14px;
+  font-size: var(--km-body-sm-size, 14px);
   font-weight: 600;
 }
 
@@ -166,11 +166,11 @@ const handleDocumentClick = (_event: Event, row: Document) => {
   position: sticky;
   right: 0;
   z-index: 1;
-  background: white;
+  background: var(--q-white);
 }
 
 :deep(tr:hover .sticky-col) {
-  background: white;
+  background: var(--q-white);
 }
 
 :deep(thead th:last-child) {

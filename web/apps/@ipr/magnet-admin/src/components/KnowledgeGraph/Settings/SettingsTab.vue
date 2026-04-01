@@ -47,14 +47,16 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import { KgDropdownField } from '../common'
+import type { KnowledgeGraphDetails } from '../types'
+import { useEntityQueries } from '@/queries/entities'
 
 interface Props {
   graphId: string
-  graphDetails: Record<string, any>
+  graphDetails: KnowledgeGraphDetails
 }
 
 const props = defineProps<Props>()
@@ -62,14 +64,17 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifyError } = useNotify()
+
+const queries = useEntityQueries()
+const { data: modelListData } = queries.model.useList()
 
 const embeddingModel = ref<string>('')
 const saving = ref(false)
 
 const embeddingModelOptions = computed(() => {
-  return (store.getters['chroma/model']?.items || []).filter((el: any) => el.type === 'embeddings')
+  return (modelListData.value?.items ?? []).filter((el: any) => el.type === 'embeddings')
 })
 
 const formatVectorSize = (opt: any): string | undefined => {
@@ -77,7 +82,7 @@ const formatVectorSize = (opt: any): string | undefined => {
   return size ? `${size} size vector` : undefined
 }
 
-const originalValues = ref<Record<string, any>>({})
+const originalValues = ref<KnowledgeGraphDetails['settings']>({})
 
 const initializeForm = () => {
   embeddingModel.value = props.graphDetails.settings?.indexing?.embedding_model ?? ''
@@ -98,7 +103,7 @@ const resetForm = () => {
 const saveSettings = async () => {
   saving.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
 
     const currentSettings = props.graphDetails?.settings && typeof props.graphDetails.settings === 'object' ? props.graphDetails.settings : {}
     const currentIndexing = currentSettings?.indexing && typeof currentSettings.indexing === 'object' ? currentSettings.indexing : {}
@@ -119,7 +124,7 @@ const saveSettings = async () => {
     })
 
     if (!res.ok) {
-      $q.notify({ type: 'negative', message: 'Failed to save settings' })
+      notifyError('Failed to save settings')
       return
     }
 
@@ -127,11 +132,8 @@ const saveSettings = async () => {
     originalValues.value = { embeddingModel: embeddingModel.value }
     emit('refresh')
   } catch (error) {
-    console.error('Error saving settings:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Error saving configuration',
-    })
+
+    notifyError('Error saving configuration')
   } finally {
     saving.value = false
   }

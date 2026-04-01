@@ -26,13 +26,19 @@ div
 </template>
 
 <script>
-import { useChroma } from '@shared'
+import { computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 
 export default {
   setup() {
-    const { items: promptTemplateItems } = useChroma('promptTemplates')
+    const queries = useEntityQueries()
+    const { data: promptTemplateData } = queries.promptTemplates.useList()
+    const promptTemplateItems = computed(() => promptTemplateData.value?.items ?? [])
+    const agentStore = useAgentDetailStore()
 
     return {
+      agentStore,
       promptTemplateItems,
     }
   },
@@ -51,10 +57,10 @@ export default {
     },
     topicProcessingPromptTemplate: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value.prompt_templates?.topic_processing
+        return this.agentStore.activeVariant?.value.prompt_templates?.topic_processing
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'prompt_templates.topic_processing', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'prompt_templates.topic_processing', value })
       },
     },
   },

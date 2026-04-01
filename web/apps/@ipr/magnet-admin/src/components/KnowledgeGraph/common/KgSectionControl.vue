@@ -44,11 +44,11 @@ defineEmits<{
 .kg-section-control :deep(.q-btn) {
   padding: 4px 8px;
   min-height: 24px;
-  font-size: 12px;
+  font-size: var(--km-caption-size, 12px);
   font-weight: 500;
 }
 
 .kg-section-control :deep(.q-btn .block) {
-  font-size: 12px;
+  font-size: var(--km-caption-size, 12px);
 }
 </style>

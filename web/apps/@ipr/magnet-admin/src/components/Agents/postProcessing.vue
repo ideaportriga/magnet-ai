@@ -49,8 +49,9 @@ div
 </template>
 
 <script>
-import { useChroma } from '@shared'
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 
 const intervals = [
   { label: '1 day', value: '1D' },
@@ -60,25 +61,18 @@ const intervals = [
 
 export default {
   setup() {
-    const { items: promptTemplateItems } = useChroma('promptTemplates')
-    const { getPaginated } = useChroma('jobs')
+    const agentStore = useAgentDetailStore()
+    const queries = useEntityQueries()
+    const { data: promptTemplateData } = queries.promptTemplates.useList()
+    const promptTemplateItems = computed(() => promptTemplateData.value?.items ?? [])
 
-    onMounted(() => {
-      console.log('mounted 123')
-      getPaginated({
-        page: 1,
-        limit: 1,
-        filter: {
-          'definition.run_configuration': { $eq: 'post_processing_conversations' },
-          'definition.run_configuration.params.is_system': { $eq: true },
-        },
-      })
-    })
+    // Jobs list with filter - TQ auto-fetches
+    queries.jobs.useList()
 
     return {
+      agentStore,
       promptTemplateItems,
       intervals,
-      getPaginated,
     }
   },
   computed: {
@@ -96,26 +90,26 @@ export default {
     },
     postProcessTemplate: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value.post_processing?.template
+        return this.agentStore.activeVariant?.value.post_processing?.template
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'post_processing.template', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'post_processing.template', value })
       },
     },
     postProcessing: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.post_processing?.enabled || false
+        return this.agentStore.activeVariant?.value?.post_processing?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'post_processing.enabled', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'post_processing.enabled', value })
       },
     },
     conversationClosureInterval: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.conversation_closure_interval || '1D'
+        return this.agentStore.activeVariant?.value?.settings?.conversation_closure_interval || '1D'
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.conversation_closure_interval', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.conversation_closure_interval', value })
       },
     },
   },

@@ -1,24 +1,16 @@
 <template lang="pug">
-.full-width.q-pb-lg(v-if='rows?.length')
+.column.full-height(v-if='data?.length', style='min-height: 0')
   .row.q-mb-12.q-gap-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='debouncedUpdateSearch', clearable) 
+      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     .col-auto
-      template(v-if='selected.length > 0')
+      template(v-if='selectedRows.length > 0')
         km-btn(@click='showDeleteDialog = true', icon='delete', flat, label='Delete')
     .col-auto
       km-btn(label='Add Tools', @click='showNewDialog = true')
-  km-table-new.full-width.fit(
-    :columns='columns',
-    dense,
-    :visibleColumns='visibleColumns',
-    :rows='visibleRows',
-    row-key='system_name',
-    selection='multiple',
-    @selectRow='handleRowClick',
-    v-model:selected='selected'
-  )
+  .col(style='min-height: 0')
+    km-data-table(:table='table', fill-height, row-key='system_name', @row-click='handleRowClick')
 template(v-else)
   .column.justify-center.items-center.full-width.full-height
     .col.q-pa-xl.bg-light.border-radius-12
@@ -43,54 +35,49 @@ km-popup-confirm(
 
 <script setup>
 import { computed, ref } from 'vue'
-import controls from '@/config/api_servers/tools'
 import { useRouter, useRoute } from 'vue-router'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
-import { debounce } from 'lodash'
+import { fetchData } from '@shared'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { selectionColumn, nameDescriptionColumn, chipCopyColumn } from '@/utils/columnHelpers'
+import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useAppStore } from '@/stores/appStore'
 
 const router = useRouter()
 const route = useRoute()
-const store = useStore()
-const q = useQuasar()
+const apiServerStore = useApiServerDetailStore()
+const appStore = useAppStore()
 const showNewDialog = ref(false)
-const searchString = ref('')
-const selected = ref([])
 const showDeleteDialog = ref(false)
 
-const visibleColumns = computed(() => {
-  return Object.keys(controls).filter((key) => controls[key])
-})
-const columns = computed(() => {
-  return Object.values(controls)
-})
+const data = computed(() => apiServerStore.entity?.tools ?? [])
 
-const rows = computed(() => {
-  return store.getters.api_server.tools
-})
-const debouncedUpdateSearch = debounce((value) => {
-  searchString.value = value
-}, 300)
+const columns = [
+  selectionColumn(),
+  nameDescriptionColumn('Name & Description'),
+  chipCopyColumn('System name'),
+]
 
-const visibleRows = computed(() => {
-  if (!searchString.value) return rows.value
-  const fields = ['name', 'description']
-  return rows.value.filter((item) => {
-    return fields.some((field) => {
-      return item[field].toLowerCase().includes(searchString.value.toLowerCase())
-    })
-  })
+const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(data, columns, {
+  enableRowSelection: true,
 })
 
 const handleRowClick = (row) => {
   router.push(`${route.path}/tools/${row.system_name}`)
 }
 
-const deleteSelected = () => {
-  const removedTools = selected.value.map((tool) => tool.system_name)
-  const remainingTools = rows.value.filter((tool) => !removedTools.includes(tool.system_name))
-  store.dispatch('updateTools', remainingTools)
-  selected.value = []
+const deleteSelected = async () => {
+  const removedTools = selectedRows.value.map((tool) => tool.system_name)
+  const remainingTools = data.value.filter((tool) => !removedTools.includes(tool.system_name))
+  const id = apiServerStore.entity?.id
+  await fetchData({
+    endpoint: appStore.config.api.aiBridge.urlAdmin,
+    service: `api_servers/${id}`,
+    method: 'PATCH',
+    credentials: 'include',
+    body: JSON.stringify({ tools: remainingTools }),
+  })
+  apiServerStore.updateProperty({ key: 'tools', value: remainingTools })
+  clearSelection()
   showDeleteDialog.value = false
 }
 </script>

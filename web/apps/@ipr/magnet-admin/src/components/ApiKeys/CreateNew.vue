@@ -23,7 +23,7 @@ q-dialog(:model-value='showNewDialog', @cancel='onCancel', @hide='onCancel')
             km-btn(label='Create API Key', @click='create', :disable='loading || !name')
       .column(v-if='step === 1')
         km-notification-text.q-mb-lg(
-          notification='For security reasons, this secret key is only displayed once and you won’t be able to view it again. Copy and save the key to a secure destination. If you lose this secret key, you will need to generate a new one.'
+          notification="For security reasons, this secret key is only displayed once and you won't be able to view it again. Copy and save the key to a secure destination. If you lose this secret key, you will need to generate a new one."
         )
         .row.q-gap-8.no-wrap.items-center
           .km-field.text-secondary-text.q-pl-8(style='white-space: nowrap') {{ name || 'Key' }}
@@ -38,13 +38,12 @@ q-dialog(:model-value='showNewDialog', @cancel='onCancel', @hide='onCancel')
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useChroma } from '@shared'
-import { useStore } from 'vuex'
+import { useEntityQueries } from '@/queries/entities'
 import { useQuasar, copyToClipboard } from 'quasar'
 
-const { create: createApiKey } = useChroma('api_keys')
+const queries = useEntityQueries()
+const { mutateAsync: createApiKey } = queries.api_keys.useCreate()
 
-const store = useStore()
 const name = ref('')
 const loading = ref(false)
 const key = ref('')
@@ -72,7 +71,6 @@ const create = () => {
       key.value = data.api_key
     })
     .catch((error) => {
-      console.log(error)
       q.notify({
         position: 'top',
         message: 'Error creating API Key',

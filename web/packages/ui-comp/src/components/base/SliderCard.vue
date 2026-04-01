@@ -82,7 +82,7 @@ export default defineComponent({
   computed: {
     inputNumber: {
       get() {
-        return this.modelValue
+        return this.modelValue != null ? String(this.modelValue) : ''
       },
       set(val) {
         // check number

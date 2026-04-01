@@ -57,10 +57,12 @@ km-popup-confirm(
       //- q-icon(name='close', @click="newRow.file = null", color='icon', size='24px')
 </template>
 <script>
-import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
+import { ref, reactive, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
+import { useEntityConfig } from '@/composables/useEntityConfig'
 
 export default {
   props: {
@@ -75,19 +77,21 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { items, searchString, create, config, requiredFields, ...useCollection } = useChroma('evaluation_sets')
-    const { publicItems } = useChroma('collections')
+    const queries = useEntityQueries()
+    const evalSetStore = useEvaluationSetDetailStore()
+    const { mutateAsync: createEntity } = queries.evaluation_sets.useCreate()
+
+    const entityConfig = useEntityConfig('evaluation_sets')
+    const config = computed(() => entityConfig.config || {})
+    const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
-      items,
-      searchString,
+      createEntity,
       config,
-      useCollection,
-      create,
+      requiredFields,
+      evalSetStore,
       loading: ref(false),
       createNew: ref(false),
-      collections: publicItems,
-      requiredFields,
       newRow: reactive({
         name: '',
         description: '',
@@ -116,13 +120,11 @@ export default {
       },
     },
     currentRaw() {
-      return this.$store.getters.evaluation_set
+      return this.evalSetStore.entity
     },
   },
   watch: {},
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.name = this.newRow.name + '_COPY'
@@ -147,9 +149,8 @@ export default {
 
       this.createNew = false
       this.loading = true
-      const { id: inserted_id } = await this.create(this.newRow)
-      await this.useCollection.selectRecord(inserted_id)
-      this.$store.commit('setEvaluationSet', this.newRow)
+      const { id: inserted_id } = await this.createEntity(this.newRow)
+      this.evalSetStore.setEntity(this.newRow)
       this.loading = false
       this.$router.push(`/evaluation-sets/${inserted_id}`)
     },
@@ -162,9 +163,10 @@ export default {
 
         if (notify) {
           this.$q.notify({
+            color: 'red-9', textColor: 'white',
+            icon: 'error',
+            group: 'error',
             message: `Name, System name and Knowledge sources are required`,
-            color: 'error-text',
-            position: 'top',
             timeout: 1000,
           })
         }
@@ -177,11 +179,6 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

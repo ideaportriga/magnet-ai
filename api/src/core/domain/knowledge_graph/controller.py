@@ -1,4 +1,4 @@
-import asyncio
+from core.server.background_tasks import spawn_background_task
 import logging
 import mimetypes
 import re
@@ -77,6 +77,8 @@ from services.knowledge_graph.retrievers.agent_retriever.agent import (
 from services.knowledge_graph.sources import FileUploadDataSource
 from services.knowledge_graph.sources.sync_services import sync_source_background
 from services.observability import observability_overrides, observe
+
+from storage import FileLimits, StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -227,18 +229,47 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         data: Annotated[UploadFile, Body(media_type=RequestEncodingType.MULTI_PART)],
         graph_id: UUID,
+        storage_service: "StorageService | None" = None,
+        file_limits: "FileLimits | None" = None,
     ) -> dict[str, str]:
         try:
             file_bytes = await data.read()
+            filename = data.filename or "upload"
+
+            # Persist file via StorageService (if available)
+            stored_file_id = None
+            if storage_service and file_limits:
+                file_limits.check_file_size(len(file_bytes), "kg_upload")
+                await file_limits.check_quota(
+                    db_session,
+                    storage_service,
+                    "kg_upload",
+                    graph_id,
+                    len(file_bytes),
+                )
+                stored_file = await storage_service.save_file(
+                    db_session,
+                    content=file_bytes,
+                    filename=filename,
+                    content_type=data.content_type or "application/octet-stream",
+                    entity_type="kg_upload",
+                    entity_id=graph_id,
+                    backend_key=file_limits.backend_key_for("kg_upload"),
+                    sub_path=f"kg/{graph_id}/uploads",
+                )
+                stored_file_id = str(stored_file.id)
+
             await FileUploadDataSource().upload_and_process_file(
                 db_session,
                 graph_id,
-                filename=data.filename,
+                filename=filename,
                 file_bytes=file_bytes,
             )
-            return {"status": "ok"}
+            result: dict[str, str] = {"status": "ok"}
+            if stored_file_id:
+                result["stored_file_id"] = stored_file_id
+            return result
         except ClientException:
-            # Re-raise known client exceptions untouched
             raise
         except Exception as e:  # noqa: BLE001
             raise ClientException(f"File upload failed: {e}")
@@ -254,6 +285,8 @@ class KnowledgeGraphController(Controller):
         db_session: AsyncSession,
         graph_id: UUID,
         data: KnowledgeGraphUploadUrlRequest,
+        storage_service: "StorageService | None" = None,
+        file_limits: "FileLimits | None" = None,
     ) -> dict[str, str]:
         url = (data.url or "").strip()
         if not url:
@@ -323,6 +356,29 @@ class KnowledgeGraphController(Controller):
             if guessed_ext:
                 filename = f"{filename}{guessed_ext}"
 
+        # Persist file via StorageService (if available)
+        stored_file_id = None
+        if storage_service and file_limits:
+            file_limits.check_file_size(len(file_bytes), "kg_upload")
+            await file_limits.check_quota(
+                db_session,
+                storage_service,
+                "kg_upload",
+                graph_id,
+                len(file_bytes),
+            )
+            stored_file = await storage_service.save_file(
+                db_session,
+                content=file_bytes,
+                filename=filename,
+                content_type=content_type or "application/octet-stream",
+                entity_type="kg_upload",
+                entity_id=graph_id,
+                backend_key=file_limits.backend_key_for("kg_upload"),
+                sub_path=f"kg/{graph_id}/uploads",
+            )
+            stored_file_id = str(stored_file.id)
+
         await FileUploadDataSource().upload_and_process_file(
             db_session,
             graph_id,
@@ -330,7 +386,10 @@ class KnowledgeGraphController(Controller):
             file_bytes=file_bytes,
         )
 
-        return {"status": "ok"}
+        result: dict[str, str] = {"status": "ok"}
+        if stored_file_id:
+            result["stored_file_id"] = stored_file_id
+        return result
 
     @post("/{graph_id:uuid}/retrieval/preview", status_code=HTTP_200_OK)
     async def preview_retrieval(
@@ -437,7 +496,12 @@ class KnowledgeGraphController(Controller):
         await db_session.commit()
 
         # Launch sync in background and return immediately to prevent stuck "syncing" status on page refresh
-        asyncio.create_task(sync_source_background(graph_id, source_id))
+        from core.server.background_tasks import spawn_background_task
+
+        spawn_background_task(
+            sync_source_background(graph_id, source_id),
+            name=f"sync-source-{source_id}",
+        )
         return {"status": "started", "message": "Sync started in background"}
 
     @observe(
@@ -650,8 +714,9 @@ class KnowledgeGraphController(Controller):
         flag_modified(graph_obj, "state")
         await db_session.commit()
 
-        asyncio.create_task(
-            run_entity_extraction_background(graph_id, data.model_dump())
+        spawn_background_task(
+            run_entity_extraction_background(graph_id, data.model_dump()),
+            name=f"entity-extraction-{graph_id}",
         )
         return {"status": "started"}
 

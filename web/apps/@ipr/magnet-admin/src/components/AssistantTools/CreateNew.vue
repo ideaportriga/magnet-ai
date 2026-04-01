@@ -29,9 +29,13 @@ km-popup-confirm(
     .km-description.text-secondary-text.q-py-8 Upload API Specification to generate Assistant Tool. File format: JSON or YAML
 </template>
 <script>
-import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
+import { ref, reactive, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
+import { fetchData } from '@shared'
+import { useAssistantToolDetailStore } from '@/stores/entityDetailStores'
+import { useAppStore } from '@/stores/appStore'
+import { useEntityConfig } from '@/composables/useEntityConfig'
 
 export default {
   props: {
@@ -46,18 +50,22 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { items, searchString, create, config, requiredFields, ...useCollection } = useChroma('assistant_tools')
-    const { publicItems } = useChroma('collections')
+    const queries = useEntityQueries()
+    const { mutateAsync: createEntity } = queries.assistant_tools.useCreate()
+    const assistToolStore = useAssistantToolDetailStore()
+    const appStore = useAppStore()
+
+    const entityConfig = useEntityConfig('assistant_tools')
+    const config = computed(() => entityConfig.config || {})
+    const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
-      items,
-      searchString,
+      createEntity,
+      assistToolStore,
+      appStore,
       config,
-      useCollection,
-      create,
-      createNew: ref(false),
-      collections: publicItems,
       requiredFields,
+      createNew: ref(false),
       newRow: reactive({}),
       autoChangeCode: ref(true),
       loading: ref(false),
@@ -65,13 +73,11 @@ export default {
   },
   computed: {
     currentRaw() {
-      return this.$store.getters.assistant_tool
+      return this.assistToolStore.entity
     },
   },
   watch: {},
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.name = this.newRow.name + '_COPY'
@@ -88,8 +94,26 @@ export default {
   },
   methods: {
     async getConfigs() {
-      const response = await this.$store.dispatch('getAssistantConfigFromFile', this.newRow)
-      return response || []
+      const endpoint = this.appStore.config?.search?.endpoint
+      const formData = new FormData()
+      const payload = { ...this.newRow }
+
+      if (payload.file) {
+        formData.append('file', payload.file)
+      }
+      delete payload.file
+
+      const response = await fetchData({
+        method: 'POST',
+        endpoint,
+        credentials: 'include',
+        service: 'assistant_tools/generate-from-openapi',
+        body: formData,
+        headers: {},
+      })
+      if (response.ok) return await response.json()
+      if (response.error) throw response
+      return []
     },
     validateFields() {
       const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
@@ -103,16 +127,15 @@ export default {
 
           await Promise.all(
             response.map(async (obj) => {
-              console.log(obj)
-              await this.create(JSON.stringify(obj))
+              await this.createEntity(obj)
             })
           )
 
           this.$q.notify({
-            position: 'top',
+            color: 'green-9', textColor: 'white',
+            icon: 'check_circle',
+            group: 'success',
             message: 'New assistant tool(s) have been added',
-            color: 'positive',
-            textColor: 'black',
             timeout: 1000,
           })
 
@@ -122,10 +145,10 @@ export default {
       } catch (error) {
         this.loading = false
         this.$q.notify({
-          position: 'top',
+          color: 'red-9', textColor: 'white',
+          icon: 'error',
+          group: 'error',
           message: error.message,
-          color: 'negative',
-          textColor: 'black',
           timeout: 1000,
         })
       }
@@ -135,11 +158,6 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

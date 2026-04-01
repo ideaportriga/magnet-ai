@@ -42,6 +42,11 @@ AUTH_ENABLED = auth_settings.AUTH_ENABLED
 VECTOR_DB_TYPE = db_connection_settings.VECTOR_DB_TYPE
 DEBUG_MODE = log_settings.DEBUG_MODE
 
+# Enable asyncio debug mode in development to detect blocking calls (>100ms)
+if DEBUG_MODE:
+    asyncio.get_event_loop().slow_callback_duration = 0.1  # 100ms
+    logger.info("asyncio slow_callback_duration set to 100ms (DEBUG_MODE=true)")
+
 
 def create_app() -> Litestar:
     """Create the Litestar application with plugins."""

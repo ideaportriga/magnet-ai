@@ -1,0 +1,92 @@
+{
+  "uid": "magnet-db-pools",
+  "title": "Database Connection Pools",
+  "tags": ["magnet-ai", "database", "pools"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Pool Utilization (async engine)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "{application=\"magnet-ai\"} |= \"pool_checkout\" | pattern `pool_checkout: checked_out=<checked_out> checked_in=<checked_in>` | unwrap checked_out",
+          "legendFormat": "checked_out",
+          "refId": "A"
+        },
+        {
+          "expr": "{application=\"magnet-ai\"} |= \"pool_checkin\" | pattern `pool_checkin: checked_out=<checked_out> checked_in=<checked_in>` | unwrap checked_in",
+          "legendFormat": "checked_in",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Pool Overflow Events",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "count_over_time({application=\"magnet-ai\", logger=\"magnet.db.pool\"} |= \"pool_overflow\" [1m])",
+          "legendFormat": "overflow events / min",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "custom": { "drawStyle": "bars" }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Database Errors",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "count_over_time({application=\"magnet-ai\", severity=\"error\"} |= \"Error executing query\" or |= \"Error fetching\" or |= \"Connection pool\" [5m])",
+          "legendFormat": "DB errors / 5m",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Background Tasks",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "count_over_time({application=\"magnet-ai\"} |= \"Background task\" |= \"failed\" [1h])",
+          "legendFormat": "Failed tasks / 1h",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Idle in Transaction (PostgreSQL)",
+      "description": "Requires pg_stat_activity access or log-based detection",
+      "type": "text",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 16 },
+      "options": {
+        "mode": "markdown",
+        "content": "### PostgreSQL idle_in_transaction monitoring\n\nQuery `pg_stat_activity` for idle-in-transaction connections:\n\n```sql\nSELECT count(*) FROM pg_stat_activity\nWHERE state = 'idle in transaction'\nAND query_start < now() - interval '60 seconds';\n```\n\nOr check the `/health/db` endpoint for real-time pool status."
+      }
+    }
+  ],
+  "time": { "from": "now-1h", "to": "now" }
+}

@@ -26,6 +26,7 @@ class _IngestItemLike(Protocol):
     text: str | None
     file_bytes: bytes | None
     source_metadata: dict[str, Any] | None
+    stored_file_id: str | None
 
 
 class ApiIngestDataSource(AbstractDataSource):
@@ -249,11 +250,17 @@ async def run_background_ingest(
                                 source_metadata=item.source_metadata,
                             )
                         elif item.kind == "file":
+                            file_bytes = item.file_bytes
+                            # Load from StorageService if bytes not in memory
+                            if not file_bytes and item.stored_file_id:
+                                file_bytes = await _load_stored_file_bytes(
+                                    session, item.stored_file_id
+                                )
                             await data_source.ingest_file(
                                 session,
                                 graph_id,
                                 filename=item.filename,
-                                file_bytes=item.file_bytes or b"",
+                                file_bytes=file_bytes or b"",
                                 source_metadata=item.source_metadata,
                             )
                         else:
@@ -303,3 +310,22 @@ async def run_background_ingest(
                 "error_type": type(exc).__name__,
             },
         )
+
+
+async def _load_stored_file_bytes(
+    db_session: AsyncSession, stored_file_id: str
+) -> bytes | None:
+    """Load file content from StorageService by stored_file_id."""
+    try:
+        from storage import StorageService
+
+        svc = StorageService()
+        stored = await svc.get(db_session, UUID(stored_file_id))
+        if stored:
+            return await svc.get_file_content(stored)
+    except Exception:
+        logger.exception(
+            "Failed to load stored file bytes",
+            extra={"stored_file_id": stored_file_id},
+        )
+    return None

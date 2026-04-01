@@ -1,12 +1,11 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height
-  .fit(style='overflow-y: auto')
-    .row.no-wrap.full-height.justify-center.fit
-      .col-auto.collection-container.full-width
-        .full-height.q-pb-md.relative-position.q-px-md.q-py-md
-          .border.border-radius-12.bg-white.ba-border.q-pa-16.q-gap-16.full-width
-            component(:is='component', ref='componentRef', @selectRow='selectRow', :selectedRow='selectedRow')
-  component(:is='drawer', :selectedRow='selectedRow', @close='selectedRow = null', @refresh='refresh')
+.row.no-wrap.full-height(style='overflow: hidden; width: 100%')
+  .col.column.no-wrap.full-height(style='min-width: 0; overflow: hidden')
+    .column.full-height.q-px-md.q-pt-16
+      .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
+        component(:is='component', ref='componentRef', @selectRow='selectRow', :selectedRow='selectedRow')
+  .col-auto(v-if='selectedRow')
+    component(:is='drawer', :selectedRow='selectedRow', @close='selectedRow = null', @refresh='refresh')
 </template>
 <script>
 import { ref } from 'vue'
@@ -14,12 +13,6 @@ import { useRoute } from 'vue-router'
 export default {
   setup() {
     const route = useRoute()
-    // const tab = ref('rag')
-    // const tabs = ref([
-    //   { name: 'rag', label: 'RAG Queries', icon: 'fas fa-file-circle-question' },
-    //   { name: 'agent', label: 'Agent Conversations', icon: 'fa fa-robot' },
-    //   { name: 'llm', label: 'LLM Calls', icon: 'fa fa-comment-dots' },
-    // ])
     return {
       route,
       selectedRow: ref(null),

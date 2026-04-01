@@ -79,10 +79,12 @@ km-popup-confirm(
           .km-description.text-secondary-text Dimension of the embedding vector (default: 1536). Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
 </template>
 <script>
-import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
+import { ref, reactive, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { useModelConfigDetailStore } from '@/stores/entityDetailStores'
+import { useEntityConfig } from '@/composables/useEntityConfig'
 
 export default {
   props: {
@@ -101,17 +103,22 @@ export default {
   },
   emits: ['cancel'],
   setup(props) {
-    const { items, searchString, create, config, requiredFields, ...useCollection } = useChroma('model')
-    const { items: providerItems } = useChroma('provider')
+    const modelConfigStore = useModelConfigDetailStore()
+    const queries = useEntityQueries()
+    const { mutateAsync: createEntity } = queries.model.useCreate()
+    const { data: providerData } = queries.provider.useList()
+
+    const providerItems = computed(() => providerData.value?.items ?? [])
+    const entityConfig = useEntityConfig('model')
+    const config = computed(() => entityConfig.config || {})
+    const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
-      items,
-      searchString,
+      modelConfigStore,
+      createEntity,
       config,
-      useCollection,
-      create,
-      createNew: ref(false),
       requiredFields,
+      createNew: ref(false),
       selectedProviderId: ref(null),
       newRow: reactive({
         provider_name: '',
@@ -172,9 +179,6 @@ export default {
       }
       return 'Create'
     },
-    providers() {
-      return this.store['chroma/provider'].items
-    },
     popupName() {
       if (this.type === 're-ranking') {
         return 'New Re-ranking Model'
@@ -212,7 +216,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.$store.getters['modelConfig/entity']
+      return this.modelConfigStore.entity
     },
     vectorSize: {
       get() {
@@ -228,8 +232,6 @@ export default {
   },
   watch: {},
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.display_name = this.newRow.display_name + '_COPY'
@@ -296,7 +298,7 @@ export default {
       if (!payload.price_output) payload.price_output = null
       if (!payload.price_cached) payload.price_cached = null
 
-      await this.create(JSON.stringify(payload))
+      await this.createEntity(payload)
       this.$emit('cancel')
     },
   },
@@ -304,11 +306,6 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

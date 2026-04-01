@@ -36,42 +36,43 @@
         dashboard-board-card(header='Consumer Requests')
           template(v-slot:body)
             .column.q-gap-16
-              km-table
+              km-data-table(:table='topTable', hide-pagination)
       .km-grid-1.q-mt-16(v-else)
         dashboard-board-card(header='Top request consumers')
           template(v-slot:body)
             .column.q-gap-16
-              km-table(:columns='topColumns', :rows='top', :pagination='{ rowsPerPage: 10 }', @cellAction='cellAction')
+              km-data-table(:table='topTable', hide-pagination, @row-click='topRowClick')
     template(v-if='tab === "list"')
       .column.q-gap-16.full-width
-        //- .row
-        //-   //- .col-auto.center-flex-y
-        //-   //-   km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
-        //-   q-space
-
-        km-table(
-          selection='single',
+        km-data-table(
+          :table='detailsTable',
           row-key='_id',
-          :rows='detailedList',
-          :columns='detailedColumns',
-          v-model:pagination='pagination',
-          @cellAction='cellAction',
-          @request='getDetailedList',
-          :selected='selectedRow ? [selectedRow] : []',
-          dense,
-          @selectRow='$emit("selectRow", $event)',
-          :filter='activeFilters',
-          :binary-state-sort='true'
+          :loading='detailsLoading',
+          hide-pagination,
+          @row-click='detailsRowClick'
         )
+        .row.items-center.q-px-md.q-py-sm.text-grey.ba-border(v-if='pagination.rowsNumber')
+          .km-description {{ pagination.rowsNumber }} record{{ pagination.rowsNumber !== 1 ? 's' : '' }}
+          q-space
+          .row.items-center.q-gap-8
+            span.km-description Rows per page: {{ pagination.rowsPerPage }}
+          .row.items-center.q-ml-md.q-gap-4
+            q-btn(flat, dense, round, icon='first_page', size='sm', :disable='pagination.page <= 1', @click='goToPage(1)')
+            q-btn(flat, dense, round, icon='chevron_left', size='sm', :disable='pagination.page <= 1', @click='goToPage(pagination.page - 1)')
+            span.km-description {{ pagination.page }} / {{ totalPages }}
+            q-btn(flat, dense, round, icon='chevron_right', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(pagination.page + 1)')
+            q-btn(flat, dense, round, icon='last_page', size='sm', :disable='pagination.page >= totalPages', @click='goToPage(totalPages)')
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed, h, markRaw } from 'vue'
 import filter from '@/config/dashboard/llm-filters'
 import topControls from '@/config/dashboard/llm-table'
 import { fetchData } from '@shared'
 import { formatDuration } from '@shared/utils'
+import { formatDateTime } from '@shared/utils/dateTime'
 import llmDetailsControls from '@/config/dashboard/llm-details-table'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 
 export default {
   props: {
@@ -81,6 +82,96 @@ export default {
     },
   },
   emits: ['selectRow'],
+
+  setup(props, { emit }) {
+    const top = ref([])
+    const detailedList = ref([])
+    const detailsLoading = ref(false)
+
+    // Top table columns
+    const topControlsObj = topControls
+    const topColumnsArr = Object.values(topControlsObj)
+
+    const topColumns = topColumnsArr.map((col) => {
+      const colDef = {
+        id: col.name,
+        accessorKey: col.field,
+        header: col.label,
+        enableSorting: col.sortable ?? false,
+        meta: { align: col.align ?? 'left' },
+      }
+      if (col.format) {
+        colDef.cell = ({ getValue }) => {
+          const val = getValue()
+          return val != null ? col.format(val) : '-'
+        }
+      }
+      return colDef
+    })
+
+    const { table: topTable } = useLocalDataTable(top, topColumns, {
+      defaultPageSize: 10,
+    })
+
+    // Details table columns
+    const detailsControlsObj = llmDetailsControls
+    const detailsColumnsArr = Object.values(detailsControlsObj).filter((col) => col.display)
+
+    const detailsColumns = detailsColumnsArr.map((col) => {
+      const colDef = {
+        id: col.name,
+        header: col.label,
+        enableSorting: col.sortable ?? false,
+        meta: {
+          align: col.align ?? 'left',
+          ...(col.headerStyle ? { width: col.headerStyle.replace('width: ', '').replace(';', '') } : {}),
+        },
+      }
+
+      if (col.type === 'component' && col.component) {
+        colDef.accessorFn = typeof col.field === 'function' ? col.field : (row) => row[col.field] ?? null
+        colDef.cell = ({ row }) => {
+          if (typeof col.component === 'function' && !col.component.__vccOpts && !col.component.setup && !col.component.render) {
+            return col.component({ row: row.original })
+          }
+          return h(col.component, { row: row.original })
+        }
+        colDef.meta.component = col.component
+      } else {
+        colDef.accessorFn = typeof col.field === 'function' ? col.field : (row) => row[col.field]
+        if (col.format) {
+          colDef.cell = ({ getValue }) => {
+            const val = getValue()
+            return val != null ? col.format(val) : '-'
+          }
+        }
+      }
+
+      if (col.sort) {
+        colDef.sortingFn = (a, b) => {
+          const aVal = typeof col.field === 'function' ? col.field(a.original) : a.original[col.field]
+          const bVal = typeof col.field === 'function' ? col.field(b.original) : b.original[col.field]
+          return col.sort(aVal, bVal)
+        }
+      }
+
+      return colDef
+    })
+
+    const { table: detailsTable } = useLocalDataTable(detailedList, detailsColumns, {
+      defaultPageSize: 999,
+      defaultSort: [{ id: 'start_time', desc: true }],
+    })
+
+    return {
+      top,
+      detailedList,
+      detailsLoading,
+      topTable,
+      detailsTable,
+    }
+  },
+
   data() {
     return {
       tab: ref('list'),
@@ -92,8 +183,6 @@ export default {
       summaryFilter: ref(Object.fromEntries(Object.entries(filter))),
       activeFilters: ref({}),
       observability: ref({}),
-      detailedList: ref([]),
-      top: ref([]),
       topControls: ref(topControls),
       pagination: ref({
         page: 1,
@@ -102,9 +191,14 @@ export default {
         descending: true,
       }),
       llmDetailsControls: ref(llmDetailsControls),
+      dashboardOptions: ref({}),
     }
   },
   computed: {
+    totalPages() {
+      if (!this.pagination.rowsNumber) return 1
+      return Math.ceil(this.pagination.rowsNumber / this.pagination.rowsPerPage)
+    },
     detailedColumns() {
       return Object.values(this.llmDetailsControls).filter((control) => control.display)
     },
@@ -112,7 +206,7 @@ export default {
       return Object.values(this.topControls)
     },
     endpoint() {
-      return this.$store.getters.config.api.aiBridge.urlAdmin
+      return this.$appConfig.api.aiBridge.urlAdmin
     },
     currentFilter: {
       get() {
@@ -147,6 +241,17 @@ export default {
     },
   },
   methods: {
+    goToPage(page) {
+      this.pagination.page = page
+      this.getDetailedList({ pagination: this.pagination })
+    },
+    topRowClick(row) {
+      this.setFilter('consumer_name', { label: row.name, value: row.name })
+      this.tab = 'list'
+    },
+    detailsRowClick(row) {
+      this.$emit('selectRow', row)
+    },
     cellAction(e) {
       if (e.action === 'drilldown') {
       } else if (e.action === 'select') {
@@ -179,7 +284,8 @@ export default {
         },
       })
       const data = await response.json()
-      this.$store.dispatch('setLlmDashboardOptions', data)
+      // Dashboard options stored locally — no longer dispatched to Vuex
+      this.dashboardOptions = data
     },
     async getTop() {
       const response = await fetchData({
@@ -201,7 +307,6 @@ export default {
       }
     },
     async getDetailedList(input) {
-      console.log('input', input?.pagination?.sortBy, input?.pagination?.descending)
       const props = input?.pagination ?? this.pagination
       const body = {
         limit: props.rowsPerPage,

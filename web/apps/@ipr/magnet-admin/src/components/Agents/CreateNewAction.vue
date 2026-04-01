@@ -9,7 +9,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           q-btn(icon='close', flat, dense, @click='$emit("cancel")')
     q-card-section.card-section-style.q-mb-md
       agents-tool-selection(v-model:selected='selected')
-        //- .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='max-height: calc(100vh - 360px) !important')
+        //- .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
         //-   .row
         //-     .col-auto.center-flex-y
         //-     km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
@@ -59,9 +59,10 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           km-btn(label='Add', @click='create')
 </template>
 <script>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 import { agentTopicActionsPopupColumns, agentTopicActionsAPIToolsPopupColumns } from '@/config/agents/topics'
 
 export default {
@@ -73,13 +74,26 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { visibleRows: api_servers } = useChroma('api_servers')
-    const { visibleRows: rag_tools } = useChroma('rag_tools')
-    const { visibleRows: retrieval_tools } = useChroma('retrieval')
-    const { visibleRows: prompt_templates } = useChroma('promptTemplates')
-    const { visibleRows: mcp_servers } = useChroma('mcp_servers')
+    const queries = useEntityQueries()
 
+    const { data: apiServersData } = queries.api_servers.useList()
+    const api_servers = computed(() => apiServersData.value?.items ?? [])
+
+    const { data: ragToolsData } = queries.rag_tools.useList()
+    const rag_tools = computed(() => ragToolsData.value?.items ?? [])
+
+    const { data: retrievalData } = queries.retrieval.useList()
+    const retrieval_tools = computed(() => retrievalData.value?.items ?? [])
+
+    const { data: promptTemplatesData } = queries.promptTemplates.useList()
+    const prompt_templates = computed(() => promptTemplatesData.value?.items ?? [])
+
+    const { data: mcpServersData } = queries.mcp_servers.useList()
+    const mcp_servers = computed(() => mcpServersData.value?.items ?? [])
+
+    const agentStore = useAgentDetailStore()
     return {
+      agentStore,
       searchString: ref(''),
       tabs: ref([
         { name: 'api', label: 'API Tools' },
@@ -105,7 +119,7 @@ export default {
       return this.$route.params
     },
     topic() {
-      return (this.$store.getters.agentDetailVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     actions() {
       return this.topic?.actions || []
@@ -136,7 +150,7 @@ export default {
         return this.selectionPromptName
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'prompt_templates.classification', value: value.system_name })
+        this.agentStore.updateNestedVariantProperty({ path: 'prompt_templates.classification', value: value.system_name })
       },
     },
   },
@@ -162,7 +176,7 @@ export default {
         }
       })
 
-      this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+      this.agentStore.updateNestedListItemBySystemName({
         arrayPath: 'topics',
         itemSystemName: this.topic?.system_name,
         data: {
@@ -171,10 +185,10 @@ export default {
       })
 
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'New action(s) have been added',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
 

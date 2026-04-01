@@ -1,4 +1,5 @@
-import store from '@/store'
+import { getCachedItems } from '@/queries/getCachedItems'
+import { useDashboardStore } from '@/stores/dashboardStore'
 
 const filter = {
   start_time: {
@@ -13,8 +14,9 @@ const filter = {
     label: 'Agent',
     key: 'feature_system_name',
     get options() {
-      if (store.getters.agentDashboardOptions?.tools) {
-        return store.getters.chroma.agents.items?.map((item) => ({ label: item.name, value: item.system_name })) ?? []
+      const dashboardStore = useDashboardStore()
+      if (dashboardStore.agentDashboardOptions?.tools) {
+        return getCachedItems('agents').map((item) => ({ label: item.name, value: item.system_name })) ?? []
       }
       return []
     },
@@ -39,7 +41,8 @@ const filter = {
     label: 'Consumer name',
     key: 'consumer_name',
     get options() {
-      return store.getters.agentDashboardOptions?.consumer_names?.map((name) => ({ label: name, value: name })) ?? []
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.agentDashboardOptions?.consumer_names?.map((name) => ({ label: name, value: name })) ?? []
     },
     search: true,
     multiple: true,
@@ -61,8 +64,9 @@ const filter = {
     key: 'conversation_data.topics',
     type: 'component',
     options: () => {
-      if (store.getters.agentDashboardOptions?.topics) {
-        return store.getters.agentDashboardOptions?.topics?.map((topic) => ({ label: topic, value: topic })) ?? []
+      const dashboardStore = useDashboardStore()
+      if (dashboardStore.agentDashboardOptions?.topics) {
+        return dashboardStore.agentDashboardOptions?.topics?.map((topic) => ({ label: topic, value: topic })) ?? []
       }
       return []
     },
@@ -106,7 +110,8 @@ const filter = {
     key: 'conversation_data.language',
     type: 'component',
     options: () => {
-      return store.getters.agentDashboardOptions?.languages?.map((language) => ({ label: language, value: language })) ?? []
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.agentDashboardOptions?.languages?.map((language) => ({ label: language, value: language })) ?? []
     },
   },
   ['conversation_data.sentiment']: {
@@ -124,7 +129,8 @@ const filter = {
     key: 'x_attributes.org-id',
     search: true,
     get options() {
-      return store.getters.agentDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.agentDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
     },
   },
 }

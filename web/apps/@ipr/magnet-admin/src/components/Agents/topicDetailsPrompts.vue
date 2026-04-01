@@ -11,22 +11,26 @@ div
 </template>
 
 <script>
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 export default {
   emits: ['openTest'],
-  setup() {},
+  setup() {
+    const agentStore = useAgentDetailStore()
+    return { agentStore }
+  },
   computed: {
     routeParams() {
       return this.$route.params
     },
     topic() {
-      return (this.$store.getters.agentDetailVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     system_name: {
       get() {
         return this.topic?.system_name || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -40,7 +44,7 @@ export default {
         return this.topic?.instructions || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -54,7 +58,7 @@ export default {
         return this.topic?.description || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {

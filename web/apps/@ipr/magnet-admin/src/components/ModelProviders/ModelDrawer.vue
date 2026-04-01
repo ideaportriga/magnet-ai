@@ -1,20 +1,21 @@
 <template lang="pug">
-.column.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
-  .col-auto.q-pt-16.q-px-16
-    q-tabs.bb-border.full-width(
-      v-model='tab',
-      narrow-indicator,
-      dense,
-      align='left',
-      active-color='primary',
-      indicator-color='primary',
-      active-bg-color='white',
-      no-caps,
-      content-class='km-tabs'
-    )
-      template(v-for='t in tabs')
-        q-tab(:name='t.name', :label='t.label')
-      .fit
+km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
+  template(#tabs)
+    .q-pt-16.q-px-16
+      q-tabs.bb-border.full-width(
+        v-model='tab',
+        narrow-indicator,
+        dense,
+        align='left',
+        active-color='primary',
+        indicator-color='primary',
+        active-bg-color='white',
+        no-caps,
+        content-class='km-tabs'
+      )
+        template(v-for='t in tabs')
+          q-tab(:name='t.name', :label='t.label')
+        .fit
   .col.overflow-auto
     .column.q-gap-16.q-pa-16(v-if='tab == "parameters"')
       .km-title General settings
@@ -64,11 +65,6 @@
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Vector Size
           km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
           .km-description.text-secondary-text.q-pl-8.q-pt-xs Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
-
-      // Features section for stt models
-      template(v-if='type === "stt"')
-        .km-title Features
-        km-checkbox(label='Diarization', :model-value='diarization', @update:model-value='diarization = $event')
 
     .column.q-gap-16.q-pa-16(v-if='tab == "pricing"')
       .km-title Inputs
@@ -319,21 +315,22 @@
           .text-secondary-text.q-mt-md Model information is not available
           .km-description.text-secondary-text.q-mt-xs Save the model first to load capabilities
 
-  .col-auto.q-pa-16
-    .row.items-center.q-gap-8
-      km-btn(
-        flat,
-        :label='testingModel ? "Testing..." : "Test Model"',
-        :loading='testingModel',
-        @click='testModel',
-        icon='fas fa-flask',
-        color='primary',
-        :disable='testingModel || isEntityChanged',
-        data-test='TestModel'
-      )
-      q-space
-      km-btn(v-if='isEntityChanged', flat, label='Cancel', color='primary', @click='cancelChanges', data-test='Cancel')
-      km-btn(v-if='isEntityChanged', label='Save', @click='save', data-test='Save')
+  template(#footer)
+    .q-pa-16.bt-border
+      .row.items-center.q-gap-8
+        km-btn(
+          flat,
+          :label='testingModel ? "Testing..." : "Test Model"',
+          :loading='testingModel',
+          @click='testModel',
+          icon='fas fa-flask',
+          color='primary',
+          :disable='testingModel || isEntityChanged',
+          data-test='TestModel'
+        )
+        q-space
+        km-btn(v-if='isEntityChanged', flat, label='Cancel', color='primary', @click='cancelChanges', data-test='Cancel')
+        km-btn(v-if='isEntityChanged', label='Save', @click='save', data-test='Save')
 
 //- Test Result Dialog
 q-dialog(v-model='showTestDialog')
@@ -354,13 +351,6 @@ q-dialog(v-model='showTestDialog')
       .q-pa-sm.bg-grey-2.rounded-borders(v-if='testResult?.response_preview')
         .km-field.text-secondary-text.q-mb-xs Response Preview
         .text-body2 {{ testResult?.response_preview }}
-      .q-pa-sm.bg-grey-2.rounded-borders.q-mt-sm(v-if='testResult?.response_audio_base64')
-        .km-field.text-secondary-text.q-mb-xs Audio Playback
-        audio(
-          controls,
-          style='width: 100%',
-          :src='`data:audio/${testResult.response_audio_format || "mp3"};base64,${testResult.response_audio_base64}`'
-        )
       .q-pa-sm.bg-negative-light.rounded-borders.q-mt-sm(v-if='testResult?.error')
         .km-field.text-negative.q-mb-xs Error Details
         .text-body2.text-negative {{ testResult?.error }}
@@ -394,15 +384,28 @@ q-dialog(v-model='showTestDialog')
 q-inner-loading(:showing='loading')
 </template>
 <script>
-import { ref, watch } from 'vue'
-import { useChroma } from '@shared'
+import { ref, watch, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { getEntityApis } from '@/api'
 import { categoryOptions } from '../../config/model/model.js'
+import { useModelConfigDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   setup() {
-    const { items, update, create, selectedRow, test, capabilities: capabilitiesAction, debugInfo: debugInfoAction, ...useCollection } = useChroma('model')
+    const modelConfigStore = useModelConfigDetailStore()
+    const queries = useEntityQueries()
+    const { data: listData } = queries.model.useList()
+    const { mutateAsync: updateEntity } = queries.model.useUpdate()
+    const { mutateAsync: createEntity } = queries.model.useCreate()
+    const items = computed(() => listData.value?.items ?? [])
+
+    const apis = getEntityApis()
+    const testModelAction = (id) => apis.model.test(id)
+    const capabilitiesAction = (id) => apis.model.capabilities(id)
+    const debugInfoAction = (id) => apis.model.debugInfo(id)
 
     return {
+      modelConfigStore,
       tab: ref('parameters'),
       tabs: ref([
         { name: 'parameters', label: 'Parameters' },
@@ -423,24 +426,22 @@ export default {
       capabilities: ref(null),
       debugInfo: ref(null),
       items,
-      update,
-      create,
-      selectedRow,
-      useCollection,
-      testModelAction: test,
+      updateEntity,
+      createEntity,
+      testModelAction,
       capabilitiesAction,
       debugInfoAction,
     }
   },
   computed: {
     modelConfig() {
-      return this.$store.getters['modelConfig/entity']
+      return this.modelConfigStore.entity
     },
     modelId() {
       return this.modelConfig?.id
     },
     isEntityChanged() {
-      return this.$store.getters['modelConfig/isEntityChanged']
+      return this.modelConfigStore.isChanged
     },
     // Get all models from store for fallback selection
     allModels() {
@@ -472,7 +473,7 @@ export default {
         return this.modelConfig?.display_name || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'display_name', value })
+        this.modelConfigStore.updateProperty( { key: 'display_name', value })
       },
     },
     description: {
@@ -480,7 +481,7 @@ export default {
         return this.modelConfig?.description || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'description', value })
+        this.modelConfigStore.updateProperty( { key: 'description', value })
       },
     },
     system_name: {
@@ -488,7 +489,7 @@ export default {
         return this.modelConfig?.system_name || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'system_name', value })
+        this.modelConfigStore.updateProperty( { key: 'system_name', value })
       },
     },
     provider: {
@@ -496,7 +497,7 @@ export default {
         return this.modelConfig?.provider_name || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'provider_name', value })
+        this.modelConfigStore.updateProperty( { key: 'provider_name', value })
       },
     },
     provider_system_name: {
@@ -504,7 +505,7 @@ export default {
         return this.modelConfig?.provider_system_name || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'provider_system_name', value })
+        this.modelConfigStore.updateProperty( { key: 'provider_system_name', value })
       },
     },
     model: {
@@ -512,7 +513,7 @@ export default {
         return this.modelConfig?.ai_model || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'ai_model', value })
+        this.modelConfigStore.updateProperty( { key: 'ai_model', value })
       },
     },
     type: {
@@ -520,7 +521,7 @@ export default {
         return this.modelConfig?.type || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'type', value })
+        this.modelConfigStore.updateProperty( { key: 'type', value })
       },
     },
     is_default: {
@@ -528,7 +529,7 @@ export default {
         return this.modelConfig?.is_default || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'is_default', value })
+        this.modelConfigStore.updateProperty( { key: 'is_default', value })
       },
     },
     json_mode: {
@@ -536,7 +537,7 @@ export default {
         return this.modelConfig?.json_mode || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'json_mode', value })
+        this.modelConfigStore.updateProperty( { key: 'json_mode', value })
       },
     },
     json_schema: {
@@ -544,15 +545,7 @@ export default {
         return this.modelConfig?.json_schema || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'json_schema', value })
-      },
-    },
-    diarization: {
-      get() {
-        return this.modelConfig?.diarization || false
-      },
-      set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'diarization', value })
+        this.modelConfigStore.updateProperty( { key: 'json_schema', value })
       },
     },
     tool_calling: {
@@ -560,7 +553,7 @@ export default {
         return this.modelConfig?.tool_calling || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'tool_calling', value })
+        this.modelConfigStore.updateProperty( { key: 'tool_calling', value })
       },
     },
     reasoning: {
@@ -568,7 +561,7 @@ export default {
         return this.modelConfig?.reasoning || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'reasoning', value })
+        this.modelConfigStore.updateProperty( { key: 'reasoning', value })
       },
     },
     price_input_unit_name: {
@@ -576,7 +569,7 @@ export default {
         return this.modelConfig?.price_input_unit_name || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_input_unit_name', value })
+        this.modelConfigStore.updateProperty( { key: 'price_input_unit_name', value })
       },
     },
     price_standard_input: {
@@ -584,7 +577,7 @@ export default {
         return this.modelConfig?.price_input || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_input', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty( { key: 'price_input', value: parseFloat(value) })
       },
     },
     price_standard_input_unit_count: {
@@ -592,7 +585,7 @@ export default {
         return this.modelConfig?.price_standard_input_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_standard_input_unit_count', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty( { key: 'price_standard_input_unit_count', value: parseFloat(value) })
       },
     },
     price_cached_input: {
@@ -600,7 +593,7 @@ export default {
         return this.modelConfig?.price_cached || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty( { key: 'price_cached', value: parseFloat(value) })
       },
     },
     price_cached_input_unit_count: {
@@ -608,7 +601,7 @@ export default {
         return this.modelConfig?.price_cached_input_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached_input_unit_count', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty( { key: 'price_cached_input_unit_count', value: parseFloat(value) })
       },
     },
     price_output_unit_name: {
@@ -616,7 +609,7 @@ export default {
         return this.modelConfig?.price_output_unit_name || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_output_unit_name', value })
+        this.modelConfigStore.updateProperty( { key: 'price_output_unit_name', value })
       },
     },
     price_standard_output: {
@@ -624,7 +617,7 @@ export default {
         return this.modelConfig?.price_output || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_output', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty( { key: 'price_output', value: parseFloat(value) })
       },
     },
     price_standard_output_unit_count: {
@@ -632,7 +625,7 @@ export default {
         return this.modelConfig?.price_standard_output_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_standard_output_unit_count', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty( { key: 'price_standard_output_unit_count', value: parseFloat(value) })
       },
     },
     price_reasoning_output: {
@@ -640,7 +633,7 @@ export default {
         return this.modelConfig?.price_reasoning || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning', value: parseFloat(value) || null })
+        this.modelConfigStore.updateProperty( { key: 'price_reasoning', value: parseFloat(value) || null })
       },
     },
     price_reasoning_output_unit_count: {
@@ -648,7 +641,7 @@ export default {
         return this.modelConfig?.price_reasoning_output_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning_output_unit_count', value: parseFloat(value) || null })
+        this.modelConfigStore.updateProperty( { key: 'price_reasoning_output_unit_count', value: parseFloat(value) || null })
       },
     },
     is_active: {
@@ -656,7 +649,7 @@ export default {
         return this.modelConfig?.is_active !== false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'is_active', value })
+        this.modelConfigStore.updateProperty( { key: 'is_active', value })
       },
     },
 
@@ -665,7 +658,7 @@ export default {
         return this.modelConfig?.resources || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'resources', value })
+        this.modelConfigStore.updateProperty( { key: 'resources', value })
       },
     },
     vectorSize: {
@@ -676,7 +669,7 @@ export default {
       set(value) {
         const configs = this.modelConfig?.configs || {}
         const newConfigs = { ...configs, vector_size: parseInt(value) || 1536 }
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'configs', value: newConfigs })
+        this.modelConfigStore.updateProperty( { key: 'configs', value: newConfigs })
       },
     },
     // Routing Config computed properties
@@ -799,28 +792,29 @@ export default {
       }
       // If config is empty, set it to null
       const finalConfig = Object.keys(newConfig).length > 0 ? newConfig : null
-      this.$store.commit('modelConfig/updateEntityProperty', { key: 'routing_config', value: finalConfig })
+      this.modelConfigStore.updateProperty( { key: 'routing_config', value: finalConfig })
     },
     async save() {
       this.loading = true
       try {
-        await this.$store.dispatch('modelConfig/saveEntity')
-        this.$q.notify({
-          position: 'top',
-          message: 'Model has been saved.',
-          color: 'positive',
-          textColor: 'black',
-          timeout: 1000,
-        })
+        const entity = this.modelConfigStore.entity
+        if (!entity) throw new Error('No model to save')
+        const data = { ...entity }
+        const id = data.id
+        delete data.id
+        delete data.created_at
+        delete data.updated_at
+        delete data.created_by
+        delete data.updated_by
+        if (id) {
+          await this.updateEntity({ id, data })
+        } else {
+          await this.createEntity(data)
+        }
+        this.modelConfigStore.setInit()
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Model has been saved.', timeout: 1000 })
       } catch (error) {
-        console.error('Error saving model:', error)
-        this.$q.notify({
-          position: 'top',
-          message: 'Error saving model.',
-          color: 'negative',
-          textColor: 'white',
-          timeout: 2000,
-        })
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Error saving model.', timeout: 2000 })
       } finally {
         this.loading = false
       }
@@ -828,13 +822,7 @@ export default {
     async testModel() {
       const modelId = this.modelConfig?.id
       if (!modelId) {
-        this.$q.notify({
-          position: 'top',
-          message: 'Please save the model first before testing.',
-          color: 'warning',
-          textColor: 'black',
-          timeout: 2000,
-        })
+        this.$q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: 'Please save the model first before testing.', timeout: 2000 })
         return
       }
 
@@ -842,17 +830,11 @@ export default {
       this.testResult = null
 
       try {
-        // Use store dispatch directly if testModelAction is not available
-        let result
-        if (this.testModelAction) {
-          result = await this.testModelAction(modelId)
-        } else {
-          result = await this.$store.dispatch('chroma/test', { payload: modelId, entity: 'model' })
-        }
+        const result = await this.testModelAction(modelId)
         this.testResult = result
         this.showTestDialog = true
       } catch (error) {
-        console.error('Error testing model:', error)
+
         this.testResult = {
           success: false,
           message: 'Failed to test model',
@@ -864,7 +846,7 @@ export default {
       }
     },
     cancelChanges() {
-      this.$store.commit('modelConfig/revertEntity')
+      this.modelConfigStore.revert()
     },
     goToDefaultModels() {
       this.$router.push({ name: 'ModelProviders', query: { tab: 'DefaultModels' } })
@@ -876,12 +858,7 @@ export default {
         return
       }
       try {
-        let result
-        if (this.debugInfoAction) {
-          result = await this.debugInfoAction(modelId)
-        } else {
-          result = await this.$store.dispatch('chroma/debugInfo', { payload: modelId, entity: 'model' })
-        }
+        const result = await this.debugInfoAction(modelId)
         this.debugInfo = result
       } catch {
         this.debugInfo = null
@@ -895,15 +872,10 @@ export default {
       }
 
       try {
-        let result
-        if (this.capabilitiesAction) {
-          result = await this.capabilitiesAction(modelId)
-        } else {
-          result = await this.$store.dispatch('chroma/capabilities', { payload: modelId, entity: 'model' })
-        }
+        const result = await this.capabilitiesAction(modelId)
         this.capabilities = result
       } catch (error) {
-        console.error('Error fetching model capabilities:', error)
+
         this.capabilities = null
       }
     },

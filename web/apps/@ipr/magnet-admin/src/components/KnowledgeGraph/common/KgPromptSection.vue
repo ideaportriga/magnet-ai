@@ -79,8 +79,8 @@ const props = withDefaults(defineProps<Props>(), {
   icon: 'format_quote',
   iconColor: 'primary',
   variant: 'section',
-  borderColor: '#e8e8e8',
-  backgroundColor: '#fafafa',
+  borderColor: 'var(--q-border)',
+  backgroundColor: 'var(--q-background)',
   collapse: false,
   expanded: false,
 })
@@ -136,11 +136,11 @@ const onFocusOut = () => {
 <style scoped>
 /* Section variant styles */
 :deep(.q-field__control:before) {
-  border-radius: 8px !important;
+  border-radius: var(--radius-lg) !important;
 }
 
 :deep(.km-input:not(.q-field--readonly).q-field--outlined.q-field--highlighted .q-field__control::before) {
-  background: white !important;
+  background: var(--q-white) !important;
 }
 
 :deep(.km-input:not(.q-field--readonly) .q-field__control:hover::before) {
@@ -161,21 +161,21 @@ const onFocusOut = () => {
 
 /* Field variant styles */
 .kg-prompt-field {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
   position: relative;
 }
 
 .kg-prompt-field__inner {
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   border: 2px solid transparent;
   transition: border-color 0.36s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .kg-prompt-field__expansion {
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 .kg-prompt-field__expansion :deep(.q-expansion-item__container) {
@@ -185,7 +185,7 @@ const onFocusOut = () => {
 .kg-prompt-field__expansion :deep(.kg-prompt-field__header) {
   padding: 12px 16px;
   min-height: 48px;
-  background: #fafafa;
+  background: var(--q-background);
   width: 100%;
   display: flex;
   justify-content: space-between;
@@ -201,28 +201,28 @@ const onFocusOut = () => {
 
 .kg-prompt-field__static {
   padding: 12px 16px 16px;
-  background: #fafafa;
+  background: var(--q-background);
 }
 
 .kg-prompt-field__textarea :deep(.q-field__control) {
-  background: white;
-  border-radius: 6px !important;
+  background: var(--q-white);
+  border-radius: var(--radius-md) !important;
   padding: 0;
 }
 
 .kg-prompt-field__textarea :deep(.q-field__control::before) {
   border: 1px solid var(--q-control-border) !important;
-  border-radius: 6px !important;
-  background: white !important;
+  border-radius: var(--radius-md) !important;
+  background: var(--q-white) !important;
   margin: 0px -12px -12px -12px !important;
 }
 
 .kg-prompt-field__textarea :deep(.q-field__control:hover::before) {
-  border-color: #b0b0b0;
+  border-color: var(--q-border-2);
 }
 
 .kg-prompt-field__textarea :deep(.q-field--focused .q-field__control::before) {
-  border-color: #d0d7de;
+  border-color: var(--q-border-2);
   border-width: 1px;
 }
 
@@ -233,14 +233,14 @@ const onFocusOut = () => {
 .kg-prompt-field__textarea :deep(textarea) {
   padding: 5px 12px 0 12px;
   line-height: 1.6;
-  font-size: 13px;
-  color: #24292f;
+  font-size: var(--km-font-size-label);
+  color: var(--q-black);
   resize: none;
   overflow: hidden;
 }
 
 .kg-prompt-field__textarea :deep(textarea::placeholder) {
-  color: #8b949e;
+  color: var(--q-icon);
 }
 
 .kg-prompt-field__textarea :deep(.q-field__marginal) {

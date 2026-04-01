@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime
 from typing import BinaryIO, Optional, Literal
 from datetime import timezone
 from ..models import FileData
-from utils.upload_handler import get_read_url
+from utils.upload_handler import get_read_url_via_storage
 
 from stores import get_db_store
 
@@ -245,6 +244,7 @@ class PgDataStorage:
             raise RuntimeError(f"Database has no object_key for file {file_id}")
 
         object_key = row["object_key"]
-        url = await asyncio.to_thread(get_read_url, object_key)
+        # Use StorageService-based signed URL if available (obstore), else Azure SDK
+        url = await get_read_url_via_storage(object_key)
 
         return url

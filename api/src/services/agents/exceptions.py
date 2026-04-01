@@ -4,8 +4,10 @@ Provides specific exception types for different failure scenarios
 so callers can handle them appropriately.
 """
 
+from core.exceptions import ApplicationError
 
-class AgentError(Exception):
+
+class AgentError(ApplicationError):
     """Base exception for all agent-related errors."""
 
 

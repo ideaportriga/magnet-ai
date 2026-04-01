@@ -42,10 +42,10 @@ km-popup-confirm(
       )
 </template>
 <script>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { columnsSettings } from '@/config/evaluation_sets/evaluation_set_records'
 import { uid } from 'quasar'
-import { useChroma } from '@shared'
+import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: {
@@ -53,7 +53,8 @@ export default {
   },
   emits: ['cancel', 'addRecord'],
   setup() {
-    const { selectedRow: selectedEvaluationSet } = useChroma('evaluation_sets')
+    const evalSetStore = useEvaluationSetDetailStore()
+    const selectedEvaluationSet = computed(() => evalSetStore.entity)
     return {
       createNew: ref(false),
       newRow: ref({
@@ -99,11 +100,6 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

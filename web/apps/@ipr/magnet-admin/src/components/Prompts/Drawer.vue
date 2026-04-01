@@ -1,12 +1,12 @@
 <template lang="pug">
-.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(style='max-width: 500px; min-width: 500px !important; overflow-x: hidden')
-  .column.full-height.full-width.no-wrap
-    .col-auto.km-heading-7.q-mb-xs
+km-drawer-layout(storageKey="drawer-prompts", noScroll)
+  template(#header)
+    .km-heading-7
       .row
         .col Preview
         .col-auto
           km-btn(flat, simple, label='Evaluate', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
-    q-separator.q-mb-md
+  .column.full-height.full-width.no-wrap.q-px-16
     .col-auto(style='overflow-x: auto')
       .row.items-center.q-mb-xs
         .col
@@ -175,7 +175,6 @@
     type='prompt_template',
     disable-prompt-selection
   )
-  //- TODO: Add a new component for this (same as in Configuration/Drawer.vue)
   km-popup-confirm(
     :visible='showEvaluationCreateDialog',
     confirmButtonLabel='View Evaluation',
@@ -186,7 +185,7 @@
   )
     .row.item-center.justify-center.km-heading-7 Evaluation has started!
     .row.text-center.justify-center It may take some time for the Evaluation to finish.
-    .row.text-center.justify-center You’ll be able to view run results on the Evaluation screen.
+    .row.text-center.justify-center You'll be able to view run results on the Evaluation screen.
   km-popup-confirm(
     :visible='showDetails',
     title='Costs & Latency',
@@ -200,7 +199,9 @@
 <script>
 import { defineComponent, ref } from 'vue'
 import { copyToClipboard } from 'quasar'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useSpecificationsStore } from '@/stores/specificationsStore'
 import { fetchData } from '@shared'
 import { useScribe } from '@/composables/useScribe'
 import { useAudioUpload } from '@/composables/useAudioUpload'
@@ -210,10 +211,12 @@ export default defineComponent({
   props: ['open'],
   emits: ['update:open'],
   setup() {
-    const store = useStore()
+    const promptStore = usePromptTemplateDetailStore()
+    const appStore = useAppStore()
+    const specsStore = useSpecificationsStore()
     const scribe = useScribe({ modelId: 'scribe_v2_realtime' })
     const audioUpload = useAudioUpload({
-      endpoint: () => store.getters.config?.api?.aiBridge?.urlAdmin ?? '',
+      endpoint: () => appStore.config?.api?.aiBridge?.urlAdmin ?? '',
       credentials: 'include',
       language: 'en',
     })
@@ -223,7 +226,9 @@ export default defineComponent({
     const md = new MarkdownIt({ html: false, breaks: true })
 
     return {
-      store,
+      promptStore,
+      appStore,
+      specsStore,
       scribe,
       audioUpload,
       isLoadingToken,
@@ -248,16 +253,16 @@ export default defineComponent({
   },
   computed: {
     selectedRow() {
-      return this.$store.getters.promptTemplate
+      return this.promptStore.entity
     },
     selectedRowDetails() {
-      return { name: this.$store.getters.promptTemplate?.name, ...this.$store.getters.promptTemplateVariant }
+      return { name: this.promptStore.entity?.name, ...this.promptStore.activeVariant }
     },
     promptSystemName() {
       return this.selectedRow?.system_name
     },
     promptTemplateTestSetItem() {
-      return this.$store.getters.promptTemplateTestSetItem
+      return this.promptStore.testSetItem
     },
     inputOptions() {
       return [
@@ -346,7 +351,7 @@ export default defineComponent({
       return base ? (suffix ? `${base}\n\n${suffix}` : base) : suffix
     },
     async getScribeToken() {
-      const endpoint = this.store.getters.config.api.aiBridge.urlAdmin
+      const endpoint = this.appStore.config.api.aiBridge.urlAdmin
       const response = await fetchData({
         method: 'GET',
         endpoint,
@@ -420,13 +425,7 @@ export default defineComponent({
     },
     copy() {
       copyToClipboard(this.text || '')
-      this.$q.notify({
-        position: 'top',
-        message: 'Output has been copied to clipboard',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Output has been copied to clipboard', timeout: 1000 })
     },
     clearText() {
       this.text = undefined
@@ -440,7 +439,7 @@ export default defineComponent({
       this.selectedInputOption = null
 
       this.detailedResponse =
-        (await this.$store.dispatch('enhanceTextDetails', {
+        (await this.specsStore.enhanceTextDetails({
           name: this.selectedRowDetails?.name,
           text: this?.testText || '',
           prompt: this.selectedRowDetails?.text || '',
@@ -476,7 +475,7 @@ export default defineComponent({
         )
         this.testText = parsedTexts.join('\n\n')
       } catch (error) {
-        console.error('Error parsing files:', error)
+
       }
       this.selectedInputOption = null
       this.files = []
@@ -484,8 +483,8 @@ export default defineComponent({
     },
 
     async parsePdf(file) {
-      console.log('parsePdf', file)
-      const endpoint = this.store.getters.config.api.aiBridge.urlAdmin
+
+      const endpoint = this.appStore.config.api.aiBridge.urlAdmin
       const formData = new FormData()
 
       if (!file) {
@@ -528,7 +527,7 @@ export default defineComponent({
   min-height: 120px
   max-height: 220px
   overflow-y: auto
-  font-size: 12px
+  font-size: var(--km-font-size-caption)
 
 .prompt-locked :deep(.prompt-var-chip)
   display: inline-flex
@@ -536,7 +535,7 @@ export default defineComponent({
   padding: 2px 8px
   margin: 2px 2px
   border-radius: 4px
-  font-size: 12px
+  font-size: var(--km-font-size-caption)
   font-weight: 500
   border: 1px solid var(--q-primary)
   color: var(--q-primary)
@@ -573,7 +572,7 @@ export default defineComponent({
   background: rgba(0, 0, 0, 0.06)
   border-radius: 4px
   padding: 2px 6px
-  font-size: 12px
+  font-size: var(--km-font-size-caption)
 
 .prompt-locked :deep(pre)
   padding: 12px
@@ -588,23 +587,23 @@ export default defineComponent({
 .prompt-locked :deep(h6)
   margin: 12px 0 6px 0
   line-height: 1.3
-  font-size: 18px
+  font-size: var(--km-font-size-h2)
   font-weight: 600
 
 .prompt-locked :deep(h2)
-  font-size: 16px
+  font-size: var(--km-font-size-body-lg)
 
 .prompt-locked :deep(h3)
   font-size: 15px
 
 .prompt-locked :deep(h4)
-  font-size: 14px
+  font-size: var(--km-font-size-body)
 
 .prompt-locked :deep(h5)
-  font-size: 13px
+  font-size: var(--km-font-size-label)
 
 .prompt-locked :deep(h6)
-  font-size: 12px
+  font-size: var(--km-font-size-caption)
 
 .prompt-locked :deep(h1:first-child),
 .prompt-locked :deep(h2:first-child),

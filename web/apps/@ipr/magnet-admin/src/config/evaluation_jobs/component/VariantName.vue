@@ -22,6 +22,7 @@ template(v-if='variants')
 <script>
 import { defineComponent } from 'vue'
 import { typeOptions } from '@/config/evaluation_sets/evaluation_sets'
+import { getCachedItems } from '@/queries/getCachedItems'
 
 export default defineComponent({
   inheritAttrs: false,
@@ -53,7 +54,7 @@ export default defineComponent({
   },
   methods: {
     getModelName(system_name) {
-      const objModel = this.$store.getters['chroma/model'].items?.find((model) => model.system_name == system_name)
+      const objModel = getCachedItems('model')?.find((model) => model.system_name == system_name)
       return objModel?.display_name || ''
     },
     getVariantLabel(variant) {

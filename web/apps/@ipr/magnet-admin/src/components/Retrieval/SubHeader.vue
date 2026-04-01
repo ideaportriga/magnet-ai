@@ -44,44 +44,47 @@ q-separator.q-my-sm
     km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariant', :disable='variants?.length === 1')
 
   prompts-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
-  q-inner-loading(:showing='loading')
+  km-inner-loading(:showing='loading')
 </template>
 
 <script>
 import { ref } from 'vue'
+import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   setup() {
+    const retrievalStore = useRetrievalDetailStore()
     return {
+      retrievalStore,
       loading: ref(false),
       showNewDialog: ref(false),
     }
   },
   computed: {
     isActive() {
-      return this.$store.getters.selectedRetrievalVariant == this.$store.getters.retrieval?.active_variant
+      return this.retrievalStore.selectedVariant == this.retrievalStore.entity?.active_variant
     },
     selected_variant: {
       get() {
-        return this.getVariantLabel(this.$store.getters.selectedRetrievalVariant)
+        return this.getVariantLabel(this.retrievalStore.selectedVariant)
       },
       set(value) {
-        this.$store.commit('setSelectedRetrievalVariant', value.value)
+        this.retrievalStore.setSelectedVariant(value.value)
       },
     },
     variants() {
-      return this.$store.getters.retrieval?.variants?.map((el) => ({
+      return this.retrievalStore.entity?.variants?.map((el) => ({
         label: this.getVariantLabel(el.variant),
         value: el.variant,
-        active_variant: el.variant == this.$store.getters.retrieval?.active_variant,
+        active_variant: el.variant == this.retrievalStore.entity?.active_variant,
       }))
     },
     variant_description: {
       get() {
-        return this.$store.getters.retrievalVariant?.description
+        return this.retrievalStore.activeVariant?.description
       },
       set(value) {
-        this.$store.commit('updateNestedRetrievalProperty', { path: 'description', value })
+        this.retrievalStore.updateNestedVariantProperty({ path: 'description', value })
       },
     },
   },
@@ -92,8 +95,9 @@ export default {
     confirm(message, callback) {
       this.$q.notify({
         message,
-        color: 'error-text',
-        position: 'top',
+        color: 'red-9', textColor: 'white',
+        icon: 'error',
+        group: 'error',
         timeout: 0,
         actions: [
           {
@@ -108,13 +112,7 @@ export default {
             color: 'white',
             handler: () => {
               callback()
-              this.$q.notify({
-                position: 'top',
-                message: 'Variant has been deleted.',
-                color: 'positive',
-                textColor: 'black',
-                timeout: 1000,
-              })
+              this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Variant has been deleted.', timeout: 1000 })
             },
           },
         ],
@@ -125,27 +123,15 @@ export default {
       return `Variant ${match?.[1]}`
     },
     activateVariant() {
-      this.$store.commit('activateRetrievalVariant')
-      this.$q.notify({
-        position: 'top',
-        message: 'Variant has been activated.',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
+      this.retrievalStore.activateVariant()
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Variant has been activated.', timeout: 1000 })
     },
     addVariant() {
-      this.$store.commit('createRetrievalVariant')
-      this.$q.notify({
-        position: 'top',
-        message: 'New variant has been added.',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
+      this.retrievalStore.createVariant()
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'New variant has been added.', timeout: 1000 })
     },
     deleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.$store.commit('deleteRetrievalVariant'))
+      this.confirm('Are you sure you want to delete this variant?', () => this.retrievalStore.deleteVariant())
     },
   },
 }

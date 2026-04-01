@@ -242,8 +242,8 @@ const onConfirm = () => {
 /* Value Options Section */
 .value-options-container {
   border: 1px solid var(--q-control-border);
-  border-radius: 6px;
-  background: #fff;
+  border-radius: var(--radius-md);
+  background: var(--q-white);
   overflow: hidden;
 }
 
@@ -260,10 +260,10 @@ const onConfirm = () => {
   align-items: center;
   gap: 5px;
   padding: 5px 9px 5px 7px;
-  background: white;
+  background: var(--q-white);
   border: 1px solid var(--q-control-border);
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: var(--radius-md);
+  font-size: var(--km-font-size-label);
   cursor: default;
   transition: all 0.2s ease;
   user-select: none;
@@ -276,11 +276,11 @@ const onConfirm = () => {
 
 .value-option-text {
   font-weight: 500;
-  color: #444;
+  color: var(--q-label);
 }
 
 .value-option-remove {
-  color: #999;
+  color: var(--q-icon);
   opacity: 0;
   transition: all 0.15s ease;
   margin-left: 2px;
@@ -291,7 +291,7 @@ const onConfirm = () => {
 }
 
 .value-option-remove:hover {
-  color: #c00;
+  color: var(--q-error);
 }
 
 .value-options-input-row {

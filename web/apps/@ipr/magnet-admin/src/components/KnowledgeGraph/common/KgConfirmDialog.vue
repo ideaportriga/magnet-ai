@@ -98,7 +98,7 @@ const dialogStyle = computed(() => ({
   display: flex;
   flex-direction: column;
   padding: 24px;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
 }
 
 .kg-confirm-dialog__icon {
@@ -108,22 +108,22 @@ const dialogStyle = computed(() => ({
   width: 36px;
   height: 36px;
   min-width: 36px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
 }
 
 .kg-confirm-dialog__icon--error {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--q-error-bg);
+  color: var(--q-error);
 }
 
 .kg-confirm-dialog__icon--warning {
-  background: #fef3c7;
-  color: #d97706;
+  background: var(--q-warning-bg);
+  color: var(--q-warning);
 }
 
 .kg-confirm-dialog__icon--info {
-  background: #dbeafe;
-  color: #2563eb;
+  background: var(--q-primary-bg);
+  color: var(--q-primary);
 }
 
 .kg-confirm-dialog__header,
@@ -134,18 +134,18 @@ const dialogStyle = computed(() => ({
 }
 
 .kg-confirm-dialog__title {
-  font-size: 16px;
+  font-size: var(--km-font-size-body-lg);
   font-weight: 600;
   line-height: 1.3;
-  color: #111827;
+  color: var(--q-black);
 }
 
 .kg-confirm-dialog__description {
   margin-top: 14px;
   padding-left: 2px !important;
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   line-height: 1.5;
-  color: #4b5563;
+  color: var(--q-secondary-text);
 }
 
 .kg-confirm-dialog__content {

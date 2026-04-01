@@ -68,14 +68,14 @@ defineEmits<{
 
 .kg-tile-select {
   transition: all 0.2s ease;
-  border-color: #e0e0e0;
+  border-color: var(--q-border);
 }
 
 .kg-tile-select:hover,
 .kg-tile-select--selected {
   color: var(--q-primary);
   border-color: var(--q-primary);
-  background-color: color-mix(in srgb, var(--q-primary) 10%, white);
+  background-color: var(--q-primary-transparent);
 }
 
 .kg-tile-select:hover :deep(.q-icon) {

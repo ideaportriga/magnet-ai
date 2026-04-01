@@ -10,7 +10,7 @@ export default {
     },
     name: {
       type: String,
-      required: true,
+      default: '',
     },
     color: {
       type: String,
@@ -23,6 +23,7 @@ export default {
   },
   computed: {
     label() {
+      if (!this.name) return ''
       const keys = this.name.split('.')
       let value = this.row
       for (const key of keys) {

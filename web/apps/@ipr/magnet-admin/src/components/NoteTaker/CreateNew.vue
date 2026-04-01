@@ -37,9 +37,9 @@ km-popup-confirm(
 
 <script setup>
 import { ref, watch } from 'vue'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
 import { required, toUpperCaseWithUnderscores } from '@shared'
+import { useNoteTakerStore } from '@/stores/noteTakerStore'
+import { useNotify } from '@/composables/useNotify'
 
 const props = defineProps({
   showNewDialog: {
@@ -49,8 +49,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['cancel', 'created'])
-const store = useStore()
-const $q = useQuasar()
+const ntStore = useNoteTakerStore()
+const { notifySuccess, notifyError } = useNotify()
 
 const name = ref('')
 const system_name = ref('')
@@ -72,32 +72,20 @@ const createConfig = async () => {
   if (!validateFields()) return
 
   try {
-    const result = await store.dispatch('createNoteTakerSettings', {
+    const result = await ntStore.createSettings({
       name: name.value,
       system_name: system_name.value,
       description: '',
     })
 
-    $q.notify({
-      position: 'top',
-      message: 'Note Taker settings have been created',
-      color: 'positive',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    notifySuccess('Note Taker settings have been created')
 
     name.value = ''
     system_name.value = ''
 
     emit('created', result?.id || result?.system_name)
   } catch (error) {
-    $q.notify({
-      position: 'top',
-      message: error?.message || 'Failed to create settings',
-      color: 'positive',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    notifyError(error?.message || 'Failed to create settings')
   }
 }
 </script>

@@ -75,20 +75,23 @@ div
 
 <script>
 import { isEqual } from 'lodash'
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: ['prompt', 'selectedRow'],
   emits: ['setProp', 'save', 'cancel', 'remove', 'openTest'],
 
   setup() {
-    const { publicItems, publicSelected, publicSelectedOptionsList } = useChroma('collections')
+    const queries = useEntityQueries()
+    const promptStore = usePromptTemplateDetailStore()
+    const { data: modelListData } = queries.model.useList()
+    const modelItems = computed(() => modelListData.value?.items ?? [])
 
     return {
-      publicItems,
-      publicSelected,
-      publicSelectedOptionsList,
+      promptStore,
+      modelItems,
       test: ref(true),
       iconPicker: ref(false),
       showError: ref(false),
@@ -103,7 +106,6 @@ export default {
       reRankingLlmModel: ref(''),
       cacheCollection: ref('Helpdesk Cache'),
       allowBypassCache: ref(false),
-      collections: publicItems,
       observabilityLevelOptions: ref([
         { label: 'Full (input/output included)', value: 'full' },
         { label: 'Metadata only (tokens, cost, latency)', value: 'metadata-only' },
@@ -114,10 +116,10 @@ export default {
   computed: {
     observabilityLevel: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.observability_level || 'full'
+        return this.promptStore.activeVariant?.observability_level || 'full'
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'observability_level', value })
+        this.promptStore.updateNestedVariantProperty({ path: 'observability_level', value })
       },
     },
     observabilityLevelDescription() {
@@ -130,31 +132,31 @@ export default {
     },
     temperature: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.temperature
+        return this.promptStore.activeVariant?.temperature
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'temperature', value })
+        this.promptStore.updateNestedVariantProperty({ path: 'temperature', value })
       },
     },
     maxTokens: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.maxTokens || null
+        return this.promptStore.activeVariant?.maxTokens || null
       },
       set(value) {
         const intValue = parseInt(value, 10)
 
         if (!isNaN(intValue)) {
-          this.$store.commit('updateNestedPromptTemplateProperty', { path: 'maxTokens', value: intValue })
+          this.promptStore.updateNestedVariantProperty({ path: 'maxTokens', value: intValue })
         }
       },
     },
 
     topP: {
       get() {
-        return this.$store.getters.promptTemplateVariant?.topP
+        return this.promptStore.activeVariant?.topP
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'topP', value })
+        this.promptStore.updateNestedVariantProperty({ path: 'topP', value })
       },
     },
     model: {
@@ -162,21 +164,21 @@ export default {
         return this.model_name || ''
       },
       set(value) {
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'system_name_for_model', value: value.system_name })
-        // TODO: remove this when the backend is updated to use system_name_for_model. This is for supporting the old model field
-        this.$store.commit('updateNestedPromptTemplateProperty', { path: 'model', value: value.model })
+        this.promptStore.updateNestedVariantProperty({ path: 'system_name_for_model', value: value.system_name })
+        // Backward compat: keep old `model` field in sync until backend fully migrates to system_name_for_model
+        this.promptStore.updateNestedVariantProperty({ path: 'model', value: value.model })
       },
     },
     model_name() {
-      if (this.$store.getters.promptTemplateVariant?.system_name_for_model) {
-        return (this.modelOptions ?? []).find((el) => el?.system_name === this.$store.getters.promptTemplateVariant?.system_name_for_model)
+      if (this.promptStore.activeVariant?.system_name_for_model) {
+        return (this.modelOptions ?? []).find((el) => el?.system_name === this.promptStore.activeVariant?.system_name_for_model)
           ?.display_name
       }
-      // TODO: remove this when the backend is updated to use system_name_for_model. This is for supporting the old model field
-      return (this.modelOptions ?? []).find((el) => el.model === this.$store.getters.promptTemplateVariant?.model)?.display_name
+      // Backward compat: fall back to old `model` field until backend fully migrates to system_name_for_model
+      return (this.modelOptions ?? []).find((el) => el.model === this.promptStore.activeVariant?.model)?.display_name
     },
     modelOptions() {
-      return (this.$store.getters['chroma/model'].items || [])
+      return (this.modelItems || [])
         .filter((el) => el.type === 'prompts')
         .sort((a, b) => a.display_name.localeCompare(b.display_name))
     },

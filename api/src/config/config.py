@@ -14,8 +14,17 @@ def load_env():
 
     env = os.environ
 
-    # TODO - Define required env variables
+    current_env = env.get("ENV", "").lower()
+    is_production = current_env not in ("", "development", "dev", "local")
+
     required_env_variables = []
+    if is_production:
+        required_env_variables = [
+            "DATABASE_URL",
+            "SECRET_KEY",
+            "SECRET_ENCRYPTION_KEY",
+        ]
+
     missing_env_variables = [var for var in required_env_variables if var not in env]
     if missing_env_variables:
         MISSING_VARS = ", ".join(missing_env_variables)
@@ -23,4 +32,16 @@ def load_env():
             "The following required environment variables are not defined: %s",
             MISSING_VARS,
         )
-        sys.exit(0)
+        sys.exit(1)
+
+    insecure_defaults = {
+        "SECRET_ENCRYPTION_KEY": "my-secret-key-tsmh5r",
+    }
+    for var, insecure_value in insecure_defaults.items():
+        if env.get(var) == insecure_value and is_production:
+            logger.error(
+                "%s is set to an insecure default value. "
+                "Set a strong value in production.",
+                var,
+            )
+            sys.exit(1)

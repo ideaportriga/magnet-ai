@@ -27,18 +27,14 @@ template(v-if='group')
           component(:is='subheader.component', :row='props.row')
       q-tr.cursor-pointer(:props='props', :className='activeRecordId == props.row?.id ? `bg-control-hover-bg` : ""', v-show='props.expand')
         q-td.ba-border.padding-0(:colspan='columns.length + 1')
-          km-table-new.fit(
-            flat,
-            virtual-scroll,
+          km-table.fit(
+            fill-height,
             :rows='props?.row?.records || []',
             :columns='columns',
-            table-header-class='bg-secondary-bg',
             :row-key='rowKey',
             :selection='selection',
             v-model:selected='selectedCalc',
-            :selected-rows-label='() => ""',
-            v-bind='visible',
-            title-class='text-left',
+            :visibleColumns='visibleColumns',
             hide-bottom
           )
 template(v-else)

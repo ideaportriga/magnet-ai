@@ -118,20 +118,22 @@
 </template>
 <script setup>
 import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 import { copyToClipboard } from 'quasar'
 
-const store = useStore()
+const agentStore = useAgentDetailStore()
+const appStore = useAppStore()
 
 const themeOptions = ref([
   { label: 'Oracle Redwood', value: 'siebel' },
   { label: 'Salesforce', value: 'salesforce' },
 ])
 const system_name = computed(() => {
-  return store.getters.agent_detail?.system_name || ''
+  return agentStore.entity?.system_name || ''
 })
 const appUrl = computed(() => {
-  let panelUrl = `${store.getters.config?.panel?.baseUrl}/#/?agent=${system_name.value}`
+  let panelUrl = `${appStore.config?.panel?.baseUrl}/#/?agent=${system_name.value}`
 
   if (panelUrl.startsWith('/')) {
     panelUrl = `${window.location.origin}${panelUrl}`
@@ -142,37 +144,37 @@ const appUrl = computed(() => {
 
 const enable_iframe = computed({
   get() {
-    return store.getters.agent_detail?.channels?.web?.enabled || false
+    return agentStore.entity?.channels?.web?.enabled || false
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.enabled', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.web.enabled', value: value })
   },
 })
 
 const theme = computed({
   get() {
-    const theme = store.getters.agent_detail?.channels?.web?.theme || 'siebel'
+    const theme = agentStore.entity?.channels?.web?.theme || 'siebel'
     return themeOptions.value.find((option) => option.value === theme)
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.theme', value: value.value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.web.theme', value: value.value })
   },
 })
 const show_close_button = computed({
   get() {
-    const web = store.getters.agent_detail?.channels?.web
+    const web = agentStore.entity?.channels?.web
     return web.hasOwnProperty('show_close_button') ? web.show_close_button : false
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.show_close_button', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.web.show_close_button', value: value })
   },
 })
 const isIconHide = computed({
   get() {
-    return !store.getters.agent_detail?.channels?.web?.is_icon_hide
+    return !agentStore.entity?.channels?.web?.is_icon_hide
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.web.is_icon_hide', value: !value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.web.is_icon_hide', value: !value })
   },
 })
 
@@ -187,143 +189,141 @@ const copy = () => {
 // Teams
 const enable_ms_teams = computed({
   get() {
-    return store.getters.agent_detail?.channels?.ms_teams?.enabled || false
+    return agentStore.entity?.channels?.ms_teams?.enabled || false
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.ms_teams.enabled', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.ms_teams.enabled', value: value })
   },
 })
 const ms_teams_client_id = computed({
   get() {
-    return store.getters.agent_detail?.channels?.ms_teams?.client_id || ''
+    return agentStore.entity?.channels?.ms_teams?.client_id || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.ms_teams.client_id', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.ms_teams.client_id', value: value })
   },
 })
 const ms_teams_tenant_id = computed({
   get() {
-    return store.getters.agent_detail?.channels?.ms_teams?.tenant_id || ''
+    return agentStore.entity?.channels?.ms_teams?.tenant_id || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.ms_teams.tenant_id', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.ms_teams.tenant_id', value: value })
   },
 })
 const ms_teams_secret_value = computed({
   get() {
-    return store.getters.agent_detail?.channels?.ms_teams?.secret_value || ''
+    return agentStore.entity?.channels?.ms_teams?.secret_value || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.ms_teams.secret_value', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.ms_teams.secret_value', value: value })
   },
 })
 
 const has_ms_teams_secret_value = computed(() => {
-  // TODO: map to actual secrets when we have them
-  return store.getters.agent_detail?.channels?.ms_teams?.secret_value_encrypted || false
+  return agentStore.entity?.channels?.ms_teams?.secret_value_encrypted || false
 })
 
 // Slack
 const enable_slack = computed({
   get() {
-    return store.getters.agent_detail?.channels?.slack?.enabled || false
+    return agentStore.entity?.channels?.slack?.enabled || false
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.enabled', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.enabled', value: value })
   },
 })
 const slack_client_id = computed({
   get() {
-    return store.getters.agent_detail?.channels?.slack?.client_id || ''
+    return agentStore.entity?.channels?.slack?.client_id || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.client_id', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.client_id', value: value })
   },
 })
 const slack_token = computed({
   get() {
-    return store.getters.agent_detail?.channels?.slack?.token || ''
+    return agentStore.entity?.channels?.slack?.token || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.token', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.token', value: value })
   },
 })
 
 const slack_client_secret = computed({
   get() {
-    return store.getters.agent_detail?.channels?.slack?.client_secret || ''
+    return agentStore.entity?.channels?.slack?.client_secret || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.client_secret', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.client_secret', value: value })
   },
 })
 const slack_signing_secret = computed({
   get() {
-    return store.getters.agent_detail?.channels?.slack?.signing_secret || ''
+    return agentStore.entity?.channels?.slack?.signing_secret || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.signing_secret', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.signing_secret', value: value })
   },
 })
 
 const slack_scopes = computed({
   get() {
-    return store.getters.agent_detail?.channels?.slack?.agent_scopes || ''
+    return agentStore.entity?.channels?.slack?.agent_scopes || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.slack.agent_scopes', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.agent_scopes', value: value })
   },
 })
 const has_slack_encryptes = computed(() => {
-  // TODO: map to actual secrets when we have them
   return {
-    token: store.getters.agent_detail?.channels?.slack?.token_encrypted || false,
-    signing_secret: store.getters.agent_detail?.channels?.slack?.signing_secret_encrypted || false,
-    client_secret: store.getters.agent_detail?.channels?.slack?.client_secret_encrypted || false,
+    token: agentStore.entity?.channels?.slack?.token_encrypted || false,
+    signing_secret: agentStore.entity?.channels?.slack?.signing_secret_encrypted || false,
+    client_secret: agentStore.entity?.channels?.slack?.client_secret_encrypted || false,
   }
 })
 
 const enable_whatsapp = computed({
   get() {
-    return store.getters.agent_detail?.channels?.whatsapp?.enabled || false
+    return agentStore.entity?.channels?.whatsapp?.enabled || false
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.whatsapp.enabled', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.whatsapp.enabled', value: value })
   },
 })
 const whatsapp_phone_number_id = computed({
   get() {
-    return store.getters.agent_detail?.channels?.whatsapp?.phone_number_id || ''
+    return agentStore.entity?.channels?.whatsapp?.phone_number_id || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.whatsapp.phone_number_id', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.whatsapp.phone_number_id', value: value })
   },
 })
 const whatsapp_token = computed({
   get() {
-    return store.getters.agent_detail?.channels?.whatsapp?.token || ''
+    return agentStore.entity?.channels?.whatsapp?.token || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.whatsapp.token', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.whatsapp.token', value: value })
   },
 })
 const whatsapp_app_secret = computed({
   get() {
-    return store.getters.agent_detail?.channels?.whatsapp?.app_secret || ''
+    return agentStore.entity?.channels?.whatsapp?.app_secret || ''
   },
   set(value) {
-    store.dispatch('updateNestedHighLevelAgentDetailProperty', { path: 'channels.whatsapp.app_secret', value: value })
+    agentStore.updateHighLevelNestedProperty({ path: 'channels.whatsapp.app_secret', value: value })
   },
 })
 const has_whatsapp_encrypted = computed(() => {
   return {
-    token: store.getters.agent_detail?.channels?.whatsapp?.token_encrypted || false,
-    app_secret: store.getters.agent_detail?.channels?.whatsapp?.app_secret_encrypted || false,
+    token: agentStore.entity?.channels?.whatsapp?.token_encrypted || false,
+    app_secret: agentStore.entity?.channels?.whatsapp?.app_secret_encrypted || false,
   }
 })
 
 const slackInstallUrl = computed(() => {
-  const baseUrl = store.getters.config?.api?.aiBridge?.urlUser
+  const baseUrl = appStore.config?.api?.aiBridge?.urlUser
   if (!baseUrl) return null
   return `${baseUrl}/agents/slack/install?agent=${encodeURIComponent(system_name.value)}`
 })
@@ -333,7 +333,7 @@ const isSlackInstallDisabled = computed(() => {
   return !hasClientId || !slackInstallUrl.value
 })
 const openSlackInstall = () => {
-  window.open(`${store.getters.config?.api?.aiBridge?.urlUser}/agents/slack/install?agent=${system_name.value}`, '_blank')
+  window.open(`${appStore.config?.api?.aiBridge?.urlUser}/agents/slack/install?agent=${system_name.value}`, '_blank')
 }
 
 const openHelp = () => {

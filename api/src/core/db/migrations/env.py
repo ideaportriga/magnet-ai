@@ -49,6 +49,18 @@ from core.db.models.teams.note_taker_job import NoteTakerJob  # noqa: F401
 from core.db.models.teams.note_taker_settings import NoteTakerSettings  # noqa: F401
 from core.db.models.trace import Trace  # noqa: F401
 from core.db.models.transcription.transcription import Transcription  # noqa: F401
+from core.db.models.user import (  # noqa: F401
+    EmailVerificationToken,
+    Group,
+    PasswordResetToken,
+    RefreshToken,
+    Role,
+    User,
+    UserGroup,
+    UserOAuthAccount,
+    UserRole,
+)
+from storage.models import StoredFile  # noqa: F401
 
 # Add the src directory to the Python path
 # src_path = Path(__file__).parent.parent.parent

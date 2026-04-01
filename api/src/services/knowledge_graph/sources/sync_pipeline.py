@@ -205,6 +205,11 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             name: asyncio.Semaphore(int(limit))
             for name, limit in (self.config.semaphores or {}).items()
         }
+        # Built-in semaphore to cap concurrent DB sessions across all workers
+        # and prevent connection pool exhaustion.
+        self._db_session_semaphore = asyncio.Semaphore(
+            self.config.max_concurrent_db_sessions
+        )
 
         ctx: SyncPipelineContext[ListTaskT, ContentTaskT, ProcessTaskT] = (
             SyncPipelineContext(
@@ -465,7 +470,7 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         graph_uuid = graph_id if isinstance(graph_id, UUID) else UUID(str(graph_id))
         source_id_str = str(source_id)
 
-        async with async_session_maker() as session:
+        async with self._db_session_semaphore, async_session_maker() as session:
             docs_table = docs_table_name(graph_uuid)
             result = await session.execute(
                 text(

@@ -1,62 +1,63 @@
 <template lang="pug">
-.no-wrap.full-height(style='max-width: 500px; min-width: 500px !important')
-  .row.full-height
-    .col.full-height
-      .column.full-height.q-pa-16.bg-white.bl-border
-        .row.items-center
-          km-btn(
-            flat,
-            simple,
-            :label='`Back to Agent Preview`',
-            iconSize='16px',
-            icon='fas fa-arrow-left',
-            @click='activeTopic = null',
-            color='secondary-text'
-          )
-
-        q-separator.q-mb-md
-        .km-heading-4.q-mb-lg Topic details
-        .km-field.text-secondary-text.q-pb-sm.q-pl-8 Name
-          km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='name')
-        .km-field.text-secondary-text.q-pb-sm.q-pl-8 System name
-          km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='system_name')
-        .km-field.text-secondary-text.q-pb-sm.q-pl-8 Description for LLM
-          km-input(ref='input', rows='10', border-radius='8px', height='36px', type='textarea', v-model='description')
-        .row.items-center.justify-end
-          .km-button-text.q-mb-xs.q-ml-sm.text-text-gray
-          km-btn(
-            flat,
-            iconAfter='fas fa-arrow-right',
-            @click='openTopicDetails',
-            iconSize='16px',
-            color='secondary-text',
-            label='More details & Actions'
-          )
+km-drawer-layout(storageKey="drawer-agents-topic")
+  template(#header)
+    .row.items-center
+      km-btn(
+        flat,
+        simple,
+        :label='`Back to Agent Preview`',
+        iconSize='16px',
+        icon='fas fa-arrow-left',
+        @click='activeTopic = null',
+        color='secondary-text'
+      )
+    .km-heading-4.q-mt-md Topic details
+  .km-field.text-secondary-text.q-pb-sm.q-pl-8 Name
+    km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='name')
+  .km-field.text-secondary-text.q-pb-sm.q-pl-8 System name
+    km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='system_name')
+  .km-field.text-secondary-text.q-pb-sm.q-pl-8 Description for LLM
+    km-input(ref='input', rows='10', border-radius='8px', height='36px', type='textarea', v-model='description')
+  .row.items-center.justify-end
+    .km-button-text.q-mb-xs.q-ml-sm.text-text-gray
+    km-btn(
+      flat,
+      iconAfter='fas fa-arrow-right',
+      @click='openTopicDetails',
+      iconSize='16px',
+      color='secondary-text',
+      label='More details & Actions'
+    )
 </template>
 
 <script>
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 export default {
+  setup() {
+    const agentStore = useAgentDetailStore()
+    return { agentStore }
+  },
   computed: {
     routeParams() {
       return this.$route.params
     },
     activeTopic: {
       get() {
-        return this.$store.getters.activeTopic
+        return this.agentStore.activeTopic
       },
       set(value) {
-        this.$store.commit('setActiveTopic', value)
+        this.agentStore.activeTopic = value
       },
     },
     topic() {
-      return (this.$store.getters.agentDetailVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.activeTopic?.topic)
+      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.activeTopic?.topic)
     },
     name: {
       get() {
         return this.topic?.name || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -71,16 +72,16 @@ export default {
       },
       set(value) {
         if (!value?.length) return
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
             system_name: value,
           },
         })
-        this.$store.commit('setActiveTopic', {
+        this.agentStore.activeTopic = {
           topic: value,
-        })
+        }
       },
     },
     instructions: {
@@ -88,7 +89,7 @@ export default {
         return this.topic?.instructions || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -102,7 +103,7 @@ export default {
         return this.topic?.description || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {

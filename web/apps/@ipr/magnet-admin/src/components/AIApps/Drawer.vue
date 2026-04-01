@@ -1,11 +1,9 @@
 <template lang="pug">
-.bg-white.full-height.column.no-wrap
-  .col-auto.km-heading-7.q-pt-16.q-px-16
+km-drawer-layout(storageKey='drawer-ai-apps-preview', :defaultWidth='520', :maxWidth='1200', noScroll)
+  template(#header)
     .row
       .col Preview
       .col-auto
-  .q-mb-16.q-px-16
-    q-separator
   .col.relative-position.full-height
     iframe.absolute-full(
       v-if='iframeSrc',
@@ -25,22 +23,23 @@
 <script>
 import { ref } from 'vue'
 import { useState } from '@shared'
+import { useAiAppDetailStore } from '@/stores/entityDetailStores'
 export default {
   setup() {
     const tab = ref('')
     const iframe = ref(null)
     const loading = useState('globalLoading')
-    const panelOpenBlock = useState('panelOpenBlock')
+    const aiAppStore = useAiAppDetailStore()
 
-    return { loading, panelOpenBlock, tab, iframe }
+    return { loading, tab, iframe, aiAppStore }
   },
   computed: {
     baseUrl() {
-      let panel = this.$store.getters.config?.panel?.baseUrl || ''
+      let panel = this.$appConfig?.panel?.baseUrl || ''
       if (!panel.startsWith('http')) {
         panel = `https://${panel}`
       }
-      let admin = this.$store.getters.config?.admin?.baseUrl || ''
+      let admin = this.$appConfig?.admin?.baseUrl || ''
       if (!admin.startsWith('http')) {
         admin = `https://${admin}`
       }
@@ -48,10 +47,10 @@ export default {
       return { admin, panel }
     },
     app() {
-      return this.$store.getters.ai_app
+      return this.aiAppStore.entity
     },
     iframeSrc() {
-      let panelUrl = `${this.$store.getters.config?.panel?.baseUrl}/#/?ai_app=${this.app?.system_name}`
+      let panelUrl = `${this.$appConfig?.panel?.baseUrl}/#/?ai_app=${this.app?.system_name}`
 
       if (panelUrl.startsWith('/')) {
         panelUrl = `${window.location.origin}${panelUrl}`
@@ -62,15 +61,15 @@ export default {
   },
   watch: {
     iframeSrc(val) {
+      if (!this.$refs.iframe) return
       this.$refs.iframe.src = val
-      this.$refs.iframe.contentWindow.location.reload()
+      this.$refs.iframe.contentWindow?.location.reload()
     },
     app: {
       immediate: true,
       deep: true,
       handler(val) {
         if (val) {
-          //localStorage.setItem('iframe_ai_app', JSON.stringify(val))
           this.sendMessage({ app: JSON.stringify(val) })
         }
       },
@@ -99,27 +98,23 @@ export default {
         this.sendMessage({ app: JSON.stringify(this.app) })
       }
       if (event.data.type === 'reload_iframe') {
-        const currentSrc = this.$refs.iframe.src
+        const currentSrc = this.$refs.iframe?.src
+        if (!currentSrc) return
         this.$refs.iframe.src = ''
         setTimeout(() => {
-          this.$refs.iframe.src = currentSrc
+          if (this.$refs.iframe) {
+            this.$refs.iframe.src = currentSrc
+          }
         }, 100)
       }
     })
   },
-
-  // beforeUnmount() {
-  //   // Clean up the event listener when the component is destroyed
-  //   window.removeEventListener('message', this.handleMessage)
-  // },
   methods: {
     sendMessage(data) {
-      this.$refs.iframe?.contentWindow.postMessage(data, this.$store.getters.config?.panel?.baseUrl)
+      this.$refs.iframe?.contentWindow?.postMessage(data, this.$appConfig?.panel?.baseUrl)
     },
     handleMessage(event) {
-      // Ensure the message is coming from the correct origin
       if (event.data === 'reload') {
-        console.log('reload')
         location.reload()
       }
     },

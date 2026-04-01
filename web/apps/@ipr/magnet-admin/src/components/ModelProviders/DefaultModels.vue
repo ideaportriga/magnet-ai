@@ -8,15 +8,8 @@
   model-providers-default-models-item(title='Image Generation', modelType='image_generation')
 </template>
 <script setup>
-import { onMounted } from 'vue'
-import { useStore } from 'vuex'
+import { useEntityQueries } from '@/queries/entities'
 
-const store = useStore()
-
-onMounted(() => {
-  // Load models if not already loaded
-  if (!store.getters['chroma/model']?.items?.length) {
-    store.dispatch('chroma/get', { entity: 'model' })
-  }
-})
+const queries = useEntityQueries()
+queries.model.useList()
 </script>

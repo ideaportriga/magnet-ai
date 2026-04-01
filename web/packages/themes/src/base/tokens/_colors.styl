@@ -1,0 +1,142 @@
+// =============================================================================
+// COLOR TOKENS
+// =============================================================================
+// Single source of truth for all colors.
+// All values are consumed by factory.styl via generateColorClasses()
+// and exposed as CSS custom properties: --q-{name}
+// =============================================================================
+
+$colors = {
+  // ===== BRAND =====
+  white:              #ffffff
+  primary:            #6840c2
+  primary-transparent: rgba(104, 64, 194, 0.23)
+  primary-light:      #E5E3F2
+  primary-bg:         rgba(80, 47, 153, 0.07)
+  primary-text:       #171717
+
+  secondary:          #959EA4
+  secondary-text:     #424242
+  secondary-bg:       rgba(149, 158, 164, 0.2)
+
+  accent:             #4d82a5
+  accent-bg:          #ECF4F9
+
+  // ===== BACKGROUNDS =====
+  background:         #FBFBFE
+  light:              #F4F2F8
+  answer:             #fefcff
+  active:             rgba(80, 47, 153, 0.1)
+
+  // ===== TEXT =====
+  black:              #191B23
+  label:              #424242
+  text-weak:          #3E3E3C
+  text-grey:          #5C5C5C
+  placeholder:        rgba(0, 0, 0, 0.50)
+  seemless:           #878797
+  link-color:         #959EA4
+  icon:               #959EA4
+
+  // ===== BORDERS =====
+  border:             #EAEAF6
+  border-2:           #C4C7CF
+
+  // ===== CONTROLS =====
+  control-bg:         rgb(251, 251, 251)
+  control-border:     #EAEAF6
+  control-hover-bg:   whitesmoke
+  control-hover-border: #cdcdd5
+  control-active-bg:  var(--q-primary-bg)
+  control-active-border: var(--q-primary)
+
+  // ===== BUTTONS =====
+  btn-primary-bg:          var(--q-primary)
+  btn-primary-hover-bg:    rgba(104, 64, 194, 0.9)
+  btn-primary-active-bg:   rgba(57, 37, 105, 1)
+  btn-primary-text:        white
+  btn-primary-hover-text:  white
+  btn-primary-active-text: white
+
+  btn-simple-bg:           transparent
+  btn-simple-hover-bg:     var(--q-primary-bg)
+  btn-simple-active-bg:    rgba(80, 47, 153, 0.3)
+  btn-simple-text:         var(--q-primary)
+  btn-simple-hover-text:   var(--q-primary)
+  btn-simple-active-text:  var(--q-primary)
+
+  btn-flat-bg:             transparent
+  btn-flat-hover-bg:       rgba(32, 32, 32, 0.1)
+  btn-flat-active-bg:      #c9d4ee
+  btn-flat-text:           var(--q-secondary-text)
+  btn-flat-icon:           var(--q-secondary)
+  btn-flat-hover-text:     var(--q-secondary-text)
+  btn-flat-hover-icon:     var(--q-primary)
+  btn-flat-active-text:    var(--q-secondary-text)
+  btn-flat-active-icon:    #5b6f9e
+
+  // ===== SEMANTIC =====
+  success:            #BDF2D5
+  success-text:       #00A876
+
+  warning:            #FCEC87
+  warning-text:       #474641
+  warning-secondary:  #FEDB00
+  warning-bg:         #fff9d4
+  warning-low:        #FEF9F2
+
+  error:              #e62222
+  error-bg:           #ffecec
+  error-text:         #FF5660
+
+  info:               #31CCEC
+
+  // ===== STATUS LABELS =====
+  status-ready:       #E9FCE9
+  status-ready-text:  #00A876
+  processing-ready:   #FFF7D9
+  processing-ready-text: #FF9518
+  in-progress:        #F5F7FD
+
+  // ===== SCORES =====
+  score-irrelevant:       var(--q-background)
+  score-irrelevant-text:  var(--q-label)
+  score-relevant:         var(--q-primary-bg)
+  score-relevant-text:    var(--q-primary)
+
+  // ===== TABLES =====
+  table-header:       #F7F7FC
+  table-hover:        rgba(0, 0, 0, 0.03)
+  table-active:       rgba(0, 0, 0, 0.06)
+
+  // ===== CHAT / AGENT =====
+  tooltip-bg:         var(--q-icon)
+  tooltip-text:       var(--q-white)
+  user-input-bg:      #F4F2F8
+  message-bg:         var(--q-white)
+  header-bg:          #D5D1EF
+  panel-main-bg:      #fff
+  agent-message:      #F1EFED
+  agent-user-message: var(--q-primary-light)
+
+  // ===== REACTIONS =====
+  like-bg:            #DCFCE7
+  like-text:          #2D8240
+  dislike-bg:         #FEF1EE
+  neutral-bg:         #F3F2F2
+
+  // ===== MISC =====
+  light-grey:         #EDEDF8
+  chip-accent-bg:     rgba(104, 64, 194, 0.15)
+  semi-transparent-primary: rgba(104, 64, 194, 0.5)
+  gradient:           linear-gradient(125.99deg, #5541D7 2.28%, #E30052 100.12%)
+  hover-background:   #EDF2F9
+  medium:             #E2EEF7
+  dashboard-heading:  #706E6B
+
+  question_answered:      var(--q-like-bg)
+  question_not_answered:  #DDE8F4
+  no_results:             #FEE2E2
+
+  system-message-bg:  #F7F7FC
+}

@@ -1,71 +1,67 @@
 <template lang="pug">
 transition(appear, enter-active-class='animated fadeIn', leave-active-class='animated fadeOut')
-  .column.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(
-    v-if='showDrawer',
-    style='max-width: 500px; min-width: 500px !important'
-  )
-    .col-auto.km-heading-7.q-mb-xs Job details
-    q-separator.q-mb-xs
-    .column.fit(v-if='job')
-      q-scroll-area.col
-        .row.align-center
-          .col
-            .km-description.text-secondary-text.q-pb-6 Job info
-            .row
-              .km-label {{ jobName }}
-          .col-auto.items-center.flex
-            .row.items-center.q-gap-4
-              .col-auto
-                km-chip(:label='runConfigurationType', color='light') 
-              .col-auto
-                km-chip(:label='jobStatus', color='light')
-        .row.q-pt-16
-          .col
-            .km-description.text-secondary-text.q-pb-6 Target
-            .row.q-gap-8
-              .km-label {{ systemName }}
-              km-chip.text-grey(:label='runConfigurationType', color='in-progress')
-        .col.q-pt-16.full-width
-          .col-auto.km-button-text.q-mb-xs Scheduling settings
-          q-separator.q-mb-xs
-        .row.q-pt-24(style='gap: 18px 0')
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Job Type
-            .row
-              .km-label {{ jobType }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Next Run
-            .row
-              .km-label {{ nextRun }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Created At
-            .row
-              .km-label {{ createdAt }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Timezone
-            .row
-              .km-label {{ timezone }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Job Interval
-            .row
-              .km-label {{ interval }}
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Repeat at
-            .row
-              .km-label {{ cronDescription }}
+  km-drawer-layout(v-if='showDrawer', storageKey="drawer-jobs")
+    template(#header)
+      .km-heading-7 Job details
+    template(v-if='job')
+      .row.align-center
+        .col
+          .km-description.text-secondary-text.q-pb-6 Job info
+          .row
+            .km-label {{ jobName }}
+        .col-auto.items-center.flex
+          .row.items-center.q-gap-4
+            .col-auto
+              km-chip(:label='runConfigurationType', color='light')
+            .col-auto
+              km-chip(:label='jobStatus', color='light')
+      .row.q-pt-16
+        .col
+          .km-description.text-secondary-text.q-pb-6 Target
+          .row.q-gap-8
+            .km-label {{ systemName }}
+            km-chip.text-grey(:label='runConfigurationType', color='in-progress')
+      .col.q-pt-16.full-width
+        .col-auto.km-button-text.q-mb-xs Scheduling settings
+        q-separator.q-mb-xs
+      .row.q-pt-24(style='gap: 18px 0')
+        .col-6
+          .km-description.text-secondary-text.q-pb-6 Job Type
+          .row
+            .km-label {{ jobType }}
+        .col-6
+          .km-description.text-secondary-text.q-pb-6 Next Run
+          .row
+            .km-label {{ nextRun }}
+        .col-6
+          .km-description.text-secondary-text.q-pb-6 Created At
+          .row
+            .km-label {{ createdAt }}
+        .col-6
+          .km-description.text-secondary-text.q-pb-6 Timezone
+          .row
+            .km-label {{ timezone }}
+        .col-6
+          .km-description.text-secondary-text.q-pb-6 Job Interval
+          .row
+            .km-label {{ interval }}
+        .col-6
+          .km-description.text-secondary-text.q-pb-6 Repeat at
+          .row
+            .km-label {{ cronDescription }}
 
-        .row.q-pt-24
-          .col-6
-            .km-description.text-secondary-text.q-pb-6 Job ID
-            .row
-              .km-label {{ jobId }}
+      .row.q-pt-24
+        .col-6
+          .km-description.text-secondary-text.q-pb-6 Job ID
+          .row
+            .km-label {{ jobId }}
 
-      .col-auto.q-pt-16
-        .row.justify-between
-          .col-auto
-            km-btn(flat, @click='showCancelJobConfirm') Cancel Job
-          .col-auto
-            km-btn(flat, @click='showReconfigureJobConfirm') Reconfigure Job
+    .col-auto.q-pt-16(v-if='job')
+      .row.justify-between
+        .col-auto
+          km-btn(flat, @click='showCancelJobConfirm') Cancel Job
+        .col-auto
+          km-btn(flat, @click='showReconfigureJobConfirm') Reconfigure Job
 
     km-popup-confirm(
       :visible='showCancelConfirm',
@@ -91,6 +87,8 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
 <script>
 import { jobRunTypeOptions, jobTypeOptions, jobIntervalOptions } from '@/config/jobs/jobs'
 import { DateTime } from 'luxon'
+import { fetchData } from '@shared'
+import { useAppStore } from '@/stores/appStore'
 
 export default {
   props: {
@@ -102,6 +100,10 @@ export default {
       type: Object,
       default: () => null,
     },
+  },
+  setup() {
+    const appStore = useAppStore()
+    return { appStore }
   },
   data() {
     return {
@@ -297,25 +299,31 @@ export default {
       try {
         const jobId = this.job.id || this.job._id
         if (!jobId) {
-          console.error('No job ID found for cancellation')
           return
         }
 
-        const result = await this.$store.dispatch('cancelJobScheduler', jobId)
+        const endpoint = this.appStore.config?.scheduler?.endpoint
+        const service = this.appStore.config?.scheduler?.service
+        const credentials = this.appStore.config?.scheduler?.credentials
+        await fetchData({
+          endpoint,
+          service: `${service}/cancel-job`,
+          method: 'POST',
+          body: JSON.stringify({ job_id: jobId }),
+          headers: { 'Content-Type': 'application/json' },
+          credentials,
+        })
         this.$q.notify({
-          position: 'top',
-          color: 'positive',
-          color: 'positive',
-          textColor: 'black',
+          color: 'green-9', textColor: 'white',
+          icon: 'check_circle',
+          group: 'success',
           message: 'Job successfully cancelled',
         })
       } catch (error) {
-        console.error('Error cancelling job:', error)
         this.$q.notify({
-          position: 'top',
-          color: 'negative',
-          textColor: 'white',
+          color: 'red-9', textColor: 'white',
           icon: 'error',
+          group: 'error',
           message: 'Failed to cancel job',
         })
       } finally {

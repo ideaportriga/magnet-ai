@@ -53,16 +53,21 @@ div
 </template>
 
 <script>
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useModelConfigDetailStore } from '@/stores/entityDetailStores'
 export default {
   props: [],
   emits: [],
 
   setup() {
-    const { items: providerItems } = useChroma('provider')
+    const queries = useEntityQueries()
+    const modelConfigStore = useModelConfigDetailStore()
+    const { data: providerData } = queries.provider.useList()
+    const providerItems = computed(() => providerData.value?.items ?? [])
 
     return {
+      modelConfigStore,
       providerItems,
       priceUnitOptions: ref([
         { label: 'Tokens', value: 'tokens' },
@@ -74,146 +79,146 @@ export default {
   computed: {
     provider: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.provider || ''
+        return this.modelConfigStore.entity?.provider || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'provider', value })
+        this.modelConfigStore.updateProperty({ key: 'provider', value })
       },
     },
     model: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.ai_model || ''
+        return this.modelConfigStore.entity?.ai_model || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'ai_model', value })
+        this.modelConfigStore.updateProperty({ key: 'ai_model', value })
       },
     },
     json_mode: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.json_mode || false
+        return this.modelConfigStore.entity?.json_mode || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'json_mode', value })
+        this.modelConfigStore.updateProperty({ key: 'json_mode', value })
       },
     },
     json_schema: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.json_schema || false
+        return this.modelConfigStore.entity?.json_schema || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'json_schema', value })
+        this.modelConfigStore.updateProperty({ key: 'json_schema', value })
       },
     },
     tool_calling: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.tool_calling || false
+        return this.modelConfigStore.entity?.tool_calling || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'tool_calling', value })
+        this.modelConfigStore.updateProperty({ key: 'tool_calling', value })
       },
     },
     reasoning: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.reasoning || false
+        return this.modelConfigStore.entity?.reasoning || false
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'reasoning', value })
+        this.modelConfigStore.updateProperty({ key: 'reasoning', value })
       },
     },
     price_input_unit_name: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_input_unit_name || ''
+        return this.modelConfigStore.entity?.price_input_unit_name || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_input_unit_name', value })
+        this.modelConfigStore.updateProperty({ key: 'price_input_unit_name', value })
       },
     },
     price_standard_input: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_input || ''
+        return this.modelConfigStore.entity?.price_input || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_input', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty({ key: 'price_input', value: parseFloat(value) })
       },
     },
     price_standard_input_unit_count: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_standard_input_unit_count || ''
+        return this.modelConfigStore.entity?.price_standard_input_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_standard_input_unit_count', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty({ key: 'price_standard_input_unit_count', value: parseFloat(value) })
       },
     },
     price_cached_input: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_cached || ''
+        return this.modelConfigStore.entity?.price_cached || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty({ key: 'price_cached', value: parseFloat(value) })
       },
     },
     price_cached_input_unit_count: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_cached_input_unit_count || ''
+        return this.modelConfigStore.entity?.price_cached_input_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_cached_input_unit_count', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty({ key: 'price_cached_input_unit_count', value: parseFloat(value) })
       },
     },
     price_output_unit_name: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_output_unit_name || ''
+        return this.modelConfigStore.entity?.price_output_unit_name || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_output_unit_name', value })
+        this.modelConfigStore.updateProperty({ key: 'price_output_unit_name', value })
       },
     },
     price_standard_output: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_output || ''
+        return this.modelConfigStore.entity?.price_output || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_output', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty({ key: 'price_output', value: parseFloat(value) })
       },
     },
     price_standard_output_unit_count: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_standard_output_unit_count || ''
+        return this.modelConfigStore.entity?.price_standard_output_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_standard_output_unit_count', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty({ key: 'price_standard_output_unit_count', value: parseFloat(value) })
       },
     },
     price_reasoning_output: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_reasoning || ''
+        return this.modelConfigStore.entity?.price_reasoning || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty({ key: 'price_reasoning', value: parseFloat(value) })
       },
     },
     price_reasoning_output_unit_count: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.price_reasoning_output_unit_count || ''
+        return this.modelConfigStore.entity?.price_reasoning_output_unit_count || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'price_reasoning_output_unit_count', value: parseFloat(value) })
+        this.modelConfigStore.updateProperty({ key: 'price_reasoning_output_unit_count', value: parseFloat(value) })
       },
     },
     resources: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.resources || ''
+        return this.modelConfigStore.entity?.resources || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'resources', value })
+        this.modelConfigStore.updateProperty({ key: 'resources', value })
       },
     },
     type: {
       get() {
-        return this.$store.getters['modelConfig/entity']?.type || ''
+        return this.modelConfigStore.entity?.type || ''
       },
       set(value) {
-        this.$store.commit('modelConfig/updateEntityProperty', { key: 'type', value })
+        this.modelConfigStore.updateProperty({ key: 'type', value })
       },
     },
   },

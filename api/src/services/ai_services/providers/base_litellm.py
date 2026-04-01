@@ -27,6 +27,8 @@ from collections.abc import AsyncIterator
 from decimal import Decimal
 from typing import Any, BinaryIO, cast
 
+import asyncio
+
 import litellm
 from litellm.caching.caching import Cache
 from litellm.types.caching import LiteLLMCacheType
@@ -743,8 +745,8 @@ class BaseLiteLLMProvider(AIProviderInterface):
             params["speed"] = speed
 
         response = await litellm.aspeech(**params)
-        # response is HttpxBinaryResponseContent
-        return response.read()
+        # response is HttpxBinaryResponseContent; .read() is synchronous I/O
+        return await asyncio.to_thread(response.read)
 
     # ------------------------------------------------------------------
     # Responses API (Phase 9)

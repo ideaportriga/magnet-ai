@@ -1,34 +1,30 @@
 <template lang="pug">
-.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(
-  style='max-width: 500px; min-width: 500px !important; overflow-x: hidden'
-)
-  .column.full-height.full-width.no-wrap
+km-drawer-layout(storageKey="drawer-note-taker", noScroll)
+  template(#header)
+    .row.items-center.full-width
+      .col.km-heading-7 Preview
+      .col-auto(v-if='currentJob')
+        q-btn(
+          flat, dense, size='sm', color='grey-7',
+          icon='restart_alt', label='Start over',
+          @click='resetPreview', no-caps
+        )
+    .km-description.text-secondary-text.q-mb-sm(v-if='!currentJob') Test your note taker configuration with a recording.
 
-    //- ══ FIXED HEADER ══════════════════════════════════════════════════
-    .col-auto
-      .row.items-center.q-mb-xs
-        .col.km-heading-7 Preview
-        .col-auto(v-if='currentJob')
-          q-btn(
-            flat, dense, size='sm', color='grey-7',
-            icon='restart_alt', label='Start over',
-            @click='resetPreview', no-caps
-          )
-      .km-description.text-secondary-text.q-mb-sm(v-if='!currentJob') Test your note taker configuration with a recording.
+    //- Progress steps (only when job active)
+    template(v-if='currentJob')
+      .row.items-center.q-gap-8.q-py-sm
+        template(v-for='(step, i) in pipelineSteps', :key='step.key')
+          .row.items-center.q-gap-4(v-if='i > 0')
+            q-icon(name='chevron_right', size='16px', color='grey-4')
+          q-chip(
+            dense, size='sm', square,
+            :color='step.color', :text-color='step.textColor',
+            :icon='step.icon'
+          ) {{ step.label }}
       q-separator
 
-      //- Progress steps (only when job active)
-      template(v-if='currentJob')
-        .row.items-center.q-gap-8.q-py-sm
-          template(v-for='(step, i) in pipelineSteps', :key='step.key')
-            .row.items-center.q-gap-4(v-if='i > 0')
-              q-icon(name='chevron_right', size='16px', color='grey-4')
-            q-chip(
-              dense, size='sm', square,
-              :color='step.color', :text-color='step.textColor',
-              :icon='step.icon'
-            ) {{ step.label }}
-        q-separator
+  .column.full-height.full-width.no-wrap
 
     //- ══ SCROLLABLE CONTENT ════════════════════════════════════════════
     q-scroll-area.col(style='min-height: 0')
@@ -40,33 +36,35 @@
           //- Source card
           q-card.q-mb-md(flat, bordered)
             q-card-section
-              .row.items-center.q-mb-sm
+              .row.items-center.q-mb-xs
                 q-icon.q-mr-xs(name='audio_file', size='18px', color='grey-7')
                 .km-heading-8 Recording source
-              .row.q-mb-sm
-                q-btn-toggle(
-                  v-model='inputMode', no-caps, dense, unelevated, toggle-color='primary',
-                  :options='[{label: "URL", value: "url"}, {label: "Upload file", value: "file"}]',
-                  size='sm'
-                )
-              template(v-if='inputMode === "url"')
-                km-input.full-width(
-                  v-model='sourceUrl',
-                  placeholder='https://example.com/recording.mp4',
-                  height='32px', clearable
-                )
-              template(v-else)
-                .row.items-center.q-gap-8
+              template(v-if='selectedFile')
+                .row.items-center.no-wrap.q-gap-4
+                  q-chip(
+                    removable, color='primary-light', text-color='primary', icon='attach_file',
+                    @remove='clearFile'
+                  ) {{ selectedFile.name }}
                   q-btn(
-                    unelevated, dense, size='sm', no-caps,
-                    color='grey-3', text-color='grey-8',
-                    label='Choose file', icon='attach_file',
-                    @click='$refs.fileInput?.click()'
+                    flat, dense, round, size='sm',
+                    icon='swap_horiz', color='grey-7',
+                    @click='fileInput?.click()'
                   )
-                  .km-description(
-                    :class='selectedFile ? "text-grey-8" : "text-grey-5"'
-                  ) {{ selectedFile ? selectedFile.name : 'No file selected' }}
-                input(ref='fileInput', type='file', accept='audio/*,video/*,.mp4,.mp3,.wav,.m4a,.ogg,.webm,.mkv,.flac', style='display:none', @change='onFileSelected')
+                    q-tooltip Choose another file
+              template(v-else)
+                .row.items-center.no-wrap.q-gap-4
+                  km-input.col(
+                    v-model='sourceUrl',
+                    placeholder='Paste recording URL or attach a file',
+                    height='32px', clearable
+                  )
+                  q-btn.col-auto(
+                    flat, dense, round, size='sm',
+                    icon='attach_file', color='grey-7',
+                    @click='fileInput?.click()'
+                  )
+                    q-tooltip Attach file
+              input(ref='fileInput', type='file', accept='audio/*,video/*,.mp4,.mp3,.wav,.m4a,.ogg,.webm,.mkv,.flac', style='display:none', @change='onFileSelected')
 
           //- Participants card
           q-card.q-mb-md(flat, bordered)
@@ -83,14 +81,14 @@
                   @keyup.enter='addParticipant'
                 )
                 q-btn.col-auto(
-                  unelevated, dense, size='sm', no-caps,
-                  color='primary', label='Add',
+                  flat, dense, round, size='sm',
+                  icon='add', color='primary',
                   @click='addParticipant', :disable='!newParticipant.trim()'
                 )
               .row.q-gap-4.q-flex-wrap.q-mt-sm(v-if='participants.length')
                 q-chip(
                   v-for='(p, i) in participants', :key='i',
-                  removable, dense, size='sm', color='blue-1', text-color='primary',
+                  removable, color='primary-light', text-color='primary',
                   @remove='participants.splice(i, 1)'
                 ) {{ p }}
 
@@ -134,7 +132,7 @@
                 q-input(
                   :modelValue='currentJob.result.full_text || ""',
                   type='textarea', outlined, dense, readonly, autogrow,
-                  input-style='font-size: 12px; font-family: monospace; line-height: 1.5',
+                  input-style='font-size: 12px; font-family: var(--km-font-mono); line-height: 1.5',
                   style='max-height: 250px; overflow-y: auto'
                 )
 
@@ -170,7 +168,7 @@
                   q-input(
                     :modelValue='currentJob.result.full_text',
                     type='textarea', outlined, dense, readonly, autogrow,
-                    input-style='font-size: 12px; font-family: monospace; line-height: 1.5',
+                    input-style='font-size: 12px; font-family: var(--km-font-mono); line-height: 1.5',
                     style='max-height: 250px; overflow-y: auto'
                   )
 
@@ -223,16 +221,15 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
-import type { PreviewJob } from '../../store/modules/noteTaker'
+import { useNoteTakerStore } from '@/stores/noteTakerStore'
+import type { PreviewJob } from '@/stores/noteTakerStore'
+import { useNotify } from '@/composables/useNotify'
 
 const props = defineProps<{ settingsId: string }>()
-const store = useStore()
-const $q = useQuasar()
+const ntStore = useNoteTakerStore()
+const { notifyError } = useNotify()
 
 // ── Input state ──
-const inputMode = ref<'url' | 'file'>('url')
 const sourceUrl = ref('')
 const selectedFile = ref<File | null>(null)
 const newParticipant = ref('')
@@ -248,9 +245,9 @@ const processingContinue = ref(false)
 
 let pollingTimer: ReturnType<typeof setInterval> | null = null
 
-const previewJobs = computed<PreviewJob[]>(() => store.getters.noteTakerPreviewJobs || [])
+const previewJobs = computed<PreviewJob[]>(() => ntStore.previewJobs || [])
 const currentJob = computed(() => currentJobId.value ? previewJobs.value.find((j) => j.id === currentJobId.value) || null : null)
-const canRun = computed(() => inputMode.value === 'url' ? Boolean(sourceUrl.value.trim()) : Boolean(selectedFile.value))
+const canRun = computed(() => Boolean(selectedFile.value) || Boolean(sourceUrl.value.trim()))
 
 const speakerLabels = computed(() => {
   return (currentJob.value?.result?.speaker_labels as string[]) || []
@@ -297,7 +294,15 @@ const pipelineSteps = computed(() => {
   return steps
 })
 
-const onFileSelected = (e: Event) => { selectedFile.value = (e.target as HTMLInputElement).files?.[0] || null }
+const onFileSelected = (e: Event) => {
+  selectedFile.value = (e.target as HTMLInputElement).files?.[0] || null
+  if (selectedFile.value) sourceUrl.value = ''
+}
+const fileInput = ref<HTMLInputElement | null>(null)
+const clearFile = () => {
+  selectedFile.value = null
+  if (fileInput.value) fileInput.value.value = ''
+}
 const addParticipant = () => {
   const name = newParticipant.value.trim()
   if (name && !participants.value.includes(name)) participants.value.push(name)
@@ -309,19 +314,19 @@ const runPreview = async () => {
   if (!canRun.value) return
   running.value = true
   try {
-    const job = await store.dispatch('runNoteTakerPreview', {
+    const job = await ntStore.runPreview({
       settingsId: props.settingsId,
-      sourceUrl: inputMode.value === 'url' ? sourceUrl.value.trim() : undefined,
-      file: inputMode.value === 'file' ? selectedFile.value : undefined,
+      sourceUrl: selectedFile.value ? undefined : sourceUrl.value.trim() || undefined,
+      file: selectedFile.value || undefined,
       participants: participants.value.length ? [...participants.value] : undefined,
     })
     if (job) {
-      store.commit('upsertPreviewJob', job)
+      ntStore.upsertPreviewJob(job)
       currentJobId.value = job.id
       startPolling()
     }
   } catch (error: any) {
-    $q.notify({ position: 'top', message: error?.message || 'Failed to start preview', color: 'negative', textColor: 'white', timeout: 3000 })
+    notifyError(error?.message || 'Failed to start preview')
   } finally { running.value = false }
 }
 
@@ -330,7 +335,7 @@ const continuePostprocessing = async () => {
   if (!currentJob.value) return
   processingContinue.value = true
   try {
-    await store.dispatch('rerunNoteTakerPreviewPostprocessing', {
+    await ntStore.rerunPreviewPostprocessing({
       settingsId: props.settingsId,
       jobId: currentJob.value.id,
       speakerMapping: speakerMapping.value,
@@ -338,11 +343,11 @@ const continuePostprocessing = async () => {
       meetingNotes: meetingNotesInput.value.trim() || undefined,
     })
     // Update local job status so polling picks it up.
-    store.commit('upsertPreviewJob', { ...currentJob.value, status: 'rerunning' })
+    ntStore.upsertPreviewJob({ ...currentJob.value, status: 'rerunning' })
     stopPolling()
     startPolling()
   } catch (error: any) {
-    $q.notify({ position: 'top', message: error?.message || 'Post-processing failed', color: 'negative', textColor: 'white', timeout: 3000 })
+    notifyError(error?.message || 'Post-processing failed')
   } finally { processingContinue.value = false }
 }
 
@@ -358,7 +363,7 @@ const resetPreview = () => {
 // ── Polling ──
 const pollJob = async () => {
   if (!currentJobId.value) return
-  await store.dispatch('fetchPreviewJobStatus', { settingsId: props.settingsId, jobId: currentJobId.value })
+  await ntStore.fetchPreviewJobStatus({ settingsId: props.settingsId, jobId: currentJobId.value })
   const job = currentJob.value
   if (job && !['pending', 'running', 'rerunning'].includes(job.status)) { stopPolling() }
 }

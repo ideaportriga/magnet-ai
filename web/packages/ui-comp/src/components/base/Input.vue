@@ -53,7 +53,7 @@ export default {
       default: () => {},
     },
     label: String,
-    modelValue: String,
+    modelValue: [String, Number],
     iconBefore: String,
     type: {
       type: String,

@@ -28,85 +28,88 @@ div
 </template>
 
 <script>
+import { useRagDetailStore } from '@/stores/entityDetailStores'
+
 export default {
   props: [],
   emits: [],
 
   setup() {
-    return {}
+    const ragStore = useRagDetailStore()
+    return { ragStore }
   },
   computed: {
     isAllowToBypassCache: {
       get() {
-        return this.$store.getters.ragVariant?.ui_settings?.offer_to_bypass_cache || false
+        return this.ragStore.activeVariant?.ui_settings?.offer_to_bypass_cache || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.offer_to_bypass_cache', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.offer_to_bypass_cache', value })
       },
     },
     isUserFeedbackOn: {
       get() {
-        return this.$store.getters.ragVariant?.ui_settings?.user_fideback || false
+        return this.ragStore.activeVariant?.ui_settings?.user_fideback || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.user_fideback', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.user_fideback', value })
       },
     },
     headingText: {
       get() {
-        return this.$store.getters.ragVariant?.ui_settings?.header_configuration?.header || ''
+        return this.ragStore.activeVariant?.ui_settings?.header_configuration?.header || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.header_configuration.header', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.header_configuration.header', value })
       },
     },
     subHeadingText: {
       get() {
-        return this.$store.getters.ragVariant?.ui_settings?.header_configuration?.sub_header || ''
+        return this.ragStore.activeVariant?.ui_settings?.header_configuration?.sub_header || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.header_configuration.sub_header', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.header_configuration.sub_header', value })
       },
     },
     isShowLinkTitlesOn: {
       get() {
         return true
-        // return this.$store.getters.ragVariant?.ui_settings?.show_link_titles || false
+        // return this.ragStore.activeVariant?.ui_settings?.show_link_titles || false
       },
       // set(value) {
-      //   this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.show_link_titles', value })
+      //   this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.show_link_titles', value })
       // }
     },
     isSampleQestion: {
       get() {
-        return this.$store.getters.ragVariant?.ui_settings?.sample_questions?.enabled || false
+        return this.ragStore.activeVariant?.ui_settings?.sample_questions?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.sample_questions.enabled', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.enabled', value })
       },
     },
     question1: {
       get() {
-        return this.$store.getters.ragVariant?.ui_settings?.sample_questions?.questions?.question1
+        return this.ragStore.activeVariant?.ui_settings?.sample_questions?.questions?.question1
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.sample_questions.questions.question1', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question1', value })
       },
     },
     question2: {
       get() {
-        return this.$store.getters.ragVariant?.ui_settings?.sample_questions?.questions?.question2
+        return this.ragStore.activeVariant?.ui_settings?.sample_questions?.questions?.question2
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.sample_questions.questions.question2', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question2', value })
       },
     },
     question3: {
       get() {
-        return this.$store.getters.ragVariant?.ui_settings?.sample_questions?.questions?.question3
+        return this.ragStore.activeVariant?.ui_settings?.sample_questions?.questions?.question3
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'ui_settings.sample_questions.questions.question3', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question3', value })
       },
     },
   },

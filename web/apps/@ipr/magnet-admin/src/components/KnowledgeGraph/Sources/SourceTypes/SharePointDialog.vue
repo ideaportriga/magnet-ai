@@ -69,9 +69,9 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import { KgDialogSection, KgDialogSourceBase, KgFieldRow, KgToggleField, ScheduleFormState } from '../../common'
 import type { SourceRow } from '../models'
 
@@ -99,8 +99,8 @@ const emit = defineEmits<{
   (e: 'update:showDialog', value: boolean): void
 }>()
 
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifyError } = useNotify()
 const siteUrl = ref('')
 const folderPath = ref('')
 const library = ref('')
@@ -183,7 +183,7 @@ async function applySchedule(sourceId: string, schedule: ScheduleFormState) {
   const shouldCall = schedule.interval !== 'none' || (props.source?.schedule !== null && props.source?.schedule !== undefined)
   if (!shouldCall) return
 
-  const endpoint = store.getters.config.api.aiBridge.urlAdmin
+  const endpoint = appStore.config.api.aiBridge.urlAdmin
   const payload: any = { interval: schedule.interval }
   if (schedule.interval !== 'none') {
     payload.timezone = schedule.timezone
@@ -224,7 +224,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
   error.value = ''
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
 
     const payload = {
       type: 'sharepoint',
@@ -256,11 +256,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
           await applySchedule(result.id, schedule)
         } catch (e: any) {
           // Avoid keeping the dialog in "create" mode after the source has been created.
-          $q.notify({
-            type: 'negative',
-            message: e?.message || 'Source created, but schedule could not be saved',
-            position: 'top',
-          })
+          notifyError(e?.message || 'Source created, but schedule could not be saved')
         }
       }
       emit('created', result)
@@ -269,7 +265,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
       error.value = errorData.detail || errorData.error || 'Failed to connect to SharePoint'
     }
   } catch (err) {
-    console.error('SharePoint connection error:', err)
+
     error.value = 'Failed to connect to SharePoint. Please try again.'
   } finally {
     loading.value = false
@@ -283,7 +279,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
   loading.value = true
   error.value = ''
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const payload = {
       name: sourceName.trim() || null,
       config: {
@@ -311,7 +307,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
       error.value = errorData.detail || errorData.error || 'Failed to save SharePoint source'
     }
   } catch (err) {
-    console.error('SharePoint update error:', err)
+
     error.value = 'Failed to save SharePoint source. Please try again.'
   } finally {
     loading.value = false

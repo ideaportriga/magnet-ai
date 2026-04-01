@@ -16,15 +16,21 @@ div
 </template>
 
 <script>
+import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
+
 export default {
   emits: ['openTest'],
+  setup() {
+    const evalSetStore = useEvaluationSetDetailStore()
+    return { evalSetStore }
+  },
   computed: {
     type: {
       get() {
-        return this.$store.getters.evaluation_set?.type || ''
+        return this.evalSetStore.entity?.type || ''
       },
       set(value) {
-        this.$store.commit('updateEvaluationSetProperty', { key: 'type', value })
+        this.evalSetStore.updateProperty({ key: 'type', value })
       },
     },
   },

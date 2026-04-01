@@ -1,67 +1,127 @@
 <template lang="pug">
-.full-height.full-width(:class='{ "no-wrap column": $store.getters.viewMode === "panel" || ai_app }')
-  template(v-if='authRequired')
-    template(v-if='authCheckInProgress')
-      .flex.flex-center.full-height
-        q-spinner(size='30px', color='primary')
-    template(v-else)
-      oauth-login(@auth-completed='onAuthCompleted')
+.full-height.full-width(:class='{ "no-wrap column": $route.query.viewMode === "panel" || ai_app }')
+  //- Show spinner during initial config load or auth check
+  template(v-if='initialLoading || authCheckInProgress')
+    .flex.flex-center.full-height
+      q-spinner(size='30px', color='primary')
+  template(v-else-if='authRequired')
+      template(v-if='authClient')
+        auth-signup-page(
+          v-if='authPage === "signup"',
+          :auth-client='authClient',
+          @navigate='authPage = $event'
+        )
+        auth-forgot-password(
+          v-else-if='authPage === "forgot-password"',
+          :auth-client='authClient',
+          @navigate='authPage = $event'
+        )
+        auth-login-page(
+          v-else,
+          :auth-client='authClient',
+          :providers='authProviders',
+          :signup-enabled='signupEnabled',
+          :oidc-base-url='oidcBaseUrl',
+          :popup-width='popupWidth',
+          :popup-height='popupHeight',
+          @success='onAuthCompleted',
+          @navigate='authPage = $event'
+        )
+      oauth-login(v-else, @auth-completed='onAuthCompleted')
+  template(v-else-if='!hasAdminAccess')
+    .flex.flex-center.full-height
+      .column.items-center.q-pa-xl(style='max-width: 480px')
+        q-icon(name='fas fa-lock', size='48px', color='grey-5')
+        .text-h6.q-mt-md.text-center Access restricted
+        .text-body2.text-grey.q-mt-sm.text-center
+          | Your account does not have sufficient permissions to access the admin panel.
+          | Please contact your administrator to request access.
+        .text-caption.text-grey.q-mt-md Logged in as {{ userDisplayName }}
+        q-btn.q-mt-lg(
+          outline,
+          color='primary',
+          label='Log out',
+          no-caps,
+          @click='handleLogout'
+        )
   template(v-else)
     layout-default
-  km-error-dialog(v-if='$store.getters.errorMessage?.technicalError')
+  km-error-dialog(v-if='appStore.errorMessage')
   template(v-if='env === "development"')
     .fixed-bottom-right.q-pa-sm.row(:style='{ zIndex: 100 }')
 </template>
 
 <script>
 import { useState } from '@shared'
-import { useChroma } from '@shared'
 import { useAuth } from '@shared'
-import { getCurrentInstance } from 'vue'
+import { getCurrentInstance, computed, ref } from 'vue'
+import { useAppStore } from '@/stores/appStore'
+import { useDeepResearchStore } from '@/stores/deepResearchStore'
+import { usePromptQueueStore } from '@/stores/promptQueueStore'
+import { useSharedAuthStore } from '@shared/stores/authStore'
+import { queryClient } from '@/plugins/vueQuery'
+import { entityKeys } from '@/queries/queryKeys'
+import { getEntityApis } from '@/api/entityApis'
 import { initializePlugins } from '@/config/collections/collections'
+import AuthLoginPage from '@ui/components/auth/AuthLoginPage.vue'
+import AuthSignupPage from '@ui/components/auth/AuthSignupPage.vue'
+import AuthForgotPassword from '@ui/components/auth/AuthForgotPassword.vue'
 
 export default {
+  components: { AuthLoginPage, AuthSignupPage, AuthForgotPassword },
   setup() {
     const loading = useState('globalLoading')
-    const { ...collections } = useChroma('collections')
-    const { ...rag_tools } = useChroma('rag_tools')
-    const { ...retrieval } = useChroma('retrieval')
-    const { ...ai_apps } = useChroma('ai_apps')
-    const { ...promptTemplates } = useChroma('promptTemplates')
-    const { ...evaluation_sets } = useChroma('evaluation_sets')
-    const { ...evaluation_jobs } = useChroma('evaluation_jobs')
-    const { ...model } = useChroma('model')
-    const { ...provider } = useChroma('provider')
-    const { ...api_tool_providers } = useChroma('api_tool_providers')
-    const { ...agents } = useChroma('agents')
-    const { ...mcp_servers } = useChroma('mcp_servers')
-    const { ...api_keys } = useChroma('api_keys')
-    const { ...api_servers } = useChroma('api_servers')
-    const { ...plugins } = useChroma('plugins')
-    // const { ...jobs } = useChroma('jobs')
-
     const auth = useAuth()
+    const appStore = useAppStore()
+    const drStore = useDeepResearchStore()
+    const pqStore = usePromptQueueStore()
     const { appContext } = getCurrentInstance()
 
+    // useAuth stores userInfo in sharedAuthStore — read from there
+    const sharedAuth = useSharedAuthStore()
+
+    const initialLoading = ref(true)
+    const authPage = ref('login')
+
+    const authClient = computed(() => auth.client.value)
+    const authProviders = computed(() => appStore.config?.auth?.providers || [])
+
+    const hasAdminAccess = computed(() => {
+      const userInfo = sharedAuth.userInfo
+      if (!userInfo) return false
+      const roles = userInfo.roles || []
+      return roles.includes('admin')
+    })
+    const userDisplayName = computed(() => {
+      const u = sharedAuth.userInfo
+      return u?.name || u?.email || u?.preferred_username || ''
+    })
+
+    async function handleLogout() {
+      await auth.logout()
+    }
+    const signupEnabled = computed(() => appStore.config?.auth?.signupEnabled || false)
+    const oidcBaseUrl = computed(() => appStore.config?.api?.aiBridge?.baseUrl || '')
+    const popupWidth = computed(() => appStore.config?.auth?.popup?.width || '600')
+    const popupHeight = computed(() => appStore.config?.auth?.popup?.height || '400')
+
     return {
+      initialLoading,
+      authPage,
+      authClient,
+      hasAdminAccess,
+      userDisplayName,
+      handleLogout,
+      authProviders,
+      signupEnabled,
+      oidcBaseUrl,
+      popupWidth,
+      popupHeight,
+      drStore,
+      pqStore,
       loading,
-      collections,
-      rag_tools,
-      promptTemplates,
-      ai_apps,
-      evaluation_sets,
-      evaluation_jobs,
-      retrieval,
-      model,
-      provider,
       appContext,
-      api_tool_providers,
-      agents,
-      mcp_servers,
-      api_keys,
-      api_servers,
-      plugins,
-      // jobs,
+      appStore,
       ...auth,
     }
   },
@@ -89,48 +149,58 @@ export default {
     },
   },
   async created() {
-    await this.$store.dispatch('loadConfig')
+    // Config is loaded by initNewStack (Pinia appStore.loadConfig) in main.js
 
-    if (this.authRequired) {
+    // Check if user already has a valid session (cookie)
+    if (this.authEnabled) {
       await this.getAuthData()
     }
 
-    if (!this.authRequired) {
+    this.initialLoading = false
+
+    if (!this.authRequired && this.hasAdminAccess) {
       await this.loadData()
     }
   },
 
   methods: {
     async loadData() {
-      // Load plugins first (needed for dynamic forms)
-      await this.plugins.get()
+      const apis = getEntityApis()
 
-      // Initialize plugins configuration for collections (uses data from store)
+      // Prefetch plugins first (needed for dynamic forms)
+      await queryClient.fetchQuery({
+        queryKey: entityKeys.plugins.list({}),
+        queryFn: () => apis.plugins.list(),
+      })
+
+      // Initialize plugins configuration for collections (uses data from cache)
       initializePlugins()
 
+      // Prefetch all entity lists so they are available in the cache
+      // TanStack Query will auto-fetch when components mount, but prefetching ensures
+      // data is ready for config files that use getCachedItems()
+      const entitiesToPrefetch = [
+        'collections', 'rag_tools', 'retrieval', 'promptTemplates',
+        'ai_apps', 'evaluation_sets', 'evaluation_jobs', 'model',
+        'provider', 'agents', 'mcp_servers', 'api_keys', 'api_servers',
+      ]
+
       await Promise.all([
-        this.collections.get(),
-        this.rag_tools.get(),
-        this.retrieval.get(),
-        this.promptTemplates.get(),
-        this.ai_apps.get(),
-        this.evaluation_sets.get(),
-        this.evaluation_jobs.get(),
-        this.model.get(),
-        this.provider.get(),
-        // this.api_tool_providers.get(),
-        this.agents.get(),
-        this.mcp_servers.get(),
-        this.api_keys.get(),
-        this.api_servers.get(),
-        // this.jobs.get(),
-        this.$store.dispatch('fetchConfigs'),
-        this.$store.dispatch('fetchPromptQueueConfigs'),
+        ...entitiesToPrefetch.map((entity) =>
+          queryClient.prefetchQuery({
+            queryKey: entityKeys[entity].list({}),
+            queryFn: () => apis[entity].list(),
+          })
+        ),
+        this.drStore.fetchConfigs(),
+        this.pqStore.fetchPromptQueueConfigs(),
       ])
     },
     async onAuthCompleted() {
-      this.$store.commit('set', { authenticated: true })
-      await this.loadData()
+      await this.getAuthData()
+      if (this.hasAdminAccess) {
+        await this.loadData()
+      }
     },
   },
 }

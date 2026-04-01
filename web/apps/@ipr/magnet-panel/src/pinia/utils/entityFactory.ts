@@ -8,6 +8,14 @@ export interface EntityState {
   service: string
 }
 
+/**
+ * Entity store factory.
+ *
+ * Creates a Pinia store that fetches entity lists.
+ * TanStack Query is now available via `usePanelEntityQueries()` for components
+ * that want reactive caching. This factory is kept for backward compatibility
+ * with existing components that use `store.items` / `store.getItems()`.
+ */
 const entityFactory = (entity: string, additional: any) => {
   return defineStore(entity, {
     state: (): EntityState => ({
@@ -29,6 +37,28 @@ const entityFactory = (entity: string, additional: any) => {
     },
     actions: {
       async getItems() {
+        // Try TanStack Query first if available
+        try {
+          const { usePanelEntityQueries } = await import('@/queries/entities')
+          const queries = usePanelEntityQueries()
+          const entityQueries = (queries as any)[entity]
+          if (entityQueries) {
+            // TQ is available — just invalidate/refetch the query
+            const { useQueryClient } = await import('@tanstack/vue-query')
+            const qc = useQueryClient()
+            await qc.invalidateQueries({ queryKey: [entity] })
+            // Also update local items from the TQ cache
+            const cached = qc.getQueryData([entity, 'list', {}]) as any
+            if (cached?.items) {
+              this.$state.items = cached.items
+            }
+            return
+          }
+        } catch {
+          // TQ not initialized yet, fall back to legacy fetch
+        }
+
+        // Legacy fetch path
         const mainStore = useMainStore()
         this.loading = true
         try {

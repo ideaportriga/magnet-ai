@@ -233,12 +233,15 @@
 </template>
 
 <script setup lang="ts">
-import { useChroma } from '@shared'
-import { uid, useQuasar } from 'quasar'
+import { uid } from 'quasar'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useStore } from 'vuex'
+import { useEntityQueries } from '@/queries/entities'
+import { useNotify } from '@/composables/useNotify'
+import { useQueryClient } from '@tanstack/vue-query'
+import { useKnowledgeGraphPageStore } from '@/stores/entityDetailStores'
 import { KgDropdownField, KgExpandablePrompt } from '../common'
+import type { KnowledgeGraphDetails, KnowledgeGraphSettings } from '../types'
 import GuidedExamplesTable from './GuidedExamplesTable.vue'
 import TabControls from './RetrievalTabControls.vue'
 import ToolSection from './ToolSection.vue'
@@ -270,19 +273,24 @@ import {
 
 const emit = defineEmits<{
   (e: 'unsaved-change', value: boolean): void
-  (e: 'update-graph', payload: Record<string, any>): void
+  (e: 'update-graph', payload: KnowledgeGraphSettings): void
 }>()
 
 const props = defineProps<{
   graphId: string
-  graphDetails?: any
+  graphDetails?: KnowledgeGraphDetails
 }>()
 
-const $q = useQuasar()
-const store = useStore()
+const { notifySuccess, notifyError } = useNotify()
 const router = useRouter()
-const { update: updatePromptTemplate, get: refreshPromptTemplates } = useChroma('promptTemplates')
-const { items: modelItems, get: getModels } = useChroma('model')
+const queries = useEntityQueries()
+const queryClient = useQueryClient()
+const kgPageStore = useKnowledgeGraphPageStore()
+const { mutateAsync: updatePromptTemplate } = queries.promptTemplates.useUpdate()
+const { data: modelListData } = queries.model.useList()
+const { data: promptTemplatesListData } = queries.promptTemplates.useList()
+const promptItems = computed(() => promptTemplatesListData.value?.items ?? [])
+const modelItems = computed(() => modelListData.value?.items ?? [])
 
 // --- State ---
 const saving = ref(false)
@@ -553,7 +561,7 @@ function resetChangeTracking(updateSavedVariant = true) {
 function loadPromptTemplate() {
   loading.value = true
   try {
-    const prompts = store.getters.prompts || []
+    const prompts = promptItems.value || []
     const template = prompts.find((p: PromptTemplate) => p.system_name === PROMPT_SYSTEM_NAME)
 
     if (template) {
@@ -593,11 +601,8 @@ function loadPromptTemplate() {
       ]
     }
   } catch (error) {
-    console.error('Error loading prompt template:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to load prompt template',
-    })
+
+    notifyError('Failed to load prompt template')
   } finally {
     loading.value = false
     resetChangeTracking(false)
@@ -656,13 +661,8 @@ async function saveToCurrentVariant() {
 
     if (!variantResult.success || !variantResult.data) {
       validationErrors.value = variantResult.errors
-      console.log(variantResult.errors)
-      $q.notify({
-        message: 'Failed to generate prompt. Check validation errors.',
-        position: 'top',
-        color: 'error-text',
-        timeout: 3000,
-      })
+
+      notifyError('Failed to generate prompt. Check validation errors.')
       return
     }
 
@@ -677,21 +677,12 @@ async function saveToCurrentVariant() {
       },
     })
 
-    $q.notify({
-      type: 'positive',
-      message: 'Settings saved successfully',
-      textColor: 'black',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifySuccess('Settings saved successfully')
 
     resetChangeTracking()
   } catch (error) {
-    console.error('Error saving settings:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to save settings',
-    })
+
+    notifyError('Failed to save settings')
   } finally {
     saving.value = false
   }
@@ -705,10 +696,7 @@ async function saveAsNewVariant(payload: { name: string; displayName: string; de
 
     if (!variantResult.success || !variantResult.data) {
       validationErrors.value = variantResult.errors
-      $q.notify({
-        type: 'negative',
-        message: 'Failed to generate prompt. Check validation errors.',
-      })
+      notifyError('Failed to generate prompt. Check validation errors.')
       return
     }
 
@@ -724,18 +712,12 @@ async function saveAsNewVariant(payload: { name: string; displayName: string; de
       },
     })
 
-    $q.notify({
-      type: 'positive',
-      message: `Created new variant "${currentVariant.value}"`,
-    })
+    notifySuccess(`Created new variant "${currentVariant.value}"`)
 
     resetChangeTracking()
   } catch (error) {
-    console.error('Error creating variant:', error)
-    $q.notify({
-      type: 'negative',
-      message: 'Failed to create variant',
-    })
+
+    notifyError('Failed to create variant')
   } finally {
     saving.value = false
   }
@@ -743,12 +725,7 @@ async function saveAsNewVariant(payload: { name: string; displayName: string; de
 
 async function saveVariant(variant: PromptTemplateVariant, isNew = false) {
   if (!promptTemplate.value) {
-    $q.notify({
-      message: 'No prompt template loaded. Please load or create a template first.',
-      color: 'error-text',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifyError('No prompt template loaded. Please load or create a template first.')
     return
   }
 
@@ -764,21 +741,16 @@ async function saveVariant(variant: PromptTemplateVariant, isNew = false) {
   const updatedTemplate = { ...promptTemplate.value, variants }
   delete (updatedTemplate as any)._metadata
 
-  const result = await updatePromptTemplate({ id: promptTemplate.value.id, data: JSON.stringify(updatedTemplate) })
+  const result = await updatePromptTemplate({ id: promptTemplate.value.id, data: updatedTemplate })
   if (result) {
     promptTemplate.value.variants = variants
   } else {
-    $q.notify({
-      message: 'Failed to update prompt template',
-      color: 'error-text',
-      position: 'top',
-      timeout: 3000,
-    })
+    notifyError('Failed to update prompt template')
   }
 
-  await refreshPromptTemplates()
+  await queryClient.invalidateQueries({ queryKey: ['promptTemplates'] })
 
-  const prompts = store.getters.prompts || []
+  const prompts = promptItems.value || []
   const updatedFromStore = prompts.find((p: PromptTemplate) => p.system_name === PROMPT_SYSTEM_NAME)
   if (updatedFromStore) {
     promptTemplate.value = updatedFromStore
@@ -830,10 +802,7 @@ function doSwitchVariant(variantName: string) {
 
 function openPromptVariant() {
   if (!promptTemplate.value?.id) {
-    $q.notify({
-      type: 'negative',
-      message: 'Prompt template not loaded',
-    })
+    notifyError('Prompt template not loaded')
     return
   }
   const route = router.resolve({
@@ -935,22 +904,21 @@ function handleBeforeUnload(e: BeforeUnloadEvent) {
 
 // --- Lifecycle ---
 onMounted(() => {
-  getModels()
   loadPromptTemplate()
   window.addEventListener('beforeunload', handleBeforeUnload)
 
-  store.commit('setKnowledgeGraphSaveCallback', async () => {
+  kgPageStore.setSaveCallback(async () => {
     await saveToCurrentVariant()
   })
-  store.commit('setKnowledgeGraphRevertCallback', () => {
+  kgPageStore.setRevertCallback(() => {
     doSwitchVariant(currentVariant.value)
   })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)
-  store.commit('setKnowledgeGraphRetrievalChanged', false)
-  store.commit('clearKnowledgeGraphCallbacks')
+  kgPageStore.setRetrievalChanged(false)
+  kgPageStore.clearCallbacks()
 })
 
 watch(
@@ -961,7 +929,7 @@ watch(
 )
 
 watch(
-  () => store.getters.prompts,
+  () => promptItems.value,
   (newPrompts) => {
     if (newPrompts?.length > 0 && !promptTemplate.value) {
       loadPromptTemplate()
@@ -974,7 +942,7 @@ watch(
   hasUnsavedChanges,
   (val) => {
     emit('unsaved-change', val)
-    store.commit('setKnowledgeGraphRetrievalChanged', val)
+    kgPageStore.setRetrievalChanged(val)
   },
   { immediate: true }
 )
@@ -991,7 +959,7 @@ defineExpose({
 
 <style scoped>
 :deep(.q-expansion-item__content) {
-  border-radius: 0 8px;
+  border-radius: 0 var(--radius-lg);
 }
 
 .retrieval-section :deep(> .col-4) {
@@ -1009,7 +977,7 @@ defineExpose({
 
 .param-hint {
   font-size: 0.75rem;
-  color: var(--q-secondary-text, #6b7280);
+  color: var(--q-secondary-text);
   margin-top: 4px;
   line-height: 1.4;
 }

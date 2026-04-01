@@ -54,7 +54,8 @@ km-popup-confirm(
 
 <script>
 import { ref, reactive, computed } from 'vue'
-import { useChroma, required, toUpperCaseWithUnderscores } from '@shared'
+import { required, toUpperCaseWithUnderscores } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
 import { providerTypeOptions, providerEndpointHints } from '../../config/model_providers/providerTypes'
 
@@ -67,7 +68,8 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { create, ...useCollection } = useChroma('provider')
+    const queries = useEntityQueries()
+    const { mutateAsync: createProvider } = queries.provider.useCreate()
     const router = useRouter()
 
     const typeOptions = providerTypeOptions
@@ -92,8 +94,7 @@ export default {
     }
 
     return {
-      create,
-      useCollection,
+      createProvider,
       router,
       required,
       validateEndpoint,
@@ -151,13 +152,12 @@ export default {
     async createModelProvider() {
       if (!this.validateFields()) return
 
-      const result = await this.create(this.newRow)
+      const result = await this.createProvider(this.newRow)
 
       if (!result?.id) {
         return
       }
 
-      await this.useCollection.selectRecord(result.id)
       this.$router.push(`/model-providers/${result.id}`)
     },
   },

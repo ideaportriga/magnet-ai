@@ -1,7 +1,8 @@
 <template lang="pug">
-.km-title.text-lef.ellipsis {{ row?.name }}
-.km-field.text-left.ellipsis {{ row?.description }}
-.km-field.text-left.ellipsis {{ row?.system_name }}
+div
+  .km-title.text-lef.ellipsis {{ row?.name }}
+  .km-field.text-left.ellipsis {{ row?.description }}
+  .km-field.text-left.ellipsis {{ row?.system_name }}
 </template>
 
 <script>

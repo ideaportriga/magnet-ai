@@ -52,8 +52,8 @@ export function useScribe(options = {}) {
     if (connection) {
       try {
         connection.close()
-      } catch (err) {
-        console.warn('Scribe disconnect error:', err)
+      } catch {
+        // ignore close errors
       }
       connection = null
     }
@@ -109,25 +109,21 @@ export function useScribe(options = {}) {
       connection = Scribe.connect(opts)
 
       connection.on(RealtimeEvents.OPEN, () => {
-        console.log('Scribe connected')
         status.value = 'connected'
         isConnected.value = true
       })
 
       connection.on(RealtimeEvents.SESSION_STARTED, () => {
-        console.log('Scribe session started')
         status.value = 'transcribing'
         isConnected.value = true
       })
 
       connection.on(RealtimeEvents.PARTIAL_TRANSCRIPT, (data) => {
-        console.log('Scribe partial transcript', data)
         const text = data?.text ?? data?.transcript ?? data?.partial_transcript?.text ?? ''
         partialTranscript.value = text
       })
 
       connection.on(RealtimeEvents.COMMITTED_TRANSCRIPT, (data) => {
-        console.log('Scribe committed transcript', data)
         const text = data.transcript ?? data.text ?? ''
         const id = data.transcript_id ?? data.id ?? `t-${Date.now()}-${Math.random().toString(36).slice(2)}`
         committedTranscripts.value = [...committedTranscripts.value, { id, text }]
@@ -135,7 +131,6 @@ export function useScribe(options = {}) {
       })
 
       connection.on(RealtimeEvents.CLOSE, () => {
-        console.log('Scribe closed')
         disconnect()
       })
 

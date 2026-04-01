@@ -25,9 +25,11 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
-import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { useEntityConfig } from '@/composables/useEntityConfig'
+import { cloneDeep } from 'lodash'
+import { useEntityQueries } from '@/queries/entities'
+import { useAiAppDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: {
@@ -42,14 +44,15 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { items, searchString, create, config, requiredFields, ...useCollection } = useChroma('ai_apps')
+    const { config, requiredFields } = useEntityConfig('ai_apps')
+    const queries = useEntityQueries()
+    const aiAppStore = useAiAppDetailStore()
+    const { mutateAsync: createAiApp } = queries.ai_apps.useCreate()
 
     return {
-      items,
-      searchString,
       config,
-      useCollection,
-      create,
+      createAiApp,
+      aiAppStore,
       createNew: ref(false),
       requiredFields,
       newRow: reactive({
@@ -80,13 +83,11 @@ export default {
       },
     },
     currentRaw() {
-      return this.$store.getters.ai_app
+      return this.aiAppStore.entity
     },
   },
   watch: {},
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.name = this.newRow.name + '_COPY'
@@ -110,9 +111,8 @@ export default {
       if (!this.validateFields()) return
 
       this.createNew = false
-      const { id } = await this.create(JSON.stringify(this.newRow))
-      await this.useCollection.selectRecord(id)
-      this.$store.commit('setAIApp', this.newRow)
+      const { id } = await this.createAiApp(this.newRow)
+      this.aiAppStore.setEntity(this.newRow)
       this.$router.push(`/ai-apps/${id}`)
     },
   },
@@ -120,11 +120,6 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

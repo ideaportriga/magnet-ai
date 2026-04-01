@@ -55,9 +55,9 @@ const toggle = () => {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background: white;
+  background: var(--q-white);
   border: 1px solid var(--q-control-border);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
     background 0.3s ease,
@@ -66,7 +66,7 @@ const toggle = () => {
 
 .kg-toggle-field:hover:not(.kg-toggle-field--disabled) {
   border-color: var(--q-control-hover-border);
-  background: #fafafa;
+  background: var(--q-background);
 }
 
 .kg-toggle-field--disabled {
@@ -75,15 +75,15 @@ const toggle = () => {
 }
 
 .kg-toggle-field__title {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 500;
-  color: #333;
+  color: var(--q-secondary);
   line-height: 1.3;
 }
 
 .kg-toggle-field__description {
-  font-size: 12px;
-  color: #757575;
+  font-size: var(--km-font-size-caption);
+  color: var(--q-label);
   line-height: 1.4;
   margin-top: 2px;
 }

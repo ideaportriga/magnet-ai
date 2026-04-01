@@ -28,7 +28,7 @@
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import { ref } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
 
 defineProps<{
   showDialog: boolean
@@ -39,7 +39,7 @@ const emit = defineEmits<{
   created: [result: any]
 }>()
 
-const store = useStore()
+const appStore = useAppStore()
 const graphName = ref('')
 const description = ref('')
 const loading = ref(false)
@@ -55,7 +55,7 @@ const createGraph = async () => {
   error.value = ''
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const params = new URLSearchParams()
     params.set('name', graphName.value.trim())
     if (description.value.trim()) {
@@ -75,14 +75,14 @@ const createGraph = async () => {
 
     if (response.ok) {
       const result = await response.json()
-      console.log('Graph created:', result)
+
       emit('created', result)
     } else {
       const errorData = await response.json()
       error.value = errorData.detail || errorData.error || 'Failed to create graph'
     }
   } catch (err) {
-    console.error('Create graph error:', err)
+
     error.value = 'Failed to create graph. Please try again.'
   } finally {
     loading.value = false

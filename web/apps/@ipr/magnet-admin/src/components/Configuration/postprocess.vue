@@ -92,32 +92,40 @@ div
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useRagDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: ['prompt', 'selectedPrompt'],
   emits: ['cancel', 'remove', 'openTest'],
 
   setup() {
+    const queries = useEntityQueries()
+    const ragStore = useRagDetailStore()
+    const { data: promptListData } = queries.promptTemplates.useList()
+    const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
+      ragStore,
+      promptItems,
       checkForHallucinateMode: ref('logs'),
     }
   },
   computed: {
     categories: {
       get() {
-        return this.$store.getters.ragVariant?.post_process?.categorization?.categories || []
+        return this.ragStore.activeVariant?.post_process?.categorization?.categories || []
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.categorization.categories', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'post_process.categorization.categories', value })
       },
     },
     postProcessEnabled: {
       get() {
-        return this.$store.getters.ragVariant?.post_process?.enabled || false
+        return this.ragStore.activeVariant?.post_process?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.enabled', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'post_process.enabled', value })
         if (value && !this.categorisePromptCode) {
           this.categorisePromptCode = {
             system_name: 'DEFAULT_RAG_POST_PROCESSING',
@@ -127,74 +135,73 @@ export default {
     },
     topics: {
       get() {
-        return this.$store.getters.ragVariant?.topics || []
+        return this.ragStore.activeVariant?.topics || []
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'topics', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'topics', value })
       },
     },
     checkIsAnswered: {
       get() {
-        return this.$store.getters.ragVariant?.post_process?.answered_check?.enabled || false
+        return this.ragStore.activeVariant?.post_process?.answered_check?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.answered_check.enabled', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'post_process.answered_check.enabled', value })
       },
     },
     categorisePromptCode: {
       get() {
-        return this.prompts.find((el) => el.system_name == this.$store.getters.ragVariant?.post_process?.categorization?.prompt_template)
+        return this.prompts.find((el) => el.system_name == this.ragStore.activeVariant?.post_process?.categorization?.prompt_template)
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.categorization.prompt_template', value: value?.system_name })
+        this.ragStore.updateNestedVariantProperty( { path: 'post_process.categorization.prompt_template', value: value?.system_name })
       },
     },
     categorisePromptId() {
-      return this.prompts.find((el) => el.system_name == this.$store.getters.ragVariant?.post_process?.answered_check?.prompt_template)?.value
+      return this.prompts.find((el) => el.system_name == this.ragStore.activeVariant?.post_process?.answered_check?.prompt_template)?.value
     },
     detectLanguage: {
       get() {
-        return this.$store.getters.ragVariant?.post_process?.detect_question_language?.enabled || false
+        return this.ragStore.activeVariant?.post_process?.detect_question_language?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.detect_question_language.enabled', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'post_process.detect_question_language.enabled', value })
       },
     },
     languageDetectPromptCode: {
       get() {
-        return this.prompts.find((el) => el.system_name == this.$store.getters.ragVariant?.post_process?.detect_question_language?.prompt_template)
+        return this.prompts.find((el) => el.system_name == this.ragStore.activeVariant?.post_process?.detect_question_language?.prompt_template)
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.detect_question_language.prompt_template', value: value?.system_name })
+        this.ragStore.updateNestedVariantProperty( { path: 'post_process.detect_question_language.prompt_template', value: value?.system_name })
       },
     },
     languageDetectPromptId() {
-      return this.prompts.find((el) => el.system_name == this.$store.getters.ragVariant?.post_process?.detect_question_language?.prompt_template)
+      return this.prompts.find((el) => el.system_name == this.ragStore.activeVariant?.post_process?.detect_question_language?.prompt_template)
         ?.value
     },
     checkIsHallucinate: {
       get() {
-        return this.$store.getters.ragVariant?.post_process?.check_is_hallucinate?.enabled || false
+        return this.ragStore.activeVariant?.post_process?.check_is_hallucinate?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.check_is_hallucinate.enabled', value })
+        this.ragStore.updateNestedVariantProperty( { path: 'post_process.check_is_hallucinate.enabled', value })
       },
     },
     hallucinatePromptId() {
-      return this.prompts.find((el) => el.system_name == this.$store.getters.ragVariant?.post_process?.check_is_hallucinate?.prompt_template)?.value
+      return this.prompts.find((el) => el.system_name == this.ragStore.activeVariant?.post_process?.check_is_hallucinate?.prompt_template)?.value
     },
     hallucinatePromptCode: {
       get() {
-        return this.prompts.find((el) => el.system_name == this.$store.getters.ragVariant?.post_process?.check_is_hallucinate?.prompt_template)
+        return this.prompts.find((el) => el.system_name == this.ragStore.activeVariant?.post_process?.check_is_hallucinate?.prompt_template)
       },
       set(value) {
-        console.log(value)
-        this.$store.dispatch('updateNestedRagProperty', { path: 'post_process.check_is_hallucinate.prompt_template', value: value?.system_name })
+        this.ragStore.updateNestedVariantProperty( { path: 'post_process.check_is_hallucinate.prompt_template', value: value?.system_name })
       },
     },
 
     prompts() {
-      return (this.$store.getters.prompts ?? []).map((item) => ({
+      return (this.promptItems ?? []).map((item) => ({
         label: item.name,
         value: item.id,
         system_name: item.system_name,

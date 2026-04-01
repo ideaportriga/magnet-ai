@@ -130,12 +130,19 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
+import { useAppStore } from '@/stores/appStore'
 import { required, toUpperCaseWithUnderscores } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useNotify } from '@/composables/useNotify'
 
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifySuccess, notifyError, notifyCopied } = useNotify()
+const queries = useEntityQueries()
+
+const { data: providerListData } = queries.provider.useList()
+const { mutateAsync: createProviderMutation } = queries.provider.useCreate()
+const { mutateAsync: updateProviderMutation } = queries.provider.useUpdate()
+const { mutateAsync: deleteProviderMutation } = queries.provider.useRemove()
 
 const searchString = ref('')
 const loading = ref(false)
@@ -154,7 +161,7 @@ const form = reactive({
 })
 
 // ── Providers data ───────────────────────────────────────────────────
-const allProviders = computed(() => store.getters['chroma/provider']?.items || [])
+const allProviders = computed(() => providerListData.value?.items || [])
 const providers = computed(() =>
   allProviders.value.filter((p: any) => p.type === 'teams_note_taker')
 )
@@ -171,7 +178,7 @@ const visibleRows = computed(() => {
 
 // ── Webhook URL ──────────────────────────────────────────────────────
 const apiBase = computed(() => {
-  const adminUrl: string = store.getters.config?.api?.aiBridge?.urlAdmin || ''
+  const adminUrl: string = appStore.config?.api?.aiBridge?.urlAdmin || ''
   try {
     return new URL(adminUrl).origin
   } catch {
@@ -192,14 +199,6 @@ const columns = [
   { name: 'webhook',     label: 'Webhook URL',      field: 'system_name', align: 'left' as const },
   { name: 'actions',     label: '',                 field: 'id',          align: 'right' as const },
 ]
-
-// ── Load ─────────────────────────────────────────────────────────────
-const apiReady = computed(() => Boolean(store.getters.config?.api?.aiBridge?.urlAdmin))
-watch(apiReady, (ready) => {
-  if (ready && !allProviders.value.length) {
-    store.dispatch('chroma/get', { entity: 'provider' })
-  }
-}, { immediate: true })
 
 // ── Name → system_name auto-fill ─────────────────────────────────────
 const onNameInput = (val: string) => {
@@ -246,33 +245,28 @@ const saveProvider = async () => {
     if (form.client_secret) secrets.client_secret = form.client_secret
 
     if (editingProvider.value) {
-      await store.dispatch('chroma/update', {
-        entity: 'provider',
+      await updateProviderMutation({
         id: editingProvider.value.id,
-        payload: {
+        data: {
           name: form.name,
           secrets_encrypted: secrets,
           connection_config: { auth_handler_id: form.auth_handler_id || '' },
-        },
+        } as any,
       })
-      $q.notify({ position: 'top', message: 'Provider updated', color: 'positive', textColor: 'black', timeout: 1200 })
+      notifySuccess('Provider updated')
     } else {
-      await store.dispatch('chroma/create', {
-        entity: 'provider',
-        payload: {
-          name: form.name,
-          system_name: form.system_name,
-          type: 'teams_note_taker',
-          secrets_encrypted: secrets,
-          connection_config: { auth_handler_id: form.auth_handler_id || '' },
-        },
-      })
-      $q.notify({ position: 'top', message: 'Provider created', color: 'positive', textColor: 'black', timeout: 1200 })
+      await createProviderMutation({
+        name: form.name,
+        system_name: form.system_name,
+        type: 'teams_note_taker',
+        secrets_encrypted: secrets,
+        connection_config: { auth_handler_id: form.auth_handler_id || '' },
+      } as any)
+      notifySuccess('Provider created')
     }
-    await store.dispatch('chroma/get', { entity: 'provider' })
     closeDialog()
   } catch (err: any) {
-    $q.notify({ position: 'top', message: err?.message || 'Failed to save provider', color: 'negative', textColor: 'white', timeout: 2000 })
+    notifyError(err?.message || 'Failed to save provider')
   } finally {
     loading.value = false
   }
@@ -288,14 +282,10 @@ const deleteProvider = async () => {
   if (!deletingProvider.value) return
   loading.value = true
   try {
-    await store.dispatch('chroma/delete', {
-      entity: 'provider',
-      id: deletingProvider.value.id,
-    })
-    await store.dispatch('chroma/get', { entity: 'provider' })
-    $q.notify({ position: 'top', message: 'Provider deleted', color: 'positive', textColor: 'black', timeout: 1200 })
+    await deleteProviderMutation(deletingProvider.value.id)
+    notifySuccess('Provider deleted')
   } catch (err: any) {
-    $q.notify({ position: 'top', message: err?.message || 'Failed to delete provider', color: 'negative', textColor: 'white', timeout: 2000 })
+    notifyError(err?.message || 'Failed to delete provider')
   } finally {
     loading.value = false
     showDeleteConfirm.value = false
@@ -306,7 +296,7 @@ const deleteProvider = async () => {
 // ── Clipboard ─────────────────────────────────────────────────────────
 const copy = (text: string) => {
   navigator.clipboard.writeText(text).then(() => {
-    $q.notify({ position: 'top', message: 'Copied', color: 'dark', textColor: 'white', timeout: 800 })
+    notifyCopied('Copied')
   })
 }
 </script>

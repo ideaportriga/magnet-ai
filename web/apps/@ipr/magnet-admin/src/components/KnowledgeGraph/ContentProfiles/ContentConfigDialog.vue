@@ -200,7 +200,7 @@
               <div class="row q-col-gutter-lg">
                 <div class="col-8">
                   <div class="km-input-label q-pb-xs">Splitters</div>
-                  <div class="splitters-container q-py-xs" style="border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px">
+                  <div class="splitters-container q-py-xs" style="border: 1px solid var(--q-border); border-radius: var(--radius-sm)">
                     <div class="row items-center q-gutter-xs">
                       <q-chip
                         v-for="(splitter, index) in form.chunker.options.splitters"
@@ -234,7 +234,7 @@
                           text-color="primary"
                           icon="add"
                           class="q-ml-sm q-my-none q-pa-none"
-                          style="height: 24px; width: 28px; border-radius: 4px"
+                          style="height: 24px; width: 28px; border-radius: var(--radius-sm)"
                           @click="showAddInput"
                         />
                       </template>
@@ -380,9 +380,9 @@
 <script setup lang="ts">
 import router from '@/router'
 import { fetchData, required } from '@shared'
-import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import KgInlineField from '../common/KgInlineField.vue'
 import type { SourceRow } from '../Sources/models'
 import type { ContentConfigRow } from './models'
@@ -429,13 +429,13 @@ const isEditing = ref(false)
 // Prompt template options (loaded from admin API)
 const templateOptions = ref<any[]>([])
 const loadingTemplates = ref(false)
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifyError } = useNotify()
 
 const loadTemplates = async () => {
   loadingTemplates.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: 'prompt_templates',
@@ -447,8 +447,8 @@ const loadTemplates = async () => {
       templateOptions.value = data.items
     }
   } catch (error) {
-    console.error('Error loading prompt templates:', error)
-    $q.notify({ type: 'negative', message: 'Failed to load prompt templates' })
+
+    notifyError('Failed to load prompt templates')
   } finally {
     loadingTemplates.value = false
   }
@@ -881,13 +881,13 @@ watch(
 }
 
 :deep(.q-field__messages div[role='alert']) {
-  font-size: 10px;
+  font-size: var(--km-tiny-size, 10px);
   font-weight: 500;
   color: var(--q-error-text) !important;
 }
 
 .content-matching-sentence {
-  font-size: 13px;
+  font-size: var(--km-body-sm-size, 13px);
   line-height: 2;
   color: var(--q-secondary-text);
   display: flex;
@@ -895,8 +895,8 @@ watch(
   align-items: baseline;
   gap: 4px;
   padding: 12px 16px;
-  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
-  border: 1px solid rgba(var(--q-primary-rgb, 25, 118, 210), 0.2);
-  border-radius: 4px;
+  background: var(--q-primary-bg);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-sm);
 }
 </style>

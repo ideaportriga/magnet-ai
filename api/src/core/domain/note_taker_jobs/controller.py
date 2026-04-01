@@ -79,14 +79,17 @@ class NoteTakerJobsController(Controller):
         obj = await jobs_service.create(data)
         job = jobs_service.to_schema(obj, schema_type=NoteTakerJobSchema)
 
-        asyncio.create_task(
+        from core.server.background_tasks import spawn_background_task
+
+        spawn_background_task(
             _run_preview_job_background(
                 job_id=str(job.id),
                 settings_id=str(settings_id),
                 source_url=data.source_url,
                 participants=data.participants or [],
                 stt_model_system_name=data.stt_model_system_name,
-            )
+            ),
+            name=f"note-taker-preview-{job.id}",
         )
 
         return job
@@ -172,14 +175,17 @@ class NoteTakerJobsController(Controller):
                 status_code=409, detail=f"Job is not completed (status={obj.status})."
             )
 
-        asyncio.create_task(
+        from core.server.background_tasks import spawn_background_task
+
+        spawn_background_task(
             _rerun_postprocessing_background(
                 job_id=job_id,
                 settings_id=str(settings_id),
                 speaker_mapping=data.get("speaker_mapping", {}),
                 extra_keyterms=data.get("extra_keyterms", []),
                 meeting_notes=data.get("meeting_notes") or None,
-            )
+            ),
+            name=f"note-taker-rerun-{job_id}",
         )
 
         return {"job_id": job_id, "status": "rerunning"}

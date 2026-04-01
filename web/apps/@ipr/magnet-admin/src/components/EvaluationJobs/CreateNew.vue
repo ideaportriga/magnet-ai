@@ -113,8 +113,10 @@ km-popup-confirm(
     km-notification-text.q-mt-md(v-if='notification', :notification='notification')
 </template>
 <script>
-import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
+import { ref, reactive, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useEvaluationStore } from '@/stores/evaluationStore'
+import { useEntityConfig } from '@/composables/useEntityConfig'
 
 export default {
   props: {
@@ -145,19 +147,29 @@ export default {
   },
   emits: ['cancel', 'create'],
   setup() {
-    const { items: setItems } = useChroma('evaluation_sets')
-    const { create, get, requiredFields, config } = useChroma('evaluation_jobs')
-    const { items: ragItems } = useChroma('rag_tools')
-    const { items: promptTemplates } = useChroma('promptTemplates')
+    const queries = useEntityQueries()
+    const evalStore = useEvaluationStore()
+    const { data: setItemsData } = queries.evaluation_sets.useList()
+    const { data: ragItemsData } = queries.rag_tools.useList()
+    const { data: promptTemplatesData } = queries.promptTemplates.useList()
+
+    const setItems = computed(() => setItemsData.value?.items ?? [])
+    const ragItems = computed(() => ragItemsData.value?.items ?? [])
+    const promptTemplates = computed(() => promptTemplatesData.value?.items ?? [])
+    const evalSetsItems = computed(() => setItemsData.value?.items ?? [])
+
+    const entityConfig = useEntityConfig('evaluation_jobs')
+    const config = computed(() => entityConfig.config || {})
+    const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
+      evalStore,
       setItems,
       ragItems,
       promptTemplates,
-      get,
-      create,
       config,
       requiredFields,
+      evalSetsItems,
       createNew: ref(false),
       loading: ref(false),
       newRow: reactive({
@@ -174,7 +186,7 @@ export default {
       return `You are about to start an evaluation with ${this.testSetQty} test set records`
     },
     testSetQty() {
-      return (this.$store?.getters['chroma/evaluation_sets']?.items || []).find((el) => el?.system_name == this.newRow?.evaluation_set)?.items?.length
+      return (this.evalSetsItems || []).find((el) => el?.system_name == this.newRow?.evaluation_set)?.items?.length
     },
     evaluationTargetTools: {
       get() {
@@ -280,12 +292,12 @@ export default {
           },
         }
 
-        const response = await this.$store.dispatch('createJob', JSON.stringify(payload))
+        const response = await this.evalStore.createJob(JSON.stringify(payload))
 
         this.$emit('create', response)
         this.$emit('cancel')
       } catch (error) {
-        console.error('Something goes wrong:', error)
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Failed to create evaluation job. Please try again.', timeout: 5000 })
       } finally {
         this.loading = false
       }
@@ -295,13 +307,7 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
-
 .km-input:not(.q-field--readonly) .q-field__control::before {
-  background: #fff !important;
+  background: var(--q-white) !important;
 }
 </style>

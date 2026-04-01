@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
@@ -180,8 +179,13 @@ class DeepResearchRunController(Controller):
 
         obj = await run_service.create(run_data, auto_commit=True)
 
+        from core.server.background_tasks import spawn_background_task
+
         run_id = str(obj.id)
-        asyncio.create_task(run_deep_research_workflow(run_id))
+        spawn_background_task(
+            run_deep_research_workflow(run_id),
+            name=f"deep-research-{run_id}",
+        )
 
         return DeepResearchRunCreatedResponse(run_id=obj.id)
 

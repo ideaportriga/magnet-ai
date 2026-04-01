@@ -1,46 +1,44 @@
 <template lang="pug">
-.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(
-  style='max-width: 500px; min-width: 500px !important',
-  v-if='open && currentRecord'
-)
-  .column.no-wrap.full-height
-    .col-auto.km-heading-7.q-mb-xs Test Set item details
-      q-separator.q-mb-md
-    .column.q-gap-12
-      .col-auto(v-if='selectedEvaluationSet?.type === "rag_tool"')
-        retrieval-metadata-filter(
-          v-model='currentRecord.metadata_filter',
-          label='Evaluation metadata filter',
-          labelClass='km-input-label text-text-grey q-mr-xs'
-        )
-      .col-auto
-        .km-input-label.text-text-grey Evaluation input
-        km-input(
-          ref='input',
-          rows='16',
-          placeholder='Type your text here',
-          :model-value='evaluationInput',
-          @input='evaluationInput = $event',
-          border-radius='8px',
-          height='36px',
-          type='textarea'
-        )
-      .col-auto
-        .km-input-label.text-text-grey Expected output
-        km-input(
-          ref='input',
-          rows='16',
-          placeholder='Type your text here',
-          :model-value='expectedOutput',
-          @input='expectedOutput = $event',
-          border-radius='8px',
-          height='36px',
-          type='textarea'
-        )
+km-drawer-layout(v-if='open && currentRecord', storageKey="drawer-evaluation-sets", noScroll)
+  template(#header)
+    .km-heading-7 Test Set item details
+  .column.q-gap-12
+    .col-auto(v-if='selectedEvaluationSet?.type === "rag_tool"')
+      retrieval-metadata-filter(
+        v-model='currentRecord.metadata_filter',
+        label='Evaluation metadata filter',
+        labelClass='km-input-label text-text-grey q-mr-xs'
+      )
+    .col-auto
+      .km-input-label.text-text-grey Evaluation input
+      km-input(
+        ref='input',
+        rows='16',
+        placeholder='Type your text here',
+        :model-value='evaluationInput',
+        @input='evaluationInput = $event',
+        border-radius='8px',
+        height='36px',
+        type='textarea'
+      )
+    .col-auto
+      .km-input-label.text-text-grey Expected output
+      km-input(
+        ref='input',
+        rows='16',
+        placeholder='Type your text here',
+        :model-value='expectedOutput',
+        @input='expectedOutput = $event',
+        border-radius='8px',
+        height='36px',
+        type='textarea'
+      )
 </template>
 <script>
-import { defineComponent, ref } from 'vue'
-import { useChroma } from '@shared'
+import { defineComponent, ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
+import { useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
 
 export default defineComponent({
   props: {
@@ -52,21 +50,26 @@ export default defineComponent({
   },
   emits: ['update:open', 'update:record'],
   setup() {
-    const { selectedRow: selectedEvaluationSet } = useChroma('evaluation_sets')
+    const route = useRoute()
+    const queries = useEntityQueries()
+    const evalSetRecordStore = useEvaluationSetRecordStore()
+    const routeId = computed(() => route.params.id)
+    const { data: selectedEvaluationSet } = queries.evaluation_sets.useDetail(routeId)
     return {
       testText: ref(''),
       text: ref(undefined),
       loading: ref(false),
       selectedEvaluationSet,
+      evalSetRecordStore,
     }
   },
   computed: {
     currentRecord: {
       get() {
-        return this.$store.getters?.evaluation_set_record || {}
+        return this.evalSetRecordStore.record || {}
       },
       set(value) {
-        this.$store.commit('setEvaluationSetRecord', value)
+        this.evalSetRecordStore.setRecord(value)
       },
     },
     evaluationInput: {

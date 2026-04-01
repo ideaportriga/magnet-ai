@@ -132,14 +132,14 @@ watch(
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: #f9fafb;
-  border-radius: 8px;
-  color: #6b7280;
-  font-size: 13px;
+  background: var(--q-background);
+  border-radius: var(--radius-lg);
+  color: var(--q-secondary-text);
+  font-size: var(--km-font-size-label);
 }
 
 .field-list {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -148,17 +148,17 @@ watch(
 }
 
 .field-item:hover {
-  background-color: #f9fafb;
+  background-color: var(--q-background);
 }
 
 .field-item--active {
-  background-color: color-mix(in srgb, var(--q-primary) 8%, white) !important;
+  background-color: var(--q-primary-bg) !important;
 }
 
 .field-item__name {
   font-weight: 500;
-  font-size: 13px;
-  color: #1f2937;
+  font-size: var(--km-font-size-label);
+  color: var(--q-black);
 }
 
 .field-item__meta {
@@ -169,8 +169,8 @@ watch(
 }
 
 .field-item__description {
-  font-size: 12px;
-  color: #6b7280;
+  font-size: var(--km-font-size-caption);
+  color: var(--q-secondary-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

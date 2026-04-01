@@ -1,7 +1,6 @@
 <template lang="pug">
 .row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  q-inner-loading(:showing='loading')
-    q-spinner-gears(size='50px', color='primary')
+  km-inner-loading(:showing='loading')
 .row.no-wrap.overflow-hidden.full-height(style='min-width: 1200px')
   .col.row.no-wrap.full-height.justify-center.fit
     .col(style='max-width: 1200px; min-width: 600px')
@@ -11,7 +10,7 @@
             .col-auto.q-mb-lg
               .row.items-center.q-gap-12.q-mb-xs
                 .km-heading-4.text-black {{ name }}
-                q-space 
+                q-space
                 q-chip.q-ma-none.km-heading.text-uppercase(v-if='channel', :label='channel', color='chip-accent-bg', textColor='primary')
                 q-chip.q-ma-none.km-heading.text-uppercase(v-if='type', :label='type', color='light')
                 q-chip.q-ma-none.km-heading.text-white(v-if='status === "error"', label='ERROR', color='red')
@@ -79,68 +78,74 @@
 </template>
 
 <script>
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
 import { formatDuration, formatTraceType } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'
+import { useTraceDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   setup() {
-    const { selected, selectedRow, get, loading } = useChroma('observability_traces')
+    const route = useRoute()
+    const queries = useEntityQueries()
+    const traceStore = useTraceDetailStore()
+    const id = ref(route.params.id)
+    const { data: selectedRow, isLoading: loading } = queries.observability_traces.useDetail(id)
 
     return {
+      id,
       selectedRow,
-      selected,
-      get,
       loading,
       drawerOpened: ref(true),
       selectedSpan: ref(null),
+      traceStore,
     }
   },
   computed: {
     name() {
-      return this.$store.getters.trace?.name || ''
+      return this.traceStore.entity?.name || ''
     },
     type() {
-      return formatTraceType(this.$store.getters.trace?.type)
+      return formatTraceType(this.traceStore.entity?.type)
     },
     channel() {
-      return this.$store.getters.trace?.channel || ''
+      return this.traceStore.entity?.channel || ''
     },
     startTime() {
-      return formatDateTime(this.$store.getters.trace?.start_time)
+      return formatDateTime(this.traceStore.entity?.start_time)
     },
     endTime() {
-      return formatDateTime(this.$store.getters.trace?.end_time)
+      return formatDateTime(this.traceStore.entity?.end_time)
     },
     formattedLatency() {
-      return formatDuration(this.$store.getters.trace?.latency)
+      return formatDuration(this.traceStore.entity?.latency)
     },
     embeddingCost() {
-      const cost = this.$store.getters.trace?.cost_details?.embed
+      const cost = this.traceStore.entity?.cost_details?.embed
       if (!cost && cost !== 0) return ''
       return `$${cost.toFixed(6)}`
     },
     chatCompletionCost() {
-      const cost = this.$store.getters.trace?.cost_details?.chat
+      const cost = this.traceStore.entity?.cost_details?.chat
       if (!cost && cost !== 0) return ''
       return `$${cost.toFixed(6)}`
     },
     rerankCost() {
-      const cost = this.$store.getters.trace?.cost_details?.rerank
+      const cost = this.traceStore.entity?.cost_details?.rerank
       if (!cost && cost !== 0) return ''
       return `$${cost.toFixed(6)}`
     },
     totalCost() {
-      const cost = this.$store.getters.trace?.cost_details?.total
+      const cost = this.traceStore.entity?.cost_details?.total
       if (!cost && cost !== 0) return ''
       return `$${cost.toFixed(6)}`
     },
     status() {
-      return this.$store.getters.trace?.status || ''
+      return this.traceStore.entity?.status || ''
     },
     spans() {
-      return this.$store.getters.trace?.spans || []
+      return this.traceStore.entity?.spans || []
     },
     spansTree() {
       const spanMap = new Map()
@@ -202,7 +207,7 @@ export default {
       }
 
       const calcSpanTimelineParams = (spanStartTime, spanLatency, idleLatency) => {
-        const trace = this.$store?.getters?.trace
+        const trace = this.traceStore.entity
         const traceLatency = (trace?.latency ?? 1000) - idleTotalLatency
         const traceStartTime = new Date(trace?.start_time).getTime()
         const spanStart = new Date(spanStartTime).getTime()
@@ -307,28 +312,35 @@ export default {
       return this.$route.params?.id
     },
     // loading() {
-    //   return !this.$store?.getters?.trace?.id
+    //   return !this.traceStore.entity?.id
     // }
   },
 
   watch: {
     selectedRow(newVal, oldVal) {
       if (newVal?.id !== oldVal?.id) {
-        this.$store.commit('setTrace', newVal)
+        this.traceStore.setEntity(newVal)
         this.tab = 'retrieve'
         this.selectedSpan = this.selectedRow?.spans?.[0]
       }
     },
   },
   mounted() {
-    if (!this.$store.getters.trace?.spans) {
+    if (!this.traceStore.entity?.spans) {
       // this.getDetail({id: this.activeTraceId})
     }
 
-    if (this.activeTraceId != this.$store.getters.trace?.id) {
-      this.$store.commit('setTrace', this.selectedRow)
+    if (this.activeTraceId != this.traceStore.entity?.id) {
+      this.traceStore.setEntity(this.selectedRow)
     }
     this.selectedSpan = this.selectedRow?.spans?.[0]
+  },
+  activated() {
+    this.id = this.$route.params.id
+    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
+    if (this.selectedRow && this.activeTraceId != this.traceStore.entity?.id) {
+      this.traceStore.setEntity(this.selectedRow)
+    }
   },
   methods: {
     openDrawer(span) {

@@ -70,11 +70,13 @@ km-popup-confirm(
       )
 </template>
 <script>
-import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
+import { ref, reactive, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
 import tabTypes from '@/config/ai_apps/tab_types'
+import { useRagDetailStore, useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useEntityConfig } from '@/composables/useEntityConfig'
 
 export default {
   props: {
@@ -89,18 +91,30 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { items, searchString, config, requiredFields, ...useCollection } = useChroma('rag_tools')
-    const { items: agentItems } = useChroma('agents')
-    const { items: retrievalItems } = useChroma('retrieval')
+    const queries = useEntityQueries()
+    const ragStore = useRagDetailStore()
+    const aiAppStore = useAiAppDetailStore()
+    const { data: ragToolsData } = queries.rag_tools.useList()
+    const { data: agentsData } = queries.agents.useList()
+    const { data: retrievalData } = queries.retrieval.useList()
+
+    const items = computed(() => ragToolsData.value?.items ?? [])
+    const agentItems = computed(() => agentsData.value?.items ?? [])
+    const retrievalItems = computed(() => retrievalData.value?.items ?? [])
+
+    const entityConfig = useEntityConfig('rag_tools')
+    const config = computed(() => entityConfig.config || {})
+    const requiredFields = computed(() => entityConfig.requiredFields || [])
+
     return {
+      ragStore,
+      aiAppStore,
       items,
       retrievalItems,
       agentItems,
-      searchString,
       config,
-      useCollection,
-      createNew: ref(false),
       requiredFields,
+      createNew: ref(false),
       newRow: reactive({
         name: '',
         description: '',
@@ -132,7 +146,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.$store.getters.rag
+      return this.ragStore.entity
     },
     ragToolsOptions() {
       return this.items.map((item) => ({
@@ -216,8 +230,6 @@ export default {
   },
   watch: {},
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.name = this.newRow.name + '_COPY'
@@ -234,7 +246,6 @@ export default {
   },
   methods: {
     jsonTest() {
-      console.log(this.json)
     },
     validateFields() {
       const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
@@ -263,7 +274,14 @@ export default {
       if (this.newRow.tab_type === 'Group') {
         this.newRow.children = []
       }
-      await this.$store.commit('addAIAppTab', this.newRow)
+      const currentTabs = this.aiAppStore.entity?.tabs || []
+      const existing = currentTabs.find((el) => el.system_name === this.newRow.system_name)
+      if (existing) {
+        Object.assign(existing, this.newRow)
+        this.aiAppStore.updateProperty({ key: 'tabs', value: [...currentTabs] })
+      } else {
+        this.aiAppStore.updateProperty({ key: 'tabs', value: [...currentTabs, this.newRow] })
+      }
       this.$emit('cancel')
     },
   },
@@ -271,11 +289,6 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

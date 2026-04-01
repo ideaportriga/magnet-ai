@@ -1,17 +1,17 @@
 import csv
 import json
+from collections import defaultdict
 from datetime import datetime
 from io import StringIO
 from logging import getLogger
 from typing import Any
 
 import aiofiles
-from sqlalchemy import text
+from sqlalchemy import ColumnElement, and_, case, distinct, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from core.config.base import get_observability_settings
 from sqlalchemy.orm.attributes import flag_modified
 
+from core.config.base import get_observability_settings
 from core.db.models.metric.metric import Metric
 from services.common.models import EmptyDictionary
 from services.observability.models import (
@@ -42,210 +42,153 @@ logger = getLogger(__name__)
 OBSERVABILITY_USAGE_SHOW_USERS = get_observability_settings().USAGE_SHOW_USERS
 
 
-def _build_where_clause(filters: FilterObject | None) -> tuple[str, dict]:
-    """Build WHERE clause and parameters from filters"""
-    if not filters:
-        return "", {}
+def _get_field_column(key: str) -> ColumnElement:
+    """Get the SQLAlchemy column expression for a given key.
 
-    filter_dict = filters.model_dump(exclude_none=True, by_alias=True)
-    where_clause, params = _build_conditions(filter_dict)
+    Handles dotted paths like 'extra_data.topic' -> Metric.extra_data['topic'].astext
+    """
+    if "." in key:
+        if key.startswith("extra_data."):
+            json_path = key.replace("extra_data.", "", 1)
+            return Metric.extra_data[json_path].astext
+        elif key.startswith("conversation_data."):
+            json_path = key.replace("conversation_data.", "", 1)
+            return Metric.conversation_data[json_path].astext
+        elif key.startswith("x_attributes."):
+            json_path = key.replace("x_attributes.", "", 1)
+            return Metric.x_attributes[json_path].astext
+    return getattr(Metric, key)
 
-    return f" AND {where_clause}" if where_clause else "", params
 
-
-def _build_conditions(
-    filter_dict: dict, param_counter: list[int] | None = None
-) -> tuple[str, dict]:
-    """Recursively build WHERE conditions from filter dictionary"""
-    if param_counter is None:
-        param_counter = [0]
+def _build_field_condition(key: str, value: dict) -> list[ColumnElement]:
+    """Build ORM conditions for a single field."""
+    if not isinstance(value, dict):
+        return []
 
     conditions = []
-    params = {}
+
+    for operator, op_value in value.items():
+        col = _get_field_column(key)
+
+        if operator == "$in":
+            if isinstance(op_value, list):
+                conditions.append(col.in_(op_value))
+        elif operator == "$nin":
+            if isinstance(op_value, list):
+                conditions.append(col.notin_(op_value))
+        elif operator == "$ne":
+            conditions.append(col != op_value)
+        elif operator == "$gte":
+            conditions.append(col >= op_value)
+        elif operator == "$lte":
+            conditions.append(col <= op_value)
+        elif operator == "$gt":
+            conditions.append(col > op_value)
+        elif operator == "$lt":
+            conditions.append(col < op_value)
+        elif operator == "$eq":
+            conditions.append(col == op_value)
+        elif operator == "$regex":
+            # Convert regex pattern to SQL LIKE pattern
+            like_pattern = op_value.replace(".*", "%").replace(".", "_")
+            pattern = f"%{like_pattern}%"
+            conditions.append(func.lower(col).like(func.lower(pattern)))
+        elif operator == "$exists":
+            if op_value:
+                conditions.append(col.is_not(None))
+            else:
+                conditions.append(col.is_(None))
+
+    return conditions
+
+
+def _build_conditions(filter_dict: dict) -> list[ColumnElement]:
+    """Recursively build ORM conditions from filter dictionary."""
+    conditions = []
 
     for key, value in filter_dict.items():
         if key == "$and":
-            # Handle $and operator
             and_conditions = []
             for and_filter in value:
-                and_condition, and_params = _build_conditions(and_filter, param_counter)
-                if and_condition:
-                    and_conditions.append(f"({and_condition})")
-                    params.update(and_params)
+                sub = _build_conditions(and_filter)
+                if sub:
+                    and_conditions.append(and_(*sub))
             if and_conditions:
-                conditions.append(f"({' AND '.join(and_conditions)})")
+                conditions.append(and_(*and_conditions))
         elif key == "$or":
-            # Handle $or operator
             or_conditions = []
             for or_filter in value:
-                or_condition, or_params = _build_conditions(or_filter, param_counter)
-                if or_condition:
-                    or_conditions.append(f"({or_condition})")
-                    params.update(or_params)
+                sub = _build_conditions(or_filter)
+                if sub:
+                    or_conditions.append(and_(*sub))
             if or_conditions:
-                conditions.append(f"({' OR '.join(or_conditions)})")
+                conditions.append(or_(*or_conditions))
         else:
-            # Handle field conditions
-            field_condition, field_params = _build_field_condition(
-                key, value, param_counter
-            )
-            if field_condition:
-                conditions.append(field_condition)
-                params.update(field_params)
+            field_conditions = _build_field_condition(key, value)
+            conditions.extend(field_conditions)
 
-    return " AND ".join(conditions), params
+    return conditions
 
 
-def _build_field_condition(
-    key: str, value: dict, param_counter: list[int]
-) -> tuple[str, dict]:
-    """Build condition for a single field"""
-    if not isinstance(value, dict):
-        return "", {}
+def _build_where_conditions(filters: FilterObject | None) -> list[ColumnElement]:
+    """Build a list of SQLAlchemy WHERE conditions from filters."""
+    if not filters:
+        return []
 
-    conditions = []
-    params = {}
-
-    for operator, op_value in value.items():
-        param_counter[0] += 1
-        param_key = f"param_{param_counter[0]}"
-
-        if operator == "$in":
-            # Handle $in operator
-            if isinstance(op_value, list):
-                placeholders = []
-                for i, val in enumerate(op_value):
-                    param_counter[0] += 1
-                    placeholder = f"param_{param_counter[0]}"
-                    placeholders.append(f":{placeholder}")
-                    params[placeholder] = val
-
-                field_expr = _get_field_expression(key)
-                conditions.append(f"{field_expr} IN ({','.join(placeholders)})")
-        elif operator == "$nin":
-            # Handle $nin operator
-            if isinstance(op_value, list):
-                placeholders = []
-                for i, val in enumerate(op_value):
-                    param_counter[0] += 1
-                    placeholder = f"param_{param_counter[0]}"
-                    placeholders.append(f":{placeholder}")
-                    params[placeholder] = val
-
-                field_expr = _get_field_expression(key)
-                conditions.append(f"{field_expr} NOT IN ({','.join(placeholders)})")
-        elif operator == "$ne":
-            field_expr = _get_field_expression(key)
-            conditions.append(f"{field_expr} != :{param_key}")
-            params[param_key] = op_value
-        elif operator == "$gte":
-            field_expr = _get_field_expression(key)
-            conditions.append(f"{field_expr} >= :{param_key}")
-            params[param_key] = op_value
-        elif operator == "$lte":
-            field_expr = _get_field_expression(key)
-            conditions.append(f"{field_expr} <= :{param_key}")
-            params[param_key] = op_value
-        elif operator == "$gt":
-            field_expr = _get_field_expression(key)
-            conditions.append(f"{field_expr} > :{param_key}")
-            params[param_key] = op_value
-        elif operator == "$lt":
-            field_expr = _get_field_expression(key)
-            conditions.append(f"{field_expr} < :{param_key}")
-            params[param_key] = op_value
-        elif operator == "$eq":
-            field_expr = _get_field_expression(key)
-            conditions.append(f"{field_expr} = :{param_key}")
-            params[param_key] = op_value
-        elif operator == "$regex":
-            field_expr = _get_field_expression(key)
-            # For PostgreSQL, use ILIKE for case-insensitive pattern matching
-            conditions.append(f"{field_expr} ILIKE :{param_key}")
-            # Convert regex pattern to SQL LIKE pattern
-            like_pattern = op_value.replace(".*", "%").replace(".", "_")
-            params[param_key] = f"%{like_pattern}%"
-        elif operator == "$exists":
-            field_expr = _get_field_expression(key)
-            if op_value:
-                conditions.append(f"{field_expr} IS NOT NULL")
-            else:
-                conditions.append(f"{field_expr} IS NULL")
-
-    return " AND ".join(conditions), params
-
-
-def _get_field_expression(key: str) -> str:
-    """Get the SQL field expression for a given key"""
-    if "." in key:
-        # Handle JSON field filters
-        if key.startswith("extra_data."):
-            json_path = key.replace("extra_data.", "")
-            return f"extra_data->>'{json_path}'"
-        elif key.startswith("conversation_data."):
-            json_path = key.replace("conversation_data.", "")
-            return f"conversation_data->>'{json_path}'"
-        elif key.startswith("x_attributes."):
-            json_path = key.replace("x_attributes.", "")
-            return f"x_attributes->>'{json_path}'"
-    return key
+    filter_dict = filters.model_dump(exclude_none=True, by_alias=True)
+    return _build_conditions(filter_dict)
 
 
 async def get_options_rag(
     db_session: AsyncSession, filters: FilterObject | None
 ) -> OptionsRagResponse:
-    """Get RAG tool options using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Get RAG tool options"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = "feature_type = 'rag-tool' AND status = 'success'"
-    full_where = f"WHERE {base_condition}{where_clause}"
+    base_conditions = [
+        Metric.feature_type == "rag-tool",
+        Metric.status == "success",
+    ]
+    all_conditions = base_conditions + extra_conditions
 
     # Get topics
-    topics_sql = f"""
-        SELECT DISTINCT extra_data->>'topic' as topic
-        FROM metrics 
-        {full_where} AND extra_data->>'topic' IS NOT NULL
-        ORDER BY topic
-    """
-
-    topics_result = await db_session.execute(text(topics_sql), params)
+    stmt = (
+        select(distinct(Metric.extra_data["topic"].astext).label("topic"))
+        .where(*all_conditions)
+        .where(Metric.extra_data["topic"].astext.is_not(None))
+        .order_by(Metric.extra_data["topic"].astext)
+    )
+    topics_result = await db_session.execute(stmt)
     topics = [row.topic for row in topics_result.fetchall() if row.topic]
 
     # Get languages
-    languages_sql = f"""
-        SELECT DISTINCT extra_data->>'language' as language
-        FROM metrics 
-        {full_where} AND extra_data->>'language' IS NOT NULL
-        ORDER BY language
-    """
-
-    languages_result = await db_session.execute(text(languages_sql), params)
+    stmt = (
+        select(distinct(Metric.extra_data["language"].astext).label("language"))
+        .where(*all_conditions)
+        .where(Metric.extra_data["language"].astext.is_not(None))
+        .order_by(Metric.extra_data["language"].astext)
+    )
+    languages_result = await db_session.execute(stmt)
     languages = [row.language for row in languages_result.fetchall() if row.language]
 
     # Get consumer names
-    consumer_names_sql = f"""
-        SELECT DISTINCT consumer_name
-        FROM metrics 
-        {full_where} AND consumer_name IS NOT NULL
-        ORDER BY consumer_name
-    """
-
-    consumer_names_result = await db_session.execute(text(consumer_names_sql), params)
-    consumer_names = [
-        row.consumer_name
-        for row in consumer_names_result.fetchall()
-        if row.consumer_name
-    ]
+    stmt = (
+        select(distinct(Metric.consumer_name))
+        .where(*all_conditions)
+        .where(Metric.consumer_name.is_not(None))
+        .order_by(Metric.consumer_name)
+    )
+    consumer_names_result = await db_session.execute(stmt)
+    consumer_names = [row[0] for row in consumer_names_result.fetchall() if row[0]]
 
     # Get organizations
-    organizations_sql = f"""
-        SELECT DISTINCT x_attributes->>'org-id' as org_id
-        FROM metrics 
-        {full_where} AND x_attributes->>'org-id' IS NOT NULL
-        ORDER BY org_id
-    """
-
-    organizations_result = await db_session.execute(text(organizations_sql), params)
+    stmt = (
+        select(distinct(Metric.x_attributes["org-id"].astext).label("org_id"))
+        .where(*all_conditions)
+        .where(Metric.x_attributes["org-id"].astext.is_not(None))
+        .order_by(Metric.x_attributes["org-id"].astext)
+    )
+    organizations_result = await db_session.execute(stmt)
     organizations = [
         row.org_id for row in organizations_result.fetchall() if row.org_id
     ]
@@ -261,36 +204,34 @@ async def get_options_rag(
 async def get_options_llm(
     db_session: AsyncSession, filters: FilterObject | None
 ) -> OptionsLlmResponse:
-    """Get LLM options using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Get LLM options"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = "feature_type IN ('prompt-template', 'chat-completion-api', 'embedding-api', 'reranking-api')"
-    full_where = f"WHERE {base_condition}{where_clause}"
+    base_conditions = [
+        Metric.feature_type.in_(
+            ["prompt-template", "chat-completion-api", "embedding-api", "reranking-api"]
+        ),
+    ]
+    all_conditions = base_conditions + extra_conditions
 
     # Get consumer names
-    consumer_names_sql = f"""
-        SELECT DISTINCT consumer_name
-        FROM metrics 
-        {full_where} AND consumer_name IS NOT NULL
-        ORDER BY consumer_name
-    """
-
-    consumer_names_result = await db_session.execute(text(consumer_names_sql), params)
-    consumer_names = [
-        row.consumer_name
-        for row in consumer_names_result.fetchall()
-        if row.consumer_name
-    ]
+    stmt = (
+        select(distinct(Metric.consumer_name))
+        .where(*all_conditions)
+        .where(Metric.consumer_name.is_not(None))
+        .order_by(Metric.consumer_name)
+    )
+    consumer_names_result = await db_session.execute(stmt)
+    consumer_names = [row[0] for row in consumer_names_result.fetchall() if row[0]]
 
     # Get organizations
-    organizations_sql = f"""
-        SELECT DISTINCT x_attributes->>'org-id' as org_id
-        FROM metrics 
-        {full_where} AND x_attributes->>'org-id' IS NOT NULL
-        ORDER BY org_id
-    """
-
-    organizations_result = await db_session.execute(text(organizations_sql), params)
+    stmt = (
+        select(distinct(Metric.x_attributes["org-id"].astext).label("org_id"))
+        .where(*all_conditions)
+        .where(Metric.x_attributes["org-id"].astext.is_not(None))
+        .order_by(Metric.x_attributes["org-id"].astext)
+    )
+    organizations_result = await db_session.execute(stmt)
     organizations = [
         row.org_id for row in organizations_result.fetchall() if row.org_id
     ]
@@ -303,73 +244,66 @@ async def get_options_llm(
 async def get_options_agent(
     db_session: AsyncSession, filters: FilterObject | None
 ) -> OptionsAgentResponse:
-    """Get Agent options using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Get Agent options"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = "feature_type = 'agent' AND status = 'success'"
-    full_where = f"WHERE {base_condition}{where_clause}"
+    base_conditions = [
+        Metric.feature_type == "agent",
+        Metric.status == "success",
+    ]
+    all_conditions = base_conditions + extra_conditions
 
-    # Get topics from conversation_data.topics array
-    topics_sql = f"""
-        SELECT DISTINCT jsonb_array_elements_text(conversation_data->'topics') as topic
-        FROM metrics 
-        {full_where} AND conversation_data->'topics' IS NOT NULL
-        ORDER BY topic
-    """
-
-    topics_result = await db_session.execute(text(topics_sql), params)
-    topics = [row.topic for row in topics_result.fetchall() if row.topic]
+    # Get topics from conversation_data.topics array (application-level)
+    stmt = (
+        select(Metric.conversation_data["topics"])
+        .where(*all_conditions)
+        .where(Metric.conversation_data["topics"].is_not(None))
+    )
+    topics_result = await db_session.execute(stmt)
+    topics = set()
+    for (topics_json,) in topics_result:
+        if isinstance(topics_json, list):
+            topics.update(t for t in topics_json if t)
+    topics = sorted(topics)
 
     # Get feature system names as tools
-    tools_sql = f"""
-        SELECT DISTINCT feature_system_name
-        FROM metrics 
-        {full_where} AND feature_system_name IS NOT NULL
-        ORDER BY feature_system_name
-    """
-
-    tools_result = await db_session.execute(text(tools_sql), params)
-    tools = [
-        row.feature_system_name
-        for row in tools_result.fetchall()
-        if row.feature_system_name
-    ]
+    stmt = (
+        select(distinct(Metric.feature_system_name))
+        .where(*all_conditions)
+        .where(Metric.feature_system_name.is_not(None))
+        .order_by(Metric.feature_system_name)
+    )
+    tools_result = await db_session.execute(stmt)
+    tools = [row[0] for row in tools_result.fetchall() if row[0]]
 
     # Get consumer names
-    consumer_names_sql = f"""
-        SELECT DISTINCT consumer_name
-        FROM metrics 
-        {full_where} AND consumer_name IS NOT NULL
-        ORDER BY consumer_name
-    """
-
-    consumer_names_result = await db_session.execute(text(consumer_names_sql), params)
-    consumer_names = [
-        row.consumer_name
-        for row in consumer_names_result.fetchall()
-        if row.consumer_name
-    ]
+    stmt = (
+        select(distinct(Metric.consumer_name))
+        .where(*all_conditions)
+        .where(Metric.consumer_name.is_not(None))
+        .order_by(Metric.consumer_name)
+    )
+    consumer_names_result = await db_session.execute(stmt)
+    consumer_names = [row[0] for row in consumer_names_result.fetchall() if row[0]]
 
     # Get languages
-    languages_sql = f"""
-        SELECT DISTINCT conversation_data->>'language' as language
-        FROM metrics 
-        {full_where} AND conversation_data->>'language' IS NOT NULL
-        ORDER BY language
-    """
-
-    languages_result = await db_session.execute(text(languages_sql), params)
+    stmt = (
+        select(distinct(Metric.conversation_data["language"].astext).label("language"))
+        .where(*all_conditions)
+        .where(Metric.conversation_data["language"].astext.is_not(None))
+        .order_by(Metric.conversation_data["language"].astext)
+    )
+    languages_result = await db_session.execute(stmt)
     languages = [row.language for row in languages_result.fetchall() if row.language]
 
     # Get organizations
-    organizations_sql = f"""
-        SELECT DISTINCT x_attributes->>'org-id' as org_id
-        FROM metrics 
-        {full_where} AND x_attributes->>'org-id' IS NOT NULL
-        ORDER BY org_id
-    """
-
-    organizations_result = await db_session.execute(text(organizations_sql), params)
+    stmt = (
+        select(distinct(Metric.x_attributes["org-id"].astext).label("org_id"))
+        .where(*all_conditions)
+        .where(Metric.x_attributes["org-id"].astext.is_not(None))
+        .order_by(Metric.x_attributes["org-id"].astext)
+    )
+    organizations_result = await db_session.execute(stmt)
     organizations = [
         row.org_id for row in organizations_result.fetchall() if row.org_id
     ]
@@ -387,100 +321,99 @@ async def summarize_rag_tool_metrics(
     db_session: AsyncSession,
     filters: FilterObject | None,
 ) -> RagMetricsSummary | EmptyDictionary:
-    """Summarize RAG tool metrics using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Summarize RAG tool metrics"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = (
-        "feature_type = 'rag-tool' AND status = 'success' AND channel = 'production'"
-    )
-    full_where = f"WHERE {base_condition}{where_clause}"
+    base_conditions = [
+        Metric.feature_type == "rag-tool",
+        Metric.status == "success",
+        Metric.channel == "production",
+    ]
+    all_conditions = base_conditions + extra_conditions
 
     # Get general metrics
-    general_sql = f"""
-        SELECT 
-            COUNT(*) as total_calls,
-            AVG(latency) as avg_latency,
-            AVG(cost) as avg_cost,
-            SUM(cost) as total_cost,
-            COUNT(DISTINCT user_id) as unique_user_count
-        FROM metrics 
-        {full_where}
-    """
+    stmt = select(
+        func.count().label("total_calls"),
+        func.avg(Metric.latency).label("avg_latency"),
+        func.avg(Metric.cost).label("avg_cost"),
+        func.sum(Metric.cost).label("total_cost"),
+        func.count(distinct(Metric.user_id)).label("unique_user_count"),
+    ).where(*all_conditions)
 
-    general_result = await db_session.execute(text(general_sql), params)
+    general_result = await db_session.execute(stmt)
     general_metrics = general_result.first()
 
     if not general_metrics or general_metrics.total_calls == 0:
         return EmptyDictionary()
 
     # Get resolution metrics
-    resolution_sql = f"""
-        SELECT 
-            extra_data->>'is_answered' as resolution,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where}
-        GROUP BY extra_data->>'is_answered'
-    """
-
-    resolution_result = await db_session.execute(text(resolution_sql), params)
+    is_answered_col = Metric.extra_data["is_answered"].astext
+    stmt = (
+        select(
+            is_answered_col.label("resolution"),
+            func.count().label("count"),
+        )
+        .where(*all_conditions)
+        .group_by(is_answered_col)
+    )
+    resolution_result = await db_session.execute(stmt)
     resolution_metrics = [
         {"_id": row.resolution, "count": row.count}
         for row in resolution_result.fetchall()
     ]
 
     # Get topic metrics
-    topic_sql = f"""
-        SELECT 
-            extra_data->>'topic' as topic,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where}
-        GROUP BY extra_data->>'topic'
-    """
-
-    topic_result = await db_session.execute(text(topic_sql), params)
+    topic_col = Metric.extra_data["topic"].astext
+    stmt = (
+        select(
+            topic_col.label("topic"),
+            func.count().label("count"),
+        )
+        .where(*all_conditions)
+        .group_by(topic_col)
+    )
+    topic_result = await db_session.execute(stmt)
     topic_metrics = [
         {"_id": row.topic, "count": row.count} for row in topic_result.fetchall()
     ]
 
     # Get feedback metrics
-    feedback_sql = f"""
-        SELECT 
-            extra_data->'answer_feedback'->>'type' as feedback_type,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where} AND extra_data->'answer_feedback'->>'type' IS NOT NULL
-        GROUP BY extra_data->'answer_feedback'->>'type'
-    """
-
-    feedback_result = await db_session.execute(text(feedback_sql), params)
+    feedback_type_col = Metric.extra_data["answer_feedback"]["type"].astext
+    stmt = (
+        select(
+            feedback_type_col.label("feedback_type"),
+            func.count().label("count"),
+        )
+        .where(*all_conditions)
+        .where(feedback_type_col.is_not(None))
+        .group_by(feedback_type_col)
+    )
+    feedback_result = await db_session.execute(stmt)
     feedback_metrics = [
         {"_id": row.feedback_type, "count": row.count}
         for row in feedback_result.fetchall()
     ]
 
     # Get copy metrics
-    copy_sql = f"""
-        SELECT COUNT(*) as copy_count
-        FROM metrics 
-        {full_where} AND (extra_data->>'answer_copy')::boolean = true
-    """
-
-    copy_result = await db_session.execute(text(copy_sql), params)
+    stmt = (
+        select(func.count().label("copy_count"))
+        .where(*all_conditions)
+        .where(Metric.extra_data["answer_copy"].as_boolean() == True)  # noqa: E712
+    )
+    copy_result = await db_session.execute(stmt)
     copy_count = copy_result.scalar() or 0
 
     # Get language metrics
-    language_sql = f"""
-        SELECT 
-            extra_data->>'language' as language,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where}
-        GROUP BY extra_data->>'language'
-    """
-
-    language_result = await db_session.execute(text(language_sql), params)
+    language_col = Metric.extra_data["language"].astext
+    stmt = (
+        select(
+            language_col.label("language"),
+            func.count().label("count"),
+        )
+        .where(*all_conditions)
+        .group_by(language_col)
+    )
+    language_result = await db_session.execute(stmt)
     language_metrics = [
         {"_id": row.language, "count": row.count} for row in language_result.fetchall()
     ]
@@ -527,26 +460,27 @@ async def summarize_llm_metrics(
     db_session: AsyncSession,
     filters: FilterObject | None,
 ) -> LlmMetricsSummary | EmptyDictionary:
-    """Summarize LLM metrics using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Summarize LLM metrics"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = "feature_type IN ('prompt-template', 'chat-completion-api', 'embedding-api', 'reranking-api')"
-    full_where = f"WHERE {base_condition}{where_clause}"
+    base_conditions = [
+        Metric.feature_type.in_(
+            ["prompt-template", "chat-completion-api", "embedding-api", "reranking-api"]
+        ),
+    ]
+    all_conditions = base_conditions + extra_conditions
 
     # Get general metrics
-    general_sql = f"""
-        SELECT 
-            COUNT(*) as count,
-            AVG(latency) as avg_latency,
-            AVG(cost) as avg_total_cost,
-            SUM(cost) as total_cost,
-            COUNT(DISTINCT user_id) as unique_user_count,
-            SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as error_count
-        FROM metrics 
-        {full_where}
-    """
+    stmt = select(
+        func.count().label("count"),
+        func.avg(Metric.latency).label("avg_latency"),
+        func.avg(Metric.cost).label("avg_total_cost"),
+        func.sum(Metric.cost).label("total_cost"),
+        func.count(distinct(Metric.user_id)).label("unique_user_count"),
+        func.sum(case((Metric.status == "error", 1), else_=0)).label("error_count"),
+    ).where(*all_conditions)
 
-    general_result = await db_session.execute(text(general_sql), params)
+    general_result = await db_session.execute(stmt)
     general_metrics = general_result.first()
 
     if not general_metrics or general_metrics.count == 0:
@@ -572,33 +506,63 @@ async def summarize_agent_metrics(
     db_session: AsyncSession,
     filters: FilterObject | None,
 ) -> AgentMetricSummary | EmptyDictionary:
-    """Summarize Agent metrics using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Summarize Agent metrics"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = "feature_type = 'agent' AND status = 'success'"
-    full_where = f"WHERE {base_condition}{where_clause}"
+    base_conditions = [
+        Metric.feature_type == "agent",
+        Metric.status == "success",
+    ]
+    all_conditions = base_conditions + extra_conditions
 
     # Get general metrics
-    general_sql = f"""
-        SELECT 
-            COUNT(*) as count,
-            AVG(latency) as avg_duration,
-            AVG(cost) as avg_cost,
-            SUM(cost) as total_cost,
-            COUNT(DISTINCT user_id) as unique_user_count,
-            COUNT(DISTINCT conversation_id) as conversation_count,
-            AVG((conversation_data->>'avg_tool_call_latency')::float) as avg_tool_call_latency,
-            SUM((conversation_data->>'likes')::int) as total_likes,
-            SUM((conversation_data->>'dislikes')::int) as total_dislikes,
-            AVG((conversation_data->>'messages_count')::float) as avg_messages_count,
-            SUM(CASE WHEN conversation_data->>'resolution_status' = 'resolved' THEN 1 ELSE 0 END) as total_status_resolved,
-            SUM(CASE WHEN (extra_data->>'answer_copy')::boolean = true THEN 1 ELSE 0 END) as copy_count,
-            SUM(CASE WHEN (COALESCE((conversation_data->>'likes')::int, 0) + COALESCE((conversation_data->>'dislikes')::int, 0)) > 0 THEN 1 ELSE 0 END) as feedback_count
-        FROM metrics 
-        {full_where}
-    """
+    stmt = select(
+        func.count().label("count"),
+        func.avg(Metric.latency).label("avg_duration"),
+        func.avg(Metric.cost).label("avg_cost"),
+        func.sum(Metric.cost).label("total_cost"),
+        func.count(distinct(Metric.user_id)).label("unique_user_count"),
+        func.count(distinct(Metric.conversation_id)).label("conversation_count"),
+        func.avg(Metric.conversation_data["avg_tool_call_latency"].as_float()).label(
+            "avg_tool_call_latency"
+        ),
+        func.sum(Metric.conversation_data["likes"].as_integer()).label("total_likes"),
+        func.sum(Metric.conversation_data["dislikes"].as_integer()).label(
+            "total_dislikes"
+        ),
+        func.avg(Metric.conversation_data["messages_count"].as_float()).label(
+            "avg_messages_count"
+        ),
+        func.sum(
+            case(
+                (Metric.conversation_data["resolution_status"].astext == "resolved", 1),
+                else_=0,
+            )
+        ).label("total_status_resolved"),
+        func.sum(
+            case(
+                (Metric.extra_data["answer_copy"].as_boolean() == True, 1),  # noqa: E712
+                else_=0,
+            )
+        ).label("copy_count"),
+        func.sum(
+            case(
+                (
+                    (
+                        func.coalesce(Metric.conversation_data["likes"].as_integer(), 0)
+                        + func.coalesce(
+                            Metric.conversation_data["dislikes"].as_integer(), 0
+                        )
+                    )
+                    > 0,
+                    1,
+                ),
+                else_=0,
+            )
+        ).label("feedback_count"),
+    ).where(*all_conditions)
 
-    general_result = await db_session.execute(text(general_sql), params)
+    general_result = await db_session.execute(stmt)
     general_metrics = general_result.first()
 
     if not general_metrics or general_metrics.count == 0:
@@ -616,78 +580,79 @@ async def summarize_agent_metrics(
     )
 
     # Get resolution metrics
-    resolution_sql = f"""
-        SELECT 
-            conversation_data->>'resolution_status' as resolution_status,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where}
-        GROUP BY conversation_data->>'resolution_status'
-    """
-
-    resolution_result = await db_session.execute(text(resolution_sql), params)
+    resolution_col = Metric.conversation_data["resolution_status"].astext
+    stmt = (
+        select(
+            resolution_col.label("resolution_status"),
+            func.count().label("count"),
+        )
+        .where(*all_conditions)
+        .group_by(resolution_col)
+    )
+    resolution_result = await db_session.execute(stmt)
     resolution_metrics = [
         {"_id": row.resolution_status, "count": row.count}
         for row in resolution_result.fetchall()
     ]
 
     # Get channel metrics
-    channel_sql = f"""
-        SELECT 
-            channel,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where}
-        GROUP BY channel
-    """
-
-    channel_result = await db_session.execute(text(channel_sql), params)
+    stmt = (
+        select(
+            Metric.channel,
+            func.count().label("count"),
+        )
+        .where(*all_conditions)
+        .group_by(Metric.channel)
+    )
+    channel_result = await db_session.execute(stmt)
     channel_metrics = [
         {"_id": row.channel, "count": row.count} for row in channel_result.fetchall()
     ]
 
     # Get sentiment metrics
-    sentiment_sql = f"""
-        SELECT 
-            conversation_data->>'sentiment' as sentiment,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where}
-        GROUP BY conversation_data->>'sentiment'
-    """
-
-    sentiment_result = await db_session.execute(text(sentiment_sql), params)
+    sentiment_col = Metric.conversation_data["sentiment"].astext
+    stmt = (
+        select(
+            sentiment_col.label("sentiment"),
+            func.count().label("count"),
+        )
+        .where(*all_conditions)
+        .group_by(sentiment_col)
+    )
+    sentiment_result = await db_session.execute(stmt)
     sentiment_metrics = [
         {"_id": row.sentiment, "count": row.count}
         for row in sentiment_result.fetchall()
     ]
 
-    # Get topics metrics (this requires handling JSONB arrays)
-    topics_sql = f"""
-        SELECT 
-            jsonb_array_elements_text(conversation_data->'topics') as topic,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where} AND conversation_data->'topics' IS NOT NULL
-        GROUP BY jsonb_array_elements_text(conversation_data->'topics')
-    """
-
-    topics_result = await db_session.execute(text(topics_sql), params)
+    # Get topics metrics (application-level, replaces jsonb_array_elements_text)
+    stmt = (
+        select(Metric.conversation_data["topics"])
+        .where(*all_conditions)
+        .where(Metric.conversation_data["topics"].is_not(None))
+    )
+    topics_result = await db_session.execute(stmt)
+    topic_counts = defaultdict(int)
+    for (topics_json,) in topics_result:
+        if isinstance(topics_json, list):
+            for t in topics_json:
+                if t:
+                    topic_counts[t] += 1
     topics_metrics = [
-        {"_id": row.topic, "count": row.count} for row in topics_result.fetchall()
+        {"_id": topic, "count": count} for topic, count in topic_counts.items()
     ]
 
     # Get language metrics
-    language_sql = f"""
-        SELECT 
-            conversation_data->>'language' as language,
-            COUNT(*) as count
-        FROM metrics 
-        {full_where}
-        GROUP BY conversation_data->>'language'
-    """
-
-    language_result = await db_session.execute(text(language_sql), params)
+    language_col = Metric.conversation_data["language"].astext
+    stmt = (
+        select(
+            language_col.label("language"),
+            func.count().label("count"),
+        )
+        .where(*all_conditions)
+        .group_by(language_col)
+    )
+    language_result = await db_session.execute(stmt)
     language_metrics = [
         {"_id": row.language, "count": row.count} for row in language_result.fetchall()
     ]
@@ -750,29 +715,33 @@ async def summarize_agent_metrics(
 async def get_top_metrics_llm(
     db_session: AsyncSession, filters: FilterObject | None
 ) -> list[MetricsTopList]:
-    """Get top LLM metrics using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Get top LLM metrics"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = "feature_type IN ('prompt-template', 'chat-completion-api', 'embedding-api', 'reranking-api')"
-    full_where = f"WHERE {base_condition}{where_clause}"
+    base_conditions = [
+        Metric.feature_type.in_(
+            ["prompt-template", "chat-completion-api", "embedding-api", "reranking-api"]
+        ),
+    ]
+    all_conditions = base_conditions + extra_conditions
 
-    sql = f"""
-        SELECT 
-            consumer_name as name,
-            consumer_type as type,
-            COUNT(*) as count,
-            AVG(latency) as avg_latency,
-            AVG(cost) as avg_total_cost,
-            SUM(cost) as total_cost,
-            COUNT(DISTINCT user_id) as unique_user_count,
-            SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as error_count
-        FROM metrics 
-        {full_where}
-        GROUP BY consumer_name, consumer_type
-        ORDER BY count DESC
-    """
+    stmt = (
+        select(
+            Metric.consumer_name.label("name"),
+            Metric.consumer_type.label("type"),
+            func.count().label("count"),
+            func.avg(Metric.latency).label("avg_latency"),
+            func.avg(Metric.cost).label("avg_total_cost"),
+            func.sum(Metric.cost).label("total_cost"),
+            func.count(distinct(Metric.user_id)).label("unique_user_count"),
+            func.sum(case((Metric.status == "error", 1), else_=0)).label("error_count"),
+        )
+        .where(*all_conditions)
+        .group_by(Metric.consumer_name, Metric.consumer_type)
+        .order_by(func.count().desc())
+    )
 
-    result = await db_session.execute(text(sql), params)
+    result = await db_session.execute(stmt)
     metrics = []
 
     for row in result.fetchall():
@@ -796,33 +765,50 @@ async def get_top_metrics_llm(
 async def get_top_metrics_agent(
     db_session: AsyncSession, filters: FilterObject | None
 ) -> list[MetricsTopList]:
-    """Get top Agent metrics using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Get top Agent metrics"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = "feature_type = 'agent'"
-    full_where = f"WHERE {base_condition}{where_clause}"
+    base_conditions = [
+        Metric.feature_type == "agent",
+    ]
+    all_conditions = base_conditions + extra_conditions
 
-    sql = f"""
-        SELECT 
-            feature_name as name,
-            feature_system_name as system_name,
-            COUNT(*) as count,
-            AVG(latency) as avg_duration,
-            AVG(cost) as avg_total_cost,
-            SUM(cost) as total_cost,
-            COUNT(DISTINCT user_id) as unique_user_count,
-            COUNT(DISTINCT conversation_id) as conversation_count,
-            AVG((conversation_data->>'avg_tool_call_latency')::float) as avg_tool_call_latency,
-            SUM((conversation_data->>'likes')::int) as total_likes,
-            SUM((conversation_data->>'dislikes')::int) as total_dislikes,
-            SUM(CASE WHEN conversation_data->>'resolution_status' = 'resolved' THEN 1 ELSE 0 END) as total_status_resolved
-        FROM metrics 
-        {full_where}
-        GROUP BY feature_name, feature_system_name
-        ORDER BY count DESC
-    """
+    stmt = (
+        select(
+            Metric.feature_name.label("name"),
+            Metric.feature_system_name.label("system_name"),
+            func.count().label("count"),
+            func.avg(Metric.latency).label("avg_duration"),
+            func.avg(Metric.cost).label("avg_total_cost"),
+            func.sum(Metric.cost).label("total_cost"),
+            func.count(distinct(Metric.user_id)).label("unique_user_count"),
+            func.count(distinct(Metric.conversation_id)).label("conversation_count"),
+            func.avg(
+                Metric.conversation_data["avg_tool_call_latency"].as_float()
+            ).label("avg_tool_call_latency"),
+            func.sum(Metric.conversation_data["likes"].as_integer()).label(
+                "total_likes"
+            ),
+            func.sum(Metric.conversation_data["dislikes"].as_integer()).label(
+                "total_dislikes"
+            ),
+            func.sum(
+                case(
+                    (
+                        Metric.conversation_data["resolution_status"].astext
+                        == "resolved",
+                        1,
+                    ),
+                    else_=0,
+                )
+            ).label("total_status_resolved"),
+        )
+        .where(*all_conditions)
+        .group_by(Metric.feature_name, Metric.feature_system_name)
+        .order_by(func.count().desc())
+    )
 
-    result = await db_session.execute(text(sql), params)
+    result = await db_session.execute(stmt)
     metrics = []
 
     for row in result.fetchall():
@@ -849,28 +835,30 @@ async def get_top_metrics_agent(
 async def get_top_metrics_rag(
     db_session: AsyncSession, filters: FilterObject | None
 ) -> list[MetricsTopList]:
-    """Get top RAG metrics using raw SQL"""
-    where_clause, params = _build_where_clause(filters)
+    """Get top RAG metrics"""
+    extra_conditions = _build_where_conditions(filters)
 
-    base_condition = (
-        "feature_type = 'rag-tool' AND status = 'success' AND channel = 'production'"
+    base_conditions = [
+        Metric.feature_type == "rag-tool",
+        Metric.status == "success",
+        Metric.channel == "production",
+    ]
+    all_conditions = base_conditions + extra_conditions
+
+    stmt = (
+        select(
+            Metric.feature_system_name.label("name"),
+            func.count().label("count"),
+            func.avg(Metric.latency).label("avg_latency"),
+            func.avg(Metric.cost).label("avg_total_cost"),
+            func.count(distinct(Metric.user_id)).label("unique_user_count"),
+        )
+        .where(*all_conditions)
+        .group_by(Metric.feature_system_name)
+        .order_by(func.count().desc())
     )
-    full_where = f"WHERE {base_condition}{where_clause}"
 
-    sql = f"""
-        SELECT 
-            feature_system_name as name,
-            COUNT(*) as count,
-            AVG(latency) as avg_latency,
-            AVG(cost) as avg_total_cost,
-            COUNT(DISTINCT user_id) as unique_user_count
-        FROM metrics 
-        {full_where}
-        GROUP BY feature_system_name
-        ORDER BY count DESC
-    """
-
-    result = await db_session.execute(text(sql), params)
+    result = await db_session.execute(stmt)
     metrics = []
 
     for row in result.fetchall():
@@ -892,7 +880,7 @@ async def get_metrics_by_feature_type(
     feature_types: list[FeatureType] | FeatureType,
     data: OffsetPaginationRequest | None,
 ) -> MetricsQueryResult:
-    """Get metrics by feature type using raw SQL"""
+    """Get metrics by feature type"""
     # Handle pagination parameters
     if data is not None and getattr(data, "filters", None) is not None:
         filters = data.filters
@@ -907,79 +895,82 @@ async def get_metrics_by_feature_type(
         skip = 0
         order = "DESC"
 
-    # Transform sort field if it references JSONB fields
+    # Resolve the sort column
     if sort and "." in sort:
         parts = sort.split(".", 1)
         if parts[0] in ["extra_data", "conversation_data", "x_attributes"]:
-            # Use JSONB accessor syntax for PostgreSQL
-            # ->> returns text, so we cast to appropriate type if needed
-            json_field = parts[0]
-            json_key = parts[1]
-            sort = f"({json_field}->>{repr(json_key)})"
+            json_field = getattr(Metric, parts[0])
+            sort_col = json_field[parts[1]].astext
+        else:
+            sort_col = getattr(Metric, sort, Metric.id)
+    else:
+        sort_col = getattr(Metric, sort, Metric.id)
 
-    where_clause, params = _build_where_clause(filters)
+    extra_conditions = _build_where_conditions(filters)
 
     # Build feature type condition
     if isinstance(feature_types, FeatureType):
         if feature_types == FeatureType.RAG_TOOL:
-            feature_condition = "feature_type = 'rag-tool' AND status = 'success'"
+            feature_conditions = [
+                Metric.feature_type == "rag-tool",
+                Metric.status == "success",
+            ]
         else:
-            feature_condition = f"feature_type = '{feature_types.value}'"
+            feature_conditions = [Metric.feature_type == feature_types.value]
     elif isinstance(feature_types, list):
         feature_type_values = [ft.value for ft in feature_types]
-        feature_condition = f"feature_type IN ({','.join([f':{i}' for i in range(len(feature_type_values))])})"
-        for i, value in enumerate(feature_type_values):
-            params[f"{i}"] = value
+        feature_conditions = [Metric.feature_type.in_(feature_type_values)]
     else:
-        feature_condition = "1=1"
+        feature_conditions = []
 
-    full_where = f"WHERE {feature_condition}{where_clause}"
+    all_conditions = feature_conditions + extra_conditions
 
     # Get count for pagination
-    count_sql = f"""
-        SELECT COUNT(*) as total_count
-        FROM metrics 
-        {full_where}
-    """
-
-    count_result = await db_session.execute(text(count_sql), params)
+    count_stmt = select(func.count()).select_from(Metric).where(*all_conditions)
+    count_result = await db_session.execute(count_stmt)
     total_count = count_result.scalar()
 
-    # Get metrics with pagination
-    user_id_field = "user_id," if OBSERVABILITY_USAGE_SHOW_USERS else ""
+    # Build the columns to select
+    columns = [
+        Metric.id,
+        Metric.feature_name,
+        Metric.feature_id,
+        Metric.feature_system_name,
+        Metric.feature_type,
+        Metric.feature_variant,
+        Metric.status,
+        Metric.start_time,
+        Metric.end_time,
+        Metric.channel,
+        Metric.source,
+        Metric.latency,
+        Metric.extra_data,
+        Metric.conversation_id,
+        Metric.conversation_data,
+        Metric.trace_id,
+        Metric.cost,
+        Metric.consumer_name,
+        Metric.consumer_type,
+        Metric.x_attributes,
+        Metric.created_at,
+        Metric.updated_at,
+    ]
 
-    metrics_sql = f"""
-        SELECT 
-            id,
-            feature_name,
-            feature_id,
-            feature_system_name,
-            feature_type,
-            feature_variant,
-            status,
-            start_time,
-            end_time,
-            channel,
-            source,
-            latency,
-            extra_data,
-            conversation_id,
-            conversation_data,
-            trace_id,
-            cost,
-            consumer_name,
-            consumer_type,
-            x_attributes,
-            {user_id_field}
-            created_at,
-            updated_at
-        FROM metrics 
-        {full_where}
-        ORDER BY {sort} {order}
-        LIMIT {limit} OFFSET {skip}
-    """
+    if OBSERVABILITY_USAGE_SHOW_USERS:
+        columns.append(Metric.user_id)
 
-    result = await db_session.execute(text(metrics_sql), params)
+    # Apply ordering
+    order_clause = sort_col.desc() if order == "DESC" else sort_col.asc()
+
+    metrics_stmt = (
+        select(*columns)
+        .where(*all_conditions)
+        .order_by(order_clause)
+        .limit(limit)
+        .offset(skip)
+    )
+
+    result = await db_session.execute(metrics_stmt)
 
     # Convert to dict format for compatibility
     items = []
@@ -1172,37 +1163,11 @@ async def update_metric_conversation_data(
 async def get_analytics_by_id(
     db_session: AsyncSession, analytics_id: str
 ) -> dict[str, Any] | None:
-    """Get analytics by ID using raw SQL"""
+    """Get analytics by ID"""
     try:
-        sql = """
-            SELECT 
-                id,
-                feature_name,
-                feature_system_name,
-                feature_type,
-                feature_id,
-                feature_variant,
-                channel,
-                source,
-                status,
-                start_time,
-                end_time,
-                latency,
-                cost,
-                trace_id,
-                user_id,
-                consumer_name,
-                consumer_type,
-                conversation_id,
-                conversation_data,
-                extra_data,
-                x_attributes
-            FROM metrics 
-            WHERE id = :analytics_id
-        """
-
-        result = await db_session.execute(text(sql), {"analytics_id": analytics_id})
-        row = result.first()
+        stmt = select(Metric).where(Metric.id == analytics_id)
+        result = await db_session.execute(stmt)
+        row = result.scalars().first()
 
         if not row:
             raise RecordNotFoundError()

@@ -109,8 +109,8 @@ const save = () => {
   display: flex;
   align-items: flex-start;
   padding: 16px;
-  background-color: var(--q-grey-2, #f5f5f5);
-  border-radius: 8px;
+  background-color: var(--q-light);
+  border-radius: var(--radius-lg);
   line-height: 1.5;
 }
 

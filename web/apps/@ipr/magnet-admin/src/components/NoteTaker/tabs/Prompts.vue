@@ -75,17 +75,20 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useStore } from 'vuex'
+import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import { useRouter } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
 
-const store = useStore()
+const ntStore = useNoteTakerStore()
 const router = useRouter()
+const queries = useEntityQueries()
 
-const promptTemplates = computed(() => store.getters['chroma/promptTemplates']?.items || [])
+const { data: promptTemplatesListData } = queries.promptTemplates.useList()
+const promptTemplates = computed(() => promptTemplatesListData.value?.items || [])
 
 const setting = (path: string, fallback: any = false) => computed({
-  get: () => path.split('.').reduce((o: any, k) => o?.[k], store.getters.noteTakerSettings) ?? fallback,
-  set: (v: any) => store.dispatch('updateNoteTakerSetting', { path, value: v }),
+  get: () => path.split('.').reduce((o: any, k) => o?.[k], ntStore.settings) ?? fallback,
+  set: (v: any) => ntStore.updateSetting( { path, value: v }),
 })
 
 const postTranscriptionEnabled = setting('post_transcription.enabled')

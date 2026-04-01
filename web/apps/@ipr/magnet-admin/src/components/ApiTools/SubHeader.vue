@@ -41,51 +41,72 @@ q-separator.q-my-sm
     km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariant', :disable='variants?.length === 1')
 </template>
 <script>
-import { useChroma } from '@shared'
+import { computed, ref } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useApiToolDetailStore } from '@/stores/entityDetailStores'
 export default {
   setup() {
-    const { items, update, create, selectedRow } = useChroma('api_tools')
-    return { items, update, create, selectedRow }
+    const queries = useEntityQueries()
+    const apiToolStore = useApiToolDetailStore()
+    const { data: listData } = queries.api_tools.useList()
+    const { mutateAsync: updateEntity } = queries.api_tools.useUpdate()
+    const { mutateAsync: createEntity } = queries.api_tools.useCreate()
+    const items = computed(() => listData.value?.items ?? [])
+    const selectedVariantName = ref(null)
+    return { items, updateEntity, createEntity, apiToolStore, selectedVariantName }
   },
   computed: {
     selected_variant: {
       get() {
-        return { label: this.getVariantLabel(this.$store.getters.selectedApiToolVariant), value: this.$store.getters.selectedApiToolVariant }
+        const variantName = this.selectedVariantName || this.apiToolStore.entity?.active_variant
+        return { label: this.getVariantLabel(variantName), value: variantName }
       },
       set(value) {
-        this.$store.commit('setSelectedApiToolVariant', value.value)
+        this.selectedVariantName = value.value
       },
     },
     selectedTool() {
-      return this.$store.getters.api_tool
+      return this.apiToolStore.entity
+    },
+    currentVariantName() {
+      return this.selectedVariantName || this.apiToolStore.entity?.active_variant
+    },
+    currentVariant() {
+      return this.selectedTool?.variants?.find((v) => v.variant === this.currentVariantName)
     },
     variants() {
       return this.selectedTool?.variants?.map((el) => ({
         label: el.variant.replace('variant_', 'Variant '),
         value: el.variant,
-        active_variant: el.variant == this.$store.getters.api_tool?.active_variant,
+        active_variant: el.variant == this.apiToolStore.entity?.active_variant,
       }))
     },
     isActive() {
-      return this.$store.getters.selectedApiToolVariant == this.$store.getters.api_tool?.active_variant
+      return this.currentVariantName == this.apiToolStore.entity?.active_variant
     },
     variant_description: {
       get() {
-        return this.$store.getters.api_tool_variant?.description
+        return this.currentVariant?.description
       },
       set(value) {
-        this.$store.commit('updateNestedApiToolProperty', { path: 'description', value })
+        if (!this.currentVariant) return
+        const variants = [...(this.selectedTool?.variants || [])]
+        const idx = variants.findIndex((v) => v.variant === this.currentVariantName)
+        if (idx >= 0) {
+          variants[idx] = { ...variants[idx], description: value }
+          this.apiToolStore.updateProperty({ key: 'variants', value: variants })
+        }
       },
     },
   },
   methods: {
     activateVariant() {
-      this.$store.commit('activateApiToolVariant')
+      this.apiToolStore.updateProperty({ key: 'active_variant', value: this.currentVariantName })
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'Variant has been activated.',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
     },
@@ -93,20 +114,30 @@ export default {
       return variant?.replace('variant_', 'Variant ')
     },
     addVariant() {
-      this.$store.commit('createApiToolVariant')
+      const variants = [...(this.selectedTool?.variants || [])]
+      const newIndex = variants.length + 1
+      const newVariant = {
+        variant: `variant_${newIndex}`,
+        description: '',
+        value: JSON.parse(JSON.stringify(this.currentVariant?.value || {})),
+      }
+      variants.push(newVariant)
+      this.apiToolStore.updateProperty({ key: 'variants', value: variants })
+      this.selectedVariantName = newVariant.variant
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'New variant has been added.',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
     },
     deleteVariant() {
       this.$q.notify({
         message: 'Are you sure you want to delete this variant?',
-        color: 'error-text',
-        position: 'top',
+        color: 'red-9', textColor: 'white',
+        icon: 'error',
+        group: 'error',
         timeout: 0,
         actions: [
           {
@@ -120,13 +151,14 @@ export default {
             label: 'Delete',
             color: 'white',
             handler: () => {
-              // notify with success
-              this.$store.commit('deleteApiToolVariant')
+              const variants = (this.selectedTool?.variants || []).filter((v) => v.variant !== this.currentVariantName)
+              this.apiToolStore.updateProperty({ key: 'variants', value: variants })
+              this.selectedVariantName = variants[0]?.variant || null
               this.$q.notify({
-                position: 'top',
+                color: 'green-9', textColor: 'white',
+                icon: 'check_circle',
+                group: 'success',
                 message: 'Variant has been deleted.',
-                color: 'positive',
-                textColor: 'black',
                 timeout: 1000,
               })
             },

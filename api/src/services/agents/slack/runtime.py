@@ -6,9 +6,10 @@ from slack_bolt.adapter.asgi.async_handler import AsyncSlackRequestHandler
 from slack_bolt.async_app import AsyncApp
 from slack_bolt.oauth.async_oauth_settings import AsyncOAuthSettings
 from slack_sdk.signature import SignatureVerifier
-from sqlalchemy import text
+from sqlalchemy import func, select
 
 from core.config.app import alchemy
+from core.db.models.agent.agent import Agent
 
 from .handlers import attach_default_handlers
 from .installation_store import SlackInstallationStore
@@ -119,23 +120,20 @@ def _build_bot_from_db(
 
 
 async def discover_bots_from_db() -> Sequence[SlackRuntime]:
-    sql = text(
-        """
-        SELECT
-            a.name AS name, 
-            a.system_name AS system_name,
-            a.channels #>> '{slack,client_id}' AS client_id,
-            a.channels #>> '{slack,client_secret}' AS client_secret,
-            a.channels #>> '{slack,signing_secret}' AS signing_secret,
-            a.channels #>> '{slack,token}' AS token,
-            a.channels #>> '{slack,agent_scopes}' AS scopes
-        FROM agents a
-        WHERE COALESCE((a.channels -> 'slack' -> 'enabled')::boolean, false ) = true        
-        """
-    )
+    sl = Agent.channels["slack"]
+
+    stmt = select(
+        Agent.name.label("name"),
+        Agent.system_name.label("system_name"),
+        sl["client_id"].astext.label("client_id"),
+        sl["client_secret"].astext.label("client_secret"),
+        sl["signing_secret"].astext.label("signing_secret"),
+        sl["token"].astext.label("token"),
+        sl["agent_scopes"].astext.label("scopes"),
+    ).where(func.coalesce(sl["enabled"].as_boolean(), False).is_(True))
 
     async with alchemy.get_session() as session:
-        result = await session.execute(sql)
+        result = await session.execute(stmt)
         rows = result.mappings().all()
 
     bots: list[SlackRuntime] = []

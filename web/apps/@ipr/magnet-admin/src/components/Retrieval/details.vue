@@ -1,78 +1,104 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  q-inner-loading(:showing='loading')
-    q-spinner-gears(size='50px', color='primary')
-.row.no-wrap.overflow-hidden.full-height(v-else, style='min-width: 1200px')
-  .col.row.no-wrap.full-height.justify-center.fit
-    .col(style='max-width: 1200px; min-width: 600px')
-      .full-height.q-pb-md.relative-position.q-px-md
-        .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
-          .col
-            .row.items-center
-              km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
-            .row.items-center
-              km-input-flat.km-description.full-width.text-black(
-                placeholder='Description',
-                :modelValue='description',
-                @change='description = $event'
-              )
-            .row.items-center.q-pl-6
-              q-icon.col-auto(name='o_info', color='text-secondary')
-                q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
-              km-input-flat.col.km-description.full-width(
-                placeholder='Enter system name',
-                :modelValue='system_name',
-                @change='system_name = $event',
-                @focus='showInfo = true',
-                @blur='showInfo = false',
-                :rules='[validSystemName()]'
-              )
-            .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
-            retrieval-sub-header
-        .ba-border.bg-white.border-radius-12.q-pa-16(style='min-width: 300px')
-          q-tabs.bb-border.full-width(
-            v-model='tab',
-            narrow-indicator,
-            dense,
-            align='left',
-            active-color='primary',
-            indicator-color='primary',
-            active-bg-color='white',
-            no-caps,
-            content-class='km-tabs'
-          )
-            template(v-for='t in tabs')
-              q-tab(:name='t.name', :label='t.label')
-          .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='max-height: calc(100vh - 360px) !important')
-            .row.q-gap-16.full-height.full-width
-              .col.full-height.full-width
-                .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-                  template(v-if='true')
-                    .col-auto.full-width
-                      template(v-if='tab == "retrieve"')
-                        retrieval-retrieve
-                      template(v-if='tab == "uiSettings"')
-                        retrieval-uisettings
-                      template(v-if='tab == "languages"')
-                        retrieval-languages
-                      template(v-if='tab == "testSets"')
-                        retrieval-test-sets
-
-  .col-auto
+km-inner-loading(:showing='loading')
+layouts-details-layout(v-if='!loading')
+  template(#header)
+    km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
+    km-input-flat.km-description.full-width.text-black(placeholder='Description', :modelValue='description', @change='description = $event')
+    .row.items-center.q-pl-6
+      q-icon.col-auto(name='o_info', color='text-secondary')
+        q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
+      km-input-flat.col.km-description.full-width(
+        placeholder='Enter system name',
+        :modelValue='system_name',
+        @change='system_name = $event',
+        @focus='showInfo = true',
+        @blur='showInfo = false',
+        :rules='[validSystemName()]'
+      )
+    .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
+  template(#subheader)
+    retrieval-sub-header
+  template(#header-actions)
+    km-btn(label='Record info', flat, icon='info', iconSize='16px')
+      q-tooltip.bg-white.block-shadow
+        .q-pa-sm
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Created:
+            .text-secondary-text.km-description {{ created_at }}
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Modified:
+            .text-secondary-text.km-description {{ modified_at }}
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Created by:
+            .text-secondary-text.km-description {{ created_by }}
+          div
+            .text-secondary-text.km-button-xs-text Modified by:
+            .text-secondary-text.km-description {{ updated_by }}
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='retrievalStore.revert()', v-if='retrievalStore.isChanged')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !retrievalStore.isChanged')
+    q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
+      q-menu(anchor='bottom right', self='top right')
+        q-item(clickable, @click='showNewDialog = true', dense)
+          q-item-section
+            .km-heading-3 Clone
+        q-item(clickable, @click='showDeleteDialog = true', dense)
+          q-item-section
+            .km-heading-3 Delete
+    km-popup-confirm(
+      :visible='showDeleteDialog',
+      confirmButtonLabel='Delete Retrieval Tool',
+      cancelButtonLabel='Cancel',
+      notificationIcon='fas fa-triangle-exclamation',
+      @confirm='confirmDelete',
+      @cancel='showDeleteDialog = false'
+    )
+      .row.item-center.justify-center.km-heading-7 You are about to delete the Retrieval Tool
+      .row.text-center.justify-center This action will permanently delete the Retrieval Tool and disable it in all tools that are using it.
+  template(#content)
+    km-tabs(v-model='tab')
+      template(v-for='t in tabs')
+        q-tab(:name='t.name', :label='t.label')
+    .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
+      .row.q-gap-16.full-height.full-width
+        .col.full-height.full-width
+          .column.items-center.full-height.full-width.q-gap-16.overflow-auto
+            template(v-if='true')
+              .col-auto.full-width
+                template(v-if='tab == "retrieve"')
+                  retrieval-retrieve
+                template(v-if='tab == "uiSettings"')
+                  retrieval-uisettings
+                template(v-if='tab == "languages"')
+                  retrieval-languages
+                template(v-if='tab == "testSets"')
+                  retrieval-test-sets
+  template(#drawer)
     retrieval-drawer(v-model:open='openTest')
 retrieval-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
 </template>
 
 <script>
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
 import { validSystemName } from '@shared/utils/validationRules'
+import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
-    const { selectedRow, ...useCollection } = useChroma('retrieval')
+    const route = useRoute()
+    const queries = useEntityQueries()
+    const retrievalStore = useRetrievalDetailStore()
+    const id = ref(route.params.id)
+    const { data: selectedRow } = queries.retrieval.useDetail(id)
+    const { data: listData } = queries.retrieval.useList()
+    const removeMutation = queries.retrieval.useRemove()
+    const { mutateAsync: updateEntity } = queries.retrieval.useUpdate()
+    const { mutateAsync: createEntity } = queries.retrieval.useCreate()
+
     return {
+      retrievalStore,
       tab: ref('retrieve'),
       tabs: ref([
         { name: 'retrieve', label: 'Retrieve' },
@@ -81,70 +107,98 @@ export default {
         { name: 'testSets', label: 'Test sets' },
       ]),
       showNewDialog: ref(false),
+      showDeleteDialog: ref(false),
+      saving: ref(false),
       activeRetrieval: ref({}),
       prompt: ref(null),
       openTest: ref(true),
       showInfo: ref(false),
+      id,
       selectedRow,
-      useCollection,
+      listData,
+      removeMutation,
+      updateEntity,
+      createEntity,
       validSystemName,
     }
   },
   computed: {
     name: {
       get() {
-        return this.$store.getters.retrieval?.name || ''
+        return this.retrievalStore.entity?.name || ''
       },
       set(value) {
-        this.$store.commit('updateRetrievalProperty', { key: 'name', value })
+        this.retrievalStore.updateProperty({ key: 'name', value })
       },
     },
     description: {
       get() {
-        return this.$store.getters.retrieval?.description || ''
+        return this.retrievalStore.entity?.description || ''
       },
       set(value) {
-        this.$store.commit('updateRetrievalProperty', { key: 'description', value })
+        this.retrievalStore.updateProperty({ key: 'description', value })
       },
     },
     system_name: {
       get() {
-        return this.$store.getters.retrieval?.system_name || ''
+        return this.retrievalStore.entity?.system_name || ''
       },
       set(value) {
-        this.$store.commit('updateRetrievalProperty', { key: 'system_name', value })
+        this.retrievalStore.updateProperty({ key: 'system_name', value })
       },
     },
     activeRetrievalId() {
       return this.$route.params.id
     },
     activeRetrievalName() {
-      return this.items?.find((item) => item.id == this.activeRetrievalId)?.name
+      return this.listData?.items?.find((item) => item.id == this.activeRetrievalId)?.name
     },
     options() {
-      return this.items?.map((item) => item.name)
+      return this.listData?.items?.map((item) => item.name)
     },
     loading() {
-      return !this.$store?.getters?.retrieval?.id
+      return !this.retrievalStore.entity?.id
+    },
+    entity() {
+      return this.retrievalStore.entity
+    },
+    created_at() {
+      return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
+    },
+    modified_at() {
+      return this.entity?.updated_at ? this.formatDate(this.entity.updated_at) : ''
+    },
+    created_by() {
+      return this.entity?.created_by || 'Unknown'
+    },
+    updated_by() {
+      return this.entity?.updated_by || 'Unknown'
     },
   },
 
   watch: {
     selectedRow(newVal, oldVal) {
       if (newVal?.id !== oldVal?.id) {
-        this.$store.commit('setRetrieval', newVal)
+        this.retrievalStore.setEntity(newVal)
         this.tab = 'retrieve'
       }
     },
   },
   mounted() {
-    if (this.activeRetrievalId != this.$store.getters?.retrieval?.id) {
-      this.$store.commit('setRetrieval', this.selectedRow)
+    if (this.activeRetrievalId != this.retrievalStore.entity?.id) {
+      this.retrievalStore.setEntity(this.selectedRow)
       this.tab = 'retrieve'
     }
 
     if (this.$route.query?.variant) {
-      this.$store.commit('setSelectedRetrievalVariant', this.$route.query?.variant)
+      this.retrievalStore.setSelectedVariant(this.$route.query?.variant)
+    }
+  },
+  activated() {
+    this.id = this.$route.params.id
+    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
+    if (this.selectedRow && this.activeRetrievalId != this.retrievalStore.entity?.id) {
+      this.retrievalStore.setEntity(this.selectedRow)
     }
   },
   methods: {
@@ -153,39 +207,37 @@ export default {
         this.$router.push(`${path}`)
       }
     },
-    deleteRetrieval() {
-      this.$q.notify({
-        message: `Are you sure you want to delete ${this.selectedRow?.name}?`,
-        color: 'error-text',
-        position: 'top',
-        timeout: 0,
-        actions: [
-          {
-            label: 'Cancel',
-            color: 'yellow',
-            handler: () => {
-              /* ... */
-            },
-          },
-          {
-            label: 'Delete',
-            color: 'white',
-            handler: () => {
-              this.loadingDelelete = true
-              this.useCollection.delete({ id: this.selectedRow?.id })
-              this.$emit('update:closeDrawer', null)
-              this.$q.notify({
-                position: 'top',
-                message: 'Retrieval Tool has been deleted.',
-                color: 'positive',
-                textColor: 'black',
-                timeout: 1000,
-              })
-              this.navigate('/retrieval')
-            },
-          },
-        ],
-      })
+    async save() {
+      const systemNameValidation = validSystemName()(this.entity?.system_name)
+      if (systemNameValidation !== true) {
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: systemNameValidation, timeout: 3000 })
+        return
+      }
+      this.saving = true
+      try {
+        if (this.entity?.created_at) {
+          const data = this.retrievalStore.buildPayload()
+          await this.updateEntity({ id: this.entity.id, data })
+        } else {
+          await this.createEntity(this.entity)
+        }
+        this.retrievalStore.setInit()
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+      } catch (error) {
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
+      } finally {
+        this.saving = false
+      }
+    },
+    async confirmDelete() {
+      await this.removeMutation.mutateAsync(this.$route.params.id)
+      this.$emit('update:closeDrawer', null)
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Retrieval Tool has been deleted.', timeout: 1000 })
+      this.navigate('/retrieval')
+    },
+    formatDate(date) {
+      const d = new Date(date)
+      return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
     },
   },
 }

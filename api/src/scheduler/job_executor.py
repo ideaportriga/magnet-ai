@@ -39,16 +39,18 @@ async def create_job(
             run_config_type = data.run_configuration.type
             is_system = data.run_configuration.params.get("is_system", False)
             if is_system:
-                # Check for existing system job through definition JSON field
-                from sqlalchemy import text
+                from core.db.models.job import Job as JobModel
+                from sqlalchemy import select
 
                 result = await session.execute(
-                    text("""
-                        SELECT id FROM jobs 
-                        WHERE definition->'run_configuration'->>'type' = :run_config_type 
-                        AND definition->'run_configuration'->'params'->>'is_system' = 'true'
-                    """),
-                    {"run_config_type": run_config_type},
+                    select(JobModel.id).where(
+                        JobModel.definition["run_configuration"]["type"].astext
+                        == run_config_type,
+                        JobModel.definition["run_configuration"]["params"][
+                            "is_system"
+                        ].astext
+                        == "true",
+                    )
                 )
                 existing_system_job = result.first()
                 if existing_system_job:

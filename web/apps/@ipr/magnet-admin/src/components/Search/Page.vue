@@ -8,13 +8,13 @@
             .km-heading-5 {{ uiSettings?.header_configuration?.header }}
           .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
             .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
-        search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker)
+        search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, @searchRagExecute='handleSearchRagExecute')
         template(v-if='isShowHints')
           .row.items-center
             .col.km-heading-3 You can ask like this...
             .col-auto
               km-btn(flat, color='primary', @click='showHints = false')
-                .km-button-text Don’t show hints
+                .km-button-text Don't show hints
           template(v-for='(item, index) in sampleQuestion', :key='index')
             km-btn(flat, @click='refine(item)')
               .wrapped-text {{ item }}
@@ -33,24 +33,30 @@
 </template>
 
 <script>
-import { useState } from '@shared'
-import { ref } from 'vue'
-import { useChroma } from '@shared'
+import { ref, computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useEntityQueries } from '@/queries/entities'
+import { useSearchStore } from '@/stores/searchStore'
 
 export default {
   props: ['open'],
   setup() {
-    const answers = useState('answers')
-    const loading = useState('answersLoading')
-    const { items } = useChroma('rag_tools')
+    const searchStore = useSearchStore()
+    const { answers, answersLoading: loading } = storeToRefs(searchStore)
+    const queries = useEntityQueries()
+    const { data: ragToolsListData } = queries.rag_tools.useList()
     return {
       loading,
       answers,
       showHints: ref(true),
-      items,
+      ragToolsListData,
+      searchStore,
     }
   },
   computed: {
+    items() {
+      return this.ragToolsListData?.items ?? []
+    },
     defaultRag() {
       return this.items.find((el) => el.code === 'RAG_TOOL_TEST')
     },
@@ -90,8 +96,12 @@ export default {
     this.clearAnswers()
   },
   methods: {
+    async handleSearchRagExecute(ragCode) {
+      const systemName = this.defaultRag?.system_name
+      await this.searchStore.getAnswerRagExecute(ragCode || null, systemName)
+    },
     clearAnswers() {
-      this.$store.commit('clearAnswers')
+      this.searchStore.clearAnswers()
     },
     refine(question) {
       this.$refs?.prompt?.refine(question)

@@ -1,7 +1,6 @@
 <template lang="pug">
 .row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  q-inner-loading(:showing='loading')
-    q-spinner-gears(size='50px', color='primary')
+  km-inner-loading(:showing='loading')
 layouts-details-layout.q-mx-auto(v-else, :style='{ "max-width": openDrawer ? "none" : "1200px" }')
   template(#header)
     .row.items-center.justify-between.full-width
@@ -40,11 +39,12 @@ layouts-details-layout.q-mx-auto(v-else, :style='{ "max-width": openDrawer ? "no
     )
       template(v-for='t in tabs')
         q-tab(:name='t.name', :label='t.label')
-    .column.items-center.full-height.full-width.q-gap-16.overflow-auto.q-pt-16
-      .col-auto.full-width
-        template(v-if='tab == "records"')
+    .column.full-height.full-width.q-pt-16(style='min-height: 0')
+      template(v-if='tab == "records"')
+        .col(style='min-height: 0')
           evaluation-jobs-records(@record:update='evaluationSetRecord')
-        template(v-if='tab == "settings"')
+      template(v-if='tab == "settings"')
+        .col.overflow-auto
           template(v-if='evaluationType == "prompt_eval"')
             evaluation-jobs-settings
           template(v-else)
@@ -55,11 +55,12 @@ configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
+import { useEvaluationStore } from '@/stores/evaluationStore'
+import { useNotify } from '@/composables/useNotify'
 
 // Define emits
 const emit = defineEmits(['update:closeDrawer'])
@@ -67,11 +68,21 @@ const emit = defineEmits(['update:closeDrawer'])
 // Composables
 const route = useRoute()
 const router = useRouter()
-const store = useStore()
-const $q = useQuasar()
+const evalStore = useEvaluationStore()
+const evalSetStore = useEvaluationSetDetailStore()
+const { notifyError, notifySuccess } = useNotify()
+
+// Queries
+const queries = useEntityQueries()
+const id = ref(route.params.id)
+const { data: selectedRow } = queries.evaluation_jobs.useDetail(id)
+const { data: evalJobsData } = queries.evaluation_jobs.useList()
+const { data: modelData } = queries.model.useList()
+const evalJobsItems = computed(() => evalJobsData.value?.items ?? [])
+const modelItems = computed(() => modelData.value?.items ?? [])
+const removeMutation = queries.evaluation_jobs.useRemove()
 
 // Reactive data
-const { selectedRow, loading: loadingChroma, ...useCollection } = useChroma('evaluation_jobs')
 const tab = ref('records')
 const tabs = ref([
   { name: 'records', label: 'Records' },
@@ -96,12 +107,12 @@ const latency = computed(() => {
 })
 
 const row = computed(() => {
-  const rowData = (store.getters['chroma/evaluation_jobs'].items || []).find((item) => item._id == evaluation.value.id)
+  const rowData = (evalJobsItems.value || []).find((item) => item._id == evaluation.value.id)
   return rowData || {}
 })
 
 const model = computed(() => {
-  return store.getters['chroma/model'].items?.find((model) => model.system_name === modelSystemName.value) || {}
+  return modelItems.value?.find((model) => model.system_name === modelSystemName.value) || {}
 })
 
 const modelSystemName = computed(() => {
@@ -206,7 +217,7 @@ const evaluation_name = computed(() => {
 })
 
 const evaluation = computed(() => {
-  return store.getters.evaluation
+  return evalStore.evaluation
 })
 
 const evaluationType = computed(() => {
@@ -221,38 +232,38 @@ const typeLabel = computed(() => {
 })
 
 const openDrawer = computed(() => {
-  return tab.value === 'records' && Object.keys(store.getters.evaluation_job_record).length > 0
+  return tab.value === 'records' && Object.keys(evalStore.evaluationJobRecord).length > 0
 })
 
 const name = computed({
   get() {
-    return store.getters.evaluation_set?.name || ''
+    return evalSetStore.entity?.name || ''
   },
   set(value) {
-    store.commit('updateEvaluationSetProperty', { key: 'name', value })
+    evalSetStore.updateProperty({ key: 'name', value })
   },
 })
 
 const description = computed({
   get() {
-    return store.getters.evaluation_set?.description || ''
+    return evalSetStore.entity?.description || ''
   },
   set(value) {
-    store.commit('updateEvaluationSetProperty', { key: 'description', value })
+    evalSetStore.updateProperty({ key: 'description', value })
   },
 })
 
 const system_name = computed({
   get() {
-    return store.getters.evaluation_set?.system_name || ''
+    return evalSetStore.entity?.system_name || ''
   },
   set(value) {
-    store.commit('updateEvaluationSetProperty', { key: 'system_name', value })
+    evalSetStore.updateProperty({ key: 'system_name', value })
   },
 })
 
 const isEvaluationSetChanged = computed(() => {
-  return store.getters?.isEvaluationSetChanged
+  return evalSetStore.isChanged
 })
 
 const activeEvaluationSetId = computed(() => {
@@ -292,7 +303,7 @@ const items = computed(() => {
 // Methods
 const getEvaluation = async () => {
   loading.value = true
-  await store.dispatch('getEvaluation', { id: route.params.id })
+  await evalStore.getEvaluation({ id: route.params.id })
   loading.value = false
 }
 
@@ -303,45 +314,17 @@ const navigate = (path = '') => {
 }
 
 const deleteEvaluationSet = () => {
-  $q.notify({
-    message: `Are you sure you want to delete ${selectedRow.value?.name}?`,
-    color: 'error-text',
-    position: 'top',
-    timeout: 0,
-    actions: [
-      {
-        label: 'Cancel',
-        color: 'yellow',
-        handler: () => {
-          /* ... */
-        },
-      },
-      {
-        label: 'Delete',
-        color: 'white',
-        handler: () => {
-          // Note: loadingDelelete is not defined in reactive data, you may need to add it
-          // loadingDelelete.value = true
-          useCollection.delete({ id: selectedRow.value?.id })
-          emit('update:closeDrawer', null)
-          $q.notify({
-            position: 'top',
-            message: 'RAG Tool has been deleted.',
-            color: 'positive',
-            textColor: 'black',
-            timeout: 1000,
-          })
-          navigate('/evaluation_set-tools')
-        },
-      },
-    ],
-  })
+  notifyError(`Are you sure you want to delete ${selectedRow.value?.name}?`)
+  removeMutation.mutate(selectedRow.value?.id)
+  emit('update:closeDrawer', null)
+  notifySuccess('RAG Tool has been deleted.')
+  navigate('/evaluation_set-tools')
 }
 
 // Watchers
 watch(selectedRow, (newVal, oldVal) => {
   if (newVal?.id !== oldVal?.id) {
-    store.commit('setEvaluationSet', newVal)
+    evalSetStore.setEntity(newVal)
     tab.value = 'records'
   }
 })
@@ -349,6 +332,14 @@ watch(selectedRow, (newVal, oldVal) => {
 // Lifecycle
 onMounted(() => {
   getEvaluation()
+})
+
+onActivated(() => {
+  id.value = route.params.id
+  // Re-sync Vuex state when KeepAlive reactivates this component (multi-tab support)
+  if (route.params.id && route.params.id !== evalStore.evaluation?.id) {
+    getEvaluation()
+  }
 })
 </script>
 <style lang="scss">

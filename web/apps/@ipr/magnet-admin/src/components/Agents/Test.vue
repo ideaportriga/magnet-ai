@@ -52,12 +52,15 @@
 
 <script>
 import { ref } from 'vue'
+import { useSpecificationsStore } from '@/stores/specificationsStore'
 
 export default {
   props: ['prompt', 'readonly'],
   emits: ['onLoad'],
   setup() {
+    const specsStore = useSpecificationsStore()
     return {
+      specsStore,
       inputText: ref(''),
       text: ref(undefined),
     }
@@ -68,14 +71,14 @@ export default {
       return !this.inputText || this.loading
     },
     loading() {
-      return this.$store.getters.enhancedTextLoading
+      return this.specsStore.enhancedTextLoading
     },
   },
   created() {},
   mounted() {},
   methods: {
     async submit() {
-      this.text = (await this.$store.dispatch('enhanceText', { text: this.inputText, prompt: this.prompt.text })) || undefined
+      this.text = (await this.specsStore.enhanceText({ text: this.inputText, prompt: this.prompt.text })) || undefined
       this.$refs?.input.blur()
     },
   },

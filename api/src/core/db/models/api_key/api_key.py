@@ -6,11 +6,12 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.mixins import UniqueMixin
 from advanced_alchemy.types import DateTimeUTC
-from sqlalchemy import String, Text
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 
@@ -59,6 +60,14 @@ class APIKey(UUIDv7AuditBase, UniqueMixin):
         Text,
         nullable=True,
         comment="Additional notes about the API key",
+    )
+
+    user_id: Mapped[Optional[UUID]] = mapped_column(
+        ForeignKey("user_account.id", ondelete="SET NULL"),
+        nullable=True,
+        default=None,
+        index=True,
+        comment="Optional FK to user who owns this API key",
     )
 
     def __repr__(self) -> str:

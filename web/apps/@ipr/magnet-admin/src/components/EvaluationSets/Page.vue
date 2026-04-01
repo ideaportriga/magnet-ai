@@ -1,155 +1,54 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height
-  q-scroll-area.fit
-    .row.no-wrap.full-height.justify-center.fit
-      .col-auto.collection-container
-        .full-height.q-pb-md.relative-position.q-px-md
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width
-            .row.q-mb-12
-              .col-auto.center-flex-y
-                km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
-              q-space
-              .col-auto.center-flex-y
-                km-btn.q-mr-12(label='New', @click='openNewDetails')
-            .row
-              km-table(
-                @selectRow='openDetails',
-                row-key='id',
-                :selected='selectedRow ? [selectedRow] : []',
-                :columns='columns',
-                :rows='visibleRows ?? []',
-                :visibleColumns='visibleColumns',
-                style='min-width: 1100px',
-                :pagination='pagination',
-                binary-state-sort,
-                ref='table'
-              )
+.column.no-wrap.full-height
+  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
+    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
+      .row.q-mb-12
+        .col-auto.center-flex-y
+          km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+        q-space
+        .col-auto.center-flex-y
+          km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+      .col(style='min-height: 0')
+        km-data-table(
+          :table='table',
+          :loading='isLoading',
+          fill-height,
+          row-key='id',
+          @row-click='openDetails'
+        )
     evaluation-sets-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref } from 'vue'
-import { useChroma } from '@shared'
-import { beforeRouteEnter } from '@/guards'
-export default {
-  beforeRouteEnter,
-  setup() {
-    const {
-      items,
-      controls,
-      searchString,
-      selected,
-      create,
-      pagination,
-      config,
-      visibleColumns,
-      columns,
-      visibleRows,
-      selectedRow,
-      ...useCollection
-    } = useChroma('evaluation_sets')
+import { useRouter } from 'vue-router'
+import { useDataTable } from '@/composables/useDataTable'
+import { nameDescriptionColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
+import type { EvaluationSet } from '@/types'
 
-    return {
-      items,
-      controls,
-      searchString,
-      selected,
-      pagination,
-      config,
-      visibleColumns,
-      columns,
-      visibleRows,
-      selectedRow,
-      useCollection,
-      create,
-      createNew: ref(false),
-      loadingRefresh: ref(false),
-      newRow: ref({
-        retrieve: {
-          similarity_score_threshold: 0.75,
-          max_chunks_retrieved: 5,
-          chunk_context_window_expansion_size: 1,
-          collection_system_names: [],
-        },
-        generate: {
-          prompt_template: 'QA_SYSTEM_PROMPT_TEMPLATE',
-        },
-        language: {
-          detect_question_language: {
-            enabled: false,
-            prompt_template: 'M_DETECT_LANGUAGE',
-          },
-          multilanguage: {
-            enabled: false,
-            source_language: 'English',
-            prompt_template_translation: 'M_TRANSLATE_TEXT',
-          },
-        },
-        name: '',
-        description: '',
-        system_name: '',
-      }),
-      showNewDialog: ref(false),
-    }
-  },
-  computed: {
-    currentRag() {
-      return this.$store.getters.rag
-    },
-  },
-  watch: {
-    newRow: {
-      deep: true,
-      immediate: true,
-      handler(val, oldVal) {
-        console.log(val, oldVal)
-        if (val?.name !== oldVal?.name) {
-          this.newRow.system_name = val?.name
-        }
-      },
-    },
-  },
-  mounted() {
-    this.searchString = ''
-  },
-  methods: {
-    async openNewDetails() {
-      this.showNewDialog = true
-    },
-    validation(rag, notify = true) {
-      const { name, description, system_name, retrieve } = rag
-      const { collection_system_names } = retrieve
+const router = useRouter()
+const showNewDialog = ref(false)
 
-      if (!name || !description || !system_name || !collection_system_names.length) {
-        // Handle validation error
+const columns = [
+  nameDescriptionColumn<EvaluationSet>('Name'),
+  chipCopyColumn<EvaluationSet>('System name'),
+  dateColumn<EvaluationSet>('created_at', 'Created'),
+  dateColumn<EvaluationSet>('updated_at', 'Last Updated'),
+]
 
-        if (notify) {
-          this.$q.notify({
-            message: `Name, Description, System name and Knowledge sources are required`,
-            color: 'error-text',
-            position: 'top',
-            timeout: 1000,
-          })
-        }
-        return false
-      }
+const { table, isLoading, globalFilter } = useDataTable<EvaluationSet>('evaluation_sets', columns, {
+  defaultSort: [{ id: 'updated_at', desc: true }],
+  manualPagination: false,
+  manualSorting: false,
+  manualFiltering: false,
+})
 
-      return true
-    },
-
-    async openDetails(row) {
-      await this.$router.push(`/evaluation-sets/${row.id}`)
-    },
-  },
+const openDetails = async (row: EvaluationSet) => {
+  await router.push(`/evaluation-sets/${row.id}`)
 }
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

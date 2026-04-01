@@ -43,35 +43,41 @@
 </template>
 <script setup>
 import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
+import { fetchData } from '@shared'
+import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 
-const store = useStore()
-const $q = useQuasar()
+const { notifySuccess, notifyError } = useNotify()
+const mcpStore = useMcpServerDetailStore()
+const appStore = useAppStore()
 
-const server = computed(() => store.getters.mcp_server)
+const server = computed(() => mcpStore.entity)
 
 const headers = computed({
   get() {
-    return store.getters.mcp_server.headers || new Map()
+    return mcpStore.entity.headers || new Map()
   },
   set(value) {
-    console.log(value)
-    store.dispatch('updateMcpServerProperty', {
+    mcpStore.updateProperty({
       key: 'headers',
       value: value,
     })
   },
 })
 
-const originalMcpSecrets = computed(() => store.getters.originalMcpSecrets)
-const remountValue = computed(() => store.getters.mcp_server.updated_at)
+const originalMcpSecrets = computed(() => {
+  const secrets = mcpStore.initEntity?.secrets_encrypted
+  if (!secrets) return []
+  return Object.keys(secrets)
+})
+const remountValue = computed(() => mcpStore.entity.updated_at)
 const secrets = computed({
   get() {
-    return store.getters.mcp_server.secrets_encrypted
+    return mcpStore.entity.secrets_encrypted
   },
   set(value) {
-    store.dispatch('updateMcpServerProperty', {
+    mcpStore.updateProperty({
       key: 'secrets_encrypted',
       value: value,
     })
@@ -109,24 +115,19 @@ const updateHeader = (oldKey, newKey, newValue) => {
 }
 
 const testConnection = async () => {
-  const res = await store.dispatch('testMcpServerConnection', { id: server.value.id })
-  console.log(res)
-  if (res) {
-    $q.notify({
-      position: 'bottom',
-      message: 'MCP Server connection test: Success',
-      color: 'positive',
-      textColor: 'black',
-      timeout: 1000,
+  try {
+    const response = await fetchData({
+      method: 'POST',
+      service: `mcp_servers/${server.value.id}/test`,
+      credentials: 'include',
+      body: JSON.stringify({ id: server.value.id }),
+      endpoint: appStore.config?.mcp_servers?.endpoint,
+      headers: { 'Content-Type': 'application/json' },
     })
-  } else {
-    $q.notify({
-      position: 'bottom',
-      message: 'MCP Server connection test: Error',
-      color: 'negative',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    if (response.error) throw response
+    notifySuccess('MCP Server connection test: Success')
+  } catch (error) {
+    notifyError('MCP Server connection test: Error')
   }
 }
 </script>

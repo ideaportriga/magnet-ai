@@ -44,54 +44,61 @@ q-separator.q-my-sm
     km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariant', :disable='variants?.length === 1')
 
   prompts-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
-  q-inner-loading(:showing='loading')
+  km-inner-loading(:showing='loading')
 </template>
 
 <script>
-import { useChroma } from '@shared'
-import { ref } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { ref, computed } from 'vue'
+import { useRagDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: ['activeRow'],
   emits: ['update:closeDrawer'],
   setup() {
-    const { items, update, create, selectedRow, ...useCollection } = useChroma('promptTemplates')
+    const queries = useEntityQueries()
+    const ragStore = useRagDetailStore()
+    const { data: listData } = queries.rag_tools.useList()
+    const { mutateAsync: updateEntity } = queries.rag_tools.useUpdate()
+    const { mutateAsync: createEntity } = queries.rag_tools.useCreate()
+    const { mutateAsync: removeEntity } = queries.rag_tools.useRemove()
+    const items = computed(() => listData.value?.items ?? [])
 
     return {
+      ragStore,
       items,
-      update,
-      create,
-      selectedRow,
+      updateEntity,
+      createEntity,
+      removeEntity,
       loading: ref(false),
-      useCollection,
       showNewDialog: ref(false),
     }
   },
   computed: {
     isActive() {
-      return this.$store.getters.selectedRagVariant == this.$store.getters.rag?.active_variant
+      return this.ragStore.selectedVariant == this.ragStore.entity?.active_variant
     },
     selected_variant: {
       get() {
-        return this.getVariantLabel(this.$store.getters.selectedRagVariant)
+        return this.getVariantLabel(this.ragStore.selectedVariant)
       },
       set(value) {
-        this.$store.commit('setSelectedRagVariant', value.value)
+        this.ragStore.setSelectedVariant(value.value)
       },
     },
     variants() {
-      return this.$store.getters.rag?.variants?.map((el) => ({
+      return this.ragStore.entity?.variants?.map((el) => ({
         label: this.getVariantLabel(el.variant),
         value: el.variant,
-        active_variant: el.variant == this.$store.getters.rag?.active_variant,
+        active_variant: el.variant == this.ragStore.entity?.active_variant,
       }))
     },
     variant_description: {
       get() {
-        return this.$store.getters.ragVariant?.description
+        return this.ragStore.activeVariant?.description
       },
       set(value) {
-        this.$store.commit('updateNestedRagProperty', { path: 'description', value })
+        this.ragStore.updateNestedVariantProperty({ path: 'description', value })
       },
     },
     created_at() {
@@ -103,7 +110,7 @@ export default {
       return `${this.formatDate(this.activeRowDB.updated_at)}`
     },
     currentRow() {
-      return this.$store.getters.rag
+      return this.ragStore.entity
     },
     route() {
       return this.$route
@@ -135,8 +142,9 @@ export default {
       // notify with confirmation
       this.$q.notify({
         message,
-        color: 'error-text',
-        position: 'top',
+        color: 'red-9', textColor: 'white',
+        icon: 'error',
+        group: 'error',
         timeout: 0,
         actions: [
           {
@@ -153,10 +161,10 @@ export default {
               // notify with success
               callback()
               this.$q.notify({
-                position: 'top',
+                color: 'green-9', textColor: 'white',
+                icon: 'check_circle',
+                group: 'success',
                 message: 'Variant has been deleted.',
-                color: 'positive',
-                textColor: 'black',
                 timeout: 1000,
               })
             },
@@ -169,34 +177,35 @@ export default {
       return `Variant ${match?.[1]}`
     },
     activateVariant() {
-      this.$store.commit('activateRagVariant')
+      this.ragStore.activateVariant()
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'Variant has been activated.',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
     },
     addVariant() {
-      this.$store.commit('createRagVariant')
+      this.ragStore.createVariant()
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'New variant has been added.',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
     },
     deleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.$store.commit('deleteRagVariant'))
+      this.confirm('Are you sure you want to delete this variant?', () => this.ragStore.deleteVariant())
     },
 
     deleteRag() {
       this.$q.notify({
-        message: `Are you sure you want to delete ${this.selectedRow?.name}?`,
-        color: 'error-text',
-        position: 'top',
+        message: `Are you sure you want to delete this configuration?`,
+        color: 'red-9', textColor: 'white',
+        icon: 'error',
+        group: 'error',
         timeout: 0,
         actions: [
           {
@@ -211,13 +220,13 @@ export default {
             color: 'white',
             handler: () => {
               this.loadingDelelete = true
-              this.useCollection.delete({ id: this.selectedRow?.id })
+              this.removeEntity(this.$route.params.id)
               this.$emit('update:closeDrawer', null)
               this.$q.notify({
-                position: 'top',
+                color: 'green-9', textColor: 'white',
+                icon: 'check_circle',
+                group: 'success',
                 message: 'Prompt has been deleted.',
-                color: 'positive',
-                textColor: 'black',
                 timeout: 1000,
               })
               this.navigate('/prompt-templates')
@@ -239,12 +248,11 @@ export default {
       if (this.currentRow?.created_at) {
         const obj = { ...this.currentRow }
         delete obj._metadata
-        console.log(obj)
-        await this.update({ id: obj.id, data: JSON.stringify(obj) })
+        await this.updateEntity({ id: obj.id, data: obj })
       } else {
-        await this.create(JSON.stringify(this.currentRow))
+        await this.createEntity(this.currentRow)
       }
-      this.$store.commit('setInitRag')
+      this.ragStore.setInit()
       this.loading = false
     },
     formatDate(date) {

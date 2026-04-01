@@ -14,7 +14,7 @@
 
     <kg-table-toolbar>
       <template #leading>
-        <km-input v-model="searchQuery" placeholder="Search all fields..." icon-before="search" clearable style="width: 250px" />
+        <km-input v-model="searchQuery" placeholder="Search all fields..." icon-before="search" clearable class="search-input" />
       </template>
       <template #trailing>
         <km-btn flat size="sm" :disable="availablePresets.length === 0">
@@ -145,10 +145,11 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { useQuasar } from 'quasar'
 import { computed, onMounted, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import { KgConfirmDialog, KgTableToolbar } from '../common'
+import type { KnowledgeGraphDetails } from '../types'
 import { fetchKnowledgeGraphSources } from '../Sources/api'
 import { type SourceRow } from '../Sources/models'
 import MetadataFieldDialog from './MetadataFieldDialog.vue'
@@ -171,7 +172,7 @@ import SmartExtractionSettingsDialog, { type MetadataExtractionApproach, type Sm
 
 const props = defineProps<{
   graphId: string
-  graphDetails: Record<string, any>
+  graphDetails: KnowledgeGraphDetails
 }>()
 
 const emit = defineEmits<{
@@ -179,8 +180,8 @@ const emit = defineEmits<{
   (e: 'unsaved-change', value: boolean): void
 }>()
 
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifySuccess, notifyError } = useNotify()
 
 // Search query for table toolbar
 const searchQuery = ref('')
@@ -209,7 +210,7 @@ const loadingPromptTemplates = ref(false)
 const loadPromptTemplates = async () => {
   loadingPromptTemplates.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: 'prompt_templates',
@@ -223,7 +224,7 @@ const loadPromptTemplates = async () => {
       promptTemplateOptions.value = []
     }
   } catch (error) {
-    console.error('Error loading prompt templates:', error)
+
     promptTemplateOptions.value = []
   } finally {
     loadingPromptTemplates.value = false
@@ -260,7 +261,7 @@ const discardedFieldNames = ref<string[]>([])
 const saving = ref(false)
 const originalState = ref<string>('')
 const autoSaveEnabled = ref(false)
-const baseSettings = ref<Record<string, any>>({})
+const baseSettings = ref<KnowledgeGraphDetails['settings']>({})
 let autoSaveTimer: number | undefined
 let autoSaveAfterInFlight = false
 let refreshTimer: number | undefined
@@ -306,7 +307,7 @@ const initializeFromSettings = () => {
   try {
     baseSettings.value = JSON.parse(JSON.stringify(props.graphDetails?.settings || {}))
   } catch {
-    baseSettings.value = (props.graphDetails?.settings || {}) as Record<string, any>
+    baseSettings.value = props.graphDetails?.settings || {}
   }
 
   const settings = props.graphDetails?.settings?.metadata || {}
@@ -385,7 +386,7 @@ const runExtraction = async () => {
   if (!canRunExtraction.value) return
   runningExtraction.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const payload = {
       approach: extractionApproach.value,
       prompt_template_system_name: String(extractionPromptTemplateSystemName.value || '').trim(),
@@ -402,7 +403,7 @@ const runExtraction = async () => {
     })
 
     if (!res.ok) {
-      $q.notify({ type: 'negative', message: 'Failed to start extraction', position: 'top' })
+      notifyError('Failed to start extraction')
       return
     }
 
@@ -416,11 +417,11 @@ const runExtraction = async () => {
         ? `Extraction completed: ${docs} documents updated, ${chunks} chunks processed${errors ? ` (${errors} errors)` : ''}.`
         : `Extraction completed: ${docs} documents processed${errors ? ` (${errors} errors)` : ''}.`
 
-    $q.notify({ type: 'positive', message, position: 'top', textColor: 'black', timeout: 2500 })
+    notifySuccess(message)
     await fetchMetadataValues()
   } catch (error) {
-    console.error('Error running extraction:', error)
-    $q.notify({ type: 'negative', message: 'Error running extraction', position: 'top' })
+
+    notifyError('Error running extraction')
   } finally {
     runningExtraction.value = false
   }
@@ -457,7 +458,7 @@ const fetchMetadataValues = async () => {
   }
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response: any = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/metadata/discovered`,
@@ -496,7 +497,7 @@ const fetchMetadataValues = async () => {
       allMetadataValues.value = []
     }
   } catch (error) {
-    console.error('Error fetching metadata values:', error)
+
     allMetadataValues.value = []
   } finally {
     loadingValues.value = false
@@ -507,7 +508,7 @@ const fetchMetadataValues = async () => {
 // Fetch configured smart extraction fields
 const fetchExtractedFields = async () => {
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response: any = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/metadata/extracted`,
@@ -537,20 +538,20 @@ const fetchExtractedFields = async () => {
       extractedFields.value = []
     }
   } catch (error) {
-    console.error('Error fetching extracted metadata fields:', error)
+
     extractedFields.value = []
   }
 }
 
 const fetchSources = async () => {
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     sources.value = await fetchKnowledgeGraphSources({
       endpoint,
       graphId: props.graphId,
     })
   } catch (error) {
-    console.error('Error fetching sources:', error)
+
     sources.value = []
   }
 }
@@ -567,7 +568,7 @@ const saveSettings = async () => {
 
   saving.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
 
     const snapshot = JSON.parse(snapshotJson) as {
       extraction: {
@@ -612,7 +613,7 @@ const saveSettings = async () => {
     })
 
     if (!res.ok) {
-      $q.notify({ type: 'negative', message: 'Failed to save settings', position: 'top' })
+      notifyError('Failed to save settings')
       return
     }
 
@@ -624,8 +625,8 @@ const saveSettings = async () => {
       scheduleRefresh()
     }
   } catch (error) {
-    console.error('Error saving metadata settings:', error)
-    $q.notify({ type: 'negative', message: 'Error saving settings', position: 'top' })
+
+    notifyError('Error saving settings')
   } finally {
     saving.value = false
     // If state changed while we were saving, immediately schedule another save.
@@ -750,13 +751,7 @@ const onPromoteLinkExisting = (payload: { discovered: MetadataDiscoveredField; t
   }
 
   syncDefinitionsToValues()
-  $q.notify({
-    type: 'positive',
-    message: `Linked "${row.name}" to "${targetField.display_name || targetField.name}"`,
-    position: 'top',
-    textColor: 'black',
-    timeout: 2000,
-  })
+  notifySuccess(`Linked "${row.name}" to "${targetField.display_name || targetField.name}"`)
 }
 
 const onFieldSave = (field: MetadataFieldDefinition) => {
@@ -779,7 +774,7 @@ const onSmartExtractionFieldSave = async (field: SmartExtractionFieldDefinition)
   if (!name) return
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const payload = {
       name,
       value_type: field.value_type || 'string',
@@ -799,16 +794,16 @@ const onSmartExtractionFieldSave = async (field: SmartExtractionFieldDefinition)
     })
 
     if (!res.ok) {
-      $q.notify({ type: 'negative', message: 'Failed to save extraction field', position: 'top' })
+      notifyError('Failed to save extraction field')
       return
     }
 
     showSmartExtractionFieldDialog.value = false
     await fetchExtractedFields()
-    $q.notify({ type: 'positive', message: 'Extraction field saved', position: 'top', textColor: 'black', timeout: 1500 })
+    notifySuccess('Extraction field saved')
   } catch (error) {
-    console.error('Error saving extracted metadata field:', error)
-    $q.notify({ type: 'negative', message: 'Error saving extraction field', position: 'top' })
+
+    notifyError('Error saving extraction field')
   }
 }
 
@@ -828,7 +823,7 @@ const performDeleteExtractedField = async () => {
   const name = String(deletingExtractedField.value.name || '').trim()
   try {
     deleteExtractedFieldInProgress.value = true
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const res = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/metadata/extracted/${name}`,
@@ -836,15 +831,15 @@ const performDeleteExtractedField = async () => {
       credentials: 'include',
     })
     if (!res.ok) {
-      $q.notify({ type: 'negative', message: 'Failed to delete extraction field', position: 'top' })
+      notifyError('Failed to delete extraction field')
       return
     }
     showDeleteExtractedFieldDialog.value = false
     await fetchExtractedFields()
-    $q.notify({ type: 'positive', message: 'Extraction field deleted', position: 'top', textColor: 'black', timeout: 1500 })
+    notifySuccess('Extraction field deleted')
   } catch (error) {
-    console.error('Error deleting extracted metadata field:', error)
-    $q.notify({ type: 'negative', message: 'Error deleting extraction field', position: 'top' })
+
+    notifyError('Error deleting extraction field')
   } finally {
     deleteExtractedFieldInProgress.value = false
   }
@@ -886,7 +881,7 @@ const addPresetField = async (preset: PresetFieldDefinition) => {
 
   // 2. Also create the smart extraction field
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const payload = {
       name: preset.name,
       value_type: preset.value_type || 'string',
@@ -905,19 +900,13 @@ const addPresetField = async (preset: PresetFieldDefinition) => {
     })
 
     if (!res.ok) {
-      console.error('Failed to create extraction field for preset')
+
     } else {
       await fetchExtractedFields()
-      $q.notify({
-        type: 'positive',
-        message: `Added preset field "${preset.display_name || preset.name}" to schema and smart extraction`,
-        position: 'top',
-        textColor: 'black',
-        timeout: 2000,
-      })
+      notifySuccess(`Added preset field "${preset.display_name || preset.name}" to schema and smart extraction`)
     }
   } catch (error) {
-    console.error('Error creating extraction field for preset:', error)
+
   }
 }
 
@@ -985,13 +974,7 @@ const quickCreateField = (row: MetadataDiscoveredField) => {
     discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== row.name)
   }
   syncDefinitionsToValues()
-  $q.notify({
-    type: 'positive',
-    message: `Created schema field "${field.display_name || field.name}"`,
-    position: 'top',
-    textColor: 'black',
-    timeout: 1500,
-  })
+  notifySuccess(`Created schema field "${field.display_name || field.name}"`)
 }
 
 const quickReplaceField = (payload: { discovered: MetadataDiscoveredField; target: MetadataFieldDefinition }) => {
@@ -1051,13 +1034,7 @@ const quickReplaceField = (payload: { discovered: MetadataDiscoveredField; targe
     discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== row.name)
   }
   syncDefinitionsToValues()
-  $q.notify({
-    type: 'positive',
-    message: `Linked "${row.name}" to "${targetField.display_name || targetField.name}"`,
-    position: 'top',
-    textColor: 'black',
-    timeout: 1500,
-  })
+  notifySuccess(`Linked "${row.name}" to "${targetField.display_name || targetField.name}"`)
 }
 
 // Quick field creation/replacement from extraction field via drag-and-drop
@@ -1076,13 +1053,7 @@ const quickCreateFromExtraction = (extractedField: MetadataExtractedField) => {
   }
   definedFields.value.push(field)
   syncDefinitionsToValues()
-  $q.notify({
-    type: 'positive',
-    message: `Created schema field "${field.display_name || field.name}" from extraction field`,
-    position: 'top',
-    textColor: 'black',
-    timeout: 1500,
-  })
+  notifySuccess(`Created schema field "${field.display_name || field.name}" from extraction field`)
 }
 
 const quickReplaceFromExtraction = (payload: { extracted: MetadataExtractedField; target: MetadataFieldDefinition }) => {
@@ -1126,13 +1097,7 @@ const quickReplaceFromExtraction = (payload: { extracted: MetadataExtractedField
   }
 
   syncDefinitionsToValues()
-  $q.notify({
-    type: 'positive',
-    message: `Linked extraction field "${extractedField.name}" to "${targetField.display_name || targetField.name}"`,
-    position: 'top',
-    textColor: 'black',
-    timeout: 1500,
-  })
+  notifySuccess(`Linked extraction field "${extractedField.name}" to "${targetField.display_name || targetField.name}"`)
 }
 
 watch(showFieldDialog, (open) => {
@@ -1147,7 +1112,7 @@ watch(
       try {
         baseSettings.value = JSON.parse(JSON.stringify(props.graphDetails?.settings || {}))
       } catch {
-        baseSettings.value = (props.graphDetails?.settings || {}) as Record<string, any>
+        baseSettings.value = props.graphDetails?.settings || {}
       }
 
       // Avoid clobbering local in-progress edits with incoming props updates.
@@ -1178,12 +1143,16 @@ defineExpose({
 </script>
 
 <style scoped>
+.search-input {
+  width: 250px;
+}
+
 :deep(.preset-dropdown-menu) {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow:
     0 4px 20px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--q-border);
   overflow: hidden;
   min-width: 280px;
 }
@@ -1195,23 +1164,23 @@ defineExpose({
 :deep(.preset-dropdown-item) {
   padding: 8px 14px !important;
   margin: 4px 6px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 :deep(.preset-dropdown-item:hover) {
-  background-color: #f3f4f6;
+  background-color: var(--q-background);
 }
 
 :deep(.preset-label) {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 500;
-  color: #1f2937;
+  color: var(--q-black);
   line-height: 1.3;
 }
 
 :deep(.preset-caption) {
-  font-size: 11px;
-  color: #9ca3af;
+  font-size: var(--km-font-size-sm);
+  color: var(--q-icon);
   margin-top: 2px;
   line-height: 1.3;
 }

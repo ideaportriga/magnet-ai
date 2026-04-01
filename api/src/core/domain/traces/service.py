@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from advanced_alchemy.extensions.litestar import repository, service
 from advanced_alchemy.filters import FilterTypes
-from sqlalchemy import text
+from sqlalchemy import or_
 from sqlalchemy.orm import defer
 
 from core.db.models.trace import Trace
 
 
 class JsonbPathFilter:
-    """Custom filter for JSONB path filtering that works with advanced-alchemy."""
+    """Custom filter for JSONB path filtering that works with advanced-alchemy.
+
+    Uses SQLAlchemy JSON column expressions for cross-dialect compatibility.
+    """
 
     def __init__(self, json_field: str, json_path: str, values: list[str]):
         self.json_field = json_field
@@ -18,33 +21,17 @@ class JsonbPathFilter:
 
     def append_to_statement(self, statement, model_type: type[Trace]):
         """Append JSONB filter condition to the statement."""
-        # Create OR conditions for multiple values using parameterized queries
-        condition_strings = []
-        params = {}
-
-        for i, value in enumerate(self.values):
-            param_name = f"{self.json_path}_value_{i}"
-            params[param_name] = value
-
+        conditions = []
+        for value in self.values:
             if self.json_path == "system_name":
-                # For nested path: extra_data->'params'->>'system_name'
-                condition_strings.append(
-                    f"extra_data->'params'->>'system_name' = :{param_name}"
-                )
+                expr = Trace.extra_data["params"]["system_name"].astext == value
             else:
-                # For direct path: extra_data->>'key'
-                condition_strings.append(
-                    f"extra_data->>'{self.json_path}' = :{param_name}"
-                )
+                expr = Trace.extra_data[self.json_path].astext == value
+            conditions.append(expr)
 
-        # Combine with OR if multiple values
-        if len(condition_strings) == 1:
-            filter_condition = text(condition_strings[0]).params(**params)
-        else:
-            combined_condition = " OR ".join(condition_strings)
-            filter_condition = text(f"({combined_condition})").params(**params)
-
-        return statement.where(filter_condition)
+        if len(conditions) == 1:
+            return statement.where(conditions[0])
+        return statement.where(or_(*conditions))
 
 
 class TracesService(service.SQLAlchemyAsyncRepositoryService[Trace]):

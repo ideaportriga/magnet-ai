@@ -1,0 +1,76 @@
+# Grafana alerting rules for database connection pool monitoring.
+#
+# These can be imported via Grafana's alerting provisioning or created
+# manually in the UI.  The LogQL queries below assume the Loki datasource
+# receives structured logs from the magnet-ai application.
+
+groups:
+  - name: database_pool_alerts
+    rules:
+
+      # CRITICAL: pool overflow detected — connections exceeded pool_size
+      - alert: DbPoolOverflow
+        expr: >
+          count_over_time(
+            {application="magnet-ai", logger="magnet.db.pool"}
+            |= "pool_overflow" [5m]
+          ) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool overflow detected"
+          description: >
+            The async connection pool has exceeded its base pool_size and is
+            using overflow connections.  If this persists, increase pool_size
+            or investigate connection leaks.
+
+      # WARNING: high pool utilization (>80%)
+      - alert: DbPoolHighUtilization
+        expr: >
+          count_over_time(
+            {application="magnet-ai", logger="magnet.db.pool"}
+            |= "pool_checkout"
+            | pattern `checked_out=<co>`
+            | unwrap co | co > 8 [5m]
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database pool utilization >80%"
+          description: >
+            More than 8 out of 10 connections are checked out consistently.
+            Consider increasing pool_size.
+
+      # WARNING: database query errors
+      - alert: DbQueryErrors
+        expr: >
+          count_over_time(
+            {application="magnet-ai", severity="error"}
+            |~ "Error executing query|Error fetching|Connection pool" [5m]
+          ) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database query errors detected"
+          description: >
+            One or more database operations failed in the last 5 minutes.
+            Check application logs for details.
+
+      # WARNING: background tasks failing
+      - alert: BackgroundTaskFailures
+        expr: >
+          count_over_time(
+            {application="magnet-ai"}
+            |= "Background task" |= "failed" [15m]
+          ) > 3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Multiple background tasks failing"
+          description: >
+            More than 3 background tasks have failed in the last 15 minutes.
+            Check the spawn_background_task error logs.

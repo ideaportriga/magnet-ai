@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<Props>(), {
 const validatedCols = computed(() => {
   const colsValue = props.cols ?? 1
   if (colsValue <= 0 || colsValue > 6) {
-    console.error(`KgFieldRow: Invalid cols value "${colsValue}". Must be between 1 and 6. Using default value 1.`)
+
     return 1
   }
   return colsValue
@@ -58,23 +58,23 @@ const validatedCols = computed(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   font-weight: 600;
-  color: #4f5b67;
+  color: var(--q-secondary);
   line-height: 1.4;
 }
 
 .kg-field-row-label-hint-icon {
   opacity: 0.6;
   cursor: help;
-  color: #6b7b8a;
+  color: var(--q-icon);
   transition: opacity 0.15s ease;
   flex-shrink: 0;
 }
 
 .kg-field-row-label-hint-icon:hover {
   opacity: 1;
-  color: #4a5568;
+  color: var(--q-secondary);
 }
 
 .kg-field-row {
@@ -83,7 +83,7 @@ const validatedCols = computed(() => {
 }
 
 .kg-field-row-error {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   color: var(--q-error-text);
   margin-top: 4px;
   padding: 4px 8px;

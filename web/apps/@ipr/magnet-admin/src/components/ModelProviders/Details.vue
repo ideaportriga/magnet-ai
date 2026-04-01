@@ -1,5 +1,6 @@
 <template lang="pug">
-layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
+km-inner-loading(:showing='!selectedRow')
+layouts-details-layout(v-if='selectedRow', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
   template(#header)
     .col
       .row.items-center
@@ -15,8 +16,44 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
           @blur='showInfo = false'
         )
       .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
+  template(#header-actions)
+    km-btn(label='Record info', flat, icon='info', iconSize='16px')
+      q-tooltip.bg-white.block-shadow
+        .q-pa-sm
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Created:
+            .text-secondary-text.km-description {{ created_at }}
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Modified:
+            .text-secondary-text.km-description {{ modified_at }}
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Created by:
+            .text-secondary-text.km-description {{ created_by }}
+          div
+            .text-secondary-text.km-button-xs-text Modified by:
+            .text-secondary-text.km-description {{ updated_by }}
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='providerStore.revert()', v-if='providerStore.isChanged')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !providerStore.isChanged')
+    q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
+      q-menu(anchor='bottom right', self='top right')
+        q-item(clickable, @click='showNewDialog = true', dense)
+          q-item-section
+            .km-heading-3 Clone
+        q-item(clickable, @click='showDeleteDialog = true', dense)
+          q-item-section
+            .km-heading-3 Delete
+    km-popup-confirm(
+      :visible='showDeleteDialog',
+      confirmButtonLabel='Delete Model Provider',
+      cancelButtonLabel='Cancel',
+      notificationIcon='fas fa-triangle-exclamation',
+      @confirm='confirmDelete',
+      @cancel='showDeleteDialog = false'
+    )
+      .row.item-center.justify-center.km-heading-7 You are about to delete the Model Provider
+      .row.text-center.justify-center This action will permanently delete the Model Provider and disable it in all tools that are using it.
   template(#content)
-    .full-width
+    .column.full-height(style='min-height: 0')
       q-tabs.bb-border.full-width(
         v-model='tab',
         narrow-indicator,
@@ -30,9 +67,12 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
       )
         template(v-for='t in tabs')
           q-tab(:name='t.name', :label='t.label')
-      .column.q-gap-16.overflow-auto.q-pt-lg.q-pb-lg
-        model-providers-models(v-if='tab == "models"')
-        model-providers-settings(v-if='tab == "settings"')
+      template(v-if='tab == "models"')
+        .col(style='min-height: 0; padding-top: 16px; padding-bottom: 16px')
+          model-providers-models
+      template(v-if='tab == "settings"')
+        .col.overflow-auto(style='padding-top: 16px; padding-bottom: 16px')
+          model-providers-settings
 
   template(#drawer)
     model-providers-model-drawer(v-if='tab == "models" && validSelectedModel')
@@ -41,24 +81,47 @@ layouts-details-layout(:contentContainerStyle='{ maxWidth: "1200px", margin: "0 
 
 <script>
 import { ref, computed } from 'vue'
-import { useChroma } from '@shared'
+import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
 import { beforeRouteEnter } from '@/guards'
+import { useProviderDetailStore, useModelConfigDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   beforeRouteEnter,
   setup() {
-    const { selectedRow, ...useCollection } = useChroma('provider')
-    const { visibleRows: allModels } = useChroma('model')
+    const route = useRoute()
+    const queries = useEntityQueries()
+    const providerStore = useProviderDetailStore()
+    const modelConfigStore = useModelConfigDetailStore()
+
+    const id = ref(route.params.id)
+    // Replace useChroma('provider') — TanStack Query fetches by route ID
+    const { data: selectedRow } = queries.provider.useDetail(id)
+    // Replace useChroma('model') — load all models for the models sub-tab
+    const { data: modelsData } = queries.model.useList({ page_size: 500 })
+    const allModels = computed(() => modelsData.value?.items ?? [])
+
+    const { mutateAsync: updateEntity } = queries.provider.useUpdate()
+    const { mutateAsync: createEntity } = queries.provider.useCreate()
+    const removeMutation = queries.provider.useRemove()
 
     return {
+      providerStore,
+      modelConfigStore,
+      updateEntity,
+      createEntity,
+      removeMutation,
+      saving: ref(false),
+      showDeleteDialog: ref(false),
+      showNewDialog: ref(false),
       tab: ref('models'),
       tabs: ref([
         { name: 'models', label: 'Models' },
         { name: 'settings', label: 'Settings' },
       ]),
       showInfo: ref(false),
+      id,
       selectedRow,
-      useCollection,
       allModels,
     }
   },
@@ -69,10 +132,10 @@ export default {
   },
   computed: {
     provider() {
-      return this.$store.getters.provider
+      return this.providerStore.entity
     },
     selectedModel() {
-      return this.$store.getters['modelConfig/entity']
+      return this.modelConfigStore.entity
     },
     availableModels() {
       if (!this.provider?.system_name) {
@@ -92,7 +155,7 @@ export default {
         return this.provider?.name || ''
       },
       set(value) {
-        this.$store.commit('updateProviderProperty', { key: 'name', value })
+        this.providerStore.updateProperty({ key: 'name', value })
       },
     },
     system_name: {
@@ -100,8 +163,20 @@ export default {
         return this.provider?.system_name || ''
       },
       set(value) {
-        this.$store.commit('updateProviderProperty', { key: 'system_name', value })
+        this.providerStore.updateProperty({ key: 'system_name', value })
       },
+    },
+    created_at() {
+      return this.provider?.created_at ? this.formatDate(this.provider.created_at) : ''
+    },
+    modified_at() {
+      return this.provider?.updated_at ? this.formatDate(this.provider.updated_at) : ''
+    },
+    created_by() {
+      return this.provider?.created_by || 'Unknown'
+    },
+    updated_by() {
+      return this.provider?.updated_by || 'Unknown'
     },
   },
   watch: {
@@ -110,7 +185,7 @@ export default {
       handler(newVal) {
         if (this.isUnmounting) return
         if (newVal) {
-          this.$store.commit('setProvider', newVal)
+          this.providerStore.setEntity(newVal)
         }
       },
     },
@@ -122,13 +197,13 @@ export default {
         if (this.selectedModel && newVal.length > 0) {
           const modelExists = newVal.find((model) => model.id === this.selectedModel.id)
           if (!modelExists) {
-            this.$store.commit('modelConfig/setEntity', null)
+            this.modelConfigStore.setEntity(null)
             // Auto-select first model if no valid selection
             this.autoSelectFirstModel(newVal)
           }
         } else if (this.selectedModel && newVal.length === 0) {
           // No models available for this provider, clear selection
-          this.$store.commit('modelConfig/setEntity', null)
+          this.modelConfigStore.setEntity(null)
         } else if (!this.selectedModel && newVal.length > 0) {
           // No model selected but models are available, auto-select first
           this.autoSelectFirstModel(newVal)
@@ -140,6 +215,13 @@ export default {
     // Auto-selection will be handled by availableModels watcher
     // No need to select here as availableModels might not be loaded yet
   },
+  activated() {
+    this.id = this.$route.params.id
+    // Re-sync Vuex state when KeepAlive reactivates this component (multi-tab support)
+    if (this.selectedRow && this.selectedRow.id !== this.providerStore.entity?.id) {
+      this.providerStore.setEntity(this.selectedRow)
+    }
+  },
   beforeUnmount() {
     // Guard watchers from firing store mutations during teardown.
     // If they do, Vue's scheduler picks up the reactive change and tries to
@@ -147,6 +229,32 @@ export default {
     this.isUnmounting = true
   },
   methods: {
+    async save() {
+      this.saving = true
+      try {
+        if (this.provider?.created_at) {
+          const data = this.providerStore.buildPayload()
+          await this.updateEntity({ id: this.provider.id, data })
+        } else {
+          await this.createEntity(this.provider)
+        }
+        this.providerStore.setInit()
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+      } catch (error) {
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
+      } finally {
+        this.saving = false
+      }
+    },
+    async confirmDelete() {
+      await this.removeMutation.mutateAsync(this.$route.params.id)
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Model Provider has been deleted.', timeout: 1000 })
+      this.$router.push('/model-providers')
+    },
+    formatDate(date) {
+      const d = new Date(date)
+      return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
+    },
     autoSelectFirstModel(models) {
       // Sort by is_default (descending) to prioritize default models
       const sortedModels = [...models].sort((a, b) => {
@@ -156,7 +264,7 @@ export default {
       })
 
       if (sortedModels.length > 0) {
-        this.$store.commit('modelConfig/setEntity', sortedModels[0])
+        this.modelConfigStore.setEntity(sortedModels[0])
       }
     },
   },

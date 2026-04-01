@@ -84,5 +84,5 @@ export default {
     height: 100%;
     // background-color: var(--q-primary-transparent)
     z-index: -1
-    border-radius: 12px
+    border-radius: var(--radius-xl)
 </style>

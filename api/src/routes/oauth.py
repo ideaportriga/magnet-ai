@@ -1,0 +1,105 @@
+"""OAuth2 social login endpoints — Google, GitHub.
+
+Flow:
+1. GET /api/auth/oauth/{provider} → returns authorization URL + state
+2. GET /api/auth/oauth/{provider}/callback → exchanges code for tokens, logs in user
+"""
+
+from __future__ import annotations
+
+from logging import getLogger
+
+from litestar import Controller, Response, get
+from litestar.exceptions import NotAuthorizedException
+from litestar.params import Parameter
+from pydantic import BaseModel
+
+from core.config.app import alchemy
+from services.users import auth_service, oauth_service, refresh_token_service
+
+logger = getLogger(__name__)
+
+
+class AuthorizationUrlResponse(BaseModel):
+    authorization_url: str
+    state: str
+
+
+class OAuthController(Controller):
+    path = "/auth/oauth"
+    tags = ["Auth / OAuth"]
+
+    @get(
+        "/{provider:str}",
+        exclude_from_auth=True,
+        summary="Get OAuth authorization URL",
+    )
+    async def authorize(self, provider: str) -> AuthorizationUrlResponse:
+        try:
+            authorization_url, state = await oauth_service.get_authorization_url(
+                provider
+            )
+        except ValueError as e:
+            raise NotAuthorizedException(str(e)) from e
+
+        return AuthorizationUrlResponse(
+            authorization_url=authorization_url,
+            state=state,
+        )
+
+    @get(
+        "/{provider:str}/callback",
+        exclude_from_auth=True,
+        summary="OAuth callback — exchange code for tokens",
+    )
+    async def callback(
+        self,
+        provider: str,
+        code: str,
+        oauth_state: str = Parameter(query="state"),
+    ) -> Response:
+        async with alchemy.get_session() as session:
+            try:
+                user = await oauth_service.handle_oauth_callback(
+                    session=session,
+                    provider=provider,
+                    code=code,
+                    state=oauth_state,
+                )
+            except ValueError as e:
+                raise NotAuthorizedException(str(e)) from e
+
+            # Create internal JWT tokens
+            access_token = auth_service.create_access_token(user, auth_method="oauth")
+
+            refresh_plaintext, _ = await refresh_token_service.create_refresh_token(
+                session=session,
+                user_id=user.id,
+            )
+
+            await session.commit()
+
+        response = Response(
+            {
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user_id": str(user.id),
+            },
+        )
+        response.set_cookie(
+            key="token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            path="/",
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_plaintext,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            path="/",
+        )
+        return response

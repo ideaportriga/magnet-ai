@@ -17,6 +17,7 @@ export default defineComponent({
   },
   computed: {
     text() {
+      if (!this.name) return undefined
       const keys = this.name.split('.')
       let value = this.row
       for (const key of keys) {

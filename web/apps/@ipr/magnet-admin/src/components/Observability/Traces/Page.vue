@@ -1,125 +1,91 @@
 <template lang="pug">
-.row.no-wrap.overflow-hidden.full-height
-  q-scroll-area.fit
-    .row.no-wrap.full-height.justify-center.fit
-      .col-auto.collection-container
-        .full-height.q-pb-md.relative-position.q-px-md
-          .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width
-            .row.q-mb-12
-              .col-auto.center-flex-y
-                km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject', outputFormat='sql'                  persistent,
-                persistentKey='traces-filter')
-              q-space
-              .col-auto.center-flex-y
-                km-btn.q-mr-12(
-                  icon='refresh',
-                  label='Refresh list',
-                  @click='refreshTable',
-                  iconColor='icon',
-                  hoverColor='primary',
-                  labelClass='km-title',
-                  flat,
-                  iconSize='16px',
-                  hoverBg='primary-bg'
-                )
-            .row
-              km-table(
-                ref='tableRef',
-                @selectRow='openDetails',
-                selection='single',
-                row-key='id',
-                :columns='columns',
-                :visibleColumns='visibleColumns',
-                :rows='visibleRows',
-                style='min-width: 1100px',
-                binary-state-sort,
-                :loading='loading',
-                dense,
-                @request='getPaginated',
-                v-model:pagination='pagination',
-                :filter='filterObject'
-              )
-        q-inner-loading(:showing='loading')
+.column.no-wrap.full-height
+  .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
+    .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
+      .row.q-mb-12
+        .col-auto.center-flex-y
+          km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject', outputFormat='sql', persistent, persistentKey='traces-filter')
+        q-space
+        .col-auto.center-flex-y
+          km-btn.q-mr-12(
+            icon='refresh',
+            label='Refresh list',
+            @click='refetch',
+            iconColor='icon',
+            hoverColor='primary',
+            labelClass='km-title',
+            flat,
+            iconSize='16px',
+            hoverBg='primary-bg'
+          )
+      .col(style='min-height: 0')
+        km-data-table(
+          :table='table',
+          :loading='isLoading',
+          fill-height,
+          dense,
+          row-key='id',
+          @row-click='openDetails'
+        )
 </template>
 
-<script>
-import { fetchData, useChroma } from '@shared'
-import { ref } from 'vue'
-import _ from 'lodash'
+<script setup lang="ts">
+import { ref, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useDataTable } from '@/composables/useDataTable'
+import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
+import StatusField from '@/config/observability/traces/components/StatusField.vue'
 import { traceFilters } from '@/config/observability/traces'
+import { getApiClient } from '@/api'
+import type { ObservabilityTrace } from '@/types'
 
-export default {
-  setup() {
-    const { loading, pagination, visibleColumns, columns, visibleRows, get, getPaginated } = useChroma('observability_traces')
-    const tableRef = ref()
+const router = useRouter()
+const filterObject = ref<Record<string, unknown>>({})
+const filterConfig = ref(traceFilters())
 
-    return {
-      loading,
-      searchString: ref(''),
-      pagination,
-      visibleColumns,
-      columns,
-      visibleRows,
-      get,
-      tableRef,
-      getPaginated,
-      filterConfig: ref(traceFilters()),
-      filterObject: ref({}),
-    }
-  },
-  computed: {
-    paramId() {
-      return this.$route.params.id
+const columns = [
+  textColumn<ObservabilityTrace>('type', 'Type'),
+  textColumn<ObservabilityTrace>('name', 'Name'),
+  componentColumn<ObservabilityTrace>('status', 'Status', StatusField, { accessorKey: 'status', sortable: true }),
+  dateColumn<ObservabilityTrace>('start_time', 'Start Time'),
+  textColumn<ObservabilityTrace>('latency', 'Duration', {
+    align: 'right',
+    format: (val) => {
+      if (!val) return '-'
+      const ms = Number(val)
+      return ms >= 1000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms)}ms`
     },
-  },
-  async mounted() {
-    this.searchString = this.paramId || ''
+  }),
+]
 
-    await this.loadKnowledgeGraphFilters()
-    await this.refreshTable()
-  },
-  methods: {
-    debounceSearch: _.debounce(function (search) {
-      this.searchString = search
-    }, 500),
+const { table, isLoading, refetch } = useDataTable<ObservabilityTrace>('observability_traces', columns, {
+  defaultSort: [{ id: 'start_time', desc: true }],
+  defaultPageSize: 15,
+  manualPagination: true,
+  manualSorting: true,
+  manualFiltering: true,
+  extraParams: filterObject,
+})
 
-    async refreshTable() {
-      this.tableRef.requestServerInteraction()
-    },
-    async loadKnowledgeGraphFilters() {
-      try {
-        const response = await fetchData({
-          endpoint: this.$store.getters.config.api.aiBridge.urlAdmin,
-          service: 'knowledge_graphs/',
-          method: 'GET',
-          credentials: 'include',
-        })
+watch(filterObject, () => refetch(), { deep: true })
 
-        if (!response.ok) {
-          return
-        }
+onMounted(async () => {
+  try {
+    const client = getApiClient()
+    const graphs = await client.get<Array<{ name?: string }>>('knowledge_graphs')
+    const graphNames = [...new Set((graphs ?? []).map((g) => g.name).filter(Boolean))] as string[]
+    filterConfig.value = traceFilters(graphNames)
+  } catch {
+    // ignore — filter will work without KG names
+  }
+})
 
-        const graphs = await response.json()
-        const graphNames = [...new Set((graphs ?? []).map((graph) => graph.name).filter(Boolean))]
-
-        this.filterConfig = traceFilters(graphNames)
-      } catch (error) {
-        console.error('Error fetching knowledge graph filter options:', error)
-      }
-    },
-    async openDetails(row) {
-      await this.$router.push(`/observability-traces/${row.id}`)
-    },
-  },
+const openDetails = async (row: ObservabilityTrace) => {
+  await router.push(`/observability-traces/${row.id}`)
 }
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before {
   background: #fff !important;
 }

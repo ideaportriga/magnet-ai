@@ -72,9 +72,11 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("
 <script>
 import { ref, computed } from 'vue'
 import { fetchData } from '@shared'
-import { useStore } from 'vuex'
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useQueryClient } from '@tanstack/vue-query'
 import _ from 'lodash'
+import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useAppStore } from '@/stores/appStore'
 export default {
   props: {
     showNewDialog: {
@@ -84,8 +86,10 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const store = useStore()
-    const { ...useApiServers } = useChroma('api_servers')
+    const queries = useEntityQueries()
+    const queryClient = useQueryClient()
+    const apiServerStore = useApiServerDetailStore()
+    const appStore = useAppStore()
 
     return {
       file: ref(null),
@@ -94,8 +98,9 @@ export default {
       addAsVariant: ref(false),
       actionsDefinition: ref(''),
       errorMessage: ref(null),
-      store,
-      useApiServers,
+      appStore,
+      queryClient,
+      apiServerStore,
     }
   },
   computed: {
@@ -106,7 +111,7 @@ export default {
       return this.apiTools.every((tool) => tool.selected === true)
     },
     items() {
-      return this.store.getters.api_server?.tools || []
+      return this.apiServerStore.entity?.tools || []
     },
   },
   watch: {
@@ -144,7 +149,15 @@ export default {
     async processFile() {
       const text = this.actionsDefinition || (await this.readFileAsText(this.file))
       try {
-        const res = await this.store.dispatch('specFromText', text)
+        const response = await fetchData({
+          endpoint: this.appStore.config.api.aiBridge.urlAdmin,
+          service: 'api_servers/parse_openapi_spec_text',
+          method: 'POST',
+          credentials: 'include',
+          body: JSON.stringify({ spec: text }),
+        })
+        if (response.error) throw response.error
+        const res = await response.json()
         res?.tools?.forEach((tool) => {
           tool.original_name = tool.system_name
           tool.duplicate = this.isDuplicate(tool.system_name)
@@ -180,7 +193,7 @@ export default {
       const selectedTools = this.apiTools.filter((tool) => tool.selected === true)
       await this.createTool(selectedTools)
       this.$emit('cancel')
-      this.useApiServers.get()
+      this.queryClient.invalidateQueries({ queryKey: ['api_servers'] })
     },
     async createTool(tools) {
       if (tools.length === 0) return
@@ -190,7 +203,17 @@ export default {
         delete tool.original_name
         return tool
       })
-      await this.store.dispatch('addTools', selectedTools)
+      const currentTools = this.apiServerStore.entity?.tools || []
+      const allTools = [...currentTools, ...selectedTools]
+      const id = this.apiServerStore.entity?.id
+      await fetchData({
+        endpoint: this.appStore.config.api.aiBridge.urlAdmin,
+        service: `api_servers/${id}`,
+        method: 'PATCH',
+        credentials: 'include',
+        body: JSON.stringify({ tools: allTools }),
+      })
+      this.apiServerStore.updateProperty({ key: 'tools', value: allTools })
     },
     updateAllTools(value) {
       this.apiTools.forEach((tool) => {

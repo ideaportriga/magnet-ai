@@ -120,18 +120,25 @@ km-popup-confirm(
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import { useRouter, useRoute } from 'vue-router'
-import { useQuasar } from 'quasar'
 import { required, toUpperCaseWithUnderscores } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useNotify } from '@/composables/useNotify'
 
-const store = useStore()
+const ntStore = useNoteTakerStore()
+const appStore = useAppStore()
 const router = useRouter()
 const route = useRoute()
-const $q = useQuasar()
+const { notifySuccess, notifyError } = useNotify()
+const queries = useEntityQueries()
+
+const { data: providerListData } = queries.provider.useList()
+const { mutateAsync: createProviderMutation } = queries.provider.useCreate()
 
 const configId = computed(() => route.params.id as string)
-const activeRecord = computed(() => store.getters.noteTakerSettingsActiveRecord)
+const activeRecord = computed(() => ntStore.activeRecord)
 
 const statusLoading = ref(false)
 const runtimeStatus = ref<{ runtime_loaded: boolean; has_credentials: boolean } | null>(null)
@@ -145,7 +152,7 @@ const newProvider = reactive({
   auth_handler_id: '',
 })
 
-const allProviders = computed(() => store.getters['chroma/provider']?.items || [])
+const allProviders = computed(() => providerListData.value?.items || [])
 const noteTakerProviders = computed(() =>
   allProviders.value.filter((p: any) => p.type === 'teams_note_taker')
 )
@@ -153,8 +160,8 @@ const noteTakerProviders = computed(() =>
 const providerSystemName = computed({
   get: () => activeRecord.value?.provider_system_name || '',
   set: (value: string) => {
-    store.commit('setNoteTakerRecordMeta', {
-      key: store.getters.noteTakerSettingsActiveKey,
+    ntStore.setRecordMeta({
+      key: ntStore.activeSettingsKey,
       provider_system_name: value || null,
     })
   },
@@ -163,26 +170,20 @@ const providerSystemName = computed({
 const superuserId = computed({
   get: () => activeRecord.value?.superuser_id || '',
   set: (value: string) => {
-    store.commit('setNoteTakerRecordMeta', {
-      key: store.getters.noteTakerSettingsActiveKey,
+    ntStore.setRecordMeta({
+      key: ntStore.activeSettingsKey,
       superuser_id: value || null,
     })
   },
 })
 
-const apiReady = computed(() => Boolean(store.getters.config?.api?.aiBridge?.urlAdmin))
-
-watch(apiReady, (ready) => {
-  if (ready && !allProviders.value.length) {
-    store.dispatch('chroma/get', { entity: 'provider' })
-  }
-}, { immediate: true })
+const apiReady = computed(() => Boolean(appStore.config?.api?.aiBridge?.urlAdmin))
 
 const checkRuntimeStatus = async () => {
   if (!configId.value) return
   statusLoading.value = true
   try {
-    runtimeStatus.value = await store.dispatch('fetchNoteTakerRuntimeStatus', configId.value)
+    runtimeStatus.value = await ntStore.fetchRuntimeStatus(configId.value)
   } finally {
     statusLoading.value = false
   }
@@ -197,30 +198,25 @@ const createProvider = async () => {
   if (!newProvider.name.trim()) return
   try {
     const systemName = toUpperCaseWithUnderscores(newProvider.name)
-    const created = await store.dispatch('chroma/create', {
-      entity: 'provider',
-      payload: {
-        name: newProvider.name,
-        system_name: systemName,
-        type: 'teams_note_taker',
-        secrets_encrypted: {
-          client_id: newProvider.client_id,
-          client_secret: newProvider.client_secret,
-          tenant_id: newProvider.tenant_id,
-        },
-        connection_config: {
-          auth_handler_id: newProvider.auth_handler_id || '',
-        },
+    const created = await createProviderMutation({
+      name: newProvider.name,
+      system_name: systemName,
+      type: 'teams_note_taker',
+      secrets_encrypted: {
+        client_id: newProvider.client_id,
+        client_secret: newProvider.client_secret,
+        tenant_id: newProvider.tenant_id,
       },
-    })
+      connection_config: {
+        auth_handler_id: newProvider.auth_handler_id || '',
+      },
+    } as any)
     showCreateProvider.value = false
-    // Refresh providers list
-    await store.dispatch('chroma/get', { entity: 'provider' })
     // Auto-select newly created provider
     if (created?.system_name) {
       providerSystemName.value = created.system_name
     }
-    $q.notify({ position: 'top', message: 'Provider created', color: 'positive', textColor: 'black', timeout: 1200 })
+    notifySuccess('Provider created')
     // Reset form
     newProvider.name = ''
     newProvider.client_id = ''
@@ -228,7 +224,7 @@ const createProvider = async () => {
     newProvider.tenant_id = ''
     newProvider.auth_handler_id = ''
   } catch (error: any) {
-    $q.notify({ position: 'top', message: error?.message || 'Failed to create provider', color: 'negative', textColor: 'white', timeout: 2000 })
+    notifyError(error?.message || 'Failed to create provider')
   }
 }
 </script>

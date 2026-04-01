@@ -1,3 +1,5 @@
+import type { KnowledgeGraphDetails } from '../types'
+
 export type EntityColumnType = 'string' | 'number' | 'boolean' | 'date'
 export type EntityExtractionApproach = 'document' | 'chunks'
 
@@ -227,12 +229,12 @@ export interface EntityExtractionStatusInfo {
 
 const VALID_EXTRACTION_STATUSES: EntityExtractionStatus[] = ['idle', 'running', 'cancelling', 'cancelled', 'completed', 'error']
 
-export function getExtractionStatusFromGraphDetails(graphDetails?: Record<string, any> | null): EntityExtractionStatusInfo {
+export function getExtractionStatusFromGraphDetails(graphDetails?: KnowledgeGraphDetails | null): EntityExtractionStatusInfo {
   const state = graphDetails?.state
   if (!state || typeof state !== 'object') {
     return { status: 'idle' }
   }
-  const raw = (state as Record<string, unknown>).entity_extraction
+  const raw = state.entity_extraction
   if (!raw || typeof raw !== 'object') {
     return { status: 'idle' }
   }

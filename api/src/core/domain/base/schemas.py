@@ -6,11 +6,15 @@ These schemas provide a consistent structure for all entities and eliminate code
 
 from __future__ import annotations
 
+import json
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, field_serializer, model_validator
+
+logger = logging.getLogger(__name__)
 
 
 class SecretsEncryptedMixin(BaseModel):
@@ -43,6 +47,25 @@ class BaseSchema(BaseModel):
     updated_at: Optional[datetime] = None
     created_by: Optional[str] = None
     updated_by: Optional[str] = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _decode_jsonb_strings(cls, data: Any) -> Any:
+        """Auto-parse JSONB fields stored as double-encoded strings in legacy data.
+
+        Some historical records have JSONB columns saved as JSON string literals
+        (e.g. '"[{...}]"' instead of '[{...}]'). This validator transparently
+        fixes them at read time so that to_schema() never crashes on legacy data.
+        """
+        if not isinstance(data, dict):
+            return data
+        for key, value in data.items():
+            if isinstance(value, str) and value and value[0] in ("{", "["):
+                try:
+                    data[key] = json.loads(value)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+        return data
 
 
 # Simple schemas

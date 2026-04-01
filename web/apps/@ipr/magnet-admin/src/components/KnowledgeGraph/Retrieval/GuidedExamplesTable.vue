@@ -142,12 +142,12 @@ const handleSave = (example: RetrievalExample) => {
 }
 
 :deep(.q-table__card .q-table thead tr, .q-table__card thead tr) {
-  background-color: #f5f5f5;
+  background-color: var(--q-light);
 }
 
 :deep(.q-table__card .q-table thead th, .q-table__card thead th) {
   padding: 16px 12px;
-  color: #1a1a1a;
+  color: var(--q-black);
   border-bottom: none;
   font-size: 0.8rem;
   font-weight: 600;

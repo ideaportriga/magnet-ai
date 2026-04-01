@@ -1,12 +1,9 @@
 <template lang="pug">
-.no-wrap.full-height.justify-center.q-py-16.q-pl-16.q-pr-xs.bg-white.fit.relative-position.bl-border(
-  style='max-width: 500px; min-width: 500px !important',
-  v-if='open'
-)
-  .column.full-height.no-wrap
-    .row.q-gap-4.items-center.km-heading-6.text-black.q-mb-md {{ span?.name }}
-    .row.q-mb-sm(style='font-size: 13px') {{ span?.description }}
-    .column.q-gap-24(v-if='trace?.type == "rag" && trace?.id == span?.parent_id && trace?.spans?.[0]?.id == span?.id')
+km-drawer-layout(v-if='open', storageKey="drawer-observability-traces")
+  template(#header)
+    .row.q-gap-4.items-center.km-heading-6.text-black {{ span?.name }}
+    .row.q-mt-sm(style='font-size: 13px') {{ span?.description }}
+    .column.q-gap-24.q-mt-md(v-if='trace?.type == "rag" && trace?.id == span?.parent_id && trace?.spans?.[0]?.id == span?.id')
       .column.q-gap-6
         .km-input-label.text-text-grey Question
         .km-heading-2 {{ traceMetadata.question }}
@@ -19,7 +16,7 @@
       .column.q-gap-6
         .km-input-label.text-text-grey Answer
         .km-heading-2 {{ traceMetadata.answer }}
-    .row.q-mb-md
+    .row.q-mt-md
       q-tabs(
         v-model='tab',
         narrow-indicator,
@@ -32,56 +29,55 @@
       )
         template(v-for='t in filteredTabs')
           q-tab(:name='t.name', :label='t.label')
-    q-scroll-area.fit.q-pr-md
-      template(v-if='tab == "error"')
-        .row.ba-border.border-radius-8.q-pa-sm.bg-light(style='border-color: #ff0000; word-break: break-all; white-space: break-spaces') {{ span?.status_message }}
-      template(v-else-if='tab == "input_output"')
-        template(v-if='span?.type == "search"')
-          observability-traces-search-input-output(:span='span')
-        template(v-else-if='span?.type == "embed"')
-          observability-traces-embed-input-output(:span='span')
-        template(v-else-if='span?.type == "chat"')
-          observability-traces-chat-completion-input-output(:span='span')
-        template(v-else-if='span?.type == "rerank"')
-          observability-traces-rerank-input-output(:span='span')
-        template(v-else-if='span?.name == "Fuse search results"')
-          observability-traces-fuse-results-input-output(:span='span')
-        template(v-else-if='span?.name == "Select top results"')
-          observability-traces-top-results-input-output(:span='span')
-        template(v-else)
-          .column.q-gap-32(v-if='span?.input || span?.output')
-            observability-traces-default-span-renderer(:value='span?.input', label='Inputs')
-            observability-traces-default-span-renderer(:value='span?.output', label='Outputs')
-      template(v-else-if='tab == "prompt_template"')
-        .column.q-gap-24
-          .column.q-gap-6
-            .km-input-label.text-text-grey Name
-            .km-heading-2 {{ span?.prompt_template?.display_name }}
-          .column.q-gap-6(v-if='span?.prompt_template?.variant')
-            .km-input-label.text-text-grey Variant
-            .km-heading-2 {{ span?.prompt_template?.variant }}
-      template(v-else-if='tab == "tools"')
-        .column.q-gap-32(v-if='span?.extra_data?.tools && span?.extra_data?.tools.length > 0')
-          observability-traces-tools-list(:tools='span?.extra_data?.tools')
-      template(v-else-if='tab == "model"')
-        .column.q-gap-24
-          .column.q-gap-6
-            .km-input-label.text-text-grey Provider
-            .km-heading-2 {{ providerName }}
-          .column.q-gap-6
-            .km-input-label.text-text-grey LLM name
-            .km-heading-2 {{ span?.model?.parameters?.llm }}
-          .column.q-gap-6(v-if='span?.model?.parameters?.temperature != undefined')
-            .km-input-label.text-text-grey Temperature
-            .km-heading-2 {{ span?.model?.parameters?.temperature }}
-          .column.q-gap-6(v-if='span?.model?.parameters?.top_p != undefined')
-            .km-input-label.text-text-grey Top P
-            .km-heading-2 {{ span?.model?.parameters?.top_p }}
+  template(v-if='tab == "error"')
+    .row.ba-border.border-radius-8.q-pa-sm.bg-light(style='border-color: #ff0000; word-break: break-all; white-space: break-spaces') {{ span?.status_message }}
+  template(v-else-if='tab == "input_output"')
+    template(v-if='span?.type == "search"')
+      observability-traces-search-input-output(:span='span')
+    template(v-else-if='span?.type == "embed"')
+      observability-traces-embed-input-output(:span='span')
+    template(v-else-if='span?.type == "chat"')
+      observability-traces-chat-completion-input-output(:span='span')
+    template(v-else-if='span?.type == "rerank"')
+      observability-traces-rerank-input-output(:span='span')
+    template(v-else-if='span?.name == "Fuse search results"')
+      observability-traces-fuse-results-input-output(:span='span')
+    template(v-else-if='span?.name == "Select top results"')
+      observability-traces-top-results-input-output(:span='span')
+    template(v-else)
+      .column.q-gap-32(v-if='span?.input || span?.output')
+        observability-traces-default-span-renderer(:value='span?.input', label='Inputs')
+        observability-traces-default-span-renderer(:value='span?.output', label='Outputs')
+  template(v-else-if='tab == "prompt_template"')
+    .column.q-gap-24
+      .column.q-gap-6
+        .km-input-label.text-text-grey Name
+        .km-heading-2 {{ span?.prompt_template?.display_name }}
+      .column.q-gap-6(v-if='span?.prompt_template?.variant')
+        .km-input-label.text-text-grey Variant
+        .km-heading-2 {{ span?.prompt_template?.variant }}
+  template(v-else-if='tab == "tools"')
+    .column.q-gap-32(v-if='span?.extra_data?.tools && span?.extra_data?.tools.length > 0')
+      observability-traces-tools-list(:tools='span?.extra_data?.tools')
+  template(v-else-if='tab == "model"')
+    .column.q-gap-24
+      .column.q-gap-6
+        .km-input-label.text-text-grey Provider
+        .km-heading-2 {{ providerName }}
+      .column.q-gap-6
+        .km-input-label.text-text-grey LLM name
+        .km-heading-2 {{ span?.model?.parameters?.llm }}
+      .column.q-gap-6(v-if='span?.model?.parameters?.temperature != undefined')
+        .km-input-label.text-text-grey Temperature
+        .km-heading-2 {{ span?.model?.parameters?.temperature }}
+      .column.q-gap-6(v-if='span?.model?.parameters?.top_p != undefined')
+        .km-input-label.text-text-grey Top P
+        .km-heading-2 {{ span?.model?.parameters?.top_p }}
 </template>
 
 <script>
-import { defineComponent, ref } from 'vue'
-import store from '@/store'
+import { defineComponent, ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 
 export default defineComponent({
   props: {
@@ -96,6 +92,10 @@ export default defineComponent({
     },
   },
   setup() {
+    const queries = useEntityQueries()
+    const { data: providerData } = queries.provider.useList()
+    const providerItems = computed(() => providerData.value?.items ?? [])
+
     return {
       tab: ref('input_output'),
       tabs: ref([
@@ -105,6 +105,7 @@ export default defineComponent({
         { name: 'tools', label: 'Tools', availableFor: ['chat'] },
         { name: 'model', label: 'Model', availableFor: ['embed', 'rerank', 'chat'] },
       ]),
+      providerItems,
     }
   },
   computed: {
@@ -123,7 +124,7 @@ export default defineComponent({
     providerName() {
       const observationProviderName = this.span?.model?.provider
       const observationProviderDisplayName = this.span?.model?.provider_display_name
-      const provider = (store.getters['chroma/provider'].items || []).find((option) => option.id == observationProviderName)
+      const provider = (this.providerItems || []).find((option) => option.id == observationProviderName)
       return provider?.label || observationProviderDisplayName || observationProviderName
     },
   },

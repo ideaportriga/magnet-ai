@@ -68,25 +68,21 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
 </template>
 
 <script lang="ts">
-import useChroma from '@shared/composables/useChroma'
-import useState from '@shared/composables/useState'
 import { copyToClipboard } from 'quasar'
 
 import { ref } from 'vue'
 
 export default {
-  props: ['answer'],
-  emits: ['refine'],
+  props: ['answer', 'uiSettings'],
+  emits: ['refine', 'feedback', 'selectAnswer'],
   setup() {
-    const prompt = useState('searchPrompt')
-    const { items } = useChroma('collections')
     const showFeedback = ref(false)
     const showFeedbackConfirm = ref(false)
-    return { prompt, showFeedback, showFeedbackConfirm, items, showResultingPrompt: ref(false) }
+    return { showFeedback, showFeedbackConfirm, showResultingPrompt: ref(false) }
   },
   computed: {
-    uiSettings() {
-      return this.$store.getters.retrieval.ui_settings
+    resolvedUiSettings() {
+      return this.uiSettings ?? {}
     },
     feedback() {
       return this.answer?.feedback ?? {}
@@ -114,12 +110,6 @@ export default {
 
     mainAnswerSources() {
       return this.answer.results ?? []
-    },
-    searchedIn() {
-      return this.items
-        .filter((item) => this.answer.collection.includes(item.id))
-        .map((item) => item.name)
-        .join(', ')
     },
   },
   watch: {},
@@ -151,12 +141,8 @@ export default {
 
     async react({ like, comment = '' }) {
       this.showFeedbackConfirm = false
-      const res = await this.$store.dispatch('sendFeedback', {
-        id: this.answer.id,
-        like,
-        comment,
-      })
-      if (res && !like && comment) this.showFeedbackConfirm = true
+      this.$emit('feedback', { id: this.answer.id, like, comment })
+      if (!like && comment) this.showFeedbackConfirm = true
     },
   },
 }

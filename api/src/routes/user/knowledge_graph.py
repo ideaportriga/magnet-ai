@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from dataclasses import dataclass
@@ -54,6 +53,8 @@ from services.observability import (
     observability_overrides,
     observe,
 )
+
+from storage import FileLimits, StorageService
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,7 @@ class _IngestItem:
     text: str | None = None
     file_bytes: bytes | None = None
     source_metadata: dict[str, Any] | None = None
+    stored_file_id: str | None = None
 
 
 class KnowledgeGraphAskRequest(BaseModel):
@@ -583,6 +585,8 @@ class UserKnowledgeGraphController(Controller):
                 media_type=RequestEncodingType.MULTI_PART,
             ),
         ] = None,
+        storage_service: "StorageService | None" = None,
+        file_limits: "FileLimits | None" = None,
     ) -> KnowledgeGraphIngestAcceptedResponse:
         ctype = (request.headers.get("content-type") or "").lower()
 
@@ -658,12 +662,37 @@ class UserKnowledgeGraphController(Controller):
         if upload is not None:
             upload_filename = (upload.filename or "").strip() or "upload.bin"
             file_bytes = await upload.read()
+
+            # Persist uploaded file via StorageService (if available)
+            stored_file_id: str | None = None
+            if storage_service and file_limits:
+                file_limits.check_file_size(len(file_bytes), "kg_upload")
+                await file_limits.check_quota(
+                    db_session,
+                    storage_service,
+                    "kg_upload",
+                    graph_id,
+                    len(file_bytes),
+                )
+                stored_file = await storage_service.save_file(
+                    db_session,
+                    content=file_bytes,
+                    filename=upload_filename,
+                    content_type=upload.content_type or "application/octet-stream",
+                    entity_type="kg_upload",
+                    entity_id=graph_id,
+                    backend_key=file_limits.backend_key_for("kg_upload"),
+                    sub_path=f"kg/{graph_id}/uploads",
+                )
+                stored_file_id = str(stored_file.id)
+
             items.append(
                 _IngestItem(
                     kind="file",
                     filename=upload_filename,
                     file_bytes=file_bytes,
                     source_metadata=source_metadata,
+                    stored_file_id=stored_file_id,
                 )
             )
 
@@ -692,13 +721,16 @@ class UserKnowledgeGraphController(Controller):
         ).get_or_create_source(db_session, graph_id)
 
         # Spawn background ingestion (do not await)
-        asyncio.create_task(
+        from core.server.background_tasks import spawn_background_task
+
+        spawn_background_task(
             run_background_ingest(
                 ingestion_id=ingestion_id,
                 graph_id=graph_id,
                 source_id=UUID(str(source.id)),
                 items=items,
-            )
+            ),
+            name=f"api-ingest-{ingestion_id}",
         )
 
         trace_id = observability_context.get_current_trace_id()[:8]

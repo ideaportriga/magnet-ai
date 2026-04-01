@@ -1,6 +1,6 @@
-import store from '@/store/index'
-const system = store.getters.sourceSystem
-console.log(`Panels for ${system || 'standalone'}`)
+// sourceSystem is set via URL query param, read from route at runtime
+const urlParams = new URLSearchParams(window.location.hash?.split('?')[1] || '')
+const system = urlParams.get('sourceSystem') || ''
 export default [
   {
     name: 'qa',

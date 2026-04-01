@@ -35,6 +35,7 @@ class NoteTakerSettingsSchema(BaseModel):
     # Empty string means the transcription service will use its own default provider.
     pipeline_id: str = ""
     send_number_of_speakers: bool = False
+    accept_commands_from_non_organizer: bool = False
     create_knowledge_graph_embedding: bool = False
     knowledge_graph_system_name: str = ""
     keyterms: str = ""

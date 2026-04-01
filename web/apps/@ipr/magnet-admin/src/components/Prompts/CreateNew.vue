@@ -46,9 +46,11 @@ km-popup-confirm(
 
 <script>
 import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
-import { cloneDeep } from 'lodash' // Import lodash for deep cloning
 import { toUpperCaseWithUnderscores } from '@shared'
+import { useEntityConfig } from '@/composables/useEntityConfig'
+import { cloneDeep } from 'lodash' // Import lodash for deep cloning
+import { useEntityQueries } from '@/queries/entities'
+import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
 import { categoryOptions } from '@/config/prompts/prompts'
 
 export default {
@@ -64,16 +66,19 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { searchString, create, requiredFields, config, ...useCollection } = useChroma('promptTemplates')
+    const { config, requiredFields } = useEntityConfig('promptTemplates')
+    const queries = useEntityQueries()
+    const promptStore = usePromptTemplateDetailStore()
+    const { mutateAsync: createPromptTemplate } = queries.promptTemplates.useCreate()
+    const { data: modelListData } = queries.model.useList()
 
     return {
-      searchString,
-      useCollection,
+      promptStore,
+      modelListData,
       requiredFields,
       config,
-      create,
+      createPromptTemplate,
       createNew: ref(false),
-      loadingRefresh: ref(false),
       newRow: reactive({
         name: '',
         description: '',
@@ -99,7 +104,7 @@ export default {
   },
   computed: {
     defaultModel() {
-      return this.$store.getters['chroma/model']?.items?.find((el) => el.is_default && el?.type === 'prompts')
+      return (this.modelListData?.items ?? []).find((el) => el.is_default && el?.type === 'prompts')
     },
     name: {
       get() {
@@ -120,7 +125,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.$store.getters.promptTemplate
+      return this.promptStore.entity
     },
     collectionSystemNames: {
       get() {
@@ -139,8 +144,6 @@ export default {
     },
   },
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.name = this.newRow.name + '_COPY'
@@ -166,14 +169,13 @@ export default {
       if (!this.validateFields()) return
 
       this.createNew = false
-      const result = await this.create(JSON.stringify(this.newRow))
+      const result = await this.createPromptTemplate(this.newRow)
 
       if (!result?.id) {
         return
       }
 
-      await this.useCollection.selectRecord(result.id)
-      await this.$store.commit('setPromptTemplate', this.newRow)
+      this.promptStore.setEntity(this.newRow)
       this.$router.push(`/prompt-templates/${result.id}`)
     },
     validation(row, notify = true) {
@@ -183,12 +185,7 @@ export default {
         // Handle validation error
 
         if (notify) {
-          this.$q.notify({
-            message: `Name, Description, System name and Category are required`,
-            color: 'error-text',
-            position: 'top',
-            timeout: 1000,
-          })
+          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Name, Description, System name and Category are required`, timeout: 1000 })
         }
         return false
       }
@@ -200,21 +197,11 @@ export default {
       await this.$router.push(`/prompt-templates/${row.id}`)
     },
 
-    async refreshTable() {
-      this.loadingRefresh = true
-      this.useCollection.get()
-      this.loadingRefresh = false
-    },
   },
 }
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

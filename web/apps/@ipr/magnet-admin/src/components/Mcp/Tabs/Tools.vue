@@ -1,9 +1,10 @@
 <template lang="pug">
-.full-width.q-pb-lg(v-if='rows?.length')
+.column.full-height(v-if='data?.length', style='min-height: 0')
   .row.q-mb-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='debouncedUpdateSearch', clearable) 
-  km-table.full-width.fit(:columns='columns', :visibleColumns='visibleColumns', :rows='visibleRows', row-key='name', @selectRow='handleRowClick')
+      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+  .col(style='min-height: 0')
+    km-data-table(:table='table', fill-height, row-key='name', @row-click='handleRowClick')
 template(v-else)
   .column.justify-center.items-center.full-width.full-height
     .col.q-pa-xl.bg-light.border-radius-12
@@ -16,52 +17,46 @@ template(v-else)
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import controls from '@/config/mcp/tools'
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useStore } from 'vuex'
 import { useQuasar } from 'quasar'
-import { debounce } from 'lodash'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { nameDescriptionColumn } from '@/utils/columnHelpers'
+import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityQueries } from '@/queries/entities'
 
 const router = useRouter()
 const route = useRoute()
-const store = useStore()
+const mcpStore = useMcpServerDetailStore()
 const q = useQuasar()
+const queries = useEntityQueries()
+const { mutateAsync: updateMcpServer } = queries.mcp_servers.useUpdate()
+const { mutateAsync: syncMcpServer } = queries.mcp_servers.useSync()
 
-const searchString = ref('')
+const data = computed(() => mcpStore.entity?.tools ?? [])
 
-const visibleColumns = computed(() => {
-  return Object.keys(controls).filter((key) => controls[key])
-})
-const columns = computed(() => {
-  return Object.values(controls)
-})
+const columns = [
+  nameDescriptionColumn('Name'),
+]
 
-const rows = computed(() => {
-  return store.getters.mcp_server.tools
-})
-const debouncedUpdateSearch = debounce((value) => {
-  searchString.value = value
-}, 300)
-
-const visibleRows = computed(() => {
-  if (!searchString.value) return rows.value
-  const fields = ['name', 'description']
-  return rows.value.filter((item) => {
-    return fields.some((field) => {
-      return item[field].toLowerCase().includes(searchString.value.toLowerCase())
-    })
-  })
-})
+const { table, globalFilter } = useLocalDataTable(data, columns)
 
 const handleRowClick = (row) => {
   router.push(`${route.path}/tools/${row.name}`)
 }
 
 const syncTools = async () => {
-  await store.dispatch('saveMcpServer')
-  const res = await store.dispatch('syncMcpTools')
-  if (res) {
+  try {
+    const mcpServer = mcpStore.entity
+    const data = { ...mcpServer }
+    delete data.id
+    delete data.created_at
+    delete data.updated_at
+    delete data.created_by
+    delete data.updated_by
+    await updateMcpServer({ id: mcpServer.id, data })
+    mcpStore.setInit()
+    await syncMcpServer(mcpServer.id)
     q.notify({
       position: 'top',
       message: 'MCP Tools have been synced.',
@@ -69,7 +64,7 @@ const syncTools = async () => {
       textColor: 'black',
       timeout: 1000,
     })
-  } else {
+  } catch (error) {
     q.notify({
       position: 'top',
       message: 'Failed to sync MCP Tools.',

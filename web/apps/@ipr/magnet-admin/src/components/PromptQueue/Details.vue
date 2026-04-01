@@ -1,8 +1,10 @@
 <template lang="pug">
 .row.no-wrap.overflow-hidden.full-height(v-if='loading', style='min-width: 1200px')
-  q-inner-loading(:showing='loading')
-    q-spinner-gears(size='50px', color='primary')
+  km-inner-loading(:showing='loading')
 layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:description='description', v-model:systemName='system_name', :contentContainerStyle='{ maxWidth: "1200px", minWidth: "600px", margin: "0 auto" }')
+  template(#header-actions)
+    km-btn(label='Execute', flat, icon='play_arrow', iconSize='16px', @click='pqStore.executeDrawerOpen = true')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving')
   template(#content)
     q-tabs.bb-border.full-width(
       v-model='tab',
@@ -16,7 +18,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
       q-tab(name='steps', label='Steps')
       q-tab(name='expected_input', label='Expected input')
       q-tab(name='test_inputs', label='Test Inputs')
-    .column.no-wrap.q-gap-12.full-height.full-width.overflow-auto.q-mb-sm.q-mt-sm(style='max-height: calc(100vh - 360px) !important')
+    .column.no-wrap.q-gap-12.full-height.full-width.overflow-auto.q-mb-sm.q-mt-sm(style='min-height: 0')
       template(v-if='tab === "steps"')
         .col-auto.full-width
           .row.items-center.justify-between.q-mb-sm
@@ -222,21 +224,29 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
       :config-id='configId',
       :expected-input-params='expectedInputParams || []',
       :test-inputs='testInputsList',
-      @update:open='(v) => store.commit("setExecuteDrawerOpen", v)'
+      @update:open='(v) => pqStore.executeDrawerOpen = v'
     )
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { useStore } from 'vuex'
 import { useRoute } from 'vue-router'
+import { useEntityQueries } from '@/queries/entities'
+import { usePromptQueueStore } from '@/stores/promptQueueStore'
+import { useNotify } from '@/composables/useNotify'
 
-const store = useStore()
+const pqStore = usePromptQueueStore()
 const route = useRoute()
+const { notifySuccess, notifyError } = useNotify()
+const queries = useEntityQueries()
+
+const { data: promptTemplatesListData } = queries.promptTemplates.useList()
+const { data: apiServersListData } = queries.api_servers.useList()
 
 const configId = computed(() => route.params.id)
 const loading = ref(true)
-const executeDrawerOpen = computed(() => store.getters.executeDrawerOpen ?? false)
+const saving = ref(false)
+const executeDrawerOpen = computed(() => pqStore.executeDrawerOpen ?? false)
 const tab = ref('steps')
 const newParamName = ref('')
 const newTestInputName = ref('')
@@ -444,13 +454,9 @@ const removePrompt = (stepIdx, promptIdx) => {
   config.value.config.steps[stepIdx].prompts.splice(promptIdx, 1)
 }
 
-const promptTemplates = computed(() => {
-  return store.getters['chroma/promptTemplates']?.items || []
-})
+const promptTemplates = computed(() => promptTemplatesListData.value?.items || [])
 
-const apiServers = computed(() => {
-  return store.getters['chroma/api_servers']?.items || []
-})
+const apiServers = computed(() => apiServersListData.value?.items || [])
 
 const getStepApiToolCall = (stepIdx) => {
   return config.value?.config?.steps?.[stepIdx]?.api_tool_call
@@ -739,8 +745,31 @@ const migrateLegacySteps = () => {
   })
 }
 
+const save = async () => {
+  const cfg = config.value
+  if (!cfg || !configId.value) return
+
+  saving.value = true
+  try {
+    await pqStore.updatePromptQueueConfig({
+      configId: configId.value,
+      updates: {
+        name: cfg.name,
+        description: cfg.description,
+        system_name: cfg.system_name,
+        config: cfg.config,
+      },
+    })
+    notifySuccess('Prompt Queue Config saved')
+  } catch (error) {
+    notifyError(error?.message || 'Failed to save')
+  } finally {
+    saving.value = false
+  }
+}
+
 const loadConfig = () => {
-  const configs = store.getters.promptQueueConfigs
+  const configs = pqStore.promptQueueConfigs
   if (!Array.isArray(configs)) return
   const found = configs.find((c) => c.id === configId.value)
   if (found) {
@@ -750,16 +779,10 @@ const loadConfig = () => {
 }
 
 onMounted(async () => {
-  await store.dispatch('fetchPromptQueueConfigs', true)
-  if (!store.getters['chroma/promptTemplates']?.items?.length) {
-    store.dispatch('chroma/get', { entity: 'promptTemplates' })
-  }
-  if (!store.getters['chroma/api_servers']?.items?.length) {
-    store.dispatch('chroma/get', { entity: 'api_servers' })
-  }
-  let cfg = store.getters.promptQueueConfigs?.find((c) => c.id === configId.value)
+  await pqStore.fetchPromptQueueConfigs(true)
+  let cfg = pqStore.promptQueueConfigs?.find((c) => c.id === configId.value)
   if (!cfg) {
-    cfg = await store.dispatch('fetchPromptQueueConfigById', configId.value)
+    cfg = await pqStore.fetchPromptQueueConfigById(configId.value)
   }
   if (cfg) {
     config.value = JSON.parse(JSON.stringify(cfg))
@@ -776,24 +799,18 @@ watch(() => configId.value, () => {
   loadConfig()
 })
 
-watch(() => store.getters.promptQueueConfigs, () => {
+watch(() => pqStore.promptQueueConfigs, () => {
   if (!config.value && configId.value) loadConfig()
 }, { deep: true })
 
 watch(config, (val) => {
   if (val && configId.value) {
-    store.commit('setSelectedPromptQueueConfig', JSON.parse(JSON.stringify(val)))
+    pqStore.selectedPromptQueueConfig = JSON.parse(JSON.stringify(val))
   }
 }, { deep: true })
 </script>
 
 <style lang="stylus" scoped>
-.collection-container {
-  min-width: 600px;
-  max-width: 1200px;
-  width: 100%;
-}
-
 .ba-border
   border-color: rgba(0, 0, 0, 0.24) !important
 

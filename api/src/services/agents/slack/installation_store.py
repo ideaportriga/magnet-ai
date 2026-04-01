@@ -4,17 +4,14 @@ import asyncio
 import logging
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from functools import lru_cache
 from typing import Any, Iterator, Optional
 
 from slack_sdk.oauth.installation_store.async_installation_store import (
     AsyncInstallationStore,
 )
 from slack_sdk.oauth.installation_store.models import Bot, Installation
-from sqlalchemy import Engine, create_engine, delete, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.orm import Session, sessionmaker
-
-from core.config.base import get_settings, json_serializer_for_sqlalchemy
 from core.db.models.slack import SlackInstallation
 
 logger = logging.getLogger(__name__)
@@ -196,16 +193,10 @@ def _deserialize_bot(record: SlackInstallation) -> Optional[Bot]:
         return None
 
 
-@lru_cache(maxsize=1)
 def _get_sync_engine() -> Engine:
-    settings = get_settings()
-    return create_engine(
-        settings.db.sync_url,
-        json_serializer=json_serializer_for_sqlalchemy,
-        pool_pre_ping=True,
-        pool_recycle=3600,
-        echo=settings.db.ECHO if isinstance(settings.db.ECHO, bool) else False,
-    )
+    from core.db.sync_engine import get_shared_sync_engine
+
+    return get_shared_sync_engine()
 
 
 class SlackInstallationStore(AsyncInstallationStore):

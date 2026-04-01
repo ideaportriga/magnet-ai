@@ -128,32 +128,46 @@
 </template>
 
 <script>
-import { isEqual, orderBy, pickBy } from 'lodash'
+import { isEqual } from 'lodash'
 import { ref, computed } from 'vue'
-import { useChroma } from '@shared'
+import { useEntityConfig } from '@/composables/useEntityConfig'
+import { useEntityQueries } from '@/queries/entities'
 import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
+import { useCollectionDetailStore } from '@/stores/entityDetailStores'
+import FileUrlUpload from '@/components/Collections/FileUrlUpload.vue'
 
 export default {
+  components: {
+    'collections-file-url-upload': FileUrlUpload,
+    'file-url-upload': FileUrlUpload,
+  },
   props: ['prompt'],
   emits: ['setProp', 'save', 'cancel', 'remove', 'openTest'],
 
   setup() {
-    const { config, selectedRow } = useChroma('collections')
-    const { items: promptTemplateItems } = useChroma('promptTemplates')
+    const { config } = useEntityConfig('collections')
+    const queries = useEntityQueries()
+    const collectionStore = useCollectionDetailStore()
+    const { data: promptTemplateListData } = queries.promptTemplates.useList()
+    const { data: modelListData } = queries.model.useList()
 
     return {
       showError: ref(false),
       selectedEntity: ref(),
       config,
-      selectedRow,
       customFields: ref({}),
-      promptTemplateItems,
+      promptTemplateListData,
+      modelListData,
+      collectionStore,
       // Direct access to reactive plugin data
       sourceTypeOptions,
       sourceTypeChildren,
     }
   },
   computed: {
+    selectedRow() {
+      return this.collectionStore.entity
+    },
     // Dynamic source type options from loaded plugins
     dynamicSourceTypeOptions() {
       return this.sourceTypeOptions || []
@@ -171,7 +185,7 @@ export default {
     },
     source_fields: {
       get() {
-        const source = this.$store.getters.knowledge?.source || {}
+        const source = this.collectionStore.entity?.source || {}
 
         // Transform Documentation arrays to comma-separated strings for display
         if (source.source_type === 'Documentation') {
@@ -193,64 +207,67 @@ export default {
         return source
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { source: value })
+        this.collectionStore.updateProperty({ source: value })
       },
     },
     source_type: {
       get() {
-        return this.$store.getters.knowledge?.source?.source_type || ''
+        return this.collectionStore.entity?.source?.source_type || ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { source: { source_type: value } })
+        this.collectionStore.updateProperty({ source: { source_type: value } })
       },
     },
 
     // Chunking settings
     chunkingStrategy: {
       get() {
-        return this.$store.getters.knowledge?.chunking?.strategy || 'recursive_character_text_splitting'
+        return this.collectionStore.entity?.chunking?.strategy || 'recursive_character_text_splitting'
       },
       set(value) {
-        console.log('value', value)
-        this.$store.dispatch('updateKnowledge', { chunking: { strategy: value } })
+
+        this.collectionStore.updateProperty({ chunking: { strategy: value } })
       },
     },
     chunkSize: {
       get() {
-        const val = this.$store.getters.knowledge?.chunking?.chunk_size
+        const val = this.collectionStore.entity?.chunking?.chunk_size
         return val != null ? String(val) : ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { chunking: { chunk_size: parseInt(value) } })
+        this.collectionStore.updateProperty({ chunking: { chunk_size: parseInt(value) } })
       },
     },
     chunkOverlap: {
       get() {
-        const val = this.$store.getters.knowledge?.chunking?.chunk_overlap
+        const val = this.collectionStore.entity?.chunking?.chunk_overlap
         return val != null ? String(val) : ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { chunking: { chunk_overlap: parseInt(value) } })
+        this.collectionStore.updateProperty({ chunking: { chunk_overlap: parseInt(value) } })
       },
     },
     chunkTransformationEnabled: {
       get() {
-        return this.$store.getters.knowledge?.chunking?.transformation_enabled || false
+        return this.collectionStore.entity?.chunking?.transformation_enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { chunking: { transformation_enabled: value } })
+        this.collectionStore.updateProperty({ chunking: { transformation_enabled: value } })
       },
     },
     chunkTransformationPromptTemplate: {
       get() {
-        return this.$store.getters.knowledge?.chunking?.transformation_prompt_template || ''
+        return this.collectionStore.entity?.chunking?.transformation_prompt_template || ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { chunking: { transformation_prompt_template: value } })
+        this.collectionStore.updateProperty({ chunking: { transformation_prompt_template: value } })
       },
     },
     chunkTransformationPromptTemplateId() {
       return this.chunkTransformationPromptTemplateOptions.find((el) => el.system_name == this.chunkTransformationPromptTemplate)?.id
+    },
+    promptTemplateItems() {
+      return this.promptTemplateListData?.items ?? []
     },
     chunkTransformationPromptTemplateOptions() {
       return (this.promptTemplateItems ?? []).map((item) => ({
@@ -263,48 +280,48 @@ export default {
     },
     chunkTransformationMethod: {
       get() {
-        return this.$store.getters.knowledge?.chunking?.transformation_method || ''
+        return this.collectionStore.entity?.chunking?.transformation_method || ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { chunking: { transformation_method: value } })
+        this.collectionStore.updateProperty({ chunking: { transformation_method: value } })
       },
     },
     chunkUsageMethod: {
       get() {
-        return this.$store.getters.knowledge?.chunking?.chunk_usage_method || ''
+        return this.collectionStore.entity?.chunking?.chunk_usage_method || ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { chunking: { chunk_usage_method: value } })
+        this.collectionStore.updateProperty({ chunking: { chunk_usage_method: value } })
       },
     },
 
     // Indexing settings
     supportSemanticSearch: {
       get() {
-        if (!this.$store.getters.knowledge?.indexing) return true
-        return this.$store.getters.knowledge?.indexing?.semantic_search_supported || false
+        if (!this.collectionStore.entity?.indexing) return true
+        return this.collectionStore.entity?.indexing?.semantic_search_supported || false
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { indexing: { semantic_search_supported: value } })
+        this.collectionStore.updateProperty({ indexing: { semantic_search_supported: value } })
       },
     },
     embeddingModel: {
       get() {
-        return this.$store.getters.knowledge?.ai_model || ''
+        return this.collectionStore.entity?.ai_model || ''
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { ai_model: value })
+        this.collectionStore.updateProperty({ ai_model: value })
       },
     },
     embeddingModelOptions() {
-      return (this.$store.getters['chroma/model'].items || []).filter((el) => el.type === 'embeddings')
+      return (this.modelListData?.items ?? []).filter((el) => el.type === 'embeddings')
     },
     supportKeywordSearch: {
       get() {
-        return this.$store.getters.knowledge?.indexing?.fulltext_search_supported || false
+        return this.collectionStore.entity?.indexing?.fulltext_search_supported || false
       },
       set(value) {
-        this.$store.dispatch('updateKnowledge', { indexing: { fulltext_search_supported: value } })
+        this.collectionStore.updateProperty({ indexing: { fulltext_search_supported: value } })
       },
     },
 
@@ -323,17 +340,8 @@ export default {
     },
 
     promptMetadata() {
-      const views = this.$store.getters.views
-      return Object.values(views).reduce((res, { entities }) => {
-        Object.keys(entities).forEach((name) => {
-          let controls = this.$store.getters.controls?.[name] ?? {}
-          controls = pickBy(controls, (o) => o.fieldName || o.dataType)
-          controls = orderBy(controls, ['label'])
-
-          res[name] = { applet: entities[name], controls }
-        })
-        return res
-      }, {})
+      // Legacy Vuex views/controls removed — metadata fields no longer derived from Vuex
+      return {}
     },
 
     metadataFields() {
@@ -342,7 +350,7 @@ export default {
   },
   watch: {
     customFields(newVal) {
-      this.$store.dispatch('updateKnowledge', newVal)
+      this.collectionStore.updateProperty(newVal)
     },
   },
   created() {},

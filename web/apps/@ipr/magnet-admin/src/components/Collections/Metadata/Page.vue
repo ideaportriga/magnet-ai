@@ -1,108 +1,104 @@
-<template>
-  <div class="row q-gap-8 justify-end">
-    <div class="col-auto.center-flex-y">
-      <km-input v-model="searchString" placeholder="Search" icon-before="search" clearable @input="searchString = $event" />
-    </div>
-    <q-space />
-    <km-btn
-      v-if="selected.length > 0"
-      class="q-mr-12"
-      icon="delete"
-      label="Delete"
-      icon-color="icon"
-      hover-color="primary"
-      :label-class="'km-title'"
-      flat
-      icon-size="16px"
-      hover-bg="primary-bg"
-      @click="showDeleteDialog = true"
-    />
-    <km-btn label="Auto-map" @click="autoMap" />
-    <km-btn label="New" @click="showNewDialog = true" />
-  </div>
+<template lang="pug">
+div
+  .row.q-gap-8.justify-end
+    .col-auto.center-flex-y
+      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+    q-space
+    km-btn.q-mr-12(
+      v-if='selectedRows.length > 0',
+      icon='delete',
+      label='Delete',
+      iconColor='icon',
+      hoverColor='primary',
+      labelClass='km-title',
+      flat,
+      iconSize='16px',
+      hoverBg='primary-bg',
+      @click='showDeleteDialog = true'
+    )
+    km-btn(label='Auto-map', @click='autoMap')
+    km-btn(label='New', @click='showNewDialog = true')
 
-  <div class="row">
-    <km-table-new
-      v-model:selected="selected"
-      selection="multiple"
-      row-key="id"
-      :active-record-id="activeMetadataConfig?.id"
-      :columns="columns"
-      :rows="filteredMetadataConfig"
-      binary-state-sort
-      @select-row="selectRecord"
-    />
-  </div>
+  .row
+    km-data-table(
+      :table='table',
+      row-key='id',
+      :activeRowId='activeMetadataConfig?.id',
+      @row-click='selectRecord'
+    )
 
-  <collections-metadata-new-record v-if="showNewDialog" :show-new-dialog="showNewDialog" @cancel="showNewDialog = false" />
+  collections-metadata-new-record(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 
-  <km-popup-confirm
-    :visible="showDeleteDialog"
-    confirm-button-label="Delete"
-    cancel-button-label="Cancel"
-    notification-icon="fas fa-triangle-exclamation"
-    @confirm="deleteSelected"
-    @cancel="showDeleteDialog = false"
-  >
-    <div class="row item-center justify-center km-heading-7">Delete Metadata Records</div>
-    <div class="row text-center justify-center">
-      {{ `You are going to delete ${selected?.length} selected records. Are you sure?` }}
-    </div>
-  </km-popup-confirm>
+  km-popup-confirm(
+    :visible='showDeleteDialog',
+    confirmButtonLabel='Delete',
+    cancelButtonLabel='Cancel',
+    notificationIcon='fas fa-triangle-exclamation',
+    @confirm='deleteSelected',
+    @cancel='showDeleteDialog = false'
+  )
+    .row.item-center.justify-center.km-heading-7 Delete Metadata Records
+    .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected records. Are you sure?` }}
 </template>
 
 <script setup lang="ts">
-import { columnsSettings } from '@/config/collections/metadataConfig'
-import { ref, computed } from 'vue'
-import { useStore } from 'vuex'
+import { ref, computed, markRaw } from 'vue'
+import { useCollectionDetailStore, useCollectionMetadataStore } from '@/stores/entityDetailStores'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
+import Check from '@/config/collections/components/Check.vue'
 
-// States & Stores
-const store = useStore()
+const collectionStore = useCollectionDetailStore()
+const collectionMetadataStore = useCollectionMetadataStore()
 
-const selected = ref([])
-const columns = Object.values(columnsSettings)
-  .filter((item) => item.display)
-  .sort((a, b) => a.columnNumber - b.columnNumber)
 const showNewDialog = ref(false)
 const showDeleteDialog = ref(false)
-const searchString = ref('')
 
-const collectionId = computed(() => store.getters.knowledge?.id)
+const collectionId = computed(() => collectionStore.entity?.id)
 const metadataConfig = computed({
   get() {
-    return store.getters.knowledge?.metadata_config || []
+    return collectionStore.entity?.metadata_config || []
   },
   set(value) {
-    store.getters.knowledge.metadata_config = value
+    if (collectionStore.entity) {
+      collectionStore.entity.metadata_config = value
+    }
   },
 })
-const activeMetadataConfig = computed(() => store.getters.activeMetadataConfig)
+const activeMetadataConfig = computed(() => collectionMetadataStore.activeMetadataConfig)
 
-const filteredMetadataConfig = computed(() => {
-  const query = (searchString.value || '').trim().toLowerCase()
-  if (!query) return metadataConfig.value
-  return metadataConfig.value.filter((item: any) => {
-    const name = String(item?.name ?? '').toLowerCase()
-    const mapping = String(item?.mapping ?? '').toLowerCase()
-    return name.includes(query) || mapping.includes(query)
-  })
+const data = computed(() => metadataConfig.value)
+
+const columns = [
+  selectionColumn(),
+  componentColumn('enabled', 'Enabled', markRaw(Check), {
+    accessorKey: 'enabled',
+    align: 'center',
+    props: (row: any) => ({ name: 'enabled' }),
+  }),
+  textColumn('name', 'Name'),
+  textColumn('mapping', 'Mapping'),
+]
+
+const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(data, columns, {
+  enableRowSelection: true,
 })
 
-const selectRecord = (row) => {
-  store.commit('setActiveMetadataConfig', row)
+const selectRecord = (row: any) => {
+  collectionMetadataStore.setActiveMetadataConfig(row)
 }
 
 const deleteSelected = () => {
-  const selectedIds = selected.value.map((item) => item.id)
-  metadataConfig.value = metadataConfig.value.filter((item) => !selectedIds.includes(item.id))
-  selected.value = []
+  const selectedIds = selectedRows.value.map((item: any) => item.id)
+  metadataConfig.value = metadataConfig.value.filter((item: any) => !selectedIds.includes(item.id))
+  clearSelection()
   showDeleteDialog.value = false
 }
 
 const autoMap = async () => {
   const autoMapMetadataConfig = await store.dispatch('autoMapMetadata', {
     collection_id: collectionId.value,
-    exclude_fields: metadataConfig.value.map((item) => item.name),
+    exclude_fields: metadataConfig.value.map((item: any) => item.name),
   })
   metadataConfig.value = [
     ...metadataConfig.value,

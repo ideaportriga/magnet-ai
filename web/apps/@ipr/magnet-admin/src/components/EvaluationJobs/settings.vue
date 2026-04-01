@@ -43,11 +43,26 @@ div(style='min-width: 300px')
 </template>
 
 <script>
+import { computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useEvaluationStore } from '@/stores/evaluationStore'
+
 export default {
+  setup() {
+    const queries = useEntityQueries()
+    const { data: modelData } = queries.model.useList()
+    const modelItems = computed(() => modelData.value?.items ?? [])
+    const evalStore = useEvaluationStore()
+
+    return {
+      modelItems,
+      evalStore,
+    }
+  },
   computed: {
     evaluation: {
       get() {
-        return this.$store.getters.evaluation
+        return this.evalStore.evaluation
       },
     },
     evaluationVariant: {
@@ -62,7 +77,7 @@ export default {
       return this.evaluationVariant?.system_name_for_model
     },
     modelName() {
-      return this.$store.getters['chroma/model'].items?.find((model) => model.system_name === this.model)?.display_name
+      return this.modelItems?.find((model) => model.system_name === this.model)?.display_name
     },
     variantLabel() {
       const match = this.evaluationVariant?.variant?.match(/variant_(\d+)/)

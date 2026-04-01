@@ -129,8 +129,6 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
 </template>
 
 <script lang="ts">
-import useChroma from '@shared/composables/useChroma'
-import useState from '@shared/composables/useState'
 import { copyToClipboard } from 'quasar'
 
 import { ref } from 'vue'
@@ -139,14 +137,10 @@ export default {
   props: ['answer', 'uiSettings'],
   emits: ['refine'],
   setup() {
-    const config = useState('config')
-
-    const prompt = useState('searchPrompt')
-    const { items } = useChroma('collections')
     const showFeedback = ref(false)
     const showFeedbackConfirm = ref(false)
     const feedback = ref(null)
-    return { prompt, showFeedback, showFeedbackConfirm, items, config, feedback }
+    return { showFeedback, showFeedbackConfirm, feedback }
   },
   computed: {
     // feedback() {
@@ -179,13 +173,6 @@ export default {
       return this.answer.results ?? []
     },
 
-    searchedIn() {
-      //answer.collection
-      return this.items
-        .filter((item) => this.answer.collection.includes(item.id))
-        .map((item) => item.name)
-        .join(', ')
-    },
   },
   watch: {},
   created() {},

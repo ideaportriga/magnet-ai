@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import asyncio
 from io import BytesIO
@@ -13,6 +14,8 @@ from .pipeline_factory import build_pipeline
 from .pipeline import TranscriptionPipeline
 from .transcribe.base import _assert_supported
 from utils.upload_handler import open_object_stream  # Azure downloader
+
+logger = logging.getLogger(__name__)
 
 storage = PgDataStorage()
 _RUNNING: dict[str, asyncio.Task[None]] = {}
@@ -69,8 +72,9 @@ async def _wait_until_exists(
             if bc.exists():
                 return
         except Exception:
-            # transient network issues - keep retrying
-            pass
+            logger.debug(
+                "Transient error checking blob %s, retrying", key, exc_info=True
+            )
 
         await asyncio.sleep(every)
         waited += every
@@ -180,7 +184,9 @@ async def _delete_object_if_needed(file_data: FileData) -> None:
         try:
             bc.delete_blob()
         except Exception:
-            pass
+            logger.warning(
+                "Failed to delete blob %s", file_data.object_key, exc_info=True
+            )
 
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, _delete_sync)
@@ -199,7 +205,7 @@ async def _run_pipeline_and_cleanup(
             if hasattr(stream, "close"):
                 stream.close()
         except Exception:
-            pass
+            logger.debug("Failed to close stream", exc_info=True)
 
         # Delete remote object (Azure)
         await _delete_object_if_needed(file_data)

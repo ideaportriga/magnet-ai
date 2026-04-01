@@ -42,9 +42,10 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
             km-btn(label='Create', @click='create')
 </template>
 <script>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 import { agentTopicActionsPopupColumns, agentTopicActionsAPIToolsPopupColumns } from '@/config/agents/topics'
 import { toUpperCaseWithUnderscores } from '@shared'
 
@@ -57,13 +58,26 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { visibleRows: api_servers } = useChroma('api_servers')
-    const { visibleRows: rag_tools } = useChroma('rag_tools')
-    const { visibleRows: prompt_templates } = useChroma('promptTemplates')
-    const { visibleRows: mcp_servers } = useChroma('mcp_servers')
-    const { visibleRows: retrieval_tools } = useChroma('retrieval')
+    const queries = useEntityQueries()
 
+    const { data: apiServersData } = queries.api_servers.useList()
+    const api_servers = computed(() => apiServersData.value?.items ?? [])
+
+    const { data: ragToolsData } = queries.rag_tools.useList()
+    const rag_tools = computed(() => ragToolsData.value?.items ?? [])
+
+    const { data: promptTemplatesData } = queries.promptTemplates.useList()
+    const prompt_templates = computed(() => promptTemplatesData.value?.items ?? [])
+
+    const { data: mcpServersData } = queries.mcp_servers.useList()
+    const mcp_servers = computed(() => mcpServersData.value?.items ?? [])
+
+    const { data: retrievalData } = queries.retrieval.useList()
+    const retrieval_tools = computed(() => retrievalData.value?.items ?? [])
+
+    const agentStore = useAgentDetailStore()
     return {
+      agentStore,
       searchString: ref(''),
       tabs: ref([
         { name: 'api', label: 'API Tools' },
@@ -144,7 +158,7 @@ export default {
         return this.selectionPromptName
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'prompt_templates.classification', value: value.system_name })
+        this.agentStore.updateNestedVariantProperty({ path: 'prompt_templates.classification', value: value.system_name })
       },
     },
   },
@@ -169,7 +183,7 @@ export default {
     },
     create() {
       // get current topics
-      const topics = this.$store.getters.agentDetailVariant?.value?.topics || []
+      const topics = this.agentStore.activeVariant?.value?.topics || []
       const actions = this.selected.map((item) => {
         return {
           name: item.name,
@@ -199,13 +213,13 @@ export default {
 
       topics.push(newTopic)
 
-      this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'topics', value: topics })
+      this.agentStore.updateNestedVariantProperty({ path: 'topics', value: topics })
 
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'New topic have been added',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
 

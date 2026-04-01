@@ -43,7 +43,7 @@
         <template #leading>
           <q-btn v-if="viewMode === 'entities' && selectedEntityType" flat dense icon="arrow_back" @click="clearSelectedEntityType" />
           <div v-if="viewMode === 'entities' && selectedEntityType" class="km-heading-8">{{ selectedEntityType }}</div>
-          <km-input v-if="hasRecords" v-model="searchQuery" placeholder="Search..." icon-before="search" clearable style="width: 250px" />
+          <km-input v-if="hasRecords" v-model="searchQuery" placeholder="Search..." icon-before="search" clearable class="search-input" />
         </template>
 
         <template #trailing>
@@ -141,7 +141,8 @@
 import { fetchData } from '@shared'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import { KgConfirmDialog, KgTableToolbar } from '../common'
 import DocumentsTable from './DocumentsTable.vue'
 import EntitiesTable from './EntitiesTable.vue'
@@ -152,8 +153,9 @@ const props = defineProps<{
   graphDetails: Record<string, unknown>
 }>()
 
+const { notifyError } = useNotify()
 const router = useRouter()
-const store = useStore()
+const appStore = useAppStore()
 
 const documents = ref<Document[]>([])
 const deletingIds = ref<Set<string>>(new Set())
@@ -194,7 +196,7 @@ const filteredDocuments = computed(() => {
 const fetchDocuments = async () => {
   loading.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/documents`,
@@ -206,7 +208,7 @@ const fetchDocuments = async () => {
       documents.value = await response.json()
     }
   } catch (error) {
-    console.error('Error fetching documents:', error)
+    notifyError('Failed to load documents. Please try again.')
   } finally {
     loading.value = false
   }
@@ -215,7 +217,7 @@ const fetchDocuments = async () => {
 const fetchEntityTypes = async () => {
   loading.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/entities`,
@@ -228,7 +230,7 @@ const fetchEntityTypes = async () => {
       entityTypes.value = []
     }
   } catch (error) {
-    console.error('Error fetching entity types:', error)
+
     entityTypes.value = []
   } finally {
     loading.value = false
@@ -239,7 +241,7 @@ const fetchEntityRecords = async (entity: string, page = 1, rowsPerPage = 10) =>
   loading.value = true
   try {
     const offset = (page - 1) * rowsPerPage
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/entities/records?entity=${encodeURIComponent(entity)}&limit=${rowsPerPage}&offset=${offset}`,
@@ -255,7 +257,7 @@ const fetchEntityRecords = async (entity: string, page = 1, rowsPerPage = 10) =>
       entityRecordsPagination.value.rowsNumber = 0
     }
   } catch (error) {
-    console.error('Error fetching entity records:', error)
+
     entityRecords.value = []
     entityRecordsPagination.value.rowsNumber = 0
   } finally {
@@ -311,7 +313,7 @@ const performDelete = async () => {
   try {
     deleteInProgress.value = true
     deletingIds.value.add(row.id)
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/documents/${row.id}`,
@@ -323,7 +325,7 @@ const performDelete = async () => {
       showDeleteDialog.value = false
     }
   } catch (e) {
-    console.error('Failed to delete document', e)
+
   } finally {
     deleteInProgress.value = false
     deletingIds.value.delete(row.id)
@@ -352,7 +354,7 @@ const performDeleteEntityType = async () => {
   try {
     deleteEntityTypeInProgress.value = true
     deletingEntityTypes.value.add(row.entity)
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/entities/records?entity=${encodeURIComponent(row.entity)}`,
@@ -364,7 +366,7 @@ const performDeleteEntityType = async () => {
       showDeleteEntityTypeDialog.value = false
     }
   } catch (e) {
-    console.error('Failed to delete entity type records', e)
+
   } finally {
     deleteEntityTypeInProgress.value = false
     deletingEntityTypes.value.delete(row.entity)
@@ -377,7 +379,7 @@ const performDeleteEntityRecord = async () => {
   try {
     deleteEntityRecordInProgress.value = true
     deletingEntityRecordIds.value.add(row.id)
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${props.graphId}/entities/records/${row.id}`,
@@ -390,7 +392,7 @@ const performDeleteEntityRecord = async () => {
       showDeleteEntityRecordDialog.value = false
     }
   } catch (e) {
-    console.error('Failed to delete entity record', e)
+
   } finally {
     deleteEntityRecordInProgress.value = false
     deletingEntityRecordIds.value.delete(row.id)
@@ -429,12 +431,16 @@ defineExpose({ refresh })
 </script>
 
 <style scoped>
+.search-input {
+  width: 250px;
+}
+
 .view-mode-toggle__track {
   position: relative;
   display: inline-flex;
   align-items: center;
-  background: #f0f1f4;
-  border-radius: 10px;
+  background: var(--q-light);
+  border-radius: var(--radius-xl);
   padding: 4px;
   gap: 2px;
 }
@@ -445,8 +451,8 @@ defineExpose({ refresh })
   left: 4px;
   width: calc(50% - 5px);
   height: calc(100% - 8px);
-  background: #ffffff;
-  border-radius: 8px;
+  background: var(--q-white);
+  border-radius: var(--radius-lg);
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.1),
     0 1px 2px rgba(0, 0, 0, 0.06);
@@ -470,11 +476,11 @@ defineExpose({ refresh })
   padding: 7px 16px;
   border: none;
   background: transparent;
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   font-weight: 500;
-  color: #8b8fa3;
+  color: var(--q-icon);
   cursor: pointer;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   transition: color 0.2s ease;
   white-space: nowrap;
   line-height: 1;
@@ -495,7 +501,7 @@ defineExpose({ refresh })
 }
 
 .view-mode-toggle__btn:hover:not(.view-mode-toggle__btn--active) {
-  color: #5f6377;
+  color: var(--q-secondary-text);
 }
 
 .view-mode-toggle__btn--active {

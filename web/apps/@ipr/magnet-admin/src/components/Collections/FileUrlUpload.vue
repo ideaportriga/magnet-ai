@@ -1,83 +1,97 @@
 <template lang="pug">
 div
-  q-tabs.q-mb-sm(v-model='activeTab', dense, align='left', narrow-indicator)
-    q-tab(name='url', label='URL', icon='fas fa-link')
-    q-tab(name='upload', label='Upload', icon='fas fa-upload', :disable='!collectionId')
-      q-tooltip(v-if='!collectionId') Save the knowledge source first to enable file upload
+  //- Dropzone
+  .dropzone(
+    :class='{ "dropzone--active": dragOver, "dropzone--disabled": disable || uploading || readonly }',
+    @dragover.prevent='onDragOver',
+    @dragleave.prevent='onDragLeave',
+    @drop.prevent='onDrop',
+    @click='openFilePicker'
+  )
+    input.hidden-input(
+      ref='fileInput',
+      type='file',
+      multiple,
+      :accept='acceptedExtensions',
+      @change='onFileInputChange'
+    )
+    .dropzone-content
+      q-icon.q-mb-sm(:name='dragOver ? "fas fa-cloud-arrow-down" : "fas fa-cloud-upload-alt"', size='32px', :color='dragOver ? "primary" : "grey-6"')
+      .text-body2(:class='dragOver ? "text-primary" : "text-grey-7"')
+        template(v-if='dragOver') Drop files here
+        template(v-else) Drag & drop files or #[span.text-primary.cursor-pointer click to browse]
+      .text-caption.text-grey.q-mt-xs PDF, DOCX, XLSX, PPTX, HTML, images and more
 
-  q-tab-panels(v-model='activeTab', animated)
-    q-tab-panel(name='url')
-      km-input-list-add(
-        v-model='urlModel',
-        btnLabel='Add URL',
-        :readonly='readonly',
-        :disable='disable'
-      )
+  //- URL input
+  .row.q-mt-sm.items-center.q-gap-sm
+    km-input.col.url-input(
+      :model-value='urlInput',
+      @input='urlInput = $event',
+      placeholder='Add URL to file (https://...)',
+      icon-before='fas fa-link',
+      :error-message='urlError',
+      :error='!!urlError',
+      :readonly='readonly',
+      :disable='disable',
+      @keydown.enter.prevent='addUrl'
+    )
+    q-btn.url-add-btn(
+      flat,
+      round,
+      icon='fas fa-plus',
+      color='secondary',
+      size='sm',
+      :disable='!urlInput || !!urlError || disable || readonly',
+      @click='addUrl'
+    )
 
-    q-tab-panel(name='upload')
-      //- Dropzone area
-      .dropzone(
-        :class='{ "dropzone--active": dragOver, "dropzone--disabled": disable || uploading || readonly }',
-        @dragover.prevent='onDragOver',
-        @dragleave.prevent='onDragLeave',
-        @drop.prevent='onDrop',
-        @click='openFilePicker'
+  //- Unified list
+  template(v-if='allItems.length')
+    .q-mt-md
+      .row.items-center.q-py-xs.q-px-sm.rounded-borders.list-item(
+        v-for='(item, index) in allItems',
+        :key='item.key'
       )
-        input.hidden-input(
-          ref='fileInput',
-          type='file',
-          multiple,
-          :accept='acceptedExtensions',
-          @change='onFileInputChange'
+        //- Icon
+        q-icon.q-mr-sm(
+          :name='item.type === "file" ? (item.uploaded ? "fas fa-file-circle-check" : "fas fa-file-lines") : "fas fa-link"',
+          size='14px',
+          :color='item.type === "file" ? (item.uploaded ? "positive" : "grey-7") : "primary"'
         )
-        .dropzone-content
-          q-icon.q-mb-sm(:name='dragOver ? "fas fa-cloud-arrow-down" : "fas fa-cloud-upload-alt"', size='36px', :color='dragOver ? "primary" : "grey-6"')
-          .text-body2(:class='dragOver ? "text-primary" : "text-grey-7"')
-            template(v-if='dragOver') Drop files here
-            template(v-else) Drag & drop files here or #[span.text-primary.cursor-pointer click to browse]
-          .text-caption.text-grey.q-mt-xs PDF, DOCX, XLSX, PPTX, HTML, images, and more (max 10 files)
+        //- Name
+        .col.text-body2.text-ellipsis {{ item.label }}
+        //- Size (pending files only)
+        span.text-caption.text-grey.q-ml-sm.q-mr-sm(v-if='item.size') ({{ formatSize(item.size) }})
+        //- Upload badge for pending
+        q-badge.q-mr-sm(v-if='item.type === "file" && !item.uploaded', color='orange-2', text-color='orange-9', label='pending')
+        //- Remove button
+        q-btn(
+          flat, round, dense, size='sm',
+          icon='fas fa-xmark',
+          :color='item.type === "file" && item.uploaded ? "negative" : "grey-6"',
+          :disable='disable || readonly || uploading',
+          @click.stop='removeItem(item, index)'
+        )
 
-      //- Selected files ready for upload
-      template(v-if='selectedFiles && selectedFiles.length')
-        .text-caption.text-grey.q-mt-md.q-mb-xs Selected files:
-        .row.items-center.q-mb-xs(v-for='(file, index) in selectedFiles', :key='index')
-          q-icon.q-mr-sm(name='fas fa-file-lines', size='14px', color='grey-7')
-          span.text-body2 {{ file.name }}
-          span.text-caption.text-grey.q-ml-sm ({{ formatSize(file.size) }})
-          q-space
-          q-btn(flat, round, dense, size='sm', icon='fas fa-xmark', @click='removeSelected(index)')
-        .row.q-mt-sm
-          km-btn(
-            :label='uploading ? "Uploading..." : `Upload ${selectedFiles.length} file${selectedFiles.length > 1 ? "s" : ""}`',
-            icon='fas fa-cloud-upload-alt',
-            color='primary',
-            :disable='uploading',
-            :loading='uploading',
-            @click='uploadFiles'
-          )
-
-      //- List of already uploaded files
-      template(v-if='uploadedFiles.length')
-        q-separator.q-my-md
-        .text-caption.text-grey.q-mb-xs Uploaded files:
-        .row.items-center.q-mb-xs(v-for='(file, index) in uploadedFiles', :key='"uploaded-" + index')
-          q-icon.q-mr-sm(name='fas fa-file-circle-check', size='14px', color='positive')
-          span.text-body2 {{ file.filename }}
-          q-space
-          q-btn(
-            flat,
-            round,
-            dense,
-            size='sm',
-            icon='far fa-trash-can',
-            color='negative',
-            :disable='disable || readonly',
-            @click.stop='removeUploadedFile(file, index)'
-          )
+  //- Upload button for pending files
+  .row.q-mt-sm(v-if='pendingFiles.length && collectionId')
+    km-btn(
+      :label='uploading ? "Uploading..." : `Upload ${pendingFiles.length} file${pendingFiles.length > 1 ? "s" : ""}`',
+      icon='fas fa-cloud-upload-alt',
+      color='primary',
+      :disable='uploading',
+      :loading='uploading',
+      @click='uploadPending'
+    )
+  .row.q-mt-sm(v-else-if='pendingFiles.length && !collectionId')
+    .text-caption.text-grey
+      q-icon.q-mr-xs(name='fas fa-circle-info', size='12px')
+      | Files will be uploaded after saving the knowledge source
 </template>
 
 <script>
 import { fetchData } from '@shared'
+import { useCollectionDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   name: 'FileUrlUpload',
@@ -96,10 +110,14 @@ export default {
     },
   },
   emits: ['update:modelValue'],
+  setup() {
+    const collectionStore = useCollectionDetailStore()
+    return { collectionStore }
+  },
   data() {
     return {
-      activeTab: 'url',
-      selectedFiles: [],
+      urlInput: '',
+      pendingFiles: [],
       uploading: false,
       dragOver: false,
       acceptedExtensions:
@@ -116,16 +134,59 @@ export default {
       },
     },
     collectionId() {
-      return this.$store.getters.knowledge?.id || ''
+      return this.collectionStore.entity?.id || ''
     },
     uploadedFiles() {
-      return this.$store.getters.knowledge?.source?.uploaded_files || []
+      return this.collectionStore.entity?.source?.uploaded_files || []
     },
     endpoint() {
-      return this.$store?.getters?.config?.api?.aiBridge?.urlAdmin
+      return this.$appConfig?.api?.aiBridge?.urlAdmin
     },
     allowedExtSet() {
       return new Set(this.acceptedExtensions.split(','))
+    },
+    urlError() {
+      if (!this.urlInput) return ''
+      try {
+        const url = new URL(this.urlInput)
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'Only http/https URLs are allowed'
+        return ''
+      } catch {
+        return 'Invalid URL'
+      }
+    },
+    allItems() {
+      const urls = this.urlModel.map((url, i) => ({
+        key: `url-${i}`,
+        type: 'url',
+        label: url,
+        uploaded: false,
+      }))
+      const pending = this.pendingFiles.map((file, i) => ({
+        key: `pending-${i}`,
+        type: 'file',
+        label: file.name,
+        size: file.size,
+        uploaded: false,
+        _file: file,
+        _pendingIndex: i,
+      }))
+      const uploaded = this.uploadedFiles.map((file, i) => ({
+        key: `uploaded-${i}`,
+        type: 'file',
+        label: file.filename,
+        uploaded: true,
+        _uploadedIndex: i,
+        _data: file,
+      }))
+      return [...urls, ...pending, ...uploaded]
+    },
+  },
+  watch: {
+    collectionId(newVal) {
+      if (newVal && this.pendingFiles.length) {
+        this.uploadPending()
+      }
     },
   },
   methods: {
@@ -133,6 +194,12 @@ export default {
       if (bytes < 1024) return bytes + ' B'
       if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
       return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+    },
+    addUrl() {
+      const url = this.urlInput.trim()
+      if (!url) return
+      this.urlModel = [...this.urlModel, url]
+      this.urlInput = ''
     },
     openFilePicker() {
       if (this.disable || this.uploading || this.readonly) return
@@ -168,28 +235,60 @@ export default {
         }
       }
       if (rejected.length) {
-        this.$q.notify({
-          type: 'warning',
-          message: `Unsupported format: ${rejected.join(', ')}`,
-        })
+        this.$q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: `Unsupported format: ${rejected.join(', ')}` })
       }
-      const total = [...this.selectedFiles, ...accepted]
+      const total = [...this.pendingFiles, ...accepted]
       if (total.length > 10) {
-        this.$q.notify({ type: 'warning', message: 'Maximum 10 files at a time' })
-        this.selectedFiles = total.slice(0, 10)
+        this.$q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: 'Maximum 10 files at a time' })
+        this.pendingFiles = total.slice(0, 10)
       } else {
-        this.selectedFiles = total
+        this.pendingFiles = total
+      }
+      // If no collection yet — upload to temp storage immediately
+      if (!this.collectionId) {
+        this.uploadToTemp(accepted)
       }
     },
-    removeSelected(index) {
-      this.selectedFiles.splice(index, 1)
+    async uploadToTemp(files) {
+      for (const file of files) {
+        const formData = new FormData()
+        formData.append('data', file, file.name)
+        try {
+          const response = await fetchData({
+            method: 'POST',
+            endpoint: this.endpoint,
+            credentials: 'include',
+            service: 'files/temp',
+            body: formData,
+          })
+          if (response.ok) {
+            const result = await response.json()
+            const newFiles = [...this.uploadedFiles, { file_id: result.file_id, filename: result.filename }]
+            this.collectionStore.updateNestedProperty({ path: 'source.uploaded_files', value: newFiles })
+            this.pendingFiles = this.pendingFiles.filter((f) => f.name !== file.name)
+          } else {
+            this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to upload ${file.name}` })
+          }
+        } catch (e) {
+          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Upload failed: ${e.message || e}` })
+        }
+      }
     },
-    async uploadFiles() {
-      if (!this.selectedFiles?.length || !this.collectionId) return
+    removeItem(item) {
+      if (item.type === 'url') {
+        this.urlModel = this.urlModel.filter((_, i) => `url-${i}` !== item.key)
+      } else if (!item.uploaded) {
+        this.pendingFiles = this.pendingFiles.filter((_, i) => `pending-${i}` !== item.key)
+      } else {
+        this.removeUploadedFile(item._data, item._uploadedIndex)
+      }
+    },
+    async uploadPending() {
+      if (!this.pendingFiles.length || !this.collectionId) return
 
       this.uploading = true
       try {
-        for (const file of this.selectedFiles) {
+        for (const file of this.pendingFiles) {
           const formData = new FormData()
           formData.append('data', file, file.name)
 
@@ -207,34 +306,21 @@ export default {
               filename: result.filename,
               storage_path: result.storage_path,
             }]
-            this.$store.dispatch('updateKnowledge', {
-              source: { uploaded_files: newFiles },
-            })
+            this.collectionStore.updateNestedProperty({ path: 'source.uploaded_files', value: newFiles })
           } else {
-            this.$q.notify({
-              type: 'negative',
-              message: `Failed to upload ${file.name}`,
-            })
+            this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to upload ${file.name}` })
           }
         }
-
-        this.selectedFiles = []
-        this.$q.notify({
-          type: 'positive',
-          message: 'Files uploaded successfully',
-        })
+        this.pendingFiles = []
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Files uploaded successfully' })
       } catch (e) {
-        this.$q.notify({
-          type: 'negative',
-          message: `Upload failed: ${e.message || e}`,
-        })
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Upload failed: ${e.message || e}` })
       } finally {
         this.uploading = false
       }
     },
     async removeUploadedFile(file, index) {
       if (!this.collectionId) return
-
       try {
         const response = await fetchData({
           method: 'DELETE',
@@ -242,23 +328,14 @@ export default {
           credentials: 'include',
           service: `knowledge_sources/${this.collectionId}/files/${encodeURIComponent(file.filename)}`,
         })
-
         if (response.ok || response.status === 204) {
           const newFiles = this.uploadedFiles.filter((_, i) => i !== index)
-          this.$store.dispatch('updateKnowledge', {
-            source: { uploaded_files: newFiles },
-          })
+          this.collectionStore.updateNestedProperty({ path: 'source.uploaded_files', value: newFiles })
         } else {
-          this.$q.notify({
-            type: 'negative',
-            message: `Failed to delete ${file.filename}`,
-          })
+          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to delete ${file.filename}` })
         }
       } catch (e) {
-        this.$q.notify({
-          type: 'negative',
-          message: `Delete failed: ${e.message || e}`,
-        })
+        this.$q.notify({ color: 'red-9', textColor: 'white', message: `Delete failed: ${e.message || e}` })
       }
     },
   },
@@ -266,31 +343,21 @@ export default {
 </script>
 
 <style scoped>
-:deep(.q-tab__content) {
-  flex-direction: row;
-  gap: 4px;
-}
-:deep(.q-tab__icon) {
-  font-size: 14px;
-  width: auto;
-  margin-bottom: 0;
-}
-
 .dropzone {
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  padding: 32px 16px;
+  border: 2px dashed var(--q-border-2);
+  border-radius: var(--radius-lg);
+  padding: 24px 16px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 .dropzone:hover {
-  border-color: #1976d2;
-  background: rgba(25, 118, 210, 0.03);
+  border-color: var(--q-primary);
+  background: var(--q-primary-transparent);
 }
 .dropzone--active {
-  border-color: #1976d2;
-  background: rgba(25, 118, 210, 0.08);
+  border-color: var(--q-primary);
+  background: var(--q-primary-bg);
 }
 .dropzone--disabled {
   opacity: 0.5;
@@ -304,5 +371,23 @@ export default {
 }
 .hidden-input {
   display: none;
+}
+.url-input :deep(.q-field__prepend .q-icon) {
+  font-size: 14px;
+}
+.url-add-btn {
+  flex-shrink: 0;
+}
+.list-item {
+  gap: 0;
+}
+.list-item:hover {
+  background: var(--q-background);
+}
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 </style>

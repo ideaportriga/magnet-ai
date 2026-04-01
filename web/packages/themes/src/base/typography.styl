@@ -1,138 +1,223 @@
+// =============================================================================
+// TYPOGRAPHY SYSTEM
+// =============================================================================
+// Canonical classes: km-display, km-h1..5, km-body*, km-caption, km-label, etc.
+// All sizes/weights reference CSS custom properties from tokens/_typography.styl
+// so themes can override the entire scale via a single file.
+// Legacy aliases at the bottom keep backward compatibility without visual change.
+// =============================================================================
 
-// PG TYPOGRAPHY CLASSSES
+// --- Display ---
 
-// Headings
+.km-display
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-display)
+  font-weight: var(--km-font-weight-bold)
+  line-height: var(--km-line-height-tight)
 
-.km-heading
-  font-family: var(--font-default)
-  font-size: 13px
-  font-weight: 500
+// --- Headings ---
 
-.km-heading-1
-  font-family: var(--font-default)
-  font-size: 12px
-  font-weight: 700
+.km-h1
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-h1)
+  font-weight: var(--km-font-weight-bold)
+  line-height: var(--km-line-height-snug)
 
-.km-heading-2
-  font-family: var(--font-default)
-  font-size: 14px
-  font-weight: 500
+.km-h2
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-h2)
+  font-weight: var(--km-font-weight-bold)
+  line-height: var(--km-line-height-snug)
 
-.km-heading-3
-  font-family: var(--font-default)
-  font-size: 14px
-  font-weight: 700
+.km-h3
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-body-lg)
+  font-weight: var(--km-font-weight-semibold)
+  line-height: var(--km-line-height-normal)
 
-.km-heading-4
-  font-family: var(--font-default)
-  font-size: 16px
-  font-weight: 600
+.km-h4
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-body)
+  font-weight: var(--km-font-weight-semibold)
+  line-height: var(--km-line-height-normal)
 
-.km-heading-5
-  font-family: var(--font-default)
-  font-size: 16px
-  font-weight: 700
+.km-h5
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-label)
+  font-weight: var(--km-font-weight-semibold)
+  line-height: var(--km-line-height-normal)
 
-.km-heading-6
-  font-family: var(--font-default)
-  font-size: 20px
-  font-weight: 700
+// --- Body ---
 
-.km-heading-7
-  font-family: var(--font-default)
-  font-size: 18px
-  font-weight: 700
+.km-body-lg
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-body-lg)
+  font-weight: var(--km-font-weight-regular)
+  line-height: var(--km-line-height-relaxed)
 
 .km-body
-  font-family: var(--font-default)
-  font-size: 16px
-  font-weight: 400
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-body)
+  font-weight: var(--km-font-weight-regular)
+  line-height: var(--km-line-height-relaxed)
+
+.km-body-sm
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-label)
+  font-weight: var(--km-font-weight-regular)
+  line-height: var(--km-line-height-relaxed)
+
+// --- Supporting ---
+
+.km-caption
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-caption)
+  font-weight: var(--km-font-weight-regular)
+  line-height: var(--km-line-height-normal)
+
+.km-tiny
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-sm)
+  font-weight: var(--km-font-weight-regular)
+  line-height: var(--km-line-height-normal)
 
 .km-label
-  font-family: var(--font-default)
-  font-size: 14px
-  font-weight: 400
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-caption)
+  font-weight: var(--km-font-weight-medium)
+  line-height: var(--km-line-height-none)
 
 .km-input-label
-  font-family: var(--font-default)
-  font-size: 12px
-  font-weight: 500
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-caption)
+  font-weight: var(--km-font-weight-medium)
+  line-height: var(--km-line-height-none)
 
-.km-paragraph
-  font-family: var(--font-default)
-  font-size: 14px
-  font-weight: 400
+// --- Interactive ---
 
-.km-button-text
-  font-family: var(--font-default)
-  font-size: 13px
-  font-weight: 600
+.km-btn
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-label)
+  font-weight: var(--km-font-weight-semibold)
+  line-height: var(--km-line-height-none)
 
-.km-button-sm-text
-  font-family: var(--font-default)
-  font-size: 13px
-  font-weight: 500
-
-.km-button-xs-text
-  font-family: var(--font-default)
-  font-size: 12px
-  font-weight: 500
-
-.km-description
-  // font-family: var(--font-default)
-  font-size: 12px
-  font-weight: 400
-.km-description-2
-  font-family: var(--font-default)
-  font-size: 10px
-  font-weight: 400
 .km-chip
-  font-family: var(--font-default)
-  font-size: 12px
-  font-weight: 600
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-caption)
+  font-weight: var(--km-font-weight-semibold)
+  line-height: var(--km-line-height-none)
 
 .km-small-chip
-  font-family: var(--font-default)
-  font-size: 10px
-  font-weight: 500
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-xs)
+  font-weight: var(--km-font-weight-medium)
+  line-height: var(--km-line-height-none)
 
-.km-field
-  font-family: var(--font-default)
-  font-size: 12px
-  font-weight: 400
-
-.km-title
-  font-family: var(--font-default)
-  font-size: 14px
-  font-weight: 600
+// --- Links ---
 
 .km-link
-  font-family: var(--font-default)
-  font-size: 13px
-  font-weight: 400
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-label)
+  font-weight: var(--km-font-weight-regular)
+  line-height: var(--km-line-height-relaxed)
   color: var(--q-link-color)
 
 .km-link-title
-  font-family: var(--font-default)
-  font-size: 14px
-  font-weight: 600
-  text-decoration:none
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-body)
+  font-weight: var(--km-font-weight-semibold)
+  line-height: var(--km-line-height-normal)
+  text-decoration: none
   color: var(--q-primary-text)
   &:hover
     color: var(--q-primary)
 
-
-.km-tiny
-  font-family: var(--font-default)
-  font-size: 11px
-  font-weight: 400
+// --- Misc ---
 
 .km-logo
-  font-family: var(--font-default)
-  font-size: 18px
-  font-weight: 500
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-h2)
+  font-weight: var(--km-font-weight-medium)
+  line-height: var(--km-line-height-none)
 
 .km-chart-value
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--q-primary)
+  font-size: var(--km-font-size-h2)
+  font-weight: var(--km-font-weight-semibold)
+  line-height: var(--km-line-height-none)
+  color: var(--q-primary)
+
+// --- Monospace ---
+
+.km-mono
+  font-family: var(--km-font-mono)
+  font-size: var(--km-font-size-label)
+
+
+// =============================================================================
+// BACKWARD COMPATIBILITY ALIASES
+// Maps old class names to new canonical classes.
+// Do not remove until all usages are migrated.
+// =============================================================================
+
+.km-heading
+  @extend .km-h5
+
+.km-heading-1
+  @extend .km-h5
+
+.km-heading-2
+  @extend .km-h4
+
+.km-heading-3
+  @extend .km-h4
+
+.km-heading-4
+  @extend .km-h3
+
+.km-heading-5
+  @extend .km-h3
+
+.km-heading-6
+  @extend .km-h1
+
+.km-heading-7
+  @extend .km-h2
+
+.km-body1
+  @extend .km-body-lg
+
+.km-body2
+  @extend .km-body
+
+.km-paragraph
+  @extend .km-body
+
+.km-title
+  @extend .km-h4
+
+.km-subtitle
+  @extend .km-body
+
+.km-description
+  @extend .km-caption
+
+.km-description-2
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-xs)
+  font-weight: var(--km-font-weight-regular)
+  line-height: var(--km-line-height-normal)
+
+.km-field
+  @extend .km-caption
+
+.km-button-text
+  @extend .km-btn
+
+.km-button-sm-text
+  font-family: var(--km-font-default)
+  font-size: var(--km-font-size-label)
+  font-weight: var(--km-font-weight-medium)
+  line-height: var(--km-line-height-none)
+
+.km-button-xs-text
+  @extend .km-label

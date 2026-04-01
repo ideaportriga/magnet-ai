@@ -199,7 +199,7 @@ import MarkdownItTasklists from 'markdown-it-task-lists'
 import MarkdownItTOC from 'markdown-it-toc-done-right'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
 import MetadataPanel from './MetadataPanel.vue'
 import { Chunk, Document, TocNode, TreeNode } from './models'
 
@@ -215,7 +215,7 @@ interface MetadataItem {
 }
 
 const route = useRoute()
-const store = useStore()
+const appStore = useAppStore()
 
 const graphId = computed(() => route.params.id as string)
 const documentId = computed(() => route.params.documentId as string)
@@ -498,7 +498,7 @@ const treeNodes = computed<TreeNode[]>(() => {
 
 const fetchDocument = async () => {
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${graphId.value}/documents/${documentId.value}`,
@@ -509,14 +509,14 @@ const fetchDocument = async () => {
       document.value = await response.json()
     }
   } catch (error) {
-    console.error('Error fetching document:', error)
+
   }
 }
 
 const fetchAllChunks = async () => {
   loading.value = true
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const limit = 500
     let offset = 0
     const all: Chunk[] = []
@@ -538,7 +538,7 @@ const fetchAllChunks = async () => {
     } while (all.length < total)
     chunks.value = all
   } catch (error) {
-    console.error('Error fetching chunks:', error)
+
   } finally {
     loading.value = false
   }
@@ -923,7 +923,7 @@ onBeforeUnmount(() => {
 .doc-details {
   display: flex;
   height: 100%;
-  background: #f5f6f8;
+  background: var(--q-background);
   gap: 16px;
   padding: 16px;
 }
@@ -940,9 +940,9 @@ onBeforeUnmount(() => {
 .doc-nav-panel {
   width: 280px;
   min-width: 280px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
+  background: var(--q-white);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-xl);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -954,13 +954,13 @@ onBeforeUnmount(() => {
 
 .nav-tabs-toggle {
   width: 100%;
-  border-radius: 4px;
-  background: #f3f4f6;
+  border-radius: var(--radius-sm);
+  background: var(--q-light);
 }
 
 .nav-tabs-toggle :deep(.q-btn) {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   font-weight: 500;
 }
 
@@ -996,7 +996,7 @@ onBeforeUnmount(() => {
 
 /* Tree Styling */
 .nav-tree {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
 }
 
 .nav-tree :deep(.q-tree__node-header) {
@@ -1008,13 +1008,13 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   width: 100%;
 }
 
 .tree-node-item:hover {
-  background: #f3f4f6;
+  background: var(--q-light);
 }
 
 .nav-tree :deep(.q-tree__node--selected .tree-node-item) {
@@ -1031,7 +1031,7 @@ onBeforeUnmount(() => {
 }
 
 .tree-node-icon {
-  color: #9ca3af;
+  color: var(--q-icon);
   flex-shrink: 0;
 }
 
@@ -1044,8 +1044,8 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #374151;
-  font-size: 13px;
+  color: var(--q-black);
+  font-size: var(--km-font-size-label);
 }
 
 /* Chunks Nav List */
@@ -1060,12 +1060,12 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   cursor: pointer;
 }
 
 .chunk-nav-item:hover {
-  background: #f3f4f6;
+  background: var(--q-light);
 }
 
 .chunk-nav-item--active {
@@ -1082,12 +1082,12 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  color: #374151;
+  font-size: var(--km-font-size-label);
+  color: var(--q-black);
 }
 
 .chunk-nav-badge {
-  font-size: 10px;
+  font-size: var(--km-font-size-xs);
   padding: 2px 6px;
 }
 
@@ -1097,17 +1097,17 @@ onBeforeUnmount(() => {
   justify-content: center;
   min-width: 20px;
   height: 20px;
-  font-size: 10px;
+  font-size: var(--km-font-size-xs);
   font-weight: 600;
-  color: #9ca3af;
-  background: #f3f4f6;
-  border-radius: 4px;
+  color: var(--q-icon);
+  background: var(--q-light);
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
 .chunk-nav-item--active .chunk-nav-index {
   background: var(--q-primary);
-  color: white;
+  color: var(--q-white);
 }
 
 /* ============================================
@@ -1123,9 +1123,9 @@ onBeforeUnmount(() => {
 
 /* Header Card */
 .doc-header-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfd 100%);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 12px;
+  background: linear-gradient(135deg, var(--q-white) 0%, var(--q-background) 100%);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-xl);
   padding: 16px 20px;
 }
 
@@ -1175,10 +1175,10 @@ onBeforeUnmount(() => {
 }
 
 .metadata-toggle-btn {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 500;
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   transition: all 0.15s ease;
 }
 
@@ -1195,9 +1195,9 @@ onBeforeUnmount(() => {
 
 /* Section Cards */
 .doc-section {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 10px;
+  background: var(--q-white);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -1210,13 +1210,13 @@ onBeforeUnmount(() => {
 }
 
 .section-header:hover {
-  background: #fafafa;
+  background: var(--q-background);
 }
 
 .section-title {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 600;
-  color: #374151;
+  color: var(--q-black);
 }
 
 /* Continuous Chunks Container */
@@ -1235,7 +1235,7 @@ onBeforeUnmount(() => {
   transition:
     box-shadow 0.2s ease,
     border-color 0.2s ease;
-  border: 1px solid #9ca3af;
+  border: 1px solid var(--q-border-2);
 }
 
 .chunk-index-badge {
@@ -1244,28 +1244,28 @@ onBeforeUnmount(() => {
   justify-content: center;
   min-width: 24px;
   height: 24px;
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   font-weight: 600;
-  color: #6b7280;
-  background: #f3f4f6;
-  border-radius: 6px;
+  color: var(--q-label);
+  background: var(--q-light);
+  border-radius: var(--radius-md);
   margin-right: 8px;
   flex-shrink: 0;
 }
 
 .chunk-page-badge {
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 .doc-section--chunk-active .chunk-index-badge {
   background: var(--q-primary);
-  color: white;
+  color: var(--q-white);
 }
 
 .section-header--chunk {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--q-border);
   cursor: default;
 }
 
@@ -1311,16 +1311,16 @@ onBeforeUnmount(() => {
    ============================================ */
 .markdown-content {
   line-height: 1.7;
-  color: #374151;
-  font-size: 14px;
+  color: var(--q-black);
+  font-size: var(--km-font-size-body);
 }
 
 .markdown-content :deep(h1) {
-  font-size: 20px;
+  font-size: var(--km-font-size-h1);
   font-weight: 600;
   margin: 20px 0 12px 0;
-  color: #111827;
-  border-bottom: 1px solid #e5e7eb;
+  color: var(--q-black);
+  border-bottom: 1px solid var(--q-border);
   padding-bottom: 8px;
 }
 
@@ -1328,23 +1328,23 @@ onBeforeUnmount(() => {
   font-size: 17px;
   font-weight: 600;
   margin: 18px 0 10px 0;
-  color: #1f2937;
+  color: var(--q-black);
 }
 
 .markdown-content :deep(h3) {
   font-size: 15px;
   font-weight: 600;
   margin: 14px 0 8px 0;
-  color: #374151;
+  color: var(--q-black);
 }
 
 .markdown-content :deep(h4),
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   font-weight: 600;
   margin: 12px 0 6px 0;
-  color: #4b5563;
+  color: var(--q-label);
 }
 
 .markdown-content :deep(p) {
@@ -1362,17 +1362,17 @@ onBeforeUnmount(() => {
 }
 
 .markdown-content :deep(code) {
-  background: #f3f4f6;
+  background: var(--q-light);
   padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'SF Mono', 'Consolas', monospace;
-  font-size: 13px;
-  color: #be185d;
+  border-radius: var(--radius-sm);
+  font-family: var(--km-font-mono);
+  font-size: var(--km-font-size-label);
+  color: var(--q-error);
 }
 
 .markdown-content :deep(pre) {
-  background: #1f2937;
-  border-radius: 8px;
+  background: var(--q-black);
+  border-radius: var(--radius-lg);
   padding: 16px;
   overflow-x: auto;
   margin: 12px 0;
@@ -1380,17 +1380,17 @@ onBeforeUnmount(() => {
 
 .markdown-content :deep(pre code) {
   background: transparent;
-  color: #e5e7eb;
+  color: var(--q-border);
   padding: 0;
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
 }
 
 .markdown-content :deep(blockquote) {
   border-left: 3px solid var(--q-primary);
   padding: 8px 16px;
   margin: 12px 0;
-  background: #f9fafb;
-  color: #6b7280;
+  background: var(--q-background);
+  color: var(--q-label);
 }
 
 .markdown-content :deep(a) {
@@ -1404,7 +1404,7 @@ onBeforeUnmount(() => {
 
 .markdown-content :deep(hr) {
   border: none;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--q-border);
   margin: 20px 0;
 }
 
@@ -1412,25 +1412,25 @@ onBeforeUnmount(() => {
   border-collapse: collapse;
   width: 100%;
   margin: 12px 0;
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
 }
 
 .markdown-content :deep(th) {
-  background: #f9fafb;
+  background: var(--q-background);
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--q-border);
   font-weight: 600;
   text-align: left;
 }
 
 .markdown-content :deep(td) {
   padding: 10px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--q-border);
 }
 
 .markdown-content :deep(img) {
   max-width: 100%;
   height: auto;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 </style>

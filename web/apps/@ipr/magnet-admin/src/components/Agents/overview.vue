@@ -37,19 +37,22 @@ div
 
 <script>
 import { ref } from 'vue'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 export default {
   emits: ['change-tab'],
   setup() {
+    const agentStore = useAgentDetailStore()
     return {
+      agentStore,
       showNewTopicDialog: ref(false),
     }
   },
   computed: {
     topicsQty() {
-      return this.$store.getters.agentDetailVariant?.value?.topics?.length || 0
+      return this.agentStore.activeVariant?.value?.topics?.length || 0
     },
     actionsQty() {
-      return this.$store.getters.agentDetailVariant?.value?.topics?.flatMap((topic) => topic.actions).length || 0
+      return this.agentStore.activeVariant?.value?.topics?.flatMap((topic) => topic.actions).length || 0
     },
   },
   created() {},

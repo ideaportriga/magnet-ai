@@ -198,10 +198,11 @@
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import type { QTableColumn } from 'quasar'
-import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import { KgConfirmDialog, KgTableToolbar } from '../common'
+import type { KnowledgeGraphDetails } from '../types'
 import EntityDialog from './EntityDialog.vue'
 import EntityExtractionSettingsDialog from './EntityExtractionSettingsDialog.vue'
 import {
@@ -219,15 +220,15 @@ import {
 
 const props = defineProps<{
   graphId: string
-  graphDetails: Record<string, any>
+  graphDetails: KnowledgeGraphDetails
 }>()
 
 const emit = defineEmits<{
   refresh: []
 }>()
 
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifySuccess, notifyError, notifyWarning } = useNotify()
 
 const entities = ref<EntityDefinition[]>([])
 const extractionSettings = ref<EntityExtractionRunSettings>(createDefaultEntityExtractionRunSettings())
@@ -239,7 +240,7 @@ const pagination = ref({ rowsPerPage: 10, page: 1 })
 const saving = ref(false)
 const loadingPromptTemplates = ref(false)
 const promptTemplateOptions = ref<any[]>([])
-const baseSettings = ref<Record<string, any>>({})
+const baseSettings = ref<KnowledgeGraphDetails['settings']>({})
 
 const columns: QTableColumn<EntityDefinition>[] = [
   {
@@ -359,7 +360,7 @@ function initializeFromSettings() {
 async function loadPromptTemplates() {
   loadingPromptTemplates.value = true
   try {
-    const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+    const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) {
       promptTemplateOptions.value = []
       return
@@ -379,7 +380,7 @@ async function loadPromptTemplates() {
       promptTemplateOptions.value = []
     }
   } catch (error) {
-    console.error('Error loading prompt templates:', error)
+
     promptTemplateOptions.value = []
   } finally {
     loadingPromptTemplates.value = false
@@ -428,9 +429,9 @@ async function persistEntityExtractionSettings(
   saving.value = true
 
   try {
-    const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+    const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) {
-      $q.notify({ type: 'negative', message: 'Knowledge graph API is not configured', position: 'top' })
+      notifyError('Knowledge graph API is not configured')
       return false
     }
 
@@ -449,7 +450,7 @@ async function persistEntityExtractionSettings(
 
     if (!response.ok) {
       const message = await getResponseErrorMessage(response, 'Failed to save entity extraction settings')
-      $q.notify({ type: 'negative', message, position: 'top' })
+      notifyError(message)
       return false
     }
 
@@ -457,18 +458,12 @@ async function persistEntityExtractionSettings(
     entities.value = cloneEntityDefinitions(nextEntities)
     extractionSettings.value = cloneEntityExtractionRunSettings(nextExtractionSettings)
     emit('refresh')
-    $q.notify({
-      type: 'positive',
-      message: successMessage,
-      position: 'top',
-      textColor: 'black',
-      timeout: 1500,
-    })
+    notifySuccess(successMessage)
 
     return true
   } catch (error) {
-    console.error('Error saving entity extraction settings:', error)
-    $q.notify({ type: 'negative', message: 'Failed to save entity extraction settings', position: 'top' })
+
+    notifyError('Failed to save entity extraction settings')
     return false
   } finally {
     saving.value = false
@@ -556,9 +551,9 @@ async function runExtraction() {
   extractionStarting.value = true
 
   try {
-    const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+    const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) {
-      $q.notify({ type: 'negative', message: 'Knowledge graph API is not configured', position: 'top' })
+      notifyError('Knowledge graph API is not configured')
       return
     }
 
@@ -580,7 +575,7 @@ async function runExtraction() {
 
     if (!response.ok) {
       const message = await getResponseErrorMessage(response, 'Failed to start entity extraction')
-      $q.notify({ type: 'negative', message, position: 'top' })
+      notifyError(message)
       extractionStarting.value = false
       emit('refresh')
       return
@@ -588,8 +583,8 @@ async function runExtraction() {
 
     emit('refresh')
   } catch (error) {
-    console.error('Error starting entity extraction:', error)
-    $q.notify({ type: 'negative', message: 'Error starting entity extraction', position: 'top' })
+
+    notifyError('Error starting entity extraction')
     extractionStarting.value = false
     emit('refresh')
   }
@@ -599,7 +594,7 @@ async function cancelExtraction() {
   if (cancelling.value) return
   cancelling.value = true
   try {
-    const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+    const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) return
     const response = await fetchData({
       endpoint,
@@ -609,12 +604,12 @@ async function cancelExtraction() {
     })
     if (!response.ok) {
       const message = await getResponseErrorMessage(response, 'Failed to cancel extraction')
-      $q.notify({ type: 'negative', message, position: 'top' })
+      notifyError(message)
     }
     emit('refresh')
   } catch (error) {
-    console.error('Error cancelling extraction:', error)
-    $q.notify({ type: 'negative', message: 'Failed to cancel extraction', position: 'top' })
+
+    notifyError('Failed to cancel extraction')
   } finally {
     cancelling.value = false
   }
@@ -631,11 +626,11 @@ watch(
   (newStatus, oldStatus) => {
     if (oldStatus === 'running' || oldStatus === 'cancelling') {
       if (newStatus === 'completed') {
-        $q.notify({ type: 'positive', message: 'Entity extraction completed', position: 'top', textColor: 'black', timeout: 2000 })
+        notifySuccess('Entity extraction completed')
       } else if (newStatus === 'cancelled') {
-        $q.notify({ type: 'warning', message: 'Entity extraction cancelled', position: 'top', timeout: 2000 })
+        notifyWarning('Entity extraction cancelled')
       } else if (newStatus === 'error') {
-        $q.notify({ type: 'negative', message: 'Entity extraction failed', position: 'top', timeout: 3000 })
+        notifyError('Entity extraction failed')
       }
     }
   }
@@ -668,7 +663,7 @@ defineExpose({
 
 <style scoped>
 :deep(.q-table thead th) {
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   font-weight: 600;
 }
 
@@ -684,7 +679,7 @@ defineExpose({
 
 .entity-name-text {
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--q-primary-text);
 }
 
 :deep(.entity-row--disabled) td:not(:last-child) {

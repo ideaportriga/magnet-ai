@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, Any
 from litestar import Controller, post
-from utils.upload_handler import make_multipart_session
+from utils.upload_handler import make_multipart_session_via_storage
 
 
 class UploadSessionsController(Controller):
@@ -29,7 +29,7 @@ class UploadSessionsController(Controller):
             "complete_url": null
         }
         """
-        return await make_multipart_session(
+        return await make_multipart_session_via_storage(
             filename=data["filename"],
             size=data["size"],
             content_type=data["type"],

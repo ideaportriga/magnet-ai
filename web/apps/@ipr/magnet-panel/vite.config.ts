@@ -60,7 +60,7 @@ export default defineConfig({
     https: true,
     port: 7002,
     cors: {
-      origin: ['http://localhost:7002', 'https://test-ai-bridge.ambitiousisland-a233b755.westeurope.azurecontainerapps.io', 'http://localhost:7000'],
+      origin: ['http://localhost:7002', 'https://test-ai-bridge.ambitiousisland-a233b755.westeurope.azurecontainerapps.io', 'http://localhost:7001', 'https://localhost:7001'],
     },
   },
   preview: {

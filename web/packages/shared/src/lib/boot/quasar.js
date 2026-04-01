@@ -57,6 +57,11 @@ import {
   QSpace,
 } from 'quasar'
 
+Notify.setDefaults({
+  position: 'bottom-right',
+  progress: true,
+})
+
 export default {
   config: {
     loading: {

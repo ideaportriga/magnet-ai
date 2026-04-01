@@ -155,6 +155,11 @@ class SyncPipelineConfig:
     # Named semaphores created for workers to use
     semaphores: dict[str, int] = field(default_factory=dict)
 
+    # Max concurrent DB sessions across all workers in a single pipeline run.
+    # Prevents pool exhaustion when multiple pipelines run simultaneously.
+    # Should be <= (pool_size + max_overflow) / expected_concurrent_pipelines.
+    max_concurrent_db_sessions: int = 5
+
     def validate(self) -> None:
         if not isinstance(self.name, str) or not self.name.strip():
             raise ValueError("name must be a non-empty string")

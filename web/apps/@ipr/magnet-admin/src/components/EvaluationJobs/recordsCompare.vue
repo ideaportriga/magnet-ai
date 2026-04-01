@@ -13,7 +13,7 @@
   .col
     .row.justify-center.fit.q-gap-16.items-center
       .col-auto
-        div Test Set item {{ evalInputIndex + 1 }} of {{ evalInuptList?.length }}
+        div Test Set item {{ evalInputIndex + 1 }} of {{ evalInputList?.length }}
   .col-auto
     km-btn(
       flat,
@@ -22,7 +22,7 @@
       iconSize='16px',
       iconAfter='fas fa-chevron-right',
       @click='evalInputIndex = evalInputIndex + 1',
-      :disable='evalInputIndex === evalInuptList.length - 1'
+      :disable='evalInputIndex === evalInputList.length - 1'
     )
 .q-px-md
   .row.q-mb-md.q-mt-sm
@@ -34,114 +34,118 @@
         .km-label.text-text-grey Expected output
         div {{ input?.expected_output }}
   .row
-    km-table(
-      @selectRow='selectRecord',
-      selection='multiple',
+    km-data-table(
+      :table='table',
       row-key='id',
-      :active-record-id='selectedRow?.id',
-      v-model:selected='selected',
-      :columns='columns',
-      :rows='filteredEvaluationSetItems ?? []',
-      :pagination='evaluationRecord',
-      binary-state-sort
+      :activeRowId='selectedRow?.id',
+      @row-click='selectRecord'
     )
 </template>
 
-<script>
-import { columnsCompareSettings, evaluationRecord } from '@/config/evaluation_jobs/evaluation_job_records'
-import { ref } from 'vue'
+<script setup>
+import { ref, computed, watch, onMounted, markRaw } from 'vue'
 import _ from 'lodash'
+import { useEvaluationStore } from '@/stores/evaluationStore'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
+import TextWrap from '@/config/evaluation_jobs/component/TextWrap.vue'
 
-export default {
-  props: {},
-  emits: ['openTest'],
-  setup() {
-    return {
-      columns: Object.values(columnsCompareSettings).sort((a, b) => a.columnNumber - b.columnNumber),
-      selected: ref([]),
-      evaluationRecord,
-      searchString: ref(''),
-      evalInputIndex: ref(null),
-    }
-  },
-  computed: {
-    input() {
-      return this.evalInuptList[this.evalInputIndex]
-    },
-    evalInuptList() {
-      const pairs =
-        this.evaluationSetItems?.map(({ user_message, expected_output }) => ({
-          user_message,
-          expected_output,
-        })) ?? []
+const emit = defineEmits(['openTest'])
 
-      return _.uniqWith(pairs, _.isEqual)
-    },
-    selectedRow() {
-      return this.$store.getters.evaluation_job_record
-    },
-    evaluationSetItems: {
-      get() {
-        return this.transformData(this.$store.getters.evaluation_list || []).results
-      },
-    },
-    filteredEvaluationSetItems() {
-      const items = this.evaluationSetItems.filter((el) => el?.user_message === this.input?.user_message)
-      return items
-    },
-  },
-  watch: {
-    input: {
-      deep: true,
-      handler() {
-        this.$store.commit('setEvaluationJobRecord', this.filteredEvaluationSetItems[0])
-        this.selected = [this.filteredEvaluationSetItems[0]]
-      },
-    },
-  },
-  mounted() {
-    this.evalInputIndex = 0
-  },
-  methods: {
-    transformData(input) {
-      const combinedResults = []
+const evalStore = useEvaluationStore()
+const evalInputIndex = ref(null)
 
-      input.forEach((entry) => {
-        const { id: evaluation_id, tool, results } = entry
-        console.log('entry', entry)
-        results.forEach((result) => {
-          const enhancedResult = {
-            ..._.pick(result, [
-              'id',
-              'evaluated_at',
-              'expected_output',
-              'generated_output',
-              'iteration',
-              'latency',
-              'model_version',
-              'score',
-              'score_comment',
-              'test_set',
-              'usage',
-              'user_message',
-            ]),
-            evaluation_id,
-            system_name: tool.system_name,
-            variant: tool.variant_name,
-          }
-          combinedResults.push(enhancedResult)
-        })
-      })
+const selectedRow = computed(() => evalStore.evaluationJobRecord)
 
-      return {
-        results: combinedResults,
+const transformData = (input) => {
+  const combinedResults = []
+
+  input.forEach((entry) => {
+    const { id: evaluation_id, tool, results } = entry
+
+    results.forEach((result) => {
+      const enhancedResult = {
+        ..._.pick(result, [
+          'id',
+          'evaluated_at',
+          'expected_output',
+          'generated_output',
+          'iteration',
+          'latency',
+          'model_version',
+          'score',
+          'score_comment',
+          'test_set',
+          'usage',
+          'user_message',
+        ]),
+        evaluation_id,
+        system_name: tool.system_name,
+        variant: tool.variant_name,
       }
+      combinedResults.push(enhancedResult)
+    })
+  })
+
+  return {
+    results: combinedResults,
+  }
+}
+
+const evaluationSetItems = computed(() => {
+  return transformData(evalStore.evaluationList || []).results
+})
+
+const evalInputList = computed(() => {
+  const pairs =
+    evaluationSetItems.value?.map(({ user_message, expected_output }) => ({
+      user_message,
+      expected_output,
+    })) ?? []
+
+  return _.uniqWith(pairs, _.isEqual)
+})
+
+const input = computed(() => {
+  return evalInputList.value[evalInputIndex.value]
+})
+
+const filteredEvaluationSetItems = computed(() => {
+  return evaluationSetItems.value.filter((el) => el?.user_message === input.value?.user_message)
+})
+
+const columns = [
+  selectionColumn(),
+  textColumn('iteration', 'Iteration'),
+  textColumn('variant', 'Variant', {
+    format: (val) => {
+      const match = val?.match(/variant_(\d+)/)
+      return match ? `Variant ${match[1]}` : val
     },
-    selectRecord(row) {
-      this.selected = []
-      this.selected = [row]
-      this.$store.commit('setEvaluationJobRecord', row)
-    },
-  },
+  }),
+  componentColumn('generated_output', 'Generated output', markRaw(TextWrap), {
+    accessorKey: 'generated_output',
+    sortable: true,
+    props: (row) => ({ name: 'generated_output' }),
+  }),
+  textColumn('score', 'Score'),
+]
+
+const { table, selectedRows, clearSelection } = useLocalDataTable(filteredEvaluationSetItems, columns, {
+  enableRowSelection: true,
+  defaultPageSize: 5,
+})
+
+watch(input, () => {
+  evalStore.evaluationJobRecord = filteredEvaluationSetItems.value[0]
+}, { deep: true })
+
+onMounted(() => {
+  evalInputIndex.value = 0
+})
+
+const selectRecord = (row) => {
+  clearSelection()
+  evalStore.evaluationJobRecord = row
 }
 </script>

@@ -28,7 +28,7 @@ export default {
         components.value[componentName] = svgContent.replace('<svg', `<svg id="${componentId}"`)
       }
     })
-    const svgsContent = computed(() => Object.values(components.value).join(''))
+    const svgsContent = computed(() => Object.values(components.value).filter((v) => typeof v === 'string').join(''))
     return {
       components,
       svgsContent,

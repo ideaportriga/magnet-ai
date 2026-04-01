@@ -14,6 +14,7 @@ import Codemirror from './components/base/Codemirror.vue'
 import ConfirmAction from './components/base/ConfirmAction.vue'
 import Date from './components/base/Date.vue'
 import Drawer from './components/base/Drawer.vue'
+import DrawerLayout from './components/base/DrawerLayout.vue'
 import EmptyState from './components/base/EmptyState.vue'
 import ErrorDialog from './components/base/ErrorDialog.vue'
 import FilePicker from './components/base/FilePicker.vue'
@@ -29,6 +30,7 @@ import InputListAdd from './components/base/InputListAdd.vue'
 import JsonEditor from './components/base/JsonEditor.vue'
 import Loader from './components/base/Loader.vue'
 import Markdown from './components/base/Markdown.vue'
+import NavSection from './components/base/NavSection.vue'
 import NotificationText from './components/base/NotificationText.vue'
 import Picker from './components/base/Picker.vue'
 import PopupConfirm from './components/base/PopupConfirm.vue'
@@ -42,9 +44,11 @@ import Slider from './components/base/Slider.vue'
 import SliderCard from './components/base/SliderCard.vue'
 import Stepper from './components/base/Stepper.vue'
 import Switch from './components/base/Switch.vue'
+import DataTable from './components/base/DataTable.vue'
 import Table from './components/base/Table.vue'
+import Tabs from './components/base/Tabs.vue'
 import TableGroup from './components/base/TableGroup.vue'
-import TableNew from './components/base/TableNew.vue'
+// TableNew removed — use Table with selection='multiple' instead
 import Toggle from './components/base/Toggle.vue'
 import Tooltip from './components/base/Tooltip.vue'
 
@@ -62,6 +66,7 @@ export {
   ConfirmAction,
   Date,
   Drawer,
+  DrawerLayout,
   EmptyState,
   ErrorDialog,
   FilePicker,
@@ -77,6 +82,7 @@ export {
   JsonEditor,
   Loader,
   Markdown,
+  NavSection,
   NotificationText,
   Picker,
   PopupConfirm,
@@ -90,9 +96,10 @@ export {
   SliderCard,
   Stepper,
   Switch,
+  DataTable,
   Table,
   TableGroup,
-  TableNew,
+  Tabs,
   Toggle,
   Tooltip,
   LayoutTab,

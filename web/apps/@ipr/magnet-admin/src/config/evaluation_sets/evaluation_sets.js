@@ -72,7 +72,6 @@ const controls = {
     align: 'left',
     style: 'max-width: 300px;',
     sort: (a, b, rowA, rowB) => {
-      console.log('sort', a, b, rowA, rowB)
       return rowA.name.localeCompare(rowB.name)
     },
   },

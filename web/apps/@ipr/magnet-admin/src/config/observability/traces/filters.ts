@@ -1,17 +1,17 @@
-import store from '@/store'
+import { getCachedItems } from '@/queries/getCachedItems'
 
 const getTracingTargetOptions = (knowledgeGraphNames: string[] = []) => {
-  const options = []
+  const options: string[] = []
 
-  options.push(...(store.getters.chroma.agents.items?.map((item) => item.name) ?? []))
-  options.push(...(store.getters.chroma.collections.items?.map((item) => item.name) ?? []))
-  options.push(...(store.getters.chroma.promptTemplates.items?.map((item) => item.name) ?? []))
-  options.push(...(store.getters.chroma.rag_tools.items?.map((item) => item.name) ?? []))
-  options.push(...(store.getters.chroma.retrieval.items?.map((item) => item.name) ?? []))
+  options.push(...(getCachedItems('agents')?.map((item: any) => item.name) ?? []))
+  options.push(...(getCachedItems('collections')?.map((item: any) => item.name) ?? []))
+  options.push(...(getCachedItems('promptTemplates')?.map((item: any) => item.name) ?? []))
+  options.push(...(getCachedItems('rag_tools')?.map((item: any) => item.name) ?? []))
+  options.push(...(getCachedItems('retrieval')?.map((item: any) => item.name) ?? []))
   options.push(...knowledgeGraphNames)
 
   return [...new Set(options.filter(Boolean))]
-    .map((name) => ({ label: name, value: name }))
+    .map((name: string) => ({ label: name, value: name }))
     .sort((a, b) => a.label.localeCompare(b.label))
 }
 

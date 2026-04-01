@@ -37,9 +37,9 @@ km-popup-confirm(
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
 import { required, toUpperCaseWithUnderscores } from '@shared'
+import { useDeepResearchStore } from '@/stores/deepResearchStore'
+import { useNotify } from '@/composables/useNotify'
 
 const props = defineProps({
   showNewDialog: {
@@ -53,8 +53,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['cancel', 'created'])
-const store = useStore()
-const $q = useQuasar()
+const drStore = useDeepResearchStore()
+const { notifySuccess, notifyError } = useNotify()
 
 const name = ref('')
 const system_name = ref('')
@@ -70,7 +70,7 @@ watch(name, (newVal) => {
 
 onMounted(() => {
   if (props.copy) {
-    const currentConfig = store.getters.selectedConfig
+    const currentConfig = drStore.selectedConfig
     if (currentConfig) {
       configToCopy.value = JSON.parse(JSON.stringify(currentConfig))
       name.value = (currentConfig.name || '') + '_COPY'
@@ -95,15 +95,9 @@ const createConfig = async () => {
       config: configToCopy.value?.config || {},
     }
 
-    const result = await store.dispatch('createConfig', configData)
+    const result = await drStore.createConfig(configData)
 
-    $q.notify({
-      position: 'top',
-      message: props.copy ? 'Deep Research Config has been cloned' : 'Deep Research Config has been created',
-      color: 'positive',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    notifySuccess(props.copy ? 'Deep Research Config has been cloned' : 'Deep Research Config has been created')
 
     // Reset form
     name.value = ''
@@ -112,13 +106,7 @@ const createConfig = async () => {
 
     emit('created', result.id)
   } catch (error) {
-    $q.notify({
-      position: 'top',
-      message: error?.message || 'Failed to create configuration',
-      color: 'positive',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    notifyError(error?.message || 'Failed to create configuration')
   }
 }
 </script>

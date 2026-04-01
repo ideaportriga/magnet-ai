@@ -80,9 +80,10 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { useQuasar } from 'quasar'
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
+import { useEntityQueries } from '@/queries/entities'
 import { KgDialogSection, KgDialogSourceBase, ScheduleFormState } from '../../common'
 import type { SourceRow } from '../models'
 
@@ -119,8 +120,10 @@ const emit = defineEmits<{
   (e: 'update:showDialog', value: boolean): void
 }>()
 
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifyError } = useNotify()
+const queries = useEntityQueries()
+const { data: providerListData } = queries.provider.useList()
 const error = ref('')
 const loading = ref(false)
 const loadingProviders = ref(false)
@@ -145,16 +148,12 @@ const isFormValid = computed(
 const loadProviders = async () => {
   loadingProviders.value = true
   try {
-    const existing = store.getters['chroma/provider']
-    if (!existing?.items?.length) {
-      await store.dispatch('chroma/get', { entity: 'provider' })
-    }
-    const items: any[] = store.getters['chroma/provider']?.items || []
+    const items: any[] = providerListData.value?.items || []
     providerOptions.value = items
       .filter((p: any) => p.category === 'knowledge' && p.type?.toLowerCase() === 'confluence')
       .map((p: any) => ({ id: p.id, name: p.name }))
   } catch (err) {
-    console.error('Failed to load providers:', err)
+
   } finally {
     loadingProviders.value = false
   }
@@ -203,7 +202,7 @@ async function applySchedule(sourceId: string, schedule: ScheduleFormState) {
     (props.source?.schedule !== null && props.source?.schedule !== undefined)
   if (!shouldCall) return
 
-  const endpoint = store.getters.config.api.aiBridge.urlAdmin
+  const endpoint = appStore.config.api.aiBridge.urlAdmin
   const payload: any = { interval: schedule.interval }
   if (schedule.interval !== 'none') {
     payload.timezone = schedule.timezone
@@ -251,7 +250,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
   error.value = ''
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const payload = {
       type: 'confluence',
       name: sourceName.trim() || null,
@@ -273,11 +272,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
         try {
           await applySchedule(result.id, schedule)
         } catch (e: any) {
-          $q.notify({
-            type: 'negative',
-            message: e?.message || 'Source created, but schedule could not be saved',
-            position: 'top',
-          })
+          notifyError(e?.message || 'Source created, but schedule could not be saved')
         }
       }
       emit('created', result)
@@ -286,7 +281,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
       error.value = errorData.detail || errorData.error || 'Failed to connect to Confluence'
     }
   } catch (err: any) {
-    console.error('Confluence connection error:', err)
+
     error.value = err.message || 'Failed to connect to Confluence. Please try again.'
   } finally {
     loading.value = false
@@ -299,7 +294,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
   error.value = ''
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const payload = {
       name: sourceName.trim() || null,
       config: buildConfig(),
@@ -323,7 +318,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
       error.value = errorData.detail || errorData.error || 'Failed to save Confluence source'
     }
   } catch (err: any) {
-    console.error('Confluence update error:', err)
+
     error.value = err.message || 'Failed to save Confluence source. Please try again.'
   } finally {
     loading.value = false

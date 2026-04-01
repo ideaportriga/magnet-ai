@@ -4,12 +4,19 @@ from core.config.base import get_vector_database_settings
 from stores.document_store import DocumentStore
 
 
-# TODO - move elsewhere
-class RecordNotFoundError(Exception):
-    pass
+from core.exceptions import NotFoundError
+
+
+class RecordNotFoundError(NotFoundError):
+    """Record not found in a document / vector store."""
 
 
 def get_db_client():
+    """Return the low-level vector DB client for the default store.
+
+    Prefer ``get_db_store()`` or ``get_vector_store_registry().get(name)``
+    for new code.
+    """
     db_settings = get_vector_database_settings()
     db_type = db_settings.VECTOR_DB_TYPE
 
@@ -33,6 +40,19 @@ def get_db_client():
 
 
 def get_db_store() -> DocumentStore:
+    """Return the default vector document store.
+
+    This delegates to ``VectorStoreRegistry`` if a default store has been
+    registered (happens during application startup).  Falls back to direct
+    instantiation for backward compatibility during tests / CLI scripts.
+    """
+    from stores.registry import get_vector_store_registry
+
+    registry = get_vector_store_registry()
+    if registry.has("default"):
+        return registry.default
+
+    # Fallback: direct lookup (backward compat for tests / CLI)
     db_settings = get_vector_database_settings()
     db_type = db_settings.VECTOR_DB_TYPE
 

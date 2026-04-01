@@ -36,11 +36,18 @@
 </template>
 <script>
 import { ref } from 'vue'
+import { fetchData } from '@shared'
+import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useAppStore } from '@/stores/appStore'
 export default {
   setup() {
+    const apiServerStore = useApiServerDetailStore()
+    const appStore = useAppStore()
     const formValues = ref({})
     const fields = ref({})
     return {
+      apiServerStore,
+      appStore,
       formValues,
       fields,
       jsonMode: ref(true),
@@ -51,7 +58,7 @@ export default {
   },
   computed: {
     apiTool() {
-      return this.$store.getters.toolByName(this.$route.params.name)
+      return this.apiServerStore.entity?.tools?.find((tool) => tool.system_name === this.$route.params.name)
     },
 
     properties() {
@@ -187,10 +194,22 @@ export default {
       try {
         this.processing = true
         this.response = null
-        const res = await this.$store.dispatch('testServerApiTool', this.requestFromJson)
+        const endpoint = this.appStore.config?.api?.aiBridge?.urlAdmin
+        const response = await fetchData({
+          endpoint,
+          service: 'api_servers/call_tool',
+          method: 'POST',
+          credentials: 'include',
+          body: JSON.stringify({
+            server: this.apiServerStore.entity?.system_name,
+            tool: this.requestFromJson.tool,
+            input_params: this.requestFromJson.input_params,
+          }),
+          headers: { 'Content-Type': 'application/json' },
+        })
+        const res = await response.text()
         this.response = JSON.stringify(JSON.parse(res), null, 2)
       } catch (error) {
-        console.error(error)
       } finally {
         this.processing = false
       }

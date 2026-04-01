@@ -52,8 +52,10 @@ q-separator.q-my-sm
 /* eslint-disable */
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
+import { useNotify } from '@/composables/useNotify'
 
 const $q = useQuasar()
+const { notifySuccess } = useNotify()
 
 const props = defineProps({
   variants: {
@@ -91,29 +93,18 @@ const variantValue = computed(() => {
 
 const activateVariant = () => {
   emit('activateVariant')
-  $q.notify({
-    position: 'top',
-    message: 'Variant has been activated.',
-    color: 'positive',
-    textColor: 'black',
-    timeout: 1000,
-  })
+  notifySuccess('Variant has been activated.')
 }
 const addVariant = () => {
   emit('addVariant')
-  $q.notify({
-    position: 'top',
-    message: 'New variant has been added.',
-    color: 'positive',
-    textColor: 'black',
-    timeout: 1000,
-  })
+  notifySuccess('New variant has been added.')
 }
 const deleteVariant = () => {
   $q.notify({
     message: 'Are you sure you want to delete this variant?',
-    color: 'error-text',
-    position: 'top',
+    color: 'red-9', textColor: 'white',
+    icon: 'error',
+    group: 'error',
     timeout: 0,
     actions: [
       {
@@ -128,13 +119,7 @@ const deleteVariant = () => {
         color: 'white',
         handler: () => {
           emit('deleteVariant')
-          $q.notify({
-            position: 'top',
-            message: 'Variant has been deleted.',
-            color: 'positive',
-            textColor: 'black',
-            timeout: 1000,
-          })
+          notifySuccess('Variant has been deleted.')
         },
       },
     ],

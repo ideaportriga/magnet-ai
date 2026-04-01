@@ -1,18 +1,6 @@
 <template lang="pug">
-layouts-details-layout(v-model:name='name', v-model:description='description', v-model:systemName='system_name')
-  template(#breadcrumbs)
-    .row.q-pb-md.relative-position.q-px-md
-      q-breadcrumbs.text-grey(active-color='text-grey', gutter='lg')
-        template(v-slot:separator)
-          q-icon(size='12px', name='fas fa-chevron-right', color='text-grey')
-        q-breadcrumbs-el
-          .column
-            .km-small-chip.text-grey.text-capitalize App
-            .km-chip.text-grey-8.text-capitalize.breadcrumb-link(@click='navigate(`/ai-apps/${$route.params?.id}`)') {{ selectedRow?.name }}
-        q-breadcrumbs-el
-          .column
-            .km-small-chip.text-grey.text-capitalize Tab
-            .km-chip.text-grey-8.text-capitalize {{ name }}
+km-inner-loading(:showing='!currentTab')
+layouts-details-layout(v-if='currentTab', v-model:name='name', v-model:description='description', v-model:systemName='system_name')
   template(#content)
     .col-auto.full-width
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Tab type
@@ -38,32 +26,48 @@ layouts-details-layout(v-model:name='name', v-model:description='description', v
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { ref, computed, onActivated, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useStore } from 'vuex'
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useAiAppDetailStore } from '@/stores/entityDetailStores'
 
 const route = useRoute()
 const router = useRouter()
-const store = useStore()
+const queries = useEntityQueries()
+const aiAppStore = useAiAppDetailStore()
 
-const { publicItems: ragToolsItems } = useChroma('rag_tools')
-const { publicItems: agentItems } = useChroma('agents')
-const { publicItems: retrievalItems } = useChroma('retrieval')
+const id = ref(route.params.id)
 
-const { selectedRow } = useChroma('ai_apps')
+const { data: ragToolsListData } = queries.rag_tools.useList()
+const ragToolsItems = computed(() => ragToolsListData.value?.items ?? [])
+
+const { data: agentsListData } = queries.agents.useList()
+const agentItems = computed(() => agentsListData.value?.items ?? [])
+
+const { data: retrievalListData } = queries.retrieval.useList()
+const retrievalItems = computed(() => retrievalListData.value?.items ?? [])
+
+const { data: selectedRow } = queries.ai_apps.useDetail(id)
 
 const activeAIAppTabSystemName = computed(() => route.params?.tab)
 const activeAIAppTabChildSystemName = computed(() => route.query?.child)
 
-const currentTab = computed(() => store.getters.getTabBySystemName(activeAIAppTabSystemName.value, activeAIAppTabChildSystemName.value))
+const currentTab = computed(() => {
+  const tabs = aiAppStore.entity?.tabs || []
+  const tab = tabs.find((el) => el.system_name === activeAIAppTabSystemName.value)
+  if (activeAIAppTabChildSystemName.value) {
+    return tab?.children?.find((el) => el.system_name === activeAIAppTabChildSystemName.value)
+  }
+  return tab
+})
 
 const name = computed({
   get() {
     return currentTab.value?.name || ''
   },
   set(value) {
-    store.commit('updateAIAppTabProperty', {
+    aiAppStore.updateNestedProperty({
+      path: 'tabs',
       system_name: activeAIAppTabSystemName.value,
       newProperties: { name: value },
       child_system_name: activeAIAppTabChildSystemName.value,
@@ -76,7 +80,8 @@ const description = computed({
     return currentTab.value?.description || ''
   },
   set(value) {
-    store.commit('updateAIAppTabProperty', {
+    aiAppStore.updateNestedProperty({
+      path: 'tabs',
       system_name: activeAIAppTabSystemName.value,
       newProperties: { description: value },
       child_system_name: activeAIAppTabChildSystemName.value,
@@ -89,7 +94,8 @@ const system_name = computed({
     return currentTab.value?.system_name || ''
   },
   set(value) {
-    store.commit('updateAIAppTabProperty', {
+    aiAppStore.updateNestedProperty({
+      path: 'tabs',
       system_name: activeAIAppTabSystemName.value,
       newProperties: { system_name: value },
       child_system_name: activeAIAppTabChildSystemName.value,
@@ -102,7 +108,8 @@ const tab_type = computed({
     return currentTab.value?.tab_type || ''
   },
   set(value) {
-    store.commit('updateAIAppTabProperty', {
+    aiAppStore.updateNestedProperty({
+      path: 'tabs',
       system_name: activeAIAppTabSystemName.value,
       newProperties: { tab_type: value },
       child_system_name: activeAIAppTabChildSystemName.value,
@@ -115,7 +122,8 @@ const config = computed({
     return currentTab.value?.config || ''
   },
   set(value) {
-    store.commit('updateAIAppTabProperty', {
+    aiAppStore.updateNestedProperty({
+      path: 'tabs',
       system_name: activeAIAppTabSystemName.value,
       newProperties: { config: value },
       child_system_name: activeAIAppTabChildSystemName.value,
@@ -199,13 +207,21 @@ const openNewTab = () => {
 
 watch(selectedRow, (newVal, oldVal) => {
   if (newVal?.id !== oldVal?.id) {
-    store.commit('setAIApp', newVal)
+    aiAppStore.setEntity(newVal)
   }
 })
 
 onMounted(() => {
-  if (selectedRow.value?.id !== store.getters.ai_app?.id) {
-    store.commit('setAIApp', selectedRow.value)
+  if (selectedRow.value?.id !== aiAppStore.entity?.id) {
+    aiAppStore.setEntity(selectedRow.value)
+  }
+})
+
+onActivated(() => {
+  id.value = route.params.id
+  // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
+  if (selectedRow.value && selectedRow.value.id !== aiAppStore.entity?.id) {
+    aiAppStore.setEntity(selectedRow.value)
   }
 })
 </script>

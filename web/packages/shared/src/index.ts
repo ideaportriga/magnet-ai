@@ -1,10 +1,12 @@
+// Auth
+export { createAuthClient, createAuthFetch } from './lib/auth'
+export type { AuthClient, UserInfo, LoginResult, SignupResult, SessionInfo, MfaSetupInfo } from './lib/auth'
+
 // Composables
 
 export { default as useAuth } from './lib/composables/useAuth'
-export { default as useChroma } from './lib/composables/useChroma'
 export { default as useState } from './lib/composables/useState'
 export { default as useValidation, validationProps } from './lib/composables/useValidation'
-export { default as useVuexContext } from './lib/composables/useVuexContext'
 
 // boot
 
@@ -53,5 +55,4 @@ export { getLabel, getSpecificationItems, toSnakeCase } from './lib/utils/openap
 export { default as patchObject } from './lib/utils/patchObject.js'
 export { objToSearchExpr, objToJsFilter } from './lib/utils/query.js'
 export { sortDateColumn } from './lib/utils/sortDateColumn.js'
-export { transformStrapiRequest, transformStrapiResponse } from './lib/utils/strapiUtils.js'
 export { required, minLength, validJson, notGreaterThan, notLessThan, noInvisibleChars, validSystemName } from './lib/utils/validationRules.js'

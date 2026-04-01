@@ -147,7 +147,7 @@
 import { fetchData } from '@shared'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
 
 type MetadataOrigin = 'file' | 'source' | 'llm'
 type MetadataValueKind = 'string' | 'number' | 'boolean' | 'date' | 'json' | 'list'
@@ -173,7 +173,7 @@ defineEmits<{
 }>()
 
 const route = useRoute()
-const store = useStore()
+const appStore = useAppStore()
 
 const graphId = computed(() => route.params.id as string)
 const definedFieldNames = ref<Set<string>>(new Set())
@@ -188,7 +188,7 @@ const totalCount = computed(() => props.fileMetadata.length + props.sourceMetada
 const fetchGraphSettings = async () => {
   if (!graphId.value) return
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const response = await fetchData({
       endpoint,
       service: `knowledge_graphs/${graphId.value}`,
@@ -201,7 +201,7 @@ const fetchGraphSettings = async () => {
       definedFieldNames.value = new Set(fields.map((f: any) => f.name))
     }
   } catch (e) {
-    console.error('Error fetching graph settings:', e)
+
   }
 }
 
@@ -216,9 +216,9 @@ onMounted(() => {
 .metadata-panel {
   width: 380px;
   min-width: 380px;
-  background: #ffffff;
+  background: var(--q-white);
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -230,9 +230,9 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: #ffffff;
-  border-bottom: 1px solid #f1f5f9;
-  color: #1e293b;
+  background: var(--q-white);
+  border-bottom: 1px solid var(--q-border);
+  color: var(--q-black);
 }
 
 .panel-header-content {
@@ -248,25 +248,25 @@ onMounted(() => {
 }
 
 .panel-count {
-  font-size: 12px;
-  color: #64748b;
+  font-size: var(--km-font-size-caption);
+  color: var(--q-label);
   font-weight: 500;
 }
 
 .panel-close-btn {
-  color: #94a3b8;
+  color: var(--q-icon);
 }
 
 .panel-close-btn:hover {
-  color: #475569;
-  background: #f1f5f9;
+  color: var(--q-secondary-text);
+  background: var(--q-border);
 }
 
 .panel-body {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
-  background: #f8fafc;
+  background: var(--q-background);
 }
 
 .panel-empty {
@@ -284,23 +284,23 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 50%;
+  background: var(--q-white);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-full);
   margin-bottom: 16px;
-  color: #94a3b8;
+  color: var(--q-icon);
 }
 
 .empty-text {
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   font-weight: 600;
-  color: #64748b;
+  color: var(--q-label);
   margin-bottom: 4px;
 }
 
 .empty-subtext {
-  font-size: 12px;
-  color: #94a3b8;
+  font-size: var(--km-font-size-caption);
+  color: var(--q-icon);
 }
 
 .metadata-groups {
@@ -310,9 +310,9 @@ onMounted(() => {
 }
 
 .metadata-group {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  background: var(--q-white);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
@@ -322,29 +322,29 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 600;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--q-border);
 }
 
 .group-header--file {
-  background: #ffffff;
-  color: #334155;
+  background: var(--q-white);
+  color: var(--q-black);
 }
 
 .group-header--source {
-  background: #ffffff;
-  color: #334155;
+  background: var(--q-white);
+  color: var(--q-black);
 }
 
 .group-header--ai {
-  background: #ffffff;
-  color: #334155;
+  background: var(--q-white);
+  color: var(--q-black);
 }
 
 .group-header--summary {
-  background: #ffffff;
-  color: #334155;
+  background: var(--q-white);
+  color: var(--q-black);
 }
 
 .group-title {
@@ -360,16 +360,16 @@ onMounted(() => {
   align-items: flex-start;
   gap: 12px;
   padding: 10px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   transition: background 0.15s ease;
 }
 
 .metadata-item:not(:last-child) {
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid var(--q-background);
 }
 
 .metadata-item:hover {
-  background: #f8fafc;
+  background: var(--q-background);
 }
 
 .item-key-wrapper {
@@ -384,9 +384,9 @@ onMounted(() => {
 .item-key {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   font-weight: 500;
-  color: #64748b;
+  color: var(--q-label);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -405,8 +405,8 @@ onMounted(() => {
 }
 
 .value-text {
-  font-size: 13px;
-  color: #1e293b;
+  font-size: var(--km-font-size-label);
+  color: var(--q-black);
   word-break: break-word;
   line-height: 1.5;
 }
@@ -420,20 +420,20 @@ onMounted(() => {
 .value-chip {
   margin: 0;
   height: 20px;
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
 }
 
 .boolean-badge {
-  font-size: 10px;
+  font-size: var(--km-font-size-xs);
   font-weight: 600;
   padding: 2px 8px;
 }
 
 .summary-text {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   line-height: 1.7;
-  color: #1e293b;
+  color: var(--q-black);
   white-space: pre-wrap;
 }
 
@@ -464,7 +464,7 @@ onMounted(() => {
     min-width: 0;
     box-shadow:
       0 10px 25px -5px rgba(0, 0, 0, 0.1),
-      0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      0 8px 10px -6px rgba(0, 0, 0, 0.1); /* intentional elevation shadow */
   }
 }
 </style>

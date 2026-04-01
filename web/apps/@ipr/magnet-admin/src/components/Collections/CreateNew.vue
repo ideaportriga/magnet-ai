@@ -43,7 +43,7 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
           .col
             .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ item.label }}
             .q-mb-md
-              component(:is='item.component', v-model='source[item.field]')
+              component(:is='item.component', v-model='source[item.field]', ref='sourceComponents')
       .column.full-width(v-if='stepper === 1')
         .col.q-pt-8.q-mt-sm
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Chunking strategy
@@ -205,11 +205,19 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
 import { defineComponent, ref, reactive, computed } from 'vue'
 import { cloneDeep } from 'lodash'
 import { required, minLength } from '@shared/utils/validationRules'
-import { useChroma } from '@shared'
-import { toUpperCaseWithUnderscores } from '@shared'
+import { toUpperCaseWithUnderscores, fetchData } from '@shared'
+import { useEntityConfig } from '@/composables/useEntityConfig'
+import { useEntityQueries } from '@/queries/entities'
 import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
+import { useCollectionDetailStore } from '@/stores/entityDetailStores'
+import { useAppStore } from '@/stores/appStore'
+import FileUrlUpload from '@/components/Collections/FileUrlUpload.vue'
 
 export default defineComponent({
+  components: {
+    'collections-file-url-upload': FileUrlUpload,
+    'file-url-upload': FileUrlUpload,
+  },
   props: {
     showNewDialog: Boolean,
     copy: Boolean,
@@ -220,9 +228,14 @@ export default defineComponent({
   },
   emits: ['cancel'],
   setup(props) {
-    const { requiredFields, config, ...useCollection } = useChroma('collections')
-    const { items: promptTemplateItems } = useChroma('promptTemplates')
-    const { items: providerItems } = useChroma('provider')
+    const { config, requiredFields } = useEntityConfig('collections')
+    const queries = useEntityQueries()
+    const collectionStore = useCollectionDetailStore()
+    const { data: promptTemplateListData } = queries.promptTemplates.useList()
+    const { data: providerListData } = queries.provider.useList()
+    const { mutateAsync: createCollection } = queries.collections.useCreate()
+    const { mutateAsync: updateCollection } = queries.collections.useUpdate()
+    const { data: modelListData } = queries.model.useList()
 
     const intervals = [
       { label: 'Every 5 min', value: 'every_5_minutes' },
@@ -268,7 +281,11 @@ export default defineComponent({
       // required_fields: ['name', 'title', 'source_type' ,'category','type'],
       requiredFields,
       config,
-      useCollection,
+      createCollection,
+      updateCollection,
+      promptTemplateListData,
+      providerListData,
+      modelListData,
       autoChangeCode: ref(true),
       isMounted: ref(false),
       stepper: ref(0),
@@ -285,15 +302,21 @@ export default defineComponent({
         error_email: '',
         customCron: '*/10 * * * *',
       }),
-      promptTemplateItems,
-      providerItems,
       // Direct access to reactive plugin data
       sourceTypeOptions,
       sourceTypeChildren,
+      collectionStore,
+      appStore: useAppStore(),
       // New reactive property for sync confirmation display
     }
   },
   computed: {
+    promptTemplateItems() {
+      return this.promptTemplateListData?.items ?? []
+    },
+    providerItems() {
+      return this.providerListData?.items ?? []
+    },
     providerOptions() {
       // Filter only knowledge providers
       return (this.providerItems || []).filter((provider) => provider.category === 'knowledge')
@@ -337,11 +360,14 @@ export default defineComponent({
         id: item.id,
       }))
     },
+    modelItems() {
+      return this.modelListData?.items ?? []
+    },
     modelOptions() {
-      return (this.$store.getters['chroma/model'].items || []).filter((el) => el.type === 'embeddings')
+      return (this.modelItems || []).filter((el) => el.type === 'embeddings')
     },
     currentRaw() {
-      return this.$store.getters.knowledge
+      return this.collectionStore.entity
     },
     nameCalc: {
       get() {
@@ -375,6 +401,16 @@ export default defineComponent({
         delete this.customFields.output_config
       }
     },
+    // When provider data loads asynchronously (TanStack Query), apply provider config
+    providerItems(items) {
+      if (this.providerSystemName && items?.length && !this.source_type) {
+        const provider = items.find((p) => p.system_name === this.providerSystemName)
+        if (provider) {
+          this.source_type = provider.type
+          this.applyProviderConnectionParams(provider)
+        }
+      }
+    },
     supportSemanticSearch(newValue) {
       if (newValue) {
         this.$refs.semantic_search_supportedRef?.resetValidation()
@@ -394,7 +430,7 @@ export default defineComponent({
     // Clear knowledge store to prevent stale data (e.g. uploaded_files) from
     // a previously viewed knowledge source leaking into the new creation form.
     if (!this.copy) {
-      this.$store.commit('setKnowledge', { name: '', system_name: '', description: '' })
+      this.collectionStore.setEntity({ name: '', system_name: '', description: '' })
     }
 
     // Set provider_system_name from providerSystemName prop if provided
@@ -515,6 +551,15 @@ export default defineComponent({
       // Transform Documentation source fields
       const transformedSource = this.transformSourceFields(source)
 
+      // Merge temp-uploaded files (file_id refs) from store into source payload
+      const tempUploadedFiles = this.collectionStore.entity?.source?.uploaded_files || []
+      if (tempUploadedFiles.length) {
+        transformedSource.uploaded_files = [
+          ...(transformedSource.uploaded_files || []),
+          ...tempUploadedFiles,
+        ]
+      }
+
       const merged_metadata = {
         ...JSON.parse(metadata ?? {}),
         ...this.customFields,
@@ -541,13 +586,13 @@ export default defineComponent({
           fulltext_search_supported: supportKeywordSearch,
         },
       }
-      const { id: inserted_id } = await this.useCollection.create(JSON.stringify(merged_metadata))
+      const { id: inserted_id } = await this.createCollection(merged_metadata)
 
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'Knowledge source has been created.',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
 
@@ -555,10 +600,10 @@ export default defineComponent({
         await this.createOneTimeJob()
 
         this.$q.notify({
-          position: 'top',
+          color: 'green-9', textColor: 'white',
+          icon: 'check_circle',
+          group: 'success',
           message: 'Sync job has been created.',
-          color: 'positive',
-          textColor: 'black',
           timeout: 1000,
         })
       }
@@ -573,7 +618,7 @@ export default defineComponent({
         id: inserted_id,
         job_id: job?.job_id || null,
       }
-      this.$store.commit('setKnowledge', knowledgeData)
+      this.collectionStore.setEntity(knowledgeData)
 
       // Navigate to the detail page
       const targetPath = `/knowledge-sources/${inserted_id}`
@@ -614,22 +659,32 @@ export default defineComponent({
           cron = { minute: '0', hour, day_of_month: '*', day_of_week: this.form.day }
         }
 
-        const job = await this.$store.dispatch('createAndRunJobScheduler', {
-          name: this.form.name,
-          job_type: 'recurring',
-          cron,
-          notification_email: this.form.error_email,
-          interval: this.form.interval,
-          run_configuration: {
-            type: 'sync_collection',
-            params: {
-              system_name: this.system_name,
+        const schedulerEndpoint = this.appStore.config?.scheduler?.endpoint
+        const schedulerService = this.appStore.config?.scheduler?.service
+        const schedulerCredentials = this.appStore.config?.scheduler?.credentials
+        const jobResponse = await fetchData({
+          endpoint: schedulerEndpoint,
+          service: `${schedulerService}/create-job`,
+          method: 'POST',
+          body: JSON.stringify({
+            name: this.form.name,
+            job_type: 'recurring',
+            cron,
+            notification_email: this.form.error_email,
+            interval: this.form.interval,
+            run_configuration: {
+              type: 'sync_collection',
+              params: {
+                system_name: this.system_name,
+              },
             },
-          },
-          // get user timezone for apscheduler
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }),
+          credentials: schedulerCredentials,
+          headers: { 'Content-Type': 'application/json' },
         })
-        await this.useCollection.update({ id: inserted_id, data: { job_id: job.job_id } })
+        const job = await jobResponse.json()
+        await this.updateCollection({ id: inserted_id, data: { job_id: job.job_id } })
         return job
       }
       return null
@@ -648,12 +703,23 @@ export default defineComponent({
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       }
 
-      const job = await this.$store.dispatch('createAndRunJobScheduler', jobData)
+      const endpoint = this.appStore.config?.scheduler?.endpoint
+      const service = this.appStore.config?.scheduler?.service
+      const credentials = this.appStore.config?.scheduler?.credentials
+      const response = await fetchData({
+        endpoint,
+        service: `${service}/create-job`,
+        method: 'POST',
+        body: JSON.stringify(jobData),
+        credentials,
+        headers: { 'Content-Type': 'application/json' },
+      })
+      const job = await response.json()
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'Sync job has been created.',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
       return job
@@ -723,7 +789,7 @@ export default defineComponent({
       this.metadata = '{}'
       this.stepper = 0
 
-      this.$store.commit('setKnowledge', { name: '', system_name: '', description: '' })
+      this.collectionStore.setEntity({ name: '', system_name: '', description: '' })
 
       this.customFields = {}
 

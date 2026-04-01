@@ -27,6 +27,7 @@
 
 <script>
 import { ref } from 'vue'
+import { useApiServerDetailStore } from '@/stores/entityDetailStores'
 export default {
   props: {
     apiTool: {
@@ -35,12 +36,13 @@ export default {
     },
   },
   setup() {
+    const apiServerStore = useApiServerDetailStore()
     const selectedParameters = ref({ label: 'Current parameters', value: 'current' })
     const parametersOptions = ref([
       { label: 'Current parameters', value: 'current' },
       { label: 'Original parameters', value: 'original' },
     ])
-    return { selectedParameters, parametersOptions }
+    return { selectedParameters, parametersOptions, apiServerStore }
   },
   computed: {
     isProviderMock() {
@@ -54,7 +56,7 @@ export default {
         return this.apiTool.mock_response_enabled || false
       },
       set(value) {
-        this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: 'mock_response_enabled', value })
+        this.apiServerStore.updateNestedProperty({ system_name: this.apiTool.system_name, path: 'mock_response_enabled', value })
       },
     },
     mockContent: {
@@ -62,7 +64,7 @@ export default {
         return this.apiTool?.mock_response?.content || ''
       },
       set(value) {
-        this.$store.commit('setNestedApiServerProperty', { system_name: this.apiTool.system_name, path: 'mock_response.content', value })
+        this.apiServerStore.updateNestedProperty({ system_name: this.apiTool.system_name, path: 'mock_response.content', value })
       },
     },
   },

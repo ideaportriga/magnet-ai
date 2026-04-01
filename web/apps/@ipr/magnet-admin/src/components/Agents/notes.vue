@@ -7,14 +7,19 @@ div
 </template>
 
 <script>
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 export default {
+  setup() {
+    const agentStore = useAgentDetailStore()
+    return { agentStore }
+  },
   computed: {
     notes: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.notes || ''
+        return this.agentStore.activeVariant?.value?.settings?.notes || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.notes', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.notes', value })
       },
     },
   },

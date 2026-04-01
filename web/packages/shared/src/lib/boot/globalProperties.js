@@ -2,15 +2,25 @@ import { DateTime } from 'luxon'
 // import tableColumns from '@/config/tableColumns.js'
 import { formatDate, hasProps, sortAlphabetically } from '@shared'
 import { isEmpty, isObject, cloneDeep } from 'lodash'
-import store from '@/store/index'
+import { useSharedAuthStore } from '../stores/authStore'
 
 const setGlobalLoading = function (globalLoading) {
-  store.commit('set', { globalLoading })
+  try {
+    const store = useSharedAuthStore()
+    store.globalLoading = globalLoading
+  } catch {
+    // Store not initialized yet
+  }
 }
 
 const setGlobalErrorMessage = function (text, technicalError) {
-  const errorMessage = { text, technicalError }
-  store.commit('set', { errorMessage, globalLoading: false, lockUI: false })
+  try {
+    const store = useSharedAuthStore()
+    store.errorMessage = { text, technicalError }
+    store.globalLoading = false
+  } catch {
+    // Store not initialized yet
+  }
 }
 
 export const globalProperties = {

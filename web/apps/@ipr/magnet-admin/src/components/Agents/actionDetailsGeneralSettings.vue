@@ -29,16 +29,24 @@ div
 </template>
 
 <script>
-import { useChroma } from '@shared'
+import { computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
 
 export default {
   emits: ['openTest'],
   setup() {
-    const { items: promptTemplateItems } = useChroma('promptTemplates')
-    const { items: ragItems } = useChroma('rag_tools')
-    const { items: apiServers } = useChroma('api_servers')
+    const agentStore = useAgentDetailStore()
+    const queries = useEntityQueries()
+    const { data: promptTemplateData } = queries.promptTemplates.useList()
+    const promptTemplateItems = computed(() => promptTemplateData.value?.items ?? [])
+    const { data: ragData } = queries.rag_tools.useList()
+    const ragItems = computed(() => ragData.value?.items ?? [])
+    const { data: apiServersData } = queries.api_servers.useList()
+    const apiServers = computed(() => apiServersData.value?.items ?? [])
 
     return {
+      agentStore,
       promptTemplateItems,
       ragItems,
       apiServers,
@@ -49,7 +57,7 @@ export default {
       return this.$route.params
     },
     topic() {
-      return (this.$store.getters.agentDetailVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     action() {
       return this.topic?.actions?.find((action) => action?.system_name == this.routeParams?.actionId)
@@ -59,7 +67,7 @@ export default {
         return this.action?.name || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           subArrayKey: 'actions',
@@ -75,7 +83,7 @@ export default {
         return this.action?.description || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -91,7 +99,7 @@ export default {
         return this.action?.system_name || ''
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -107,7 +115,7 @@ export default {
         return this.action?.function_name
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -123,7 +131,7 @@ export default {
         return this.action?.function_description
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -139,7 +147,7 @@ export default {
         return this.action?.display_name
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -155,7 +163,7 @@ export default {
         return this.action?.display_description
       },
       set(value) {
-        this.$store.commit('updateNestedAgentDetailListItemBySystemName', {
+        this.agentStore.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',

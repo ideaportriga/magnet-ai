@@ -187,6 +187,8 @@ class DeepResearchIteration(BaseModel):
 class DeepResearchMemory(BaseModel):
     """Memory structure for deep research run."""
 
+    MAX_CONVERSATION_HISTORY: int = 100
+
     search_queries: list[str] = Field(default_factory=list)
 
     # URL tracking with full context including raw content
@@ -218,6 +220,15 @@ class DeepResearchMemory(BaseModel):
 
     # Internal conversation history for LLM (not for display)
     conversation_history: list[dict[str, Any]] = Field(default_factory=list)
+
+    def append_to_history(self, message: dict[str, Any]) -> None:
+        """Append a message to conversation history, trimming old entries if needed."""
+        self.conversation_history.append(message)
+        if len(self.conversation_history) > self.MAX_CONVERSATION_HISTORY:
+            # Keep the first message (system context) and trim from the front
+            self.conversation_history = self.conversation_history[
+                -self.MAX_CONVERSATION_HISTORY :
+            ]
 
 
 class WebhookCallDetails(BaseModel):

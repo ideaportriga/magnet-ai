@@ -7,7 +7,7 @@
             <q-avatar icon="format_quote" color="primary-light" text-color="primary" size="32px" font-size="18px" />
             <div class="kg-expandable-prompt__header-text">
               <span class="km-heading-8 text-weight-medium">{{ title }}</span>
-              <span class="q-mt-2 text-secondary-text" style="font-size: 0.8rem">{{ description }}</span>
+              <span class="q-mt-2 text-secondary-text km-caption">{{ description }}</span>
             </div>
           </div>
         </template>
@@ -55,8 +55,8 @@ const onFocusOut = () => {
 }
 
 const sectionStyle = computed(() => ({
-  background: '#fafafa',
-  border: `1px solid #c5cae9`,
+  background: 'var(--q-background)',
+  border: `1px solid var(--q-primary-light)`,
 }))
 
 const innerSectionStyle = computed(() => ({
@@ -66,7 +66,7 @@ const innerSectionStyle = computed(() => ({
 
 <style scoped>
 .kg-expandable-prompt {
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 .kg-expandable-prompt :deep(.q-expansion-item) {
@@ -76,8 +76,8 @@ const innerSectionStyle = computed(() => ({
 .kg-expandable-prompt :deep(.q-item) {
   padding: 0;
   min-height: unset;
-  background: linear-gradient(135deg, #f5f7ff 0%, #ffffff 100%);
-  border-radius: 6px;
+  background: linear-gradient(135deg, var(--q-primary-bg) 0%, var(--q-white) 100%);
+  border-radius: var(--radius-md);
 }
 
 .kg-expandable-prompt :deep(.q-expansion-item__container) {
@@ -90,7 +90,7 @@ const innerSectionStyle = computed(() => ({
   gap: 8px;
   padding: 8px 16px 8px 12px;
   width: 100%;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 .kg-expandable-prompt:hover {
@@ -105,17 +105,17 @@ const innerSectionStyle = computed(() => ({
 
 .kg-expandable-prompt__content {
   padding: 12px 16px 16px;
-  border-top: 1px solid var(--section-border, #e0e0e0);
+  border-top: 1px solid var(--section-border, var(--q-border));
 }
 
 .kg-expandable-prompt__textarea :deep(.q-field__native) {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   line-height: 1.6;
-  color: #37474f;
+  color: var(--q-secondary);
 }
 
 .kg-expandable-prompt__textarea :deep(.q-field__native::placeholder) {
-  color: #b0bec5;
+  color: var(--q-border-2);
 }
 
 /* Expansion item styling overrides */
@@ -128,7 +128,7 @@ const innerSectionStyle = computed(() => ({
 }
 
 .kg-expandable-prompt__inner {
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   position: relative;
   margin: -1px -1px;
   border: 2px solid transparent;
@@ -136,11 +136,11 @@ const innerSectionStyle = computed(() => ({
 }
 
 :deep(.q-field__control:before) {
-  border-radius: 6px !important;
+  border-radius: var(--radius-md) !important;
 }
 
 :deep(.km-input:not(.q-field--readonly).q-field--outlined.q-field--highlighted .q-field__control::before) {
-  background: white !important;
+  background: var(--q-white) !important;
 }
 
 :deep(.km-input:not(.q-field--readonly) .q-field__control:hover::before) {

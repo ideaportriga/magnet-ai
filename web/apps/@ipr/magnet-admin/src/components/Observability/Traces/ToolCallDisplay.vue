@@ -1,7 +1,7 @@
 <template>
   <div class="column full-width">
-    <div v-for="(toolCall, toolIdx) in toolCalls" :key="toolIdx" class="row no-wrap tool-call-row">
-      <div class="tool-call-index">
+    <div v-for="(toolCall, toolIdx) in toolCalls" :key="toolIdx" class="row no-wrap tool-call-row km-body-sm">
+      <div class="tool-call-index km-caption">
         {{ toolIdx + 1 }}
       </div>
       <div class="tool-call-content">
@@ -100,41 +100,40 @@ function highlightJson(json: string): string {
 <style>
 /* Syntax Highlighting Colors - Vibrant Theme */
 .tool-call-row .key {
-  color: #d63384;
+  color: var(--q-error);
   font-weight: 500;
 }
 .tool-call-row .string {
-  color: #0a8754;
+  color: var(--q-success-text);
 }
 .tool-call-row .number {
-  color: #0d6efd;
+  color: var(--q-primary);
   font-weight: 500;
 }
 .tool-call-row .boolean {
-  color: #e35d00;
+  color: var(--q-warning);
   font-weight: 600;
 }
 .tool-call-row .null {
-  color: #e35d00;
+  color: var(--q-warning);
   font-style: italic;
   font-weight: 600;
 }
 .tool-call-row .punctuation {
-  color: #6c757d;
+  color: var(--q-icon);
 }
 .tool-call-row .function-name {
-  color: #7c3aed;
+  color: var(--q-primary);
   font-weight: 700;
 }
 </style>
 
 <style scoped>
 .tool-call-row {
-  font-size: 13px;
   font-family:
     'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Cascadia Mono', 'Segoe UI Mono', 'Liberation Mono', Menlo, Monaco, Consolas, monospace;
-  border-bottom: 1px solid #e8e8e8;
-  background-color: #ffffff;
+  border-bottom: 1px solid var(--q-border);
+  background-color: var(--q-white);
 }
 
 .tool-call-row:last-child {
@@ -147,10 +146,9 @@ function highlightJson(json: string): string {
   justify-content: center;
   padding: 12px 8px;
   min-width: 36px;
-  background-color: #f5f5f5;
-  color: #6e7681;
-  font-size: 12px;
-  border-right: 1px solid #e8e8e8;
+  background-color: var(--q-light);
+  color: var(--q-icon);
+  border-right: 1px solid var(--q-border);
   user-select: none;
 }
 
@@ -158,7 +156,7 @@ function highlightJson(json: string): string {
   flex: 1;
   padding: 12px;
   line-height: 1.5;
-  color: #24292f;
+  color: var(--q-black);
 }
 
 .tool-call-line {

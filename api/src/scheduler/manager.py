@@ -17,7 +17,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from litestar import Request
 from sqlalchemy import QueuePool
 
-from core.config.base import get_database_settings, get_scheduler_settings
 from scheduler.types import JobStatus
 from scheduler.utils import format_next_run_time, update_job_status
 
@@ -204,38 +203,17 @@ async def create_scheduler() -> AsyncIOScheduler:
         timezone=pytz.UTC,
     )
 
-    # Get database and scheduler settings from configuration
-    db_settings = get_database_settings()
-    scheduler_settings = get_scheduler_settings()
+    # Use the shared sync engine instead of creating a dedicated one.
+    # This reduces total connection pool count (see DATABASE_OPTIMIZATION_ROADMAP.md §2.1).
+    from core.db.sync_engine import get_shared_sync_engine
 
-    # Get synchronous database URL for APScheduler
-    sync_connection_string = scheduler_settings.get_scheduler_database_url(db_settings)
-
-    if not sync_connection_string:
-        logger.error("Database URL could not be determined from configuration")
-        raise RuntimeError(
-            "Database URL is required for scheduler. Check DATABASE_URL or DB_* environment variables."
-        )
-
-    # Get engine options from scheduler settings
-    engine_options = scheduler_settings.get_engine_options()
-
-    # Add database-specific connect_args
-    if "postgresql" in sync_connection_string:
-        engine_options["connect_args"] = {"application_name": "magnetui_scheduler"}
-
-    logger.info(
-        f"Configuring scheduler jobstore with pool_size={scheduler_settings.SCHEDULER_POOL_SIZE}, "
-        f"max_overflow={scheduler_settings.SCHEDULER_MAX_POOL_OVERFLOW}, "
-        f"pool_timeout={scheduler_settings.SCHEDULER_POOL_TIMEOUT}s, "
-        f"pool_recycle={scheduler_settings.SCHEDULER_POOL_RECYCLE}s"
-    )
+    shared_engine = get_shared_sync_engine()
+    logger.info("Configuring scheduler jobstore with shared sync engine")
 
     scheduler.add_jobstore(
         "sqlalchemy",
         "default",
-        url=sync_connection_string,
-        engine_options=engine_options,
+        engine=shared_engine,
     )
 
     # Add all event listeners

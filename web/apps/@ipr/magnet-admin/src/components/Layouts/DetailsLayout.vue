@@ -1,21 +1,25 @@
 <template lang="pug">
 .row.no-wrap.overflow-hidden.full-height.details-layout
-  .col.no-wrap.full-height.justify-center.fit.q-px-md.no-wrap.q-py-lg(:style='contentContainerStyle')
+  .col.no-wrap.full-height.justify-center.fit.q-px-md.no-wrap.q-pt-sm.q-pb-lg(:style='contentContainerStyle')
     .column.full-height.no-wrap
       slot(name='breadcrumbs')
         div
-      .items-center.q-gap-12.no-wrap.full-width.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16(v-if='!noHeader')
-        slot(name='header')
-          layouts-details-header(
-            :name='name',
-            @update:name='(value) => $emit("update:name", value)',
-            :description='description',
-            @update:description='(value) => $emit("update:description", value)',
-            :systemName='systemName',
-            @update:systemName='(value) => $emit("update:systemName", value)',
-            :infoText='infoText'
-          )
-        slot(name='subheader', v-if='variants?.length > 0')
+      .full-width.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16(v-if='!noHeader')
+        .row.items-center.no-wrap.full-width
+          .col
+            slot(name='header')
+              layouts-details-header(
+                :name='name',
+                @update:name='(value) => $emit("update:name", value)',
+                :description='description',
+                @update:description='(value) => $emit("update:description", value)',
+                :systemName='systemName',
+                @update:systemName='(value) => $emit("update:systemName", value)',
+                :infoText='infoText'
+              )
+          .col-auto.row.items-start.no-wrap.q-gap-8.q-ml-md(v-if='$slots["header-actions"]')
+            slot(name='header-actions')
+        slot(name='subheader', v-if='$slots.subheader || variants?.length > 0')
           layouts-details-sub-header(
             :variants='variants',
             :selectedVariant='selectedVariant',
@@ -26,7 +30,7 @@
             @selectVariant='emit("selectVariant", $event)',
             @updateVariantProperty='emit("updateVariantProperty", $event)'
           )
-      .ba-border.bg-white.border-radius-8.q-pa-16.overflow-hidden.no-wrap.column
+      .col.overflow-hidden.no-wrap.column(:class='noContentWrapper ? "" : "ba-border bg-white border-radius-8 q-pa-16"', style='min-height: 0')
         slot(name='content')
           div Content
   .col-auto
@@ -53,6 +57,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  noContentWrapper: {
+    type: Boolean,
+    default: false,
+  },
   variants: {
     type: Array,
     default: () => [],
@@ -65,7 +73,10 @@ const props = defineProps({
     type: String,
     default: '',
   },
-  contentContainerStyle: {},
+  contentContainerStyle: {
+    type: Object,
+    default: () => ({}),
+  },
 })
 const emit = defineEmits([
   'update:name',

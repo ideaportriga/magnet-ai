@@ -80,8 +80,12 @@ km-popup-confirm(
 
 <script>
 import { ref, reactive } from 'vue'
-import { useChroma, toUpperCaseWithUnderscores } from '@shared'
+import { toUpperCaseWithUnderscores } from '@shared'
+import { useEntityConfig } from '@/composables/useEntityConfig'
+import { useEntityQueries } from '@/queries/entities'
+import { getEntityApis } from '@/api'
 import { categoryOptions } from '../../config/model/model.js'
+import { useProviderDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: {
@@ -92,11 +96,15 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { config, create, requiredFields } = useChroma('model')
+    const { config, requiredFields } = useEntityConfig('model')
+    const queries = useEntityQueries()
+    const providerStore = useProviderDetailStore()
+    const { mutateAsync: createModelMutation } = queries.model.useCreate()
 
     return {
+      providerStore,
       config,
-      create,
+      createModelMutation,
       requiredFields,
       autoChangeCode: ref(true),
       autoChangeDisplayName: ref(true),
@@ -131,7 +139,7 @@ export default {
   },
   computed: {
     provider() {
-      return this.$store.getters.provider
+      return this.providerStore.entity
     },
     cancelLabel() {
       return 'Cancel'
@@ -210,14 +218,12 @@ export default {
     
     // Fetch available models for auto-detection
     if (this.provider?.id) {
-       this.$store.dispatch('chroma/availableModels', { 
-         payload: this.provider.id, 
-         entity: 'provider' 
-       }).then(result => {
+       const apis = getEntityApis()
+       apis.provider.availableModels(this.provider.id).then(result => {
          if (result && result.models) {
            this.availableModels = result.models
          }
-       }).catch(console.error)
+       }).catch(() => {})
     }
   },
   beforeUnmount() {
@@ -296,7 +302,7 @@ export default {
         delete payload.configs
       }
 
-      await this.create(JSON.stringify(payload))
+      await this.createModelMutation(payload)
       this.$emit('cancel')
     },
   },
@@ -305,5 +311,5 @@ export default {
 
 <style lang="stylus" scoped>
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

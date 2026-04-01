@@ -120,12 +120,14 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
-import { QTableColumn, useQuasar } from 'quasar'
+import { QTableColumn } from 'quasar'
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNotify } from '@/composables/useNotify'
 import { KgConfirmDialog, KgTableToolbar } from '../common'
 import { fetchKnowledgeGraphSources } from '../Sources/api'
 import type { SourceRow } from '../Sources/models'
+import type { KnowledgeGraphDetails } from '../types'
 import ContentConfigDialog from './ContentConfigDialog.vue'
 import {
   ContentConfigRow,
@@ -137,7 +139,7 @@ import {
 
 interface Props {
   graphId: string
-  graphDetails: Record<string, any>
+  graphDetails: KnowledgeGraphDetails
 }
 
 const props = defineProps<Props>()
@@ -145,10 +147,10 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifyError } = useNotify()
 
-const apiReady = computed(() => Boolean(store.getters.config?.api?.aiBridge?.urlAdmin))
+const apiReady = computed(() => Boolean(appStore.config?.api?.aiBridge?.urlAdmin))
 
 const saving = ref(false)
 const contentConfigs = ref<any[]>([])
@@ -220,14 +222,14 @@ const initializeForm = () => {
 
 const fetchSources = async () => {
   try {
-    const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+    const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) return
     sources.value = await fetchKnowledgeGraphSources({
       endpoint,
       graphId: props.graphId,
     })
   } catch (error) {
-    console.error('Error fetching sources:', error)
+
   }
 }
 
@@ -251,7 +253,7 @@ const loadContentConfigs = async () => {
     contentConfigs.value = []
     virtualFallbackConfig.value = null
   } catch (error) {
-    console.error('Error loading content configs:', error)
+
   } finally {
     loadingContentConfigs.value = false
   }
@@ -303,7 +305,7 @@ const persistContentConfigs = async (nextConfigs: any[], errorMessage = 'Failed 
   saving.value = true
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const payload = {
       content_configs: clonedNextConfigs,
     }
@@ -320,7 +322,7 @@ const persistContentConfigs = async (nextConfigs: any[], errorMessage = 'Failed 
       const responseErrorMessage = await getResponseErrorMessage(res, errorMessage)
       contentConfigs.value = previousConfigs
       originalContentConfigs.value = previousOriginalConfigs
-      $q.notify({ type: 'negative', message: responseErrorMessage })
+      notifyError(responseErrorMessage)
       return false
     }
 
@@ -328,13 +330,10 @@ const persistContentConfigs = async (nextConfigs: any[], errorMessage = 'Failed 
     emit('refresh')
     return true
   } catch (error) {
-    console.error('Error saving content profiles:', error)
+
     contentConfigs.value = previousConfigs
     originalContentConfigs.value = previousOriginalConfigs
-    $q.notify({
-      type: 'negative',
-      message: errorMessage,
-    })
+    notifyError(errorMessage)
     return false
   } finally {
     saving.value = false
@@ -430,7 +429,7 @@ watch(
 
 <style scoped>
 :deep(.q-table thead th) {
-  font-size: 14px;
+  font-size: var(--km-body-sm-size, 14px);
   font-weight: 600;
 }
 
@@ -443,11 +442,11 @@ watch(
   position: sticky;
   right: 0;
   z-index: 1;
-  background: white;
+  background: var(--q-white);
 }
 
 :deep(tr:hover .sticky-col) {
-  background: white;
+  background: var(--q-white);
 }
 
 :deep(thead th:last-child) {

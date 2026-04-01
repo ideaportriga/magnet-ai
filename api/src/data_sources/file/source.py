@@ -18,19 +18,22 @@ class UrlDataSource(DataSource[str]):
         urls: list[str],
         allowed_extensions: list[str] | None = None,
         local_files: list[dict] | None = None,
+        stored_files: list[dict] | None = None,
     ) -> None:
-        """Initializes the UrlDataSource with a list of URLs and optional local files.
+        """Initializes the UrlDataSource with a list of URLs and optional local/stored files.
 
         Args:
-            urls (List[str]): A list of public URLs pointing to files.
-            allowed_extensions (List[str], optional): List of allowed file extensions (e.g., ['.pdf', '.mp4']).
-            If None, all files are allowed.
-            local_files: Optional list of dicts with 'filename' and 'storage_path' keys
-            for files uploaded from the filesystem.
+            urls: A list of public URLs pointing to files.
+            allowed_extensions: List of allowed file extensions (e.g., ['.pdf', '.mp4']).
+                If None, all files are allowed.
+            local_files: Legacy list of dicts with 'filename' and 'storage_path' keys.
+            stored_files: List of dicts with 'filename' and 'file_id' keys
+                (references to StoredFile records).
 
         """
         self._urls = urls
         self._local_files = local_files or []
+        self._stored_files = stored_files or []
         self._allowed_extensions = (
             {ext.lower() for ext in allowed_extensions} if allowed_extensions else None
         )
@@ -69,7 +72,19 @@ class UrlDataSource(DataSource[str]):
         else:
             logger.info(f"Returning all {len(urls)} URLs.")
 
-        # Add local file identifiers
+        # Add stored file identifiers (new: StorageService-backed)
+        for sf in self._stored_files:
+            stored_id = f"stored://{sf['file_id']}"
+            if self._allowed_extensions:
+                ext = os.path.splitext(sf["filename"])[1].lower()
+                if ext not in self._allowed_extensions:
+                    continue
+            urls.append(stored_id)
+
+        if self._stored_files:
+            logger.info(f"Added {len(self._stored_files)} stored files.")
+
+        # Legacy: local file identifiers (pre-Phase 3 uploads)
         for lf in self._local_files:
             local_id = f"local://{lf['storage_path']}"
             if self._allowed_extensions:
@@ -79,7 +94,7 @@ class UrlDataSource(DataSource[str]):
             urls.append(local_id)
 
         if self._local_files:
-            logger.info(f"Added {len(self._local_files)} local files.")
+            logger.info(f"Added {len(self._local_files)} legacy local files.")
 
         return urls
 

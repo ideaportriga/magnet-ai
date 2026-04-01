@@ -1,44 +1,42 @@
 <template lang="pug">
-.row.no-wrap.full-height.justify-center.q-pa-16.bg-white.fit.relative-position.bl-border(style='max-width: 500px; min-width: 500px !important')
-  .column(v-if='!showChunkInfo')
-    .col-auto.km-heading-7.q-mb-xs
+km-drawer-layout(storageKey="drawer-retrieval", noScroll)
+  template(#header)
+    .km-heading-7(v-if='!showChunkInfo')
       .row
         .col Preview
+  .column.full-height(v-if='!showChunkInfo')
+    .col.column.no-wrap.q-pb-md.relative-position.q-px-16
+      template(v-if='uiSettings?.header_configuration?.header')
+        .row.justify-center.q-pb-12.q-pt-md.q-gap-2.items-center.full-width.text-center
+          .km-heading-5 {{ uiSettings?.header_configuration?.header }}
+        .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
+          .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
+      retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter', :sources='collectionSystemNames')
+      q-separator.q-mt-md(v-if='allowMetadataFilter')
+      retrieval-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, retrieval, :searchString='searchString', @searchRetrieval='handleSearchRetrieval')
+      template(v-if='isShowHints')
+        .row.items-center
+          .col.km-heading-3 You can ask like this...
+          .col-auto
+            km-btn(flat, color='primary', @click='showHints = false')
+              .km-button-text Don't show hints
+        template(v-for='(item, index) in sampleQuestion', :key='index')
+          km-btn(flat, @click='refine(item)')
+            .wrapped-text {{ item }}
+      template(v-if='answers.length || loading')
+        q-scroll-area.full-height.col(ref='scroll')
+          .column.q-gap-16
+            template(v-if='loading')
+              .row.justify-center.ba-border.border-radius-12.bg-white.q-pa-16.q-gap-16
+                q-spinner-dots(size='62px', color='primary')
+            template(v-for='answer in answers')
+              retrieval-answer(:answer='answer', @refine='refine', @selectAnswer='setDetailInfo')
     q-separator.q-mb-xs
-    .col
-      .column.no-wrap.full-height.q-pb-md.relative-position
-        template(v-if='uiSettings?.header_configuration?.header')
-          .row.justify-center.q-pb-12.q-pt-md.q-gap-2.items-center.full-width.text-center
-            .km-heading-5 {{ uiSettings?.header_configuration?.header }}
-          .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
-            .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
-        retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter', :sources='collectionSystemNames')
-        q-separator.q-mt-md(v-if='allowMetadataFilter')
-        retrieval-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, retrieval, :searchString='searchString')
-        template(v-if='isShowHints')
-          .row.items-center
-            .col.km-heading-3 You can ask like this...
-            .col-auto
-              km-btn(flat, color='primary', @click='showHints = false')
-                .km-button-text Don’t show hints
-          template(v-for='(item, index) in sampleQuestion', :key='index')
-            km-btn(flat, @click='refine(item)')
-              .wrapped-text {{ item }}
-        template(v-if='answers.length || loading')
-          q-scroll-area.full-height.col(ref='scroll')
-            .column.q-gap-16
-              template(v-if='loading')
-                .row.justify-center.ba-border.border-radius-12.bg-white.q-pa-16.q-gap-16
-                  q-spinner-dots(size='62px', color='primary')
-              template(v-for='answer in answers')
-                retrieval-answer(:answer='answer', @refine='refine', @selectAnswer='setDetailInfo')
-    q-separator.q-mb-xs
-    .col-auto
+    .col-auto.q-px-16
       .row.items-center
         km-btn(flat, simple, label='Clear preview', iconSize='16px', icon='fas fa-eraser', @click='clearAnswers', :disable='!answers?.length')
   template(v-if='showChunkInfo')
     collections-drawer-chunk(:selectedRow='selectedAnswer', @close='showChunkInfo = false')
-  //- TODO: Add a new component for this
   km-popup-confirm(
     :visible='showEvaluationCreateDialog',
     confirmButtonLabel='View Evaluation',
@@ -49,23 +47,30 @@
   )
     .row.item-center.justify-center.km-heading-7 Evaluation has started!
     .row.text-center.justify-center It may take some time for the Evaluation to finish.
-    .row.text-center.justify-center You’ll be able to view run results on the Evaluation screen.
+    .row.text-center.justify-center You'll be able to view run results on the Evaluation screen.
 </template>
 
 <script>
-import { useState } from '@shared'
 import { ref } from 'vue'
+import { storeToRefs } from 'pinia'
+import useState from '@shared/composables/useState'
+import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useSearchStore } from '@/stores/searchStore'
 
 export default {
   props: ['open'],
   setup() {
-    const answers = useState('answers')
-    const loading = useState('answersLoading')
-    const metadataFilter = useState('metadataFilter')
+    const retrievalStore = useRetrievalDetailStore()
+    const searchStore = useSearchStore()
+    const { answers, answersLoading: loading, metadataFilter } = storeToRefs(searchStore)
+    const sharedPrompt = useState('searchPrompt')
     return {
+      retrievalStore,
+      searchStore,
       loading,
       answers,
       metadataFilter,
+      sharedPrompt,
       showHints: ref(true),
       selectedAnswer: ref({}),
       showChunkInfo: ref(false),
@@ -77,7 +82,7 @@ export default {
   },
   computed: {
     retrievalId() {
-      return this.$store.getters.retrieval?.id || ''
+      return this.retrievalStore.entity?.id || ''
     },
     isShowHints() {
       return (
@@ -90,22 +95,22 @@ export default {
       )
     },
     sampleQuestion() {
-      return this.$store.getters.retrievalVariant?.ui_settings?.sample_questions?.questions
+      return this.retrievalStore.activeVariant?.ui_settings?.sample_questions?.questions
     },
     uiSettings() {
-      return this.$store.getters.retrievalVariant?.ui_settings
+      return this.retrievalStore.activeVariant?.ui_settings
     },
     retrievalTestSetItem() {
-      return this.$store.getters.retrievalTestSetItem
+      return this.retrievalStore.testSetItem
     },
     retrievalCode() {
-      return this.$store.getters.retrieval.system_name
+      return this.retrievalStore.entity.system_name
     },
     allowMetadataFilter() {
-      return this.$store.getters.retrievalVariant?.retrieve?.allow_metadata_filter || false
+      return this.retrievalStore.activeVariant?.retrieve?.allow_metadata_filter || false
     },
     collectionSystemNames() {
-      return this.$store.getters.retrievalVariant?.retrieve?.collection_system_names || []
+      return this.retrievalStore.activeVariant?.retrieve?.collection_system_names || []
     },
   },
   watch: {
@@ -141,12 +146,20 @@ export default {
       }
     },
     setDetailInfo(info) {
-      console.log('setDetailInfo', info)
       this.selectedAnswer = info
       this.showChunkInfo = true
     },
+    async handleSearchRetrieval() {
+      const variant = this.retrievalStore.activeVariant
+      const entity = this.retrievalStore.entity
+      if (variant && entity) {
+        // Sync prompt from shared UI state to searchStore before calling API
+        this.searchStore.searchPrompt = this.sharedPrompt || ''
+        await this.searchStore.getAnswerRetrieval(variant, entity)
+      }
+    },
     clearAnswers() {
-      this.$store.commit('clearAnswers')
+      this.searchStore.clearAnswers()
     },
     refine(question) {
       this.$refs?.prompt?.refine(question)

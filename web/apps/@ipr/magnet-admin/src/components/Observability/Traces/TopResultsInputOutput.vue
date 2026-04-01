@@ -11,24 +11,24 @@
   .km-button-text.bb-border.q-pb-4.q-pl-sm.q-mt-lg Selected results
   .col-auto.ba-border.border-radius-8(v-for='(document, index) in span?.output', style='max-width: 463px')
     .row.q-gap-12.q-pa-sm.bg-light.no-wrap.cursor-pointer(style='border-radius: 8px 8px 0 0', @click='toggleSelectedResultsCollapse(index)')
-      .row(style='font-size: 13px') {{ document?.metadata?.title ?? document?.metadata?.name }}
-      q-space 
-      .row(style='font-size: 13px') {{ formatScore(document?.score) }}
+      .row.km-body-sm {{ document?.metadata?.title ?? document?.metadata?.name }}
+      q-space
+      .row.km-body-sm {{ formatScore(document?.score) }}
       q-icon(:name='selectedResultsCollapsed[index] ? "expand_less" : "expand_more"', size='16px')
-    .row.q-pa-sm.bt-border(
+    .row.q-pa-sm.bt-border.km-body-sm(
       v-if='selectedResultsCollapsed[index]',
-      style='min-height: 50px; font-size: 13px; white-space: pre-wrap; word-break: break-all'
+      style='min-height: 50px; white-space: pre-wrap; word-break: break-all'
     ) {{ document?.content }}
   .km-button-text.bb-border.q-pb-4.q-pl-sm.q-mt-lg Discarded results
   .col-auto.ba-border.border-radius-8(v-for='(document, index) in discardedResults', style='max-width: 463px')
     .row.q-gap-12.q-pa-sm.bg-light.no-wrap.cursor-pointer(style='border-radius: 8px 8px 0 0', @click='toggleDiscardedResultsCollapse(index)')
-      .row(style='font-size: 13px') {{ document?.metadata?.title ?? document?.metadata?.name }}
-      q-space 
-      .row(style='font-size: 13px') {{ formatScore(document?.score) }}
+      .row.km-body-sm {{ document?.metadata?.title ?? document?.metadata?.name }}
+      q-space
+      .row.km-body-sm {{ formatScore(document?.score) }}
       q-icon(:name='discardedResultsCollapsed[index] ? "expand_less" : "expand_more"', size='16px')
-    .row.q-pa-sm.bt-border(
+    .row.q-pa-sm.bt-border.km-body-sm(
       v-if='discardedResultsCollapsed[index]',
-      style='min-height: 50px; font-size: 13px; white-space: pre-wrap; word-break: break-all'
+      style='min-height: 50px; white-space: pre-wrap; word-break: break-all'
     ) {{ document?.content }}
 </template>
 

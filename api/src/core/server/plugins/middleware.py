@@ -22,6 +22,11 @@ class MiddlewarePlugin(InitPluginProtocol):
         """Configure middleware stack."""
         middlewares: list[Middleware] = []
 
+        # Request ID must be first so all subsequent middleware/handlers see it
+        from middlewares.request_id import RequestIdMiddleware
+
+        middlewares.append(RequestIdMiddleware)
+
         # Add database error logging middleware
         try:
             from middlewares.database_error import DatabaseErrorLoggingMiddleware

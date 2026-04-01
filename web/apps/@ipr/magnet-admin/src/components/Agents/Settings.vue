@@ -37,6 +37,8 @@ div
 </template>
 
 <script>
+import { useAgentDetailStore } from '@/stores/agentDetailStore'
+
 const intervals = [
   { label: '1 day', value: '1D' },
   { label: '3 day', value: '3D' },
@@ -50,7 +52,9 @@ const memoryStrategyOptions = [
 
 export default {
   setup() {
+    const agentStore = useAgentDetailStore()
     return {
+      agentStore,
       intervals,
       memoryStrategyOptions,
     }
@@ -62,67 +66,67 @@ export default {
   computed: {
     settingsWelcomeMessage: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.welcome_message || ''
+        return this.agentStore.activeVariant?.value?.settings?.welcome_message || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.welcome_message', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.welcome_message', value })
       },
     },
     settingsUserFeedback: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.user_feedback || false
+        return this.agentStore.activeVariant?.value?.settings?.user_feedback || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.user_feedback', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.user_feedback', value })
       },
     },
     settingsSampleQuestions: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.enabled || false
+        return this.agentStore.activeVariant?.value?.settings?.sample_questions?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.sample_questions.enabled', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.sample_questions.enabled', value })
       },
     },
     question1: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.questions?.question1 || ''
+        return this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question1 || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.sample_questions.questions.question1', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.sample_questions.questions.question1', value })
       },
     },
     question2: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.questions?.question2 || ''
+        return this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question2 || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.sample_questions.questions.question2', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.sample_questions.questions.question2', value })
       },
     },
     question3: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.sample_questions?.questions?.question3 || ''
+        return this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question3 || ''
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.sample_questions.questions.question3', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.sample_questions.questions.question3', value })
       },
     },
     memoryStrategy: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.memory_strategy || 'last_n'
+        return this.agentStore.activeVariant?.value?.settings?.memory_strategy || 'last_n'
       },
       set(value) {
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.memory_strategy', value })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.memory_strategy', value })
       },
     },
     memoryLastNMessages: {
       get() {
-        return this.$store.getters.agentDetailVariant?.value?.settings?.memory_last_n_messages ?? null
+        return this.agentStore.activeVariant?.value?.settings?.memory_last_n_messages ?? null
       },
       set(value) {
         const parsed = value === '' || value === null ? null : Number(value)
-        this.$store.dispatch('updateNestedAgentDetailProperty', { path: 'settings.memory_last_n_messages', value: parsed })
+        this.agentStore.updateNestedVariantProperty({ path: 'settings.memory_last_n_messages', value: parsed })
       },
     },
   },

@@ -106,7 +106,7 @@ export default {
 
 .km-input-flat-error {
   color: var(--q-negative);
-  font-size: 11px;
+  font-size: var(--km-font-size-sm);
   padding: 2px 6px;
   min-height: 14px;
 }

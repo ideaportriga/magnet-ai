@@ -165,16 +165,16 @@ function onSave() {
   align-items: flex-start;
   gap: 8px;
   padding: 10px 14px;
-  background: #ffebee;
-  border: 1px solid #ffcdd2;
-  border-radius: 6px;
+  background: var(--q-error-bg);
+  border: 1px solid var(--q-error-bg);
+  border-radius: var(--radius-md);
 }
 
 .entity-validation-errors-list {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 12px;
-  color: #c62828;
+  font-size: var(--km-font-size-caption);
+  color: var(--q-error-text);
 }
 </style>

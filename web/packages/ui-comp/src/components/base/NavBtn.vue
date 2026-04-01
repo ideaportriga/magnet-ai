@@ -1,5 +1,6 @@
 <template>
   <km-btn
+    v-if="!sidebarCollapsed"
     :data-test="`nav-btn-${label}`"
     :class="['width-100', 'border-radius-6', { 'bg-primary-bg': isActive, 'color-primary': isActive, 'iconColor-primary': isActive }]"
     :icon="icon"
@@ -9,6 +10,19 @@
     :hover-bg="isActive ? 'primary-bg' : 'primary-bg'"
     :label-class="labelClass"
     :icon-size="iconSize"
+    flat
+    @click="navigate"
+  />
+  <km-btn
+    v-else
+    :data-test="`nav-btn-${label}`"
+    :class="['width-100', 'border-radius-6', 'justify-center', { 'bg-primary-bg': isActive, 'color-primary': isActive, 'iconColor-primary': isActive }]"
+    :icon="icon"
+    :icon-color="isActive ? 'primary' : 'icon'"
+    :hover-color="isActive ? 'primary' : 'primary'"
+    :hover-bg="isActive ? 'primary-bg' : 'primary-bg'"
+    icon-size="18px"
+    :tooltip="label"
     flat
     @click="navigate"
   />
@@ -47,6 +61,10 @@ export default defineComponent({
       type: String,
       default: '14px',
     },
+    sidebarCollapsed: {
+      type: Boolean,
+      default: false,
+    },
   },
   emits: ['navigate'],
   computed: {
@@ -65,7 +83,3 @@ export default defineComponent({
   },
 })
 </script>
-
-km-btn.width-100( bg='primary-bg', color='primary', iconColor='primary', labelClass='km-heading-2', :icon='item.icon', :label='item.label',
-@click='navigate(item.path)', flat, iconSize='14px', hoverBg='primary-bg' ) template(v-else) km-btn.width-100( iconColor='icon', hoverColor='primary',
-labelClass='km-heading-2', :icon='item.icon', :label='item.label', @click='navigate(item.path)', flat, iconSize='14px', hoverBg='primary-bg' )

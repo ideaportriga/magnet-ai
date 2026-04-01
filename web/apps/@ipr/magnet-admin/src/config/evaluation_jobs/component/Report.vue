@@ -4,6 +4,7 @@ km-icon-btn(icon='fas fa-download', iconSize='16px', @click.stop='getEvalutionRe
 
 <script>
 import { defineComponent } from 'vue'
+import { useEvaluationStore } from '@/stores/evaluationStore'
 
 export default defineComponent({
   props: {
@@ -11,6 +12,10 @@ export default defineComponent({
       type: Object,
       required: true,
     },
+  },
+  setup() {
+    const evalStore = useEvaluationStore()
+    return { evalStore }
   },
   methods: {
     async getEvalutionReport() {
@@ -20,7 +25,7 @@ export default defineComponent({
       } else {
         ids = this.row?.records?.map((record) => record?._id)
       }
-      await this.$store.dispatch('generateEvaluationReport', { ids })
+      await this.evalStore.generateEvaluationReport({ ids })
     },
   },
 })

@@ -1,5 +1,4 @@
 from logging import getLogger
-import json
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -152,79 +151,43 @@ async def update_evaluation_score(
     score: float,
     score_comment: str | None = None,
 ) -> bool:
-    """
-    Update the score for a specific result in an evaluation's results array.
-    """
-    sql = """
-    UPDATE evaluations
-    SET 
-        results = jsonb_set(
-            results,
-            array_append(
-                array(
-                    SELECT ordinality - 1
-                    FROM jsonb_array_elements(results) WITH ORDINALITY
-                    WHERE value->>'id' = :result_id
-                ),
-                'score'
-            )::text[],
-            to_jsonb(:score::float)
-        ),
-        results = jsonb_set(
-            results,
-            array_append(
-                array(
-                    SELECT ordinality - 1
-                    FROM jsonb_array_elements(results) WITH ORDINALITY
-                    WHERE value->>'id' = :result_id
-                ),
-                'score_comment'
-            )::text[],
-            to_jsonb(:score_comment)
-        ),
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = :evaluation_id::uuid
-    AND EXISTS (
-        SELECT 1 
-        FROM jsonb_array_elements(results) 
-        WHERE value->>'id' = :result_id
-    )
-    """
+    """Update the score for a specific result in an evaluation's results array.
 
-    await db_session.execute(
-        text(sql),
-        {
-            "evaluation_id": evaluation_id,
-            "result_id": result_id,
-            "score": score,
-            "score_comment": score_comment,
-        },
-    )
+    Uses application-level load-modify-save instead of PG-specific jsonb_set()
+    with WITH ORDINALITY for cross-dialect compatibility.
+    """
+    from uuid import UUID
 
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from core.db.models.evaluation.evaluation import Evaluation
+
+    evaluation = (
+        await db_session.execute(
+            select(Evaluation).where(Evaluation.id == UUID(evaluation_id))
+        )
+    ).scalar_one_or_none()
+
+    if evaluation is None:
+        return False
+
+    results = list(evaluation.results or [])
+    updated = False
+    for r in results:
+        if isinstance(r, dict) and r.get("id") == result_id:
+            r["score"] = score
+            r["score_comment"] = score_comment
+            updated = True
+            break
+
+    if not updated:
+        return False
+
+    evaluation.results = results
+    flag_modified(evaluation, "results")
     await db_session.commit()
-
-    # For UPDATE queries, we can check if any rows were affected
-    # by trying to fetch the updated row
-    check_sql = """
-    SELECT 1 FROM evaluations 
-    WHERE id = :evaluation_id::uuid
-    AND EXISTS (
-        SELECT 1 
-        FROM jsonb_array_elements(results) 
-        WHERE value->>'id' = :result_id
-        AND value->>'score' IS NOT NULL
-    )
-    """
-
-    check_result = await db_session.execute(
-        text(check_sql),
-        {
-            "evaluation_id": evaluation_id,
-            "result_id": result_id,
-        },
-    )
-
-    return check_result.fetchone() is not None
+    return True
 
 
 async def append_evaluation_results(
@@ -233,24 +196,25 @@ async def append_evaluation_results(
     new_results: list[dict],
     errors: list[str] | None = None,
 ) -> None:
-    """
-    Append new results to an evaluation's results array.
-    """
-    sql = """
-    UPDATE evaluations
-    SET
-        results = COALESCE(results, '[]'::jsonb) || CAST(:new_results AS jsonb),
-        errors = COALESCE(CAST(:errors AS jsonb), errors),
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = CAST(:evaluation_id AS uuid)
-    """
+    """Append new results to an evaluation's results array."""
+    from uuid import UUID
 
-    await db_session.execute(
-        text(sql),
-        {
-            "evaluation_id": evaluation_id,
-            "new_results": json.dumps(new_results, default=str),
-            "errors": json.dumps(errors, default=str) if errors is not None else None,
-        },
-    )
+    from sqlalchemy import select
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from core.db.models.evaluation.evaluation import Evaluation
+
+    evaluation = (
+        await db_session.execute(
+            select(Evaluation).where(Evaluation.id == UUID(evaluation_id))
+        )
+    ).scalar_one_or_none()
+
+    if evaluation is None:
+        return
+
+    evaluation.results = (evaluation.results or []) + new_results
+    if errors is not None:
+        evaluation.errors = errors
+    flag_modified(evaluation, "results")
     await db_session.commit()

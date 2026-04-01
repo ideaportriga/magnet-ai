@@ -51,25 +51,30 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
 </template>
 
 <script lang="ts">
-import { useChroma } from '@shared'
-import { useState } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
 import { copyToClipboard } from 'quasar'
+import { storeToRefs } from 'pinia'
+import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useSearchStore } from '@/stores/searchStore'
 
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 export default {
   props: ['answer'],
   emits: ['refine', 'selectAnswer'],
   setup() {
-    const prompt = useState('searchPrompt')
-    const { items } = useChroma('collections')
+    const queries = useEntityQueries()
+    const ragStore = useRagDetailStore()
+    const searchStore = useSearchStore()
+    const { searchPrompt: prompt } = storeToRefs(searchStore)
+    const { data: collectionsListData } = queries.collections.useList()
     const showFeedback = ref(false)
     const showFeedbackConfirm = ref(false)
-    return { prompt, showFeedback, showFeedbackConfirm, items }
+    return { ragStore, searchStore, prompt, showFeedback, showFeedbackConfirm, collectionsListData }
   },
   computed: {
     uiSettings() {
-      return this.$store.getters.ragVariant?.ui_settings
+      return this.ragStore.activeVariant?.ui_settings
     },
     feedback() {
       return this.answer?.feedback ?? {}
@@ -94,6 +99,9 @@ export default {
         hasAnswers: !!this.answer.results?.length,
       }
     },
+    items() {
+      return this.collectionsListData?.items ?? []
+    },
     mainAnswerSources() {
       return this.answer.results ?? []
     },
@@ -117,10 +125,10 @@ export default {
     copy() {
       copyToClipboard(this.mainAnswer.text || '')
       this.$q.notify({
-        position: 'top',
+        icon: 'content_copy',
+        color: 'dark',
+        group: 'copied',
         message: 'Answer has been copied to clipboard',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
     },
@@ -135,7 +143,7 @@ export default {
 
     async react({ like, comment = '' }) {
       this.showFeedbackConfirm = false
-      const res = await this.$store.dispatch('sendFeedback', {
+      const res = await this.searchStore.sendFeedback({
         id: this.answer.id,
         like,
         comment,

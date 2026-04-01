@@ -1,0 +1,180 @@
+// =============================================================================
+// UTILITY CLASSES
+// =============================================================================
+// Covers the most frequently repeated inline-style patterns across ~324 .vue
+// components. Replace inline style="..." with the appropriate class.
+// =============================================================================
+
+// =============================================================================
+// LAYOUT — width constraints
+// =============================================================================
+
+// Standard page-content container (min 1200px, max 1200px)
+.km-content-container
+  min-width: 1200px
+  max-width: 1200px
+  width: 100%
+  margin: 0 auto
+
+// Flexible sidebar minimum
+.km-sidebar-min
+  min-width: 600px
+
+// Common drawer widths
+.km-drawer-sm
+  width: var(--dialog-width-sm)   // 400px
+  min-width: var(--dialog-width-sm)
+  max-width: var(--dialog-width-sm)
+
+.km-drawer-md
+  width: var(--dialog-width-md)   // 500px
+  min-width: var(--dialog-width-md)
+  max-width: var(--dialog-width-md)
+
+.km-drawer-lg
+  width: var(--dialog-width-lg)   // 676px
+  min-width: var(--dialog-width-lg)
+  max-width: var(--dialog-width-lg)
+
+// Chat / retrieval drawer
+.km-drawer-chat
+  width: 420px
+  min-width: 420px
+  max-width: 420px
+
+
+// =============================================================================
+// LAYOUT — scrollable content areas
+// =============================================================================
+
+// height tokens for calc() expressions
+:root
+  --scroll-offset-sm:  256px
+  --scroll-offset-md:  300px
+  --scroll-offset-lg:  360px
+
+.km-scroll-area-sm
+  max-height: calc(100vh - var(--scroll-offset-sm))
+  overflow-y: auto
+
+.km-scroll-area-md
+  max-height: calc(100vh - var(--scroll-offset-md))
+  overflow-y: auto
+
+.km-scroll-area-lg
+  max-height: calc(100vh - var(--scroll-offset-lg))
+  overflow-y: auto
+
+
+// =============================================================================
+// BORDERS — shorthand semantic combinations
+// =============================================================================
+
+// Warns / info banners
+.km-banner-error
+  border: 1px solid var(--q-error)
+  background: var(--q-error-bg)
+  border-radius: var(--radius-lg)
+
+.km-banner-warning
+  border: 1px solid var(--q-warning-secondary)
+  background: var(--q-warning-bg)
+  border-radius: var(--radius-lg)
+
+.km-banner-info
+  border: 1px solid var(--q-border)
+  background: var(--q-in-progress)
+  border-radius: var(--radius-lg)
+
+.km-banner-success
+  border: 1px solid var(--q-success-text)
+  background: var(--q-success)
+  border-radius: var(--radius-lg)
+
+
+// =============================================================================
+// TYPOGRAPHY — supplemental helpers not in typography.styl
+// =============================================================================
+
+// Monospace for code/ids — now defined in typography.styl using tokens
+// .km-mono moved to typography.styl
+
+// Muted text (grey, secondary, etc.)
+.km-text-muted
+  color: var(--q-secondary)
+
+.km-text-error
+  color: var(--q-error-text)
+
+.km-text-success
+  color: var(--q-success-text)
+
+.km-text-warning
+  color: var(--q-warning-text)
+
+// Link text style (for plain <a> elements)
+.km-anchor
+  color: var(--q-primary)
+  text-decoration: none
+  &:hover
+    text-decoration: underline
+
+
+// =============================================================================
+// INTERACTION
+// =============================================================================
+
+.km-cursor-pointer
+  cursor: pointer
+
+.km-no-select
+  user-select: none
+
+.km-no-events
+  pointer-events: none
+
+
+// =============================================================================
+// CARDS / SURFACES
+// =============================================================================
+
+// Standard white card surface
+.km-surface
+  background: var(--q-white)
+  border: 1px solid var(--q-border)
+  border-radius: var(--radius-xl)
+
+// Subtle grey surface
+.km-surface-subtle
+  background: var(--q-background)
+  border: 1px solid var(--q-border)
+  border-radius: var(--radius-lg)
+
+// Active/selected surface
+.km-surface-active
+  background: var(--q-primary-bg)
+  border: 1px solid var(--q-primary)
+  border-radius: var(--radius-lg)
+
+
+// =============================================================================
+// STATUS BADGES
+// =============================================================================
+
+.km-status-ready
+  background: var(--q-status-ready)
+  color: var(--q-status-ready-text)
+  border-radius: var(--radius-sm)
+  padding: 2px 6px
+
+.km-status-processing
+  background: var(--q-processing-ready)
+  color: var(--q-processing-ready-text)
+  border-radius: var(--radius-sm)
+  padding: 2px 6px
+
+.km-status-error
+  background: var(--q-error-bg)
+  color: var(--q-error-text)
+  border-radius: var(--radius-sm)
+  padding: 2px 6px

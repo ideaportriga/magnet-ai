@@ -15,7 +15,7 @@ export default {
 </script>
 <style lang="stylus">
 .km-export-dropdown .fa-file-export {
-  font-size: 16px !important
+  font-size: var(--km-font-size-body-lg) !important
   color: var(--q-btn-flat-icon)
 }
 </style>

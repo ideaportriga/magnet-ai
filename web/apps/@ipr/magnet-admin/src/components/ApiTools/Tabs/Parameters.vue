@@ -1,101 +1,64 @@
 <template lang="pug">
-.full-width
+.column.full-height(style='min-height: 0')
   div(style='width: 300px')
-    km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
+    km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
   .km-title.q-pl-16.q-pb-8.q-pt-lg.text-text-grey Inputs
-  km-table(:rows='filteredRows', row-key='name', :columns='columns', @selectRow='select($event)', :selected='selectedRow ? [selectedRow] : []')
+  .col(style='min-height: 0')
+    km-data-table(fill-height, :table='table', row-key='name', :activeRowId='selectedRow?.name', @row-click='select')
 </template>
-<script>
-import { ref } from 'vue'
-export default {
-  props: {
-    apiTool: {
-      type: Object,
-      required: true,
-    },
-    selectedRow: {
-      type: Object,
-      required: false,
-    },
+
+<script setup>
+import { computed, watch } from 'vue'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { textColumn } from '@/utils/columnHelpers'
+
+const props = defineProps({
+  apiTool: {
+    type: Object,
+    required: true,
   },
-  emits: ['select'],
-  setup() {
-    return {
-      searchString: ref(''),
-    }
+  selectedRow: {
+    type: Object,
+    required: false,
   },
-  computed: {
-    parameters() {
-      return this.apiTool.parameters.input.properties
-    },
-    rows() {
-      if (!this.parameters) return []
-      const rows = []
-      Object.keys(this.parameters).forEach((key) => {
-        const properties = this.parameters[key].properties
-        if (!properties) return
-        Object.keys(properties).forEach((property) => {
-          rows.push({
-            description: '-',
-            ...properties[property],
-            name: property,
-            in: key,
-          })
-        })
+})
+
+const emit = defineEmits(['select'])
+
+const rows = computed(() => {
+  const parameters = props.apiTool.parameters?.input?.properties
+  if (!parameters) return []
+  const result = []
+  Object.keys(parameters).forEach((key) => {
+    const properties = parameters[key].properties
+    if (!properties) return
+    Object.keys(properties).forEach((property) => {
+      result.push({
+        description: '-',
+        ...properties[property],
+        name: property,
+        in: key,
       })
-      return rows
-    },
-    columns() {
-      return [
-        {
-          name: 'Name',
-          field: 'name',
-          label: 'Name',
-          align: 'left',
-          class: 'km-title text-secondary-text',
-        },
-        {
-          name: 'Description',
-          field: 'description',
-          label: 'Description',
-          align: 'left',
-          style: 'max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;',
-        },
-        {
-          name: 'In',
-          field: 'in',
-          label: 'In',
-          align: 'left',
-          class: 'km-small-chip text-black km-table-chip',
-        },
-      ]
-    },
-    filteredRows() {
-      if (!this.searchString.length) return this.rows
-      return this.rows.filter((row) => {
-        return (
-          row.name.toLowerCase().includes(this.searchString.toLowerCase()) ||
-          row.description.toLowerCase().includes(this.searchString.toLowerCase()) ||
-          row.in.toLowerCase().includes(this.searchString.toLowerCase())
-        )
-      })
-    },
-  },
-  watch: {
-    rows: {
-      handler(newVal) {
-        if (newVal.length !== this.rows.length || !this.selectedRow) {
-          this.select(newVal[0])
-        }
-      },
-      immediate: true,
-    },
-  },
-  methods: {
-    select(row) {
-      this.$emit('select', row)
-      this.$store.commit('set', { apiToolSelectedProperty: row })
-    },
-  },
+    })
+  })
+  return result
+})
+
+const columns = [
+  textColumn('name', 'Name', { width: '150px' }),
+  textColumn('description', 'Description', { width: '400px' }),
+  textColumn('in', 'In', { width: '100px' }),
+]
+
+const { table, globalFilter } = useLocalDataTable(rows, columns)
+
+const select = (row) => {
+  emit('select', row)
 }
+
+watch(rows, (newVal) => {
+  if (newVal.length && !props.selectedRow) {
+    emit('select', newVal[0])
+  }
+}, { immediate: true })
 </script>

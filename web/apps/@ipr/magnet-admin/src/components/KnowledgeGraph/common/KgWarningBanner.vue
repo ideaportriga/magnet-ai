@@ -38,32 +38,32 @@ const iconColor = computed(() => variantConfig[props.variant].iconColor)
   align-items: center;
   gap: 8px;
   padding: 16px;
-  border-radius: 4px;
-  font-size: 13px;
+  border-radius: var(--radius-sm);
+  font-size: var(--km-font-size-label);
   line-height: 1.4;
 }
 
 .kg-warning-banner--warning {
-  background: #fffde7;
+  background: var(--q-warning-bg);
   border: 1px solid var(--q-warning);
-  color: #5d4037;
+  color: var(--q-secondary);
 }
 
 .kg-warning-banner--error {
-  background: #ffebee;
-  border: 1px solid var(--q-negative);
-  color: #b71c1c;
+  background: var(--q-error-bg);
+  border: 1px solid var(--q-error);
+  color: var(--q-error-text);
 }
 
 .kg-warning-banner--info {
-  background: #e3f2fd;
+  background: var(--q-primary-bg);
   border: 1px solid var(--q-primary);
-  color: #0d47a1;
+  color: var(--q-primary-text);
 }
 
 .kg-warning-banner--neutral {
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  color: #616161;
+  background: var(--q-light);
+  border: 1px solid var(--q-border);
+  color: var(--q-label);
 }
 </style>

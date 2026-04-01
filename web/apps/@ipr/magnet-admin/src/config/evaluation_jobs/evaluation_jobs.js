@@ -8,7 +8,7 @@ import EvaluatedTools from './component/EvaluatedTools.vue'
 import Score from './component/Score.vue'
 import Status from './component/Status.vue'
 import { markRaw } from 'vue'
-import store from '@/store'
+import { getCachedItems } from '@/queries/getCachedItems'
 
 export const statusOptions = [
   { value: 'in_progress', label: 'In progress' },
@@ -60,7 +60,7 @@ const controls = {
     align: 'left',
     field: (row) => {
       const activeVariantModel = row.tool?.variant_object?.system_name_for_model
-      const modelLabel = (store.getters['chroma/model'].items || []).find((option) => option.system_name == activeVariantModel)?.display_name
+      const modelLabel = (getCachedItems('model') || []).find((option) => option.system_name == activeVariantModel)?.display_name
       return modelLabel
     },
   },

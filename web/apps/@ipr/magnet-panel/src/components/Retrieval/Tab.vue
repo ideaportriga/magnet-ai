@@ -64,6 +64,7 @@ export default {
       showHints: ref(true),
       app,
       displayTab,
+      searchStore,
     }
   },
   computed: {
@@ -107,7 +108,7 @@ export default {
   },
   methods: {
     clearAnswers() {
-      this.answers = []
+      this.searchStore.clearAnswers()
     },
     refine(question) {
       this.$refs?.prompt?.refine(question)

@@ -187,14 +187,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useStore } from 'vuex'
-import { useQuasar } from 'quasar'
+import { useAppStore } from '@/stores/appStore'
 import { fetchData } from '@shared'
+import { useNotify } from '@/composables/useNotify'
 
 const route = useRoute()
 const router = useRouter()
-const store = useStore()
-const $q = useQuasar()
+const appStore = useAppStore()
+const { notifySuccess, notifyError } = useNotify()
 
 const loadingPreview = ref(false)
 const loadingExportPreview = ref(false)
@@ -219,8 +219,8 @@ const exportNameFilter = ref('')
 
 const uploadFile = ref(null)
 
-const adminEndpoint = computed(() => store.getters.config?.api?.aiBridge?.urlAdmin || '')
-const requestCredentials = computed(() => store.getters.config?.auth?.enabled ? 'include' : undefined)
+const adminEndpoint = computed(() => appStore.config?.api?.aiBridge?.urlAdmin || '')
+const requestCredentials = computed(() => appStore.config?.auth?.enabled ? 'include' : undefined)
 const allowedTabs = ['import', 'export']
 const activeTab = computed(() => {
   const tab = route.params.tab
@@ -372,7 +372,7 @@ const addFromSeed = async () => {
   loadingPreview.value = false
 
   if (response?.error) {
-    $q.notify({ type: 'negative', message: 'Failed to load seed preview' })
+    notifyError('Failed to load seed preview')
     return
   }
 
@@ -387,7 +387,7 @@ const addFromSeed = async () => {
   rows.value = [...nonSeedRows]
   mergeRows(seedRows)
 
-  $q.notify({ type: 'positive', message: `Added ${seedRows.length} records from seed to the list.` })
+  notifySuccess(`Added ${seedRows.length} records from seed to the list.`)
 }
 
 const clearList = () => {
@@ -448,7 +448,7 @@ const addFromDatabase = async () => {
   loadingExportPreview.value = false
 
   if (response?.error) {
-    $q.notify({ type: 'negative', message: 'Failed to load export preview.' })
+    notifyError('Failed to load export preview.')
     return
   }
 
@@ -461,7 +461,7 @@ const addFromDatabase = async () => {
 
   selectedExport.value = []
 
-  $q.notify({ type: 'positive', message: `Added ${exportRows.value.length} records to export list.` })
+  notifySuccess(`Added ${exportRows.value.length} records to export list.`)
 }
 
 const exportSelected = async () => {
@@ -490,7 +490,7 @@ const exportSelected = async () => {
   exportingJson.value = false
 
   if (response?.error) {
-    $q.notify({ type: 'negative', message: 'Failed to export records.' })
+    notifyError('Failed to export records.')
     return
   }
 
@@ -506,7 +506,7 @@ const exportSelected = async () => {
   anchor.remove()
   URL.revokeObjectURL(fileUrl)
 
-  $q.notify({ type: 'positive', message: 'Export file generated.' })
+  notifySuccess('Export file generated.')
 }
 
 const loadSelected = async () => {
@@ -602,7 +602,7 @@ const addFromJson = async () => {
     payload = JSON.parse(content)
   } catch {
     uploadingJson.value = false
-    $q.notify({ type: 'negative', message: 'Invalid JSON file' })
+    notifyError('Invalid JSON file')
     return
   }
 
@@ -639,10 +639,7 @@ const addFromJson = async () => {
 
     if (!normalizedRows.length) {
       uploadingJson.value = false
-      $q.notify({
-        type: 'negative',
-        message: 'Export JSON must contain entity keys with arrays of records that include system_name.',
-      })
+      notifyError('Export JSON must contain entity keys with arrays of records that include system_name.')
       return
     }
   } else {
@@ -653,7 +650,7 @@ const addFromJson = async () => {
 
     if (invalidItems.length > 0) {
       uploadingJson.value = false
-      $q.notify({ type: 'negative', message: 'Each JSON record must include entity_type and system_name.' })
+      notifyError('Each JSON record must include entity_type and system_name.')
       return
     }
 
@@ -697,10 +694,7 @@ const addFromJson = async () => {
 
   checkingExists.value = false
 
-  $q.notify({
-    type: 'positive',
-    message: `Added ${normalizedRows.length} JSON records to the list.`,
-  })
+  notifySuccess(`Added ${normalizedRows.length} JSON records to the list.`)
 }
 
 onMounted(async () => {

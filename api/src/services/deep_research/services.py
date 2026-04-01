@@ -243,7 +243,7 @@ async def execute_deep_research(
                     )
 
                     # Add tool response to conversation history
-                    memory.conversation_history.append(
+                    memory.append_to_history(
                         {
                             "role": "tool",
                             "content": search_summary,
@@ -253,7 +253,7 @@ async def execute_deep_research(
                     )
                 else:
                     logger.warning("Unrecognized tool call: %s", function_name)
-                    memory.conversation_history.append(
+                    memory.append_to_history(
                         {
                             "role": "tool",
                             "content": (
@@ -582,7 +582,7 @@ async def _execute_reasoning_step(
         tool_calls = result.tool_calls
 
         # Add to conversation history
-        memory.conversation_history.append(
+        memory.append_to_history(
             {"role": "assistant", "tool_calls": tool_calls, "content": content}
         )
 
@@ -926,10 +926,11 @@ async def _process_search_result(
 
         summary = result_data.content
 
-        # Update url_analysis in memory
+        # Update url_analysis in memory and free raw_content to reduce memory
         if url in memory.url_analysis:
             memory.url_analysis[url]["processed"] = True
             memory.url_analysis[url]["processing_summary"] = summary
+            memory.url_analysis[url].pop("raw_content", None)
 
         # Update span with output details
         observability_context.update_current_span(

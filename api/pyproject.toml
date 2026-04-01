@@ -47,6 +47,10 @@ azure-monitor-opentelemetry-exporter = "^1.0.0b41"
 mcp = "1.10.0"
 cryptography = "45.0.4"
 advanced-alchemy = "^1.4.5"
+pwdlib = {extras = ["argon2"], version = "^0.3.0"}
+httpx-oauth = "^0.16.0"
+pyotp = "^2.9.0"
+qrcode = {extras = ["pil"], version = "^7.4.0"}
 structlog = "^25.4.0"
 python-logging-loki = "^0.3.1"
 aiosqlite = "^0.21.0"
@@ -67,6 +71,7 @@ microsoft-agents-hosting-teams = "^0.6.1"
 azure-storage-blob = "^12.27.1"
 kreuzberg = "^4.4"
 litellm = "^1.82.2"
+obstore = ">=0.3.0,<1.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.9.10"

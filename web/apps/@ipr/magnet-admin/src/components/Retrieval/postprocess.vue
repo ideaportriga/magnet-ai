@@ -75,14 +75,22 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
+import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: ['prompt', 'selectedPrompt'],
   emits: ['setProp', 'save', 'cancel', 'remove', 'openTest'],
 
   setup() {
+    const queries = useEntityQueries()
+    const retrievalStore = useRetrievalDetailStore()
+    const { data: promptListData } = queries.promptTemplates.useList()
+    const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
+      retrievalStore,
+      promptItems,
       test: ref(true),
       iconPicker: ref(false),
       showError: ref(false),
@@ -95,39 +103,39 @@ export default {
   computed: {
     checkIsAnswered: {
       get() {
-        return this.$store.getters.retrievalVariant?.post_process?.answered_check?.enabled || false
+        return this.retrievalStore.activeVariant?.post_process?.answered_check?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'post_process.answered_check.enabled', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'post_process.answered_check.enabled', value })
       },
     },
     answeredPromptCode: {
       get() {
-        return this.prompts.find((el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.answered_check?.prompt_template)
+        return this.prompts.find((el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.answered_check?.prompt_template)
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'post_process.answered_check.prompt_template', value: value?.system_name })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'post_process.answered_check.prompt_template', value: value?.system_name })
       },
     },
     answeredPromptId() {
-      return this.prompts.find((el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.answered_check?.prompt_template)?.value
+      return this.prompts.find((el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.answered_check?.prompt_template)?.value
     },
     detectLanguage: {
       get() {
-        return this.$store.getters.retrievalVariant?.post_process?.detect_question_language?.enabled || false
+        return this.retrievalStore.activeVariant?.post_process?.detect_question_language?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'post_process.detect_question_language.enabled', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'post_process.detect_question_language.enabled', value })
       },
     },
     languageDetectPromptCode: {
       get() {
         return this.prompts.find(
-          (el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.detect_question_language?.prompt_template
+          (el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.detect_question_language?.prompt_template
         )
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', {
+        this.retrievalStore.updateNestedVariantProperty( {
           path: 'post_process.detect_question_language.prompt_template',
           value: value?.system_name,
         })
@@ -135,28 +143,27 @@ export default {
     },
     languageDetectPromptId() {
       return this.prompts.find(
-        (el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.detect_question_language?.prompt_template
+        (el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.detect_question_language?.prompt_template
       )?.value
     },
     checkIsHallucinate: {
       get() {
-        return this.$store.getters.retrievalVariant?.post_process?.check_is_hallucinate?.enabled || false
+        return this.retrievalStore.activeVariant?.post_process?.check_is_hallucinate?.enabled || false
       },
       set(value) {
-        this.$store.dispatch('updateNestedRetrievalProperty', { path: 'post_process.check_is_hallucinate.enabled', value })
+        this.retrievalStore.updateNestedVariantProperty( { path: 'post_process.check_is_hallucinate.enabled', value })
       },
     },
     hallucinatePromptId() {
-      return this.prompts.find((el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.check_is_hallucinate?.prompt_template)
+      return this.prompts.find((el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.check_is_hallucinate?.prompt_template)
         ?.value
     },
     hallucinatePromptCode: {
       get() {
-        return this.prompts.find((el) => el.system_name == this.$store.getters.retrievalVariant?.post_process?.check_is_hallucinate?.prompt_template)
+        return this.prompts.find((el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.check_is_hallucinate?.prompt_template)
       },
       set(value) {
-        console.log(value)
-        this.$store.dispatch('updateNestedRetrievalProperty', {
+        this.retrievalStore.updateNestedVariantProperty( {
           path: 'post_process.check_is_hallucinate.prompt_template',
           value: value?.system_name,
         })
@@ -164,7 +171,7 @@ export default {
     },
 
     prompts() {
-      return (this.$store.getters.prompts ?? [])
+      return (this.promptItems ?? [])
         .map((item) => ({ label: item.name, value: item.id, system_name: item.system_name, category: item?.category }))
         .filter((el) => el.category === 'rag')
     },

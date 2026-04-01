@@ -77,7 +77,7 @@ const renderedMarkdown = computed(() => {
   padding: 0;
   margin: 0 0 16px 0;
   font-family: var(--font-default);
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   font-weight: 400;
   white-space: pre-wrap;
 }
@@ -93,7 +93,7 @@ const renderedMarkdown = computed(() => {
 
 :deep(h2) {
   font-family: var(--font-default);
-  font-size: 20px;
+  font-size: var(--km-font-size-h1);
   font-weight: 600;
   padding: 0;
   margin: 0 0 16px 0;
@@ -102,7 +102,7 @@ const renderedMarkdown = computed(() => {
 
 :deep(h3) {
   font-family: var(--font-default);
-  font-size: 18px;
+  font-size: var(--km-font-size-h2);
   font-weight: 700;
   padding: 0;
   margin: 0 0 12px 0;
@@ -111,7 +111,7 @@ const renderedMarkdown = computed(() => {
 
 :deep(h4) {
   font-family: var(--font-default);
-  font-size: 16px;
+  font-size: var(--km-font-size-body-lg);
   font-weight: 700;
   padding: 0;
   margin: 0 0 12px 0;

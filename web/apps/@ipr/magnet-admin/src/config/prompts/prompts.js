@@ -98,19 +98,6 @@ const controls = {
       return categoryOptions.find((option) => option.value === val)?.label
     },
   },
-  // modelLabel: {
-  //   name: 'modelLabel',
-  //   display: true,
-  //   sortable: true,
-  //   label: 'Model',
-  //   align: 'left',
-  //   field: (row) => {
-  //     const activeVariantModel = row.variants?.find((el) => el?.variant === row?.active_variant)?.system_name_for_model
-  //     const defaultModelLabel = (store.getters['chroma/model'].items || []).find((option) => option.is_default)?.display_name
-  //     const modelLabel = (store.getters['chroma/model'].items || []).find((option) => option.system_name == activeVariantModel)?.display_name
-  //     return modelLabel ? modelLabel : defaultModelLabel
-  //   }
-  // },
   model: {
     name: 'model',
     label: 'Model',

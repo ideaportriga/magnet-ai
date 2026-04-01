@@ -34,7 +34,7 @@ km-popup-confirm(
 <script setup>
 import { ref, watch } from 'vue'
 import { required } from '@shared'
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
 const props = defineProps({
   showNewDialog: {
@@ -43,7 +43,8 @@ const props = defineProps({
   },
 })
 
-const { create } = useChroma('mcp_servers')
+const queries = useEntityQueries()
+const { mutateAsync: createMcp } = queries.mcp_servers.useCreate()
 const router = useRouter()
 const name = ref('')
 const system_name = ref('')
@@ -64,8 +65,7 @@ const createMCPServer = async () => {
     url: url.value,
     transport: transport.value,
   }
-  const res = await create(JSON.stringify(data))
-  console.log(res)
+  const res = await createMcp(data)
   if (res) {
     router.push(`/mcp/${res.id}`)
   }

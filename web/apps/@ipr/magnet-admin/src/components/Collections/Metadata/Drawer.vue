@@ -1,9 +1,9 @@
 <template lang="pug">
-.column.no-wrap.q-pa-16.bg-white.fit.bl-border.height-100.fit(style='min-width: 500px; max-width: 500px')
-  .row.items-center
-    km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text') 
-  q-separator.q-mb-md
-  .km-heading-4.q-mb-lg Metadata exposure
+km-drawer-layout(storageKey="drawer-collections-metadata", noScroll)
+  template(#header)
+    .row.items-center
+      km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
+    .km-heading-4 Metadata exposure
   .q-mb-md Configure how chunk metadata will be exposed for search and retrieval. To map metadata fields use JSONPath expression.
   .row.q-gap-16.q-mt-lg
     .col-12
@@ -28,15 +28,16 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useCollectionDetailStore, useCollectionMetadataStore } from '@/stores/entityDetailStores'
 
 // States & Stores
-const store = useStore()
+const collectionStore = useCollectionDetailStore()
+const collectionMetadataStore = useCollectionMetadataStore()
 
 const config = ref(null)
 
 const closeDrawer = () => {
-  store.commit('setActiveMetadataConfig', null)
+  collectionMetadataStore.setActiveMetadataConfig(null)
 }
 
 const enabled = computed({
@@ -44,7 +45,7 @@ const enabled = computed({
     return config.value?.enabled
   },
   set(value) {
-    const metadataConfig = store.getters.knowledge?.metadata_config || []
+    const metadataConfig = collectionStore.entity?.metadata_config || []
     metadataConfig.forEach((item) => {
       if (item.id === config.value.id) {
         item.enabled = value
@@ -59,7 +60,7 @@ const name = computed({
     return config.value?.name
   },
   set(value) {
-    const metadataConfig = store.getters.knowledge?.metadata_config || []
+    const metadataConfig = collectionStore.entity?.metadata_config || []
     metadataConfig.forEach((item) => {
       if (item.id === config.value.id) {
         item.name = value
@@ -74,7 +75,7 @@ const mapping = computed({
     return config.value?.mapping
   },
   set(value) {
-    const metadataConfig = store.getters.knowledge?.metadata_config || []
+    const metadataConfig = collectionStore.entity?.metadata_config || []
     metadataConfig.forEach((item) => {
       if (item.id === config.value.id) {
         item.mapping = value
@@ -89,7 +90,7 @@ const description = computed({
     return config.value?.description
   },
   set(value) {
-    const metadataConfig = store.getters.knowledge?.metadata_config || []
+    const metadataConfig = collectionStore.entity?.metadata_config || []
     metadataConfig.forEach((item) => {
       if (item.id === config.value.id) {
         item.description = value
@@ -100,15 +101,15 @@ const description = computed({
 })
 
 onMounted(() => {
-  config.value = store.getters.activeMetadataConfig
+  config.value = collectionMetadataStore.activeMetadataConfig
 })
 
 onUnmounted(() => {
-  store.commit('setActiveMetadataConfig', null)
+  collectionMetadataStore.setActiveMetadataConfig(null)
 })
 
 watch(
-  () => store.getters.activeMetadataConfig,
+  () => collectionMetadataStore.activeMetadataConfig,
   (newVal) => {
     config.value = newVal
   }

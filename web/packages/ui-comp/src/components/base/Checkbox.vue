@@ -70,7 +70,7 @@ export default defineComponent({
 <style lang="stylus">
 .checkbox-text {
   line-height: 14px;
-  font-size: 14px;
+  font-size: var(--km-font-size-body);
   font-weight: 500;
   font-stretch: 100;
   white-space: nowrap;

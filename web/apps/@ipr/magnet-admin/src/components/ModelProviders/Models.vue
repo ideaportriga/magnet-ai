@@ -1,8 +1,8 @@
 <template lang="pug">
-.column(style='width: 100%; max-height: calc(100vh - 260px)').no-wrap
+.column.full-height(style='width: 100%; min-height: 0').no-wrap
   .row
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
+      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     .col-auto.center-flex-y
       km-btn.q-mr-12(flat, label='Import', icon='fas fa-download', @click='openImportDialog', :loading='loadingAvailableModels')
@@ -13,7 +13,7 @@
     q-space
     .col-auto.center-flex-y
       km-btn.q-mr-12(
-        v-if='selected.length > 0',
+        v-if='selectedRows.length > 0',
         icon='delete',
         label='Delete',
         @click='showDeleteDialog = true',
@@ -24,18 +24,13 @@
         iconSize='16px',
         hoverBg='primary-bg'
       )
-  .row.q-mt-md(style='overflow-x: auto; width: 100%')
-    km-table-new(
-      @selectRow='openDetails',
-      selection='multiple',
+  .col.q-mt-md(style='min-height: 0; overflow-x: auto')
+    km-data-table(
+      fill-height,
+      :table='table',
       row-key='id',
-      :active-record-id='modelConfig?.id',
-      v-model:selected='selected',
-      :columns='columns',
-      :visibleColumns='visibleColumns',
-      :rows='filteredRows',
-      :pagination='pagination',
-      binary-state-sort
+      :activeRowId='modelConfig?.id',
+      @row-click='openDetails'
     )
 model-providers-new-model(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 km-popup-confirm(
@@ -47,7 +42,7 @@ km-popup-confirm(
   @cancel='showDeleteDialog = false'
 )
   .row.item-center.justify-center.km-heading-7 Delete Models
-  .row.text-center.justify-center {{ `You are going to delete ${selected?.length} selected models. Are you sure?` }}
+  .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected models. Are you sure?` }}
 
 //- Import Models Dialog
 q-dialog(v-model='showImportDialog', persistent)
@@ -56,13 +51,10 @@ q-dialog(v-model='showImportDialog', persistent)
       .km-heading-7 Import Models from Provider
       q-space
       q-btn(icon='close', flat, round, dense, @click='showImportDialog = false')
-    
+
     q-card-section
       //- Source indicator banner
       .row.items-center.q-gutter-sm.q-mb-md
-        //- .km-description.text-secondary-text
-        //-   | Models from 
-        //-   strong {{ provider?.name }}
         km-chip(
           :label="availableModelsSource === 'api' ? 'Provider API' : 'LiteLLM Registry'",
           :color="availableModelsSource === 'api' ? 'positive' : 'primary-light'",
@@ -70,19 +62,19 @@ q-dialog(v-model='showImportDialog', persistent)
           round
         )
         km-chip(v-if='availableModelsProviderType', :label='availableModelsProviderType', color='light', text-color='grey-8', round)
-      
+
       //- Info/Warning about source
       q-banner.q-mb-md(v-if="availableModelsSource === 'litellm'", rounded, dense, class='bg-amber-1')
         template(#avatar)
           q-icon(name='o_info', color='amber-8')
         .text-caption.text-grey-8
           | Model list from LiteLLM registry. Capabilities are estimated and may not reflect actual provider features.
-      
+
       q-banner.q-mb-md(v-else-if="availableModelsSource === 'api' && availableModelsError", rounded, dense, class='bg-amber-1')
         template(#avatar)
           q-icon(name='o_warning', color='amber-8')
         .text-caption.text-grey-8 {{ availableModelsError }}
-      
+
       //- Search filter
       km-input.q-mb-md(
         placeholder='Filter models...',
@@ -91,7 +83,7 @@ q-dialog(v-model='showImportDialog', persistent)
         @input='importSearchString = $event',
         clearable
       )
-      
+
       //- Models list
       .q-mt-sm(style='max-height: 400px; overflow-y: auto')
         q-list(v-if='filteredAvailableModels.length > 0', separator)
@@ -131,12 +123,12 @@ q-dialog(v-model='showImportDialog', persistent)
                   km-chip(v-if='model.supports_function_calling', label='Tools', color='primary-light', text-color='primary', round, tooltip='Function/Tool Calling')
                   km-chip(v-if='model.supports_json_mode', label='JSON', color='primary-light', text-color='primary', round, tooltip='JSON Mode')
                   km-chip(v-if='model.supports_vision', label='Vision', color='primary-light', text-color='primary', round, tooltip='Vision/Image Support')
-        
+
         .text-center.q-pa-lg.text-secondary-text(v-else-if='!loadingAvailableModels')
           | No models found
           template(v-if='availableModelsError && !availableModels.length')
             .q-mt-sm.text-negative {{ availableModelsError }}
-    
+
     q-card-actions.q-pa-md(align='right')
       .text-secondary-text.q-mr-md(v-if='selectedModelsToImport.length > 0')
         | {{ selectedModelsToImport.length }} model(s) selected
@@ -150,9 +142,17 @@ q-dialog(v-model='showImportDialog', persistent)
 </template>
 
 <script>
-import { ref, computed } from 'vue'
-import { useChroma, toUpperCaseWithUnderscores } from '@shared'
+import { ref, computed, markRaw } from 'vue'
+import { toUpperCaseWithUnderscores } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { getEntityApis } from '@/api'
 import { categoryOptions, featureOptions } from '../../config/model/model.js'
+import { useProviderDetailStore, useModelConfigDetailStore } from '@/stores/entityDetailStores'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
+import TypeChip from '@/config/model/component/TypeChip.vue'
+import Features from '@/config/model/component/Features.vue'
+import Check from '@/config/model/component/Check.vue'
 
 /**
  * Fuzzy match a query against a target string.
@@ -161,26 +161,25 @@ import { categoryOptions, featureOptions } from '../../config/model/model.js'
  */
 function fuzzyMatch(query, target) {
   if (!query || !target) return 0
-  
+
   const q = query.toLowerCase()
   const t = target.toLowerCase()
-  
+
   // Exact substring match gets highest score
   if (t.includes(q)) return 1000 + (q.length / t.length) * 100
-  
+
   // Starts-with match gets very high score
   if (t.startsWith(q)) return 2000
-  
+
   // Fuzzy subsequence matching
   let qi = 0
   let ti = 0
   let score = 0
   let consecutive = 0
   let lastMatchIndex = -2
-  
+
   while (qi < q.length && ti < t.length) {
     if (q[qi] === t[ti]) {
-      // Bonus for consecutive matches
       if (ti === lastMatchIndex + 1) {
         consecutive++
         score += consecutive * 3
@@ -188,35 +187,36 @@ function fuzzyMatch(query, target) {
         consecutive = 1
         score += 1
       }
-      
-      // Bonus for matching at word boundaries (after -, _, ., space, or start)
+
       if (ti === 0 || '-_. '.includes(t[ti - 1])) {
         score += 5
       }
-      
-      // Bonus for matching uppercase letters (camelCase boundaries)
+
       if (ti > 0 && target[ti] === target[ti].toUpperCase() && target[ti] !== target[ti].toLowerCase()) {
         score += 3
       }
-      
+
       lastMatchIndex = ti
       qi++
     }
     ti++
   }
-  
-  // All query characters must be found
+
   if (qi < q.length) return 0
-  
-  // Bonus for shorter targets (more precise match)
+
   score += Math.max(0, 10 - (t.length - q.length))
-  
+
   return score
 }
 
 export default {
   setup() {
-    const { searchString, pagination, columns, visibleColumns, visibleRows, selectedRow, delete: deleteItem, create } = useChroma('model')
+    const queries = useEntityQueries()
+    const providerStore = useProviderDetailStore()
+    const modelConfigStore = useModelConfigDetailStore()
+    const { data: listData } = queries.model.useList()
+    const { mutateAsync: deleteItem } = queries.model.useRemove()
+    const { mutateAsync: createEntity } = queries.model.useCreate()
 
     const filterObject = ref({})
 
@@ -236,20 +236,68 @@ export default {
       },
     }
 
+    const columns = [
+      selectionColumn(),
+      textColumn('display_name', 'Display name'),
+      textColumn('ai_model', 'Name'),
+      componentColumn('type', 'Type', markRaw(TypeChip), {
+        accessorKey: 'type',
+        sortable: true,
+      }),
+      componentColumn('features', 'Features', markRaw(Features), {
+        props: (row) => ({ name: 'features' }),
+      }),
+      componentColumn('is_default', 'Default', markRaw(Check), {
+        accessorKey: 'is_default',
+        sortable: true,
+        align: 'center',
+        props: (row) => ({ name: 'is_default' }),
+      }),
+      componentColumn('is_active', 'Active', markRaw(Check), {
+        accessorKey: 'is_active',
+        sortable: true,
+        align: 'center',
+        props: (row) => ({ name: 'is_active' }),
+      }),
+    ]
+
+    // Filtered data based on provider and filter bar
+    const filteredData = computed(() => {
+      const items = listData.value?.items ?? []
+      let rows = items.filter((item) => item.provider_system_name === providerStore.entity?.system_name)
+
+      // Apply type filter
+      if (filterObject.value.typeIn && filterObject.value.typeIn.length > 0) {
+        rows = rows.filter((item) => filterObject.value.typeIn.includes(item.type))
+      }
+
+      // Apply features filter
+      if (filterObject.value.featuresIn && filterObject.value.featuresIn.length > 0) {
+        rows = rows.filter((item) => {
+          return filterObject.value.featuresIn.some((feature) => item[feature] === true)
+        })
+      }
+
+      return rows
+    })
+
+    const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(filteredData, columns, {
+      enableRowSelection: true,
+    })
+
     return {
-      searchString,
-      pagination,
-      columns,
-      visibleColumns,
-      visibleRows,
-      selectedRow,
-      showNewDialog: ref(false),
-      selected: ref([]),
-      showDeleteDialog: ref(false),
+      providerStore,
+      modelConfigStore,
+      table,
+      globalFilter,
+      selectedRows,
+      clearSelection,
       filterObject,
       filterConfig,
       deleteItem,
-      create,
+      createEntity,
+      showNewDialog: ref(false),
+      showDeleteDialog: ref(false),
       // Import dialog state
       showImportDialog: ref(false),
       availableModels: ref([]),
@@ -264,36 +312,18 @@ export default {
   },
   computed: {
     provider() {
-      return this.$store.getters.provider
-    },
-    filteredRows() {
-      let rows = this.visibleRows.filter((item) => item.provider_system_name === this.provider.system_name)
-
-      // Apply type filter
-      if (this.filterObject.typeIn && this.filterObject.typeIn.length > 0) {
-        rows = rows.filter((item) => this.filterObject.typeIn.includes(item.type))
-      }
-
-      // Apply features filter
-      if (this.filterObject.featuresIn && this.filterObject.featuresIn.length > 0) {
-        rows = rows.filter((item) => {
-          return this.filterObject.featuresIn.some((feature) => item[feature] === true)
-        })
-      }
-
-      return rows
+      return this.providerStore.entity
     },
     modelConfig() {
-      return this.$store.getters['modelConfig/entity']
+      return this.modelConfigStore.entity
     },
-    // Filter available models by fuzzy search
     filteredAvailableModels() {
       if (!this.importSearchString) {
         return this.availableModels
       }
       const query = this.importSearchString.trim()
       if (!query) return this.availableModels
-      
+
       return this.availableModels
         .map(m => {
           const idScore = fuzzyMatch(query, m.id)
@@ -304,41 +334,29 @@ export default {
         .sort((a, b) => b.score - a.score)
         .map(item => item.model)
     },
-    // Get list of already added model names
     existingModelNames() {
-      return this.filteredRows.map(m => m.ai_model?.toLowerCase() || m.name?.toLowerCase())
+      return (this.table.getRowModel().rows ?? []).map(r => {
+        const m = r.original
+        return m.ai_model?.toLowerCase() || m.name?.toLowerCase()
+      })
     },
   },
   methods: {
     openDetails(row) {
-      this.$store.commit('modelConfig/setEntity', row)
+      this.modelConfigStore.setEntity(row)
     },
     async deleteSelected() {
       try {
-        for (const item of this.selected) {
+        for (const item of this.selectedRows) {
           await this.deleteItem(item)
         }
-        this.selected = []
+        this.clearSelection()
         this.showDeleteDialog = false
-        this.$q.notify({
-          position: 'top',
-          message: 'Models deleted successfully.',
-          color: 'positive',
-          textColor: 'black',
-          timeout: 1000,
-        })
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Models deleted successfully.', timeout: 1000 })
       } catch (error) {
-        console.error('Error deleting models:', error)
-        this.$q.notify({
-          position: 'top',
-          message: 'Error deleting models.',
-          color: 'negative',
-          textColor: 'white',
-          timeout: 2000,
-        })
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Error deleting models.', timeout: 2000 })
       }
     },
-    // Import methods
     async openImportDialog() {
       this.loadingAvailableModels = true
       this.availableModels = []
@@ -346,30 +364,21 @@ export default {
       this.importSearchString = ''
       this.availableModelsError = null
       this.availableModelsProviderType = ''
-      
+
       try {
-        const result = await this.$store.dispatch('chroma/availableModels', { 
-          payload: this.provider?.id, 
-          entity: 'provider' 
-        })
-        
+        const apis = getEntityApis()
+        const result = await apis.provider.availableModels(this.provider?.id)
+
         if (result) {
           this.availableModels = result.models || []
           this.availableModelsSource = result.source || ''
           this.availableModelsProviderType = result.provider_type || ''
           this.availableModelsError = result.error || null
         }
-        
+
         this.showImportDialog = true
       } catch (error) {
-        console.error('Error loading available models:', error)
-        this.$q.notify({
-          position: 'top',
-          message: 'Failed to load available models.',
-          color: 'negative',
-          textColor: 'white',
-          timeout: 2000,
-        })
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Failed to load available models.', timeout: 2000 })
       } finally {
         this.loadingAvailableModels = false
       }
@@ -382,7 +391,7 @@ export default {
     },
     toggleModelSelection(model) {
       if (this.isModelAlreadyAdded(model)) return
-      
+
       const index = this.selectedModelsToImport.findIndex(m => m.id === model.id)
       if (index === -1) {
         this.selectedModelsToImport.push(model)
@@ -407,14 +416,13 @@ export default {
     },
     async importSelectedModels() {
       if (this.selectedModelsToImport.length === 0) return
-      
+
       this.importingModels = true
       let successCount = 0
       let errorCount = 0
-      
+
       try {
         for (const model of this.selectedModelsToImport) {
-          // Use model capabilities from the available models data
           const modelType = model.model_type || 'prompts'
           const payload = {
             name: model.id,
@@ -424,54 +432,33 @@ export default {
             provider_name: this.provider.system_name,
             provider_system_name: this.provider.system_name,
             type: modelType,
-            // Set features based on capabilities from LiteLLM
             json_mode: model.supports_json_mode || false,
             json_schema: model.supports_response_schema || false,
             tool_calling: model.supports_function_calling || false,
-            reasoning: false, // Not available from LiteLLM currently
+            reasoning: false,
             description: null,
           }
-          
+
           try {
-            await this.create(JSON.stringify(payload))
+            await this.createEntity(payload)
             successCount++
           } catch (error) {
-            console.error(`Error creating model ${model.id}:`, error)
             errorCount++
           }
         }
-        
+
         this.showImportDialog = false
         this.selectedModelsToImport = []
-        
+
         if (successCount > 0) {
-          this.$q.notify({
-            position: 'top',
-            message: `Successfully imported ${successCount} model(s).`,
-            color: 'positive',
-            textColor: 'black',
-            timeout: 2000,
-          })
+          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: `Successfully imported ${successCount} model(s).`, timeout: 2000 })
         }
-        
+
         if (errorCount > 0) {
-          this.$q.notify({
-            position: 'top',
-            message: `Failed to import ${errorCount} model(s).`,
-            color: 'warning',
-            textColor: 'black',
-            timeout: 2000,
-          })
+          this.$q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: `Failed to import ${errorCount} model(s).`, timeout: 2000 })
         }
       } catch (error) {
-        console.error('Error importing models:', error)
-        this.$q.notify({
-          position: 'top',
-          message: 'Error importing models.',
-          color: 'negative',
-          textColor: 'white',
-          timeout: 2000,
-        })
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Error importing models.', timeout: 2000 })
       } finally {
         this.importingModels = false
       }

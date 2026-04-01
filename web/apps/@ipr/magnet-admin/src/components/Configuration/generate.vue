@@ -26,17 +26,24 @@ div
 </template>
 
 <script>
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useRagDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   emits: ['openTest'],
   setup() {
-    const { items: promptTemplateItems } = useChroma('promptTemplates')
+    const queries = useEntityQueries()
+    const ragStore = useRagDetailStore()
+    const { data: promptTemplateListData } = queries.promptTemplates.useList()
     return {
-      promptTemplateItems,
+      ragStore,
+      promptTemplateListData,
     }
   },
   computed: {
+    promptTemplateItems() {
+      return this.promptTemplateListData?.items ?? []
+    },
     generatePromptTemplateId() {
       return this.promptTemplatesOptions.find((el) => el.system_name == this.generatePromptTemplate)?.id
     },
@@ -51,10 +58,10 @@ export default {
     },
     generatePromptTemplate: {
       get() {
-        return this.$store.getters.ragVariant?.generate?.prompt_template
+        return this.ragStore.activeVariant?.generate?.prompt_template
       },
       set(value) {
-        this.$store.dispatch('updateNestedRagProperty', { path: 'generate.prompt_template', value })
+        this.ragStore.updateNestedVariantProperty({ path: 'generate.prompt_template', value })
       },
     },
   },

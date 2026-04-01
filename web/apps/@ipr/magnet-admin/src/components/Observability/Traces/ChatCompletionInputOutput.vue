@@ -1,13 +1,13 @@
 <template>
   <div class="column q-gap-12">
     <div v-for="(message, msgIdx) in messages" :key="msgIdx" class="col-auto ba-border border-radius-8 overflow-hidden">
-      <div class="row q-pa-sm bg-light justify-between items-center cursor-pointer" style="font-size: 13px" @click="toggleCollapse(msgIdx)">
+      <div class="row q-pa-sm bg-light justify-between items-center cursor-pointer km-body-sm" @click="toggleCollapse(msgIdx)">
         <span>{{ formatRole(message?.label) }}</span>
         <q-icon :name="collapsed[msgIdx] ? 'expand_less' : 'expand_more'" size="16px" />
       </div>
       <div v-if="collapsed[msgIdx]" class="row bt-border">
         <template v-if="message?.type === 'text'">
-          <div class="row q-pa-sm" style="min-height: 30px; font-size: 13px; white-space: pre-wrap; word-break: break-all">
+          <div class="row q-pa-sm km-body-sm trace-content">
             {{ message?.content }}
           </div>
         </template>
@@ -99,3 +99,11 @@ watch(
   { immediate: true }
 )
 </script>
+
+<style scoped>
+.trace-content {
+  min-height: 30px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+</style>

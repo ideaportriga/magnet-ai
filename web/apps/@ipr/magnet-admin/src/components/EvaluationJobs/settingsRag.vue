@@ -84,21 +84,35 @@ div(style='min-width: 300px')
 </template>
 
 <script>
-import { useChroma } from '@shared'
+import { useEntityQueries } from '@/queries/entities'
+import { useEvaluationStore } from '@/stores/evaluationStore'
 
 export default {
   setup() {
-    const { publicItems } = useChroma('collections')
-    const { items: promptTemplates } = useChroma('promptTemplates')
+    const queries = useEntityQueries()
+    const { data: collectionsListData } = queries.collections.useList()
+    const { data: promptTemplatesListData } = queries.promptTemplates.useList()
+    const evalStore = useEvaluationStore()
     return {
-      publicItems,
-      promptTemplates,
+      collectionsListData,
+      promptTemplatesListData,
+      evalStore,
     }
   },
   computed: {
+    publicItems() {
+      return (this.collectionsListData?.items ?? []).map((item) => ({
+        ...item,
+        value: item.id,
+        label: item.name,
+      }))
+    },
+    promptTemplates() {
+      return this.promptTemplatesListData?.items ?? []
+    },
     evaluation: {
       get() {
-        return this.$store.getters.evaluation
+        return this.evalStore.evaluation
       },
     },
     evaluationVariant: {

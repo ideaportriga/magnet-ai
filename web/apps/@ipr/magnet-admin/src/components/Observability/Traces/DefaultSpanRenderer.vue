@@ -2,11 +2,11 @@
 template(v-if='!value || computedType == "none"')
   .column
     .km-button-text.bb-border.q-pb-4.q-pl-sm {{ label }}
-    span.text-text-grey.q-pt-sm.q-ml-sm(style='font-style: italic; font-size: 13px') N/A
+    span.text-text-grey.q-pt-sm.q-ml-sm.km-body-sm(style='font-style: italic') N/A
 template(v-else-if='computedType == "text"')
   .col-auto.ba-border.border-radius-8
-    .row.bb-border.q-pa-sm.bg-light(style='font-size: 13px') {{ label ?? 'Content' }}
-    .row.q-pa-sm(style='min-height: 30px; font-size: 13px; white-space: pre-wrap') {{ value }}
+    .row.bb-border.q-pa-sm.bg-light.km-body-sm {{ label ?? 'Content' }}
+    .row.q-pa-sm.km-body-sm(style='min-height: 30px; white-space: pre-wrap') {{ value }}
 template(v-else-if='computedType == "object"')
   .column
     .km-button-text.bb-border.q-pb-4.q-pl-sm {{ label }}
@@ -16,8 +16,8 @@ template(v-else-if='computedType == "object"')
         .km-heading-2 {{ value }}
 template(v-else-if='computedType == "embedding-vector"')
   .col-auto.ba-border.border-radius-8
-    .row.bb-border.q-pa-sm.bg-light(style='font-size: 13px') Vector
-    .row.q-pa-sm(style='min-height: 50px; font-size: 10px') {{ value }}
+    .row.bb-border.q-pa-sm.bg-light.km-body-sm Vector
+    .row.q-pa-sm.km-tiny(style='min-height: 50px') {{ value }}
 template(v-else)
   km-input(autogrow, :model-value='formattedValue', border-radius='8px', height='36px', type='textarea', readonly)
 </template>

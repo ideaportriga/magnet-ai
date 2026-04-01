@@ -20,11 +20,12 @@ km-popup-confirm(
       km-input(data-test='url-input', height='30px', v-model='newRow.url', ref='urlRef', :rules='[required()]')
 </template>
 <script>
-import { ref, reactive } from 'vue'
-import { useChroma } from '@shared'
+import { ref, reactive, computed } from 'vue'
+import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { required, minLength } from '@shared/utils/validationRules'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { useApiServerDetailStore, useAiAppDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   props: {
@@ -39,10 +40,18 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const { create, items, ...useApiServers } = useChroma('api_servers')
+    const queries = useEntityQueries()
+    const apiServerStore = useApiServerDetailStore()
+    const aiAppStore = useAiAppDetailStore()
+    const { mutateAsync: createEntity } = queries.api_servers.useCreate()
+    const { data: apiServersData } = queries.api_servers.useList()
+
+    const items = computed(() => apiServersData.value?.items ?? [])
+
     return {
-      create,
-      useApiServers,
+      createEntity,
+      apiServerStore,
+      aiAppStore,
       items,
       createNew: ref(false),
       newRow: reactive({
@@ -75,13 +84,11 @@ export default {
       },
     },
     currentRaw() {
-      return this.$store.getters.ai_app
+      return this.aiAppStore.entity
     },
   },
   watch: {},
   mounted() {
-    this.searchString = ''
-
     if (this.copy) {
       this.newRow = reactive(cloneDeep(this.currentRaw))
       this.newRow.name = this.newRow.name + '_COPY'
@@ -105,10 +112,9 @@ export default {
       if (!this.validateFields()) return
 
       this.createNew = false
-      const { id } = await this.create(JSON.stringify(this.newRow))
-      await this.useApiServers.selectRecord(id)
+      const { id } = await this.createEntity(this.newRow)
       const server = this.items.find((item) => item.id === id)
-      this.$store.commit('setApiServer', server)
+      this.apiServerStore.setEntity(server)
       this.$router.push(`/api-servers/${id}`)
       this.$emit('cancel')
     },
@@ -117,11 +123,6 @@ export default {
 </script>
 
 <style lang="stylus">
-.collection-container {
-  min-width: 450px;
-  max-width: 1200px;
-  width: 100%;
-}
 .km-input:not(.q-field--readonly) .q-field__control::before
-  background: #fff !important;
+  background: var(--q-white) !important;
 </style>

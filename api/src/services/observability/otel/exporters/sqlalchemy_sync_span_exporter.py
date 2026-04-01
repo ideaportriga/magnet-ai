@@ -11,7 +11,7 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 from opentelemetry.trace import format_span_id
 from opentelemetry.trace.status import StatusCode
-from sqlalchemy import create_engine, select, update
+from sqlalchemy import select, update
 from sqlalchemy.orm import sessionmaker
 
 from core.db.models.metric import Metric
@@ -149,23 +149,14 @@ class SqlAlchemySyncSpanExporter(SpanExporter):
         self._initialized = False
 
     def _ensure_initialized(self):
-        """Lazy initialization of database connection."""
+        """Lazy initialization of database connection using the shared sync engine."""
         if self._initialized:
             return
 
         try:
-            from core.config.app import settings
+            from core.db.sync_engine import get_shared_sync_engine
 
-            # Create synchronous engine for the exporter
-            # Use sync_url which already handles converting async drivers to sync
-            database_url = settings.db.sync_url
-
-            self._engine = create_engine(
-                database_url,
-                pool_pre_ping=True,
-                pool_recycle=3600,
-                echo=False,
-            )
+            self._engine = get_shared_sync_engine()
             self._session_factory = sessionmaker(bind=self._engine)
             self._initialized = True
         except Exception as e:

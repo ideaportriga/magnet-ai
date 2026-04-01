@@ -53,7 +53,7 @@ export const columnsSettings = {
     name: 'drilldown',
     label: '',
     field: 'drilldown',
-    action: () => console.log('drilldown'),
+    action: () => { /* drilldown handled by component */ },
     display: true,
     type: 'drilldown',
     // component: markRaw(Drilldown),

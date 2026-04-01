@@ -1,4 +1,5 @@
-import store from '@/store'
+import { getCachedItems } from '@/queries/getCachedItems'
+import { useDashboardStore } from '@/stores/dashboardStore'
 
 const filter = {
   start_time: {
@@ -13,7 +14,7 @@ const filter = {
     key: 'feature_system_name',
     search: true,
     get options() {
-      return store.getters.chroma.promptTemplates?.items.map((item) => ({ label: item.display_name ?? item.name, value: item.system_name }))
+      return getCachedItems('promptTemplates').map((item) => ({ label: item.display_name ?? item.name, value: item.system_name }))
     },
   },
   source: {
@@ -34,7 +35,8 @@ const filter = {
     label: 'Consumer name',
     key: 'consumer_name',
     get options() {
-      return store.getters.llmDashboardOptions?.consumer_names?.map((name) => ({ label: name, value: name })) ?? []
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.llmDashboardOptions?.consumer_names?.map((name) => ({ label: name, value: name })) ?? []
     },
     search: true,
     // overviewFilter: true,
@@ -61,7 +63,7 @@ const filter = {
     key: 'model.display_name',
     search: true,
     get options() {
-      return store.getters.chroma.model?.items.map((item) => ({ label: item.display_name ?? item.name, value: item.display_name ?? item.name }))
+      return getCachedItems('model').map((item) => ({ label: item.display_name ?? item.name, value: item.display_name ?? item.name }))
     },
   },
   ['x_attributes.org-id']: {
@@ -69,7 +71,8 @@ const filter = {
     key: 'x_attributes.org-id',
     search: true,
     get options() {
-      return store.getters.llmDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
+      const dashboardStore = useDashboardStore()
+      return dashboardStore.llmDashboardOptions?.organizations?.map((orgId) => ({ label: orgId, value: orgId })) ?? []
     },
   },
 }

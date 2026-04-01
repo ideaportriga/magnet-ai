@@ -22,10 +22,13 @@ div
 <script>
 import { copyToClipboard } from 'quasar'
 import { ref } from 'vue'
+import { useAiAppDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   setup() {
+    const aiAppStore = useAiAppDetailStore()
     return {
+      aiAppStore,
       themeOptions: ref([
         { label: 'Oracle Redwood', value: 'siebel' },
         { label: 'Salesforce', value: 'salesforce' },
@@ -34,7 +37,7 @@ export default {
   },
   computed: {
     appUrl() {
-      let panelUrl = `${this.$store.getters.config?.panel?.baseUrl}/#/?ai_app=${this.system_name}`
+      let panelUrl = `${this.$appConfig?.panel?.baseUrl}/#/?ai_app=${this.system_name}`
 
       if (panelUrl.startsWith('/')) {
         panelUrl = `${window.location.origin}${panelUrl}`
@@ -43,31 +46,31 @@ export default {
       return panelUrl
     },
     system_name() {
-      return this.$store.getters.ai_app?.system_name || this.$store.getters.ai_app?.system_name
+      return this.aiAppStore.entity?.system_name || ''
     },
     show_close_button: {
       get() {
-        return this.$store.getters.ai_app?.settings?.show_close_button || false
+        return this.aiAppStore.entity?.settings?.show_close_button || false
       },
       set(value) {
-        this.$store.commit('updateNestedAIAppProperty', { path: 'settings.show_close_button', value })
+        this.aiAppStore.updateNestedProperty({ path: 'settings.show_close_button', value })
       },
     },
     isIconHide: {
       get() {
-        return !(this.$store.getters.ai_app?.settings?.is_icon_hide || false)
+        return !(this.aiAppStore.entity?.settings?.is_icon_hide || false)
       },
       set(value) {
-        this.$store.commit('updateNestedAIAppProperty', { path: 'settings.is_icon_hide', value: !value })
+        this.aiAppStore.updateNestedProperty({ path: 'settings.is_icon_hide', value: !value })
       },
     },
     theme: {
       get() {
-        const theme = this.$store.getters.ai_app?.settings?.theme || 'siebel'
+        const theme = this.aiAppStore.entity?.settings?.theme || 'siebel'
         return this.themeOptions.find((option) => option.value === theme)
       },
       set({ value }) {
-        this.$store.commit('updateNestedAIAppProperty', { path: 'settings.theme', value })
+        this.aiAppStore.updateNestedProperty({ path: 'settings.theme', value })
       },
     },
   },
@@ -76,10 +79,10 @@ export default {
       copyToClipboard(this.appUrl || '')
 
       this.$q.notify({
-        position: 'top',
+        color: 'green-9', textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
         message: 'AI App URL has been copied to clipboard',
-        color: 'positive',
-        textColor: 'black',
         timeout: 1000,
       })
     },

@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
-import { fetchData } from '@shared'
-const LOCAL_STORAGE_KEY = 'userInfo'
+import { createAuthClient, type AuthClient, type UserInfo } from '@shared/auth'
 
 type AuthConfig = {
   enabled: boolean
   provider: string
+  providers?: string[]
+  signupEnabled?: boolean
   popup: {
     width: string
     height: string
@@ -16,8 +17,10 @@ interface AuthState {
   authConfig: AuthConfig
   authenticated: boolean
   authCheckInProgress: boolean
-  userInfo: any
+  userInfo: UserInfo | null
   credentials: string
+  mfaRequired: boolean
+  client: AuthClient | null
 }
 
 const useAuth = defineStore('auth', {
@@ -27,6 +30,8 @@ const useAuth = defineStore('auth', {
     authConfig: {
       enabled: false,
       provider: '',
+      providers: [],
+      signupEnabled: false,
       popup: {
         width: '',
         height: '',
@@ -34,7 +39,9 @@ const useAuth = defineStore('auth', {
     },
     authenticated: false,
     authCheckInProgress: false,
-    userInfo: JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{}') || {},
+    userInfo: null,
+    mfaRequired: false,
+    client: null,
   }),
   getters: {
     authEnabled: (state): boolean => {
@@ -49,42 +56,65 @@ const useAuth = defineStore('auth', {
     async init(config: any) {
       this.baseUrl = config.api.aiBridge.baseUrl
       this.authConfig = config.auth
+      this.client = createAuthClient(this.baseUrl!)
 
-      if (this.authRequired) {
+      if (this.authEnabled) {
         await this.getAuthData()
       }
     },
+
     async getAuthData() {
+      if (!this.client) return
       this.authCheckInProgress = true
-      const response = await fetch(`${this.baseUrl}/auth/me`, { credentials: 'include' })
-      if (response.ok) {
+      const userInfo = await this.client.me()
+      if (userInfo) {
         this.authenticated = true
-        this.userInfo = await response.json()
+        this.userInfo = userInfo
       }
       this.authCheckInProgress = false
     },
-    async completeAuth(body: any) {
-      const response = await fetchData({
-        method: 'POST',
-        endpoint: `${this.baseUrl}/auth/complete`,
-        credentials: this.credentials,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body,
-      })
-      if (!response.ok) {
-        // mainStore.setErrorMessage({
-        //   technicalError: response?.error,
-        //   text: `Error in completing auth`,
-        // })
-      }
 
-      if (response.ok) {
-        this.getAuthData()
+    async loginLocal(email: string, password: string) {
+      if (!this.client) return
+      const result = await this.client.loginLocal(email, password)
+      if (result.mfa_required) {
+        this.mfaRequired = true
+        return
+      }
+      this.mfaRequired = false
+      this.authenticated = true
+      await this.getAuthData()
+    },
+
+    async verifyMfa(code: string) {
+      if (!this.client) return
+      await this.client.verifyMfa(code)
+      this.mfaRequired = false
+      this.authenticated = true
+      await this.getAuthData()
+    },
+
+    async signup(email: string, password: string, name?: string) {
+      if (!this.client) return
+      return await this.client.signup(email, password, name)
+    },
+
+    async completeAuth(body: any) {
+      if (!this.client) return false
+      const ok = await this.client.completeOidc(body)
+      if (ok) {
+        await this.getAuthData()
         return true
       }
       return false
+    },
+
+    async logout() {
+      if (!this.client) return
+      await this.client.logout()
+      this.authenticated = false
+      this.userInfo = null
+      this.mfaRequired = false
     },
   },
 })

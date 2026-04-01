@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Annotated
 from uuid import UUID
 
@@ -17,6 +18,8 @@ from services.rag_tools import execute_rag_tool
 from services.rag_tools.models import RagToolTestResult
 from services.rag_tools.services import get_rag_by_system_name_flat
 from validation.rag_tools import RagToolExecute, RagToolTest
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     pass
@@ -99,6 +102,11 @@ class RagToolsController(Controller):
     ) -> RagTool:
         """Update a RAG tool."""
         update_data = data.model_dump(exclude_unset=True)
+        if "variants" in update_data:
+            logger.info(
+                "update_rag_tool: variants type=%s",
+                type(update_data["variants"]).__name__,
+            )
         update_data["updated_by"] = audit_username
         obj = await rag_tools_service.update(
             update_data, item_id=rag_tool_id, auto_commit=True

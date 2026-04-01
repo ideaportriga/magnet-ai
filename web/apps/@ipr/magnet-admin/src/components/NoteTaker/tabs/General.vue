@@ -67,11 +67,13 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
+import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import { useRouter } from 'vue-router'
 import { fetchData } from '@shared'
 
-const store = useStore()
+const ntStore = useNoteTakerStore()
+const appStore = useAppStore()
 const router = useRouter()
 
 const pipelineOptions = ref<{ label: string; value: string }[]>([
@@ -81,37 +83,37 @@ const pipelineOptions = ref<{ label: string; value: string }[]>([
 const knowledgeGraphs = ref<any[]>([])
 
 const subscriptionRecordingsReady = computed({
-  get: () => store.getters.noteTakerSettings?.subscription_recordings_ready ?? false,
-  set: (v: boolean) => store.dispatch('updateNoteTakerSetting', { path: 'subscription_recordings_ready', value: v }),
+  get: () => ntStore.settings?.subscription_recordings_ready ?? false,
+  set: (v: boolean) => ntStore.updateSetting( { path: 'subscription_recordings_ready', value: v }),
 })
 const pipelineId = computed({
-  get: () => store.getters.noteTakerSettings?.pipeline_id ?? '',
-  set: (v: string) => store.dispatch('updateNoteTakerSetting', { path: 'pipeline_id', value: v }),
+  get: () => ntStore.settings?.pipeline_id ?? '',
+  set: (v: string) => ntStore.updateSetting( { path: 'pipeline_id', value: v }),
 })
 const sendNumberOfSpeakers = computed({
-  get: () => store.getters.noteTakerSettings?.send_number_of_speakers ?? false,
-  set: (v: boolean) => store.dispatch('updateNoteTakerSetting', { path: 'send_number_of_speakers', value: v }),
+  get: () => ntStore.settings?.send_number_of_speakers ?? false,
+  set: (v: boolean) => ntStore.updateSetting( { path: 'send_number_of_speakers', value: v }),
 })
 const keyterms = computed({
-  get: () => store.getters.noteTakerSettings?.keyterms || '',
-  set: (v: string) => store.dispatch('updateNoteTakerSetting', { path: 'keyterms', value: v }),
+  get: () => ntStore.settings?.keyterms || '',
+  set: (v: string) => ntStore.updateSetting( { path: 'keyterms', value: v }),
 })
 const createKnowledgeGraphEmbedding = computed({
-  get: () => store.getters.noteTakerSettings?.create_knowledge_graph_embedding ?? false,
-  set: (v: boolean) => store.dispatch('updateNoteTakerSetting', { path: 'create_knowledge_graph_embedding', value: v }),
+  get: () => ntStore.settings?.create_knowledge_graph_embedding ?? false,
+  set: (v: boolean) => ntStore.updateSetting( { path: 'create_knowledge_graph_embedding', value: v }),
 })
 const knowledgeGraphSystemName = computed({
-  get: () => store.getters.noteTakerSettings?.knowledge_graph_system_name || '',
-  set: (v: string) => store.dispatch('updateNoteTakerSetting', { path: 'knowledge_graph_system_name', value: v }),
+  get: () => ntStore.settings?.knowledge_graph_system_name || '',
+  set: (v: string) => ntStore.updateSetting( { path: 'knowledge_graph_system_name', value: v }),
 })
 const selectedKnowledgeGraph = computed(() =>
   knowledgeGraphs.value.find((g: any) => g.system_name === knowledgeGraphSystemName.value)
 )
 
-const apiReady = computed(() => Boolean(store.getters.config?.api?.aiBridge?.urlAdmin))
+const apiReady = computed(() => Boolean(appStore.config?.api?.aiBridge?.urlAdmin))
 
 const fetchKnowledgeGraphs = async () => {
-  const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+  const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
   if (!endpoint) return
   try {
     const response = await fetchData({
@@ -125,7 +127,7 @@ const fetchKnowledgeGraphs = async () => {
 }
 
 const fetchSttModels = async () => {
-  const endpoint = store.getters.config?.api?.aiBridge?.urlAdmin
+  const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
   if (!endpoint) return
   try {
     const response = await fetchData({

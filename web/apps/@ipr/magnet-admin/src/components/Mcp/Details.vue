@@ -1,5 +1,6 @@
 <template lang="pug">
-layouts-details-layout.q-mx-auto.collection-container(v-if='target_mcp_server')
+km-inner-loading(:showing='!mcp_server')
+layouts-details-layout(v-if='mcp_server')
   template(#header)
     .col
       .row.items-center
@@ -15,6 +16,43 @@ layouts-details-layout.q-mx-auto.collection-container(v-if='target_mcp_server')
           @blur='showInfo = false'
         )
       .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
+  template(#header-actions)
+    km-btn(label='Record info', flat, icon='info', iconSize='16px')
+      q-tooltip.bg-white.block-shadow
+        .q-pa-sm
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Created:
+            .text-secondary-text.km-description {{ created_at }}
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Modified:
+            .text-secondary-text.km-description {{ modified_at }}
+          .q-mb-sm
+            .text-secondary-text.km-button-xs-text Created by:
+            .text-secondary-text.km-description {{ created_by }}
+          div
+            .text-secondary-text.km-button-xs-text Modified by:
+            .text-secondary-text.km-description {{ updated_by }}
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='mcpStore.revert()', v-if='mcpStore.isChanged')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !mcpStore.isChanged')
+    km-btn(label='Save & Sync Tools', flat, icon='fas fa-sync', iconSize='16px', @click='saveAndSync', :loading='syncing', :disable='syncing')
+    q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
+      q-menu(anchor='bottom right', self='top right')
+        q-item(clickable, @click='showNewDialog = true', dense)
+          q-item-section
+            .km-heading-3 Clone
+        q-item(clickable, @click='showDeleteDialog = true', dense)
+          q-item-section
+            .km-heading-3 Delete
+    km-popup-confirm(
+      :visible='showDeleteDialog',
+      confirmButtonLabel='Delete MCP Server',
+      cancelButtonLabel='Cancel',
+      notificationIcon='fas fa-triangle-exclamation',
+      @confirm='confirmDelete',
+      @cancel='showDeleteDialog = false'
+    )
+      .row.item-center.justify-center.km-heading-7 You are about to delete the MCP Server
+      .row.text-center.justify-center This action will permanently delete the MCP Server and disable it in all tools that are using it.
   template(#content)
     q-tabs.bb-border.full-width(
       v-model='tab',
@@ -35,58 +73,126 @@ layouts-details-layout.q-mx-auto.collection-container(v-if='target_mcp_server')
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useChroma } from '@shared'
-import { useRoute } from 'vue-router'
-import { useStore } from 'vuex'
+import { ref, computed, watch, onActivated } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
+import { useEntityQueries } from '@/queries/entities'
+import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
 
 const route = useRoute()
-const store = useStore()
+const router = useRouter()
+const q = useQuasar()
+const mcpStore = useMcpServerDetailStore()
+const queries = useEntityQueries()
 
 const showInfo = ref(false)
+const saving = ref(false)
+const syncing = ref(false)
+const showDeleteDialog = ref(false)
+const showNewDialog = ref(false)
 const tab = ref('tools')
 const tabs = ref([
   { name: 'tools', label: 'Tools' },
   { name: 'settings', label: 'Settings' },
 ])
 
-const { items: mcp_servers } = useChroma('mcp_servers')
-
-const mcp_server = computed(() => {
-  return mcp_servers.value.find((item) => item.id === route.params.id)
-})
-
-const target_mcp_server = computed(() => {
-  return store.getters.mcp_server
-})
+const id = ref(route.params.id)
+const { data: mcp_server } = queries.mcp_servers.useDetail(id)
+const { mutateAsync: updateEntity } = queries.mcp_servers.useUpdate()
+const { mutateAsync: createEntity } = queries.mcp_servers.useCreate()
+const removeMutation = queries.mcp_servers.useRemove()
+const { mutateAsync: syncMcpServer } = queries.mcp_servers.useSync()
 
 const name = computed({
   get() {
-    return target_mcp_server.value.name
+    return mcpStore.entity?.name
   },
   set(value) {
-    console.log(value)
-    store.dispatch('updateMcpServerProperty', { key: 'name', value })
+    mcpStore.updateProperty({ key: 'name', value })
   },
 })
 const system_name = computed({
   get() {
-    return target_mcp_server.value.system_name
+    return mcpStore.entity?.system_name
   },
   set(value) {
-    store.dispatch('updateMcpServerProperty', { key: 'system_name', value })
+    mcpStore.updateProperty({ key: 'system_name', value })
   },
 })
+
+const entity = computed(() => mcpStore.entity)
+const created_at = computed(() => entity.value?.created_at ? formatDate(entity.value.created_at) : '')
+const modified_at = computed(() => entity.value?.updated_at ? formatDate(entity.value.updated_at) : '')
+const created_by = computed(() => entity.value?.created_by || 'Unknown')
+const updated_by = computed(() => entity.value?.updated_by || 'Unknown')
+
+function formatDate(date) {
+  const d = new Date(date)
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
+}
+
+async function save() {
+  saving.value = true
+  try {
+    if (entity.value?.created_at) {
+      const data = mcpStore.buildPayload()
+      await updateEntity({ id: entity.value.id, data })
+    } else {
+      await createEntity(entity.value)
+    }
+    mcpStore.setInit()
+    q.notify({ position: 'top', color: 'positive', message: 'Saved successfully', timeout: 2000 })
+  } catch (error) {
+    q.notify({ position: 'top', color: 'negative', message: error.message || 'Failed to save', timeout: 3000 })
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveAndSync() {
+  syncing.value = true
+  try {
+    const mcpServer = entity.value
+    const data = { ...mcpServer }
+    delete data.id
+    delete data.created_at
+    delete data.updated_at
+    delete data.created_by
+    delete data.updated_by
+    await updateEntity({ id: mcpServer.id, data })
+    mcpStore.setInit()
+    await syncMcpServer(mcpServer.id)
+    q.notify({ position: 'top', color: 'positive', message: 'Saved and synced successfully', timeout: 2000 })
+  } catch (error) {
+    q.notify({ position: 'top', color: 'negative', message: error.message || 'Failed to save and sync', timeout: 3000 })
+  } finally {
+    syncing.value = false
+  }
+}
+
+async function confirmDelete() {
+  await removeMutation.mutateAsync(route.params.id)
+  q.notify({ position: 'top', message: 'MCP Server has been deleted.', color: 'positive', textColor: 'black', timeout: 1000 })
+  router.push('/mcp')
+}
 
 watch(
   () => mcp_server.value,
   (newVal) => {
-    console.log('server', newVal)
     if (!newVal) return
-    store.dispatch('setMcpServer', newVal)
+    mcpStore.setEntity(newVal)
   },
   { immediate: true, deep: true }
 )
+
+onActivated(() => {
+  id.value = route.params.id
+  // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
+  const currentData = mcp_server.value
+  if (currentData && currentData.id !== mcpStore.entity?.id) {
+    mcpStore.setEntity(currentData)
+  }
+})
 </script>
 
 <style lang="stylus"></style>

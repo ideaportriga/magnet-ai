@@ -63,30 +63,27 @@ layouts-details-layout
 q-inner-loading(:showing='loading', color='primary')
 </template>
 <script>
-import { fetchData } from '@shared'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { formatDuration } from '@shared/utils'
+import { useConversationStore } from '@/stores/conversationStore'
+import { storeToRefs } from 'pinia'
 
 import { ref } from 'vue'
 export default {
   setup() {
     const selectedMessage = ref(null)
-    //const conversation = ref(null)
-    const loading = ref(false)
+    const convStore = useConversationStore()
+    const { conversation, loading } = storeToRefs(convStore)
     return {
       selectedMessage,
       loading,
+      conversation,
+      convStore,
     }
   },
   computed: {
-    conversation() {
-      return this.$store.getters.conversation
-    },
     conversationId() {
       return this.$route.params.id
-    },
-    endpoint() {
-      return this.$store.getters.config.api.aiBridge.urlAdmin
     },
     title() {
       const name = this.conversation?.analytics?.feature_name
@@ -135,14 +132,9 @@ export default {
   },
   methods: {
     async getConversation() {
-      this.loading = true
-      try {
-        await this.$store.dispatch('getConversation', {
-          conversation_id: this.conversationId,
-        })
-      } finally {
-        this.loading = false
-      }
+      await this.convStore.getConversation({
+        conversation_id: this.conversationId,
+      })
     },
     messageSelected(message) {
       if (message.role === 'user') return

@@ -71,8 +71,8 @@ const onCancel = () => {
 
 <style scoped>
 .dialog-subtitle {
-  font-size: 14px;
-  color: #6b6b6b;
+  font-size: var(--km-font-size-body);
+  color: var(--q-secondary-text);
   font-weight: 400;
   line-height: 1.4;
 }

@@ -1,11 +1,10 @@
 <template lang="pug">
 .full-height.full-width.no-wrap.column
-  template(v-if='auth.authRequired')
-    template(v-if='auth.authCheckInProgress')
-      .flex.flex-center.full-height
-        q-spinner(size='30px', color='primary')
-    template(v-else)
-      login
+  template(v-if='auth.authCheckInProgress')
+    .flex.flex-center.full-height
+      q-spinner(size='30px', color='primary')
+  template(v-else-if='auth.authRequired && !isPublicRoute')
+    login-page
   template(v-else)
     template(v-if='appType === "agent"')
       agent-container
@@ -17,11 +16,14 @@
 </template>
 
 <script>
-import { getCurrentInstance } from 'vue'
+import { computed, getCurrentInstance } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRoute } from 'vue-router'
 import { useMainStore, useRagTools, useCollections, useRetrieval, useAiApps, usePromptTemplates, useAgents, useAuth, useModel } from '@/pinia'
+import LoginPage from '@/pages/LoginPage.vue'
 
 export default {
+  components: { LoginPage },
   setup() {
     const mainStore = useMainStore()
     const ragTools = useRagTools()
@@ -32,13 +34,17 @@ export default {
     const agents = useAgents()
     const auth = useAuth()
     const model = useModel()
+    const route = useRoute()
 
     const { authRequired } = storeToRefs(auth)
     const { appContext } = getCurrentInstance()
 
+    const isPublicRoute = computed(() => route.meta?.public === true)
+
     return {
       appContext,
       authRequired,
+      isPublicRoute,
       mainStore,
       ragTools,
       collections,
@@ -97,9 +103,6 @@ export default {
       } else if (this.appType === 'agent') {
         await this.aiApps.getAgent(this.$route.query.agent)
       }
-      //await Promise.all([
-      //   this.aiApps.getApp(this.$route.query.ai_app),
-      // ])
     },
   },
 }

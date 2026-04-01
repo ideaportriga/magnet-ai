@@ -242,9 +242,9 @@ function setIdentifier(idx: number, value: boolean) {
 
 <style scoped>
 .entity-add-col-btn {
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   font-weight: 600;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
 }
 
 .entity-add-col-btn-dashed {
@@ -254,12 +254,12 @@ function setIdentifier(idx: number, value: boolean) {
   gap: 6px;
   width: 100%;
   padding: 9px 0;
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
   font-weight: 600;
-  color: #00796b;
+  color: var(--q-primary);
   background: transparent;
-  border: 1.5px dashed #b2dfdb;
-  border-radius: 8px;
+  border: 1.5px dashed var(--q-border);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   transition:
     border-color 0.15s ease,
@@ -268,9 +268,9 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-add-col-btn-dashed:hover {
-  border-color: #00796b;
-  background: #e0f2f1;
-  color: #004d40;
+  border-color: var(--q-primary);
+  background: var(--q-primary-bg);
+  color: var(--q-primary-text);
 }
 
 .entity-columns-list {
@@ -288,9 +288,9 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-column-card {
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  background: var(--q-white);
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   transition:
     border-color 0.2s ease,
@@ -298,7 +298,7 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-column-card:hover {
-  border-color: #c0c0c0;
+  border-color: var(--q-border-2);
 }
 
 .entity-column-card--identifier {
@@ -313,17 +313,17 @@ function setIdentifier(idx: number, value: boolean) {
   padding: 10px 12px;
   cursor: pointer;
   user-select: none;
-  background: #fafafa;
+  background: var(--q-background);
   border-bottom: 1px solid transparent;
   transition: background 0.15s ease;
 }
 
 .entity-column-header:hover {
-  background: #f4f4f4;
+  background: var(--q-light);
 }
 
 .entity-column-card:has(.entity-column-body) .entity-column-header {
-  border-bottom-color: #eee;
+  border-bottom-color: var(--q-border);
 }
 
 .entity-column-header__left {
@@ -347,9 +347,9 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-column-name {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 600;
-  color: #333;
+  color: var(--q-black);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -359,7 +359,7 @@ function setIdentifier(idx: number, value: boolean) {
   font-size: 9px;
   font-weight: 700;
   padding: 2px 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   letter-spacing: 0.5px;
 }
 
@@ -375,12 +375,12 @@ function setIdentifier(idx: number, value: boolean) {
 }
 
 .entity-col-action-btn:hover {
-  color: #d32f2f !important;
+  color: var(--q-error) !important;
 }
 
 .entity-column-body {
   padding: 14px 14px 12px;
-  background: #ffffff;
+  background: var(--q-white);
 }
 
 .entity-column-grid {
@@ -415,9 +415,9 @@ function setIdentifier(idx: number, value: boolean) {
   height: 40px;
   padding: 0 12px;
   cursor: pointer;
-  border: 1px solid #d8dee8;
-  border-radius: 4px;
-  background: white;
+  border: 1px solid var(--q-border);
+  border-radius: var(--radius-sm);
+  background: var(--q-white);
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
@@ -447,9 +447,9 @@ function setIdentifier(idx: number, value: boolean) {
 
 .entity-col-identifier-toggle__label {
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 600;
-  color: #2d2438;
+  color: var(--q-black);
 }
 
 @media (max-width: 1100px) {

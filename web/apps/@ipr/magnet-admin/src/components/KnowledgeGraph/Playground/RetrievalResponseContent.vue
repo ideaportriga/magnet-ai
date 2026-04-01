@@ -32,11 +32,11 @@ const rendered = computed(() => {
 
 <style scoped>
 .markdown-content {
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   line-height: 1.65;
-  color: #374151;
+  color: var(--q-black);
   word-wrap: break-word;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-family: var(--km-font-default), sans-serif;
 }
 
 .markdown-content--plain {
@@ -53,7 +53,7 @@ const rendered = computed(() => {
 
 .markdown-content :deep(strong) {
   font-weight: 600;
-  color: #111827;
+  color: var(--q-primary-text);
 }
 
 .markdown-content :deep(em) {
@@ -67,14 +67,14 @@ const rendered = computed(() => {
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
   font-weight: 600;
-  color: #111827;
+  color: var(--q-primary-text);
   margin: 20px 0 8px 0;
   line-height: 1.4;
 }
 
 .markdown-content :deep(h1) {
   font-size: 1.25em;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--q-border);
   padding-bottom: 6px;
 }
 
@@ -90,7 +90,7 @@ const rendered = computed(() => {
 .markdown-content :deep(h5),
 .markdown-content :deep(h6) {
   font-size: 0.925em;
-  color: #374151;
+  color: var(--q-black);
 }
 
 .markdown-content :deep(h1:first-child),
@@ -129,10 +129,10 @@ const rendered = computed(() => {
 .markdown-content :deep(blockquote) {
   margin: 12px 0;
   padding: 10px 14px;
-  background: #f9fafb;
-  border-left: 3px solid #d1d5db;
-  border-radius: 0 4px 4px 0;
-  color: #6b7280;
+  background: var(--q-background);
+  border-left: 3px solid var(--q-border-2);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--q-label);
 }
 
 .markdown-content :deep(blockquote p) {
@@ -141,36 +141,36 @@ const rendered = computed(() => {
 
 .markdown-content :deep(blockquote blockquote) {
   margin: 8px 0 0 0;
-  border-left-color: #e5e7eb;
+  border-left-color: var(--q-border);
 }
 
 .markdown-content :deep(code) {
-  background: #f3f4f6;
+  background: var(--q-light);
   padding: 2px 6px;
-  border-radius: 4px;
-  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+  border-radius: var(--radius-sm);
+  font-family: var(--km-font-mono);
   font-size: 0.85em;
-  color: #be185d;
+  color: var(--q-error);
 }
 
 .markdown-content :deep(pre) {
   margin: 12px 0;
   padding: 12px 14px;
-  background: #1f2937;
-  border-radius: 6px;
+  background: var(--q-black);
+  border-radius: var(--radius-md);
   overflow-x: auto;
 }
 
 .markdown-content :deep(pre code) {
   background: none;
   padding: 0;
-  color: #e5e7eb;
+  color: var(--q-border);
   font-size: 0.8em;
   line-height: 1.5;
 }
 
 .markdown-content :deep(a) {
-  color: #2563eb;
+  color: var(--q-primary);
   text-decoration: none;
 }
 
@@ -181,7 +181,7 @@ const rendered = computed(() => {
 .markdown-content :deep(hr) {
   border: none;
   height: 1px;
-  background: #e5e7eb;
+  background: var(--q-border);
   margin: 16px 0;
 }
 
@@ -196,22 +196,22 @@ const rendered = computed(() => {
 .markdown-content :deep(td) {
   padding: 8px 12px;
   text-align: left;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--q-border);
 }
 
 .markdown-content :deep(th) {
-  background: #f9fafb;
+  background: var(--q-background);
   font-weight: 600;
-  color: #374151;
+  color: var(--q-black);
 }
 
 .markdown-content :deep(tr:nth-child(even)) {
-  background: #f9fafb;
+  background: var(--q-background);
 }
 
 .markdown-content :deep(img) {
   max-width: 100%;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   margin: 10px 0;
 }
 </style>

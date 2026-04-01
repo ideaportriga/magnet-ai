@@ -52,7 +52,7 @@
 
         <div v-if="uploadMode === 'url'">
           <km-input v-model="urlInput" label="File URL" placeholder="https://example.com/file.pdf" dense @keyup.enter="uploadDocument" />
-          <div class="q-ml-12 q-mt-8 q-mb-1" style="font-size: 11px; color: rgba(0, 0, 0, 0.54); line-height: 11px">
+          <div class="q-ml-12 q-mt-8 q-mb-1 km-tiny text-secondary-text">
             Enter a direct link to a file from the web.
           </div>
         </div>
@@ -64,7 +64,7 @@
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import { computed, inject, onUnmounted, ref, watch, type Ref } from 'vue'
-import { useStore } from 'vuex'
+import { useAppStore } from '@/stores/appStore'
 import { KgDialogBase, KgDialogSection } from '../../common'
 
 const props = defineProps<{
@@ -76,7 +76,7 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
-const store = useStore()
+const appStore = useAppStore()
 const files = ref<File[] | null>(null)
 const urlInput = ref('')
 const error = ref('')
@@ -156,7 +156,7 @@ const uploadDocument = async () => {
   emit('cancel')
 
   try {
-    const endpoint = store.getters.config.api.aiBridge.urlAdmin
+    const endpoint = appStore.config.api.aiBridge.urlAdmin
     const results: any[] = []
 
     if (uploadMode.value === 'local' && files.value) {
@@ -206,7 +206,7 @@ const uploadDocument = async () => {
       kgRefreshSources()
     }
   } catch (err: any) {
-    console.error('Upload error:', err)
+
     error.value = err.message || 'Failed to upload one or more documents. Please try again.'
   } finally {
     if (kgUploading) kgUploading.value = false
@@ -240,7 +240,7 @@ const onCancel = () => {
   max-width: 120px;
   height: 22px;
   padding: 0 10px;
-  font-size: 12px;
+  font-size: var(--km-font-size-caption);
 }
 
 :deep(.q-file .q-chip__content) {
@@ -253,13 +253,13 @@ const onCancel = () => {
 :deep(.q-field--outlined .q-field__control:before) {
   border-color: var(--q-control-border) !important;
   transition: all 600ms;
-  background-color: white !important;
+  background-color: var(--q-white) !important;
 }
 
 .section-control-toggle :deep(.q-btn) {
   padding: 4px 12px;
   min-height: 28px;
-  font-size: 13px;
+  font-size: var(--km-font-size-label);
   font-weight: 500;
 }
 
