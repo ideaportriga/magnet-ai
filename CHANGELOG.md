@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.2](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.1...v0.7.0-alpha.2) (2026-04-01)
+
+### 🐛 Bug Fixes
+
+* remove note_taker_settings from column length migration ([9d74cc0](https://github.com/ideaportriga/magnet-ai/commit/9d74cc0e06e366c54ed87cb6764e0a8075deb9be))
+
 ## [0.7.0-alpha.1](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0...v0.7.0-alpha.1) (2026-04-01)
 
 ### ✨ Features
