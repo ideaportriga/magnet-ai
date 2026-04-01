@@ -124,6 +124,7 @@ async def execute_topic(
                             "TOPIC_NAME": topic.name,
                             "TOPIC_INSTRUCTIONS": topic.instructions
                             or "No instructions.",
+                            **(variables or {}),
                         },
                         tools=tools,  # type: ignore
                     )
