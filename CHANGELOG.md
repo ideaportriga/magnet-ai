@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.6.0-dev.64](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.63...v0.6.0-dev.64) (2026-04-01)
+
+### ✨ Features
+
+* **agents:** set up observability for async conversations ([8a25510](https://github.com/ideaportriga/magnet-ai/commit/8a25510b24121f4a5f40838cd9ba5870b5026fa4))
+* **agents:** use variables in topic processing prompt ([ede700d](https://github.com/ideaportriga/magnet-ai/commit/ede700df8b91369824064228a182cde6303efdb5))
+
 ## [0.6.0-dev.63](https://github.com/ideaportriga/magnet-ai/compare/v0.6.0-dev.62...v0.6.0-dev.63) (2026-03-31)
 
 ### ✨ Features
