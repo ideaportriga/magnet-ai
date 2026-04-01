@@ -48,8 +48,13 @@ jobs:
           TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${VERSION}"
           
           if [[ "$IS_PRERELEASE" == "true" ]]; then
-            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
-            echo "📦 Building prerelease: ${VERSION}"
+            if [[ "$VERSION" == *"-alpha."* ]]; then
+              TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:alpha"
+              echo "📦 Building alpha prerelease: ${VERSION}"
+            else
+              TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev"
+              echo "📦 Building dev prerelease: ${VERSION}"
+            fi
           else
             TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
             echo "📦 Building stable release: ${VERSION}"
