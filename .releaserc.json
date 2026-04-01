@@ -5,6 +5,11 @@
       "name": "develop",
       "prerelease": "dev",
       "channel": "dev"
+    },
+    {
+      "name": "alpha",
+      "prerelease": "alpha",
+      "channel": "alpha"
     }
   ],
   "plugins": [
