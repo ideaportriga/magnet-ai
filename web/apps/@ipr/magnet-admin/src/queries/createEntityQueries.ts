@@ -75,7 +75,7 @@ export function createEntityQueries<T extends BaseEntity>(
       return useMutation<T, Error, Partial<T>>({
         mutationFn: (data) => api.create(data),
         onSuccess: () => {
-          qc.invalidateQueries({ queryKey: keys.lists() })
+          qc.invalidateQueries({ queryKey: keys.all })
         },
         onError: (error) => handleMutationError(error, 'create'),
       })
@@ -98,7 +98,7 @@ export function createEntityQueries<T extends BaseEntity>(
       return useMutation<void, Error, string>({
         mutationFn: (id) => api.remove(id),
         onSuccess: () => {
-          qc.invalidateQueries({ queryKey: keys.lists() })
+          qc.invalidateQueries({ queryKey: keys.all })
         },
         onError: (error) => handleMutationError(error, 'remove'),
       })
