@@ -75,7 +75,7 @@ import { fetchData } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useQueryClient } from '@tanstack/vue-query'
 import _ from 'lodash'
-import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 export default {
   props: {
@@ -88,7 +88,7 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const queryClient = useQueryClient()
-    const apiServerStore = useApiServerDetailStore()
+    const { draft, updateField } = useEntityDetail('api_servers')
     const appStore = useAppStore()
 
     return {
@@ -100,7 +100,8 @@ export default {
       errorMessage: ref(null),
       appStore,
       queryClient,
-      apiServerStore,
+      draft,
+      updateField,
     }
   },
   computed: {
@@ -111,7 +112,7 @@ export default {
       return this.apiTools.every((tool) => tool.selected === true)
     },
     items() {
-      return this.apiServerStore.entity?.tools || []
+      return this.draft?.tools || []
     },
   },
   watch: {
@@ -203,9 +204,9 @@ export default {
         delete tool.original_name
         return tool
       })
-      const currentTools = this.apiServerStore.entity?.tools || []
+      const currentTools = this.draft?.tools || []
       const allTools = [...currentTools, ...selectedTools]
-      const id = this.apiServerStore.entity?.id
+      const id = this.draft?.id
       await fetchData({
         endpoint: this.appStore.config.api.aiBridge.urlAdmin,
         service: `api_servers/${id}`,
@@ -213,7 +214,7 @@ export default {
         credentials: 'include',
         body: JSON.stringify({ tools: allTools }),
       })
-      this.apiServerStore.updateProperty({ key: 'tools', value: allTools })
+      this.updateField('tools', allTools)
     },
     updateAllTools(value) {
       this.apiTools.forEach((tool) => {

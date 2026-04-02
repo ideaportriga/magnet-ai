@@ -106,6 +106,26 @@ export const useEditBufferStore = defineStore('editBuffer', () => {
     return !isEqual(buf.original, newServerData) && isDirty(key)
   }
 
+  /** Find buffer key by entityType. Returns the first dirty match, or any match as fallback. */
+  function findBufferKeyByEntityType(entityType: string): string | null {
+    let fallback: string | null = null
+    for (const [key, buf] of buffers.value.entries()) {
+      if (buf.entityType === entityType) {
+        if (isDirty(key)) return key
+        if (!fallback) fallback = key
+      }
+    }
+    return fallback
+  }
+
+  /** Check if any buffer of the given entityType has unsaved changes. */
+  function isEntityTypeDirty(entityType: string): boolean {
+    for (const [key, buf] of buffers.value.entries()) {
+      if (buf.entityType === entityType && isDirty(key)) return true
+    }
+    return false
+  }
+
   return {
     buffers,
     initBuffer,
@@ -122,5 +142,7 @@ export const useEditBufferStore = defineStore('editBuffer', () => {
     removeBuffer,
     hasBuffer,
     hasServerConflict,
+    findBufferKeyByEntityType,
+    isEntityTypeDirty,
   }
 })

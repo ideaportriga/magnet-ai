@@ -9,19 +9,19 @@ km-drawer-layout(storageKey="drawer-assistant-tools")
 <script>
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useAssistantToolDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 
 export default {
   props: ['open'],
   setup() {
-    const assistToolStore = useAssistantToolDetailStore()
+    const { draft } = useEntityDetail('assistant_tools')
     const searchStore = useSearchStore()
     const { answers, answersLoading: loading } = storeToRefs(searchStore)
     return {
       loading,
       answers,
-      assistToolStore,
+      draft,
       searchStore,
       showHints: ref(true),
       selectedAnswer: ref({}),
@@ -34,7 +34,7 @@ export default {
   computed: {
     definition: {
       get() {
-        return JSON.stringify(this.assistToolStore.entity?.definition, null, 2) || ''
+        return JSON.stringify(this.draft?.definition, null, 2) || ''
       },
     },
   },

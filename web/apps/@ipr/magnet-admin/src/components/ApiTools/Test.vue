@@ -37,16 +37,16 @@
 <script>
 import { ref } from 'vue'
 import { fetchData } from '@shared'
-import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 export default {
   setup() {
-    const apiServerStore = useApiServerDetailStore()
+    const { draft } = useEntityDetail('api_servers')
     const appStore = useAppStore()
     const formValues = ref({})
     const fields = ref({})
     return {
-      apiServerStore,
+      draft,
       appStore,
       formValues,
       fields,
@@ -58,7 +58,7 @@ export default {
   },
   computed: {
     apiTool() {
-      return this.apiServerStore.entity?.tools?.find((tool) => tool.system_name === this.$route.params.name)
+      return this.draft?.tools?.find((tool) => tool.system_name === this.$route.params.name)
     },
 
     properties() {
@@ -201,7 +201,7 @@ export default {
           method: 'POST',
           credentials: 'include',
           body: JSON.stringify({
-            server: this.apiServerStore.entity?.system_name,
+            server: this.draft?.system_name,
             tool: this.requestFromJson.tool,
             input_params: this.requestFromJson.input_params,
           }),

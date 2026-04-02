@@ -384,15 +384,17 @@ q-dialog(v-model='showTestDialog')
 q-inner-loading(:showing='loading')
 </template>
 <script>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, inject } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { getEntityApis } from '@/api'
 import { categoryOptions } from '../../config/model/model.js'
-import { useModelConfigDetailStore } from '@/stores/entityDetailStores'
+import { useEditBufferStore } from '@/stores/editBufferStore'
+import { cloneDeep } from 'lodash'
 
 export default {
   setup() {
-    const modelConfigStore = useModelConfigDetailStore()
+    const editBuffer = useEditBufferStore()
+    const selectedModel = inject('selectedModel')
     const queries = useEntityQueries()
     const { data: listData } = queries.model.useList()
     const { mutateAsync: updateEntity } = queries.model.useUpdate()
@@ -404,8 +406,56 @@ export default {
     const capabilitiesAction = (id) => apis.model.capabilities(id)
     const debugInfoAction = (id) => apis.model.debugInfo(id)
 
+    // Buffer key for the currently selected model
+    const bufferKey = computed(() => {
+      const id = selectedModel.value?.id
+      return id ? `modelConfig:${id}` : null
+    })
+
+    // Initialize/re-initialize the edit buffer when selectedModel changes
+    watch(selectedModel, (newModel) => {
+      if (newModel && newModel.id) {
+        const key = `modelConfig:${newModel.id}`
+        editBuffer.initBuffer(key, 'modelConfig', String(newModel.id), cloneDeep(newModel))
+      }
+    }, { immediate: true })
+
+    // Draft from edit buffer
+    const draft = computed(() => {
+      if (!bufferKey.value) return null
+      return editBuffer.getDraft(bufferKey.value) ?? null
+    })
+
+    // isDirty from edit buffer
+    const isDirty = computed(() => {
+      if (!bufferKey.value) return false
+      return editBuffer.isDirty(bufferKey.value)
+    })
+
+    function updateField(key, value) {
+      if (!bufferKey.value) return
+      editBuffer.updateDraft(bufferKey.value, key, value)
+    }
+
+    function revertDraft() {
+      if (!bufferKey.value) return
+      editBuffer.revertBuffer(bufferKey.value)
+    }
+
+    function commitDraft() {
+      if (!bufferKey.value) return
+      editBuffer.commitBuffer(bufferKey.value)
+    }
+
     return {
-      modelConfigStore,
+      editBuffer,
+      selectedModel,
+      bufferKey,
+      draft,
+      isDirty,
+      updateField,
+      revertDraft,
+      commitDraft,
       tab: ref('parameters'),
       tabs: ref([
         { name: 'parameters', label: 'Parameters' },
@@ -435,13 +485,13 @@ export default {
   },
   computed: {
     modelConfig() {
-      return this.modelConfigStore.entity
+      return this.draft
     },
     modelId() {
       return this.modelConfig?.id
     },
     isEntityChanged() {
-      return this.modelConfigStore.isChanged
+      return this.isDirty
     },
     // Get all models from store for fallback selection
     allModels() {
@@ -473,7 +523,7 @@ export default {
         return this.modelConfig?.display_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'display_name', value })
+        this.updateField('display_name', value)
       },
     },
     description: {
@@ -481,7 +531,7 @@ export default {
         return this.modelConfig?.description || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'description', value })
+        this.updateField('description', value)
       },
     },
     system_name: {
@@ -489,7 +539,7 @@ export default {
         return this.modelConfig?.system_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     provider: {
@@ -497,7 +547,7 @@ export default {
         return this.modelConfig?.provider_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'provider_name', value })
+        this.updateField('provider_name', value)
       },
     },
     provider_system_name: {
@@ -505,7 +555,7 @@ export default {
         return this.modelConfig?.provider_system_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'provider_system_name', value })
+        this.updateField('provider_system_name', value)
       },
     },
     model: {
@@ -513,7 +563,7 @@ export default {
         return this.modelConfig?.ai_model || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'ai_model', value })
+        this.updateField('ai_model', value)
       },
     },
     type: {
@@ -521,7 +571,7 @@ export default {
         return this.modelConfig?.type || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'type', value })
+        this.updateField('type', value)
       },
     },
     is_default: {
@@ -529,7 +579,7 @@ export default {
         return this.modelConfig?.is_default || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'is_default', value })
+        this.updateField('is_default', value)
       },
     },
     json_mode: {
@@ -537,7 +587,7 @@ export default {
         return this.modelConfig?.json_mode || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'json_mode', value })
+        this.updateField('json_mode', value)
       },
     },
     json_schema: {
@@ -545,7 +595,7 @@ export default {
         return this.modelConfig?.json_schema || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'json_schema', value })
+        this.updateField('json_schema', value)
       },
     },
     tool_calling: {
@@ -553,7 +603,7 @@ export default {
         return this.modelConfig?.tool_calling || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'tool_calling', value })
+        this.updateField('tool_calling', value)
       },
     },
     reasoning: {
@@ -561,7 +611,7 @@ export default {
         return this.modelConfig?.reasoning || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'reasoning', value })
+        this.updateField('reasoning', value)
       },
     },
     price_input_unit_name: {
@@ -569,7 +619,7 @@ export default {
         return this.modelConfig?.price_input_unit_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_input_unit_name', value })
+        this.updateField('price_input_unit_name', value)
       },
     },
     price_standard_input: {
@@ -577,7 +627,7 @@ export default {
         return this.modelConfig?.price_input || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_input', value: parseFloat(value) })
+        this.updateField('price_input', parseFloat(value))
       },
     },
     price_standard_input_unit_count: {
@@ -585,7 +635,7 @@ export default {
         return this.modelConfig?.price_standard_input_unit_count || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_standard_input_unit_count', value: parseFloat(value) })
+        this.updateField('price_standard_input_unit_count', parseFloat(value))
       },
     },
     price_cached_input: {
@@ -593,7 +643,7 @@ export default {
         return this.modelConfig?.price_cached || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_cached', value: parseFloat(value) })
+        this.updateField('price_cached', parseFloat(value))
       },
     },
     price_cached_input_unit_count: {
@@ -601,7 +651,7 @@ export default {
         return this.modelConfig?.price_cached_input_unit_count || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_cached_input_unit_count', value: parseFloat(value) })
+        this.updateField('price_cached_input_unit_count', parseFloat(value))
       },
     },
     price_output_unit_name: {
@@ -609,7 +659,7 @@ export default {
         return this.modelConfig?.price_output_unit_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_output_unit_name', value })
+        this.updateField('price_output_unit_name', value)
       },
     },
     price_standard_output: {
@@ -617,7 +667,7 @@ export default {
         return this.modelConfig?.price_output || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_output', value: parseFloat(value) })
+        this.updateField('price_output', parseFloat(value))
       },
     },
     price_standard_output_unit_count: {
@@ -625,7 +675,7 @@ export default {
         return this.modelConfig?.price_standard_output_unit_count || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_standard_output_unit_count', value: parseFloat(value) })
+        this.updateField('price_standard_output_unit_count', parseFloat(value))
       },
     },
     price_reasoning_output: {
@@ -633,7 +683,7 @@ export default {
         return this.modelConfig?.price_reasoning || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_reasoning', value: parseFloat(value) || null })
+        this.updateField('price_reasoning', parseFloat(value) || null)
       },
     },
     price_reasoning_output_unit_count: {
@@ -641,7 +691,7 @@ export default {
         return this.modelConfig?.price_reasoning_output_unit_count || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'price_reasoning_output_unit_count', value: parseFloat(value) || null })
+        this.updateField('price_reasoning_output_unit_count', parseFloat(value) || null)
       },
     },
     is_active: {
@@ -649,7 +699,7 @@ export default {
         return this.modelConfig?.is_active !== false
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'is_active', value })
+        this.updateField('is_active', value)
       },
     },
 
@@ -658,7 +708,7 @@ export default {
         return this.modelConfig?.resources || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty( { key: 'resources', value })
+        this.updateField('resources', value)
       },
     },
     vectorSize: {
@@ -669,7 +719,7 @@ export default {
       set(value) {
         const configs = this.modelConfig?.configs || {}
         const newConfigs = { ...configs, vector_size: parseInt(value) || 1536 }
-        this.modelConfigStore.updateProperty( { key: 'configs', value: newConfigs })
+        this.updateField('configs', newConfigs)
       },
     },
     // Routing Config computed properties
@@ -792,12 +842,12 @@ export default {
       }
       // If config is empty, set it to null
       const finalConfig = Object.keys(newConfig).length > 0 ? newConfig : null
-      this.modelConfigStore.updateProperty( { key: 'routing_config', value: finalConfig })
+      this.updateField('routing_config', finalConfig)
     },
     async save() {
       this.loading = true
       try {
-        const entity = this.modelConfigStore.entity
+        const entity = this.draft
         if (!entity) throw new Error('No model to save')
         const data = { ...entity }
         const id = data.id
@@ -811,7 +861,7 @@ export default {
         } else {
           await this.createEntity(data)
         }
-        this.modelConfigStore.setInit()
+        this.commitDraft()
         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Model has been saved.', timeout: 1000 })
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Error saving model.', timeout: 2000 })
@@ -846,7 +896,7 @@ export default {
       }
     },
     cancelChanges() {
-      this.modelConfigStore.revert()
+      this.revertDraft()
     },
     goToDefaultModels() {
       this.$router.push({ name: 'ModelProviders', query: { tab: 'DefaultModels' } })

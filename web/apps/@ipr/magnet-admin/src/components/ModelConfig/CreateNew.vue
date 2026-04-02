@@ -83,7 +83,6 @@ import { ref, reactive, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
-import { useModelConfigDetailStore } from '@/stores/entityDetailStores'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 
 export default {
@@ -91,6 +90,10 @@ export default {
     copy: {
       type: Boolean,
       default: false,
+    },
+    copyData: {
+      type: Object,
+      default: null,
     },
     type: {
       type: String,
@@ -103,7 +106,6 @@ export default {
   },
   emits: ['cancel'],
   setup(props) {
-    const modelConfigStore = useModelConfigDetailStore()
     const queries = useEntityQueries()
     const { mutateAsync: createEntity } = queries.model.useCreate()
     const { data: providerData } = queries.provider.useList()
@@ -114,7 +116,6 @@ export default {
     const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
-      modelConfigStore,
       createEntity,
       config,
       requiredFields,
@@ -216,7 +217,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.modelConfigStore.entity
+      return this.copyData
     },
     vectorSize: {
       get() {

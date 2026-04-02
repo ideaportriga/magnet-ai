@@ -66,7 +66,7 @@ km-drawer-layout(storageKey="drawer-mcp-tools")
 import { ref } from 'vue'
 import { fetchData } from '@shared'
 import { useRoute } from 'vue-router'
-import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 export default {
   props: {
@@ -77,7 +77,7 @@ export default {
   },
   setup() {
     const route = useRoute()
-    const mcpStore = useMcpServerDetailStore()
+    const { draft } = useEntityDetail('mcp_servers')
     const appStore = useAppStore()
     return {
       processing: ref(false),
@@ -89,14 +89,14 @@ export default {
         { name: 'test', label: 'Test MCP Tool' },
       ]),
       route,
-      mcpStore,
+      draft,
       appStore,
     }
   },
 
   computed: {
     tool() {
-      const tools = this.mcpStore.entity?.tools || []
+      const tools = this.draft?.tools || []
       return tools.find((t) => t.name === this.route.params.name)
     },
   },
@@ -135,7 +135,7 @@ export default {
 
       this.processing = true
       try {
-        const mcpId = this.mcpStore.entity?.id
+        const mcpId = this.draft?.id
         const endpoint = this.appStore.config?.mcp_servers?.endpoint
         const response = await fetchData({
           method: 'POST',

@@ -1,6 +1,6 @@
 <template lang="pug">
-km-inner-loading(:showing='!selectedRow')
-layouts-details-layout(v-if='selectedRow', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
+km-inner-loading(:showing='!draft')
+layouts-details-layout(v-if='draft', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
   template(#header)
     .col
       .row.items-center
@@ -32,8 +32,8 @@ layouts-details-layout(v-if='selectedRow', :contentContainerStyle='{ maxWidth: "
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='providerStore.revert()', v-if='providerStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !providerStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -73,32 +73,22 @@ layouts-details-layout(v-if='selectedRow', :contentContainerStyle='{ maxWidth: "
 </template>
 
 <script>
-import { ref, computed, onActivated } from 'vue'
-import { useRoute } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
+import { ref } from 'vue'
 import { beforeRouteEnter } from '@/guards'
-import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   beforeRouteEnter,
   setup() {
-    const route = useRoute()
-    const queries = useEntityQueries()
-    const providerStore = useProviderDetailStore()
-    // Stable ref: prevent keep-alive cached instance from refetching when another route's ID changes
-    const id = ref(route.params.id)
-    onActivated(() => { id.value = route.params.id })
-    const { data: selectedRow } = queries.provider.useDetail(id)
-
-    const { mutateAsync: updateEntity } = queries.provider.useUpdate()
-    const { mutateAsync: createEntity } = queries.provider.useCreate()
-    const removeMutation = queries.provider.useRemove()
+    const { draft, isDirty, updateField, revert, save, remove } = useEntityDetail('provider')
 
     return {
-      providerStore,
-      updateEntity,
-      createEntity,
-      removeMutation,
+      draft,
+      isDirty,
+      updateField,
+      revert,
+      saveEntity: save,
+      removeEntity: remove,
       saving: ref(false),
       showDeleteDialog: ref(false),
       showNewDialog: ref(false),
@@ -108,19 +98,18 @@ export default {
         { name: 'settings', label: 'Settings' },
       ]),
       showInfo: ref(false),
-      selectedRow,
     }
   },
   computed: {
     provider() {
-      return this.providerStore.entity
+      return this.draft
     },
     name: {
       get() {
         return this.provider?.name || ''
       },
       set(value) {
-        this.providerStore.updateProperty({ key: 'name', value })
+        this.updateField('name', value)
       },
     },
     system_name: {
@@ -128,7 +117,7 @@ export default {
         return this.provider?.system_name || ''
       },
       set(value) {
-        this.providerStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     created_at() {
@@ -144,34 +133,16 @@ export default {
       return this.provider?.updated_by || 'Unknown'
     },
   },
-  watch: {
-    selectedRow: {
-      immediate: true,
-      handler(newVal) {
-        if (newVal) {
-          this.providerStore.setEntity(newVal)
-        }
-      },
-    },
-  },
-  activated() {
-    // Re-sync store state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.selectedRow.id !== this.providerStore.entity?.id) {
-      this.providerStore.setEntity(this.selectedRow)
-    }
-  },
   methods: {
-    async save() {
+    async handleSave() {
       this.saving = true
       try {
-        if (this.provider?.created_at) {
-          const data = this.providerStore.buildPayload()
-          await this.updateEntity({ id: this.provider.id, data })
+        const { success, error } = await this.saveEntity()
+        if (success) {
+          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
         } else {
-          await this.createEntity(this.provider)
+          throw error || new Error('Failed to save')
         }
-        this.providerStore.setInit()
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
       } finally {
@@ -179,9 +150,11 @@ export default {
       }
     },
     async confirmDelete() {
-      await this.removeMutation.mutateAsync(this.$route.params.id)
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Knowledge Provider has been deleted.', timeout: 1000 })
-      this.$router.push('/knowledge-providers')
+      const { success } = await this.removeEntity()
+      if (success) {
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Knowledge Provider has been deleted.', timeout: 1000 })
+        this.$router.push('/knowledge-providers')
+      }
     },
     formatDate(date) {
       const d = new Date(date)

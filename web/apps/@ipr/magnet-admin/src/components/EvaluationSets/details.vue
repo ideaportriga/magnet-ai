@@ -32,8 +32,8 @@ layouts-details-layout(v-if='!loading')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='evalSetStore.revert()', v-if='evalSetStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !evalSetStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
     km-btn(label='Run evaluation', flat, iconSize='16px', @click='runEvaluationDialog = true')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
@@ -88,185 +88,98 @@ km-popup-confirm(
   .row.text-center.justify-center You'll be able to view run results on the Evaluation screen.
 </template>
 
-<script>
+<script setup>
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
+import { useRoute, useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
 import { validSystemName } from '@shared/utils/validationRules'
-import { useEvaluationSetDetailStore, useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
 
-export default {
-  emits: ['update:closeDrawer'],
-  setup() {
-    const route = useRoute()
-    const queries = useEntityQueries()
-    const evalSetStore = useEvaluationSetDetailStore()
-    const evalSetRecordStore = useEvaluationSetRecordStore()
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.evaluation_sets.useDetail(id)
-    const removeMutation = queries.evaluation_sets.useRemove()
-    const { mutateAsync: updateEntity } = queries.evaluation_sets.useUpdate()
-    const { mutateAsync: createEntity } = queries.evaluation_sets.useCreate()
+const route = useRoute()
+const router = useRouter()
+const q = useQuasar()
+const { draft, isDirty, updateField, save, remove, revert } = useEntityDetail('evaluation_sets')
+const evalSetRecordStore = useEvaluationSetRecordStore()
 
-    return {
-      tab: ref('records'),
-      tabs: ref([
-        { name: 'records', label: 'Test Set Items' },
-        { name: 'settings', label: 'Settings' },
-      ]),
-      showNewDialog: ref(false),
-      showDeleteDialog: ref(false),
-      saving: ref(false),
-      runEvaluationDialog: ref(false),
-      showEvaluationCreateDialog: ref(false),
-      activeEvaluationSet: ref({}),
-      prompt: ref(null),
-      showInfo: ref(false),
-      id,
-      selectedRow,
-      removeMutation,
-      updateEntity,
-      createEntity,
-      evaluationSetRecord: ref({}),
-      validSystemName,
-      evalSetStore,
-      evalSetRecordStore,
+const tab = ref('records')
+const tabs = ref([
+  { name: 'records', label: 'Test Set Items' },
+  { name: 'settings', label: 'Settings' },
+])
+const showNewDialog = ref(false)
+const showDeleteDialog = ref(false)
+const saving = ref(false)
+const runEvaluationDialog = ref(false)
+const showEvaluationCreateDialog = ref(false)
+const showInfo = ref(false)
+let evaluationId = null
+
+const openDrawer = computed(() => tab.value === 'records' && Object.keys(evalSetRecordStore.record).length > 0)
+
+const name = computed({
+  get() { return draft.value?.name || '' },
+  set(value) { updateField('name', value) },
+})
+const description = computed({
+  get() { return draft.value?.description || '' },
+  set(value) { updateField('description', value) },
+})
+const system_name = computed({
+  get() { return draft.value?.system_name || '' },
+  set(value) { updateField('system_name', value) },
+})
+const evaluationSetCode = computed(() => draft.value?.system_name)
+const loading = computed(() => !draft.value?.id)
+
+const created_at = computed(() => draft.value?.created_at ? formatDate(draft.value.created_at) : '')
+const modified_at = computed(() => draft.value?.updated_at ? formatDate(draft.value.updated_at) : '')
+const created_by = computed(() => draft.value?.created_by || 'Unknown')
+const updated_by = computed(() => draft.value?.updated_by || 'Unknown')
+
+const evaluationSetRecord = ref({})
+
+function formatDate(date) {
+  const d = new Date(date)
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
+}
+
+function createEvaluation(obj) {
+  evaluationId = obj?.job_id || obj?.id
+  showNewDialog.value = false
+  if (evaluationId) showEvaluationCreateDialog.value = true
+}
+
+function navigateToEval() {
+  const query = { job_id: evaluationId }
+  router.push({ path: '/evaluation-jobs', query })
+}
+
+async function handleSave() {
+  const systemNameValidation = validSystemName()(draft.value?.system_name)
+  if (systemNameValidation !== true) {
+    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: systemNameValidation, timeout: 3000 })
+    return
+  }
+  saving.value = true
+  try {
+    const result = await save()
+    if (result.success) {
+      q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+    } else if (result.error) {
+      throw result.error
     }
-  },
-  computed: {
-    openDrawer() {
-      return this.tab === 'records' && Object.keys(this.evalSetRecordStore.record).length > 0
-    },
-    name: {
-      get() {
-        return this.evalSetStore.entity?.name || ''
-      },
-      set(value) {
-        this.evalSetStore.updateProperty({ key: 'name', value })
-      },
-    },
-    description: {
-      get() {
-        return this.evalSetStore.entity?.description || ''
-      },
-      set(value) {
-        this.evalSetStore.updateProperty({ key: 'description', value })
-      },
-    },
-    system_name: {
-      get() {
-        return this.evalSetStore.entity?.system_name || ''
-      },
-      set(value) {
-        this.evalSetStore.updateProperty({ key: 'system_name', value })
-      },
-    },
-    evaluationSetCode() {
-      return this.evalSetStore.entity?.system_name
-    },
-    isEvaluationSetChanged() {
-      return this.evalSetStore.isChanged
-    },
-    activeEvaluationSetId() {
-      return this.$route.params.id
-    },
-    activeEvaluationSetName() {
-      return this.items?.find((item) => item.id == this.activeEvaluationSetId)?.name
-    },
-    options() {
-      return this.items?.map((item) => item.name)
-    },
-    loading() {
-      return !this.evalSetStore.entity?.id
-    },
-    entity() {
-      return this.evalSetStore.entity
-    },
-    created_at() {
-      return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
-    },
-    modified_at() {
-      return this.entity?.updated_at ? this.formatDate(this.entity.updated_at) : ''
-    },
-    created_by() {
-      return this.entity?.created_by || 'Unknown'
-    },
-    updated_by() {
-      return this.entity?.updated_by || 'Unknown'
-    },
-  },
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.evalSetStore.setEntity(newVal)
-        this.tab = 'records'
-      }
-    },
-  },
-  mounted() {
-    if (this.activeEvaluationSetId != this.evalSetStore.entity?.id) {
-      this.evalSetStore.setEntity(this.selectedRow)
-      this.tab = 'records'
-    }
-  },
-  activated() {
-    this.id = this.$route.params.id
-    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.activeEvaluationSetId != this.evalSetStore.entity?.id) {
-      this.evalSetStore.setEntity(this.selectedRow)
-    }
-  },
-  methods: {
-    navigate(path = '') {
-      if (this.$route.path !== `/${path}`) {
-        this.$router.push(`${path}`)
-      }
-    },
-    createEvaluation(obj) {
-      this.evaluationId = obj?.job_id || obj?.id
-      this.showNewDialog = false
-      if (this.evaluationId) this.showEvaluationCreateDialog = true
-    },
-    navigateToEval() {
-      const query = {
-        job_id: this.evaluationId,
-      }
-      const path = '/evaluation-jobs'
-      this.$router.push({ path, query })
-    },
-    async save() {
-      const systemNameValidation = validSystemName()(this.entity?.system_name)
-      if (systemNameValidation !== true) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: systemNameValidation, timeout: 3000 })
-        return
-      }
-      this.saving = true
-      try {
-        if (this.entity?.created_at) {
-          const data = this.evalSetStore.buildPayload()
-          await this.updateEntity({ id: this.entity.id, data })
-        } else {
-          await this.createEntity(this.entity)
-        }
-        this.evalSetStore.setInit()
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
-      } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
-      } finally {
-        this.saving = false
-      }
-    },
-    async confirmDelete() {
-      await this.removeMutation.mutateAsync(this.$route.params.id)
-      this.$emit('update:closeDrawer', null)
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Evaluation Set has been deleted.', timeout: 1000 })
-      this.navigate('/evaluation-sets')
-    },
-    formatDate(date) {
-      const d = new Date(date)
-      return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
-    },
-  },
+  } catch (error) {
+    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
+  } finally {
+    saving.value = false
+  }
+}
+
+async function confirmDelete() {
+  await remove()
+  q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Evaluation Set has been deleted.', timeout: 1000 })
+  router.push('/evaluation-sets')
 }
 </script>
 

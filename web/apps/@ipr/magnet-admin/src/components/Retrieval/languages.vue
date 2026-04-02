@@ -52,16 +52,16 @@ div
 <script>
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   emits: ['openTest'],
   setup() {
     const queries = useEntityQueries()
-    const retrievalStore = useRetrievalDetailStore()
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('retrieval')
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
-    return { retrievalStore, promptItems }
+    return { activeVariant, updateVariantField, promptItems }
   },
   computed: {
     languages() {
@@ -69,25 +69,25 @@ export default {
     },
     isDetectLanguage: {
       get() {
-        return this.retrievalStore.activeVariant?.language?.detect_question_language?.enabled || false
+        return this.activeVariant?.language?.detect_question_language?.enabled || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'language.detect_question_language.enabled', value })
+        this.updateVariantField('language.detect_question_language.enabled', value)
       },
     },
     isMultiLingualRAG: {
       get() {
-        return this.retrievalStore.activeVariant?.language?.multilanguage?.enabled || false
+        return this.activeVariant?.language?.multilanguage?.enabled || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'language.multilanguage.enabled', value })
+        this.updateVariantField('language.multilanguage.enabled', value)
       },
     },
     promptsWithId() {
       return (this.promptItems ?? []).map((item) => ({ label: item.name, value: item.system_name, id: item.id }))
     },
     detectLanguagePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.retrievalStore.activeVariant?.language?.detect_question_language?.prompt_template)
+      return this.promptsWithId.find((el) => el.value == this.activeVariant?.language?.detect_question_language?.prompt_template)
         ?.id
     },
     prompts() {
@@ -99,18 +99,18 @@ export default {
       return (this.promptItems ?? []).find((el) => el.system_name === this.prompt_template)?.name
     },
     prompt_template() {
-      return this.retrievalStore.activeVariant?.language?.detect_question_language?.prompt_template || ''
+      return this.activeVariant?.language?.detect_question_language?.prompt_template || ''
     },
     detectLanguagePromptTemplate: {
       get() {
         return this.propmt_name
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'language.detect_question_language.prompt_template', value: value.system_name })
+        this.updateVariantField('language.detect_question_language.prompt_template', value.system_name)
       },
     },
     prompt_template_multilingual() {
-      return this.retrievalStore.activeVariant?.language?.multilanguage?.prompt_template_translation || ''
+      return this.activeVariant?.language?.multilanguage?.prompt_template_translation || ''
     },
     propmt_name_multilingual() {
       return (this.promptItems ?? []).find((el) => el.system_name === this.prompt_template_multilingual)?.name
@@ -120,22 +120,19 @@ export default {
         return this.propmt_name_multilingual
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( {
-          path: 'language.multilanguage.prompt_template_translation',
-          value: value.system_name,
-        })
+        this.updateVariantField('language.multilanguage.prompt_template_translation', value.system_name)
       },
     },
     TranslatePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.retrievalStore.activeVariant?.language?.multilanguage?.prompt_template_translation)
+      return this.promptsWithId.find((el) => el.value == this.activeVariant?.language?.multilanguage?.prompt_template_translation)
         ?.id
     },
     RetrievalToolSourceLangualge: {
       get() {
-        return this.retrievalStore.activeVariant?.language?.multilanguage?.source_language || ''
+        return this.activeVariant?.language?.multilanguage?.source_language || ''
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'language.multilanguage.source_language', value: value.value })
+        this.updateVariantField('language.multilanguage.source_language', value.value)
       },
     },
   },

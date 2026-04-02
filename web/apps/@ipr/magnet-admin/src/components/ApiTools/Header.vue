@@ -4,16 +4,16 @@
 </template>
 
 <script>
-import { useApiToolDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   setup() {
-    const apiToolStore = useApiToolDetailStore()
-    return { apiToolStore }
+    const { draft } = useEntityDetail('api_tools')
+    return { draft }
   },
   computed: {
     selectedTool() {
-      return this.apiToolStore.entity
+      return this.draft
     },
   },
 }

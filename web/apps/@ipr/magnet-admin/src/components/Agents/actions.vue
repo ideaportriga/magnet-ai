@@ -39,7 +39,7 @@ km-popup-confirm(
 <script setup>
 import { ref, computed, h, markRaw } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
 import NameDescription from '@/config/agents/component/NameDescription.vue'
@@ -49,12 +49,12 @@ const emit = defineEmits(['openTest'])
 
 const router = useRouter()
 const route = useRoute()
-const agentStore = useAgentDetailStore()
+const { activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
 const showDeleteDialog = ref(false)
 
 const data = computed(() => {
   return (
-    agentStore.activeVariant?.value?.topics?.flatMap((topic) => {
+    activeVariant.value?.value?.topics?.flatMap((topic) => {
       return (topic?.actions || []).map((action) => ({
         ...action,
         topic_system_name: topic.system_name,
@@ -91,12 +91,12 @@ const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(
 const routeParams = computed(() => route.params)
 
 const agentTopics = computed(() => {
-  return agentStore.activeVariant?.value?.topics ?? []
+  return activeVariant.value?.value?.topics ?? []
 })
 
 const deleteSelected = () => {
   agentTopics.value.forEach((topic) => {
-    agentStore.updateNestedListItemBySystemName({
+    updateNestedListItemBySystemName({
       arrayPath: 'topics',
       itemSystemName: topic?.system_name,
       data: {

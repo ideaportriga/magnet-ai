@@ -32,8 +32,8 @@ layouts-details-layout(v-if='!loading')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='collectionStore.revert()', v-if='collectionStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !collectionStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
     km-btn(label='Save & Sync', flat, @click='refreshCollection', iconSize='16px', icon='fa-solid fa-rotate')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
@@ -82,343 +82,258 @@ layouts-details-layout(v-if='!loading')
 collections-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
 </template>
 
-<script>
+<script setup>
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useQuasar } from 'quasar'
 import { useEntityQueries } from '@/queries/entities'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { validSystemName } from '@shared/utils/validationRules'
 import { fetchData } from '@shared'
-import { useCollectionDetailStore, useCollectionMetadataStore } from '@/stores/entityDetailStores'
+import { useCollectionMetadataStore } from '@/stores/entityDetailStores'
 import { useSearchStore } from '@/stores/searchStore'
 import { useAppStore } from '@/stores/appStore'
 import { storeToRefs } from 'pinia'
 
-export default {
-  emits: ['update:closeDrawer'],
-  setup() {
-    const route = useRoute()
-    const queries = useEntityQueries()
-    const collectionStore = useCollectionDetailStore()
-    const collectionMetadataStore = useCollectionMetadataStore()
-    const searchStore = useSearchStore()
-    const appStore = useAppStore()
-    const { semanticSearchAnswers } = storeToRefs(searchStore)
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.collections.useDetail(id)
-    const { data: listData } = queries.collections.useList()
-    const { mutateAsync: updateCollection } = queries.collections.useUpdate()
-    const { mutateAsync: createCollection } = queries.collections.useCreate()
-    const { mutateAsync: removeCollection } = queries.collections.useRemove()
+const emit = defineEmits(['update:closeDrawer'])
 
-    function clearSemanticSearchAnswers() {
-      semanticSearchAnswers.value = []
+const route = useRoute()
+const router = useRouter()
+const q = useQuasar()
+const queries = useEntityQueries()
+const { draft, isDirty, updateField, save: entitySave, revert, remove, buildPayload, data: serverData } = useEntityDetail('collections')
+const collectionMetadataStore = useCollectionMetadataStore()
+const searchStore = useSearchStore()
+const appStore = useAppStore()
+const { semanticSearchAnswers } = storeToRefs(searchStore)
+
+const { data: listData } = queries.collections.useList()
+const { mutateAsync: updateCollection } = queries.collections.useUpdate()
+const { mutateAsync: createCollection } = queries.collections.useCreate()
+
+const showInfo = ref(false)
+const showNewDialog = ref(false)
+const showDeleteDialog = ref(false)
+const showSyncConfirm = ref(false)
+const saving = ref(false)
+const job_id = ref(null)
+const selectedChunk = ref(null)
+
+const tabs = ref([
+  { name: 'chunks', label: 'Chunks' },
+  { name: 'metadata', label: 'Metadata' },
+  { name: 'settings', label: 'Settings' },
+  { name: 'scheduler', label: 'Schedule & Runs' },
+])
+const tab = ref('chunks')
+
+function clearSemanticSearchAnswers() {
+  semanticSearchAnswers.value = []
+}
+
+const items = computed(() => listData.value?.items || [])
+
+const name = computed({
+  get() { return draft.value?.name || '' },
+  set(value) { updateField('name', value) },
+})
+const description = computed({
+  get() { return draft.value?.description || '' },
+  set(value) { updateField('description', value) },
+})
+const system_name = computed({
+  get() { return draft.value?.system_name || '' },
+  set(value) { updateField('system_name', value) },
+})
+
+const activeKnowledgeId = computed(() => route.params?.id)
+const activeRowDB = computed(() => items.value.find((item) => item.id == activeKnowledgeId.value))
+const activeMetadataConfig = computed(() => collectionMetadataStore.activeMetadataConfig)
+const loading = computed(() => !draft.value?.id)
+const created_by = computed(() => activeRowDB.value?.created_by ? `${activeRowDB.value.created_by}` : 'Unknown')
+const updated_by = computed(() => activeRowDB.value?.updated_by ? `${activeRowDB.value.updated_by}` : 'Unknown')
+const created_at = computed(() => {
+  if (!activeRowDB.value) return ''
+  return formatDate(activeRowDB.value?.created)
+})
+const modified_at = computed(() => {
+  if (!activeRowDB.value) return ''
+  if (!activeRowDB.value?.last_synced || activeRowDB.value?.last_synced?.invalid) return '-'
+  return formatDate(activeRowDB.value?.last_synced)
+})
+
+function navigate(path = '') {
+  if (route.path !== `/${path}`) {
+    router.push(`${path}`)
+  }
+}
+
+function openJobDetails() {
+  showSyncConfirm.value = false
+  window.open(router.resolve({ path: `/jobs/?job_id=${job_id.value}` }).href, '_blank')
+}
+
+async function deleteKnowledge() {
+  saving.value = true
+  try {
+    const result = await remove()
+    if (!result.success) throw result.error || new Error('Failed to delete')
+    emit('update:closeDrawer', null)
+    q.notify({
+      color: 'green-9', textColor: 'white',
+      icon: 'check_circle',
+      group: 'success',
+      message: 'Knowledge source has been deleted.',
+      timeout: 1000,
+    })
+    navigate('/knowledge-sources')
+  } catch (error) {
+    const errorMessage = error?.message || 'Failed to delete Knowledge Source.'
+    q.notify({
+      color: 'red-9', textColor: 'white',
+      icon: 'error',
+      group: 'error',
+      message: errorMessage,
+      timeout: 3000,
+    })
+  } finally {
+    saving.value = false
+  }
+}
+
+async function refreshCollection() {
+  await save()
+  await createSyncJob()
+  showSyncConfirm.value = true
+}
+
+async function createSyncJob() {
+  let jobData = {
+    name: `Sync ${activeRowDB.value?.name}`,
+    job_type: 'one_time_immediate',
+    notification_email: '',
+    run_configuration: {
+      type: 'sync_collection',
+      params: {
+        system_name: activeRowDB.value?.system_name,
+      },
+    },
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }
+
+  const endpoint = appStore.config?.scheduler?.endpoint
+  const service = appStore.config?.scheduler?.service
+  const credentials = appStore.config?.scheduler?.credentials
+  const response = await fetchData({
+    endpoint,
+    service: `${service}/create-job`,
+    method: 'POST',
+    body: JSON.stringify(jobData),
+    credentials,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  const job = await response.json()
+  job_id.value = job.job_id
+
+  q.notify({
+    color: 'green-9', textColor: 'white',
+    icon: 'check_circle',
+    group: 'success',
+    message: 'Sync job has been created.',
+    timeout: 1000,
+  })
+}
+
+function transformSourceFields(source) {
+  // Transform Documentation source fields from comma-separated strings to arrays
+  if (source?.source_type === 'Documentation') {
+    const transformed = { ...source }
+
+    // Convert languages from string to array
+    if (transformed.languages && typeof transformed.languages === 'string') {
+      transformed.languages = transformed.languages
+        .split(',')
+        .map((lang) => lang.trim())
+        .filter((lang) => lang.length > 0)
     }
 
-    const tabs = ref([
-      { name: 'chunks', label: 'Chunks' },
-      { name: 'metadata', label: 'Metadata' },
-      { name: 'settings', label: 'Settings' },
-      { name: 'scheduler', label: 'Schedule & Runs' },
-    ])
-    const tab = ref('chunks')
-    return {
-      activeKnowledge: ref({}),
-      prompt: ref(null),
-      openTest: ref(true),
-      showInfo: ref(false),
-      showNewDialog: ref(false),
-      showDeleteDialog: ref(false),
-      showSyncConfirm: ref(false),
-      saving: ref(false),
-      job_id: ref(null),
-      id,
-      selectedRow,
-      listData,
-      updateCollection,
-      createCollection,
-      removeCollection,
-      tabs,
-      tab,
-      selectedChunk: ref(null),
-      validSystemName,
-      collectionStore,
-      collectionMetadataStore,
-      appStore,
-      clearSemanticSearchAnswers,
+    // Convert sections from string to array
+    if (transformed.sections && typeof transformed.sections === 'string') {
+      transformed.sections = transformed.sections
+        .split(',')
+        .map((section) => section.trim())
+        .filter((section) => section.length > 0)
     }
-  },
-  computed: {
-    items() {
-      return this.listData?.items || []
-    },
-    name: {
-      get() {
-        return this.collectionStore.entity?.name || ''
-      },
-      set(value) {
-        this.collectionStore.updateProperty({ key: 'name', value })
-      },
-    },
-    description: {
-      get() {
-        return this.collectionStore.entity?.description || ''
-      },
-      set(value) {
-        this.collectionStore.updateProperty({ key: 'description', value })
-      },
-    },
-    system_name: {
-      get() {
-        return this.collectionStore.entity?.system_name || ''
-      },
-      set(value) {
-        this.collectionStore.updateProperty({ key: 'system_name', value })
-      },
-    },
-    currentRow() {
-      return this.collectionStore.entity
-    },
-    activeKnowledgeId() {
-      return this.$route.params?.id
-    },
-    activeRowId() {
-      return this.$route.params.id
-    },
-    activeRowDB() {
-      return this.items.find((item) => item.id == this.activeRowId)
-    },
-    activeKnowledgeName() {
-      return this.listData?.items?.find((item) => item?.id == this.activeKnowledgeId)?.name
-    },
-    activeMetadataConfig() {
-      return this.collectionMetadataStore.activeMetadataConfig
-    },
-    options() {
-      return this.listData?.items?.map((item) => item?.name)
-    },
-    loading() {
-      return !this.collectionStore.entity?.id
-    },
-    created_by() {
-      if (!this.activeRowDB?.created_by) return 'Unknown'
-      return `${this.activeRowDB?.created_by}`
-    },
-    updated_by() {
-      if (!this.activeRowDB?.updated_by) return 'Unknown'
-      return `${this.activeRowDB?.updated_by}`
-    },
-    created_at() {
-      if (!this.activeRowDB) return ''
-      return `${this.formatDate(this.activeRowDB?.created)}`
-    },
-    modified_at() {
-      if (!this.activeRowDB) return ''
-      if (!this.activeRowDB?.last_synced || this.activeRowDB?.last_synced?.invalid) return '-'
-      return `${this.formatDate(this.activeRowDB?.last_synced)}`
-    },
-  },
 
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        // Merge selectedRow with existing knowledge state to preserve job_id and other runtime data
-        const existingKnowledge = this.collectionStore.entity
-        if (existingKnowledge?.id === newVal?.id) {
-          // Preserve existing state but update with fresh data from selectedRow
-          this.collectionStore.setEntity({ ...newVal, job_id: existingKnowledge?.job_id || newVal?.job_id })
-        } else {
-          this.collectionStore.setEntity(newVal)
-        }
-        this.clearSemanticSearchAnswers()
-      }
-    },
-  },
-  mounted() {
-    const existingKnowledge = this.collectionStore.entity
-    // If the knowledge state already has the correct id (e.g., from CreateNew navigation), don't overwrite it
-    if (existingKnowledge?.id === this.activeKnowledgeId) {
-      // Knowledge is already set correctly, just clear semantic search answers
-      this.clearSemanticSearchAnswers()
-    } else if (this.activeKnowledgeId != existingKnowledge?.id) {
-      this.collectionStore.setEntity(this.selectedRow)
-      this.clearSemanticSearchAnswers()
+    // Convert max_depth to integer if provided
+    if (transformed.max_depth) {
+      transformed.max_depth = parseInt(transformed.max_depth) || 5
     }
-  },
-  activated() {
-    this.id = this.$route.params.id
-    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.activeKnowledgeId !== this.collectionStore.entity?.id) {
-      this.collectionStore.setEntity(this.selectedRow)
-      this.clearSemanticSearchAnswers()
+
+    return transformed
+  }
+
+  return source
+}
+
+async function save() {
+  // Validate system_name before saving
+  const systemNameValidation = validSystemName()(draft.value?.system_name)
+  if (systemNameValidation !== true) {
+    q.notify({
+      color: 'red-9', textColor: 'white',
+      icon: 'error',
+      group: 'error',
+      message: systemNameValidation,
+      timeout: 3000,
+    })
+    return
+  }
+
+  saving.value = true
+  try {
+    if (draft.value?.created_at) {
+      const obj = buildPayload()
+
+      // Ensure provider_system_name is preserved
+      if (activeRowDB.value?.provider_system_name) {
+        obj.provider_system_name = activeRowDB.value.provider_system_name
+      }
+
+      // Transform source fields for Documentation type
+      if (obj.source) {
+        obj.source = transformSourceFields(obj.source)
+      }
+
+      await updateCollection({ id: draft.value.id, data: obj })
+    } else {
+      await createCollection(draft.value)
     }
-  },
-  methods: {
-    navigate(path = '') {
-      if (this.$route.path !== `/${path}`) {
-        this.$router.push(`${path}`)
-      }
-    },
-    openJobDetails() {
-      this.showSyncConfirm = false
-      window.open(this.$router.resolve({ path: `/jobs/?job_id=${this.job_id}` }).href, '_blank')
-    },
-    async deleteKnowledge() {
-      this.saving = true
-      try {
-        await this.removeCollection(this.activeRowDB?.id)
-        this.$emit('update:closeDrawer', null)
-        this.$q.notify({
-          color: 'green-9', textColor: 'white',
-          icon: 'check_circle',
-          group: 'success',
-          message: 'Knowledge source has been deleted.',
-          timeout: 1000,
-        })
-        this.navigate('/knowledge-sources')
-      } catch (error) {
-        const errorMessage = error?.message || 'Failed to delete Knowledge Source.'
-        this.$q.notify({
-          color: 'red-9', textColor: 'white',
-          icon: 'error',
-          group: 'error',
-          message: errorMessage,
-          timeout: 3000,
-        })
-      } finally {
-        this.saving = false
-      }
-    },
-    async refreshCollection() {
-      await this.save()
-      await this.createJob()
-      this.showSyncConfirm = true
-    },
-    async createJob() {
-      let jobData = {
-        name: `Sync ${this.activeRowDB?.name}`,
-        job_type: 'one_time_immediate',
-        notification_email: '',
-        run_configuration: {
-          type: 'sync_collection',
-          params: {
-            system_name: this.activeRowDB?.system_name,
-          },
-        },
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      }
+    q.notify({
+      color: 'green-9', textColor: 'white',
+      icon: 'check_circle',
+      group: 'success',
+      message: 'Saved successfully',
+      timeout: 2000,
+    })
+  } catch (error) {
+    q.notify({
+      color: 'red-9', textColor: 'white',
+      icon: 'error',
+      group: 'error',
+      message: error.message || 'Failed to save',
+      timeout: 3000,
+    })
+  } finally {
+    saving.value = false
+  }
+}
 
-      const endpoint = this.appStore.config?.scheduler?.endpoint
-      const service = this.appStore.config?.scheduler?.service
-      const credentials = this.appStore.config?.scheduler?.credentials
-      const response = await fetchData({
-        endpoint,
-        service: `${service}/create-job`,
-        method: 'POST',
-        body: JSON.stringify(jobData),
-        credentials,
-        headers: { 'Content-Type': 'application/json' },
-      })
-      const job = await response.json()
-      this.job_id = job.job_id
-
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: 'Sync job has been created.',
-        timeout: 1000,
-      })
-    },
-    transformSourceFields(source) {
-      // Transform Documentation source fields from comma-separated strings to arrays
-      if (source?.source_type === 'Documentation') {
-        const transformed = { ...source }
-
-        // Convert languages from string to array
-        if (transformed.languages && typeof transformed.languages === 'string') {
-          transformed.languages = transformed.languages
-            .split(',')
-            .map((lang) => lang.trim())
-            .filter((lang) => lang.length > 0)
-        }
-
-        // Convert sections from string to array
-        if (transformed.sections && typeof transformed.sections === 'string') {
-          transformed.sections = transformed.sections
-            .split(',')
-            .map((section) => section.trim())
-            .filter((section) => section.length > 0)
-        }
-
-        // Convert max_depth to integer if provided
-        if (transformed.max_depth) {
-          transformed.max_depth = parseInt(transformed.max_depth) || 5
-        }
-
-        return transformed
-      }
-
-      return source
-    },
-    async save() {
-      // Validate system_name before saving
-      const systemNameValidation = validSystemName()(this.currentRow?.system_name)
-      if (systemNameValidation !== true) {
-        this.$q.notify({
-          color: 'red-9', textColor: 'white',
-          icon: 'error',
-          group: 'error',
-          message: systemNameValidation,
-          timeout: 3000,
-        })
-        return
-      }
-
-      this.saving = true
-      try {
-        if (this.currentRow?.created_at) {
-          const obj = this.collectionStore.buildPayload()
-
-          // Ensure provider_system_name is preserved
-          if (this.activeRowDB?.provider_system_name) {
-            obj.provider_system_name = this.activeRowDB.provider_system_name
-          }
-
-          // Transform source fields for Documentation type
-          if (obj.source) {
-            obj.source = this.transformSourceFields(obj.source)
-          }
-
-          await this.updateCollection({ id: this.currentRow.id, data: obj })
-        } else {
-          await this.createCollection(this.currentRow)
-        }
-        this.$q.notify({
-          color: 'green-9', textColor: 'white',
-          icon: 'check_circle',
-          group: 'success',
-          message: 'Saved successfully',
-          timeout: 2000,
-        })
-      } catch (error) {
-        this.$q.notify({
-          color: 'red-9', textColor: 'white',
-          icon: 'error',
-          group: 'error',
-          message: error.message || 'Failed to save',
-          timeout: 3000,
-        })
-      } finally {
-        this.saving = false
-      }
-    },
-    formatDate(date) {
-      const dateObject = new Date(date)
-      const localeDateString = dateObject.toLocaleDateString()
-      const localeTimeString = dateObject.toLocaleTimeString()
-      return `${localeDateString} ${localeTimeString}`
-    },
-  },
+function formatDate(date) {
+  const dateObject = new Date(date)
+  const localeDateString = dateObject.toLocaleDateString()
+  const localeTimeString = dateObject.toLocaleTimeString()
+  return `${localeDateString} ${localeTimeString}`
 }
 </script>
 

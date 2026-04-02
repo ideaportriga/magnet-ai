@@ -11,26 +11,26 @@ div
 </template>
 
 <script>
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 export default {
   emits: ['openTest'],
   setup() {
-    const agentStore = useAgentDetailStore()
-    return { agentStore }
+    const { activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
+    return { activeVariant, updateNestedListItemBySystemName }
   },
   computed: {
     routeParams() {
       return this.$route.params
     },
     topic() {
-      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     system_name: {
       get() {
         return this.topic?.system_name || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -44,7 +44,7 @@ export default {
         return this.topic?.instructions || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -58,7 +58,7 @@ export default {
         return this.topic?.description || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {

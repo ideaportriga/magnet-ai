@@ -36,7 +36,7 @@ q-separator.q-my-sm
       flat,
       iconSize='16px',
       hoverBg='primary-bg',
-      @click='activateVariant'
+      @click='activateVariantAction'
     )
     q-chip.q-mr-sm(v-if='isActive', label='Active', color='primary-light', text-color='primary')
 
@@ -54,7 +54,7 @@ q-separator.q-my-sm
       @click='addVariant'
     )
   .col-auto.text-white.q-mr-md
-    km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariant', :disable='variants?.length === 1')
+    km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariantAction', :disable='variants?.length === 1')
 
   prompts-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
   km-inner-loading(:showing='loading')
@@ -62,7 +62,7 @@ q-separator.q-my-sm
 
 <script>
 import { useEntityQueries } from '@/queries/entities'
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { ref, computed } from 'vue'
 
 export default {
@@ -70,7 +70,9 @@ export default {
   emits: ['update:closeDrawer'],
   setup() {
     const queries = useEntityQueries()
-    const promptStore = usePromptTemplateDetailStore()
+    const { draft, isDirty, selectedVariant, activeVariant, variants: variantsRaw,
+            updateVariantField, setSelectedVariant, createVariant, deleteVariant,
+            activateVariant, save, buildPayload } = useVariantEntityDetail('promptTemplates')
     const { data: listData } = queries.promptTemplates.useList()
     const { mutateAsync: updateEntity } = queries.promptTemplates.useUpdate()
     const { mutateAsync: createEntity } = queries.promptTemplates.useCreate()
@@ -78,7 +80,18 @@ export default {
     const items = computed(() => listData.value?.items ?? [])
 
     return {
-      promptStore,
+      draft,
+      isDirty,
+      selectedVariant,
+      activeVariant,
+      variantsRaw,
+      updateVariantField,
+      setSelectedVariant,
+      createVariant: createVariant,
+      deleteVariant: deleteVariant,
+      activateVariant: activateVariant,
+      composableSave: save,
+      buildPayload,
       items,
       updateEntity,
       createEntity,
@@ -89,29 +102,29 @@ export default {
   },
   computed: {
     isActive() {
-      return this.promptStore.selectedVariant == this.promptStore.entity?.active_variant
+      return this.selectedVariant == this.draft?.active_variant
     },
     selected_variant: {
       get() {
-        return this.getVariantLabel(this.promptStore.selectedVariant)
+        return this.getVariantLabel(this.selectedVariant)
       },
       set(value) {
-        this.promptStore.setSelectedVariant(value.value)
+        this.setSelectedVariant(value.value)
       },
     },
     variants() {
-      return this.promptStore.entity?.variants?.map((el) => ({
+      return this.draft?.variants?.map((el) => ({
         label: el.display_name || this.getVariantLabel(el.variant),
         value: el.variant,
-        active_variant: el.variant == this.promptStore.entity?.active_variant,
+        active_variant: el.variant == this.draft?.active_variant,
       }))
     },
     variant_description: {
       get() {
-        return this.promptStore.activeVariant?.description
+        return this.activeVariant?.description
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({ path: 'description', value })
+        this.updateVariantField('description', value)
       },
     },
     created_at() {
@@ -123,7 +136,7 @@ export default {
       return `${this.formatDate(this.activeRowDB.updated_at)}`
     },
     currentRow() {
-      return this.promptStore.entity
+      return this.draft
     },
     route() {
       return this.$route
@@ -152,23 +165,23 @@ export default {
 
   methods: {
     getVariantLabel(variant) {
-      const v = this.promptStore.entity?.variants?.find((el) => el.variant === variant)
+      const v = this.draft?.variants?.find((el) => el.variant === variant)
       if (v?.display_name) return v.display_name
 
       const match = variant?.match(/variant_(\d+)/)
       if (!match) return variant
       return `Variant ${match?.[1]}`
     },
-    activateVariant() {
-      this.promptStore.activateVariant()
+    activateVariantAction() {
+      this.activateVariant()
       this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Variant has been activated.', timeout: 1000 })
     },
     addVariant() {
-      this.promptStore.createVariant()
+      this.createVariant()
       this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'New variant has been added.', timeout: 1000 })
     },
-    deleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.promptStore.deleteVariant())
+    deleteVariantAction() {
+      this.confirm('Are you sure you want to delete this variant?', () => this.deleteVariant())
     },
 
     confirm(message, callback) {
@@ -239,15 +252,7 @@ export default {
     },
     async save() {
       this.loading = true
-      if (this.currentRow?.created_at) {
-        const obj = { ...this.currentRow }
-        delete obj._metadata
-
-        await this.updateEntity({ id: obj.id, data: obj })
-      } else {
-        await this.createEntity(this.currentRow)
-      }
-      this.promptStore.setInit()
+      await this.composableSave()
       this.loading = false
     },
     formatDate(date) {

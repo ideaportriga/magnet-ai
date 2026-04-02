@@ -42,7 +42,7 @@ div
 
 <script>
 import { ref } from 'vue'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   props: {
@@ -52,16 +52,16 @@ export default {
     },
   },
   setup() {
-    const agentStore = useAgentDetailStore()
+    const { activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     const openGlobalInstructions = ref(false)
     const globalIntructions = ref(
       'A short natural-language action summary to show the user. It should clearly state what the action will do, including relevant argument values. Focus on action, not the result.'
     )
-    return { agentStore, openGlobalInstructions, globalIntructions }
+    return { activeVariant, updateNestedListItemBySystemName, openGlobalInstructions, globalIntructions }
   },
   computed: {
     topic() {
-      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     routeParams() {
       return this.$route.params
@@ -71,7 +71,7 @@ export default {
         return this.action?.display_name
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -87,7 +87,7 @@ export default {
         return this.action?.requires_confirmation
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -103,7 +103,7 @@ export default {
         return this.action?.use_response_as_assistant_message
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -119,7 +119,7 @@ export default {
         return this.action?.action_message_llm_description
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',

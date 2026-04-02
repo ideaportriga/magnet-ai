@@ -181,7 +181,7 @@ import { uid } from 'quasar'
 import { ref, computed } from 'vue'
 import { fetchData } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 
 export default {
@@ -223,11 +223,13 @@ export default {
     }
     const selectedMessage = ref(null)
 
-    const agentStore = useAgentDetailStore()
+    const { draft, activeVariant, testSetItem } = useAgentEntityDetail()
     const appStore = useAppStore()
     const isUserMode = computed(() => props.endUserMode === 'true')
     return {
-      agentStore,
+      draft,
+      activeVariant,
+      testSetItem,
       appStore,
       ragList,
       promptTemplatesList,
@@ -281,17 +283,17 @@ export default {
       return (
         this.allMessages?.length <= 1 &&
         this.showHints &&
-        this.agentStore.activeVariant?.value?.settings?.sample_questions?.enabled &&
-        (!!this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question1 ||
-          !!this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question2 ||
-          !!this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question3)
+        this.activeVariant?.value?.settings?.sample_questions?.enabled &&
+        (!!this.activeVariant?.value?.settings?.sample_questions?.questions?.question1 ||
+          !!this.activeVariant?.value?.settings?.sample_questions?.questions?.question2 ||
+          !!this.activeVariant?.value?.settings?.sample_questions?.questions?.question3)
       )
     },
     sampleQuestion() {
-      return this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions
+      return this.activeVariant?.value?.settings?.sample_questions?.questions
     },
     welcomeMessage() {
-      return this.agentStore.activeVariant?.value?.settings?.welcome_message
+      return this.activeVariant?.value?.settings?.welcome_message
     },
     systemPromptTemplate() {
       return this.promptTemplatesList.find((template) => template.system_name == this.promptTemplate)
@@ -308,7 +310,7 @@ export default {
       return false
     },
     agentTestSetItem() {
-      return this.agentStore.testSetItem
+      return this.testSetItem
     },
   },
   watch: {
@@ -415,9 +417,9 @@ export default {
     async processChat() {
       this.abortController = new AbortController()
       const data = {
-        name: this.agentStore.entity?.name,
-        system_name: this.agentStore.entity?.system_name,
-        agent_config: this.agentStore.activeVariant?.value,
+        name: this.draft?.name,
+        system_name: this.draft?.system_name,
+        agent_config: this.activeVariant?.value,
         messages: this.allMessages,
         trace_id: this.traceId,
       }
@@ -451,9 +453,9 @@ export default {
       })
       try {
         const data = {
-          name: this.agentStore.entity?.name,
-          system_name: this.agentStore.entity?.system_name,
-          agent_config: this.agentStore.activeVariant?.value,
+          name: this.draft?.name,
+          system_name: this.draft?.system_name,
+          agent_config: this.activeVariant?.value,
           messages: this.allMessages,
           trace_id: this.traceId,
         }

@@ -2,7 +2,7 @@
 q-separator.q-my-sm
 .row.items-center
   .col-auto.q-py-auto
-    km-select.bg-white(:options='variants', v-model='selected_variant', bg-color='background', height='30px', hasDropdownSearch)
+    km-select.bg-white(:options='variantOptions', v-model='selected_variant', bg-color='background', height='30px', hasDropdownSearch)
       template(#option='{ itemProps, opt, selected, toggleOption }')
         q-item.ba-border(v-bind='itemProps', dense)
           q-item-section
@@ -24,7 +24,7 @@ q-separator.q-my-sm
       flat,
       iconSize='16px',
       hoverBg='primary-bg',
-      @click='activateVariant'
+      @click='doActivateVariant'
     )
     q-chip.q-mr-sm(v-if='isActive', label='Active', color='primary-light', text-color='primary')
   q-separator(vertical, color='white')
@@ -41,16 +41,16 @@ q-separator.q-my-sm
       @click='addVariant'
     )
   .col-auto.text-white.q-mr-md
-    km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariant', :disable='variants?.length === 1')
+    km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='doDeleteVariant', :disable='variantOptions?.length === 1')
 
   prompts-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
   km-inner-loading(:showing='loading')
 </template>
 
 <script>
-import { useEntityQueries } from '@/queries/entities'
 import { ref, computed } from 'vue'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useEntityQueries } from '@/queries/entities'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   props: ['activeRow'],
@@ -58,47 +58,56 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { data: listData } = queries.agents.useList()
-    const { mutateAsync: updateEntity } = queries.agents.useUpdate()
-    const { mutateAsync: createEntity } = queries.agents.useCreate()
-    const { mutateAsync: removeEntity } = queries.agents.useRemove()
     const items = computed(() => listData.value?.items ?? [])
-    const agentStore = useAgentDetailStore()
+    const { draft, isDirty, updateField, updateVariantField,
+            selectedVariant, activeVariant, variants, setSelectedVariant,
+            createVariant, deleteVariant, activateVariant,
+            save, revert } = useAgentEntityDetail()
 
     return {
-      agentStore,
+      draft,
+      isDirty,
+      updateField,
+      updateVariantField,
+      selectedVariant,
+      activeVariant,
+      variants,
+      setSelectedVariant,
+      createVariant: createVariant,
+      deleteVariant: deleteVariant,
+      activateVariant: activateVariant,
+      save,
+      revert,
       items,
-      updateEntity,
-      createEntity,
-      removeEntity,
       loading: ref(false),
       showNewDialog: ref(false),
     }
   },
   computed: {
     isActive() {
-      return this.agentStore.selectedVariant == this.agentStore.entity?.active_variant
+      return this.selectedVariant == this.draft?.active_variant
     },
     selected_variant: {
       get() {
-        return this.getVariantLabel(this.agentStore.selectedVariant)
+        return this.getVariantLabel(this.selectedVariant)
       },
       set(value) {
-        this.agentStore.setSelectedVariant(value.value)
+        this.setSelectedVariant(value.value)
       },
     },
-    variants() {
-      return this.agentStore.entity?.variants?.map((el) => ({
+    variantOptions() {
+      return this.draft?.variants?.map((el) => ({
         label: this.getVariantLabel(el.variant),
         value: el.variant,
-        active_variant: el.variant == this.agentStore.entity?.active_variant,
+        active_variant: el.variant == this.draft?.active_variant,
       }))
     },
     variant_description: {
       get() {
-        return this.agentStore.activeVariant?.value?.description
+        return this.activeVariant?.value?.description
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'description', value })
+        this.updateVariantField('description', value)
       },
     },
     created_at() {
@@ -110,7 +119,7 @@ export default {
       return `${this.formatDate(this.activeRowDB.updated_at)}`
     },
     currentRow() {
-      return this.agentStore.entity
+      return this.draft
     },
     route() {
       return this.$route
@@ -142,8 +151,8 @@ export default {
       const match = variant?.match(/variant_(\d+)/)
       return `Variant ${match?.[1]}`
     },
-    activateVariant() {
-      this.agentStore.activateVariant()
+    doActivateVariant() {
+      this.activateVariant()
       this.$q.notify({
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
@@ -153,7 +162,7 @@ export default {
       })
     },
     addVariant() {
-      this.agentStore.createVariant()
+      this.createVariant()
       this.$q.notify({
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
@@ -162,8 +171,8 @@ export default {
         timeout: 1000,
       })
     },
-    deleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.agentStore.deleteVariant())
+    doDeleteVariant() {
+      this.confirm('Are you sure you want to delete this variant?', () => this.deleteVariant())
     },
 
     confirm(message, callback) {
@@ -244,17 +253,9 @@ export default {
         this.$router.push(`${path}`)
       }
     },
-    async save() {
+    async doSave() {
       this.loading = true
-      if (this.currentRow?.created_at) {
-        const obj = { ...this.currentRow }
-        delete obj._metadata
-
-        await this.updateEntity({ id: obj.id, data: obj })
-      } else {
-        await this.createEntity(this.currentRow)
-      }
-      this.agentStore.setInit()
+      await this.save()
       this.loading = false
     },
     formatDate(date) {

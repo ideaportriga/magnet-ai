@@ -29,7 +29,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
-import { useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   props: {
@@ -46,13 +46,13 @@ export default {
   setup() {
     const { config, requiredFields } = useEntityConfig('ai_apps')
     const queries = useEntityQueries()
-    const aiAppStore = useAiAppDetailStore()
+    const { draft } = useEntityDetail('ai_apps')
     const { mutateAsync: createAiApp } = queries.ai_apps.useCreate()
 
     return {
       config,
       createAiApp,
-      aiAppStore,
+      draft,
       createNew: ref(false),
       requiredFields,
       newRow: reactive({
@@ -83,7 +83,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.aiAppStore.entity
+      return this.draft
     },
   },
   watch: {},
@@ -112,7 +112,6 @@ export default {
 
       this.createNew = false
       const { id } = await this.createAiApp(this.newRow)
-      this.aiAppStore.setEntity(this.newRow)
       this.$router.push(`/ai-apps/${id}`)
     },
   },

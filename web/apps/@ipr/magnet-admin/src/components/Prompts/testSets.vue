@@ -1,20 +1,20 @@
 <template lang="pug">
 test-sets-table(
   v-model:selectedTestSet='sampleTestSet',
-  :activeRowInput='promptStore.testSetItem?.user_input',
-  @selectRecord='promptStore.testSetItem = $event'
+  :activeRowInput='testSetItem?.user_input',
+  @selectRecord='testSetItem = $event'
 )
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import TestSetsTable from '@/components/shared/TestSetsTable.vue'
 
-const promptStore = usePromptTemplateDetailStore()
+const { activeVariant, updateVariantField, testSetItem } = useVariantEntityDetail('promptTemplates')
 
 const sampleTestSet = computed({
-  get: () => promptStore.activeVariant?.sample_test_set || '',
-  set: (value) => promptStore.updateNestedVariantProperty({ path: 'sample_test_set', value }),
+  get: () => activeVariant.value?.sample_test_set || '',
+  set: (value) => updateVariantField('sample_test_set', value),
 })
 </script>

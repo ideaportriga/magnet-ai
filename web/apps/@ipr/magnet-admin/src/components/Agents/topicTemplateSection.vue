@@ -32,17 +32,18 @@ div
 <script>
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   setup() {
     const queries = useEntityQueries()
     const { data: promptTemplateData } = queries.promptTemplates.useList()
     const promptTemplateItems = computed(() => promptTemplateData.value?.items ?? [])
-    const agentStore = useAgentDetailStore()
+    const { activeVariant, updateVariantField } = useAgentEntityDetail()
 
     return {
-      agentStore,
+      activeVariant,
+      updateVariantField,
       promptTemplateItems,
     }
   },
@@ -61,10 +62,10 @@ export default {
     },
     topicSelectionPromptTemplate: {
       get() {
-        return this.agentStore.activeVariant?.value.prompt_templates?.classification
+        return this.activeVariant?.value.prompt_templates?.classification
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'prompt_templates.classification', value })
+        this.updateVariantField('prompt_templates.classification', value)
       },
     },
   },

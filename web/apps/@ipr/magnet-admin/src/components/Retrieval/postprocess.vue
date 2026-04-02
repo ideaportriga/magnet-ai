@@ -77,7 +77,7 @@
 <script>
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: ['prompt', 'selectedPrompt'],
@@ -85,11 +85,12 @@ export default {
 
   setup() {
     const queries = useEntityQueries()
-    const retrievalStore = useRetrievalDetailStore()
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('retrieval')
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
-      retrievalStore,
+      activeVariant,
+      updateVariantField,
       promptItems,
       test: ref(true),
       iconPicker: ref(false),
@@ -103,70 +104,64 @@ export default {
   computed: {
     checkIsAnswered: {
       get() {
-        return this.retrievalStore.activeVariant?.post_process?.answered_check?.enabled || false
+        return this.activeVariant?.post_process?.answered_check?.enabled || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'post_process.answered_check.enabled', value })
+        this.updateVariantField('post_process.answered_check.enabled', value)
       },
     },
     answeredPromptCode: {
       get() {
-        return this.prompts.find((el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.answered_check?.prompt_template)
+        return this.prompts.find((el) => el.system_name == this.activeVariant?.post_process?.answered_check?.prompt_template)
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'post_process.answered_check.prompt_template', value: value?.system_name })
+        this.updateVariantField('post_process.answered_check.prompt_template', value?.system_name)
       },
     },
     answeredPromptId() {
-      return this.prompts.find((el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.answered_check?.prompt_template)?.value
+      return this.prompts.find((el) => el.system_name == this.activeVariant?.post_process?.answered_check?.prompt_template)?.value
     },
     detectLanguage: {
       get() {
-        return this.retrievalStore.activeVariant?.post_process?.detect_question_language?.enabled || false
+        return this.activeVariant?.post_process?.detect_question_language?.enabled || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'post_process.detect_question_language.enabled', value })
+        this.updateVariantField('post_process.detect_question_language.enabled', value)
       },
     },
     languageDetectPromptCode: {
       get() {
         return this.prompts.find(
-          (el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.detect_question_language?.prompt_template
+          (el) => el.system_name == this.activeVariant?.post_process?.detect_question_language?.prompt_template
         )
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( {
-          path: 'post_process.detect_question_language.prompt_template',
-          value: value?.system_name,
-        })
+        this.updateVariantField('post_process.detect_question_language.prompt_template', value?.system_name)
       },
     },
     languageDetectPromptId() {
       return this.prompts.find(
-        (el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.detect_question_language?.prompt_template
+        (el) => el.system_name == this.activeVariant?.post_process?.detect_question_language?.prompt_template
       )?.value
     },
     checkIsHallucinate: {
       get() {
-        return this.retrievalStore.activeVariant?.post_process?.check_is_hallucinate?.enabled || false
+        return this.activeVariant?.post_process?.check_is_hallucinate?.enabled || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'post_process.check_is_hallucinate.enabled', value })
+        this.updateVariantField('post_process.check_is_hallucinate.enabled', value)
       },
     },
     hallucinatePromptId() {
-      return this.prompts.find((el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.check_is_hallucinate?.prompt_template)
+      return this.prompts.find((el) => el.system_name == this.activeVariant?.post_process?.check_is_hallucinate?.prompt_template)
         ?.value
     },
     hallucinatePromptCode: {
       get() {
-        return this.prompts.find((el) => el.system_name == this.retrievalStore.activeVariant?.post_process?.check_is_hallucinate?.prompt_template)
+        return this.prompts.find((el) => el.system_name == this.activeVariant?.post_process?.check_is_hallucinate?.prompt_template)
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( {
-          path: 'post_process.check_is_hallucinate.prompt_template',
-          value: value?.system_name,
-        })
+        this.updateVariantField('post_process.check_is_hallucinate.prompt_template', value?.system_name)
       },
     },
 

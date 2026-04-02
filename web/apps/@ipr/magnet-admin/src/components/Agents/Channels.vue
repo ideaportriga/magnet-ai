@@ -119,10 +119,10 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useAppStore } from '@/stores/appStore'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { copyToClipboard } from 'quasar'
 
-const agentStore = useAgentDetailStore()
+const { draft, updateHighLevelNestedProperty } = useAgentEntityDetail()
 const appStore = useAppStore()
 
 const themeOptions = ref([
@@ -130,7 +130,7 @@ const themeOptions = ref([
   { label: 'Salesforce', value: 'salesforce' },
 ])
 const system_name = computed(() => {
-  return agentStore.entity?.system_name || ''
+  return draft.value?.system_name || ''
 })
 const appUrl = computed(() => {
   let panelUrl = `${appStore.config?.panel?.baseUrl}/#/?agent=${system_name.value}`
@@ -144,37 +144,37 @@ const appUrl = computed(() => {
 
 const enable_iframe = computed({
   get() {
-    return agentStore.entity?.channels?.web?.enabled || false
+    return draft.value?.channels?.web?.enabled || false
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.web.enabled', value: value })
+    updateHighLevelNestedProperty('channels.web.enabled', value)
   },
 })
 
 const theme = computed({
   get() {
-    const theme = agentStore.entity?.channels?.web?.theme || 'siebel'
+    const theme = draft.value?.channels?.web?.theme || 'siebel'
     return themeOptions.value.find((option) => option.value === theme)
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.web.theme', value: value.value })
+    updateHighLevelNestedProperty('channels.web.theme', value.value)
   },
 })
 const show_close_button = computed({
   get() {
-    const web = agentStore.entity?.channels?.web
+    const web = draft.value?.channels?.web
     return web.hasOwnProperty('show_close_button') ? web.show_close_button : false
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.web.show_close_button', value: value })
+    updateHighLevelNestedProperty('channels.web.show_close_button', value)
   },
 })
 const isIconHide = computed({
   get() {
-    return !agentStore.entity?.channels?.web?.is_icon_hide
+    return !draft.value?.channels?.web?.is_icon_hide
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.web.is_icon_hide', value: !value })
+    updateHighLevelNestedProperty('channels.web.is_icon_hide', !value)
   },
 })
 
@@ -189,136 +189,136 @@ const copy = () => {
 // Teams
 const enable_ms_teams = computed({
   get() {
-    return agentStore.entity?.channels?.ms_teams?.enabled || false
+    return draft.value?.channels?.ms_teams?.enabled || false
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.ms_teams.enabled', value: value })
+    updateHighLevelNestedProperty('channels.ms_teams.enabled', value)
   },
 })
 const ms_teams_client_id = computed({
   get() {
-    return agentStore.entity?.channels?.ms_teams?.client_id || ''
+    return draft.value?.channels?.ms_teams?.client_id || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.ms_teams.client_id', value: value })
+    updateHighLevelNestedProperty('channels.ms_teams.client_id', value)
   },
 })
 const ms_teams_tenant_id = computed({
   get() {
-    return agentStore.entity?.channels?.ms_teams?.tenant_id || ''
+    return draft.value?.channels?.ms_teams?.tenant_id || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.ms_teams.tenant_id', value: value })
+    updateHighLevelNestedProperty('channels.ms_teams.tenant_id', value)
   },
 })
 const ms_teams_secret_value = computed({
   get() {
-    return agentStore.entity?.channels?.ms_teams?.secret_value || ''
+    return draft.value?.channels?.ms_teams?.secret_value || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.ms_teams.secret_value', value: value })
+    updateHighLevelNestedProperty('channels.ms_teams.secret_value', value)
   },
 })
 
 const has_ms_teams_secret_value = computed(() => {
-  return agentStore.entity?.channels?.ms_teams?.secret_value_encrypted || false
+  return draft.value?.channels?.ms_teams?.secret_value_encrypted || false
 })
 
 // Slack
 const enable_slack = computed({
   get() {
-    return agentStore.entity?.channels?.slack?.enabled || false
+    return draft.value?.channels?.slack?.enabled || false
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.enabled', value: value })
+    updateHighLevelNestedProperty('channels.slack.enabled', value)
   },
 })
 const slack_client_id = computed({
   get() {
-    return agentStore.entity?.channels?.slack?.client_id || ''
+    return draft.value?.channels?.slack?.client_id || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.client_id', value: value })
+    updateHighLevelNestedProperty('channels.slack.client_id', value)
   },
 })
 const slack_token = computed({
   get() {
-    return agentStore.entity?.channels?.slack?.token || ''
+    return draft.value?.channels?.slack?.token || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.token', value: value })
+    updateHighLevelNestedProperty('channels.slack.token', value)
   },
 })
 
 const slack_client_secret = computed({
   get() {
-    return agentStore.entity?.channels?.slack?.client_secret || ''
+    return draft.value?.channels?.slack?.client_secret || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.client_secret', value: value })
+    updateHighLevelNestedProperty('channels.slack.client_secret', value)
   },
 })
 const slack_signing_secret = computed({
   get() {
-    return agentStore.entity?.channels?.slack?.signing_secret || ''
+    return draft.value?.channels?.slack?.signing_secret || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.signing_secret', value: value })
+    updateHighLevelNestedProperty('channels.slack.signing_secret', value)
   },
 })
 
 const slack_scopes = computed({
   get() {
-    return agentStore.entity?.channels?.slack?.agent_scopes || ''
+    return draft.value?.channels?.slack?.agent_scopes || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.slack.agent_scopes', value: value })
+    updateHighLevelNestedProperty('channels.slack.agent_scopes', value)
   },
 })
 const has_slack_encryptes = computed(() => {
   return {
-    token: agentStore.entity?.channels?.slack?.token_encrypted || false,
-    signing_secret: agentStore.entity?.channels?.slack?.signing_secret_encrypted || false,
-    client_secret: agentStore.entity?.channels?.slack?.client_secret_encrypted || false,
+    token: draft.value?.channels?.slack?.token_encrypted || false,
+    signing_secret: draft.value?.channels?.slack?.signing_secret_encrypted || false,
+    client_secret: draft.value?.channels?.slack?.client_secret_encrypted || false,
   }
 })
 
 const enable_whatsapp = computed({
   get() {
-    return agentStore.entity?.channels?.whatsapp?.enabled || false
+    return draft.value?.channels?.whatsapp?.enabled || false
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.whatsapp.enabled', value: value })
+    updateHighLevelNestedProperty('channels.whatsapp.enabled', value)
   },
 })
 const whatsapp_phone_number_id = computed({
   get() {
-    return agentStore.entity?.channels?.whatsapp?.phone_number_id || ''
+    return draft.value?.channels?.whatsapp?.phone_number_id || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.whatsapp.phone_number_id', value: value })
+    updateHighLevelNestedProperty('channels.whatsapp.phone_number_id', value)
   },
 })
 const whatsapp_token = computed({
   get() {
-    return agentStore.entity?.channels?.whatsapp?.token || ''
+    return draft.value?.channels?.whatsapp?.token || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.whatsapp.token', value: value })
+    updateHighLevelNestedProperty('channels.whatsapp.token', value)
   },
 })
 const whatsapp_app_secret = computed({
   get() {
-    return agentStore.entity?.channels?.whatsapp?.app_secret || ''
+    return draft.value?.channels?.whatsapp?.app_secret || ''
   },
   set(value) {
-    agentStore.updateHighLevelNestedProperty({ path: 'channels.whatsapp.app_secret', value: value })
+    updateHighLevelNestedProperty('channels.whatsapp.app_secret', value)
   },
 })
 const has_whatsapp_encrypted = computed(() => {
   return {
-    token: agentStore.entity?.channels?.whatsapp?.token_encrypted || false,
-    app_secret: agentStore.entity?.channels?.whatsapp?.app_secret_encrypted || false,
+    token: draft.value?.channels?.whatsapp?.token_encrypted || false,
+    app_secret: draft.value?.channels?.whatsapp?.app_secret_encrypted || false,
   }
 })
 

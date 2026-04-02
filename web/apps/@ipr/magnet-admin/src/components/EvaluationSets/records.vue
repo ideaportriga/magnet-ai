@@ -48,7 +48,8 @@ km-popup-confirm(
 import { ref, computed, h, markRaw } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { useEvaluationSetDetailStore, useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
 import TextWrap from '@/config/evaluation_sets/component/TextWrap.vue'
@@ -58,7 +59,7 @@ const emit = defineEmits(['openTest', 'record:update'])
 
 const route = useRoute()
 const queries = useEntityQueries()
-const evalSetStore = useEvaluationSetDetailStore()
+const { draft, updateField } = useEntityDetail('evaluation_sets')
 const evalSetRecordStore = useEvaluationSetRecordStore()
 const routeId = computed(() => route.params.id)
 const { data: selectedEvaluationSet } = queries.evaluation_sets.useDetail(routeId)
@@ -68,10 +69,10 @@ const showDeleteDialog = ref(false)
 
 const evaluationSetItems = computed({
   get() {
-    return evalSetStore.entity?.items?.map((item, index) => ({ ...item, index })) || []
+    return draft.value?.items?.map((item, index) => ({ ...item, index })) || []
   },
   set(value) {
-    evalSetStore.updateProperty({ key: 'items', value })
+    updateField('items', value)
   },
 })
 
@@ -108,10 +109,7 @@ const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(
 const deleteSelected = () => {
   const indexToDelete = selectedRows.value.map((item) => item.index)
   const value = evaluationSetItems.value.filter((item, index) => !indexToDelete.includes(index))
-  evalSetStore.updateProperty({
-    key: 'items',
-    value,
-  })
+  updateField('items', value)
   clearSelection()
   showDeleteDialog.value = false
 }
@@ -121,7 +119,7 @@ const selectRecord = (row) => {
 }
 
 const addRecord = (newRow) => {
-  evalSetStore.updateProperty({ key: 'items', value: [newRow, ...evaluationSetItems.value] })
+  updateField('items', [newRow, ...evaluationSetItems.value])
 }
 
 const openNewDetails = () => {

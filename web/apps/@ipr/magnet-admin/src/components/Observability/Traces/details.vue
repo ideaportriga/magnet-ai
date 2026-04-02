@@ -74,78 +74,70 @@
                       q-spinner-dots(color='primary', size='50px')
 
   .col-auto
-    observability-traces-drawer(v-if='drawerOpened', :open='drawerOpened', :trace='selectedRow', :span='selectedSpan')
+    observability-traces-drawer(v-if='drawerOpened', :open='drawerOpened', :trace='draft', :span='selectedSpan')
 </template>
 
 <script>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
+import { ref } from 'vue'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { formatDuration, formatTraceType } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'
-import { useTraceDetailStore } from '@/stores/entityDetailStores'
 
 export default {
   setup() {
-    const route = useRoute()
-    const queries = useEntityQueries()
-    const traceStore = useTraceDetailStore()
-    const id = ref(route.params.id)
-    const { data: selectedRow, isLoading: loading } = queries.observability_traces.useDetail(id)
+    const { draft, isLoading: loading } = useEntityDetail('observability_traces')
 
     return {
-      id,
-      selectedRow,
+      draft,
       loading,
       drawerOpened: ref(true),
       selectedSpan: ref(null),
-      traceStore,
     }
   },
   computed: {
     name() {
-      return this.traceStore.entity?.name || ''
+      return this.draft?.name || ''
     },
     type() {
-      return formatTraceType(this.traceStore.entity?.type)
+      return formatTraceType(this.draft?.type)
     },
     channel() {
-      return this.traceStore.entity?.channel || ''
+      return this.draft?.channel || ''
     },
     startTime() {
-      return formatDateTime(this.traceStore.entity?.start_time)
+      return formatDateTime(this.draft?.start_time)
     },
     endTime() {
-      return formatDateTime(this.traceStore.entity?.end_time)
+      return formatDateTime(this.draft?.end_time)
     },
     formattedLatency() {
-      return formatDuration(this.traceStore.entity?.latency)
+      return formatDuration(this.draft?.latency)
     },
     embeddingCost() {
-      const cost = this.traceStore.entity?.cost_details?.embed
+      const cost = this.draft?.cost_details?.embed
       if (!cost && cost !== 0) return ''
       return `$${cost.toFixed(6)}`
     },
     chatCompletionCost() {
-      const cost = this.traceStore.entity?.cost_details?.chat
+      const cost = this.draft?.cost_details?.chat
       if (!cost && cost !== 0) return ''
       return `$${cost.toFixed(6)}`
     },
     rerankCost() {
-      const cost = this.traceStore.entity?.cost_details?.rerank
+      const cost = this.draft?.cost_details?.rerank
       if (!cost && cost !== 0) return ''
       return `$${cost.toFixed(6)}`
     },
     totalCost() {
-      const cost = this.traceStore.entity?.cost_details?.total
+      const cost = this.draft?.cost_details?.total
       if (!cost && cost !== 0) return ''
       return `$${cost.toFixed(6)}`
     },
     status() {
-      return this.traceStore.entity?.status || ''
+      return this.draft?.status || ''
     },
     spans() {
-      return this.traceStore.entity?.spans || []
+      return this.draft?.spans || []
     },
     spansTree() {
       const spanMap = new Map()
@@ -207,7 +199,7 @@ export default {
       }
 
       const calcSpanTimelineParams = (spanStartTime, spanLatency, idleLatency) => {
-        const trace = this.traceStore.entity
+        const trace = this.draft
         const traceLatency = (trace?.latency ?? 1000) - idleTotalLatency
         const traceStartTime = new Date(trace?.start_time).getTime()
         const spanStart = new Date(spanStartTime).getTime()
@@ -308,39 +300,17 @@ export default {
       return flattenAndTransform(rootSpans)
     },
 
-    activeTraceId() {
-      return this.$route.params?.id
-    },
-    // loading() {
-    //   return !this.traceStore.entity?.id
-    // }
   },
 
   watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.traceStore.setEntity(newVal)
-        this.tab = 'retrieve'
-        this.selectedSpan = this.selectedRow?.spans?.[0]
-      }
+    draft: {
+      handler(newVal) {
+        if (newVal?.spans?.length && !this.selectedSpan) {
+          this.selectedSpan = newVal.spans[0]
+        }
+      },
+      immediate: true,
     },
-  },
-  mounted() {
-    if (!this.traceStore.entity?.spans) {
-      // this.getDetail({id: this.activeTraceId})
-    }
-
-    if (this.activeTraceId != this.traceStore.entity?.id) {
-      this.traceStore.setEntity(this.selectedRow)
-    }
-    this.selectedSpan = this.selectedRow?.spans?.[0]
-  },
-  activated() {
-    this.id = this.$route.params.id
-    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.activeTraceId != this.traceStore.entity?.id) {
-      this.traceStore.setEntity(this.selectedRow)
-    }
   },
   methods: {
     openDrawer(span) {

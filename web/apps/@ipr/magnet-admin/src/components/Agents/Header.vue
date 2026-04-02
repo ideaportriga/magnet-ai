@@ -17,17 +17,16 @@
 <script>
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   props: ['activeRow'],
   setup() {
     const queries = useEntityQueries()
-    const agentStore = useAgentDetailStore()
+    useAgentEntityDetail()
     const { data: listData } = queries.agents.useList()
 
     return {
-      agentStore,
       listData,
     }
   },

@@ -32,8 +32,8 @@ layouts-details-layout(v-if='api_server')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='apiServerStore.revert()', v-if='apiServerStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !apiServerStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -76,17 +76,15 @@ layouts-details-layout(v-if='api_server')
 </template>
 
 <script setup>
-import { ref, computed, watch, onActivated } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { useEntityQueries } from '@/queries/entities'
-import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 const route = useRoute()
 const router = useRouter()
 const q = useQuasar()
-const apiServerStore = useApiServerDetailStore()
-const queries = useEntityQueries()
+const { draft, data: api_server, isDirty, isLoading, updateField, save, remove, revert } = useEntityDetail('api_servers')
 
 const showInfo = ref(false)
 const saving = ref(false)
@@ -98,51 +96,42 @@ const tabs = ref([
   { name: 'settings', label: 'Settings' },
 ])
 
-const id = ref(route.params.id)
-const { data: api_server } = queries.api_servers.useDetail(id)
-const { mutateAsync: updateEntity } = queries.api_servers.useUpdate()
-const { mutateAsync: createEntity } = queries.api_servers.useCreate()
-const removeMutation = queries.api_servers.useRemove()
-
 const name = computed({
   get() {
-    return apiServerStore.entity?.name
+    return draft.value?.name
   },
   set(value) {
-    apiServerStore.updateProperty({ key: 'name', value })
+    updateField('name', value)
   },
 })
 const system_name = computed({
   get() {
-    return apiServerStore.entity?.system_name
+    return draft.value?.system_name
   },
   set(value) {
-    apiServerStore.updateProperty({ key: 'system_name', value })
+    updateField('system_name', value)
   },
 })
 
-const entity = computed(() => apiServerStore.entity)
-const created_at = computed(() => entity.value?.created_at ? formatDate(entity.value.created_at) : '')
-const modified_at = computed(() => entity.value?.updated_at ? formatDate(entity.value.updated_at) : '')
-const created_by = computed(() => entity.value?.created_by || 'Unknown')
-const updated_by = computed(() => entity.value?.updated_by || 'Unknown')
+const created_at = computed(() => draft.value?.created_at ? formatDate(draft.value.created_at) : '')
+const modified_at = computed(() => draft.value?.updated_at ? formatDate(draft.value.updated_at) : '')
+const created_by = computed(() => draft.value?.created_by || 'Unknown')
+const updated_by = computed(() => draft.value?.updated_by || 'Unknown')
 
 function formatDate(date) {
   const d = new Date(date)
   return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
 }
 
-async function save() {
+async function handleSave() {
   saving.value = true
   try {
-    if (entity.value?.created_at) {
-      const data = apiServerStore.buildPayload()
-      await updateEntity({ id: entity.value.id, data })
-    } else {
-      await createEntity(entity.value)
+    const result = await save()
+    if (result.success) {
+      q.notify({ position: 'top', color: 'positive', message: 'Saved successfully', timeout: 2000 })
+    } else if (result.error) {
+      throw result.error
     }
-    apiServerStore.setInit()
-    q.notify({ position: 'top', color: 'positive', message: 'Saved successfully', timeout: 2000 })
   } catch (error) {
     q.notify({ position: 'top', color: 'negative', message: error.message || 'Failed to save', timeout: 3000 })
   } finally {
@@ -151,28 +140,10 @@ async function save() {
 }
 
 async function confirmDelete() {
-  await removeMutation.mutateAsync(route.params.id)
+  await remove()
   q.notify({ position: 'top', message: 'API Server has been deleted.', color: 'positive', textColor: 'black', timeout: 1000 })
   router.push('/api-servers')
 }
-
-watch(
-  () => api_server.value,
-  (newVal) => {
-    if (!newVal) return
-    apiServerStore.setEntity(newVal)
-  },
-  { immediate: true, deep: true }
-)
-
-onActivated(() => {
-  id.value = route.params.id
-  // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-  const currentData = api_server.value
-  if (currentData && currentData.id !== apiServerStore.entity?.id) {
-    apiServerStore.setEntity(currentData)
-  }
-})
 </script>
 
 <style lang="stylus"></style>

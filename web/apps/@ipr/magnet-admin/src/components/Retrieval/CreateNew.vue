@@ -37,7 +37,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
-import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: {
@@ -54,12 +54,12 @@ export default {
   setup() {
     const { config, requiredFields } = useEntityConfig('retrieval')
     const queries = useEntityQueries()
-    const retrievalStore = useRetrievalDetailStore()
+    const { draft } = useVariantEntityDetail('retrieval')
     const { mutateAsync: createRetrievalMutation } = queries.retrieval.useCreate()
     const { data: collectionsData } = queries.collections.useList()
 
     return {
-      retrievalStore,
+      draft,
       config,
       createRetrievalMutation,
       createNew: ref(false),
@@ -133,7 +133,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.retrievalStore.entity
+      return this.draft
     },
     collectionSystemNames: {
       get() {
@@ -177,7 +177,6 @@ export default {
 
       this.createNew = false
       const { id } = await this.createRetrievalMutation(this.newRow)
-      this.retrievalStore.setEntity(this.newRow)
       this.$router.push(`/retrieval/${id}`)
     },
     validation(retrieval, notify = true) {

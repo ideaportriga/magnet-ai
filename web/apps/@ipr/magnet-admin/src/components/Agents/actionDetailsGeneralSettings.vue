@@ -31,12 +31,12 @@ div
 <script>
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   emits: ['openTest'],
   setup() {
-    const agentStore = useAgentDetailStore()
+    const { activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     const queries = useEntityQueries()
     const { data: promptTemplateData } = queries.promptTemplates.useList()
     const promptTemplateItems = computed(() => promptTemplateData.value?.items ?? [])
@@ -46,7 +46,8 @@ export default {
     const apiServers = computed(() => apiServersData.value?.items ?? [])
 
     return {
-      agentStore,
+      activeVariant,
+      updateNestedListItemBySystemName,
       promptTemplateItems,
       ragItems,
       apiServers,
@@ -57,7 +58,7 @@ export default {
       return this.$route.params
     },
     topic() {
-      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     action() {
       return this.topic?.actions?.find((action) => action?.system_name == this.routeParams?.actionId)
@@ -67,7 +68,7 @@ export default {
         return this.action?.name || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           subArrayKey: 'actions',
@@ -83,7 +84,7 @@ export default {
         return this.action?.description || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -99,7 +100,7 @@ export default {
         return this.action?.system_name || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -115,7 +116,7 @@ export default {
         return this.action?.function_name
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -131,7 +132,7 @@ export default {
         return this.action?.function_description
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -147,7 +148,7 @@ export default {
         return this.action?.display_name
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -163,7 +164,7 @@ export default {
         return this.action?.display_description
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',

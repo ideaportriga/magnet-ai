@@ -39,17 +39,17 @@ import { useRouter, useRoute } from 'vue-router'
 import { fetchData } from '@shared'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, nameDescriptionColumn, chipCopyColumn } from '@/utils/columnHelpers'
-import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 
 const router = useRouter()
 const route = useRoute()
-const apiServerStore = useApiServerDetailStore()
+const { draft, updateField } = useEntityDetail('api_servers')
 const appStore = useAppStore()
 const showNewDialog = ref(false)
 const showDeleteDialog = ref(false)
 
-const data = computed(() => apiServerStore.entity?.tools ?? [])
+const data = computed(() => draft.value?.tools ?? [])
 
 const columns = [
   selectionColumn(),
@@ -68,7 +68,7 @@ const handleRowClick = (row) => {
 const deleteSelected = async () => {
   const removedTools = selectedRows.value.map((tool) => tool.system_name)
   const remainingTools = data.value.filter((tool) => !removedTools.includes(tool.system_name))
-  const id = apiServerStore.entity?.id
+  const id = draft.value?.id
   await fetchData({
     endpoint: appStore.config.api.aiBridge.urlAdmin,
     service: `api_servers/${id}`,
@@ -76,7 +76,7 @@ const deleteSelected = async () => {
     credentials: 'include',
     body: JSON.stringify({ tools: remainingTools }),
   })
-  apiServerStore.updateProperty({ key: 'tools', value: remainingTools })
+  updateField('tools', remainingTools)
   clearSelection()
   showDeleteDialog.value = false
 }

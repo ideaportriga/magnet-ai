@@ -48,7 +48,7 @@ km-popup-confirm(
 import { ref, computed, h, markRaw } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, textColumn, componentColumn, drilldownColumn } from '@/utils/columnHelpers'
 import NameSystemName from '@/config/agents/component/NameSystemName.vue'
@@ -62,12 +62,12 @@ const queries = useEntityQueries()
 const { data: promptTemplateData } = queries.promptTemplates.useList()
 const promptTemplateItems = computed(() => promptTemplateData.value?.items ?? [])
 
-const agentStore = useAgentDetailStore()
+const { draft, activeVariant, updateVariantField, activeTopic: activeTopicRef } = useAgentEntityDetail()
 const showNewDialog = ref(false)
 const showDeleteDialog = ref(false)
 
 const data = computed(() => {
-  const topics = agentStore.activeVariant?.value?.topics || []
+  const topics = activeVariant.value?.value?.topics || []
   return topics.map((item) => ({ ...item, actions: item.actions?.length || '' }))
 })
 
@@ -93,7 +93,7 @@ const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(
 const routeParams = computed(() => route.params)
 
 const agentDetailVariantTopics = computed(() => {
-  return agentStore.activeVariant?.value?.topics || []
+  return activeVariant.value?.value?.topics || []
 })
 
 const promptTemplatesOptions = computed(() => {
@@ -106,7 +106,7 @@ const promptTemplatesOptions = computed(() => {
   }))
 })
 
-const activeTopic = computed(() => agentStore.activeTopic)
+const activeTopic = computed(() => activeTopicRef.value)
 
 const cellAction = ({ event, action, row }) => {
   event.stopPropagation()
@@ -114,18 +114,17 @@ const cellAction = ({ event, action, row }) => {
 }
 
 const deleteSelected = () => {
-  agentStore.updateNestedVariantProperty({
-    path: 'topics',
-    value: agentDetailVariantTopics.value.filter(
+  updateVariantField('topics',
+    agentDetailVariantTopics.value.filter(
       (item) => !selectedRows.value.map((el) => el?.system_name).includes(item.system_name)
     ),
-  })
+  )
   clearSelection()
   showDeleteDialog.value = false
 }
 
 const selectRecord = (row) => {
-  agentStore.activeTopic = {
+  activeTopicRef.value = {
     topic: row?.system_name,
   }
 }

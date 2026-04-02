@@ -48,57 +48,69 @@ q-separator.q-my-sm
 </template>
 
 <script>
-import { useEntityQueries } from '@/queries/entities'
 import { ref, computed } from 'vue'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useEntityQueries } from '@/queries/entities'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: ['activeRow'],
   emits: ['update:closeDrawer'],
   setup() {
     const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
+    const {
+      draft, isDirty, updateField, updateVariantField,
+      selectedVariant, activeVariant, variants,
+      setSelectedVariant, createVariant: composableCreateVariant,
+      deleteVariant: composableDeleteVariant, activateVariant: composableActivateVariant,
+      save, revert,
+    } = useVariantEntityDetail('rag_tools')
     const { data: listData } = queries.rag_tools.useList()
-    const { mutateAsync: updateEntity } = queries.rag_tools.useUpdate()
-    const { mutateAsync: createEntity } = queries.rag_tools.useCreate()
-    const { mutateAsync: removeEntity } = queries.rag_tools.useRemove()
     const items = computed(() => listData.value?.items ?? [])
 
     return {
-      ragStore,
+      draft,
+      isDirty,
+      updateField,
+      updateVariantField,
+      selectedVariant,
+      activeVariant,
+      variantsList: variants,
+      setSelectedVariant,
+      composableCreateVariant,
+      composableDeleteVariant,
+      composableActivateVariant,
+      save,
+      revert,
       items,
-      updateEntity,
-      createEntity,
-      removeEntity,
       loading: ref(false),
       showNewDialog: ref(false),
     }
   },
   computed: {
     isActive() {
-      return this.ragStore.selectedVariant == this.ragStore.entity?.active_variant
+      return this.selectedVariant == this.draft?.active_variant
     },
     selected_variant: {
       get() {
-        return this.getVariantLabel(this.ragStore.selectedVariant)
+        return this.getVariantLabel(this.selectedVariant)
       },
       set(value) {
-        this.ragStore.setSelectedVariant(value.value)
+        this.setSelectedVariant(value.value)
       },
     },
     variants() {
-      return this.ragStore.entity?.variants?.map((el) => ({
+      return this.draft?.variants?.map((el) => ({
         label: this.getVariantLabel(el.variant),
         value: el.variant,
-        active_variant: el.variant == this.ragStore.entity?.active_variant,
+        active_variant: el.variant == this.draft?.active_variant,
       }))
     },
     variant_description: {
       get() {
-        return this.ragStore.activeVariant?.description
+        return this.activeVariant?.description
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'description', value })
+        this.updateVariantField('description', value)
       },
     },
     created_at() {
@@ -110,7 +122,7 @@ export default {
       return `${this.formatDate(this.activeRowDB.updated_at)}`
     },
     currentRow() {
-      return this.ragStore.entity
+      return this.draft
     },
     route() {
       return this.$route
@@ -139,7 +151,6 @@ export default {
 
   methods: {
     confirm(message, callback) {
-      // notify with confirmation
       this.$q.notify({
         message,
         color: 'red-9', textColor: 'white',
@@ -158,7 +169,6 @@ export default {
             label: 'Delete',
             color: 'white',
             handler: () => {
-              // notify with success
               callback()
               this.$q.notify({
                 color: 'green-9', textColor: 'white',
@@ -177,7 +187,7 @@ export default {
       return `Variant ${match?.[1]}`
     },
     activateVariant() {
-      this.ragStore.activateVariant()
+      this.composableActivateVariant()
       this.$q.notify({
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
@@ -187,7 +197,7 @@ export default {
       })
     },
     addVariant() {
-      this.ragStore.createVariant()
+      this.composableCreateVariant()
       this.$q.notify({
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
@@ -197,43 +207,7 @@ export default {
       })
     },
     deleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.ragStore.deleteVariant())
-    },
-
-    deleteRag() {
-      this.$q.notify({
-        message: `Are you sure you want to delete this configuration?`,
-        color: 'red-9', textColor: 'white',
-        icon: 'error',
-        group: 'error',
-        timeout: 0,
-        actions: [
-          {
-            label: 'Cancel',
-            color: 'yellow',
-            handler: () => {
-              /* ... */
-            },
-          },
-          {
-            label: 'Delete',
-            color: 'white',
-            handler: () => {
-              this.loadingDelelete = true
-              this.removeEntity(this.$route.params.id)
-              this.$emit('update:closeDrawer', null)
-              this.$q.notify({
-                color: 'green-9', textColor: 'white',
-                icon: 'check_circle',
-                group: 'success',
-                message: 'Prompt has been deleted.',
-                timeout: 1000,
-              })
-              this.navigate('/prompt-templates')
-            },
-          },
-        ],
-      })
+      this.confirm('Are you sure you want to delete this variant?', () => this.composableDeleteVariant())
     },
     async openDetails(row) {
       await this.$router.push(`/prompt-templates/${row.id}`)
@@ -242,18 +216,6 @@ export default {
       if (this.$route.path !== `/${path}`) {
         this.$router.push(`${path}`)
       }
-    },
-    async save() {
-      this.loading = true
-      if (this.currentRow?.created_at) {
-        const obj = { ...this.currentRow }
-        delete obj._metadata
-        await this.updateEntity({ id: obj.id, data: obj })
-      } else {
-        await this.createEntity(this.currentRow)
-      }
-      this.ragStore.setInit()
-      this.loading = false
     },
     formatDate(date) {
       const dateObject = new Date(date)

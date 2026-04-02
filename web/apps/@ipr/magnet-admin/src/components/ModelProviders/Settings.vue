@@ -137,16 +137,15 @@ import { computed, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { providerSecretKeys, providerConnectionConfigKeys, formatProviderType } from '../../config/model_providers/providerTypes'
 import { useEntityQueries } from '@/queries/entities'
-import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useNotify } from '@/composables/useNotify'
 
-const providerStore = useProviderDetailStore()
+const { draft, data, updateField, updateFields, save } = useEntityDetail('provider')
 const { notifySuccess, notifyError, notifyWarning } = useNotify()
 const queries = useEntityQueries()
-const { mutateAsync: updateProvider } = queries.provider.useUpdate()
 const { mutateAsync: testProvider } = queries.provider.useTest()
 
-const provider = computed(() => providerStore.entity)
+const provider = computed(() => draft.value)
 
 const isEditingEndpoint = ref(false)
 const tempEndpoint = ref('')
@@ -199,30 +198,20 @@ const saveEndpoint = () => {
 }
 
 const confirmEndpointChange = async () => {
-  // Update endpoint
-  providerStore.updateProperty({
-    key: 'endpoint',
-    value: tempEndpoint.value,
-  })
-  // Clear secrets as backend will do
-  providerStore.updateProperty({
-    key: 'secrets_encrypted',
-    value: {},
+  // Update endpoint and clear secrets in draft
+  updateFields({
+    endpoint: tempEndpoint.value,
+    secrets_encrypted: {},
   })
 
   try {
-    // Save provider via TanStack mutation
-    const providerData = providerStore.entity
-    const data = { ...providerData }
-    delete data.id
-    delete data.created_at
-    delete data.updated_at
-    delete data.created_by
-    delete data.updated_by
-    await updateProvider({ id: providerData.id, data })
-    providerStore.setInit()
-
-    notifySuccess('Endpoint updated successfully.')
+    // Save provider via composable
+    const { success, error } = await save()
+    if (success) {
+      notifySuccess('Endpoint updated successfully.')
+    } else {
+      throw error || new Error('Failed to save endpoint changes.')
+    }
   } catch (error) {
     notifyError('Failed to save endpoint changes.')
   }
@@ -273,10 +262,7 @@ const prefillRecommendedSecrets = () => {
     }
   }
   if (changed) {
-    providerStore.updateProperty({
-      key: 'secrets_encrypted',
-      value: current,
-    })
+    updateField('secrets_encrypted', current)
   }
 }
 
@@ -286,7 +272,7 @@ const connectionEntries = computed(() => {
 })
 
 const originalProviderSecrets = computed(() => {
-  const secrets = providerStore.initEntity?.secrets_encrypted
+  const secrets = data.value?.secrets_encrypted
   if (!secrets) return []
   return Object.keys(secrets)
 })
@@ -301,28 +287,19 @@ const secrets = computed({
     return encryptedSecrets
   },
   set(value) {
-    providerStore.updateProperty({
-      key: 'secrets_encrypted',
-      value,
-    })
+    updateField('secrets_encrypted', value)
   },
 })
 
 const addConnection = () => {
   const newConfig = { ...provider.value.connection_config, '': '' }
-  providerStore.updateProperty({
-    key: 'connection_config',
-    value: newConfig,
-  })
+  updateField('connection_config', newConfig)
 }
 
 const removeConnection = (key) => {
   const newConfig = { ...provider.value.connection_config }
   delete newConfig[key]
-  providerStore.updateProperty({
-    key: 'connection_config',
-    value: newConfig,
-  })
+  updateField('connection_config', newConfig)
 }
 
 const updateConnectionKey = (oldKey, newKey) => {
@@ -330,19 +307,13 @@ const updateConnectionKey = (oldKey, newKey) => {
   const value = config[oldKey]
   delete config[oldKey]
   config[newKey] = value
-  providerStore.updateProperty({
-    key: 'connection_config',
-    value: config,
-  })
+  updateField('connection_config', config)
 }
 
 const updateConnectionValue = (key, newValue) => {
   const config = { ...provider.value.connection_config }
   config[key] = newValue
-  providerStore.updateProperty({
-    key: 'connection_config',
-    value: config,
-  })
+  updateField('connection_config', config)
 }
 
 // Test provider connection

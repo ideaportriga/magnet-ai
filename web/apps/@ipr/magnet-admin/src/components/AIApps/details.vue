@@ -41,8 +41,8 @@ km-inner-loading(:showing='loading')
                   div
                     .text-secondary-text.km-button-xs-text Modified by:
                     .text-secondary-text.km-description {{ updated_by }}
-            km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='aiAppStore.revert()', v-if='aiAppStore.isChanged')
-            km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !aiAppStore.isChanged')
+            km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+            km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
             q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
               q-menu(anchor='bottom right', self='top right')
                 q-item(clickable, @click='showNewDialog = true', dense)
@@ -93,10 +93,9 @@ ai-apps-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel
 
 <script>
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { VueDraggable } from 'vue-draggable-plus'
-import { useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 import { storeToRefs } from 'pinia'
 
@@ -106,21 +105,26 @@ export default {
   },
   emits: ['update:closeDrawer'],
   setup() {
-    const route = useRoute()
+    const { draft, isLoading, isDirty, updateField, updateFields, save: saveEntity, revert, refetch, remove, buildPayload } = useEntityDetail('ai_apps')
     const queries = useEntityQueries()
-    const aiAppStore = useAiAppDetailStore()
     const searchStore = useSearchStore()
     const { semanticSearchAnswers } = storeToRefs(searchStore)
     function clearSemanticSearchAnswers() {
       semanticSearchAnswers.value = []
     }
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.ai_apps.useDetail(id)
-    const removeMutation = queries.ai_apps.useRemove()
-    const { mutateAsync: updateEntity } = queries.ai_apps.useUpdate()
     const { mutateAsync: createEntity } = queries.ai_apps.useCreate()
 
     return {
+      draft,
+      isLoading,
+      isDirty,
+      updateField,
+      updateFields,
+      saveEntity,
+      revert,
+      refetch,
+      removeEntity: remove,
+      buildPayload,
       activeAIApp: ref({}),
       prompt: ref(null),
       openTest: ref(true),
@@ -129,10 +133,6 @@ export default {
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
       saving: ref(false),
-      id,
-      selectedRow,
-      removeMutation,
-      updateEntity,
       createEntity,
       searchString: ref(''),
       hovered: ref({}),
@@ -143,41 +143,40 @@ export default {
         { name: 'records', label: 'AI Tabs' },
         { name: 'settings', label: 'Settings' },
       ]),
-      aiAppStore,
       clearSemanticSearchAnswers,
     }
   },
   computed: {
     name: {
       get() {
-        return this.aiAppStore.entity?.name || ''
+        return this.draft?.name || ''
       },
       set(value) {
-        this.aiAppStore.updateProperty({ key: 'name', value })
+        this.updateField('name', value)
       },
     },
     description: {
       get() {
-        return this.aiAppStore.entity?.description || ''
+        return this.draft?.description || ''
       },
       set(value) {
-        this.aiAppStore.updateProperty({ key: 'description', value })
+        this.updateField('description', value)
       },
     },
     system_name: {
       get() {
-        return this.aiAppStore.entity?.system_name || ''
+        return this.draft?.system_name || ''
       },
       set(value) {
-        this.aiAppStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     tabs: {
       get() {
-        return this.aiAppStore.entity?.tabs || []
+        return this.draft?.tabs || []
       },
       set(value) {
-        this.aiAppStore.updateProperty({ key: 'tabs', value })
+        this.updateField('tabs', value)
       },
     },
     searchedTabs: {
@@ -192,10 +191,10 @@ export default {
       return this.$route.params?.id
     },
     loading() {
-      return !this.aiAppStore.entity?.id
+      return !this.draft?.id
     },
     entity() {
-      return this.aiAppStore.entity
+      return this.draft
     },
     created_at() {
       return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
@@ -209,28 +208,6 @@ export default {
     updated_by() {
       return this.entity?.updated_by || 'Unknown'
     },
-  },
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.aiAppStore.setEntity(newVal)
-        this.tab = 'retrieve'
-        this.clearSemanticSearchAnswers()
-      }
-    },
-  },
-  mounted() {
-    if (this.activeAIAppId != this.aiAppStore.entity?.id) {
-      this.aiAppStore.setEntity(this.selectedRow)
-      this.clearSemanticSearchAnswers()
-    }
-  },
-  activated() {
-    this.id = this.$route.params.id
-    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.activeAIAppId != this.aiAppStore.entity?.id) {
-      this.aiAppStore.setEntity(this.selectedRow)
-    }
   },
   methods: {
     navigate(path = '') {
@@ -246,13 +223,11 @@ export default {
       this.saving = true
       try {
         if (this.entity?.created_at) {
-          const data = this.aiAppStore.buildPayload()
-          await this.updateEntity({ id: this.entity.id, data })
+          await this.saveEntity()
         } else {
           await this.createEntity(this.entity)
         }
-        this.aiAppStore.setInit()
-        // Pinia store already tracks the entity; refresh the iframe
+        // Refresh the iframe
         window.postMessage({ type: 'reload_iframe' })
         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
       } catch (error) {
@@ -262,7 +237,7 @@ export default {
       }
     },
     async confirmDelete() {
-      await this.removeMutation.mutateAsync(this.$route.params.id)
+      await this.removeEntity()
       this.$emit('update:closeDrawer', null)
       this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'AI App has been deleted.', timeout: 1000 })
       this.navigate('/ai-apps')

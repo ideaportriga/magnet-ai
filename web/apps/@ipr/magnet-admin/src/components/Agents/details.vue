@@ -35,8 +35,8 @@ layouts-details-layout(v-if='!loading', :noHeader='$route?.name !== "AgentDetail
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='agentStore.revert()', v-if='agentStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !agentStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -91,27 +91,28 @@ agents-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel=
 <script>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
 import { validSystemName } from '@shared/utils/validationRules'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
     const route = useRoute()
-    const queries = useEntityQueries()
-    // Stable ref: does NOT reactively track the global route — only updated in activated()
-    // so keep-alive cached instances don't fire requests when another tab is opened.
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.agents.useDetail(id)
-    const { data: listData } = queries.agents.useList()
-    const removeMutation = queries.agents.useRemove()
-    const { mutateAsync: updateAgent } = queries.agents.useUpdate()
-    const { mutateAsync: createAgent } = queries.agents.useCreate()
-    const items = computed(() => listData.value?.items ?? [])
-    const agentStore = useAgentDetailStore()
+    const { draft, isLoading, isDirty, updateField, updateFields, updateVariantField,
+            selectedVariant, activeVariant, variants, setSelectedVariant,
+            createVariant, deleteVariant, activateVariant,
+            activeTopic, conversationId,
+            updateHighLevelNestedProperty, updateNestedListItemBySystemName,
+            save: saveEntity, revert, remove: removeEntity, refetch, buildPayload, testSetItem } = useAgentEntityDetail()
+
     return {
-      agentStore,
+      draft,
+      isDirty,
+      updateField,
+      saveEntity,
+      revert,
+      removeEntity,
+      setSelectedVariant,
       tab: ref('topics'),
       tabs: ref([
         // { name: 'overview', label: 'Overview' },
@@ -129,47 +130,39 @@ export default {
       showDeleteDialog: ref(false),
       saving: ref(false),
       showInfo: ref(false),
-      items,
-      selectedRow,
-      removeMutation,
-      updateAgent,
-      createAgent,
       validSystemName,
     }
   },
   computed: {
     name: {
       get() {
-        return this.agentStore.entity?.name || ''
+        return this.draft?.name || ''
       },
       set(value) {
-        this.agentStore.updateProperty({ key: 'name', value })
+        this.updateField('name', value)
       },
     },
     description: {
       get() {
-        return this.agentStore.entity?.description || ''
+        return this.draft?.description || ''
       },
       set(value) {
-        this.agentStore.updateProperty({ key: 'description', value })
+        this.updateField('description', value)
       },
     },
     system_name: {
       get() {
-        return this.agentStore.entity?.system_name || ''
+        return this.draft?.system_name || ''
       },
       set(value) {
-        this.agentStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
-    activeAgentDetailId() {
-      return this.$route.params.id
-    },
     loading() {
-      return !this.agentStore.entity?.system_name
+      return !this.draft?.system_name
     },
     entity() {
-      return this.agentStore.entity
+      return this.draft
     },
     created_at() {
       return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
@@ -185,29 +178,9 @@ export default {
     },
   },
 
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.agentStore.setEntity(newVal)
-        this.tab = 'topics'
-      }
-    },
-  },
   mounted() {
-    if (this.activeAgentDetailId != this.agentStore.entity?.id) {
-      this.agentStore.setEntity(this.selectedRow)
-      this.tab = 'topics'
-    }
     if (this.$route.query?.variant) {
-      this.agentStore.setSelectedVariant(this.$route.query?.variant)
-    }
-  },
-  activated() {
-    // Sync stable id ref to current route — triggers refetch only for THIS component.
-    this.id = this.$route.params.id
-    // Re-sync store if the entity changed (e.g., navigated back to this tab after a different one).
-    if (this.selectedRow && this.activeAgentDetailId !== this.agentStore.entity?.id) {
-      this.agentStore.setEntity(this.selectedRow)
+      this.setSelectedVariant(this.$route.query?.variant)
     }
   },
   methods: {
@@ -227,12 +200,7 @@ export default {
       }
       this.saving = true
       try {
-        if (this.entity?.created_at) {
-          const data = this.agentStore.buildPayload()
-          await this.updateAgent({ id: this.entity.id, data })
-        } else {
-          await this.createAgent(this.entity)
-        }
+        await this.saveEntity()
         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
@@ -241,7 +209,7 @@ export default {
       }
     },
     async confirmDelete() {
-      await this.removeMutation.mutateAsync(this.$route.params.id)
+      await this.removeEntity()
       this.$emit('update:closeDrawer', null)
       this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Agent deleted successfully', timeout: 1000 })
       this.navigate('/agents')

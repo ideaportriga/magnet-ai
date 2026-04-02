@@ -1,33 +1,19 @@
 /**
- * Pinia entity detail stores.
+ * Supplementary Pinia stores for entity detail pages.
  *
- * Each store manages form editing state for a single entity type.
- * Under the hood, mutations sync to editBufferStore for dirty tracking
- * and workspace tab dirty indicators.
+ * NOTE: The entity detail stores (useProviderDetailStore, useRagDetailStore, etc.)
+ * have been migrated to composables (useEntityDetail, useVariantEntityDetail, useAgentEntityDetail).
+ * Only supplementary stores remain here.
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { createEntityDetailStore, createVariantDetailStore } from './entityDetailStoreFactory'
+import { createEntityDetailStore } from './entityDetailStoreFactory'
 
-// Simple entity detail stores (no variant system)
-export const useProviderDetailStore = createEntityDetailStore('provider')
-export const useAiAppDetailStore = createEntityDetailStore('aiApp')
+// Legacy: still used by Collections/FileUrlUpload.vue in CreateNew context (no route ID)
+// TODO: Remove when FileUrlUpload is refactored to use props/emit for creation flow
 export const useCollectionDetailStore = createEntityDetailStore('collection')
-export const useEvaluationSetDetailStore = createEntityDetailStore('evaluationSet')
-export const useAssistantToolDetailStore = createEntityDetailStore('assistantTool')
-export const useModelConfigDetailStore = createEntityDetailStore('modelConfig')
-export const useMcpServerDetailStore = createEntityDetailStore('mcpServer')
-export const useApiServerDetailStore = createEntityDetailStore('apiServer')
-export const useApiToolDetailStore = createEntityDetailStore('apiTool')
-export const useTraceDetailStore = createEntityDetailStore('trace')
 
-// Variant-aware entity detail stores (rag, retrieval, prompts)
-// Note: agents use a dedicated store in agentDetailStore.ts (has agent-specific methods)
-export const useRagDetailStore = createVariantDetailStore('rag')
-export const useRetrievalDetailStore = createVariantDetailStore('retrieval')
-export const usePromptTemplateDetailStore = createVariantDetailStore('promptTemplate')
-
-// Collection metadata config store (supplements useCollectionDetailStore)
+// Collection metadata config store (supplements collection detail)
 export const useCollectionMetadataStore = defineStore('collectionMetadata', () => {
   const activeMetadataConfig = ref<Record<string, any> | null>(null)
 
@@ -41,8 +27,7 @@ export const useCollectionMetadataStore = defineStore('collectionMetadata', () =
   }
 })
 
-// Evaluation set record store (supplements useEvaluationSetDetailStore)
-// Replaces: store.getters.evaluation_set_record / store.commit('setEvaluationSetRecord', value)
+// Evaluation set record store (supplements evaluation set detail)
 export const useEvaluationSetRecordStore = defineStore('evaluationSetRecord', () => {
   const record = ref<Record<string, any>>({})
 

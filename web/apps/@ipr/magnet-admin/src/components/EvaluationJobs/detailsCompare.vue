@@ -31,7 +31,6 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import _ from 'lodash'
-import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 
 export default {
@@ -39,7 +38,6 @@ export default {
   setup() {
     const route = useRoute()
     const queries = useEntityQueries()
-    const evalSetStore = useEvaluationSetDetailStore()
     const evalStore = useEvaluationStore()
     const routeId = computed(() => route.params.id)
     const { data: selectedRow } = queries.evaluation_jobs.useDetail(routeId)
@@ -49,7 +47,6 @@ export default {
     const modelItems = computed(() => modelData.value?.items ?? [])
 
     return {
-      evalSetStore,
       evalStore,
       tab: ref('records'),
       tabs: ref([
@@ -191,42 +188,6 @@ export default {
     openDrawer() {
       return this.tab === 'records' && Object.keys(this.evalStore.evaluationJobRecord).length > 0
     },
-    name: {
-      get() {
-        return this.evalSetStore.entity?.name || ''
-      },
-      set(value) {
-        this.evalSetStore.updateProperty({ key: 'name', value })
-      },
-    },
-    description: {
-      get() {
-        return this.evalSetStore.entity?.description || ''
-      },
-      set(value) {
-        this.evalSetStore.updateProperty({ key: 'description', value })
-      },
-    },
-    system_name: {
-      get() {
-        return this.evalSetStore.entity?.system_name || ''
-      },
-      set(value) {
-        this.evalSetStore.updateProperty({ key: 'system_name', value })
-      },
-    },
-    isEvaluationSetChanged() {
-      return this.evalSetStore.isChanged
-    },
-    activeEvaluationSetId() {
-      return this.$route.params.id
-    },
-    activeEvaluationSetName() {
-      return this.items?.find((item) => item.id == this.activeEvaluationSetId)?.name
-    },
-    options() {
-      return this.items?.map((item) => item.name)
-    },
     color() {
       return this.statusStyles?.color || ''
     },
@@ -237,13 +198,7 @@ export default {
       return { color: 'in-progress', textColor: 'text-gray' }
     },
   },
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.evalSetStore.setEntity(newVal)
-      }
-    },
-  },
+  watch: {},
   mounted() {
     this.getEvaluation()
   },

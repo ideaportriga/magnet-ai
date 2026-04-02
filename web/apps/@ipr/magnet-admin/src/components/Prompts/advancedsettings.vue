@@ -77,7 +77,7 @@ div
 import { isEqual } from 'lodash'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: ['prompt', 'selectedRow'],
@@ -85,12 +85,13 @@ export default {
 
   setup() {
     const queries = useEntityQueries()
-    const promptStore = usePromptTemplateDetailStore()
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
     const { data: modelListData } = queries.model.useList()
     const modelItems = computed(() => modelListData.value?.items ?? [])
 
     return {
-      promptStore,
+      activeVariant,
+      updateVariantField,
       modelItems,
       test: ref(true),
       iconPicker: ref(false),
@@ -116,10 +117,10 @@ export default {
   computed: {
     observabilityLevel: {
       get() {
-        return this.promptStore.activeVariant?.observability_level || 'full'
+        return this.activeVariant?.observability_level || 'full'
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({ path: 'observability_level', value })
+        this.updateVariantField('observability_level', value)
       },
     },
     observabilityLevelDescription() {
@@ -132,31 +133,31 @@ export default {
     },
     temperature: {
       get() {
-        return this.promptStore.activeVariant?.temperature
+        return this.activeVariant?.temperature
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({ path: 'temperature', value })
+        this.updateVariantField('temperature', value)
       },
     },
     maxTokens: {
       get() {
-        return this.promptStore.activeVariant?.maxTokens || null
+        return this.activeVariant?.maxTokens || null
       },
       set(value) {
         const intValue = parseInt(value, 10)
 
         if (!isNaN(intValue)) {
-          this.promptStore.updateNestedVariantProperty({ path: 'maxTokens', value: intValue })
+          this.updateVariantField('maxTokens', intValue)
         }
       },
     },
 
     topP: {
       get() {
-        return this.promptStore.activeVariant?.topP
+        return this.activeVariant?.topP
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({ path: 'topP', value })
+        this.updateVariantField('topP', value)
       },
     },
     model: {
@@ -164,18 +165,18 @@ export default {
         return this.model_name || ''
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({ path: 'system_name_for_model', value: value.system_name })
+        this.updateVariantField('system_name_for_model', value.system_name)
         // Backward compat: keep old `model` field in sync until backend fully migrates to system_name_for_model
-        this.promptStore.updateNestedVariantProperty({ path: 'model', value: value.model })
+        this.updateVariantField('model', value.model)
       },
     },
     model_name() {
-      if (this.promptStore.activeVariant?.system_name_for_model) {
-        return (this.modelOptions ?? []).find((el) => el?.system_name === this.promptStore.activeVariant?.system_name_for_model)
+      if (this.activeVariant?.system_name_for_model) {
+        return (this.modelOptions ?? []).find((el) => el?.system_name === this.activeVariant?.system_name_for_model)
           ?.display_name
       }
       // Backward compat: fall back to old `model` field until backend fully migrates to system_name_for_model
-      return (this.modelOptions ?? []).find((el) => el.model === this.promptStore.activeVariant?.model)?.display_name
+      return (this.modelOptions ?? []).find((el) => el.model === this.activeVariant?.model)?.display_name
     },
     modelOptions() {
       return (this.modelItems || [])

@@ -37,25 +37,23 @@ div
 
 <script>
 import { ref } from 'vue'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 export default {
   emits: ['change-tab'],
   setup() {
-    const agentStore = useAgentDetailStore()
+    const { activeVariant } = useAgentEntityDetail()
     return {
-      agentStore,
+      activeVariant,
       showNewTopicDialog: ref(false),
     }
   },
   computed: {
     topicsQty() {
-      return this.agentStore.activeVariant?.value?.topics?.length || 0
+      return this.activeVariant?.value?.topics?.length || 0
     },
     actionsQty() {
-      return this.agentStore.activeVariant?.value?.topics?.flatMap((topic) => topic.actions).length || 0
+      return this.activeVariant?.value?.topics?.flatMap((topic) => topic.actions).length || 0
     },
   },
-  created() {},
-  methods: {},
 }
 </script>

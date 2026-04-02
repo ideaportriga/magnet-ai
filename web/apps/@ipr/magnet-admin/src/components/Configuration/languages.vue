@@ -62,16 +62,17 @@ div
 
 <script>
 import { useEntityQueries } from '@/queries/entities'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 export default {
   emits: ['openTest'],
   setup() {
     const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('rag_tools')
     const { data: promptTemplateListData } = queries.promptTemplates.useList()
 
     return {
-      ragStore,
+      activeVariant,
+      updateVariantField,
       promptTemplateListData,
     }
   },
@@ -84,17 +85,17 @@ export default {
     },
     isMultiLingualRAG: {
       get() {
-        return this.ragStore.activeVariant?.language?.multilanguage?.enabled || false
+        return this.activeVariant?.language?.multilanguage?.enabled || false
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'language.multilanguage.enabled', value })
+        this.updateVariantField('language.multilanguage.enabled', value)
       },
     },
     promptsWithId() {
       return (this.promptTemplateItems ?? []).map((item) => ({ label: item.name, value: item.system_name, id: item.id }))
     },
     detectLanguagePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.ragStore.activeVariant?.language?.detect_question_language?.prompt_template)?.id
+      return this.promptsWithId.find((el) => el.value == this.activeVariant?.language?.detect_question_language?.prompt_template)?.id
     },
     promptTemplates() {
       return (this.promptTemplateItems ?? [])
@@ -110,18 +111,18 @@ export default {
       return (this.promptTemplates ?? []).find((el) => el.system_name === this.prompt_template)?.label
     },
     prompt_template() {
-      return this.ragStore.activeVariant?.language?.detect_question_language?.prompt_template || ''
+      return this.activeVariant?.language?.detect_question_language?.prompt_template || ''
     },
     detectLanguagePromptTemplate: {
       get() {
         return this.propmt_name
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'language.detect_question_language.prompt_template', value: value.system_name })
+        this.updateVariantField('language.detect_question_language.prompt_template', value.system_name)
       },
     },
     prompt_template_multilingual() {
-      return this.ragStore.activeVariant?.language?.multilanguage?.prompt_template_translation || ''
+      return this.activeVariant?.language?.multilanguage?.prompt_template_translation || ''
     },
     propmt_name_multilingual() {
       return (this.promptTemplates ?? []).find((el) => el.system_name === this.prompt_template_multilingual)?.label
@@ -131,18 +132,18 @@ export default {
         return this.propmt_name_multilingual
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'language.multilanguage.prompt_template_translation', value: value.system_name })
+        this.updateVariantField('language.multilanguage.prompt_template_translation', value.system_name)
       },
     },
     translatePromptTemplateId() {
-      return this.promptsWithId.find((el) => el.value == this.ragStore.activeVariant?.language?.multilanguage?.prompt_template_translation)?.id
+      return this.promptsWithId.find((el) => el.value == this.activeVariant?.language?.multilanguage?.prompt_template_translation)?.id
     },
     ragToolSourceLangualge: {
       get() {
-        return this.ragStore.activeVariant?.language.multilanguage.source_language || ''
+        return this.activeVariant?.language.multilanguage.source_language || ''
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'language.multilanguage.source_language', value: value.value })
+        this.updateVariantField('language.multilanguage.source_language', value.value)
       },
     },
   },

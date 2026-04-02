@@ -25,7 +25,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { required, minLength } from '@shared/utils/validationRules'
 import { toUpperCaseWithUnderscores } from '@shared'
-import { useApiServerDetailStore, useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   props: {
@@ -41,18 +41,12 @@ export default {
   emits: ['cancel'],
   setup() {
     const queries = useEntityQueries()
-    const apiServerStore = useApiServerDetailStore()
-    const aiAppStore = useAiAppDetailStore()
+    const { draft: aiAppDraft } = useEntityDetail('ai_apps')
     const { mutateAsync: createEntity } = queries.api_servers.useCreate()
-    const { data: apiServersData } = queries.api_servers.useList()
-
-    const items = computed(() => apiServersData.value?.items ?? [])
 
     return {
       createEntity,
-      apiServerStore,
-      aiAppStore,
-      items,
+      aiAppDraft,
       createNew: ref(false),
       newRow: reactive({
         name: '',
@@ -84,7 +78,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.aiAppStore.entity
+      return this.aiAppDraft
     },
   },
   watch: {},
@@ -113,8 +107,6 @@ export default {
 
       this.createNew = false
       const { id } = await this.createEntity(this.newRow)
-      const server = this.items.find((item) => item.id === id)
-      this.apiServerStore.setEntity(server)
       this.$router.push(`/api-servers/${id}`)
       this.$emit('cancel')
     },

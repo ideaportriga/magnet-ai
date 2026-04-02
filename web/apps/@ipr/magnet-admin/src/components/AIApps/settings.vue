@@ -22,13 +22,14 @@ div
 <script>
 import { copyToClipboard } from 'quasar'
 import { ref } from 'vue'
-import { useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   setup() {
-    const aiAppStore = useAiAppDetailStore()
+    const { draft, updateField } = useEntityDetail('ai_apps')
     return {
-      aiAppStore,
+      draft,
+      updateField,
       themeOptions: ref([
         { label: 'Oracle Redwood', value: 'siebel' },
         { label: 'Salesforce', value: 'salesforce' },
@@ -46,31 +47,31 @@ export default {
       return panelUrl
     },
     system_name() {
-      return this.aiAppStore.entity?.system_name || ''
+      return this.draft?.system_name || ''
     },
     show_close_button: {
       get() {
-        return this.aiAppStore.entity?.settings?.show_close_button || false
+        return this.draft?.settings?.show_close_button || false
       },
       set(value) {
-        this.aiAppStore.updateNestedProperty({ path: 'settings.show_close_button', value })
+        this.updateField('settings.show_close_button', value)
       },
     },
     isIconHide: {
       get() {
-        return !(this.aiAppStore.entity?.settings?.is_icon_hide || false)
+        return !(this.draft?.settings?.is_icon_hide || false)
       },
       set(value) {
-        this.aiAppStore.updateNestedProperty({ path: 'settings.is_icon_hide', value: !value })
+        this.updateField('settings.is_icon_hide', !value)
       },
     },
     theme: {
       get() {
-        const theme = this.aiAppStore.entity?.settings?.theme || 'siebel'
+        const theme = this.draft?.settings?.theme || 'siebel'
         return this.themeOptions.find((option) => option.value === theme)
       },
       set({ value }) {
-        this.aiAppStore.updateNestedProperty({ path: 'settings.theme', value })
+        this.updateField('settings.theme', value)
       },
     },
   },

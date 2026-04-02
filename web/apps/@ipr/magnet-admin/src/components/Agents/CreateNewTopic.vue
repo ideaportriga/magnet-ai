@@ -45,7 +45,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
 import { ref, computed } from 'vue'
 
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { agentTopicActionsPopupColumns, agentTopicActionsAPIToolsPopupColumns } from '@/config/agents/topics'
 import { toUpperCaseWithUnderscores } from '@shared'
 
@@ -75,9 +75,10 @@ export default {
     const { data: retrievalData } = queries.retrieval.useList()
     const retrieval_tools = computed(() => retrievalData.value?.items ?? [])
 
-    const agentStore = useAgentDetailStore()
+    const { activeVariant, updateVariantField } = useAgentEntityDetail()
     return {
-      agentStore,
+      activeVariant,
+      updateVariantField,
       searchString: ref(''),
       tabs: ref([
         { name: 'api', label: 'API Tools' },
@@ -158,7 +159,7 @@ export default {
         return this.selectionPromptName
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'prompt_templates.classification', value: value.system_name })
+        this.updateVariantField('prompt_templates.classification', value.system_name)
       },
     },
   },
@@ -183,7 +184,7 @@ export default {
     },
     create() {
       // get current topics
-      const topics = this.agentStore.activeVariant?.value?.topics || []
+      const topics = this.activeVariant?.value?.topics || []
       const actions = this.selected.map((item) => {
         return {
           name: item.name,
@@ -213,7 +214,7 @@ export default {
 
       topics.push(newTopic)
 
-      this.agentStore.updateNestedVariantProperty({ path: 'topics', value: topics })
+      this.updateVariantField('topics', topics)
 
       this.$q.notify({
         color: 'green-9', textColor: 'white',

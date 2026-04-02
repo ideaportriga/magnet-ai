@@ -27,7 +27,7 @@ import { ref, reactive, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { fetchData } from '@shared'
-import { useAssistantToolDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 
@@ -47,7 +47,7 @@ export default {
     const queries = useEntityQueries()
     const { mutateAsync: createEntity } = queries.assistant_tools.useCreate()
     const { data: ragItemsData } = queries.rag_tools.useList()
-    const assistToolStore = useAssistantToolDetailStore()
+    const { draft } = useEntityDetail('assistant_tools')
     const appStore = useAppStore()
 
     const ragItems = computed(() => ragItemsData.value?.items ?? [])
@@ -58,7 +58,7 @@ export default {
     return {
       ragItems,
       createEntity,
-      assistToolStore,
+      draft,
       appStore,
       config,
       requiredFields,
@@ -80,7 +80,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.assistToolStore.entity
+      return this.draft
     },
   },
   watch: {},

@@ -28,10 +28,11 @@ km-drawer-layout(storageKey="drawer-collections-metadata", noScroll)
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useCollectionDetailStore, useCollectionMetadataStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useCollectionMetadataStore } from '@/stores/entityDetailStores'
 
 // States & Stores
-const collectionStore = useCollectionDetailStore()
+const { draft, updateField } = useEntityDetail('collections')
 const collectionMetadataStore = useCollectionMetadataStore()
 
 const config = ref(null)
@@ -40,64 +41,36 @@ const closeDrawer = () => {
   collectionMetadataStore.setActiveMetadataConfig(null)
 }
 
+function updateMetadataConfigField(field, value) {
+  const metadataConfig = [...(draft.value?.metadata_config || [])]
+  const updatedConfig = metadataConfig.map((item) => {
+    if (item.id === config.value.id) {
+      return { ...item, [field]: value }
+    }
+    return item
+  })
+  config.value = { ...config.value, [field]: value }
+  updateField('metadata_config', updatedConfig)
+}
+
 const enabled = computed({
-  get() {
-    return config.value?.enabled
-  },
-  set(value) {
-    const metadataConfig = collectionStore.entity?.metadata_config || []
-    metadataConfig.forEach((item) => {
-      if (item.id === config.value.id) {
-        item.enabled = value
-        config.value.enabled = value
-      }
-    })
-  },
+  get() { return config.value?.enabled },
+  set(value) { updateMetadataConfigField('enabled', value) },
 })
 
 const name = computed({
-  get() {
-    return config.value?.name
-  },
-  set(value) {
-    const metadataConfig = collectionStore.entity?.metadata_config || []
-    metadataConfig.forEach((item) => {
-      if (item.id === config.value.id) {
-        item.name = value
-        config.value.name = value
-      }
-    })
-  },
+  get() { return config.value?.name },
+  set(value) { updateMetadataConfigField('name', value) },
 })
 
 const mapping = computed({
-  get() {
-    return config.value?.mapping
-  },
-  set(value) {
-    const metadataConfig = collectionStore.entity?.metadata_config || []
-    metadataConfig.forEach((item) => {
-      if (item.id === config.value.id) {
-        item.mapping = value
-        config.value.mapping = value
-      }
-    })
-  },
+  get() { return config.value?.mapping },
+  set(value) { updateMetadataConfigField('mapping', value) },
 })
 
 const description = computed({
-  get() {
-    return config.value?.description
-  },
-  set(value) {
-    const metadataConfig = collectionStore.entity?.metadata_config || []
-    metadataConfig.forEach((item) => {
-      if (item.id === config.value.id) {
-        item.description = value
-        config.value.description = value
-      }
-    })
-  },
+  get() { return config.value?.description },
+  set(value) { updateMetadataConfigField('description', value) },
 })
 
 onMounted(() => {

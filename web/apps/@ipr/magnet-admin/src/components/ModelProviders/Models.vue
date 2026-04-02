@@ -147,7 +147,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { getEntityApis } from '@/api'
 import { categoryOptions, featureOptions } from '../../config/model/model.js'
-import { useProviderDetailStore, useModelConfigDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
 import TypeChip from '@/config/model/component/TypeChip.vue'
@@ -210,10 +210,16 @@ function fuzzyMatch(query, target) {
 }
 
 export default {
+  props: {
+    selectedModel: {
+      type: Object,
+      default: null,
+    },
+  },
+  emits: ['select-model'],
   setup() {
     const queries = useEntityQueries()
-    const providerStore = useProviderDetailStore()
-    const modelConfigStore = useModelConfigDetailStore()
+    const { draft: providerDraft } = useEntityDetail('provider')
     const { data: listData } = queries.model.useList()
     const { mutateAsync: deleteItem } = queries.model.useRemove()
     const { mutateAsync: createEntity } = queries.model.useCreate()
@@ -264,7 +270,7 @@ export default {
     // Filtered data based on provider and filter bar
     const filteredData = computed(() => {
       const items = listData.value?.items ?? []
-      let rows = items.filter((item) => item.provider_system_name === providerStore.entity?.system_name)
+      let rows = items.filter((item) => item.provider_system_name === providerDraft.value?.system_name)
 
       // Apply type filter
       if (filterObject.value.typeIn && filterObject.value.typeIn.length > 0) {
@@ -286,8 +292,7 @@ export default {
     })
 
     return {
-      providerStore,
-      modelConfigStore,
+      providerDraft,
       table,
       globalFilter,
       selectedRows,
@@ -312,10 +317,10 @@ export default {
   },
   computed: {
     provider() {
-      return this.providerStore.entity
+      return this.providerDraft
     },
     modelConfig() {
-      return this.modelConfigStore.entity
+      return this.selectedModel
     },
     filteredAvailableModels() {
       if (!this.importSearchString) {
@@ -343,7 +348,7 @@ export default {
   },
   methods: {
     openDetails(row) {
-      this.modelConfigStore.setEntity(row)
+      this.$emit('select-model', row)
     },
     async deleteSelected() {
       try {

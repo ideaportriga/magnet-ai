@@ -88,10 +88,11 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useSidebarState } from '@/composables/useSidebarState'
 import { useAppStore } from '@/stores/appStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
-import { useEntityQueries } from '@/queries/entities'
-import { useProviderDetailStore, useModelConfigDetailStore, useRagDetailStore, useRetrievalDetailStore, usePromptTemplateDetailStore, useAiAppDetailStore, useEvaluationSetDetailStore, useMcpServerDetailStore, useApiServerDetailStore, useCollectionDetailStore, useKnowledgeGraphPageStore } from '@/stores/entityDetailStores'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useEditBufferStore } from '@/stores/editBufferStore'
+import { useKnowledgeGraphPageStore } from '@/stores/entityDetailStores'
 import { usePopupStore } from '@/stores/popupStore'
+import { useEntitySaveService } from '@/services/entitySaveService'
+import { ROUTE_ENTITY_TO_BUFFER_TYPE } from '@/constants/entityMapping'
 import WorkspaceTabBar from './Layouts/WorkspaceTabBar.vue'
 import GlobalSearch from './Layouts/GlobalSearch.vue'
 
@@ -108,20 +109,10 @@ export default {
       return u.name || u.email || u.preferred_username || ''
     })
     const workspace = useWorkspaceStore()
-    const queries = useEntityQueries()
-    const providerStore = useProviderDetailStore()
-    const modelConfigStore = useModelConfigDetailStore()
-    const ragStore = useRagDetailStore()
-    const retrievalStore = useRetrievalDetailStore()
-    const promptStore = usePromptTemplateDetailStore()
-    const aiAppStore = useAiAppDetailStore()
-    const evalSetStore = useEvaluationSetDetailStore()
-    const mcpStore = useMcpServerDetailStore()
-    const apiServerStore = useApiServerDetailStore()
-    const collectionStore = useCollectionDetailStore()
-    const agentStore = useAgentDetailStore()
+    const editBuffer = useEditBufferStore()
     const knowledgeGraphPageStore = useKnowledgeGraphPageStore()
     const popupStore = usePopupStore()
+    const saveService = useEntitySaveService()
     const environment = appStore.config.environment
     const { sidebarWidth, isCollapsed, toggle } = useSidebarState()
     const hasOpenTabs = computed(() => workspace.tabs.length > 0)
@@ -155,33 +146,18 @@ export default {
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     })
 
-    // Entity → { store, mutation } registry
-    // Eliminates per-entity duplication in save/revert
-    const entityRegistry = {
-      rag_tools: { store: ragStore, mutation: queries.rag_tools.useUpdate().mutateAsync },
-      retrieval: { store: retrievalStore, mutation: queries.retrieval.useUpdate().mutateAsync },
-      ai_apps: { store: aiAppStore, mutation: queries.ai_apps.useUpdate().mutateAsync },
-      evaluation_sets: { store: evalSetStore, mutation: queries.evaluation_sets.useUpdate().mutateAsync },
-      promptTemplates: { store: promptStore, mutation: queries.promptTemplates.useUpdate().mutateAsync },
-      agents: { store: agentStore, mutation: queries.agents.useUpdate().mutateAsync },
-      model: { store: modelConfigStore, mutation: queries.model.useUpdate().mutateAsync },
-      mcp_servers: { store: mcpStore, mutation: queries.mcp_servers.useUpdate().mutateAsync },
-      api_servers: { store: apiServerStore, mutation: queries.api_servers.useUpdate().mutateAsync },
-      provider: { store: providerStore, mutation: queries.provider.useUpdate().mutateAsync },
-    }
-
     return {
       loading,
-      collectionStore,
+      editBuffer,
       knowledgeGraphPageStore,
       popupStore,
+      saveService,
       drawerVisible: ref(true),
       environment,
       sidebarWidth,
       isCollapsed,
       toggleSidebar: toggle,
       hasOpenTabs,
-      entityRegistry,
       logout,
       userDisplayName,
       showSearch,
@@ -216,7 +192,9 @@ export default {
         return `/evaluation-jobs`
       }
       if (segments[1] === 'knowledge-sources') {
-        const providerSystemName = this.collectionStore.entity?.provider_system_name
+        const bufferKey = this.editBuffer.findBufferKeyByEntityType(ROUTE_ENTITY_TO_BUFFER_TYPE['collections'] || 'collections')
+        const draft = bufferKey ? this.editBuffer.getDraft(bufferKey) : null
+        const providerSystemName = draft?.provider_system_name
         return providerSystemName ? `/knowledge-providers/${providerSystemName}` : `/${segments[1]}`
       }
       if (segments[1] === 'deep-research' && segments[2] === 'runs') {
@@ -265,24 +243,21 @@ export default {
     confirmLeave() {
       if (!this.nextRoute) return
 
-      const entry = this.entityRegistry[this.routeChromaEntity]
-      if (entry) {
-        entry.store.revert()
-      } else if (this.routeChromaEntity === 'knowledge_graph') {
+      if (this.routeChromaEntity === 'knowledge_graph') {
         this.knowledgeGraphPageStore.revertChanges()
+      } else if (this.routeChromaEntity) {
+        this.saveService.revert(this.routeChromaEntity)
       }
 
       this.$router.push(this.nextRoute)
     },
     async saveChanges() {
       try {
-        const entry = this.entityRegistry[this.routeChromaEntity]
-        if (entry) {
-          const data = entry.store.buildPayload()
-          await entry.mutation({ id: entry.store.entity.id, data })
-          entry.store.setInit()
-        } else if (this.routeChromaEntity === 'knowledge_graph') {
+        if (this.routeChromaEntity === 'knowledge_graph') {
           await this.knowledgeGraphPageStore.saveKnowledgeGraph()
+        } else if (this.routeChromaEntity) {
+          const result = await this.saveService.save(this.routeChromaEntity)
+          if (!result.success) return
         }
       } catch (error) {
         // Save failed — stay on the page

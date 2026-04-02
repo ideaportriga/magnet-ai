@@ -49,9 +49,9 @@ div
 </template>
 
 <script>
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 const intervals = [
   { label: '1 day', value: '1D' },
@@ -61,7 +61,7 @@ const intervals = [
 
 export default {
   setup() {
-    const agentStore = useAgentDetailStore()
+    const { activeVariant, updateVariantField } = useAgentEntityDetail()
     const queries = useEntityQueries()
     const { data: promptTemplateData } = queries.promptTemplates.useList()
     const promptTemplateItems = computed(() => promptTemplateData.value?.items ?? [])
@@ -70,7 +70,8 @@ export default {
     queries.jobs.useList()
 
     return {
-      agentStore,
+      activeVariant,
+      updateVariantField,
       promptTemplateItems,
       intervals,
     }
@@ -90,26 +91,26 @@ export default {
     },
     postProcessTemplate: {
       get() {
-        return this.agentStore.activeVariant?.value.post_processing?.template
+        return this.activeVariant?.value.post_processing?.template
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'post_processing.template', value })
+        this.updateVariantField('post_processing.template', value)
       },
     },
     postProcessing: {
       get() {
-        return this.agentStore.activeVariant?.value?.post_processing?.enabled || false
+        return this.activeVariant?.value?.post_processing?.enabled || false
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'post_processing.enabled', value })
+        this.updateVariantField('post_processing.enabled', value)
       },
     },
     conversationClosureInterval: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.conversation_closure_interval || '1D'
+        return this.activeVariant?.value?.settings?.conversation_closure_interval || '1D'
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.conversation_closure_interval', value })
+        this.updateVariantField('settings.conversation_closure_interval', value)
       },
     },
   },

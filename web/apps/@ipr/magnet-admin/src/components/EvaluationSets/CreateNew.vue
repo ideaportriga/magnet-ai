@@ -57,11 +57,12 @@ km-popup-confirm(
       //- q-icon(name='close', @click="newRow.file = null", color='icon', size='24px')
 </template>
 <script>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { useRouter } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
-import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 
 export default {
@@ -76,104 +77,90 @@ export default {
     },
   },
   emits: ['cancel'],
-  setup() {
+  setup(props, { emit }) {
+    const router = useRouter()
     const queries = useEntityQueries()
-    const evalSetStore = useEvaluationSetDetailStore()
+    const { draft } = useEntityDetail('evaluation_sets')
     const { mutateAsync: createEntity } = queries.evaluation_sets.useCreate()
 
     const entityConfig = useEntityConfig('evaluation_sets')
     const config = computed(() => entityConfig.config || {})
     const requiredFields = computed(() => entityConfig.requiredFields || [])
 
+    const loading = ref(false)
+    const createNew = ref(false)
+    const newRow = reactive({
+      name: '',
+      description: '',
+      system_name: '',
+    })
+    const autoChangeCode = ref(true)
+    let isMounted = false
+
+    const name = computed({
+      get() { return newRow?.name || '' },
+      set(val) {
+        newRow.name = val
+        if (autoChangeCode.value && isMounted) newRow.system_name = toUpperCaseWithUnderscores(val)
+      },
+    })
+
+    const system_name = computed({
+      get() { return newRow?.system_name || '' },
+      set(val) {
+        newRow.system_name = val
+        autoChangeCode.value = false
+      },
+    })
+
+    const currentRaw = computed(() => draft.value)
+
+    const instance = getCurrentInstance()
+
+    onMounted(() => {
+      if (props.copy) {
+        const raw = cloneDeep(currentRaw.value)
+        Object.assign(newRow, raw)
+        newRow.name = newRow.name + '_COPY'
+        newRow.description = newRow.description + '_COPY'
+        newRow.system_name = newRow.system_name + '_COPY'
+        delete newRow.id
+      }
+      isMounted = true
+    })
+
+    onBeforeUnmount(() => {
+      isMounted = false
+      emit('cancel')
+    })
+
+    function validateFields() {
+      const validStates = requiredFields.value.map((field) => instance.refs[`${field}Ref`]?.validate())
+      return !validStates.includes(false)
+    }
+
+    async function createEvaluationSet() {
+      if (!validateFields()) return
+      createNew.value = false
+      loading.value = true
+      const { id: inserted_id } = await createEntity(newRow)
+      loading.value = false
+      router.push(`/evaluation-sets/${inserted_id}`)
+    }
+
     return {
       createEntity,
       config,
       requiredFields,
-      evalSetStore,
-      loading: ref(false),
-      createNew: ref(false),
-      newRow: reactive({
-        name: '',
-        description: '',
-        system_name: '',
-      }),
-      autoChangeCode: ref(true),
+      loading,
+      createNew,
+      newRow,
+      autoChangeCode,
+      name,
+      system_name,
+      currentRaw,
+      createEvaluationSet,
     }
-  },
-  computed: {
-    name: {
-      get() {
-        return this.newRow?.name || ''
-      },
-      set(val) {
-        this.newRow.name = val
-        if (this.autoChangeCode && this.isMounted) this.newRow.system_name = toUpperCaseWithUnderscores(val)
-      },
-    },
-    system_name: {
-      get() {
-        return this.newRow?.system_name || ''
-      },
-      set(val) {
-        this.newRow.system_name = val
-        this.autoChangeCode = false
-      },
-    },
-    currentRaw() {
-      return this.evalSetStore.entity
-    },
-  },
-  watch: {},
-  mounted() {
-    if (this.copy) {
-      this.newRow = reactive(cloneDeep(this.currentRaw))
-      this.newRow.name = this.newRow.name + '_COPY'
-      this.newRow.description = this.newRow.description + '_COPY'
-      this.newRow.system_name = this.newRow.system_name + '_COPY'
-      delete this.newRow.id
-    }
-
-    this.isMounted = true
-  },
-  beforeUnmount() {
-    this.isMounted = false
-    this.$emit('cancel')
-  },
-  methods: {
-    validateFields() {
-      const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
-      return !validStates.includes(false)
-    },
-    async createEvaluationSet() {
-      if (!this.validateFields()) return
-
-      this.createNew = false
-      this.loading = true
-      const { id: inserted_id } = await this.createEntity(this.newRow)
-      this.evalSetStore.setEntity(this.newRow)
-      this.loading = false
-      this.$router.push(`/evaluation-sets/${inserted_id}`)
-    },
-    validation(rag, notify = true) {
-      const { name, system_name, retrieve } = rag
-      const { collection_system_names } = retrieve
-
-      if (!name || !system_name || !collection_system_names.length) {
-        // Handle validation error
-
-        if (notify) {
-          this.$q.notify({
-            color: 'red-9', textColor: 'white',
-            icon: 'error',
-            group: 'error',
-            message: `Name, System name and Knowledge sources are required`,
-            timeout: 1000,
-          })
-        }
-        return false
-      }
-      return true
-    },
   },
 }
 </script>

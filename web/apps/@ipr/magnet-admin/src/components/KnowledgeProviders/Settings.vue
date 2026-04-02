@@ -55,11 +55,11 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
-const providerStore = useProviderDetailStore()
+const { draft, data, updateField, updateFields } = useEntityDetail('provider')
 
-const provider = computed(() => providerStore.entity)
+const provider = computed(() => draft.value)
 
 const isEditingEndpoint = ref(false)
 const tempEndpoint = ref('')
@@ -91,15 +91,10 @@ const saveEndpoint = () => {
 }
 
 const confirmEndpointChange = () => {
-  // Update endpoint
-  providerStore.updateProperty({
-    key: 'endpoint',
-    value: tempEndpoint.value,
-  })
-  // Clear secrets as backend will do
-  providerStore.updateProperty({
-    key: 'secrets_encrypted',
-    value: {},
+  // Update endpoint and clear secrets in draft
+  updateFields({
+    endpoint: tempEndpoint.value,
+    secrets_encrypted: {},
   })
   showEndpointWarning.value = false
   isEditingEndpoint.value = false
@@ -117,7 +112,7 @@ const connectionEntries = computed(() => {
 })
 
 const originalProviderSecrets = computed(() => {
-  const secrets = providerStore.initEntity?.secrets_encrypted
+  const secrets = data.value?.secrets_encrypted
   if (!secrets) return []
   return Object.keys(secrets)
 })
@@ -132,28 +127,19 @@ const secrets = computed({
     return { ...encryptedSecrets }
   },
   set(value) {
-    providerStore.updateProperty({
-      key: 'secrets_encrypted',
-      value,
-    })
+    updateField('secrets_encrypted', value)
   },
 })
 
 const addConnection = () => {
   const newConfig = { ...provider.value.connection_config, '': '' }
-  providerStore.updateProperty({
-    key: 'connection_config',
-    value: newConfig,
-  })
+  updateField('connection_config', newConfig)
 }
 
 const removeConnection = (key) => {
   const newConfig = { ...provider.value.connection_config }
   delete newConfig[key]
-  providerStore.updateProperty({
-    key: 'connection_config',
-    value: newConfig,
-  })
+  updateField('connection_config', newConfig)
 }
 
 const updateConnectionKey = (oldKey, newKey) => {
@@ -161,19 +147,13 @@ const updateConnectionKey = (oldKey, newKey) => {
   const value = config[oldKey]
   delete config[oldKey]
   config[newKey] = value
-  providerStore.updateProperty({
-    key: 'connection_config',
-    value: config,
-  })
+  updateField('connection_config', config)
 }
 
 const updateConnectionValue = (key, newValue) => {
   const config = { ...provider.value.connection_config }
   config[key] = newValue
-  providerStore.updateProperty({
-    key: 'connection_config',
-    value: config,
-  })
+  updateField('connection_config', config)
 }
 </script>
 

@@ -31,11 +31,11 @@ km-drawer-layout(storageKey="drawer-agents-topic")
 </template>
 
 <script>
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 export default {
   setup() {
-    const agentStore = useAgentDetailStore()
-    return { agentStore }
+    const { activeVariant, activeTopic: activeTopicRef, updateNestedListItemBySystemName } = useAgentEntityDetail()
+    return { activeVariant, activeTopicRef, updateNestedListItemBySystemName }
   },
   computed: {
     routeParams() {
@@ -43,21 +43,21 @@ export default {
     },
     activeTopic: {
       get() {
-        return this.agentStore.activeTopic
+        return this.activeTopicRef
       },
       set(value) {
-        this.agentStore.activeTopic = value
+        this.activeTopicRef = value
       },
     },
     topic() {
-      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.activeTopic?.topic)
+      return (this.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.activeTopic?.topic)
     },
     name: {
       get() {
         return this.topic?.name || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -72,14 +72,14 @@ export default {
       },
       set(value) {
         if (!value?.length) return
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
             system_name: value,
           },
         })
-        this.agentStore.activeTopic = {
+        this.activeTopicRef = {
           topic: value,
         }
       },
@@ -89,7 +89,7 @@ export default {
         return this.topic?.instructions || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -103,7 +103,7 @@ export default {
         return this.topic?.description || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {

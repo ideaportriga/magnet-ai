@@ -43,26 +43,25 @@ div
 
 <script setup lang="ts">
 import { ref, computed, markRaw } from 'vue'
-import { useCollectionDetailStore, useCollectionMetadataStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useCollectionMetadataStore } from '@/stores/entityDetailStores'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
 import Check from '@/config/collections/components/Check.vue'
 
-const collectionStore = useCollectionDetailStore()
+const { draft, updateField } = useEntityDetail('collections')
 const collectionMetadataStore = useCollectionMetadataStore()
 
 const showNewDialog = ref(false)
 const showDeleteDialog = ref(false)
 
-const collectionId = computed(() => collectionStore.entity?.id)
+const collectionId = computed(() => draft.value?.id)
 const metadataConfig = computed({
   get() {
-    return collectionStore.entity?.metadata_config || []
+    return draft.value?.metadata_config || []
   },
   set(value) {
-    if (collectionStore.entity) {
-      collectionStore.entity.metadata_config = value
-    }
+    updateField('metadata_config', value)
   },
 })
 const activeMetadataConfig = computed(() => collectionMetadataStore.activeMetadataConfig)

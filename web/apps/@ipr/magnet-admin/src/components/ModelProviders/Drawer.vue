@@ -39,14 +39,15 @@ km-drawer-layout(storageKey="drawer-model-providers", noScroll)
     .km-title Pricing
 </template>
 <script>
-import { ref, computed } from 'vue'
-import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import { ref } from 'vue'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   setup() {
-    const providerStore = useProviderDetailStore()
+    const { draft, updateField } = useEntityDetail('provider')
     return {
-      providerStore,
+      draft,
+      updateField,
       tab: ref('parameters'),
       tabs: ref([
         { name: 'parameters', label: 'Parameters' },
@@ -56,12 +57,12 @@ export default {
   },
   computed: {
     provider() {
-      return this.providerStore.entity
+      return this.draft
     },
   },
   methods: {
     updateProviderProperty(key, value) {
-      this.providerStore.updateProperty({ key, value })
+      this.updateField(key, value)
     },
   },
 }

@@ -51,7 +51,7 @@ km-popup-confirm(
         option-value='value',
         ref='retrievalToolRef',
         :rules='retrievalToolRules'
-      ) 
+      )
   template(v-if='newRow.tab_type === "Custom"')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Custom code
       km-codemirror(v-model='newRow.config.jsonString', :rules='customCodeRules', ref='customCodeRef')
@@ -75,8 +75,9 @@ import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
 import tabTypes from '@/config/ai_apps/tab_types'
-import { useRagDetailStore, useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   props: {
@@ -92,8 +93,8 @@ export default {
   emits: ['cancel'],
   setup() {
     const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
-    const aiAppStore = useAiAppDetailStore()
+    const { draft: ragDraft } = useVariantEntityDetail('rag_tools')
+    const { draft, updateField } = useEntityDetail('ai_apps')
     const { data: ragToolsData } = queries.rag_tools.useList()
     const { data: agentsData } = queries.agents.useList()
     const { data: retrievalData } = queries.retrieval.useList()
@@ -107,8 +108,9 @@ export default {
     const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
-      ragStore,
-      aiAppStore,
+      ragDraft,
+      draft,
+      updateField,
       items,
       retrievalItems,
       agentItems,
@@ -146,7 +148,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.ragStore.entity
+      return this.ragDraft
     },
     ragToolsOptions() {
       return this.items.map((item) => ({
@@ -274,13 +276,13 @@ export default {
       if (this.newRow.tab_type === 'Group') {
         this.newRow.children = []
       }
-      const currentTabs = this.aiAppStore.entity?.tabs || []
+      const currentTabs = this.draft?.tabs || []
       const existing = currentTabs.find((el) => el.system_name === this.newRow.system_name)
       if (existing) {
         Object.assign(existing, this.newRow)
-        this.aiAppStore.updateProperty({ key: 'tabs', value: [...currentTabs] })
+        this.updateField('tabs', [...currentTabs])
       } else {
-        this.aiAppStore.updateProperty({ key: 'tabs', value: [...currentTabs, this.newRow] })
+        this.updateField('tabs', [...currentTabs, this.newRow])
       }
       this.$emit('cancel')
     },

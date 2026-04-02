@@ -33,7 +33,7 @@ import { ref, reactive, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { fetchData } from '@shared'
-import { useAssistantToolDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 
@@ -52,7 +52,7 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { mutateAsync: createEntity } = queries.assistant_tools.useCreate()
-    const assistToolStore = useAssistantToolDetailStore()
+    const { draft } = useEntityDetail('assistant_tools')
     const appStore = useAppStore()
 
     const entityConfig = useEntityConfig('assistant_tools')
@@ -61,7 +61,7 @@ export default {
 
     return {
       createEntity,
-      assistToolStore,
+      draft,
       appStore,
       config,
       requiredFields,
@@ -73,7 +73,7 @@ export default {
   },
   computed: {
     currentRaw() {
-      return this.assistToolStore.entity
+      return this.draft
     },
   },
   watch: {},

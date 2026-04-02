@@ -33,7 +33,7 @@
 </template>
 <script>
 import { ref } from 'vue'
-import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
   props: {
     selectedRow: {
@@ -42,10 +42,11 @@ export default {
     },
   },
   setup() {
-    const apiServerStore = useApiServerDetailStore()
+    const { draft, updateField } = useEntityDetail('api_servers')
     return {
       list: ref([]),
-      apiServerStore,
+      draft,
+      updateField,
     }
   },
 
@@ -62,8 +63,14 @@ export default {
       }
       return []
     },
+    toolIndex() {
+      const tools = this.draft?.tools
+      if (!tools) return -1
+      return tools.findIndex((tool) => tool.system_name === this.$route.params.name)
+    },
     apiTool() {
-      return this.apiServerStore.entity?.tools?.find((tool) => tool.system_name === this.$route.params.name)
+      if (this.toolIndex === -1) return undefined
+      return this.draft?.tools?.[this.toolIndex]
     },
     input: {
       get() {
@@ -113,9 +120,9 @@ export default {
   },
   methods: {
     setInputProp(value, key) {
-      // .parameters?.input?.properties[this.selectedRow.in].properties[this.selectedRow.name]
-      const target = `parameters.input.properties.${this.selectedRow.in}.properties.${this.selectedRow.name}.${key}`
-      this.apiServerStore.updateNestedProperty({ system_name: this.apiTool.system_name, path: target, value })
+      if (this.toolIndex === -1) return
+      const target = `tools.${this.toolIndex}.parameters.input.properties.${this.selectedRow.in}.properties.${this.selectedRow.name}.${key}`
+      this.updateField(target, value)
     },
     newEnum(value) {
       const array = this.enum || []

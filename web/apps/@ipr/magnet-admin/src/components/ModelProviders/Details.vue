@@ -1,6 +1,6 @@
 <template lang="pug">
-km-inner-loading(:showing='!selectedRow')
-layouts-details-layout(v-if='selectedRow', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
+km-inner-loading(:showing='!draft')
+layouts-details-layout(v-if='draft', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
   template(#header)
     .col
       .row.items-center
@@ -32,8 +32,8 @@ layouts-details-layout(v-if='selectedRow', :contentContainerStyle='{ maxWidth: "
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='providerStore.revert()', v-if='providerStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !providerStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -69,7 +69,7 @@ layouts-details-layout(v-if='selectedRow', :contentContainerStyle='{ maxWidth: "
           q-tab(:name='t.name', :label='t.label')
       template(v-if='tab == "models"')
         .col(style='min-height: 0; padding-top: 16px; padding-bottom: 16px')
-          model-providers-models
+          model-providers-models(:selectedModel='selectedModel', @select-model='onSelectModel')
       template(v-if='tab == "settings"')
         .col.overflow-auto(style='padding-top: 16px; padding-bottom: 16px')
           model-providers-settings
@@ -80,37 +80,38 @@ layouts-details-layout(v-if='selectedRow', :contentContainerStyle='{ maxWidth: "
 </template>
 
 <script>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, provide } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { beforeRouteEnter } from '@/guards'
-import { useProviderDetailStore, useModelConfigDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   beforeRouteEnter,
   setup() {
-    const route = useRoute()
     const queries = useEntityQueries()
-    const providerStore = useProviderDetailStore()
-    const modelConfigStore = useModelConfigDetailStore()
+    const { draft, isDirty, updateField, revert, save, remove } = useEntityDetail('provider')
 
-    const id = ref(route.params.id)
-    // Replace useChroma('provider') — TanStack Query fetches by route ID
-    const { data: selectedRow } = queries.provider.useDetail(id)
+    // Local ref for the currently selected model (replaces useModelConfigDetailStore)
+    const selectedModel = ref(null)
+
+    // Provide selected model + setter so ModelDrawer can access it
+    provide('selectedModel', selectedModel)
+
     // Replace useChroma('model') — load all models for the models sub-tab
     const { data: modelsData } = queries.model.useList({ page_size: 500 })
     const allModels = computed(() => modelsData.value?.items ?? [])
 
-    const { mutateAsync: updateEntity } = queries.provider.useUpdate()
     const { mutateAsync: createEntity } = queries.provider.useCreate()
-    const removeMutation = queries.provider.useRemove()
 
     return {
-      providerStore,
-      modelConfigStore,
-      updateEntity,
+      draft,
+      isDirty,
+      updateField,
+      revert,
+      saveEntity: save,
+      removeEntity: remove,
+      selectedModel,
       createEntity,
-      removeMutation,
       saving: ref(false),
       showDeleteDialog: ref(false),
       showNewDialog: ref(false),
@@ -120,22 +121,12 @@ export default {
         { name: 'settings', label: 'Settings' },
       ]),
       showInfo: ref(false),
-      id,
-      selectedRow,
       allModels,
-    }
-  },
-  data() {
-    return {
-      isUnmounting: false,
     }
   },
   computed: {
     provider() {
-      return this.providerStore.entity
-    },
-    selectedModel() {
-      return this.modelConfigStore.entity
+      return this.draft
     },
     availableModels() {
       if (!this.provider?.system_name) {
@@ -145,17 +136,18 @@ export default {
     },
     validSelectedModel() {
       // Check if selectedModel exists in availableModels for current provider
-      if (!this.selectedModel || !this.availableModels.length) {
+      const sel = this.selectedModel
+      if (!sel || !this.availableModels.length) {
         return null
       }
-      return this.availableModels.find((model) => model.id === this.selectedModel.id) || null
+      return this.availableModels.find((model) => model.id === sel.id) || null
     },
     name: {
       get() {
         return this.provider?.name || ''
       },
       set(value) {
-        this.providerStore.updateProperty({ key: 'name', value })
+        this.updateField('name', value)
       },
     },
     system_name: {
@@ -163,7 +155,7 @@ export default {
         return this.provider?.system_name || ''
       },
       set(value) {
-        this.providerStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     created_at() {
@@ -180,30 +172,20 @@ export default {
     },
   },
   watch: {
-    selectedRow: {
-      immediate: true,
-      handler(newVal) {
-        if (this.isUnmounting) return
-        if (newVal) {
-          this.providerStore.setEntity(newVal)
-        }
-      },
-    },
     availableModels: {
       immediate: true,
       handler(newVal, oldVal) {
-        if (this.isUnmounting) return
         // Reset selectedModel if it's not in availableModels for current provider
         if (this.selectedModel && newVal.length > 0) {
           const modelExists = newVal.find((model) => model.id === this.selectedModel.id)
           if (!modelExists) {
-            this.modelConfigStore.setEntity(null)
+            this.selectedModel = null
             // Auto-select first model if no valid selection
             this.autoSelectFirstModel(newVal)
           }
         } else if (this.selectedModel && newVal.length === 0) {
           // No models available for this provider, clear selection
-          this.modelConfigStore.setEntity(null)
+          this.selectedModel = null
         } else if (!this.selectedModel && newVal.length > 0) {
           // No model selected but models are available, auto-select first
           this.autoSelectFirstModel(newVal)
@@ -211,35 +193,16 @@ export default {
       },
     },
   },
-  mounted() {
-    // Auto-selection will be handled by availableModels watcher
-    // No need to select here as availableModels might not be loaded yet
-  },
-  activated() {
-    this.id = this.$route.params.id
-    // Re-sync Vuex state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.selectedRow.id !== this.providerStore.entity?.id) {
-      this.providerStore.setEntity(this.selectedRow)
-    }
-  },
-  beforeUnmount() {
-    // Guard watchers from firing store mutations during teardown.
-    // If they do, Vue's scheduler picks up the reactive change and tries to
-    // unmount children whose vnodes are already null → TypeError: null.type
-    this.isUnmounting = true
-  },
   methods: {
-    async save() {
+    async handleSave() {
       this.saving = true
       try {
-        if (this.provider?.created_at) {
-          const data = this.providerStore.buildPayload()
-          await this.updateEntity({ id: this.provider.id, data })
+        const { success, error } = await this.saveEntity()
+        if (success) {
+          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
         } else {
-          await this.createEntity(this.provider)
+          throw error || new Error('Failed to save')
         }
-        this.providerStore.setInit()
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
       } finally {
@@ -247,13 +210,18 @@ export default {
       }
     },
     async confirmDelete() {
-      await this.removeMutation.mutateAsync(this.$route.params.id)
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Model Provider has been deleted.', timeout: 1000 })
-      this.$router.push('/model-providers')
+      const { success } = await this.removeEntity()
+      if (success) {
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Model Provider has been deleted.', timeout: 1000 })
+        this.$router.push('/model-providers')
+      }
     },
     formatDate(date) {
       const d = new Date(date)
       return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
+    },
+    onSelectModel(row) {
+      this.selectedModel = row
     },
     autoSelectFirstModel(models) {
       // Sort by is_default (descending) to prioritize default models
@@ -264,7 +232,7 @@ export default {
       })
 
       if (sortedModels.length > 0) {
-        this.modelConfigStore.setEntity(sortedModels[0])
+        this.selectedModel = sortedModels[0]
       }
     },
   },

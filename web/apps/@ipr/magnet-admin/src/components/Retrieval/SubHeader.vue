@@ -2,7 +2,7 @@
 q-separator.q-my-sm
 .row.items-center
   .col-auto.q-py-auto
-    km-select-flat(:options='variants', v-model='selected_variant', bg-color='background', height='30px', hasDropdownSearch)
+    km-select-flat(:options='variantOptions', v-model='selected_variant', bg-color='background', height='30px', hasDropdownSearch)
       template(#option='{ itemProps, select, option }')
         q-item.bb-border(clickable, v-bind='itemProps', dense, @click='select(option)')
           q-item-section
@@ -23,7 +23,7 @@ q-separator.q-my-sm
       flat,
       iconSize='16px',
       hoverBg='primary-bg',
-      @click='activateVariant'
+      @click='handleActivateVariant'
     )
     q-chip.q-mr-sm(v-if='isActive', label='Active', color='primary-light', text-color='primary')
 
@@ -41,7 +41,7 @@ q-separator.q-my-sm
       @click='addVariant'
     )
   .col-auto.text-white.q-mr-md
-    km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='deleteVariant', :disable='variants?.length === 1')
+    km-btn.q-mx-xs(flat, :icon='"far fa-trash-can"', iconSize='16px', size='13px', @click='handleDeleteVariant', :disable='variantOptions?.length === 1')
 
   prompts-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy)
   km-inner-loading(:showing='loading')
@@ -49,42 +49,55 @@ q-separator.q-my-sm
 
 <script>
 import { ref } from 'vue'
-import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   setup() {
-    const retrievalStore = useRetrievalDetailStore()
+    const { draft, isDirty, updateField, updateFields, updateVariantField,
+            selectedVariant, activeVariant, variants,
+            setSelectedVariant, createVariant, deleteVariant, activateVariant,
+            save, revert, refetch, buildPayload } = useVariantEntityDetail('retrieval')
     return {
-      retrievalStore,
+      draft,
+      isDirty,
+      updateField,
+      updateVariantField,
+      selectedVariant,
+      activeVariant,
+      variants,
+      setSelectedVariant,
+      createVariant: createVariant,
+      deleteVariant: deleteVariant,
+      activateVariant: activateVariant,
       loading: ref(false),
       showNewDialog: ref(false),
     }
   },
   computed: {
     isActive() {
-      return this.retrievalStore.selectedVariant == this.retrievalStore.entity?.active_variant
+      return this.selectedVariant == this.draft?.active_variant
     },
     selected_variant: {
       get() {
-        return this.getVariantLabel(this.retrievalStore.selectedVariant)
+        return this.getVariantLabel(this.selectedVariant)
       },
       set(value) {
-        this.retrievalStore.setSelectedVariant(value.value)
+        this.setSelectedVariant(value.value)
       },
     },
-    variants() {
-      return this.retrievalStore.entity?.variants?.map((el) => ({
+    variantOptions() {
+      return this.draft?.variants?.map((el) => ({
         label: this.getVariantLabel(el.variant),
         value: el.variant,
-        active_variant: el.variant == this.retrievalStore.entity?.active_variant,
+        active_variant: el.variant == this.draft?.active_variant,
       }))
     },
     variant_description: {
       get() {
-        return this.retrievalStore.activeVariant?.description
+        return this.activeVariant?.description
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty({ path: 'description', value })
+        this.updateVariantField('description', value)
       },
     },
   },
@@ -122,16 +135,16 @@ export default {
       const match = variant?.match(/variant_(\d+)/)
       return `Variant ${match?.[1]}`
     },
-    activateVariant() {
-      this.retrievalStore.activateVariant()
+    handleActivateVariant() {
+      this.activateVariant()
       this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Variant has been activated.', timeout: 1000 })
     },
     addVariant() {
-      this.retrievalStore.createVariant()
+      this.createVariant()
       this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'New variant has been added.', timeout: 1000 })
     },
-    deleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.retrievalStore.deleteVariant())
+    handleDeleteVariant() {
+      this.confirm('Are you sure you want to delete this variant?', () => this.deleteVariant())
     },
   },
 }

@@ -34,8 +34,8 @@ layouts-details-layout(v-if='!loading')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='retrievalStore.revert()', v-if='retrievalStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !retrievalStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -82,23 +82,38 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { validSystemName } from '@shared/utils/validationRules'
-import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
     const route = useRoute()
     const queries = useEntityQueries()
-    const retrievalStore = useRetrievalDetailStore()
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.retrieval.useDetail(id)
-    const { data: listData } = queries.retrieval.useList()
+    const { draft, isLoading, isDirty, updateField, updateFields, updateVariantField,
+            selectedVariant, activeVariant, variants, setSelectedVariant,
+            createVariant, deleteVariant, activateVariant,
+            save: saveEntity, revert, refetch, buildPayload, remove } = useVariantEntityDetail('retrieval')
     const removeMutation = queries.retrieval.useRemove()
-    const { mutateAsync: updateEntity } = queries.retrieval.useUpdate()
-    const { mutateAsync: createEntity } = queries.retrieval.useCreate()
 
     return {
-      retrievalStore,
+      draft,
+      isLoading,
+      isDirty,
+      updateField,
+      updateFields,
+      updateVariantField,
+      selectedVariant,
+      activeVariant,
+      variants,
+      setSelectedVariant,
+      createVariant,
+      deleteVariant,
+      activateVariant,
+      saveEntity,
+      revert,
+      refetch,
+      buildPayload,
+      remove,
       tab: ref('retrieve'),
       tabs: ref([
         { name: 'retrieve', label: 'Retrieve' },
@@ -113,54 +128,43 @@ export default {
       prompt: ref(null),
       openTest: ref(true),
       showInfo: ref(false),
-      id,
-      selectedRow,
-      listData,
       removeMutation,
-      updateEntity,
-      createEntity,
       validSystemName,
     }
   },
   computed: {
     name: {
       get() {
-        return this.retrievalStore.entity?.name || ''
+        return this.draft?.name || ''
       },
       set(value) {
-        this.retrievalStore.updateProperty({ key: 'name', value })
+        this.updateField('name', value)
       },
     },
     description: {
       get() {
-        return this.retrievalStore.entity?.description || ''
+        return this.draft?.description || ''
       },
       set(value) {
-        this.retrievalStore.updateProperty({ key: 'description', value })
+        this.updateField('description', value)
       },
     },
     system_name: {
       get() {
-        return this.retrievalStore.entity?.system_name || ''
+        return this.draft?.system_name || ''
       },
       set(value) {
-        this.retrievalStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     activeRetrievalId() {
       return this.$route.params.id
     },
-    activeRetrievalName() {
-      return this.listData?.items?.find((item) => item.id == this.activeRetrievalId)?.name
-    },
-    options() {
-      return this.listData?.items?.map((item) => item.name)
-    },
     loading() {
-      return !this.retrievalStore.entity?.id
+      return !this.draft?.id
     },
     entity() {
-      return this.retrievalStore.entity
+      return this.draft
     },
     created_at() {
       return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
@@ -176,31 +180,6 @@ export default {
     },
   },
 
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.retrievalStore.setEntity(newVal)
-        this.tab = 'retrieve'
-      }
-    },
-  },
-  mounted() {
-    if (this.activeRetrievalId != this.retrievalStore.entity?.id) {
-      this.retrievalStore.setEntity(this.selectedRow)
-      this.tab = 'retrieve'
-    }
-
-    if (this.$route.query?.variant) {
-      this.retrievalStore.setSelectedVariant(this.$route.query?.variant)
-    }
-  },
-  activated() {
-    this.id = this.$route.params.id
-    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.activeRetrievalId != this.retrievalStore.entity?.id) {
-      this.retrievalStore.setEntity(this.selectedRow)
-    }
-  },
   methods: {
     navigate(path = '') {
       if (this.$route.path !== `/${path}`) {
@@ -215,13 +194,7 @@ export default {
       }
       this.saving = true
       try {
-        if (this.entity?.created_at) {
-          const data = this.retrievalStore.buildPayload()
-          await this.updateEntity({ id: this.entity.id, data })
-        } else {
-          await this.createEntity(this.entity)
-        }
-        this.retrievalStore.setInit()
+        await this.saveEntity()
         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })

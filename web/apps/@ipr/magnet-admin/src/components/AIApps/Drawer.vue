@@ -23,15 +23,15 @@ km-drawer-layout(storageKey='drawer-ai-apps-preview', :defaultWidth='520', :maxW
 <script>
 import { ref } from 'vue'
 import { useState } from '@shared'
-import { useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
   setup() {
     const tab = ref('')
     const iframe = ref(null)
     const loading = useState('globalLoading')
-    const aiAppStore = useAiAppDetailStore()
+    const { draft } = useEntityDetail('ai_apps')
 
-    return { loading, tab, iframe, aiAppStore }
+    return { loading, tab, iframe, draft }
   },
   computed: {
     baseUrl() {
@@ -47,7 +47,7 @@ export default {
       return { admin, panel }
     },
     app() {
-      return this.aiAppStore.entity
+      return this.draft
     },
     iframeSrc() {
       let panelUrl = `${this.$appConfig?.panel?.baseUrl}/#/?ai_app=${this.app?.system_name}`

@@ -27,7 +27,7 @@
 
 <script>
 import { ref } from 'vue'
-import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
   props: {
     apiTool: {
@@ -36,15 +36,20 @@ export default {
     },
   },
   setup() {
-    const apiServerStore = useApiServerDetailStore()
+    const { draft, updateField } = useEntityDetail('api_servers')
     const selectedParameters = ref({ label: 'Current parameters', value: 'current' })
     const parametersOptions = ref([
       { label: 'Current parameters', value: 'current' },
       { label: 'Original parameters', value: 'original' },
     ])
-    return { selectedParameters, parametersOptions, apiServerStore }
+    return { selectedParameters, parametersOptions, draft, updateField }
   },
   computed: {
+    toolIndex() {
+      const tools = this.draft?.tools
+      if (!tools) return -1
+      return tools.findIndex((tool) => tool.system_name === this.apiTool.system_name)
+    },
     isProviderMock() {
       return this.apiTool.system_name === 'MOCK'
     },
@@ -56,7 +61,8 @@ export default {
         return this.apiTool.mock_response_enabled || false
       },
       set(value) {
-        this.apiServerStore.updateNestedProperty({ system_name: this.apiTool.system_name, path: 'mock_response_enabled', value })
+        if (this.toolIndex === -1) return
+        this.updateField(`tools.${this.toolIndex}.mock_response_enabled`, value)
       },
     },
     mockContent: {
@@ -64,7 +70,8 @@ export default {
         return this.apiTool?.mock_response?.content || ''
       },
       set(value) {
-        this.apiServerStore.updateNestedProperty({ system_name: this.apiTool.system_name, path: 'mock_response.content', value })
+        if (this.toolIndex === -1) return
+        this.updateField(`tools.${this.toolIndex}.mock_response.content`, value)
       },
     },
   },

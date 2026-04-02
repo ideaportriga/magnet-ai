@@ -58,7 +58,6 @@ configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @
 import { ref, computed, watch, onMounted, onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 import { useNotify } from '@/composables/useNotify'
 
@@ -69,7 +68,6 @@ const emit = defineEmits(['update:closeDrawer'])
 const route = useRoute()
 const router = useRouter()
 const evalStore = useEvaluationStore()
-const evalSetStore = useEvaluationSetDetailStore()
 const { notifyError, notifySuccess } = useNotify()
 
 // Queries
@@ -235,48 +233,6 @@ const openDrawer = computed(() => {
   return tab.value === 'records' && Object.keys(evalStore.evaluationJobRecord).length > 0
 })
 
-const name = computed({
-  get() {
-    return evalSetStore.entity?.name || ''
-  },
-  set(value) {
-    evalSetStore.updateProperty({ key: 'name', value })
-  },
-})
-
-const description = computed({
-  get() {
-    return evalSetStore.entity?.description || ''
-  },
-  set(value) {
-    evalSetStore.updateProperty({ key: 'description', value })
-  },
-})
-
-const system_name = computed({
-  get() {
-    return evalSetStore.entity?.system_name || ''
-  },
-  set(value) {
-    evalSetStore.updateProperty({ key: 'system_name', value })
-  },
-})
-
-const isEvaluationSetChanged = computed(() => {
-  return evalSetStore.isChanged
-})
-
-const activeEvaluationSetId = computed(() => {
-  return route.params.id
-})
-
-const activeEvaluationSetName = computed(() => {
-  return items.value?.find((item) => item.id == activeEvaluationSetId.value)?.name
-})
-
-const options = computed(() => {
-  return items.value?.map((item) => item.name)
-})
 
 const color = computed(() => {
   return statusStyles.value?.color || ''
@@ -291,13 +247,6 @@ const statusStyles = computed(() => {
     return { color: 'in-progress', textColor: 'text-gray' }
   }
   return { color: 'status-ready', textColor: 'status-ready-text' }
-})
-
-// Note: items is referenced but not defined in the original code
-// You may need to add this computed property if it's used elsewhere
-const items = computed(() => {
-  // Add the appropriate getter here based on your store structure
-  return []
 })
 
 // Methods
@@ -320,14 +269,6 @@ const deleteEvaluationSet = () => {
   notifySuccess('RAG Tool has been deleted.')
   navigate('/evaluation_set-tools')
 }
-
-// Watchers
-watch(selectedRow, (newVal, oldVal) => {
-  if (newVal?.id !== oldVal?.id) {
-    evalSetStore.setEntity(newVal)
-    tab.value = 'records'
-  }
-})
 
 // Lifecycle
 onMounted(() => {

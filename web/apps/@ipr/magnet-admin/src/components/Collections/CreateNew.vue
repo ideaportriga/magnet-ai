@@ -209,7 +209,7 @@ import { toUpperCaseWithUnderscores, fetchData } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { useEntityQueries } from '@/queries/entities'
 import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
-import { useCollectionDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import FileUrlUpload from '@/components/Collections/FileUrlUpload.vue'
 
@@ -230,7 +230,8 @@ export default defineComponent({
   setup(props) {
     const { config, requiredFields } = useEntityConfig('collections')
     const queries = useEntityQueries()
-    const collectionStore = useCollectionDetailStore()
+    const { draft: existingDraft } = useEntityDetail('collections')
+    const tempEntity = ref(null)
     const { data: promptTemplateListData } = queries.promptTemplates.useList()
     const { data: providerListData } = queries.provider.useList()
     const { mutateAsync: createCollection } = queries.collections.useCreate()
@@ -305,7 +306,8 @@ export default defineComponent({
       // Direct access to reactive plugin data
       sourceTypeOptions,
       sourceTypeChildren,
-      collectionStore,
+      tempEntity,
+      existingDraft,
       appStore: useAppStore(),
       // New reactive property for sync confirmation display
     }
@@ -367,7 +369,7 @@ export default defineComponent({
       return (this.modelItems || []).filter((el) => el.type === 'embeddings')
     },
     currentRaw() {
-      return this.collectionStore.entity
+      return this.tempEntity || this.existingDraft
     },
     nameCalc: {
       get() {
@@ -430,7 +432,7 @@ export default defineComponent({
     // Clear knowledge store to prevent stale data (e.g. uploaded_files) from
     // a previously viewed knowledge source leaking into the new creation form.
     if (!this.copy) {
-      this.collectionStore.setEntity({ name: '', system_name: '', description: '' })
+      this.tempEntity = { name: '', system_name: '', description: '' }
     }
 
     // Set provider_system_name from providerSystemName prop if provided
@@ -552,7 +554,7 @@ export default defineComponent({
       const transformedSource = this.transformSourceFields(source)
 
       // Merge temp-uploaded files (file_id refs) from store into source payload
-      const tempUploadedFiles = this.collectionStore.entity?.source?.uploaded_files || []
+      const tempUploadedFiles = this.tempEntity || this.existingDraft?.source?.uploaded_files || []
       if (tempUploadedFiles.length) {
         transformedSource.uploaded_files = [
           ...(transformedSource.uploaded_files || []),
@@ -618,7 +620,7 @@ export default defineComponent({
         id: inserted_id,
         job_id: job?.job_id || null,
       }
-      this.collectionStore.setEntity(knowledgeData)
+      this.tempEntity = knowledgeData
 
       // Navigate to the detail page
       const targetPath = `/knowledge-sources/${inserted_id}`
@@ -789,7 +791,7 @@ export default defineComponent({
       this.metadata = '{}'
       this.stepper = 0
 
-      this.collectionStore.setEntity({ name: '', system_name: '', description: '' })
+      this.tempEntity = { name: '', system_name: '', description: '' }
 
       this.customFields = {}
 

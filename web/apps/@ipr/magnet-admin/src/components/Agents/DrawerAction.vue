@@ -42,28 +42,28 @@ km-drawer-layout(storageKey="drawer-agents-action", noScroll)
 
 <script>
 import { ref } from 'vue'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   setup() {
     const tab = ref('general-settings')
-    const agentStore = useAgentDetailStore()
-    return { tab, agentStore }
+    const { activeVariant, activeTopic: activeTopicRef } = useAgentEntityDetail()
+    return { tab, activeVariant, activeTopicRef }
   },
   computed: {
     activeTopic: {
       get() {
-        return this.agentStore.activeTopic
+        return this.activeTopicRef
       },
       set(value) {
-        this.agentStore.activeTopic = value
+        this.activeTopicRef = value
       },
     },
     routeParams() {
       return this.$route.params
     },
     topic() {
-      return (this.agentStore.activeVariant?.value?.topics || []).find((topic) => topic?.system_name === this.routeParams.topicId)
+      return (this.activeVariant?.value?.topics || []).find((topic) => topic?.system_name === this.routeParams.topicId)
     },
     action() {
       return this.topic?.actions?.find((act) => act?.system_name === this.activeTopic?.action)

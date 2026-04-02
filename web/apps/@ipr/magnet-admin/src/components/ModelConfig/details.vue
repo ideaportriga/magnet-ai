@@ -32,8 +32,8 @@ layouts-details-layout(v-if='!loading')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='modelConfigStore.revert()', v-if='modelConfigStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !modelConfigStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='saveEntity', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -64,32 +64,34 @@ layouts-details-layout(v-if='!loading')
           model-config-model
         template(v-if='tab == "pricing"')
           model-config-pricing
-model-config-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy, :type='type')
+model-config-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false', copy, :copyData='draft', :type='type')
 </template>
 
 <script>
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { validSystemName } from '@shared/utils/validationRules'
-import { useModelConfigDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
-    const route = useRoute()
     const queries = useEntityQueries()
-    const modelConfigStore = useModelConfigDetailStore()
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.model.useDetail(id)
+    const { draft, isLoading, isDirty, updateField, updateFields, save, revert, refetch, remove, buildPayload } = useEntityDetail('model')
     const { data: listData } = queries.model.useList()
-    const { mutateAsync: updateEntity } = queries.model.useUpdate()
-    const { mutateAsync: createEntity } = queries.model.useCreate()
     const { mutateAsync: removeEntity } = queries.model.useRemove()
     const items = computed(() => listData.value?.items ?? [])
 
     return {
-      modelConfigStore,
+      draft,
+      isLoading,
+      isDirty,
+      updateField,
+      updateFields,
+      save,
+      revert,
+      refetch,
+      buildPayload,
       tab: ref('model'),
       tabs: ref([
         { name: 'model', label: 'Settings' },
@@ -102,11 +104,7 @@ export default {
       prompt: ref(null),
       openTest: ref(true),
       showInfo: ref(false),
-      id,
-      selectedRow,
       items,
-      updateEntity,
-      createEntity,
       removeEntity,
       validSystemName,
     }
@@ -114,30 +112,30 @@ export default {
   computed: {
     name: {
       get() {
-        return this.modelConfigStore.entity?.display_name || ''
+        return this.draft?.display_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'display_name', value })
+        this.updateField('display_name', value)
       },
     },
     description: {
       get() {
-        return this.modelConfigStore.entity?.description || ''
+        return this.draft?.description || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'description', value })
+        this.updateField('description', value)
       },
     },
     system_name: {
       get() {
-        return this.modelConfigStore.entity?.system_name || ''
+        return this.draft?.system_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     currentModel() {
-      return this.modelConfigStore.entity
+      return this.draft
     },
     activeEntityId() {
       return this.$route.params?.id
@@ -149,7 +147,7 @@ export default {
       return this.activeRetrievalDB?.type
     },
     loading() {
-      return !this.modelConfigStore.entity?.id
+      return !this.draft?.id
     },
     created_at() {
       if (!this.activeRetrievalDB?.created_at) return ''
@@ -168,28 +166,6 @@ export default {
       return `${this.activeRetrievalDB?.updated_by}`
     },
   },
-
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.modelConfigStore.setEntity(newVal)
-        this.tab = 'model'
-      }
-    },
-  },
-  mounted() {
-    if (this.activeEntityId != this.modelConfigStore.entity?.id) {
-      this.modelConfigStore.setEntity(this.selectedRow)
-      this.tab = 'model'
-    }
-  },
-  activated() {
-    this.id = this.$route.params.id
-    // Re-sync store state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.activeEntityId != this.modelConfigStore.entity?.id) {
-      this.modelConfigStore.setEntity(this.selectedRow)
-    }
-  },
   methods: {
     navigate(path = '') {
       if (this.$route.path !== `/${path}`) {
@@ -205,7 +181,7 @@ export default {
       this.showDeleteDialog = false
       this.saving = false
     },
-    async save() {
+    async saveEntity() {
       // Validate system_name before saving
       const systemNameValidation = validSystemName()(this.currentModel?.system_name)
       if (systemNameValidation !== true) {
@@ -215,28 +191,7 @@ export default {
 
       this.saving = true
       try {
-        if (this.currentModel?.created_at) {
-          const data = this.modelConfigStore.buildPayload()
-          // Remove extra fields specific to model config
-          delete data._metadata
-          delete data.name
-          delete data.category
-
-          await this.updateEntity({ id: this.currentModel.id, data })
-        } else {
-          const obj = { ...this.currentModel }
-          delete obj.id
-          delete obj._metadata
-          delete obj.created_at
-          delete obj.updated_at
-          delete obj.created_by
-          delete obj.updated_by
-          delete obj.name
-          delete obj.category
-
-          await this.createEntity(obj)
-        }
-        this.modelConfigStore.setInit()
+        await this.save()
         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })

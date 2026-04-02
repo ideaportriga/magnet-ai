@@ -23,8 +23,8 @@ layouts-details-layout(v-if='apiTool')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ metadata.updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='apiToolStore.revert()', v-if='apiToolStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !apiToolStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='clone', dense)
@@ -68,24 +68,17 @@ api-tools-clone-dialog(:show='showCloneDialog', :tool='clonedTool', @cancel='sho
 </template>
 
 <script>
-import { ref, computed, onActivated } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { useApiServerDetailStore, useApiToolDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import _ from 'lodash'
 export default {
   setup() {
     const route = useRoute()
     const queries = useEntityQueries()
-    const apiServerStore = useApiServerDetailStore()
-    const apiToolStore = useApiToolDetailStore()
-    const id = ref(route.params.id)
-    onActivated(() => { id.value = route.params.id })
+    const { draft, isDirty, updateField, save: saveServer, revert } = useEntityDetail('api_servers')
 
-    const { data: apiServersData } = queries.api_servers.useList()
-    const items = computed(() => apiServersData.value?.items ?? [])
-
-    const { mutateAsync: updateApiTool } = queries.api_tools.useUpdate()
     const { mutateAsync: removeApiTool } = queries.api_tools.useRemove()
     const { data: apiToolsListData } = queries.api_tools.useList()
 
@@ -95,12 +88,13 @@ export default {
         { name: 'parameters', label: 'Parameters' },
         { name: 'information', label: 'API Information' },
       ]),
-      items,
       openPropDetails: ref(false),
       selectedRow: ref(null),
-      apiServerStore,
-      apiToolStore,
-      updateApiTool,
+      draft,
+      isDirty,
+      updateField,
+      saveServer,
+      revert,
       removeApiTool,
       apiToolsListData,
       saving: ref(false),
@@ -110,11 +104,8 @@ export default {
     }
   },
   computed: {
-    apiServer() {
-      return this.items.find((item) => item.id === this.$route.params.id) ?? {}
-    },
     apiTool() {
-      return this.apiServerStore.entity?.tools?.find((tool) => tool.system_name === this.$route.params.name)
+      return this.draft?.tools?.find((tool) => tool.system_name === this.$route.params.name)
     },
     metadata() {
       return {
@@ -129,7 +120,7 @@ export default {
         return this.apiTool?.name || ''
       },
       set(value) {
-        this.apiServerStore.updateNestedProperty({ path: 'name', value, system_name: this.apiTool.system_name })
+        this.updateToolNestedProperty('name', value)
       },
     },
     description: {
@@ -137,7 +128,7 @@ export default {
         return this.apiTool?.description || ''
       },
       set(value) {
-        this.apiServerStore.updateNestedProperty({ path: 'description', value, system_name: this.apiTool.system_name })
+        this.updateToolNestedProperty('description', value)
       },
     },
     system_name: {
@@ -145,20 +136,11 @@ export default {
         return this.apiTool?.system_name || ''
       },
       set(value) {
-        // this.apiServerStore.updateNestedProperty({ path: 'system_name', value, system_name: this.apiTool.system_name })
+        // system_name should not be changed
       },
     },
   },
   watch: {
-    apiServer: {
-      handler(newVal) {
-        if (newVal !== this.apiServerStore.entity) {
-          this.apiServerStore.setEntity(_.cloneDeep(newVal))
-        }
-      },
-      deep: true,
-      immediate: true,
-    },
     selectedRow: {
       handler() {
         this.$refs.drawer?.setTab('details')
@@ -172,17 +154,14 @@ export default {
       immediate: true,
     },
   },
-  mounted() {
-    // this.apiServerStore.setEntity(_.cloneDeep(this.apiTool))
-  },
-  activated() {
-    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-    const server = this.apiServer
-    if (server && server.id !== this.apiServerStore.entity?.id) {
-      this.apiServerStore.setEntity(_.cloneDeep(server))
-    }
-  },
   methods: {
+    updateToolNestedProperty(path, value) {
+      const tools = this.draft?.tools
+      if (!tools) return
+      const toolIndex = tools.findIndex((t) => t.system_name === this.$route.params.name)
+      if (toolIndex === -1) return
+      this.updateField(`tools.${toolIndex}.${path}`, value)
+    },
     navigate(path) {
       this.$router.push(path)
     },
@@ -196,10 +175,12 @@ export default {
     async save() {
       this.saving = true
       try {
-        const data = this.apiToolStore.buildPayload()
-        await this.updateApiTool({ id: this.apiToolStore.entity.id, data })
-        this.apiToolStore.setInit()
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+        const result = await this.saveServer()
+        if (result.success) {
+          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+        } else {
+          throw result.error || new Error('Failed to save')
+        }
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Failed to save API Tool.', timeout: 2000 })
       } finally {

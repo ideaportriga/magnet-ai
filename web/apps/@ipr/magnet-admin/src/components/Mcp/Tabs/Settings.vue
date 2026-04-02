@@ -42,52 +42,41 @@
     km-secrets(v-model:secrets='secrets', :original-secrets='originalMcpSecrets', :remount-value='remountValue')
 </template>
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { fetchData } from '@shared'
-import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useNotify } from '@/composables/useNotify'
 
 const { notifySuccess, notifyError } = useNotify()
-const mcpStore = useMcpServerDetailStore()
+const { draft, data, updateField } = useEntityDetail('mcp_servers')
 const appStore = useAppStore()
 
-const server = computed(() => mcpStore.entity)
+const server = computed(() => draft.value)
 
 const headers = computed({
   get() {
-    return mcpStore.entity.headers || new Map()
+    return draft.value?.headers || new Map()
   },
   set(value) {
-    mcpStore.updateProperty({
-      key: 'headers',
-      value: value,
-    })
+    updateField('headers', value)
   },
 })
 
 const originalMcpSecrets = computed(() => {
-  const secrets = mcpStore.initEntity?.secrets_encrypted
+  const secrets = data.value?.secrets_encrypted
   if (!secrets) return []
   return Object.keys(secrets)
 })
-const remountValue = computed(() => mcpStore.entity.updated_at)
+const remountValue = computed(() => draft.value?.updated_at)
 const secrets = computed({
   get() {
-    return mcpStore.entity.secrets_encrypted
+    return draft.value?.secrets_encrypted
   },
   set(value) {
-    mcpStore.updateProperty({
-      key: 'secrets_encrypted',
-      value: value,
-    })
+    updateField('secrets_encrypted', value)
   },
 })
-
-const toggleEditMode = (value) => {
-  // Do nothing additional, just toggle mode
-  // Always work with secrets_encrypted
-}
 
 const addHeader = () => {
   const newHeaders = new Map(headers.value)

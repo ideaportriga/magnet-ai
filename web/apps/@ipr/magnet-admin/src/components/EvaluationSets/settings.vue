@@ -15,31 +15,14 @@ div
     )
 </template>
 
-<script>
-import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
+<script setup>
+import { computed } from 'vue'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
-export default {
-  emits: ['openTest'],
-  setup() {
-    const evalSetStore = useEvaluationSetDetailStore()
-    return { evalSetStore }
-  },
-  computed: {
-    type: {
-      get() {
-        return this.evalSetStore.entity?.type || ''
-      },
-      set(value) {
-        this.evalSetStore.updateProperty({ key: 'type', value })
-      },
-    },
-  },
-  methods: {
-    navigate(path = '') {
-      if (this.$route.path !== `/${path}`) {
-        this.$router.push(`/${path}`)
-      }
-    },
-  },
-}
+const { draft, updateField } = useEntityDetail('evaluation_sets')
+
+const type = computed({
+  get() { return draft.value?.type || '' },
+  set(value) { updateField('type', value) },
+})
 </script>

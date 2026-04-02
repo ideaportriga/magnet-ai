@@ -37,124 +37,111 @@ km-drawer-layout(storageKey="drawer-collections", noScroll)
     collections-drawer-chunk(:selectedRow='selectedAnswer', @close='showChunkInfo = false')
 </template>
 
-<script>
+<script setup>
 import { fetchData } from '@shared'
-import { ref } from 'vue'
+import { ref, computed, watch, onMounted, useTemplateRef } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useCollectionDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useSearchStore } from '@/stores/searchStore'
 
-export default {
-  props: ['open'],
-  emits: ['onLoad'],
-  setup() {
-    const collectionStore = useCollectionDetailStore()
-    const appStore = useAppStore()
-    const searchStore = useSearchStore()
-    const {
-      semanticSearchAnswers: answers,
-      semanticSearchLoading: loading,
-      semanticSearch: prompt,
-      metadataFilter,
-    } = storeToRefs(searchStore)
+const emit = defineEmits(['onLoad'])
 
-    function clearSemanticSearchAnswers() {
-      answers.value = []
-    }
+const { draft } = useEntityDetail('collections')
+const appStore = useAppStore()
+const searchStore = useSearchStore()
+const {
+  semanticSearchAnswers: answers,
+  semanticSearchLoading: loading,
+  semanticSearch: prompt,
+  metadataFilter,
+} = storeToRefs(searchStore)
 
-    return {
-      loading,
-      answers,
-      prompt,
-      metadataFilter,
-      collectionStore,
-      appStore,
-      showHints: ref(true),
-      showChunkInfo: ref(false),
-      selectedAnswer: ref({}),
-      clearSemanticSearchAnswers,
-    }
-  },
-  computed: {
-    knowledgeId() {
-      return this.collectionStore.entity?.id || ''
-    },
-    knowledgeSystemName() {
-      return this.collectionStore.entity?.system_name || ''
-    },
-  },
-  watch: {
-    knowledgeId(newVal, oldVal) {
-      if (newVal !== oldVal) {
-        this.prompt = ''
-        this.metadataFilter = []
-      }
-    },
-  },
-  created() {},
-  mounted() {
-    this.prompt = ''
-    this.metadataFilter = []
-  },
-  methods: {
-    setDetailInfo(info) {
+const inputRef = useTemplateRef('input')
+const scrollRef = useTemplateRef('scroll')
 
-      this.selectedAnswer = info
-      this.showChunkInfo = true
-    },
-    clearAnswers() {
-      this.clearSemanticSearchAnswers()
-    },
-    refine(question) {
-      this.prompt = question
-      this.$refs?.input.focus()
-    },
-    scrollTop() {
-      this.$refs?.scroll?.setScrollPosition?.('vertical', 0, 200)
-    },
-    submit(event) {
-      if (!event.shiftKey) {
-        event.preventDefault()
-        this.getAnswer()
-      }
-    },
-    async getAnswer() {
-      const { convertFiltersToFilterObject } = await import('@shared')
-      const prompt = this.prompt
-      const metadataFilter = convertFiltersToFilterObject(this.metadataFilter)
-      const collection_id = this.collectionStore.entity?.system_name
-      const collection_display_name = this.collectionStore.entity?.name
-      const endpoint = this.appStore.config?.documentSemanticSearch?.endpoint
-      const service = `${this.appStore.config?.documentSemanticSearch?.service}` || ''
-      const credentials = this.appStore.config?.documentSemanticSearch?.credentials
+const showHints = ref(true)
+const showChunkInfo = ref(false)
+const selectedAnswer = ref({})
 
-      this.loading = true
-      const response = await fetchData({
-        method: 'POST',
-        endpoint,
-        service,
-        credentials,
-        body: JSON.stringify({
-          collection_id,
-          collection_display_name,
-          user_message: prompt,
-          metadata_filter: metadataFilter,
-        }),
-        headers: { 'Content-Type': 'application/json' },
-      })
-      this.loading = false
+function clearSemanticSearchAnswers() {
+  answers.value = []
+}
 
-      if (!response?.error) {
-        const answer = await response.json()
-        this.answers = [{ prompt, collection: collection_id, ...answer }, ...this.answers]
-      }
+const knowledgeId = computed(() => draft.value?.id || '')
+const knowledgeSystemName = computed(() => draft.value?.system_name || '')
 
-      this.prompt = ''
-      this.$refs?.input.blur()
-      this.$emit('onLoad')
-    },
-  },
+watch(knowledgeId, (newVal, oldVal) => {
+  if (newVal !== oldVal) {
+    prompt.value = ''
+    metadataFilter.value = []
+  }
+})
+
+onMounted(() => {
+  prompt.value = ''
+  metadataFilter.value = []
+})
+
+function setDetailInfo(info) {
+  selectedAnswer.value = info
+  showChunkInfo.value = true
+}
+
+function clearAnswers() {
+  clearSemanticSearchAnswers()
+}
+
+function refine(question) {
+  prompt.value = question
+  inputRef.value?.focus()
+}
+
+function scrollTop() {
+  scrollRef.value?.setScrollPosition?.('vertical', 0, 200)
+}
+
+function submit(event) {
+  if (!event.shiftKey) {
+    event.preventDefault()
+    getAnswer()
+  }
+}
+
+async function getAnswer() {
+  const { convertFiltersToFilterObject } = await import('@shared')
+  const promptVal = prompt.value
+  const metadataFilterVal = convertFiltersToFilterObject(metadataFilter.value)
+  const collection_id = draft.value?.system_name
+  const collection_display_name = draft.value?.name
+  const endpoint = appStore.config?.documentSemanticSearch?.endpoint
+  const service = `${appStore.config?.documentSemanticSearch?.service}` || ''
+  const credentials = appStore.config?.documentSemanticSearch?.credentials
+
+  loading.value = true
+  const response = await fetchData({
+    method: 'POST',
+    endpoint,
+    service,
+    credentials,
+    body: JSON.stringify({
+      collection_id,
+      collection_display_name,
+      user_message: promptVal,
+      metadata_filter: metadataFilterVal,
+    }),
+    headers: { 'Content-Type': 'application/json' },
+  })
+  loading.value = false
+
+  if (!response?.error) {
+    const answer = await response.json()
+    answers.value = [{ prompt: promptVal, collection: collection_id, ...answer }, ...answers.value]
+  }
+
+  prompt.value = ''
+  inputRef.value?.blur()
+  emit('onLoad')
 }
 </script>
 

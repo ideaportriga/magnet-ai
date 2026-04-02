@@ -27,14 +27,14 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { nameDescriptionColumn, chipCopyColumn, dateColumn, textColumn } from '@/utils/columnHelpers'
-import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import type { Collection } from '@/types'
 
 const router = useRouter()
-const providerStore = useProviderDetailStore()
+const { draft } = useEntityDetail('provider')
 const showNewDialog = ref(false)
 
-const providerSystemName = computed(() => providerStore.entity?.system_name as string | undefined)
+const providerSystemName = computed(() => draft.value?.system_name as string | undefined)
 
 const columns = [
   nameDescriptionColumn<Collection>('Name'),

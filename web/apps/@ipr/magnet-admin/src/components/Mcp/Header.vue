@@ -10,13 +10,13 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
-const mcpStore = useMcpServerDetailStore()
+const { draft } = useEntityDetail('mcp_servers')
 const route = useRoute()
 const router = useRouter()
 
-const server = computed(() => mcpStore.entity)
+const server = computed(() => draft.value)
 const activeToolName = computed(() => route.params?.name || '')
 const navigateToServer = () => {
   if (server.value?.id) router.push(`/mcp/${server.value.id}`)

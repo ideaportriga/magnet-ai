@@ -29,14 +29,15 @@ layouts-details-layout(v-if='currentTab', v-model:name='name', v-model:descripti
 import { ref, computed, onActivated, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
+import { cloneDeep } from 'lodash'
 
 const route = useRoute()
 const router = useRouter()
 const queries = useEntityQueries()
-const aiAppStore = useAiAppDetailStore()
+const { draft, updateField } = useEntityDetail('ai_apps')
 
-const id = ref(route.params.id)
+const openTest = ref(true)
 
 const { data: ragToolsListData } = queries.rag_tools.useList()
 const ragToolsItems = computed(() => ragToolsListData.value?.items ?? [])
@@ -47,13 +48,11 @@ const agentItems = computed(() => agentsListData.value?.items ?? [])
 const { data: retrievalListData } = queries.retrieval.useList()
 const retrievalItems = computed(() => retrievalListData.value?.items ?? [])
 
-const { data: selectedRow } = queries.ai_apps.useDetail(id)
-
 const activeAIAppTabSystemName = computed(() => route.params?.tab)
 const activeAIAppTabChildSystemName = computed(() => route.query?.child)
 
 const currentTab = computed(() => {
-  const tabs = aiAppStore.entity?.tabs || []
+  const tabs = draft.value?.tabs || []
   const tab = tabs.find((el) => el.system_name === activeAIAppTabSystemName.value)
   if (activeAIAppTabChildSystemName.value) {
     return tab?.children?.find((el) => el.system_name === activeAIAppTabChildSystemName.value)
@@ -61,17 +60,30 @@ const currentTab = computed(() => {
   return tab
 })
 
+/**
+ * Helper to update a property on the current tab (or child tab) within the tabs array.
+ * Clones the tabs array, finds the target tab, applies newProperties, and writes back via updateField.
+ */
+function updateTabProperty(newProperties) {
+  const tabs = cloneDeep(draft.value?.tabs || [])
+  const tab = tabs.find((el) => el.system_name === activeAIAppTabSystemName.value)
+  if (!tab) return
+
+  if (activeAIAppTabChildSystemName.value) {
+    const child = tab.children?.find((el) => el.system_name === activeAIAppTabChildSystemName.value)
+    if (child) Object.assign(child, newProperties)
+  } else {
+    Object.assign(tab, newProperties)
+  }
+  updateField('tabs', tabs)
+}
+
 const name = computed({
   get() {
     return currentTab.value?.name || ''
   },
   set(value) {
-    aiAppStore.updateNestedProperty({
-      path: 'tabs',
-      system_name: activeAIAppTabSystemName.value,
-      newProperties: { name: value },
-      child_system_name: activeAIAppTabChildSystemName.value,
-    })
+    updateTabProperty({ name: value })
   },
 })
 
@@ -80,12 +92,7 @@ const description = computed({
     return currentTab.value?.description || ''
   },
   set(value) {
-    aiAppStore.updateNestedProperty({
-      path: 'tabs',
-      system_name: activeAIAppTabSystemName.value,
-      newProperties: { description: value },
-      child_system_name: activeAIAppTabChildSystemName.value,
-    })
+    updateTabProperty({ description: value })
   },
 })
 
@@ -94,12 +101,7 @@ const system_name = computed({
     return currentTab.value?.system_name || ''
   },
   set(value) {
-    aiAppStore.updateNestedProperty({
-      path: 'tabs',
-      system_name: activeAIAppTabSystemName.value,
-      newProperties: { system_name: value },
-      child_system_name: activeAIAppTabChildSystemName.value,
-    })
+    updateTabProperty({ system_name: value })
   },
 })
 
@@ -108,12 +110,7 @@ const tab_type = computed({
     return currentTab.value?.tab_type || ''
   },
   set(value) {
-    aiAppStore.updateNestedProperty({
-      path: 'tabs',
-      system_name: activeAIAppTabSystemName.value,
-      newProperties: { tab_type: value },
-      child_system_name: activeAIAppTabChildSystemName.value,
-    })
+    updateTabProperty({ tab_type: value })
   },
 })
 
@@ -122,12 +119,7 @@ const config = computed({
     return currentTab.value?.config || ''
   },
   set(value) {
-    aiAppStore.updateNestedProperty({
-      path: 'tabs',
-      system_name: activeAIAppTabSystemName.value,
-      newProperties: { config: value },
-      child_system_name: activeAIAppTabChildSystemName.value,
-    })
+    updateTabProperty({ config: value })
   },
 })
 
@@ -191,7 +183,7 @@ const value = computed({
     return config.value[store_key.value]
   },
   set(value) {
-    config.value[store_key.value] = value.system_name
+    updateTabProperty({ config: { ...config.value, [store_key.value]: value.system_name } })
   },
 })
 
@@ -204,26 +196,6 @@ const navigate = (path = '') => {
 const openNewTab = () => {
   window.open(router.resolve({ path: `/${path.value}` }).href, '_blank')
 }
-
-watch(selectedRow, (newVal, oldVal) => {
-  if (newVal?.id !== oldVal?.id) {
-    aiAppStore.setEntity(newVal)
-  }
-})
-
-onMounted(() => {
-  if (selectedRow.value?.id !== aiAppStore.entity?.id) {
-    aiAppStore.setEntity(selectedRow.value)
-  }
-})
-
-onActivated(() => {
-  id.value = route.params.id
-  // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-  if (selectedRow.value && selectedRow.value.id !== aiAppStore.entity?.id) {
-    aiAppStore.setEntity(selectedRow.value)
-  }
-})
 </script>
 
 <style lang="stylus"></style>

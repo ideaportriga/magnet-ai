@@ -23,7 +23,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   props: {
@@ -43,9 +43,9 @@ export default {
     const { mutateAsync: createAgent } = queries.agents.useCreate()
     const { data: modelListData } = queries.model.useList()
 
-    const agentStore = useAgentDetailStore()
+    const { draft } = useAgentEntityDetail()
     return {
-      agentStore,
+      draft,
       modelListData,
       requiredFields,
       config,
@@ -98,7 +98,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.agentStore.entity
+      return this.draft
     },
     collectionSystemNames: {
       get() {
@@ -146,7 +146,6 @@ export default {
         return
       }
 
-      this.agentStore.setEntity(this.newRow)
       this.$router.push(`/agents/${result.id}`)
     },
 

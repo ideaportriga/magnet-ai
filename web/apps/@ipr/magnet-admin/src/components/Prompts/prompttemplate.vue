@@ -46,7 +46,7 @@ div
 import { isEqual, orderBy, pickBy } from 'lodash'
 import { ref } from 'vue'
 import MarkdownIt from 'markdown-it'
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import chromaConfig from '@/config/entityFieldConfig'
 
 export default {
@@ -55,9 +55,10 @@ export default {
 
   setup() {
     const md = new MarkdownIt({ html: false, breaks: true })
-    const promptStore = usePromptTemplateDetailStore()
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
     return {
-      promptStore,
+      activeVariant,
+      updateVariantField,
       markdownRenderer: md,
       test: ref(true),
       iconPicker: ref(false),
@@ -79,10 +80,10 @@ export default {
   computed: {
     text: {
       get() {
-        return this.promptStore.activeVariant?.text || ''
+        return this.activeVariant?.text || ''
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({ path: 'text', value })
+        this.updateVariantField('text', value)
       },
     },
 

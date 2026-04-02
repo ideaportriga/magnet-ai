@@ -34,8 +34,8 @@ layouts-details-layout(v-if='!loading')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='ragStore.revert()', v-if='ragStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !ragStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -82,29 +82,39 @@ configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @
 </template>
 
 <script>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
+import { ref } from 'vue'
 import { validSystemName } from '@shared/utils/validationRules'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
-    const route = useRoute()
-    const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
-    // Stable ref: does NOT reactively track the global route — only updated in activated()
-    // so keep-alive cached instances don't fire requests when another tab is opened.
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.rag_tools.useDetail(id)
-    const { data: listData } = queries.rag_tools.useList()
-    const removeMutation = queries.rag_tools.useRemove()
-    const { mutateAsync: updateEntity } = queries.rag_tools.useUpdate()
-    const { mutateAsync: createEntity } = queries.rag_tools.useCreate()
+    const {
+      draft, isLoading, isDirty, updateField, updateFields, updateVariantField,
+      selectedVariant, activeVariant, variants, setSelectedVariant,
+      createVariant, deleteVariant, activateVariant,
+      save, revert, refetch, buildPayload, remove,
+    } = useVariantEntityDetail('rag_tools')
 
     return {
-      ragStore,
+      draft,
+      isLoading,
+      isDirty,
+      updateField,
+      updateFields,
+      updateVariantField,
+      selectedVariant,
+      activeVariant,
+      variants,
+      setSelectedVariant,
+      createVariant,
+      deleteVariant,
+      activateVariant,
+      save,
+      revert,
+      refetch,
+      buildPayload,
+      remove,
       tab: ref('retrieve'),
       tabs: ref([
         { name: 'retrieve', label: 'Retrieve' },
@@ -117,61 +127,44 @@ export default {
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),
       saving: ref(false),
-      activeRag: ref({}),
-      prompt: ref(null),
       openTest: ref(true),
       showInfo: ref(false),
-      id,
-      selectedRow,
-      listData,
-      removeMutation,
-      updateEntity,
-      createEntity,
       validSystemName,
     }
   },
   computed: {
     name: {
       get() {
-        return this.ragStore.entity?.name || ''
+        return this.draft?.name || ''
       },
       set(value) {
-        this.ragStore.updateProperty({ key: 'name', value })
+        this.updateField('name', value)
       },
     },
     description: {
       get() {
-        return this.ragStore.entity?.description || ''
+        return this.draft?.description || ''
       },
       set(value) {
-        this.ragStore.updateProperty({ key: 'description', value })
+        this.updateField('description', value)
       },
     },
     system_name: {
       get() {
-        return this.ragStore.entity?.system_name || ''
+        return this.draft?.system_name || ''
       },
       set(value) {
-        this.ragStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     activeRagId() {
       return this.$route.params.id
     },
-    items() {
-      return this.listData?.items ?? []
-    },
-    activeRagName() {
-      return this.items?.find((item) => item.id == this.activeRagId)?.name
-    },
-    options() {
-      return this.items?.map((item) => item.name)
-    },
     loading() {
-      return !this.ragStore.entity?.id
+      return !this.draft?.id
     },
     entity() {
-      return this.ragStore.entity
+      return this.draft
     },
     created_at() {
       return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
@@ -187,30 +180,9 @@ export default {
     },
   },
 
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.ragStore.setEntity(newVal)
-        this.tab = 'retrieve'
-      }
-    },
-  },
   mounted() {
-    if (this.activeRagId != this.ragStore.entity?.id) {
-      this.ragStore.setEntity(this.selectedRow)
-      this.tab = 'retrieve'
-    }
-
     if (this.$route.query?.variant) {
-      this.ragStore.setSelectedVariant(this.$route.query?.variant)
-    }
-  },
-  activated() {
-    // Sync stable id ref to current route — triggers refetch only for THIS component.
-    this.id = this.$route.params.id
-    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.activeRagId != this.ragStore.entity?.id) {
-      this.ragStore.setEntity(this.selectedRow)
+      this.setSelectedVariant(this.$route.query?.variant)
     }
   },
   methods: {
@@ -219,7 +191,7 @@ export default {
         this.$router.push(`${path}`)
       }
     },
-    async save() {
+    async handleSave() {
       const systemNameValidation = validSystemName()(this.entity?.system_name)
       if (systemNameValidation !== true) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: systemNameValidation, timeout: 3000 })
@@ -227,13 +199,7 @@ export default {
       }
       this.saving = true
       try {
-        if (this.entity?.created_at) {
-          const data = this.ragStore.buildPayload()
-          await this.updateEntity({ id: this.entity.id, data })
-        } else {
-          await this.createEntity(this.entity)
-        }
-        this.ragStore.setInit()
+        await this.save()
         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
@@ -242,7 +208,7 @@ export default {
       }
     },
     async confirmDelete() {
-      await this.removeMutation.mutateAsync(this.$route.params.id)
+      await this.remove()
       this.$emit('update:closeDrawer', null)
       this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'RAG Tool has been deleted.', timeout: 1000 })
       this.navigate('/rag-tools')

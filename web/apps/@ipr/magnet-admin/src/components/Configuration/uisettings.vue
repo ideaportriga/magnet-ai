@@ -28,88 +28,84 @@ div
 </template>
 
 <script>
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: [],
   emits: [],
 
   setup() {
-    const ragStore = useRagDetailStore()
-    return { ragStore }
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('rag_tools')
+    return { activeVariant, updateVariantField }
   },
   computed: {
     isAllowToBypassCache: {
       get() {
-        return this.ragStore.activeVariant?.ui_settings?.offer_to_bypass_cache || false
+        return this.activeVariant?.ui_settings?.offer_to_bypass_cache || false
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.offer_to_bypass_cache', value })
+        this.updateVariantField('ui_settings.offer_to_bypass_cache', value)
       },
     },
     isUserFeedbackOn: {
       get() {
-        return this.ragStore.activeVariant?.ui_settings?.user_fideback || false
+        return this.activeVariant?.ui_settings?.user_fideback || false
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.user_fideback', value })
+        this.updateVariantField('ui_settings.user_fideback', value)
       },
     },
     headingText: {
       get() {
-        return this.ragStore.activeVariant?.ui_settings?.header_configuration?.header || ''
+        return this.activeVariant?.ui_settings?.header_configuration?.header || ''
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.header_configuration.header', value })
+        this.updateVariantField('ui_settings.header_configuration.header', value)
       },
     },
     subHeadingText: {
       get() {
-        return this.ragStore.activeVariant?.ui_settings?.header_configuration?.sub_header || ''
+        return this.activeVariant?.ui_settings?.header_configuration?.sub_header || ''
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.header_configuration.sub_header', value })
+        this.updateVariantField('ui_settings.header_configuration.sub_header', value)
       },
     },
     isShowLinkTitlesOn: {
       get() {
         return true
-        // return this.ragStore.activeVariant?.ui_settings?.show_link_titles || false
       },
-      // set(value) {
-      //   this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.show_link_titles', value })
-      // }
     },
     isSampleQestion: {
       get() {
-        return this.ragStore.activeVariant?.ui_settings?.sample_questions?.enabled || false
+        return this.activeVariant?.ui_settings?.sample_questions?.enabled || false
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.enabled', value })
+        this.updateVariantField('ui_settings.sample_questions.enabled', value)
       },
     },
     question1: {
       get() {
-        return this.ragStore.activeVariant?.ui_settings?.sample_questions?.questions?.question1
+        return this.activeVariant?.ui_settings?.sample_questions?.questions?.question1
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question1', value })
+        this.updateVariantField('ui_settings.sample_questions.questions.question1', value)
       },
     },
     question2: {
       get() {
-        return this.ragStore.activeVariant?.ui_settings?.sample_questions?.questions?.question2
+        return this.activeVariant?.ui_settings?.sample_questions?.questions?.question2
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question2', value })
+        this.updateVariantField('ui_settings.sample_questions.questions.question2', value)
       },
     },
     question3: {
       get() {
-        return this.ragStore.activeVariant?.ui_settings?.sample_questions?.questions?.question3
+        return this.activeVariant?.ui_settings?.sample_questions?.questions?.question3
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question3', value })
+        this.updateVariantField('ui_settings.sample_questions.questions.question3', value)
       },
     },
   },

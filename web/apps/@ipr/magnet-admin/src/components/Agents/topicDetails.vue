@@ -21,7 +21,7 @@
 import { ref, computed, onActivated } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -34,9 +34,11 @@ export default {
     const { data: listData } = queries.agents.useList()
     const items = computed(() => listData.value?.items ?? [])
     const removeMutation = queries.agents.useRemove()
-    const agentStore = useAgentDetailStore()
+    const { draft, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
-      agentStore,
+      draft,
+      activeVariant,
+      updateNestedListItemBySystemName,
       tab: ref('prompts'),
       tabs: ref([
         { name: 'actions', label: 'Actions' },
@@ -57,20 +59,20 @@ export default {
       return this.$route.params
     },
     topic() {
-      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     agentName() {
-      return this.agentStore.entity?.name
+      return this.draft?.name
     },
     agentId() {
-      return this.agentStore.entity?.id
+      return this.draft?.id
     },
     name: {
       get() {
         return this.topic?.name || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -84,7 +86,7 @@ export default {
         return this.topic?.description || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -98,7 +100,7 @@ export default {
         return this.topic?.system_name || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.system_name,
           data: {
@@ -117,24 +119,10 @@ export default {
       return this.items?.map((item) => item.name)
     },
     loading() {
-      return !this.agentStore.entity?.id
+      return !this.draft?.id
     },
   },
 
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.agentStore.setEntity(newVal)
-        this.tab = 'prompts'
-      }
-    },
-  },
-  mounted() {
-    if (this.activeAgentDetailId != this.agentId) {
-      this.agentStore.setEntity(this.selectedRow)
-      this.tab = 'prompts'
-    }
-  },
   methods: {
     navigate(path = '') {
       if (this.$route.path !== `/${path}`) {

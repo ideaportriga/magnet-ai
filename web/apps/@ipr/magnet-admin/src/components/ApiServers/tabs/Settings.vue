@@ -61,11 +61,11 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
-const apiServerStore = useApiServerDetailStore()
+const { draft, data, updateField } = useEntityDetail('api_servers')
 
-const server = computed(() => apiServerStore.entity)
+const server = computed(() => draft.value)
 const parsingError = ref(false)
 
 const serverSecurityScheme = computed({
@@ -78,10 +78,10 @@ const serverSecurityScheme = computed({
   set(newValue) {
     try {
       const parsedNewValue = JSON.parse(newValue)
-      server.value.security_scheme = parsedNewValue
+      updateField('security_scheme', parsedNewValue)
       parsingError.value = false
     } catch (e) {
-      server.value.security_scheme = newValue
+      updateField('security_scheme', newValue)
       parsingError.value = true
     }
   },
@@ -89,7 +89,7 @@ const serverSecurityScheme = computed({
 
 const securityValues = computed({
   get() {
-    const securityValuesData = server.value.security_values
+    const securityValuesData = server.value?.security_values
     // Always return Map for consistency
     if (!securityValuesData) {
       return new Map()
@@ -103,19 +103,19 @@ const securityValues = computed({
   set(value) {
     // Convert Map to object for sending
     const objectValue = value instanceof Map ? Object.fromEntries(value) : value
-    apiServerStore.updateProperty({ key: 'security_values', value: objectValue })
+    updateField('security_values', objectValue)
   },
 })
 
 const verifySsl = computed({
-  get: () => server.value.verify_ssl,
+  get: () => server.value?.verify_ssl,
   set: (value) => {
-    apiServerStore.updateProperty({ key: 'verify_ssl', value })
+    updateField('verify_ssl', value)
   },
 })
 
 const originalApiSecrets = computed(() => {
-  const secrets = apiServerStore.initEntity?.secrets_encrypted
+  const secrets = data.value?.secrets_encrypted
   if (!secrets) return []
   if (secrets instanceof Map) {
     return Array.from(secrets.keys())
@@ -136,14 +136,14 @@ const secrets = computed({
     return encryptedSecrets
   },
   set(value) {
-    apiServerStore.updateProperty({ key: 'secrets_encrypted', value })
+    updateField('secrets_encrypted', value)
   },
 })
 
 const customHeaders = computed({
-  get: () => server.value.custom_headers || new Map(),
+  get: () => server.value?.custom_headers || new Map(),
   set: (value) => {
-    apiServerStore.updateProperty({ key: 'custom_headers', value })
+    updateField('custom_headers', value)
   },
 })
 

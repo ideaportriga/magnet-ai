@@ -3,9 +3,8 @@
   .km-body {{ server?.name }}
 </template>
 <script setup>
-import { computed } from 'vue'
-import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
-const providerStore = useProviderDetailStore()
-const server = computed(() => providerStore.entity)
+const { draft } = useEntityDetail('provider')
+const server = draft
 </script>

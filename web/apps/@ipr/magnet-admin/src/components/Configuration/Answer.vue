@@ -107,7 +107,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
 import { useEntityQueries } from '@/queries/entities'
 import { copyToClipboard } from 'quasar'
 import { storeToRefs } from 'pinia'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 
 import { ref, computed } from 'vue'
@@ -117,17 +117,17 @@ export default {
   emits: ['refine', 'selectAnswer'],
   setup() {
     const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
+    const { activeVariant } = useVariantEntityDetail('rag_tools')
     const searchStore = useSearchStore()
     const { searchPrompt: prompt } = storeToRefs(searchStore)
     const { data: collectionsListData } = queries.collections.useList()
     const showFeedback = ref(false)
     const showFeedbackConfirm = ref(false)
-    return { ragStore, searchStore, prompt, showFeedback, showFeedbackConfirm, collectionsListData, showResultingPrompt: ref(false) }
+    return { activeVariant, searchStore, prompt, showFeedback, showFeedbackConfirm, collectionsListData, showResultingPrompt: ref(false) }
   },
   computed: {
     uiSettings() {
-      return this.ragStore.activeVariant?.ui_settings
+      return this.activeVariant?.ui_settings
     },
     feedback() {
       return this.answer?.feedback ?? {}

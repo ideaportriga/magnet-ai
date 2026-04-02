@@ -50,7 +50,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash' // Import lodash for deep cloning
 import { useEntityQueries } from '@/queries/entities'
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { categoryOptions } from '@/config/prompts/prompts'
 
 export default {
@@ -68,12 +68,12 @@ export default {
   setup() {
     const { config, requiredFields } = useEntityConfig('promptTemplates')
     const queries = useEntityQueries()
-    const promptStore = usePromptTemplateDetailStore()
+    const { draft } = useVariantEntityDetail('promptTemplates')
     const { mutateAsync: createPromptTemplate } = queries.promptTemplates.useCreate()
     const { data: modelListData } = queries.model.useList()
 
     return {
-      promptStore,
+      draft,
       modelListData,
       requiredFields,
       config,
@@ -125,7 +125,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.promptStore.entity
+      return this.draft
     },
     collectionSystemNames: {
       get() {
@@ -175,7 +175,6 @@ export default {
         return
       }
 
-      this.promptStore.setEntity(this.newRow)
       this.$router.push(`/prompt-templates/${result.id}`)
     },
     validation(row, notify = true) {

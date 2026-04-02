@@ -1,8 +1,8 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { useEvaluationSetDetailStore, useAiAppDetailStore, useApiToolDetailStore, useMcpServerDetailStore, useApiServerDetailStore, useModelConfigDetailStore, useRagDetailStore, useRetrievalDetailStore, usePromptTemplateDetailStore, useProviderDetailStore } from '@/stores/entityDetailStores'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
 import { usePopupStore } from '@/stores/popupStore'
+import { useEditBufferStore } from '@/stores/editBufferStore'
 import { useKnowledgeGraphPageStore } from '@/stores/entityDetailStores'
+import { ROUTE_ENTITY_TO_BUFFER_TYPE } from '@/constants/entityMapping'
 
 // Entity label map for workspace tabs
 const entityLabelMap = {
@@ -602,6 +602,12 @@ const router = createRouter({
   routes,
 })
 
+// Route names that share the same entity and allow internal navigation without dirty-check
+const INTERNAL_NAV_GROUPS = {
+  ai_apps: ['AIAppDetail', 'AIAppTabsDetail'],
+  agents: ['AgentDetail', 'AgentTopicDetail', 'AgentTopicActionDetail'],
+}
+
 router.beforeEach((to, from, next) => {
   const popupStore = usePopupStore()
 
@@ -610,44 +616,31 @@ router.beforeEach((to, from, next) => {
     return next()
   }
 
-  const evalSetStore = useEvaluationSetDetailStore()
-  const aiAppStore = useAiAppDetailStore()
-  const apiToolStore = useApiToolDetailStore()
-  const mcpStore = useMcpServerDetailStore()
-  const apiServerStore = useApiServerDetailStore()
-  const modelConfigStore = useModelConfigDetailStore()
-  const ragStore = useRagDetailStore()
-  const retrievalStore = useRetrievalDetailStore()
-  const promptStore = usePromptTemplateDetailStore()
-  const agentStore = useAgentDetailStore()
-  const providerStore = useProviderDetailStore()
+  const editBuffer = useEditBufferStore()
+  const entityType = from.meta?.entity
 
-  let kgChanged = false
-  try { kgChanged = useKnowledgeGraphPageStore().isRetrievalChanged } catch { /* not initialized */ }
+  // Check if navigating internally within the same entity group (e.g. agent tabs)
+  const navGroup = entityType ? INTERNAL_NAV_GROUPS[entityType] : null
+  if (navGroup && navGroup.includes(from.name) && navGroup.includes(to.name)) {
+    popupStore.setIsNavigationCancelled(false)
+    return next()
+  }
 
-  if (
-    (from.name === 'ModelItems' && modelConfigStore.isChanged) ||
-    (from.name === 'ConfigurationItems' && ragStore.isChanged) ||
-    (from.name === 'RetrievalItems' && retrievalStore.isChanged) ||
-    (from.name === 'EvaluationSetDetails' && evalSetStore.isChanged) ||
-    (from.name === 'PromptTemplatesItem' && promptStore.isChanged) ||
-    ((from.name === 'AIAppDetail' || from.name === 'AIAppTabsDetail') &&
-      aiAppStore.isChanged &&
-      to.name !== 'AIAppDetail' &&
-      to.name !== 'AIAppTabsDetail') ||
-    (from.name === 'ApiToolsDetails' && apiToolStore.isChanged) ||
-    ((from.name === 'AgentDetail' || from.name === 'AgentTopicDetail' || from.name === 'AgentTopicActionDetail') &&
-      agentStore.isChanged &&
-      to.name !== 'AgentDetail' &&
-      to.name !== 'AgentTopicDetail' &&
-      to.name !== 'AgentTopicActionDetail') ||
-    (from.name === 'McpDetail' && mcpStore.isChanged) ||
-    (from.name === 'ApiServersDetail' && apiServerStore.isChanged) ||
-    (from.name === 'ApiToolsDetails' && apiServerStore.isChanged) ||
-    (from.name === 'ModelProvidersDetails' && providerStore.isChanged) ||
-    (from.name === 'KnowledgeProvidersDetails' && providerStore.isChanged) ||
-    (from.name === 'KnowledgeGraphDetail' && kgChanged)
-  ) {
+  // Check editBuffer for unsaved changes
+  let hasUnsavedChanges = false
+  if (entityType && entityType !== 'knowledge_graph') {
+    const bufferType = ROUTE_ENTITY_TO_BUFFER_TYPE[entityType]
+    if (bufferType) {
+      hasUnsavedChanges = editBuffer.isEntityTypeDirty(bufferType)
+    }
+  }
+
+  // Special case: knowledge_graph uses its own store
+  if (entityType === 'knowledge_graph') {
+    try { hasUnsavedChanges = useKnowledgeGraphPageStore().isRetrievalChanged } catch { /* not initialized */ }
+  }
+
+  if (hasUnsavedChanges) {
     popupStore.setNextRoute(to.fullPath)
     popupStore.showPopup()
     popupStore.setIsNavigationCancelled(true)

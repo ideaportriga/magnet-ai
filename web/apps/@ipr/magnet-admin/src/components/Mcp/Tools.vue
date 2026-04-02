@@ -39,17 +39,13 @@ layouts-details-layout(v-if='tool')
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
-import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn } from '@/utils/columnHelpers'
 
-const mcpStore = useMcpServerDetailStore()
+const { draft } = useEntityDetail('mcp_servers')
 const route = useRoute()
 const router = useRouter()
-const queries = useEntityQueries()
-const { data: mcpServersData } = queries.mcp_servers.useList()
-const mcp_servers = computed(() => mcpServersData.value?.items ?? [])
 
 const tab = ref('parameters')
 const tabs = ref([
@@ -65,12 +61,8 @@ const tabs = ref([
 
 const drawer = ref(null)
 
-const mcp_server = computed(() => {
-  return mcp_servers.value.find((item) => item.id === route.params.id)
-})
-
 const tool = computed(() => {
-  return mcpStore.entity?.tools?.find((t) => t.name === route.params.name)
+  return draft.value?.tools?.find((t) => t.name === route.params.name)
 })
 
 const rows = computed(() => {
@@ -107,14 +99,6 @@ const navigate = (path) => {
 watch(tab, (newVal) => {
   drawer.value?.regulateTabs(newVal)
 })
-watch(
-  () => mcp_server.value,
-  (newVal) => {
-    if (!newVal) return
-    mcpStore.setEntity(newVal)
-  },
-  { immediate: true, deep: true }
-)
 watch(
   () => tool.value,
   (newVal) => {

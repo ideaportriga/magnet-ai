@@ -7,19 +7,19 @@ div
 </template>
 
 <script>
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 export default {
   setup() {
-    const agentStore = useAgentDetailStore()
-    return { agentStore }
+    const { activeVariant, updateVariantField } = useAgentEntityDetail()
+    return { activeVariant, updateVariantField }
   },
   computed: {
     notes: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.notes || ''
+        return this.activeVariant?.value?.settings?.notes || ''
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.notes', value })
+        this.updateVariantField('settings.notes', value)
       },
     },
   },

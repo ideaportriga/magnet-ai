@@ -107,7 +107,7 @@ km-section(title='Chunk limits', subTitle='Configure how chunks of content are r
 import { isEqual, orderBy, pickBy } from 'lodash'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import chromaConfig from '@/config/entityFieldConfig'
 
 export default {
@@ -116,12 +116,13 @@ export default {
 
   setup() {
     const queries = useEntityQueries()
-    const retrievalStore = useRetrievalDetailStore()
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('retrieval')
     const { data: collectionsListData } = queries.collections.useList()
     const { data: modelListData } = queries.model.useList()
 
     return {
-      retrievalStore,
+      activeVariant,
+      updateVariantField,
       collectionsListData,
       modelListData,
       test: ref(true),
@@ -151,72 +152,72 @@ export default {
     },
     allowMetadataFilter: {
       get() {
-        return this.retrievalStore.activeVariant?.retrieve?.allow_metadata_filter || false
+        return this.activeVariant?.retrieve?.allow_metadata_filter || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.allow_metadata_filter', value })
+        this.updateVariantField('retrieve.allow_metadata_filter', value)
       },
     },
     useKeywordSearch: {
       get() {
-        return this.retrievalStore.activeVariant?.retrieve?.use_keyword_search || false
+        return this.activeVariant?.retrieve?.use_keyword_search || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.use_keyword_search', value })
+        this.updateVariantField('retrieve.use_keyword_search', value)
       },
     },
     isReRanking: {
       get() {
-        return this.retrievalStore.activeVariant?.retrieve?.rerank?.enabled || false
+        return this.activeVariant?.retrieve?.rerank?.enabled || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.rerank.enabled', value })
+        this.updateVariantField('retrieve.rerank.enabled', value)
       },
     },
     reRankingModel: {
       get() {
-        return this.retrievalStore.activeVariant?.retrieve?.rerank?.model || ''
+        return this.activeVariant?.retrieve?.rerank?.model || ''
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.rerank.model', value })
+        this.updateVariantField('retrieve.rerank.model', value)
       },
     },
     similarityScoreThreshold: {
       get() {
-        return this.retrievalStore.activeVariant?.retrieve?.similarity_score_threshold
+        return this.activeVariant?.retrieve?.similarity_score_threshold
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.similarity_score_threshold', value })
+        this.updateVariantField('retrieve.similarity_score_threshold', value)
       },
     },
     chunkContextWindowExpansionSize: {
       get() {
-        return this.retrievalStore.activeVariant?.retrieve?.chunk_context_window_expansion_size || ''
+        return this.activeVariant?.retrieve?.chunk_context_window_expansion_size || ''
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.chunk_context_window_expansion_size', value })
+        this.updateVariantField('retrieve.chunk_context_window_expansion_size', value)
       },
     },
     reRankingMaxChankRetrieve: {
       get() {
-        return this.retrievalStore.activeVariant?.retrieve?.rerank?.max_chunks_retrieved || ''
+        return this.activeVariant?.retrieve?.rerank?.max_chunks_retrieved || ''
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.rerank.max_chunks_retrieved', value })
+        this.updateVariantField('retrieve.rerank.max_chunks_retrieved', value)
       },
     },
     maxChunksRetrieved: {
       get() {
-        return this.retrievalStore.activeVariant?.retrieve?.max_chunks_retrieved || ''
+        return this.activeVariant?.retrieve?.max_chunks_retrieved || ''
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.max_chunks_retrieved', value })
+        this.updateVariantField('retrieve.max_chunks_retrieved', value)
       },
     },
     collectionSystemNames: {
       get() {
         return this.collections.filter((el) =>
-          (this.retrievalStore.activeVariant?.retrieve?.collection_system_names || []).includes(el?.system_name)
+          (this.activeVariant?.retrieve?.collection_system_names || []).includes(el?.system_name)
         )
       },
       set(value) {
@@ -227,7 +228,7 @@ export default {
             return el?.system_name
           }
         })
-        this.retrievalStore.updateNestedVariantProperty( { path: 'retrieve.collection_system_names', value })
+        this.updateVariantField('retrieve.collection_system_names', value)
       },
     },
 

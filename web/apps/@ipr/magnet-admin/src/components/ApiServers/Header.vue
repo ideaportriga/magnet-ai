@@ -10,13 +10,13 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useApiServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
-const apiServerStore = useApiServerDetailStore()
+const { draft } = useEntityDetail('api_servers')
 const route = useRoute()
 const router = useRouter()
 
-const server = computed(() => apiServerStore.entity)
+const server = computed(() => draft.value)
 const activeToolName = computed(() => route.params?.name || '')
 const navigateToServer = () => {
   if (server.value?.id) router.push(`/api-servers/${server.value.id}`)

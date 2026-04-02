@@ -15,7 +15,6 @@
 
 <script setup>
 import { ref, computed, onMounted, markRaw } from 'vue'
-import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
@@ -23,19 +22,11 @@ import TextWrap from '@/config/evaluation_jobs/component/TextWrap.vue'
 
 const emit = defineEmits(['openTest'])
 
-const evalSetStore = useEvaluationSetDetailStore()
 const evalStore = useEvaluationStore()
 
 const selectedRow = computed(() => evalStore.evaluationJobRecord)
 
-const evaluationSetItems = computed({
-  get() {
-    return evalStore.evaluation?.results || []
-  },
-  set(value) {
-    evalSetStore.updateProperty({ key: 'items', value })
-  },
-})
+const evaluationSetItems = computed(() => evalStore.evaluation?.results || [])
 
 const data = computed(() => evaluationSetItems.value)
 

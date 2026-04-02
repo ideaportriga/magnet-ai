@@ -200,7 +200,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
 import { defineComponent, ref } from 'vue'
 import { copyToClipboard } from 'quasar'
 import { useAppStore } from '@/stores/appStore'
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useSpecificationsStore } from '@/stores/specificationsStore'
 import { fetchData } from '@shared'
 import { useScribe } from '@/composables/useScribe'
@@ -211,7 +211,7 @@ export default defineComponent({
   props: ['open'],
   emits: ['update:open'],
   setup() {
-    const promptStore = usePromptTemplateDetailStore()
+    const { draft, activeVariant, testSetItem } = useVariantEntityDetail('promptTemplates')
     const appStore = useAppStore()
     const specsStore = useSpecificationsStore()
     const scribe = useScribe({ modelId: 'scribe_v2_realtime' })
@@ -226,7 +226,9 @@ export default defineComponent({
     const md = new MarkdownIt({ html: false, breaks: true })
 
     return {
-      promptStore,
+      draft,
+      activeVariant,
+      testSetItem,
       appStore,
       specsStore,
       scribe,
@@ -253,16 +255,16 @@ export default defineComponent({
   },
   computed: {
     selectedRow() {
-      return this.promptStore.entity
+      return this.draft
     },
     selectedRowDetails() {
-      return { name: this.promptStore.entity?.name, ...this.promptStore.activeVariant }
+      return { name: this.draft?.name, ...this.activeVariant }
     },
     promptSystemName() {
       return this.selectedRow?.system_name
     },
     promptTemplateTestSetItem() {
-      return this.promptStore.testSetItem
+      return this.testSetItem
     },
     inputOptions() {
       return [

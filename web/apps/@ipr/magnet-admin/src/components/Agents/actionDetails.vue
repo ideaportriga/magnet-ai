@@ -48,7 +48,7 @@
 import { ref, computed, onActivated } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -60,9 +60,11 @@ export default {
     const { data: listData } = queries.agents.useList()
     const visibleRows = computed(() => listData.value?.items ?? [])
     const { data: selectedRow } = queries.agents.useDetail(id)
-    const agentStore = useAgentDetailStore()
+    const { draft, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
-      agentStore,
+      draft,
+      activeVariant,
+      updateNestedListItemBySystemName,
       tab: ref('general-settings'),
       activeAgentDetail: ref({}),
       visibleRows,
@@ -81,7 +83,7 @@ export default {
       return this.$route.params
     },
     topic() {
-      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     action() {
       return this.topic?.actions?.find((action) => action?.system_name == this.routeParams?.actionId)
@@ -90,17 +92,17 @@ export default {
       return this.topic?.name
     },
     agentName() {
-      return this.agentStore.entity?.name
+      return this.draft?.name
     },
     agentId() {
-      return this.agentStore.entity?.id
+      return this.draft?.id
     },
     name: {
       get() {
         return this.action?.name || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -116,7 +118,7 @@ export default {
         return this.action?.description || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -132,7 +134,7 @@ export default {
         return this.action?.system_name || ''
       },
       set(value) {
-        this.agentStore.updateNestedListItemBySystemName({
+        this.updateNestedListItemBySystemName({
           arrayPath: 'topics',
           itemSystemName: this.topic?.system_name,
           subArrayKey: 'actions',
@@ -153,24 +155,10 @@ export default {
       return this.items?.map((item) => item.name)
     },
     loading() {
-      return !this.agentStore.entity?.id
+      return !this.draft?.id
     },
   },
 
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.agentStore.setEntity(newVal)
-        this.tab = 'general-settings'
-      }
-    },
-  },
-  mounted() {
-    if (this.activeAgentDetailId != this.agentId) {
-      this.agentStore.setEntity(this.selectedRow)
-      this.tab = 'general-settings'
-    }
-  },
   methods: {
     navigate(path = '') {
       if (this.$route.path !== `/${path}`) {

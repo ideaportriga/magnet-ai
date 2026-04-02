@@ -85,7 +85,7 @@ import { useEntityConfig } from '@/composables/useEntityConfig'
 import { useEntityQueries } from '@/queries/entities'
 import { getEntityApis } from '@/api'
 import { categoryOptions } from '../../config/model/model.js'
-import { useProviderDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   props: {
@@ -98,11 +98,11 @@ export default {
   setup() {
     const { config, requiredFields } = useEntityConfig('model')
     const queries = useEntityQueries()
-    const providerStore = useProviderDetailStore()
+    const { draft: providerDraft } = useEntityDetail('provider')
     const { mutateAsync: createModelMutation } = queries.model.useCreate()
 
     return {
-      providerStore,
+      providerDraft,
       config,
       createModelMutation,
       requiredFields,
@@ -139,7 +139,7 @@ export default {
   },
   computed: {
     provider() {
-      return this.providerStore.entity
+      return this.providerDraft
     },
     cancelLabel() {
       return 'Cancel'

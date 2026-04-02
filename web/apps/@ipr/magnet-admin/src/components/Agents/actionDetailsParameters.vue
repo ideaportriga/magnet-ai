@@ -9,7 +9,7 @@
 import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn } from '@/utils/columnHelpers'
 
@@ -31,12 +31,12 @@ const queries = useEntityQueries()
 const { data: apiServersData } = queries.api_servers.useList()
 const apiServers = computed(() => apiServersData.value?.items ?? [])
 
-const agentStore = useAgentDetailStore()
+const { activeVariant } = useAgentEntityDetail()
 
 const routeParams = computed(() => route.params)
 
 const topic = computed(() => {
-  return (agentStore.activeVariant?.value?.topics || [])?.find(
+  return (activeVariant.value?.value?.topics || [])?.find(
     (topic) => topic?.system_name === routeParams.value?.topicId
   )
 })

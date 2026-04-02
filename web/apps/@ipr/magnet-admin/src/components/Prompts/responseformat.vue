@@ -41,17 +41,19 @@ div
 <script>
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   setup() {
     const queries = useEntityQueries()
-    const promptStore = usePromptTemplateDetailStore()
+    const { draft, activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
     const { data: modelListData } = queries.model.useList()
     const modelItems = computed(() => modelListData.value?.items ?? [])
 
     return {
-      promptStore,
+      draft,
+      activeVariant,
+      updateVariantField,
       modelItems,
     }
   },
@@ -60,42 +62,42 @@ export default {
       return (this.modelItems || []).filter((el) => el.type === 'prompts')
     },
     currentModelObject() {
-      return (this.modelOptions ?? []).find((el) => el.system_name === this.promptStore.activeVariant?.system_name_for_model)
+      return (this.modelOptions ?? []).find((el) => el.system_name === this.activeVariant?.system_name_for_model)
     },
     responseWithJSON: {
       get() {
         return (
-          this.promptStore.activeVariant?.response_format?.type == 'json_object' ||
-          this.promptStore.activeVariant?.response_format?.type == 'json_schema'
+          this.activeVariant?.response_format?.type == 'json_object' ||
+          this.activeVariant?.response_format?.type == 'json_schema'
         )
       },
       set(value) {
         if (value) {
-          this.promptStore.updateNestedVariantProperty({ path: 'response_format.type', value: 'json_object' })
+          this.updateVariantField('response_format.type', 'json_object')
         } else {
-          this.promptStore.updateNestedVariantProperty({ path: 'response_format.type', value: 'text' })
-          this.promptStore.updateNestedVariantProperty({ path: 'response_format.json_schema', value: null })
+          this.updateVariantField('response_format.type', 'text')
+          this.updateVariantField('response_format.json_schema', null)
         }
       },
     },
     isMatchSchema: {
       get() {
-        return this.promptStore.activeVariant?.response_format?.type == 'json_schema'
+        return this.activeVariant?.response_format?.type == 'json_schema'
       },
       set(value) {
         if (value) {
-          this.promptStore.updateNestedVariantProperty({ path: 'response_format.type', value: 'json_schema' })
+          this.updateVariantField('response_format.type', 'json_schema')
         } else {
-          this.promptStore.updateNestedVariantProperty({ path: 'response_format.type', value: 'json_object' })
+          this.updateVariantField('response_format.type', 'json_object')
         }
       },
     },
     schemaName: {
       get() {
-        return 'NAME_' + this.promptStore.entity?.system_name || 'NAME'
+        return 'NAME_' + this.draft?.system_name || 'NAME'
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({ path: 'response_format.json_schema.name', value })
+        this.updateVariantField('response_format.json_schema.name', value)
       },
     },
     modelName() {
@@ -104,14 +106,11 @@ export default {
 
     matchSchema: {
       get() {
-        return this.promptStore.activeVariant?.response_format?.json_schema?.schema || ''
+        return this.activeVariant?.response_format?.json_schema?.schema || ''
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({
-          path: 'response_format.json_schema',
-          value: { strict: true, schema: {}, name: this.schemaName },
-        })
-        this.promptStore.updateNestedVariantProperty({ path: 'response_format.json_schema.schema', value: value })
+        this.updateVariantField('response_format.json_schema', { strict: true, schema: {}, name: this.schemaName })
+        this.updateVariantField('response_format.json_schema.schema', value)
       },
     },
   },

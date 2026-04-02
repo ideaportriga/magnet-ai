@@ -65,18 +65,20 @@ km-drawer-layout(storageKey="drawer-configuration", noScroll)
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import useState from '@shared/composables/useState'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 
 export default {
   props: ['open'],
   setup() {
-    const ragStore = useRagDetailStore()
+    const { draft, activeVariant, testSetItem } = useVariantEntityDetail('rag_tools')
     const searchStore = useSearchStore()
     const { answers, answersLoading: loading, metadataFilter } = storeToRefs(searchStore)
     const sharedPrompt = useState('searchPrompt')
     return {
-      ragStore,
+      draft,
+      activeVariant,
+      testSetItem,
       searchStore,
       loading,
       answers,
@@ -93,7 +95,7 @@ export default {
   },
   computed: {
     ragId() {
-      return this.ragStore.entity?.id || ''
+      return this.draft?.id || ''
     },
     isShowHints() {
       return (
@@ -106,22 +108,22 @@ export default {
       )
     },
     sampleQuestion() {
-      return this.ragStore.activeVariant?.ui_settings?.sample_questions?.questions
+      return this.activeVariant?.ui_settings?.sample_questions?.questions
     },
     uiSettings() {
-      return this.ragStore.activeVariant?.ui_settings
+      return this.activeVariant?.ui_settings
     },
     ragSystemName() {
-      return this.ragStore.entity.system_name
+      return this.draft?.system_name
     },
     ragTestSetItem() {
-      return this.ragStore.testSetItem
+      return this.testSetItem
     },
     allowMetadataFilter() {
-      return this.ragStore.activeVariant?.retrieve?.allow_metadata_filter || false
+      return this.activeVariant?.retrieve?.allow_metadata_filter || false
     },
     collectionSystemNames() {
-      return this.ragStore.activeVariant?.retrieve?.collection_system_names || []
+      return this.activeVariant?.retrieve?.collection_system_names || []
     },
   },
   watch: {
@@ -164,10 +166,9 @@ export default {
       this.showChunkInfo = true
     },
     async handleSearchRag() {
-      const variant = this.ragStore.activeVariant
-      const rag = this.ragStore.entity
+      const variant = this.activeVariant
+      const rag = this.draft
       if (variant && rag) {
-        // Sync prompt from shared UI state to searchStore before calling API
         this.searchStore.searchPrompt = this.sharedPrompt || ''
         await this.searchStore.getAnswerRag(variant, rag)
       }

@@ -1,20 +1,20 @@
 <template lang="pug">
 test-sets-table(
   v-model:selectedTestSet='sampleTestSet',
-  :activeRowInput='ragStore.testSetItem?.user_input',
-  @selectRecord='ragStore.testSetItem = $event'
+  :activeRowInput='testSetItem?.user_input',
+  @selectRecord='testSetItem = $event'
 )
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import TestSetsTable from '@/components/shared/TestSetsTable.vue'
 
-const ragStore = useRagDetailStore()
+const { activeVariant, updateVariantField, testSetItem } = useVariantEntityDetail('rag_tools')
 
 const sampleTestSet = computed({
-  get: () => ragStore.activeVariant?.sample_test_set || '',
-  set: (value) => ragStore.updateNestedVariantProperty({ path: 'sample_test_set', value }),
+  get: () => activeVariant.value?.sample_test_set || '',
+  set: (value) => updateVariantField('sample_test_set', value),
 })
 </script>

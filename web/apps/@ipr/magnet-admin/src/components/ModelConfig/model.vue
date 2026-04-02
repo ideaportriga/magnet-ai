@@ -55,19 +55,20 @@ div
 <script>
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useModelConfigDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
   props: [],
   emits: [],
 
   setup() {
     const queries = useEntityQueries()
-    const modelConfigStore = useModelConfigDetailStore()
+    const { draft, updateField } = useEntityDetail('model')
     const { data: providerData } = queries.provider.useList()
     const providerItems = computed(() => providerData.value?.items ?? [])
 
     return {
-      modelConfigStore,
+      draft,
+      updateField,
       providerItems,
       priceUnitOptions: ref([
         { label: 'Tokens', value: 'tokens' },
@@ -79,146 +80,146 @@ export default {
   computed: {
     provider: {
       get() {
-        return this.modelConfigStore.entity?.provider || ''
+        return this.draft?.provider || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'provider', value })
+        this.updateField('provider', value)
       },
     },
     model: {
       get() {
-        return this.modelConfigStore.entity?.ai_model || ''
+        return this.draft?.ai_model || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'ai_model', value })
+        this.updateField('ai_model', value)
       },
     },
     json_mode: {
       get() {
-        return this.modelConfigStore.entity?.json_mode || false
+        return this.draft?.json_mode || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'json_mode', value })
+        this.updateField('json_mode', value)
       },
     },
     json_schema: {
       get() {
-        return this.modelConfigStore.entity?.json_schema || false
+        return this.draft?.json_schema || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'json_schema', value })
+        this.updateField('json_schema', value)
       },
     },
     tool_calling: {
       get() {
-        return this.modelConfigStore.entity?.tool_calling || false
+        return this.draft?.tool_calling || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'tool_calling', value })
+        this.updateField('tool_calling', value)
       },
     },
     reasoning: {
       get() {
-        return this.modelConfigStore.entity?.reasoning || false
+        return this.draft?.reasoning || false
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'reasoning', value })
+        this.updateField('reasoning', value)
       },
     },
     price_input_unit_name: {
       get() {
-        return this.modelConfigStore.entity?.price_input_unit_name || ''
+        return this.draft?.price_input_unit_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_input_unit_name', value })
+        this.updateField('price_input_unit_name', value)
       },
     },
     price_standard_input: {
       get() {
-        return this.modelConfigStore.entity?.price_input || ''
+        return this.draft?.price_input || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_input', value: parseFloat(value) })
+        this.updateField('price_input', parseFloat(value))
       },
     },
     price_standard_input_unit_count: {
       get() {
-        return this.modelConfigStore.entity?.price_standard_input_unit_count || ''
+        return this.draft?.price_standard_input_unit_count || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_standard_input_unit_count', value: parseFloat(value) })
+        this.updateField('price_standard_input_unit_count', parseFloat(value))
       },
     },
     price_cached_input: {
       get() {
-        return this.modelConfigStore.entity?.price_cached || ''
+        return this.draft?.price_cached || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_cached', value: parseFloat(value) })
+        this.updateField('price_cached', parseFloat(value))
       },
     },
     price_cached_input_unit_count: {
       get() {
-        return this.modelConfigStore.entity?.price_cached_input_unit_count || ''
+        return this.draft?.price_cached_input_unit_count || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_cached_input_unit_count', value: parseFloat(value) })
+        this.updateField('price_cached_input_unit_count', parseFloat(value))
       },
     },
     price_output_unit_name: {
       get() {
-        return this.modelConfigStore.entity?.price_output_unit_name || ''
+        return this.draft?.price_output_unit_name || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_output_unit_name', value })
+        this.updateField('price_output_unit_name', value)
       },
     },
     price_standard_output: {
       get() {
-        return this.modelConfigStore.entity?.price_output || ''
+        return this.draft?.price_output || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_output', value: parseFloat(value) })
+        this.updateField('price_output', parseFloat(value))
       },
     },
     price_standard_output_unit_count: {
       get() {
-        return this.modelConfigStore.entity?.price_standard_output_unit_count || ''
+        return this.draft?.price_standard_output_unit_count || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_standard_output_unit_count', value: parseFloat(value) })
+        this.updateField('price_standard_output_unit_count', parseFloat(value))
       },
     },
     price_reasoning_output: {
       get() {
-        return this.modelConfigStore.entity?.price_reasoning || ''
+        return this.draft?.price_reasoning || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_reasoning', value: parseFloat(value) })
+        this.updateField('price_reasoning', parseFloat(value))
       },
     },
     price_reasoning_output_unit_count: {
       get() {
-        return this.modelConfigStore.entity?.price_reasoning_output_unit_count || ''
+        return this.draft?.price_reasoning_output_unit_count || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'price_reasoning_output_unit_count', value: parseFloat(value) })
+        this.updateField('price_reasoning_output_unit_count', parseFloat(value))
       },
     },
     resources: {
       get() {
-        return this.modelConfigStore.entity?.resources || ''
+        return this.draft?.resources || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'resources', value })
+        this.updateField('resources', value)
       },
     },
     type: {
       get() {
-        return this.modelConfigStore.entity?.type || ''
+        return this.draft?.type || ''
       },
       set(value) {
-        this.modelConfigStore.updateProperty({ key: 'type', value })
+        this.updateField('type', value)
       },
     },
   },

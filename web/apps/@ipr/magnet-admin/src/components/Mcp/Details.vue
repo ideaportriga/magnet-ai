@@ -1,6 +1,6 @@
 <template lang="pug">
-km-inner-loading(:showing='!mcp_server')
-layouts-details-layout(v-if='mcp_server')
+km-inner-loading(:showing='!draft')
+layouts-details-layout(v-if='draft')
   template(#header)
     .col
       .row.items-center
@@ -32,8 +32,8 @@ layouts-details-layout(v-if='mcp_server')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='mcpStore.revert()', v-if='mcpStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !mcpStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
     km-btn(label='Save & Sync Tools', flat, icon='fas fa-sync', iconSize='16px', @click='saveAndSync', :loading='syncing', :disable='syncing')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
@@ -73,16 +73,16 @@ layouts-details-layout(v-if='mcp_server')
 </template>
 
 <script setup>
-import { ref, computed, watch, onActivated } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useEntityQueries } from '@/queries/entities'
-import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 const route = useRoute()
 const router = useRouter()
 const q = useQuasar()
-const mcpStore = useMcpServerDetailStore()
+const { draft, isDirty, updateField, save, revert, remove } = useEntityDetail('mcp_servers')
 const queries = useEntityQueries()
 
 const showInfo = ref(false)
@@ -96,52 +96,44 @@ const tabs = ref([
   { name: 'settings', label: 'Settings' },
 ])
 
-const id = ref(route.params.id)
-const { data: mcp_server } = queries.mcp_servers.useDetail(id)
-const { mutateAsync: updateEntity } = queries.mcp_servers.useUpdate()
-const { mutateAsync: createEntity } = queries.mcp_servers.useCreate()
-const removeMutation = queries.mcp_servers.useRemove()
 const { mutateAsync: syncMcpServer } = queries.mcp_servers.useSync()
 
 const name = computed({
   get() {
-    return mcpStore.entity?.name
+    return draft.value?.name
   },
   set(value) {
-    mcpStore.updateProperty({ key: 'name', value })
+    updateField('name', value)
   },
 })
 const system_name = computed({
   get() {
-    return mcpStore.entity?.system_name
+    return draft.value?.system_name
   },
   set(value) {
-    mcpStore.updateProperty({ key: 'system_name', value })
+    updateField('system_name', value)
   },
 })
 
-const entity = computed(() => mcpStore.entity)
-const created_at = computed(() => entity.value?.created_at ? formatDate(entity.value.created_at) : '')
-const modified_at = computed(() => entity.value?.updated_at ? formatDate(entity.value.updated_at) : '')
-const created_by = computed(() => entity.value?.created_by || 'Unknown')
-const updated_by = computed(() => entity.value?.updated_by || 'Unknown')
+const created_at = computed(() => draft.value?.created_at ? formatDate(draft.value.created_at) : '')
+const modified_at = computed(() => draft.value?.updated_at ? formatDate(draft.value.updated_at) : '')
+const created_by = computed(() => draft.value?.created_by || 'Unknown')
+const updated_by = computed(() => draft.value?.updated_by || 'Unknown')
 
 function formatDate(date) {
   const d = new Date(date)
   return `${d.toLocaleDateString()} ${d.toLocaleTimeString()}`
 }
 
-async function save() {
+async function handleSave() {
   saving.value = true
   try {
-    if (entity.value?.created_at) {
-      const data = mcpStore.buildPayload()
-      await updateEntity({ id: entity.value.id, data })
-    } else {
-      await createEntity(entity.value)
+    const result = await save()
+    if (result.success) {
+      q.notify({ position: 'top', color: 'positive', message: 'Saved successfully', timeout: 2000 })
+    } else if (result.error) {
+      throw result.error
     }
-    mcpStore.setInit()
-    q.notify({ position: 'top', color: 'positive', message: 'Saved successfully', timeout: 2000 })
   } catch (error) {
     q.notify({ position: 'top', color: 'negative', message: error.message || 'Failed to save', timeout: 3000 })
   } finally {
@@ -152,16 +144,9 @@ async function save() {
 async function saveAndSync() {
   syncing.value = true
   try {
-    const mcpServer = entity.value
-    const data = { ...mcpServer }
-    delete data.id
-    delete data.created_at
-    delete data.updated_at
-    delete data.created_by
-    delete data.updated_by
-    await updateEntity({ id: mcpServer.id, data })
-    mcpStore.setInit()
-    await syncMcpServer(mcpServer.id)
+    const result = await save()
+    if (!result.success) throw result.error || new Error('Failed to save')
+    await syncMcpServer(draft.value.id)
     q.notify({ position: 'top', color: 'positive', message: 'Saved and synced successfully', timeout: 2000 })
   } catch (error) {
     q.notify({ position: 'top', color: 'negative', message: error.message || 'Failed to save and sync', timeout: 3000 })
@@ -171,28 +156,10 @@ async function saveAndSync() {
 }
 
 async function confirmDelete() {
-  await removeMutation.mutateAsync(route.params.id)
+  await remove()
   q.notify({ position: 'top', message: 'MCP Server has been deleted.', color: 'positive', textColor: 'black', timeout: 1000 })
   router.push('/mcp')
 }
-
-watch(
-  () => mcp_server.value,
-  (newVal) => {
-    if (!newVal) return
-    mcpStore.setEntity(newVal)
-  },
-  { immediate: true, deep: true }
-)
-
-onActivated(() => {
-  id.value = route.params.id
-  // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-  const currentData = mcp_server.value
-  if (currentData && currentData.id !== mcpStore.entity?.id) {
-    mcpStore.setEntity(currentData)
-  }
-})
 </script>
 
 <style lang="stylus"></style>

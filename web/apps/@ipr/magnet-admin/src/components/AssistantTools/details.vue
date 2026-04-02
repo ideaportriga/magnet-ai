@@ -32,8 +32,8 @@ layouts-details-layout(v-if='!loading')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='assistToolStore.revert()', v-if='assistToolStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !assistToolStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -73,23 +73,16 @@ assistant-tools-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog',
 
 <script>
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { validSystemName } from '@shared/utils/validationRules'
-import { useAssistantToolDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
-    const route = useRoute()
     const queries = useEntityQueries()
-    const assistToolStore = useAssistantToolDetailStore()
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.assistant_tools.useDetail(id)
+    const { draft, isDirty, updateField, save, revert, remove } = useEntityDetail('assistant_tools')
     const { data: listData } = queries.assistant_tools.useList()
-    const { mutateAsync: updateEntity } = queries.assistant_tools.useUpdate()
-    const { mutateAsync: createEntity } = queries.assistant_tools.useCreate()
-    const { mutateAsync: removeEntity } = queries.assistant_tools.useRemove()
     const items = computed(() => listData.value?.items ?? [])
 
     return {
@@ -102,46 +95,46 @@ export default {
       prompt: ref(null),
       openTest: ref(true),
       showInfo: ref(false),
-      id,
-      selectedRow,
       items,
-      updateEntity,
-      createEntity,
-      removeEntity,
       validSystemName,
-      assistToolStore,
+      draft,
+      isDirty,
+      updateField,
+      save,
+      revert,
+      remove,
     }
   },
   computed: {
     type() {
-      return this.assistToolStore.entity?.type || ''
+      return this.draft?.type || ''
     },
     name: {
       get() {
-        return this.assistToolStore.entity?.name || ''
+        return this.draft?.name || ''
       },
       set(value) {
-        this.assistToolStore.updateProperty({ key: 'name', value })
+        this.updateField('name', value)
       },
     },
     description: {
       get() {
-        return this.assistToolStore.entity?.description || ''
+        return this.draft?.description || ''
       },
       set(value) {
-        this.assistToolStore.updateProperty({ key: 'description', value })
+        this.updateField('description', value)
       },
     },
     system_name: {
       get() {
-        return this.assistToolStore.entity?.system_name || ''
+        return this.draft?.system_name || ''
       },
       set(value) {
-        this.assistToolStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     currentAssistantTool() {
-      return this.assistToolStore.entity
+      return this.draft
     },
     activeAssistantToolId() {
       return this.$route.params.id
@@ -156,7 +149,7 @@ export default {
       return this.items?.map((item) => item.name)
     },
     loading() {
-      return !this.assistToolStore.entity?.id
+      return !this.draft?.id
     },
     created_at() {
       if (!this.activeAssistantToolDB?.created_at) return ''
@@ -176,27 +169,6 @@ export default {
     },
   },
 
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.assistToolStore.setEntity(newVal)
-        this.tab = 'general'
-      }
-    },
-  },
-  mounted() {
-    if (this.activeAssistantToolId != this.assistToolStore.entity?.id) {
-      this.assistToolStore.setEntity(this.selectedRow)
-      this.tab = 'general'
-    }
-  },
-  activated() {
-    this.id = this.$route.params.id
-    // Re-sync Pinia state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.activeAssistantToolId != this.assistToolStore.entity?.id) {
-      this.assistToolStore.setEntity(this.selectedRow)
-    }
-  },
   methods: {
     navigate(path = '') {
       if (this.$route.path !== `/${path}`) {
@@ -204,7 +176,7 @@ export default {
       }
     },
     async confirmDelete() {
-      await this.removeEntity(this.$route.params.id)
+      await this.remove()
       this.$emit('update:closeDrawer', null)
       this.$q.notify({
         color: 'green-9', textColor: 'white',
@@ -215,7 +187,7 @@ export default {
       })
       this.navigate('/assistant-tools')
     },
-    async save() {
+    async handleSave() {
       // Validate system_name before saving
       const systemNameValidation = validSystemName()(this.currentAssistantTool?.system_name)
       if (systemNameValidation !== true) {
@@ -231,20 +203,18 @@ export default {
 
       this.saving = true
       try {
-        if (this.currentAssistantTool?.created_at) {
-          const data = this.assistToolStore.buildPayload()
-          await this.updateEntity({ id: this.currentAssistantTool.id, data })
-        } else {
-          await this.createEntity(this.currentAssistantTool)
+        const result = await this.save()
+        if (result.success) {
+          this.$q.notify({
+            color: 'green-9', textColor: 'white',
+            icon: 'check_circle',
+            group: 'success',
+            message: 'Saved successfully',
+            timeout: 2000,
+          })
+        } else if (result.error) {
+          throw result.error
         }
-        this.assistToolStore.setInit()
-        this.$q.notify({
-          color: 'green-9', textColor: 'white',
-          icon: 'check_circle',
-          group: 'success',
-          message: 'Saved successfully',
-          timeout: 2000,
-        })
       } catch (error) {
         this.$q.notify({
           color: 'red-9', textColor: 'white',

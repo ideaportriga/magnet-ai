@@ -54,18 +54,20 @@ km-drawer-layout(storageKey="drawer-retrieval", noScroll)
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import useState from '@shared/composables/useState'
-import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 
 export default {
   props: ['open'],
   setup() {
-    const retrievalStore = useRetrievalDetailStore()
+    const { draft, activeVariant, testSetItem } = useVariantEntityDetail('retrieval')
     const searchStore = useSearchStore()
     const { answers, answersLoading: loading, metadataFilter } = storeToRefs(searchStore)
     const sharedPrompt = useState('searchPrompt')
     return {
-      retrievalStore,
+      draft,
+      activeVariant,
+      testSetItem,
       searchStore,
       loading,
       answers,
@@ -82,7 +84,7 @@ export default {
   },
   computed: {
     retrievalId() {
-      return this.retrievalStore.entity?.id || ''
+      return this.draft?.id || ''
     },
     isShowHints() {
       return (
@@ -95,22 +97,22 @@ export default {
       )
     },
     sampleQuestion() {
-      return this.retrievalStore.activeVariant?.ui_settings?.sample_questions?.questions
+      return this.activeVariant?.ui_settings?.sample_questions?.questions
     },
     uiSettings() {
-      return this.retrievalStore.activeVariant?.ui_settings
+      return this.activeVariant?.ui_settings
     },
     retrievalTestSetItem() {
-      return this.retrievalStore.testSetItem
+      return this.testSetItem
     },
     retrievalCode() {
-      return this.retrievalStore.entity.system_name
+      return this.draft.system_name
     },
     allowMetadataFilter() {
-      return this.retrievalStore.activeVariant?.retrieve?.allow_metadata_filter || false
+      return this.activeVariant?.retrieve?.allow_metadata_filter || false
     },
     collectionSystemNames() {
-      return this.retrievalStore.activeVariant?.retrieve?.collection_system_names || []
+      return this.activeVariant?.retrieve?.collection_system_names || []
     },
   },
   watch: {
@@ -150,8 +152,8 @@ export default {
       this.showChunkInfo = true
     },
     async handleSearchRetrieval() {
-      const variant = this.retrievalStore.activeVariant
-      const entity = this.retrievalStore.entity
+      const variant = this.activeVariant
+      const entity = this.draft
       if (variant && entity) {
         // Sync prompt from shared UI state to searchStore before calling API
         this.searchStore.searchPrompt = this.sharedPrompt || ''

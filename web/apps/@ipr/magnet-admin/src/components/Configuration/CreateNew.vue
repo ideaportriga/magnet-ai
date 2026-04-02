@@ -45,7 +45,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: {
@@ -62,12 +62,12 @@ export default {
   setup() {
     const { config, requiredFields } = useEntityConfig('rag_tools')
     const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
+    const { draft } = useVariantEntityDetail('rag_tools')
     const { mutateAsync: createRagTool } = queries.rag_tools.useCreate()
     const { data: collectionsData } = queries.collections.useList()
 
     return {
-      ragStore,
+      draft,
       config,
       createRagTool,
       createNew: ref(false),
@@ -141,7 +141,7 @@ export default {
       },
     },
     currentRaw() {
-      return this.ragStore.entity
+      return this.draft
     },
     collectionSystemNames: {
       get() {
@@ -190,7 +190,6 @@ export default {
         return
       }
 
-      this.ragStore.setEntity(this.newRow)
       this.$router.push(`/rag-tools/${id}`)
     },
   },

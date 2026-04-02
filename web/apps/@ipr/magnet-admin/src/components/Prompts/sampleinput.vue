@@ -6,20 +6,20 @@ div
 </template>
 
 <script>
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   setup() {
-    const promptStore = usePromptTemplateDetailStore()
-    return { promptStore }
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
+    return { activeVariant, updateVariantField }
   },
   computed: {
     sampleText: {
       get() {
-        return this.promptStore.activeVariant?.sample_text || ''
+        return this.activeVariant?.sample_text || ''
       },
       set(value) {
-        this.promptStore.updateNestedVariantProperty({ path: 'sample_text', value })
+        this.updateVariantField('sample_text', value)
       },
     },
   },

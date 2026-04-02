@@ -62,7 +62,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
 import { ref, computed } from 'vue'
 
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { agentTopicActionsPopupColumns, agentTopicActionsAPIToolsPopupColumns } from '@/config/agents/topics'
 
 export default {
@@ -91,9 +91,11 @@ export default {
     const { data: mcpServersData } = queries.mcp_servers.useList()
     const mcp_servers = computed(() => mcpServersData.value?.items ?? [])
 
-    const agentStore = useAgentDetailStore()
+    const { activeVariant, updateVariantField, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
-      agentStore,
+      activeVariant,
+      updateVariantField,
+      updateNestedListItemBySystemName,
       searchString: ref(''),
       tabs: ref([
         { name: 'api', label: 'API Tools' },
@@ -119,7 +121,7 @@ export default {
       return this.$route.params
     },
     topic() {
-      return (this.agentStore.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
+      return (this.activeVariant?.value?.topics || [])?.find((topic) => topic?.system_name === this.routeParams?.topicId)
     },
     actions() {
       return this.topic?.actions || []
@@ -150,7 +152,7 @@ export default {
         return this.selectionPromptName
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'prompt_templates.classification', value: value.system_name })
+        this.updateVariantField('prompt_templates.classification', value.system_name)
       },
     },
   },
@@ -176,7 +178,7 @@ export default {
         }
       })
 
-      this.agentStore.updateNestedListItemBySystemName({
+      this.updateNestedListItemBySystemName({
         arrayPath: 'topics',
         itemSystemName: this.topic?.system_name,
         data: {

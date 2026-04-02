@@ -45,7 +45,7 @@ km-popup-confirm(
 import { ref, computed } from 'vue'
 import { columnsSettings } from '@/config/evaluation_sets/evaluation_set_records'
 import { uid } from 'quasar'
-import { useEvaluationSetDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {
   props: {
@@ -53,8 +53,8 @@ export default {
   },
   emits: ['cancel', 'addRecord'],
   setup() {
-    const evalSetStore = useEvaluationSetDetailStore()
-    const selectedEvaluationSet = computed(() => evalSetStore.entity)
+    const { draft } = useEntityDetail('evaluation_sets')
+    const selectedEvaluationSet = computed(() => draft.value)
     return {
       createNew: ref(false),
       newRow: ref({

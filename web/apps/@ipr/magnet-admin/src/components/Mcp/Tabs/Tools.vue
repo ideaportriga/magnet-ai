@@ -22,18 +22,17 @@ import { useRouter, useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { nameDescriptionColumn } from '@/utils/columnHelpers'
-import { useMcpServerDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useEntityQueries } from '@/queries/entities'
 
 const router = useRouter()
 const route = useRoute()
-const mcpStore = useMcpServerDetailStore()
+const { draft, save } = useEntityDetail('mcp_servers')
 const q = useQuasar()
 const queries = useEntityQueries()
-const { mutateAsync: updateMcpServer } = queries.mcp_servers.useUpdate()
 const { mutateAsync: syncMcpServer } = queries.mcp_servers.useSync()
 
-const data = computed(() => mcpStore.entity?.tools ?? [])
+const data = computed(() => draft.value?.tools ?? [])
 
 const columns = [
   nameDescriptionColumn('Name'),
@@ -47,16 +46,9 @@ const handleRowClick = (row) => {
 
 const syncTools = async () => {
   try {
-    const mcpServer = mcpStore.entity
-    const data = { ...mcpServer }
-    delete data.id
-    delete data.created_at
-    delete data.updated_at
-    delete data.created_by
-    delete data.updated_by
-    await updateMcpServer({ id: mcpServer.id, data })
-    mcpStore.setInit()
-    await syncMcpServer(mcpServer.id)
+    const result = await save()
+    if (!result.success) throw result.error || new Error('Failed to save')
+    await syncMcpServer(draft.value.id)
     q.notify({
       position: 'top',
       message: 'MCP Tools have been synced.',

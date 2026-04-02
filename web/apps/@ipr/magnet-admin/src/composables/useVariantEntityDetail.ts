@@ -150,5 +150,7 @@ export function useVariantEntityDetail<T extends VariantEntity>(
     remove: base.remove,
     refetch: base.refetch,
     buildPayload: base.buildPayload,
+    // Advanced: direct access for extending composables
+    editBuffer: base.editBuffer,
   }
 }

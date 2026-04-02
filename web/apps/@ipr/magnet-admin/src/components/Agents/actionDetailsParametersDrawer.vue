@@ -8,7 +8,7 @@
 <script setup>
 import { computed, watch } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn } from '@/utils/columnHelpers'
 
@@ -31,19 +31,19 @@ const apiServers = computed(() => apiServersData.value?.items ?? [])
 const { data: mcpData } = queries.mcp_servers.useList()
 const mcpItems = computed(() => mcpData.value?.items ?? [])
 
-const agentStore = useAgentDetailStore()
+const { activeVariant, activeTopic: activeTopicRef } = useAgentEntityDetail()
 
 const activeTopic = computed({
   get() {
-    return agentStore.activeTopic
+    return activeTopicRef.value
   },
   set(value) {
-    agentStore.activeTopic = value
+    activeTopicRef.value = value
   },
 })
 
 const topic = computed(() => {
-  return (agentStore.activeVariant?.value?.topics || [])?.find(
+  return (activeVariant.value?.value?.topics || [])?.find(
     (topic) => topic?.system_name === activeTopic.value?.topic
   )
 })
@@ -63,7 +63,7 @@ const tool_object = computed(() => {
   return server?.tools?.find((item) => item.system_name === action.value?.tool_system_name)
 })
 
-const activeVariant = computed(() => {
+const toolActiveVariant = computed(() => {
   if (action.value?.type === 'mcp_tool') return tool_object.value
   if (action.value?.type === 'api') return tool_object.value
   return tool_object.value?.variants?.find(
@@ -74,7 +74,7 @@ const activeVariant = computed(() => {
 const parameters = computed(() => {
   if (action.value?.type === 'mcp_tool') return tool_object.value?.inputSchema?.properties
   if (action.value?.type === 'api') return tool_object.value?.parameters?.input?.properties
-  return activeVariant.value?.value?.parameters.input.properties
+  return toolActiveVariant.value?.value?.parameters.input.properties
 })
 
 const formatApiRows = (key) => {

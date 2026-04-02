@@ -43,17 +43,17 @@ q-separator.q-my-sm
 <script>
 import { computed, ref } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useApiToolDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
   setup() {
     const queries = useEntityQueries()
-    const apiToolStore = useApiToolDetailStore()
+    const { draft, isDirty, updateField, updateFields, save, revert, refetch } = useEntityDetail('api_tools')
     const { data: listData } = queries.api_tools.useList()
     const { mutateAsync: updateEntity } = queries.api_tools.useUpdate()
     const { mutateAsync: createEntity } = queries.api_tools.useCreate()
     const items = computed(() => listData.value?.items ?? [])
     const selectedVariantName = ref(null)
-    return { items, updateEntity, createEntity, apiToolStore, selectedVariantName }
+    return { items, updateEntity, createEntity, draft, isDirty, updateField, updateFields, save, revert, refetch, selectedVariantName }
   },
   computed: {
     selected_variant: {

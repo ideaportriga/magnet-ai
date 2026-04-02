@@ -25,14 +25,14 @@
 import { fetchData } from '@shared'
 import { ref, h } from 'vue'
 import agentDetailsControls from '@/config/dashboard/agent-details-table'
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 
 export default {
   props: ['selectedRow'],
 
   setup() {
-    const agentStore = useAgentDetailStore()
+    const { draft } = useAgentEntityDetail()
     const detailedList = ref([])
 
     // Details table columns
@@ -82,7 +82,7 @@ export default {
       defaultSort: [{ id: 'start_time', desc: true }],
     })
 
-    return { agentStore, detailedList, detailsTable }
+    return { draft, detailedList, detailsTable }
   },
 
   data() {
@@ -180,7 +180,7 @@ export default {
         limit: props.rowsPerPage,
         sort: props.sortBy,
         order: props.descending ? -1 : 1,
-        filters: { ...this.activeFilters, feature_system_name: { eq: this.agentStore.entity?.system_name } },
+        filters: { ...this.activeFilters, feature_system_name: { eq: this.draft?.system_name } },
         fields: [],
         exclude_fields: [],
         offset: (props.page - 1) * props.rowsPerPage,

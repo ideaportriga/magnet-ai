@@ -124,7 +124,7 @@ km-section(title='Chunk limits', subTitle='Control how many chunks are passed to
 <script>
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: ['prompt', 'selectedRow'],
@@ -132,12 +132,13 @@ export default {
 
   setup() {
     const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('rag_tools')
     const { data: collectionsListData } = queries.collections.useList()
     const { data: modelListData } = queries.model.useList()
 
     return {
-      ragStore,
+      activeVariant,
+      updateVariantField,
       collectionsListData,
       modelListData,
       test: ref(true),
@@ -166,71 +167,71 @@ export default {
     },
     allowMetadataFilter: {
       get() {
-        return this.ragStore.activeVariant?.retrieve?.allow_metadata_filter || false
+        return this.activeVariant?.retrieve?.allow_metadata_filter || false
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.allow_metadata_filter', value })
+        this.updateVariantField('retrieve.allow_metadata_filter', value)
       },
     },
     useKeywordSearch: {
       get() {
-        return this.ragStore.activeVariant?.retrieve?.use_keyword_search || false
+        return this.activeVariant?.retrieve?.use_keyword_search || false
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.use_keyword_search', value })
+        this.updateVariantField('retrieve.use_keyword_search', value)
       },
     },
     isReRanking: {
       get() {
-        return this.ragStore.activeVariant?.retrieve?.rerank?.enabled || false
+        return this.activeVariant?.retrieve?.rerank?.enabled || false
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.rerank.enabled', value })
+        this.updateVariantField('retrieve.rerank.enabled', value)
       },
     },
     reRankingModel: {
       get() {
-        return this.ragStore.activeVariant?.retrieve?.rerank?.model || ''
+        return this.activeVariant?.retrieve?.rerank?.model || ''
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.rerank.model', value })
+        this.updateVariantField('retrieve.rerank.model', value)
       },
     },
     reRankingMaxChankRetrieve: {
       get() {
-        return this.ragStore.activeVariant?.retrieve?.rerank?.max_chunks_retrieved || ''
+        return this.activeVariant?.retrieve?.rerank?.max_chunks_retrieved || ''
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.rerank.max_chunks_retrieved', value })
+        this.updateVariantField('retrieve.rerank.max_chunks_retrieved', value)
       },
     },
     similarityScoreThreshold: {
       get() {
-        return this.ragStore.activeVariant?.retrieve?.similarity_score_threshold
+        return this.activeVariant?.retrieve?.similarity_score_threshold
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.similarity_score_threshold', value })
+        this.updateVariantField('retrieve.similarity_score_threshold', value)
       },
     },
     chunkContextWindowExpansionSize: {
       get() {
-        return this.ragStore.activeVariant?.retrieve?.chunk_context_window_expansion_size || 0
+        return this.activeVariant?.retrieve?.chunk_context_window_expansion_size || 0
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.chunk_context_window_expansion_size', value })
+        this.updateVariantField('retrieve.chunk_context_window_expansion_size', value)
       },
     },
     maxChunksRetrieved: {
       get() {
-        return this.ragStore.activeVariant?.retrieve?.max_chunks_retrieved || ''
+        return this.activeVariant?.retrieve?.max_chunks_retrieved || ''
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.max_chunks_retrieved', value })
+        this.updateVariantField('retrieve.max_chunks_retrieved', value)
       },
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) => (this.ragStore.activeVariant?.retrieve?.collection_system_names || []).includes(el?.system_name))
+        return this.collections.filter((el) => (this.activeVariant?.retrieve?.collection_system_names || []).includes(el?.system_name))
       },
       set(value) {
         value = (value || []).map((el) => {
@@ -240,7 +241,7 @@ export default {
             return el?.system_name
           }
         })
-        this.ragStore.updateNestedVariantProperty({ path: 'retrieve.collection_system_names', value })
+        this.updateVariantField('retrieve.collection_system_names', value)
       },
     },
   },

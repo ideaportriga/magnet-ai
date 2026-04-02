@@ -8,16 +8,13 @@ div(v-if='showAction')
   agents-drawer-action
 </template>
 <script>
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 export default {
   setup() {
-    const agentStore = useAgentDetailStore()
-    return { agentStore }
+    const { activeTopic } = useAgentEntityDetail()
+    return { activeTopic }
   },
   computed: {
-    activeTopic() {
-      return this.agentStore.activeTopic
-    },
     routeName() {
       return this.$route.name
     },

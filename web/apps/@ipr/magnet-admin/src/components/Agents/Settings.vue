@@ -37,7 +37,7 @@ div
 </template>
 
 <script>
-import { useAgentDetailStore } from '@/stores/agentDetailStore'
+import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 const intervals = [
   { label: '1 day', value: '1D' },
@@ -52,84 +52,82 @@ const memoryStrategyOptions = [
 
 export default {
   setup() {
-    const agentStore = useAgentDetailStore()
+    const { draft, activeVariant, updateVariantField } = useAgentEntityDetail()
     return {
-      agentStore,
+      draft,
+      activeVariant,
+      updateVariantField,
       intervals,
       memoryStrategyOptions,
     }
-  },
-  data() {
-    return {}
   },
 
   computed: {
     settingsWelcomeMessage: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.welcome_message || ''
+        return this.activeVariant?.value?.settings?.welcome_message || ''
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.welcome_message', value })
+        this.updateVariantField('settings.welcome_message', value)
       },
     },
     settingsUserFeedback: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.user_feedback || false
+        return this.activeVariant?.value?.settings?.user_feedback || false
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.user_feedback', value })
+        this.updateVariantField('settings.user_feedback', value)
       },
     },
     settingsSampleQuestions: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.sample_questions?.enabled || false
+        return this.activeVariant?.value?.settings?.sample_questions?.enabled || false
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.sample_questions.enabled', value })
+        this.updateVariantField('settings.sample_questions.enabled', value)
       },
     },
     question1: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question1 || ''
+        return this.activeVariant?.value?.settings?.sample_questions?.questions?.question1 || ''
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.sample_questions.questions.question1', value })
+        this.updateVariantField('settings.sample_questions.questions.question1', value)
       },
     },
     question2: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question2 || ''
+        return this.activeVariant?.value?.settings?.sample_questions?.questions?.question2 || ''
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.sample_questions.questions.question2', value })
+        this.updateVariantField('settings.sample_questions.questions.question2', value)
       },
     },
     question3: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.sample_questions?.questions?.question3 || ''
+        return this.activeVariant?.value?.settings?.sample_questions?.questions?.question3 || ''
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.sample_questions.questions.question3', value })
+        this.updateVariantField('settings.sample_questions.questions.question3', value)
       },
     },
     memoryStrategy: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.memory_strategy || 'last_n'
+        return this.activeVariant?.value?.settings?.memory_strategy || 'last_n'
       },
       set(value) {
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.memory_strategy', value })
+        this.updateVariantField('settings.memory_strategy', value)
       },
     },
     memoryLastNMessages: {
       get() {
-        return this.agentStore.activeVariant?.value?.settings?.memory_last_n_messages ?? null
+        return this.activeVariant?.value?.settings?.memory_last_n_messages ?? null
       },
       set(value) {
         const parsed = value === '' || value === null ? null : Number(value)
-        this.agentStore.updateNestedVariantProperty({ path: 'settings.memory_last_n_messages', value: parsed })
+        this.updateVariantField('settings.memory_last_n_messages', parsed)
       },
     },
   },
-  watch: {},
 }
 </script>

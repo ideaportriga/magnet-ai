@@ -28,47 +28,47 @@ div
 </template>
 
 <script>
-import { useRetrievalDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: [],
   emits: [],
 
   setup() {
-    const retrievalStore = useRetrievalDetailStore()
-    return { retrievalStore }
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('retrieval')
+    return { activeVariant, updateVariantField }
   },
   computed: {
     isAllowToBypassCache: {
       get() {
-        return this.retrievalStore.activeVariant?.ui_settings?.offer_to_bypass_cache || false
+        return this.activeVariant?.ui_settings?.offer_to_bypass_cache || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'ui_settings.offer_to_bypass_cache', value })
+        this.updateVariantField('ui_settings.offer_to_bypass_cache', value)
       },
     },
     isUserFeedbackOn: {
       get() {
-        return this.retrievalStore.activeVariant?.ui_settings?.user_fideback || false
+        return this.activeVariant?.ui_settings?.user_fideback || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'ui_settings.user_fideback', value })
+        this.updateVariantField('ui_settings.user_fideback', value)
       },
     },
     headingText: {
       get() {
-        return this.retrievalStore.activeVariant?.ui_settings?.header_configuration?.header || ''
+        return this.activeVariant?.ui_settings?.header_configuration?.header || ''
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'ui_settings.header_configuration.header', value })
+        this.updateVariantField('ui_settings.header_configuration.header', value)
       },
     },
     subHeadingText: {
       get() {
-        return this.retrievalStore.activeVariant?.ui_settings?.header_configuration?.sub_header || ''
+        return this.activeVariant?.ui_settings?.header_configuration?.sub_header || ''
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'ui_settings.header_configuration.sub_header', value })
+        this.updateVariantField('ui_settings.header_configuration.sub_header', value)
       },
     },
     isShowLinkTitlesOn: {
@@ -78,34 +78,34 @@ export default {
     },
     isSampleQestion: {
       get() {
-        return this.retrievalStore.activeVariant?.ui_settings?.sample_questions?.enabled || false
+        return this.activeVariant?.ui_settings?.sample_questions?.enabled || false
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.enabled', value })
+        this.updateVariantField('ui_settings.sample_questions.enabled', value)
       },
     },
     question1: {
       get() {
-        return this.retrievalStore.activeVariant?.ui_settings?.sample_questions?.questions?.question1
+        return this.activeVariant?.ui_settings?.sample_questions?.questions?.question1
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question1', value })
+        this.updateVariantField('ui_settings.sample_questions.questions.question1', value)
       },
     },
     question2: {
       get() {
-        return this.retrievalStore.activeVariant?.ui_settings?.sample_questions?.questions?.question2
+        return this.activeVariant?.ui_settings?.sample_questions?.questions?.question2
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question2', value })
+        this.updateVariantField('ui_settings.sample_questions.questions.question2', value)
       },
     },
     question3: {
       get() {
-        return this.retrievalStore.activeVariant?.ui_settings?.sample_questions?.questions?.question3
+        return this.activeVariant?.ui_settings?.sample_questions?.questions?.question3
       },
       set(value) {
-        this.retrievalStore.updateNestedVariantProperty( { path: 'ui_settings.sample_questions.questions.question3', value })
+        this.updateVariantField('ui_settings.sample_questions.questions.question3', value)
       },
     },
   },

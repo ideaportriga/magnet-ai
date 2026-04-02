@@ -38,8 +38,8 @@ layouts-details-layout(v-if='!loading')
           div
             .text-secondary-text.km-button-xs-text Modified by:
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='promptStore.revert()', v-if='promptStore.isChanged')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !promptStore.isChanged')
+    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='composableRevert()', v-if='isDirty')
+    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
@@ -86,24 +86,28 @@ prompts-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel
 <script>
 import { categoryOptions } from '@/config/prompts/prompts'
 import { useEntityQueries } from '@/queries/entities'
-import { usePromptTemplateDetailStore } from '@/stores/entityDetailStores'
-import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
+import { ref } from 'vue'
 import { validSystemName } from '@shared/utils/validationRules'
 
 export default {
   emits: ['update:closeDrawer'],
   setup() {
-    const route = useRoute()
     const queries = useEntityQueries()
-    const promptStore = usePromptTemplateDetailStore()
-    const id = ref(route.params.id)
-    const { data: selectedRow } = queries.promptTemplates.useDetail(id)
+    const { draft, isLoading, isDirty, updateField, setSelectedVariant,
+            save, revert, remove, refetch, buildPayload } = useVariantEntityDetail('promptTemplates')
     const removeMutation = queries.promptTemplates.useRemove()
-    const { mutateAsync: updateEntity } = queries.promptTemplates.useUpdate()
-    const { mutateAsync: createEntity } = queries.promptTemplates.useCreate()
     return {
-      promptStore,
+      draft,
+      isLoading,
+      isDirty,
+      updateField,
+      setSelectedVariant,
+      composableSave: save,
+      composableRevert: revert,
+      composableRemove: remove,
+      refetch,
+      buildPayload,
       tab: ref('promptTemplate'),
       tabs: ref([
         { name: 'promptTemplate', label: 'Prompt Template' },
@@ -117,11 +121,7 @@ export default {
       saving: ref(false),
       openTest: ref(true),
       showInfo: ref(false),
-      id,
-      selectedRow,
       removeMutation,
-      updateEntity,
-      createEntity,
       categoryOptions,
       validSystemName,
     }
@@ -129,44 +129,44 @@ export default {
   computed: {
     category: {
       get() {
-        return this.promptStore.entity?.category || ''
+        return this.draft?.category || ''
       },
       set(value) {
-        this.promptStore.updateProperty({ key: 'category', value: value.value })
+        this.updateField('category', value.value)
       },
     },
     name: {
       get() {
-        return this.promptStore.entity?.name || ''
+        return this.draft?.name || ''
       },
       set(value) {
-        this.promptStore.updateProperty({ key: 'name', value })
+        this.updateField('name', value)
       },
     },
     description: {
       get() {
-        return this.promptStore.entity?.description || ''
+        return this.draft?.description || ''
       },
       set(value) {
-        this.promptStore.updateProperty({ key: 'description', value })
+        this.updateField('description', value)
       },
     },
     system_name: {
       get() {
-        return this.promptStore.entity?.system_name || ''
+        return this.draft?.system_name || ''
       },
       set(value) {
-        this.promptStore.updateProperty({ key: 'system_name', value })
+        this.updateField('system_name', value)
       },
     },
     activePromptTemplateId() {
       return this.$route.params.id
     },
     loading() {
-      return !this.promptStore.entity?.id
+      return !this.draft?.id
     },
     entity() {
-      return this.promptStore.entity
+      return this.draft
     },
     created_at() {
       return this.entity?.created_at ? this.formatDate(this.entity.created_at) : ''
@@ -182,38 +182,13 @@ export default {
     },
   },
 
-  watch: {
-    selectedRow(newVal, oldVal) {
-      if (newVal?.id !== oldVal?.id) {
-        this.promptStore.setEntity(newVal)
-        this.tab = 'promptTemplate'
-      }
-    },
-  },
   mounted() {
-    const current = this.promptStore.entity
-    const selected = this.selectedRow
-
-    // Update if:
-    // 1. IDs don't match (navigated to different prompt)
-    // 2. IDs match but content updated (e.g. edited in another tab/component)
-    const shouldUpdate =
-      this.activePromptTemplateId != current?.id || (selected?.updated_at && current?.updated_at && selected.updated_at !== current.updated_at)
-
-    if (shouldUpdate) {
-      this.promptStore.setEntity(this.selectedRow)
-      this.tab = 'promptTemplate'
-    }
     if (this.$route.query?.variant) {
-      this.promptStore.setSelectedVariant(this.$route.query?.variant)
+      this.setSelectedVariant(this.$route.query?.variant)
     }
   },
   activated() {
-    this.id = this.$route.params.id
-    // Re-sync store state when KeepAlive reactivates this component (multi-tab support)
-    if (this.selectedRow && this.$route.params.id != this.promptStore.entity?.id) {
-      this.promptStore.setEntity(this.selectedRow)
-    }
+    // refetch handles re-sync on KeepAlive reactivation
   },
   methods: {
     navigate(path = '') {
@@ -229,13 +204,7 @@ export default {
       }
       this.saving = true
       try {
-        if (this.entity?.created_at) {
-          const data = this.promptStore.buildPayload()
-          await this.updateEntity({ id: this.entity.id, data })
-        } else {
-          await this.createEntity(this.entity)
-        }
-        this.promptStore.setInit()
+        await this.composableSave()
         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
       } catch (error) {
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })

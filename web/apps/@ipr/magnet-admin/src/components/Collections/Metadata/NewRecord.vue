@@ -46,11 +46,11 @@
 
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
-import { useCollectionDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useNotify } from '@/composables/useNotify'
 
 // States & Stores
-const collectionStore = useCollectionDetailStore()
+const { draft, updateField } = useEntityDetail('collections')
 
 defineProps<{
   showNewDialog: boolean
@@ -72,7 +72,7 @@ onUnmounted(() => {
 })
 
 const create = () => {
-  const metadataConfig = collectionStore.entity?.metadata_config || []
+  const metadataConfig = [...(draft.value?.metadata_config || [])]
   const newName = (newRecord.value?.name || '').trim()
   const isDuplicate = metadataConfig.some((item) => (item?.name || '').trim() === newName)
   if (isDuplicate) {
@@ -80,7 +80,7 @@ const create = () => {
     return
   }
   metadataConfig.push(newRecord.value)
-  collectionStore.updateProperty({ key: 'metadata_config', value: metadataConfig })
+  updateField('metadata_config', metadataConfig)
   emit('cancel')
 }
 </script>

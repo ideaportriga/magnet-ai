@@ -56,13 +56,13 @@ import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { beforeRouteEnter } from '@/guards'
 import aiAppsControls from '@/config/ai_apps/ai_apps'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   beforeRouteEnter,
   setup() {
     const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
+    const { draft: ragDraft } = useVariantEntityDetail('rag_tools')
     const { data: aiAppsListData, isLoading } = queries.ai_apps.useList()
     const { mutateAsync: createAiApp } = queries.ai_apps.useCreate()
     const { data: collectionsListData } = queries.collections.useList()
@@ -82,7 +82,7 @@ export default {
     })
 
     return {
-      ragStore,
+      ragDraft,
       aiAppsListData,
       loading: isLoading,
       searchString,
@@ -136,7 +136,7 @@ export default {
       }))
     },
     currentRag() {
-      return this.ragStore.entity
+      return this.ragDraft
     },
     collectionSystemNames: {
       get() {

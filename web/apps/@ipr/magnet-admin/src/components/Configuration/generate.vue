@@ -27,16 +27,17 @@ div
 
 <script>
 import { useEntityQueries } from '@/queries/entities'
-import { useRagDetailStore } from '@/stores/entityDetailStores'
+import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   emits: ['openTest'],
   setup() {
     const queries = useEntityQueries()
-    const ragStore = useRagDetailStore()
+    const { activeVariant, updateVariantField } = useVariantEntityDetail('rag_tools')
     const { data: promptTemplateListData } = queries.promptTemplates.useList()
     return {
-      ragStore,
+      activeVariant,
+      updateVariantField,
       promptTemplateListData,
     }
   },
@@ -58,10 +59,10 @@ export default {
     },
     generatePromptTemplate: {
       get() {
-        return this.ragStore.activeVariant?.generate?.prompt_template
+        return this.activeVariant?.generate?.prompt_template
       },
       set(value) {
-        this.ragStore.updateNestedVariantProperty({ path: 'generate.prompt_template', value })
+        this.updateVariantField('generate.prompt_template', value)
       },
     },
   },

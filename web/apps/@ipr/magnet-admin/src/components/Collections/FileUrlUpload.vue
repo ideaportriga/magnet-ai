@@ -89,256 +89,265 @@ div
       | Files will be uploaded after saving the knowledge source
 </template>
 
-<script>
+<script setup>
+import { ref, computed, watch, useTemplateRef, inject } from 'vue'
+import { useQuasar } from 'quasar'
 import { fetchData } from '@shared'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useCollectionDetailStore } from '@/stores/entityDetailStores'
 
-export default {
-  name: 'FileUrlUpload',
-  props: {
-    modelValue: {
-      type: Array,
-      default: () => [],
-    },
-    readonly: {
-      type: Boolean,
-      default: false,
-    },
-    disable: {
-      type: Boolean,
-      default: false,
-    },
+const props = defineProps({
+  modelValue: {
+    type: Array,
+    default: () => [],
   },
-  emits: ['update:modelValue'],
-  setup() {
-    const collectionStore = useCollectionDetailStore()
-    return { collectionStore }
+  readonly: {
+    type: Boolean,
+    default: false,
   },
-  data() {
-    return {
-      urlInput: '',
-      pendingFiles: [],
-      uploading: false,
-      dragOver: false,
-      acceptedExtensions:
-        '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.epub,.csv,.html,.htm,.xml,.txt,.md,.json,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff,.eml,.msg',
+  disable: {
+    type: Boolean,
+    default: false,
+  },
+})
+const emit = defineEmits(['update:modelValue'])
+
+const q = useQuasar()
+const { draft, updateField } = useEntityDetail('collections')
+// Fallback to Pinia store for CreateNew context (no route ID, so draft is undefined)
+const collectionStore = useCollectionDetailStore()
+const appConfig = inject('appConfig', {})
+const fileInputRef = useTemplateRef('fileInput')
+
+const urlInput = ref('')
+const pendingFiles = ref([])
+const uploading = ref(false)
+const dragOver = ref(false)
+const acceptedExtensions =
+  '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.epub,.csv,.html,.htm,.xml,.txt,.md,.json,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff,.eml,.msg'
+
+const urlModel = computed({
+  get() { return props.modelValue || [] },
+  set(val) { emit('update:modelValue', val) },
+})
+
+// Use editBuffer draft when available (detail page), fall back to Pinia store (CreateNew)
+const collectionId = computed(() => draft.value?.id || collectionStore.entity?.id || '')
+const uploadedFiles = computed(() => draft.value?.source?.uploaded_files || collectionStore.entity?.source?.uploaded_files || [])
+const endpoint = computed(() => appConfig?.api?.aiBridge?.urlAdmin)
+const allowedExtSet = computed(() => new Set(acceptedExtensions.split(',')))
+
+const urlError = computed(() => {
+  if (!urlInput.value) return ''
+  try {
+    const url = new URL(urlInput.value)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'Only http/https URLs are allowed'
+    return ''
+  } catch {
+    return 'Invalid URL'
+  }
+})
+
+const allItems = computed(() => {
+  const urls = urlModel.value.map((url, i) => ({
+    key: `url-${i}`,
+    type: 'url',
+    label: url,
+    uploaded: false,
+  }))
+  const pending = pendingFiles.value.map((file, i) => ({
+    key: `pending-${i}`,
+    type: 'file',
+    label: file.name,
+    size: file.size,
+    uploaded: false,
+    _file: file,
+    _pendingIndex: i,
+  }))
+  const uploaded = uploadedFiles.value.map((file, i) => ({
+    key: `uploaded-${i}`,
+    type: 'file',
+    label: file.filename,
+    uploaded: true,
+    _uploadedIndex: i,
+    _data: file,
+  }))
+  return [...urls, ...pending, ...uploaded]
+})
+
+// Helper: update uploaded files in the correct store (editBuffer or Pinia)
+function setUploadedFiles(newFiles) {
+  if (draft.value) {
+    updateField('source.uploaded_files', newFiles)
+  } else {
+    collectionStore.updateNestedProperty({ path: 'source.uploaded_files', value: newFiles })
+  }
+}
+
+watch(collectionId, (newVal) => {
+  if (newVal && pendingFiles.value.length) {
+    uploadPending()
+  }
+})
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+function addUrl() {
+  const url = urlInput.value.trim()
+  if (!url) return
+  urlModel.value = [...urlModel.value, url]
+  urlInput.value = ''
+}
+
+function openFilePicker() {
+  if (props.disable || uploading.value || props.readonly) return
+  fileInputRef.value?.click()
+}
+
+function onFileInputChange(e) {
+  const files = Array.from(e.target.files || [])
+  addFiles(files)
+  e.target.value = ''
+}
+
+function onDragOver() {
+  if (props.disable || uploading.value || props.readonly) return
+  dragOver.value = true
+}
+
+function onDragLeave() {
+  dragOver.value = false
+}
+
+function onDrop(e) {
+  dragOver.value = false
+  if (props.disable || uploading.value || props.readonly) return
+  const files = Array.from(e.dataTransfer?.files || [])
+  addFiles(files)
+}
+
+function addFiles(files) {
+  const accepted = []
+  const rejected = []
+  for (const file of files) {
+    const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+    if (allowedExtSet.value.has(ext)) {
+      accepted.push(file)
+    } else {
+      rejected.push(file.name)
     }
-  },
-  computed: {
-    urlModel: {
-      get() {
-        return this.modelValue || []
-      },
-      set(val) {
-        this.$emit('update:modelValue', val)
-      },
-    },
-    collectionId() {
-      return this.collectionStore.entity?.id || ''
-    },
-    uploadedFiles() {
-      return this.collectionStore.entity?.source?.uploaded_files || []
-    },
-    endpoint() {
-      return this.$appConfig?.api?.aiBridge?.urlAdmin
-    },
-    allowedExtSet() {
-      return new Set(this.acceptedExtensions.split(','))
-    },
-    urlError() {
-      if (!this.urlInput) return ''
-      try {
-        const url = new URL(this.urlInput)
-        if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'Only http/https URLs are allowed'
-        return ''
-      } catch {
-        return 'Invalid URL'
-      }
-    },
-    allItems() {
-      const urls = this.urlModel.map((url, i) => ({
-        key: `url-${i}`,
-        type: 'url',
-        label: url,
-        uploaded: false,
-      }))
-      const pending = this.pendingFiles.map((file, i) => ({
-        key: `pending-${i}`,
-        type: 'file',
-        label: file.name,
-        size: file.size,
-        uploaded: false,
-        _file: file,
-        _pendingIndex: i,
-      }))
-      const uploaded = this.uploadedFiles.map((file, i) => ({
-        key: `uploaded-${i}`,
-        type: 'file',
-        label: file.filename,
-        uploaded: true,
-        _uploadedIndex: i,
-        _data: file,
-      }))
-      return [...urls, ...pending, ...uploaded]
-    },
-  },
-  watch: {
-    collectionId(newVal) {
-      if (newVal && this.pendingFiles.length) {
-        this.uploadPending()
-      }
-    },
-  },
-  methods: {
-    formatSize(bytes) {
-      if (bytes < 1024) return bytes + ' B'
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
-      return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
-    },
-    addUrl() {
-      const url = this.urlInput.trim()
-      if (!url) return
-      this.urlModel = [...this.urlModel, url]
-      this.urlInput = ''
-    },
-    openFilePicker() {
-      if (this.disable || this.uploading || this.readonly) return
-      this.$refs.fileInput?.click()
-    },
-    onFileInputChange(e) {
-      const files = Array.from(e.target.files || [])
-      this.addFiles(files)
-      e.target.value = ''
-    },
-    onDragOver() {
-      if (this.disable || this.uploading || this.readonly) return
-      this.dragOver = true
-    },
-    onDragLeave() {
-      this.dragOver = false
-    },
-    onDrop(e) {
-      this.dragOver = false
-      if (this.disable || this.uploading || this.readonly) return
-      const files = Array.from(e.dataTransfer?.files || [])
-      this.addFiles(files)
-    },
-    addFiles(files) {
-      const accepted = []
-      const rejected = []
-      for (const file of files) {
-        const ext = '.' + file.name.split('.').pop()?.toLowerCase()
-        if (this.allowedExtSet.has(ext)) {
-          accepted.push(file)
-        } else {
-          rejected.push(file.name)
-        }
-      }
-      if (rejected.length) {
-        this.$q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: `Unsupported format: ${rejected.join(', ')}` })
-      }
-      const total = [...this.pendingFiles, ...accepted]
-      if (total.length > 10) {
-        this.$q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: 'Maximum 10 files at a time' })
-        this.pendingFiles = total.slice(0, 10)
+  }
+  if (rejected.length) {
+    q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: `Unsupported format: ${rejected.join(', ')}` })
+  }
+  const total = [...pendingFiles.value, ...accepted]
+  if (total.length > 10) {
+    q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: 'Maximum 10 files at a time' })
+    pendingFiles.value = total.slice(0, 10)
+  } else {
+    pendingFiles.value = total
+  }
+  // If no collection yet — upload to temp storage immediately
+  if (!collectionId.value) {
+    uploadToTemp(accepted)
+  }
+}
+
+async function uploadToTemp(files) {
+  for (const file of files) {
+    const formData = new FormData()
+    formData.append('data', file, file.name)
+    try {
+      const response = await fetchData({
+        method: 'POST',
+        endpoint: endpoint.value,
+        credentials: 'include',
+        service: 'files/temp',
+        body: formData,
+      })
+      if (response.ok) {
+        const result = await response.json()
+        const newFiles = [...uploadedFiles.value, { file_id: result.file_id, filename: result.filename }]
+        setUploadedFiles(newFiles)
+        pendingFiles.value = pendingFiles.value.filter((f) => f.name !== file.name)
       } else {
-        this.pendingFiles = total
+        q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to upload ${file.name}` })
       }
-      // If no collection yet — upload to temp storage immediately
-      if (!this.collectionId) {
-        this.uploadToTemp(accepted)
-      }
-    },
-    async uploadToTemp(files) {
-      for (const file of files) {
-        const formData = new FormData()
-        formData.append('data', file, file.name)
-        try {
-          const response = await fetchData({
-            method: 'POST',
-            endpoint: this.endpoint,
-            credentials: 'include',
-            service: 'files/temp',
-            body: formData,
-          })
-          if (response.ok) {
-            const result = await response.json()
-            const newFiles = [...this.uploadedFiles, { file_id: result.file_id, filename: result.filename }]
-            this.collectionStore.updateNestedProperty({ path: 'source.uploaded_files', value: newFiles })
-            this.pendingFiles = this.pendingFiles.filter((f) => f.name !== file.name)
-          } else {
-            this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to upload ${file.name}` })
-          }
-        } catch (e) {
-          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Upload failed: ${e.message || e}` })
-        }
-      }
-    },
-    removeItem(item) {
-      if (item.type === 'url') {
-        this.urlModel = this.urlModel.filter((_, i) => `url-${i}` !== item.key)
-      } else if (!item.uploaded) {
-        this.pendingFiles = this.pendingFiles.filter((_, i) => `pending-${i}` !== item.key)
+    } catch (e) {
+      q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Upload failed: ${e.message || e}` })
+    }
+  }
+}
+
+function removeItem(item) {
+  if (item.type === 'url') {
+    urlModel.value = urlModel.value.filter((_, i) => `url-${i}` !== item.key)
+  } else if (!item.uploaded) {
+    pendingFiles.value = pendingFiles.value.filter((_, i) => `pending-${i}` !== item.key)
+  } else {
+    removeUploadedFile(item._data, item._uploadedIndex)
+  }
+}
+
+async function uploadPending() {
+  if (!pendingFiles.value.length || !collectionId.value) return
+
+  uploading.value = true
+  try {
+    for (const file of pendingFiles.value) {
+      const formData = new FormData()
+      formData.append('data', file, file.name)
+
+      const response = await fetchData({
+        method: 'POST',
+        endpoint: endpoint.value,
+        credentials: 'include',
+        service: `knowledge_sources/${collectionId.value}/files`,
+        body: formData,
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const newFiles = [...uploadedFiles.value, {
+          filename: result.filename,
+          storage_path: result.storage_path,
+        }]
+        setUploadedFiles(newFiles)
       } else {
-        this.removeUploadedFile(item._data, item._uploadedIndex)
+        q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to upload ${file.name}` })
       }
-    },
-    async uploadPending() {
-      if (!this.pendingFiles.length || !this.collectionId) return
+    }
+    pendingFiles.value = []
+    q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Files uploaded successfully' })
+  } catch (e) {
+    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Upload failed: ${e.message || e}` })
+  } finally {
+    uploading.value = false
+  }
+}
 
-      this.uploading = true
-      try {
-        for (const file of this.pendingFiles) {
-          const formData = new FormData()
-          formData.append('data', file, file.name)
-
-          const response = await fetchData({
-            method: 'POST',
-            endpoint: this.endpoint,
-            credentials: 'include',
-            service: `knowledge_sources/${this.collectionId}/files`,
-            body: formData,
-          })
-
-          if (response.ok) {
-            const result = await response.json()
-            const newFiles = [...this.uploadedFiles, {
-              filename: result.filename,
-              storage_path: result.storage_path,
-            }]
-            this.collectionStore.updateNestedProperty({ path: 'source.uploaded_files', value: newFiles })
-          } else {
-            this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to upload ${file.name}` })
-          }
-        }
-        this.pendingFiles = []
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Files uploaded successfully' })
-      } catch (e) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Upload failed: ${e.message || e}` })
-      } finally {
-        this.uploading = false
-      }
-    },
-    async removeUploadedFile(file, index) {
-      if (!this.collectionId) return
-      try {
-        const response = await fetchData({
-          method: 'DELETE',
-          endpoint: this.endpoint,
-          credentials: 'include',
-          service: `knowledge_sources/${this.collectionId}/files/${encodeURIComponent(file.filename)}`,
-        })
-        if (response.ok || response.status === 204) {
-          const newFiles = this.uploadedFiles.filter((_, i) => i !== index)
-          this.collectionStore.updateNestedProperty({ path: 'source.uploaded_files', value: newFiles })
-        } else {
-          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to delete ${file.filename}` })
-        }
-      } catch (e) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', message: `Delete failed: ${e.message || e}` })
-      }
-    },
-  },
+async function removeUploadedFile(file, index) {
+  if (!collectionId.value) return
+  try {
+    const response = await fetchData({
+      method: 'DELETE',
+      endpoint: endpoint.value,
+      credentials: 'include',
+      service: `knowledge_sources/${collectionId.value}/files/${encodeURIComponent(file.filename)}`,
+    })
+    if (response.ok || response.status === 204) {
+      const newFiles = uploadedFiles.value.filter((_, i) => i !== index)
+      updateField('source.uploaded_files', newFiles)
+    } else {
+      q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to delete ${file.filename}` })
+    }
+  } catch (e) {
+    q.notify({ color: 'red-9', textColor: 'white', message: `Delete failed: ${e.message || e}` })
+  }
 }
 </script>
 

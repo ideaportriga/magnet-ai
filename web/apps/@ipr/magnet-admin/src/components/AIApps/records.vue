@@ -59,25 +59,18 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onActivated } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
 import { VueDraggable } from 'vue-draggable-plus'
-import { useAiAppDetailStore } from '@/stores/entityDetailStores'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 
 // Composables
 const route = useRoute()
 const router = useRouter()
-const aiAppStore = useAiAppDetailStore()
+const { draft, updateField } = useEntityDetail('ai_apps')
 const searchStore = useSearchStore()
 const selected = ref([])
-const queries = useEntityQueries()
-const routeId = ref(route.params?.id)
-onActivated(() => { routeId.value = route.params?.id })
-const { data: selectedRow } = queries.ai_apps.useDetail(routeId)
-const { data: aiAppsListData } = queries.ai_apps.useList()
-const aiAppsItems = computed(() => aiAppsListData.value?.items ?? [])
 
 // Reactive state
 const activeAIApp = ref({})
@@ -95,24 +88,24 @@ const draggedRow = ref({})
 
 // Computed properties
 const name = computed({
-  get: () => aiAppStore.entity?.name || '',
-  set: (value) => aiAppStore.updateProperty({ key: 'name', value }),
+  get: () => draft.value?.name || '',
+  set: (value) => updateField('name', value),
 })
 
 const description = computed({
-  get: () => aiAppStore.entity?.description || '',
-  set: (value) => aiAppStore.updateProperty({ key: 'description', value }),
+  get: () => draft.value?.description || '',
+  set: (value) => updateField('description', value),
 })
 
 const system_name = computed({
-  get: () => aiAppStore.entity?.system_name || '',
-  set: (value) => aiAppStore.updateProperty({ key: 'system_name', value }),
+  get: () => draft.value?.system_name || '',
+  set: (value) => updateField('system_name', value),
 })
 
 const tabs = computed({
-  get: () => aiAppStore.entity?.tabs || [],
+  get: () => draft.value?.tabs || [],
   set: (value) => {
-    aiAppStore.updateProperty({ key: 'tabs', value })
+    updateField('tabs', value)
   },
 })
 
@@ -125,11 +118,7 @@ const searchedTabs = computed({
 
 const activeAIAppId = computed(() => route.params?.id)
 
-const activeAIAppName = computed(() => aiAppsItems.value?.find((item) => item?.id == activeAIAppId.value)?.name)
-
-const options = computed(() => aiAppsItems.value?.map((item) => item?.name))
-
-const loading = computed(() => !aiAppStore.entity?.id)
+const loading = computed(() => !draft.value?.id)
 
 // Methods
 const navigate = (path = '') => {
@@ -139,7 +128,6 @@ const navigate = (path = '') => {
 }
 
 const openTabDetails = (row, parent = null) => {
-  // console.log(parent, row)
   if (parent) {
     const link_encoded_row = encodeURIComponent(row.system_name)
     navigate(`${route.path}/items/${parent.system_name}?child=${link_encoded_row}`)
@@ -149,7 +137,7 @@ const openTabDetails = (row, parent = null) => {
 }
 
 const deleteTab = (payload) => {
-  const currentTabs = aiAppStore.entity?.tabs || []
+  const currentTabs = draft.value?.tabs || []
   let newTabs
   if (typeof payload === 'string') {
     newTabs = currentTabs.filter((el) => el.system_name !== payload)
@@ -163,7 +151,7 @@ const deleteTab = (payload) => {
       return el
     })
   }
-  aiAppStore.updateProperty({ key: 'tabs', value: newTabs })
+  updateField('tabs', newTabs)
   showDeleteDialog.value = false
 }
 
@@ -196,22 +184,6 @@ const handleRemoveInnerRecord = (parentSystemName, innerSystemName) => {
   clickedRow.value = [parentSystemName, innerSystemName]
   showDeleteDialog.value = true
 }
-
-// Watchers
-watch(selectedRow, (newVal, oldVal) => {
-  if (newVal?.id !== oldVal?.id) {
-    aiAppStore.setEntity(newVal)
-    searchStore.clearAnswers()
-  }
-})
-
-// Lifecycle
-onMounted(() => {
-  if (activeAIAppId.value != aiAppStore.entity?.id) {
-    aiAppStore.setEntity(selectedRow.value)
-    searchStore.clearAnswers()
-  }
-})
 </script>
 
 <style lang="stylus">
