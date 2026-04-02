@@ -17,7 +17,7 @@ export default function useAuth() {
   // Reactive auth client — recreated when baseUrl changes
   const client = computed(() => {
     const url = apiBaseUrl.value
-    if (!url) return null
+    if (url == null) return null
     return createAuthClient(url)
   })
 

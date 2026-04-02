@@ -46,6 +46,10 @@ function safeString(value: unknown): string {
 }
 
 export function initLokiLogger() {
+  // Only ship logs to Loki in local development (localhost)
+  const host = window.location.hostname
+  if (host !== 'localhost' && host !== '127.0.0.1') return
+
   const _error = console.error.bind(console)
   const _warn = console.warn.bind(console)
 
