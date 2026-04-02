@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.3](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.2...v0.7.0-alpha.3) (2026-04-02)
+
+### 🐛 Bug Fixes
+
+* allow empty baseUrl in auth client and disable Loki push in ([0da78fc](https://github.com/ideaportriga/magnet-ai/commit/0da78fcdbb3d726beecb41622c9ede9bc75e2380))
+
 ## [0.7.0-alpha.2](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.1...v0.7.0-alpha.2) (2026-04-01)
 
 ### 🐛 Bug Fixes
