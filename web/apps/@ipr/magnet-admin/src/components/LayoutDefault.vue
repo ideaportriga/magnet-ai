@@ -36,8 +36,9 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
           .global-search-shortcut
             span {{ isMac ? '⌘K' : 'Ctrl+K' }}
       global-search(v-model='showSearch')
-      //- Right-side header actions: Help + Profile
+      //- Right-side header actions: Fullscreen + Help + Profile
       .col-auto.row.items-center.no-wrap.q-gap-4.q-mr-md
+        km-btn(flat, :icon='isFullscreen ? "fas fa-compress" : "fas fa-expand"', iconSize='16px', iconColor='icon', hoverColor='primary', hoverBg='primary-bg', size='sm', :tooltip='isFullscreen ? "Exit fullscreen" : "Fullscreen"', @click='toggleFullscreen')
         km-btn(flat, icon='fa-regular fa-circle-question', iconSize='16px', iconColor='icon', label='Help', hoverColor='primary', hoverBg='primary-bg', size='sm', labelClass='km-title', @click='openHelp')
         .relative-position
           km-btn(flat, icon='fas fa-user-circle', iconSize='16px', iconColor='icon', :label='userDisplayName', hoverColor='primary', hoverBg='primary-bg', size='sm', labelClass='km-title')
@@ -127,14 +128,32 @@ export default {
     const showSearch = ref(false)
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
+    const isFullscreen = ref(!!document.fullscreenElement)
+    const toggleFullscreen = () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen()
+      } else {
+        document.documentElement.requestFullscreen()
+      }
+    }
+    const onFullscreenChange = () => {
+      isFullscreen.value = !!document.fullscreenElement
+    }
+
     const onGlobalKeydown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
         showSearch.value = true
       }
     }
-    onMounted(() => document.addEventListener('keydown', onGlobalKeydown))
-    onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKeydown))
+    onMounted(() => {
+      document.addEventListener('keydown', onGlobalKeydown)
+      document.addEventListener('fullscreenchange', onFullscreenChange)
+    })
+    onBeforeUnmount(() => {
+      document.removeEventListener('keydown', onGlobalKeydown)
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+    })
 
     // Entity → { store, mutation } registry
     // Eliminates per-entity duplication in save/revert
@@ -167,6 +186,8 @@ export default {
       userDisplayName,
       showSearch,
       isMac,
+      isFullscreen,
+      toggleFullscreen,
     }
   },
   computed: {

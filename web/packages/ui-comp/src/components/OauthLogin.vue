@@ -10,6 +10,7 @@
 <script>
 import { ref, computed, onUnmounted, inject } from 'vue'
 import { useAuth } from '@shared'
+import { useSharedAuthStore } from '@shared/stores/authStore'
 
 export default {
   emits: ['auth-completed'],
@@ -24,6 +25,7 @@ export default {
     const oAuthPopupWidth = config?.auth?.popup?.width ?? '600'
     const oAuthPopupHeight = config?.auth?.popup?.height ?? '400'
     const auth = useAuth()
+    const authStore = useSharedAuthStore()
 
     const loginWindow = ref()
     const loginInProgress = ref(false)
@@ -49,15 +51,25 @@ export default {
         body: JSON.stringify(eventData),
       }
 
-      fetch(`${apiBaseUrl}/auth/complete`, fetchData).then((response) => {
+      fetch(`${apiBaseUrl}/auth/complete`, fetchData).then(async (response) => {
         loginInProgress.value = false
 
         if (!response.ok) {
           throw new Error('Auth failed')
         }
 
-        if (response.ok) {
-          auth.getAuthData()
+        // Cookies are set by /auth/complete. Fetch user info directly
+        // since authClient may be null when baseUrl is empty (relative paths).
+        try {
+          const meResp = await fetch(`${apiBaseUrl}/auth/me`, { credentials: 'include' })
+          if (meResp.ok) {
+            const userInfo = await meResp.json()
+            authStore.setAuthenticated(true)
+            authStore.setUserInfo(userInfo)
+          }
+        } catch {
+          // Best effort — auth cookies are set regardless
+          authStore.setAuthenticated(true)
         }
 
         emit('auth-completed')
