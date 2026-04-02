@@ -159,10 +159,16 @@ class AuthController(Controller):
         tokens = await redeem_code(code)
 
         # Derive allowed origin from REDIRECT_URI for postMessage security
+        import json as _json
         from urllib.parse import urlparse
 
         parsed = urlparse(REDIRECT_URI)
         allowed_origin = f"{parsed.scheme}://{parsed.netloc}"
+
+        # Safely serialize tokens to prevent XSS via malicious token values
+        token_payload = _json.dumps(
+            {"token": tokens.token, "refreshToken": tokens.refresh_token}
+        )
 
         auth_completion_page = f"""
         <!DOCTYPE html>
@@ -176,10 +182,7 @@ class AuthController(Controller):
         completeLogin()
 
         function completeLogin() {{
-            const message = JSON.stringify({{
-            token: "{tokens.token}",
-            refreshToken: "{tokens.refresh_token}",
-            }})
+            const message = JSON.stringify({token_payload});
             window.opener.postMessage(message, '{allowed_origin}');
             window.close();
         }}

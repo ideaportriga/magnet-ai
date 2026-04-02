@@ -296,6 +296,24 @@ class KnowledgeGraphController(Controller):
         if parsed.scheme not in ("http", "https"):
             raise ClientException("Only http(s) URLs are supported")
 
+        # SSRF protection: block requests to private/internal networks
+        import ipaddress
+        import socket
+
+        try:
+            resolved_ip = socket.getaddrinfo(parsed.hostname, None, socket.AF_UNSPEC)[
+                0
+            ][4][0]
+            ip = ipaddress.ip_address(resolved_ip)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                raise ClientException(
+                    "URLs pointing to internal/private networks are not allowed"
+                )
+        except socket.gaierror:
+            raise ClientException("Could not resolve hostname")
+        except ValueError:
+            pass  # Not a valid IP — let httpx handle DNS
+
         def filename_from_content_disposition(header_value: str | None) -> str | None:
             if not header_value:
                 return None

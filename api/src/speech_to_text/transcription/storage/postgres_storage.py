@@ -59,12 +59,30 @@ class PgDataStorage:
             now,
         )
 
+    _ALLOWED_UPDATE_FIELDS = frozenset(
+        {
+            "status",
+            "job_id",
+            "transcription",
+            "error",
+            "participants",
+            "duration_seconds",
+            "updated_at",
+        }
+    )
+
     async def _update_fields(self, file_id: str, **fields) -> None:
         # add updated_at automatically
         fields["updated_at"] = datetime.now(timezone.utc)
 
         if not fields:
             return
+
+        # Validate column names to prevent SQL injection
+        invalid = set(fields) - self._ALLOWED_UPDATE_FIELDS
+        if invalid:
+            raise ValueError(f"Invalid update fields: {invalid}")
+
         sets = []
         args = []
         i = 1
