@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.4](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.3...v0.7.0-alpha.4) (2026-04-02)
+
+### 🐛 Bug Fixes
+
+* revert useAuth baseUrl check to restore oauth-login flow ([7f22ccf](https://github.com/ideaportriga/magnet-ai/commit/7f22ccf4196aa78c7440bc74394ef80f4d939ae9))
+* **security:** add security headers, cookie max_age, path traversal ([136dfc5](https://github.com/ideaportriga/magnet-ai/commit/136dfc5b5ddeef58c246c0c597318deb3337dc46))
+* **security:** parameterize SQL queries, tighten CORS, add rate ([26ead66](https://github.com/ideaportriga/magnet-ai/commit/26ead66e1de426d1bd0301fa04b05315fff16609))
+* **security:** prevent XSS in auth callback, add SSRF protection, fix ([239d606](https://github.com/ideaportriga/magnet-ai/commit/239d6061d24b1dce96961f49cd29204fbbfe3415))
+
 ## [0.7.0-alpha.3](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.2...v0.7.0-alpha.3) (2026-04-02)
 
 ### 🐛 Bug Fixes
