@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.7](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.6...v0.7.0-alpha.7) (2026-04-02)
+
+### 🐛 Bug Fixes
+
+* invalidate all entity caches on create and remove mutations ([8fc1940](https://github.com/ideaportriga/magnet-ai/commit/8fc19409d5266192561eed9af38071b63ce514ec))
+* refetch keep aliev routes ([e94adeb](https://github.com/ideaportriga/magnet-ai/commit/e94adebd763c9e3e0961cf520843f39c320e7063))
+
+### ♻️ Code Refactoring
+
+* add types and documentation to KnowledgeGraphPageStore ([460a213](https://github.com/ideaportriga/magnet-ai/commit/460a213b2bf4e99baa89a87b4b73c62bc16ae67a))
+* convert authStore from JavaScript to TypeScript ([e9c1af5](https://github.com/ideaportriga/magnet-ai/commit/e9c1af5e6d6d60220c84ab10614e80b387a158c5))
+* extract shared ENTITY_READ_ONLY_FIELDS constant ([4ebe9b3](https://github.com/ideaportriga/magnet-ai/commit/4ebe9b3d5e4d80765f2b31afa05c630461c00b4c))
+* migrate entity detail stores to composables ([e6376c0](https://github.com/ideaportriga/magnet-ai/commit/e6376c0a23dc5ef0e2df6d57e8843761b5ee167a))
+
 ## [0.7.0-alpha.6](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.5...v0.7.0-alpha.6) (2026-04-02)
 
 ### 🐛 Bug Fixes
