@@ -79,6 +79,12 @@ class LocalAuthController(Controller):
     path = "/auth"
     tags = ["Auth"]
 
+    @staticmethod
+    async def before_request(request: Request) -> None:  # type: ignore[override]
+        from middlewares.rate_limit import check_rate_limit
+
+        check_rate_limit(request)
+
     @post("/signup", exclude_from_auth=True, summary="Register a new local user")
     async def signup(self, data: SignupRequest) -> SignupResponse:
         async with alchemy.get_session() as session:

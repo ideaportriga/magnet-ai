@@ -25,8 +25,14 @@ class CORSPlugin(InitPluginProtocol):
             cors_config = CORSConfig(
                 allow_origins=self.allowed_origins,
                 allow_credentials=True,
-                allow_methods=["*"],
-                allow_headers=["*"],
+                allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+                allow_headers=[
+                    "Content-Type",
+                    "Authorization",
+                    "x-api-key",
+                    "x-user-id",
+                    "x-request-id",
+                ],
             )
             app_config.cors_config = cors_config
 

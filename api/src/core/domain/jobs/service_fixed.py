@@ -36,41 +36,39 @@ class JobsService(service.SQLAlchemyAsyncRepositoryService[Job]):
             results, total = await self.list_and_count(*filters)
             return list(results), total
 
-        # Create raw SQL WHERE conditions for JSONB fields
+        # Build parameterized WHERE conditions for JSONB fields
         jsonb_where_clauses = []
+        params: dict[str, str] = {}
+        param_idx = 0
 
         for json_key, values in jsonb_filters.items():
-            if values:
-                # Create OR conditions for multiple values of the same key
-                value_conditions = []
-                for value in values:
-                    # Use JSONB ->> operator for text comparison
-                    value_conditions.append(f"definition->'{json_key}' = '{value}'")
+            if not values:
+                continue
+            value_conditions = []
+            for value in values:
+                key_param = f"jk_{param_idx}"
+                val_param = f"jv_{param_idx}"
+                value_conditions.append(f"definition->>:{key_param} = :{val_param}")
+                params[key_param] = json_key
+                params[val_param] = value
+                param_idx += 1
 
-                if value_conditions:
-                    # Join with OR for multiple values
-                    jsonb_where_clauses.append(f"({' OR '.join(value_conditions)})")
+            if value_conditions:
+                jsonb_where_clauses.append(f"({' OR '.join(value_conditions)})")
 
-        # Combine all JSONB conditions with AND
         jsonb_where = " AND ".join(jsonb_where_clauses) if jsonb_where_clauses else ""
 
-        # Use repository's session to execute raw queries
         async with self.repository.session as session:
-            # Build queries
             select_clause = "SELECT * FROM jobs"
             count_clause = "SELECT COUNT(*) FROM jobs"
+            where_clause = f" WHERE {jsonb_where}" if jsonb_where else ""
 
-            if jsonb_where:
-                where_clause = f" WHERE {jsonb_where}"
-            else:
-                where_clause = ""
-
-            # Execute the main query
-            result = await session.execute(text(select_clause + where_clause))
+            result = await session.execute(text(select_clause + where_clause), params)
             items = [Job(**dict(row._mapping)) for row in result.fetchall()]
 
-            # Execute count query
-            count_result = await session.execute(text(count_clause + where_clause))
+            count_result = await session.execute(
+                text(count_clause + where_clause), params
+            )
             total = count_result.scalar()
 
             return items, total or 0

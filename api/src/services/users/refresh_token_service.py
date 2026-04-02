@@ -96,8 +96,16 @@ async def validate_and_rotate(
     """
     token_hash = hash_token(plaintext_token)
 
-    stmt = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    result = await session.execute(stmt)
+    stmt = (
+        select(RefreshToken)
+        .where(RefreshToken.token_hash == token_hash)
+        .with_for_update(nowait=True)
+    )
+    try:
+        result = await session.execute(stmt)
+    except Exception:
+        # Row locked by concurrent request — treat as contention
+        raise ValueError("Token validation in progress, please retry")
     db_token = result.scalar_one_or_none()
 
     if db_token is None:

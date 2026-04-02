@@ -62,6 +62,12 @@ class MfaController(Controller):
     path = "/auth/mfa"
     tags = ["Auth / MFA"]
 
+    @staticmethod
+    async def before_request(request: "Request") -> None:  # type: ignore[override]
+        from middlewares.rate_limit import check_rate_limit
+
+        check_rate_limit(request)
+
     @get("/setup", summary="Begin MFA setup — get QR code and secret")
     async def setup(self, request: Request) -> MfaSetupResponse:
         auth: Auth = request.scope.get("auth")
