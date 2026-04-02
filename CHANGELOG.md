@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.6](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.5...v0.7.0-alpha.6) (2026-04-02)
+
+### 🐛 Bug Fixes
+
+* restore OIDC session on page refresh by calling /auth/me directly ([b441ad3](https://github.com/ideaportriga/magnet-ai/commit/b441ad3563d8b547ffcda31273db614a1f77b6c3))
+
 ## [0.7.0-alpha.5](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.4...v0.7.0-alpha.5) (2026-04-02)
 
 ### 🐛 Bug Fixes
