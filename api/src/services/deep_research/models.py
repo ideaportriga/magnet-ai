@@ -247,7 +247,7 @@ class DeepResearchMemory(BaseModel):
         default_factory=dict,
         description=(
             "Full analysis results for each URL. "
-            "Keys are URLs, values contain: title, snippet, raw_content, search_query, "
+            "Keys are URLs, values contain: title, snippet, search_query, "
             "is_relevant (bool), relevance_reasoning (str), "
             "processed (bool), processing_summary (str)"
         ),

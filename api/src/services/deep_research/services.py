@@ -690,7 +690,6 @@ async def _execute_search_step(
                 memory.url_analysis[url] = {
                     "title": r.get("title", ""),
                     "snippet": r.get("snippet", ""),
-                    "raw_content": r.get("raw_content", ""),
                     "search_query": query,
                     "is_relevant": None,  # Will be set during analysis
                     "relevance_reasoning": None,
