@@ -22,7 +22,12 @@ class MiddlewarePlugin(InitPluginProtocol):
         """Configure middleware stack."""
         middlewares: list[Middleware] = []
 
-        # Request ID must be first so all subsequent middleware/handlers see it
+        # Security headers must be outermost so they apply to all responses
+        from middlewares.security_headers import SecurityHeadersMiddleware
+
+        middlewares.append(SecurityHeadersMiddleware)
+
+        # Request ID must be early so all subsequent middleware/handlers see it
         from middlewares.request_id import RequestIdMiddleware
 
         middlewares.append(RequestIdMiddleware)

@@ -57,7 +57,7 @@ class FilesController(Controller):
         db_session: AsyncSession,
         entity_type: str | None = Parameter(default=None, query="entity_type"),
         backend_key: str | None = Parameter(default=None, query="backend_key"),
-        search: str | None = Parameter(default=None, query="search"),
+        search: str | None = Parameter(default=None, query="search", max_length=200),
         current_page: int = Parameter(default=1, ge=1, query="currentPage"),
         page_size: int = Parameter(default=50, ge=1, le=200, query="pageSize"),
         order_by: str | None = Parameter(default=None, query="orderBy"),
@@ -233,8 +233,15 @@ class FilesController(Controller):
             import aiofiles
             from storage.config import StorageConfig
 
+            import os
+
             cfg = StorageConfig()
             file_path = f"{cfg.local_root}/{stored.path}"
+
+            # Prevent path traversal attacks
+            resolved = os.path.abspath(file_path)
+            if not resolved.startswith(os.path.abspath(cfg.local_root)):
+                raise NotFoundException("Invalid file path")
 
             async def _stream():  # noqa: ANN202
                 async with aiofiles.open(file_path, "rb") as f:

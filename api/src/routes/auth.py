@@ -1,3 +1,4 @@
+import secrets
 from logging import getLogger
 from typing import Annotated
 from urllib.parse import urlencode
@@ -99,9 +100,9 @@ class AuthController(Controller):
         return auth.data
 
     @get("/login", exclude_from_auth=True)
-    async def login(self) -> Redirect:
+    async def login(self, request: Request) -> ASGIResponse:
         """Handle login redirect"""
-        login_hint = ""
+        nonce = secrets.token_urlsafe(32)
 
         params = {
             "response_type": RESPONSE_TYPE,
@@ -109,12 +110,17 @@ class AuthController(Controller):
             "client_id": CLIENT_ID,
             "scope": AUTH_SCOPE,
             "response_mode": RESPONSE_MODE,
-            "nonce": "12345",  # TODO - receive as param
-            "login_hint": login_hint,
+            "nonce": nonce,
         }
 
         redirect_uri = f"{OAUTH2_AUTHORIZE_URL}?{urlencode(params)}"
-        return Redirect(redirect_uri)
+        response = Redirect(redirect_uri)
+        asgi_response = response.to_asgi_response(app=None, request=request)
+        asgi_response.headers.add(
+            "Set-Cookie",
+            f"oidc_nonce={nonce}; Max-Age=600; Secure; HttpOnly; Path=/; SameSite=Lax;",
+        )
+        return asgi_response
 
     @post("/logout", status_code=HTTP_200_OK, exclude_from_auth=True)
     async def logout(
@@ -152,6 +158,12 @@ class AuthController(Controller):
 
         tokens = await redeem_code(code)
 
+        # Derive allowed origin from REDIRECT_URI for postMessage security
+        from urllib.parse import urlparse
+
+        parsed = urlparse(REDIRECT_URI)
+        allowed_origin = f"{parsed.scheme}://{parsed.netloc}"
+
         auth_completion_page = f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -164,13 +176,11 @@ class AuthController(Controller):
         completeLogin()
 
         function completeLogin() {{
-            // TODO - change "*" to specific origin
-            // TODO - set additional info (identifier, nonce?)
             const message = JSON.stringify({{
             token: "{tokens.token}",
             refreshToken: "{tokens.refresh_token}",
             }})
-            window.opener.postMessage(message, '*');
+            window.opener.postMessage(message, '{allowed_origin}');
             window.close();
         }}
 
@@ -196,6 +206,13 @@ class AuthController(Controller):
             decoded = await decode_token(token)
         except Exception:
             raise NotAuthorizedException()
+
+        # Validate nonce to prevent token substitution attacks
+        expected_nonce = request.cookies.get("oidc_nonce")
+        token_nonce = decoded.get("nonce")
+        if expected_nonce and token_nonce and expected_nonce != token_nonce:
+            logger.warning("OIDC nonce mismatch detected for auth request")
+            raise NotAuthorizedException("Invalid nonce")
 
         # Create internal session for OIDC users (for session tracking)
         try:
@@ -236,11 +253,16 @@ class AuthController(Controller):
         asgi_response = response.to_asgi_response(app=None, request=request)
         asgi_response.headers.add(
             "Set-Cookie",
-            f"token={token}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+            f"token={token}; Max-Age=3600; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
         )
         asgi_response.headers.add(
             "Set-Cookie",
-            f"refresh_token={refresh_token}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+            f"refresh_token={refresh_token}; Max-Age=259200; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+        )
+        # Clear nonce cookie after validation
+        asgi_response.headers.add(
+            "Set-Cookie",
+            "oidc_nonce=; Max-Age=0; Secure; HttpOnly; Path=/; SameSite=Lax;",
         )
 
         return asgi_response

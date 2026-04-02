@@ -180,6 +180,7 @@ class LocalAuthController(Controller):
                 secure=True,
                 samesite="none",
                 path="/",
+                max_age=259200,  # 3 days
             )
             # Also set access token as cookie for consistency with OIDC flow
             response.set_cookie(
@@ -189,6 +190,7 @@ class LocalAuthController(Controller):
                 secure=True,
                 samesite="none",
                 path="/",
+                max_age=3600,  # 1 hour
             )
 
             return response
@@ -236,6 +238,7 @@ class LocalAuthController(Controller):
                 secure=True,
                 samesite="none",
                 path="/",
+                max_age=259200,  # 3 days
             )
             response.set_cookie(
                 key="token",
@@ -244,6 +247,7 @@ class LocalAuthController(Controller):
                 secure=True,
                 samesite="none",
                 path="/",
+                max_age=3600,  # 1 hour
             )
             return response
 
@@ -313,7 +317,7 @@ class LocalAuthController(Controller):
     async def forgot_password(self, data: ForgotPasswordRequest) -> dict:
         # Always return success to prevent email enumeration
         # In production, this would send an email with a reset link
-        logger.info("Password reset requested for: %s", data.email)
+        logger.info("Password reset requested")
         return {"message": "If the email exists, a reset link has been sent."}
 
     @post(

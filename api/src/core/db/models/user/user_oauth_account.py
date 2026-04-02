@@ -13,7 +13,8 @@ from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.types import DateTimeUTC
-from sqlalchemy import BigInteger, ForeignKey, String, Text, UniqueConstraint
+from advanced_alchemy.types import EncryptedText
+from sqlalchemy import BigInteger, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -65,19 +66,19 @@ class UserOAuthAccount(UUIDv7AuditBase):
         comment="Timestamp of last login via this OAuth account",
     )
 
-    # OAuth token storage (for social login providers)
+    # OAuth token storage (for social login providers, encrypted at rest)
     access_token: Mapped[Optional[str]] = mapped_column(
-        Text,
+        EncryptedText,
         nullable=True,
         default=None,
-        comment="OAuth access token (encrypted at app layer for social providers)",
+        comment="OAuth access token (encrypted via SECRET_ENCRYPTION_KEY)",
     )
 
     refresh_token: Mapped[Optional[str]] = mapped_column(
-        Text,
+        EncryptedText,
         nullable=True,
         default=None,
-        comment="OAuth refresh token (encrypted at app layer for social providers)",
+        comment="OAuth refresh token (encrypted via SECRET_ENCRYPTION_KEY)",
     )
 
     expires_at: Mapped[Optional[int]] = mapped_column(
