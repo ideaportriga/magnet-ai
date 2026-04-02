@@ -12,8 +12,16 @@ import { computed, ref } from 'vue'
 import { cloneDeep, isEqual, set as lodashSet, get as lodashGet } from 'lodash'
 import { useEditBufferStore } from './editBufferStore'
 import { useWorkspaceStore } from './workspaceStore'
+import { ENTITY_READ_ONLY_FIELDS } from '@/constants/entityFields'
 
-const READ_ONLY_FIELDS = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+interface VariantRecord extends Record<string, unknown> {
+  variant: string
+}
+
+interface VariantEntityData extends Record<string, unknown> {
+  variants?: VariantRecord[]
+  active_variant?: string | null
+}
 
 function makeBufferKey(entityName: string, entityId: string | null): string {
   return `${entityName}:${entityId}`
@@ -123,7 +131,7 @@ function createBaseState(entityName: string) {
   function buildPayload(): Record<string, unknown> | null {
     if (!entity.value) return null
     const payload = { ...entity.value }
-    for (const field of READ_ONLY_FIELDS) delete payload[field]
+    for (const field of ENTITY_READ_ONLY_FIELDS) delete payload[field]
     return payload
   }
 
@@ -188,16 +196,20 @@ export function createVariantDetailStore(entityName: string) {
     const baseSetEntity = base.setEntity
     function setEntity(data: Record<string, unknown> | null) {
       baseSetEntity(data)
-      selectedVariant.value = (data as any)?.active_variant ?? null
+      selectedVariant.value = (data as VariantEntityData | null)?.active_variant ?? null
+    }
+
+    function _asVariantEntity(val: Record<string, unknown> | null): VariantEntityData | null {
+      return val as VariantEntityData | null
     }
 
     const activeVariant = computed(() => {
-      const variants = (base.entity.value as any)?.variants as Array<Record<string, unknown>> | undefined
+      const variants = _asVariantEntity(base.entity.value)?.variants
       return variants?.find((v) => v.variant === selectedVariant.value) ?? null
     })
 
     function updateNestedVariantProperty({ path, value }: { path: string; value: unknown }) {
-      const variants = (base.entity.value as any)?.variants as Array<Record<string, unknown>> | undefined
+      const variants = _asVariantEntity(base.entity.value)?.variants
       if (!variants) return
       const variant = variants.find((v) => v.variant === selectedVariant.value)
       if (!variant) return
@@ -226,8 +238,9 @@ export function createVariantDetailStore(entityName: string) {
     }
 
     function createVariant() {
-      if (!base.entity.value) return
-      const variants = ((base.entity.value as any).variants ?? []) as Array<Record<string, unknown>>
+      const entityData = _asVariantEntity(base.entity.value)
+      if (!entityData) return
+      const variants = entityData.variants ?? []
       const baseVariant = variants.find((v) => v.variant === selectedVariant.value)
       const maxNum = variants.reduce((max, v) => {
         const num = parseInt(String(v.variant).split('_')[1]) || 0
@@ -238,31 +251,33 @@ export function createVariantDetailStore(entityName: string) {
         ? { ...cloneDeep(baseVariant), variant: newKey, description: '' }
         : { variant: newKey }
       variants.push(newVariant)
-      ;(base.entity.value as any).variants = [...variants]
+      entityData.variants = [...variants]
       selectedVariant.value = newKey
       base._syncToBuffer()
       base._syncDirtyToWorkspace()
     }
 
     function deleteVariant() {
-      if (!base.entity.value) return
-      const variants = ((base.entity.value as any).variants ?? []) as Array<Record<string, unknown>>
+      const entityData = _asVariantEntity(base.entity.value)
+      if (!entityData) return
+      const variants = entityData.variants ?? []
       if (variants.length <= 1) return
       const idx = variants.findIndex((v) => v.variant === selectedVariant.value)
       if (idx === -1) return
-      const isActive = selectedVariant.value === (base.entity.value as any).active_variant
+      const isActive = selectedVariant.value === entityData.active_variant
       variants.splice(idx, 1)
       const newIdx = idx === 0 ? 0 : idx - 1
       selectedVariant.value = String(variants[newIdx].variant)
-      if (isActive) (base.entity.value as any).active_variant = selectedVariant.value
-      ;(base.entity.value as any).variants = [...variants]
+      if (isActive) entityData.active_variant = selectedVariant.value
+      entityData.variants = [...variants]
       base._syncToBuffer()
       base._syncDirtyToWorkspace()
     }
 
     function activateVariant() {
-      if (!base.entity.value) return
-      ;(base.entity.value as any).active_variant = selectedVariant.value
+      const entityData = _asVariantEntity(base.entity.value)
+      if (!entityData) return
+      entityData.active_variant = selectedVariant.value
       base._syncToBuffer()
       base._syncDirtyToWorkspace()
     }
@@ -270,7 +285,7 @@ export function createVariantDetailStore(entityName: string) {
     // Override revert to also reset selectedVariant
     function revert() {
       base.revert()
-      selectedVariant.value = (base.initEntity.value as any)?.active_variant ?? null
+      selectedVariant.value = (base.initEntity.value as VariantEntityData | null)?.active_variant ?? null
     }
 
     return {

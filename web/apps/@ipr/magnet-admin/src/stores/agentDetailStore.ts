@@ -7,9 +7,9 @@ import { computed, ref } from 'vue'
 import { cloneDeep, isEqual, set as lodashSet, get as lodashGet } from 'lodash'
 import { useEditBufferStore } from './editBufferStore'
 import { useWorkspaceStore } from './workspaceStore'
+import { ENTITY_READ_ONLY_FIELDS } from '@/constants/entityFields'
 
 const ENTITY_NAME = 'agentDetail'
-const READ_ONLY_FIELDS = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
 
 export const useAgentDetailStore = defineStore('agentDetail', () => {
   const editBuffer = useEditBufferStore()
@@ -238,7 +238,7 @@ export const useAgentDetailStore = defineStore('agentDetail', () => {
   function buildPayload(): Record<string, unknown> | null {
     if (!entity.value) return null
     const payload = { ...entity.value }
-    for (const field of READ_ONLY_FIELDS) delete payload[field]
+    for (const field of ENTITY_READ_ONLY_FIELDS) delete payload[field]
     return payload
   }
 

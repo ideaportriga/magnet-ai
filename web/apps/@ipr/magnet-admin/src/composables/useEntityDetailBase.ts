@@ -3,10 +3,8 @@ import { useRoute } from 'vue-router'
 import { useEntityQueries, type AllEntityQueries } from '@/queries/entities'
 import { useEditBufferStore } from '@/stores/editBufferStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
-import { useAppStore } from '@/stores/appStore'
 import type { BaseEntity } from '@/types'
-
-const DEFAULT_READONLY_FIELDS = ['id', 'created_at', 'updated_at', 'created_by', 'updated_by']
+import { ENTITY_READ_ONLY_FIELDS } from '@/constants/entityFields'
 
 export interface UseEntityDetailBaseOptions {
   /** Custom route param name for entity ID. Default: 'id' */
@@ -64,10 +62,9 @@ export function useEntityDetailBase<T extends BaseEntity>(
   const queries = useEntityQueries()
   const editBuffer = useEditBufferStore()
   const workspace = useWorkspaceStore()
-  const appStore = useAppStore()
 
   const idParam = options?.idParam ?? 'id'
-  const readOnlyFields = options?.readOnlyFields ?? DEFAULT_READONLY_FIELDS
+  const readOnlyFields = options?.readOnlyFields ?? ENTITY_READ_ONLY_FIELDS
 
   // Stable ref: does NOT reactively track the global route object.
   // Keep-alive caches multiple component instances; if we used computed(() => route.params.id),
@@ -153,10 +150,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
       editBuffer.commitBuffer(key, result as Record<string, unknown>)
       return { success: true, data: result as T }
     } catch (error) {
-      appStore.setErrorMessage({
-        text: `Failed to save ${entityKey.replace(/_/g, ' ')}`,
-        technicalError: error instanceof Error ? error.message : String(error),
-      })
+      // Error toast is handled by the global onMutationError handler in initNewStack.ts
       return { success: false, error }
     }
   }
@@ -170,10 +164,7 @@ export function useEntityDetailBase<T extends BaseEntity>(
       editBuffer.removeBuffer(bufferKey.value)
       return { success: true }
     } catch (error) {
-      appStore.setErrorMessage({
-        text: `Failed to delete ${entityKey.replace(/_/g, ' ')}`,
-        technicalError: error instanceof Error ? error.message : String(error),
-      })
+      // Error toast is handled by the global onMutationError handler in initNewStack.ts
       return { success: false, error }
     }
   }
