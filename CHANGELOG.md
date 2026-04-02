@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.5](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.4...v0.7.0-alpha.5) (2026-04-02)
+
+### 🐛 Bug Fixes
+
+* fetch user info directly in OauthLogin to fix OIDC auth flow with ([f5e045b](https://github.com/ideaportriga/magnet-ai/commit/f5e045bbaa196b6712b786c800b1a1dcb375d0de))
+
 ## [0.7.0-alpha.4](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.3...v0.7.0-alpha.4) (2026-04-02)
 
 ### 🐛 Bug Fixes
