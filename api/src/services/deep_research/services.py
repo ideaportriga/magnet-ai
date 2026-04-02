@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Any, Awaitable, Callable
+from typing import Any
 from uuid import UUID
 
 from kreuzberg import ChunkingConfig, ExtractionConfig, extract_bytes
@@ -100,13 +100,10 @@ def _track_usage(run: DeepResearchRun, result_data: Any) -> None:
 @observe(name="Deep research execution")
 async def execute_deep_research(
     run: DeepResearchRun,
-    persist_callback: Callable[[DeepResearchRun], Awaitable[None]] | None = None,
 ) -> None:
     async def persist_state() -> None:
-        if not persist_callback:
-            return
         try:
-            await persist_callback(run)
+            await _persist_run_state(run)
         except Exception:
             logger.exception(
                 "Failed to persist deep research run state",
@@ -1227,17 +1224,22 @@ def _map_db_run_to_service(db_run: "DeepResearchRunDB") -> DeepResearchRun:
     )
 
 
-async def _persist_run_state(
-    run_service: DeepResearchRunService,
-    run_state: DeepResearchRun,
-) -> None:
-    """Persist current run status and details to the database."""
+async def _persist_run_state(run_state: DeepResearchRun) -> None:
+    """Persist current run status and details to the database.
+
+    Opens and closes its own short-lived DB session so that connections
+    are never held open during slow LLM / API calls.
+    """
     details = _serialize_run_details(run_state)
     update = DeepResearchRunUpdateSchema(
         status=run_state.status.value,
         details=details,
     )
-    await run_service.update(update, item_id=UUID(run_state.run_id), auto_commit=True)
+    async with alchemy.get_session() as session:
+        run_service = DeepResearchRunService(session=session)
+        await run_service.update(
+            update, item_id=UUID(run_state.run_id), auto_commit=True
+        )
 
 
 @observe(
@@ -1253,26 +1255,24 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
     run_model: DeepResearchRun | None = None
 
     try:
+        # Load initial run state, then immediately release the DB connection
         async with alchemy.get_session() as session:
             run_service = DeepResearchRunService(session=session)
             db_run = await run_service.get(run_uuid)
             run_model = _map_db_run_to_service(db_run)
 
-            # Import here to avoid circular dependency
-            from services.observability import observability_context
+        # Import here to avoid circular dependency
+        from services.observability import observability_context
 
-            # Update trace with deep research context
-            observability_context.update_current_trace(
-                name="Deep Research", type="deep_research"
-            )
+        # Update trace with deep research context
+        observability_context.update_current_trace(
+            name="Deep Research", type="deep_research"
+        )
 
-            async def persist(run_state: DeepResearchRun) -> None:
-                await _persist_run_state(run_service, run_state)
+        await execute_deep_research(run_model)
 
-            await execute_deep_research(run_model, persist_callback=persist)
-
-            # Ensure final state is flushed even if last persist failed
-            await _persist_run_state(run_service, run_model)
+        # Ensure final state is flushed even if last persist failed
+        await _persist_run_state(run_model)
     except Exception:
         logger.exception("Failed to execute deep research workflow for run %s", run_id)
         # Safety net: if the run was not already brought to a terminal state
@@ -1283,12 +1283,10 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
             DeepResearchStatus.FAILED,
         ):
             try:
-                async with alchemy.get_session() as session:
-                    run_service = DeepResearchRunService(session=session)
-                    run_model.status = DeepResearchStatus.FAILED
-                    run_model.error = "Workflow execution failed unexpectedly"
-                    run_model.updated_at = datetime.utcnow()
-                    await _persist_run_state(run_service, run_model)
+                run_model.status = DeepResearchStatus.FAILED
+                run_model.error = "Workflow execution failed unexpectedly"
+                run_model.updated_at = datetime.utcnow()
+                await _persist_run_state(run_model)
             except Exception:
                 logger.exception(
                     "Failed to persist FAILED status for deep research run %s", run_id
