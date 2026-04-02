@@ -145,8 +145,8 @@ const { data: promptTemplateListData } = queries.promptTemplates.useList()
 const { data: modelListData } = queries.model.useList()
 
 // Dynamic source type options from loaded plugins
-const dynamicSourceTypeOptions = computed(() => sourceTypeOptions || [])
-const dynamicSourceTypeChildren = computed(() => sourceTypeChildren || {})
+const dynamicSourceTypeOptions = computed(() => sourceTypeOptions.value || [])
+const dynamicSourceTypeChildren = computed(() => sourceTypeChildren.value || {})
 
 const isDisable = computed(() => {
   if (!draft.value?.last_synced) return false

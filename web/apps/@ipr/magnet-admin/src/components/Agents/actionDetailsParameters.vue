@@ -31,12 +31,12 @@ const queries = useEntityQueries()
 const { data: apiServersData } = queries.api_servers.useList()
 const apiServers = computed(() => apiServersData.value?.items ?? [])
 
-const { activeVariant } = useAgentEntityDetail()
+const { activeVariant: agentActiveVariant } = useAgentEntityDetail()
 
 const routeParams = computed(() => route.params)
 
 const topic = computed(() => {
-  return (activeVariant.value?.value?.topics || [])?.find(
+  return (agentActiveVariant.value?.value?.topics || [])?.find(
     (topic) => topic?.system_name === routeParams.value?.topicId
   )
 })
@@ -50,7 +50,7 @@ const tool_object = computed(() => {
   return server?.tools?.find((item) => item.system_name === action.value?.tool_system_name)
 })
 
-const activeVariant = computed(() => {
+const toolActiveVariant = computed(() => {
   return tool_object.value?.variants?.find(
     (variant) => variant.variant === tool_object.value?.active_variant
   )
@@ -58,7 +58,7 @@ const activeVariant = computed(() => {
 
 const parameters = computed(() => {
   if (action.value?.type === 'api') return tool_object.value?.parameters?.input?.properties
-  return activeVariant.value?.value?.parameters.input.properties
+  return toolActiveVariant.value?.value?.parameters.input.properties
 })
 
 const rows = computed(() => {

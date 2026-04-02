@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { cloneDeep } from 'lodash'
 import type { AllEntityQueries } from '@/queries/entities'
 import type { BaseEntity } from '@/types'
@@ -33,6 +33,18 @@ export function useVariantEntityDetail<T extends VariantEntity>(
       options?.onBufferInit?.(data)
     },
   })
+
+  // Initialize selectedVariant when draft becomes available (covers keep-alive reactivation
+  // and cases where the buffer already exists but selectedVariant was reset)
+  watch(
+    base.draft,
+    (d) => {
+      if (d && selectedVariant.value === null) {
+        selectedVariant.value = (d.active_variant as string) ?? null
+      }
+    },
+    { immediate: true },
+  )
 
   // Variant accessors
   const activeVariant = computed(() => {
