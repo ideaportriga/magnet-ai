@@ -68,8 +68,7 @@ export default {
             authStore.setUserInfo(userInfo)
           }
         } catch {
-          // Best effort — auth cookies are set regardless
-          authStore.setAuthenticated(true)
+          // /auth/me failed — user will stay on login page
         }
 
         emit('auth-completed')

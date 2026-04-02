@@ -122,6 +122,7 @@ export default {
       loading,
       appContext,
       appStore,
+      sharedAuth,
       ...auth,
     }
   },
@@ -153,7 +154,24 @@ export default {
 
     // Check if user already has a valid session (cookie)
     if (this.authEnabled) {
+      // Try authClient first (available when baseUrl is set)
       await this.getAuthData()
+
+      // Fallback for OIDC mode (empty baseUrl → authClient is null):
+      // call /auth/me directly to restore session from HttpOnly cookies.
+      if (!this.authenticated && !this.authClient) {
+        try {
+          const baseUrl = this.appStore?.config?.api?.aiBridge?.baseUrl ?? ''
+          const resp = await fetch(`${baseUrl}/auth/me`, { credentials: 'include' })
+          if (resp.ok) {
+            const userInfo = await resp.json()
+            this.sharedAuth.setAuthenticated(true)
+            this.sharedAuth.setUserInfo(userInfo)
+          }
+        } catch {
+          // No valid session
+        }
+      }
     }
 
     this.initialLoading = false
