@@ -4,7 +4,7 @@
       <q-card-section class="card-section-style">
         <div class="row">
           <div class="col">
-            <div class="km-heading-7">New metadata exposure</div>
+            <div class="km-heading-7">{{ m.collections_newMetadataExposure() }}</div>
           </div>
           <div class="col-auto">
             <q-btn icon="close" flat dense @click="$emit('cancel')" />
@@ -15,28 +15,28 @@
         <div class="row bg-light full-width q-py-4 q-px-8 q-gap-8 no-wrap items-center q-mb-lg">
           <q-icon name="o_info" color="icon" size="20px" style="min-width: 20px" />
           <div class="km-paragraph">
-            Configure how chunk metadata will be exposed for search and retrieval. To map metadata fields use JSONPath expression.
+            {{ m.collections_metadataExposureDesc() }}
           </div>
         </div>
-        <div class="km-field text-secondary-text q-pb-xs q-pl-8 q-mt-md">Name</div>
+        <div class="km-field text-secondary-text q-pb-xs q-pl-8 q-mt-md">{{ m.common_name() }}</div>
         <div class="full-width">
           <km-input v-model="newRecord.name" height="30px" />
         </div>
-        <div class="km-field text-secondary-text q-pb-xs q-pl-8 q-mt-md">Mapping</div>
+        <div class="km-field text-secondary-text q-pb-xs q-pl-8 q-mt-md">{{ m.common_mapping() }}</div>
         <div class="full-width">
           <km-input v-model="newRecord.mapping" height="30px" type="textarea" autogrow />
         </div>
-        <div class="km-field text-secondary-text q-pb-xs q-pl-8 q-mt-md">Description</div>
+        <div class="km-field text-secondary-text q-pb-xs q-pl-8 q-mt-md">{{ m.common_description() }}</div>
         <div class="full-width">
           <km-input v-model="newRecord.description" height="30px" type="textarea" autogrow />
         </div>
         <div class="row q-mt-lg">
           <div class="col-auto">
-            <km-btn flat label="Cancel" color="primary" @click="$emit('cancel')" />
+            <km-btn flat :label="m.common_cancel()" color="primary" @click="$emit('cancel')" />
           </div>
           <div class="col" />
           <div class="col-auto">
-            <km-btn label="Create" :disable="!newRecord.name || !newRecord.mapping" @click="create" />
+            <km-btn :label="m.common_create()" :disable="!newRecord.name || !newRecord.mapping" @click="create" />
           </div>
         </div>
       </q-card-section>
@@ -77,7 +77,7 @@ const create = () => {
   const newName = (newRecord.value?.name || '').trim()
   const isDuplicate = metadataConfig.some((item) => (item?.name || '').trim() === newName)
   if (isDuplicate) {
-    notifyError(`Metadata field ${newName} already exists`)
+    notifyError(m.validation_metadataFieldAlreadyExists({ name: newName }))
     return
   }
   metadataConfig.push(newRecord.value)

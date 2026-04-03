@@ -1,13 +1,13 @@
 <template lang="pug">
-.full-width
+  .full-width
   km-section(:title='m.section_apiDefinition()', :subTitle='m.subtitle_apiSpecification()')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Path
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.apiTools_path() }}
     .row.items-center.q-gap-16.no-wrap
       km-chip.text-secondary-text(:label='apiTool.method', color='light', round)
       km-input.full-width(:model-value='apiTool.path', readonly)
 
     .row.q-mt-lg.justify-between.items-end.q-mb-4
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Operation definition
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.apiTools_operationDefinition() }}
       km-select-flat(:options='parametersOptions', v-model='selectedParameters')
     km-input.full-width(
       rows='14',
@@ -38,10 +38,10 @@ export default {
   },
   setup() {
     const { draft, updateField } = useEntityDetail('api_servers')
-    const selectedParameters = ref({ label: 'Current parameters', value: 'current' })
+    const selectedParameters = ref({ label: m.apiTools_currentParameters(), value: 'current' })
     const parametersOptions = ref([
-      { label: 'Current parameters', value: 'current' },
-      { label: 'Original parameters', value: 'original' },
+      { label: m.apiTools_currentParameters(), value: 'current' },
+      { label: m.apiTools_originalParameters(), value: 'original' },
     ])
     return { m, selectedParameters, parametersOptions, draft, updateField }
   },

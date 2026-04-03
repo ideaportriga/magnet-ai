@@ -2,28 +2,28 @@
 km-drawer-layout(storageKey="drawer-collections-metadata", noScroll)
   template(#header)
     .row.items-center
-      km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
-    .km-heading-4 {{ m.common_metadata() }}
-  .q-mb-md Configure how chunk metadata will be exposed for search and retrieval. To map metadata fields use JSONPath expression.
+      km-btn(flat, simple, :label='`${m.common_back()} ${m.common_to()} ${m.common_preview()}`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
+  .km-heading-4 {{ m.common_metadata() }}
+  .q-mb-md {{ m.collections_metadataExposureDesc() }}
   .row.q-gap-16.q-mt-lg
     .col-12
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(v-model='enabled', dense)
-        .col Enable
+        .col {{ m.common_enabled() }}
     .col-12
-      .km-field.text-secondary-text.q-pb-xs Name
+      .km-field.text-secondary-text.q-pb-xs {{ m.common_name() }}
       km-input(v-model='name')
       .km-description.text-secondary-text.q-mt-xs.q-pl-4
-        | Any clear and concise name, that will be used as a reference across the system.
+        | {{ m.collections_metadataNameHint() }}
     .col-12
-      .km-field.text-secondary-text Mapping
+      .km-field.text-secondary-text {{ m.common_mapping() }}
       km-input(v-model='mapping', type='textarea', autogrow)
-      .km-description.text-secondary-text.q-mt-xs.q-pl-4 Any valid JSONPath expression.
+      .km-description.text-secondary-text.q-mt-xs.q-pl-4 {{ m.collections_metadataMappingHint() }}
     .col-12
-      .km-field.text-secondary-text Description
+      .km-field.text-secondary-text {{ m.common_description() }}
       km-input(v-model='description', type='textarea', autogrow)
-      .km-description.text-secondary-text.q-mt-xs.q-pl-4 Clear description, that can be easily understood by both humans and AI agents.
+      .km-description.text-secondary-text.q-mt-xs.q-pl-4 {{ m.collections_metadataDescriptionHint() }}
 </template>
 
 <script setup lang="ts">

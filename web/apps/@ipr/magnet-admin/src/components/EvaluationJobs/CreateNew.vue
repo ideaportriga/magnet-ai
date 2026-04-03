@@ -8,12 +8,12 @@ km-popup-confirm(
   @cancel='$emit("cancel")',
   :loading='loading'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Test Set
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.entity_testSet() }}
     .full-width
       km-select(
         height='auto',
         minHeight='36px',
-        placeholder='Test Set',
+        :placeholder='m.entity_testSet()',
         :options='filteredSetItems',
         v-model='newRow.evaluation_set',
         option-value='system_name',
@@ -25,13 +25,13 @@ km-popup-confirm(
         hasDropdownSearch
       )
 
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "prompt_template"') Evaluated Prompt Templates
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "prompt_template"') {{ m.evaluation_evaluatedPromptTemplates() }}
     |
     .full-width
       km-select(
         height='auto',
         minHeight='36px',
-        placeholder='Select Prompt Template',
+        :placeholder='m.evaluation_selectPromptTemplate()',
         :options='promptTemplates',
         v-model='evaluationTargetTools',
         hasDropdownSearch,
@@ -43,12 +43,12 @@ km-popup-confirm(
         :rules='config.evaluated_tools.rules',
         :disabled='disablePromptSelection'
       )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "prompt_template"') Prompt Template variants
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "prompt_template"') {{ m.evaluation_promptTemplateVariants() }}
     .full-width
       km-select(
         height='auto',
         minHeight='36px',
-        placeholder='Select Variants',
+        :placeholder='m.evaluation_selectVariants()',
         multiple,
         use-chips,
         selectAll,
@@ -63,13 +63,13 @@ km-popup-confirm(
         :rules='config.evaluated_tools.rules'
       )
 
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "rag_tool"') Evaluated RAGs
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "rag_tool"') {{ m.evaluation_evaluatedRags() }}
     |
     .full-width
       km-select(
         height='auto',
         minHeight='36px',
-        placeholder='Select RAG',
+        :placeholder='m.evaluation_selectRagTool()',
         :options='ragItems',
         v-model='evaluationTargetTools',
         hasDropdownSearch,
@@ -81,12 +81,12 @@ km-popup-confirm(
         :rules='config.evaluated_tools.rules',
         :disabled='disableRagSelection'
       )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "rag_tool"') Evaluated RAG Variants
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md(v-if='evaluationSetType == "rag_tool"') {{ m.evaluation_evaluatedRagVariants() }}
     .full-width
       km-select(
         height='auto',
         minHeight='36px',
-        placeholder='Select Variants',
+        :placeholder='m.evaluation_selectVariants()',
         multiple,
         use-chips,
         selectAll,
@@ -100,12 +100,12 @@ km-popup-confirm(
         ref='evaluated_toolsRef',
         :rules='config.evaluated_tools.rules'
       )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Number of iterations
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_numberOfIterations() }}
     .full-width
       km-input(
         type='number',
         height='36px',
-        placeholder='Number of iterations',
+        :placeholder='m.evaluation_numberOfIterations()',
         v-model='newRow.iteration_count',
         ref='iteration_countRef',
         :rules='config.iteration_count.rules'
@@ -185,7 +185,7 @@ export default {
   computed: {
     notification() {
       if (!this.testSetQty) return ''
-      return `You are about to start an evaluation with ${this.testSetQty} test set records`
+      return m.evaluation_aboutToStart({ count: this.testSetQty })
     },
     testSetQty() {
       return (this.evalSetsItems || []).find((el) => el?.system_name == this.newRow?.evaluation_set)?.items?.length
@@ -257,7 +257,7 @@ export default {
   methods: {
     getVariantLabel(variant) {
       const match = variant?.match(/variant_(\d+)/)
-      return `Variant ${match?.[1]}`
+      return `${m.common_variant()} ${match?.[1]}`
     },
     validateFields() {
       const validStates = this.requiredFields.map((field) => this.$refs[`${field}Ref`]?.validate())
@@ -284,7 +284,7 @@ export default {
         }
 
         const payload = {
-          name: 'Custom Evaluation Job',
+          name: m.evaluation_customEvaluationJob(),
           job_type: 'one_time_immediate',
           run_configuration: {
             type: 'evaluation',
@@ -299,7 +299,14 @@ export default {
         this.$emit('create', response)
         this.$emit('cancel')
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Failed to create evaluation job. Please try again.', timeout: 5000 })
+        this.$q.notify({
+          color: 'red-9',
+          textColor: 'white',
+          icon: 'error',
+          group: 'error',
+          message: m.evaluation_failedToCreateJob(),
+          timeout: 5000,
+        })
       } finally {
         this.loading = false
       }

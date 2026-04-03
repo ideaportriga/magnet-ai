@@ -1,11 +1,12 @@
 import NameDescription from '@/config/assistant-tools/component/NameDescription.vue'
 import { ChipCopy } from '@ui'
 import { markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const controls = {
   name: {
     name: 'name',
-    label: 'Name & Description',
+    label: m.common_nameDescription(),
     field: 'name',
     display: true,
     readonly: true,
@@ -17,7 +18,7 @@ const controls = {
   },
   system_name: {
     name: 'system_name',
-    label: 'System name',
+    label: m.common_systemName(),
     field: 'system_name',
     display: true,
     type: 'component',

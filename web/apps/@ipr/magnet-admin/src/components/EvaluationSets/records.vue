@@ -40,8 +40,8 @@ km-popup-confirm(
   @confirm='deleteSelected',
   @cancel='showDeleteDialog = false'
 )
-  .row.item-center.justify-center.km-heading-7 Delete Test Set Records
-  .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected records. Are you sure?` }}
+  .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_deleteEntity({ entity: m.common_testSetItems() }) }}
+  .row.text-center.justify-center {{ m.agents_deleteConfirmMessage({ count: selectedRows?.length ?? 0 }) }}
 </template>
 
 <script setup>
@@ -85,18 +85,18 @@ const columns = [
   selectionColumn(),
   ...(selectedEvaluationSet.value?.type === 'rag_tool'
     ? [
-        componentColumn('metadata_filter', 'Evaluation metadata filter', markRaw(RetrievalMetadataFilterChipList), {
+        componentColumn('metadata_filter', m.evaluationJobs_metadataFilter(), markRaw(RetrievalMetadataFilterChipList), {
           accessorKey: 'metadata_filter',
           props: (row) => ({ readonly: true, modelValue: row.metadata_filter }),
         }),
       ]
     : []),
-  componentColumn('user_input', 'Evaluation input', markRaw(TextWrap), {
+  componentColumn('user_input', m.evaluation_input(), markRaw(TextWrap), {
     accessorKey: 'user_input',
     sortable: true,
     props: (row) => ({ name: 'user_input' }),
   }),
-  componentColumn('expected_result', 'Expected output', markRaw(TextWrap), {
+  componentColumn('expected_result', m.evaluation_expectedOutput(), markRaw(TextWrap), {
     accessorKey: 'expected_result',
     sortable: true,
     props: (row) => ({ name: 'expected_result' }),

@@ -116,8 +116,8 @@ const system_name = computed({
 
 const created_at = computed(() => draft.value?.created_at ? formatDate(draft.value.created_at) : '')
 const modified_at = computed(() => draft.value?.updated_at ? formatDate(draft.value.updated_at) : '')
-const created_by = computed(() => draft.value?.created_by || 'Unknown')
-const updated_by = computed(() => draft.value?.updated_by || 'Unknown')
+const created_by = computed(() => draft.value?.created_by || m.common_unknown())
+const updated_by = computed(() => draft.value?.updated_by || m.common_unknown())
 
 function formatDate(date) {
   const d = new Date(date)
@@ -129,12 +129,12 @@ async function handleSave() {
   try {
     const result = await save()
     if (result.success) {
-      notify.success('Saved successfully')
+      notify.success(m.notify_savedSuccessfully())
     } else if (result.error) {
       throw result.error
     }
   } catch (error) {
-    notify.error(error.message || 'Failed to save')
+    notify.error(error.message || m.notify_failedToSave())
   } finally {
     saving.value = false
   }
@@ -142,7 +142,7 @@ async function handleSave() {
 
 async function confirmDelete() {
   await remove()
-  notify.success('API Server has been deleted.')
+  notify.success(m.notify_entityDeleted({ entity: m.entity_apiServer() }))
   router.push('/api-servers')
 }
 </script>

@@ -1,10 +1,11 @@
 import { markRaw } from 'vue'
 import Check from './components/Check.vue'
+import { m } from '@/paraglide/messages'
 
 export const columnsSettings = {
   enabled: {
     name: 'enabled',
-    label: 'Enabled',
+    label: m.common_enabled(),
     field: 'enabled',
     type: 'component',
     component: markRaw(Check),
@@ -15,7 +16,7 @@ export const columnsSettings = {
   },
   name: {
     name: 'name',
-    label: 'Name',
+    label: m.common_name(),
     field: 'name',
     display: true,
     sortable: true,
@@ -25,7 +26,7 @@ export const columnsSettings = {
   },
   mapping: {
     name: 'mapping',
-    label: 'Mapping',
+    label: m.common_mapping(),
     field: 'mapping',
     display: true,
     sortable: true,
@@ -35,7 +36,7 @@ export const columnsSettings = {
   },
   description: {
     name: 'description',
-    label: 'Description',
+    label: m.common_description(),
     field: 'description',
     display: false,
     sortable: true,

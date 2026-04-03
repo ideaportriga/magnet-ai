@@ -25,8 +25,8 @@
         .col-auto.q-pa-xl.bg-light.border-radius-12
           .row.items-center.justify-center.q-mb-md
             q-icon(name='fa fa-arrow-right-arrow-left', size='48px', color='primary')
-          .km-heading-7.text-black You have no API Servers yet
-          .km-description.text-black Use an API specification or add an API Server manually
+          .km-heading-7.text-black {{ m.apiServers_noApiServersYet() }}
+          .km-description.text-black {{ m.apiServers_useApiServerManual() }}
           .row.items-center.justify-center.q-mt-lg
             km-btn(:label='m.common_addApiServer()', @click='showNewDialog = true')
   api-servers-new-server(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')

@@ -28,8 +28,8 @@ km-popup-confirm(
     km-select(
       minHeight='30px',
       maxHeight='30px',
-      placeholder='Type',
-      :options='[ { value: "rag_tool", label: "RAG" }, { value: "prompt_template", label: "Prompt Template" }, ]',
+      :placeholder='m.common_type()',
+      :options='typeOptions',
       v-model='newRow.type',
       ref='typeRef',
       option-value='value',
@@ -50,7 +50,7 @@ km-popup-confirm(
       template(v-slot:append)
         q-icon(name='attach_file')
 
-    .km-description.text-secondary-text.q-py-4 Accept only .xlsx files. The file should contain the following columns: the first column for 'Evaluation input', and the second column for 'Expected output'
+    .km-description.text-secondary-text.q-py-4 {{ m.hint_evaluationSetImportFormat() }}
     //- template(v-slot:prepend)
     //-   q-icon(name='attach_file')
     //- template(v-slot:append)
@@ -65,6 +65,7 @@ import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { typeOptions } from '@/config/evaluation_sets/evaluation_sets'
 
 export default {
   props: {
@@ -151,6 +152,7 @@ export default {
 
     return {
       m,
+      typeOptions,
       createEntity,
       config,
       requiredFields,

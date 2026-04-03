@@ -9,14 +9,15 @@ import Score from './component/Score.vue'
 import Status from './component/Status.vue'
 import { markRaw } from 'vue'
 import { getCachedCatalog } from '@/queries/useCatalogOptions'
+import { m } from '@/paraglide/messages'
 
 export const statusOptions = [
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'ready_for_eval', label: 'Ready for eval' },
-  { value: 'eval_in_progress', label: 'Eval in progress' },
-  { value: 'eval_complited', label: 'Eval completed' },
+  { value: 'in_progress', label: m.status_inProgress() },
+  { value: 'completed', label: m.status_completed() },
+  { value: 'failed', label: m.status_failed() },
+  { value: 'ready_for_eval', label: m.evaluation_readyForEval() },
+  { value: 'eval_in_progress', label: m.evaluation_evalInProgress() },
+  { value: 'eval_complited', label: m.evaluation_evalCompleted() },
 ]
 
 const controls = {
@@ -40,7 +41,7 @@ const controls = {
   },
   varian_name: {
     name: 'varian_name',
-    label: 'Variant details',
+    label: m.evaluation_variantDetails(),
     type: 'component',
     component: markRaw(VariantName),
     display: true,
@@ -56,7 +57,7 @@ const controls = {
     name: 'modelLabel',
     display: true,
     sortable: true,
-    label: 'Model',
+    label: m.common_model(),
     align: 'left',
     field: (row) => {
       const activeVariantModel = row.tool?.variant_object?.system_name_for_model
@@ -66,7 +67,7 @@ const controls = {
   },
   status: {
     name: 'status',
-    label: 'Status',
+    label: m.common_status(),
     type: 'component',
     component: markRaw(Status),
     display: true,
@@ -81,7 +82,7 @@ const controls = {
   evaluated_tools: {
     name: 'evaluated_tools',
     display: false,
-    label: 'Evaluated tools',
+    label: m.evaluation_evaluatedTools(),
     type: 'component',
     readonly: true,
     align: 'left',
@@ -98,7 +99,7 @@ const controls = {
 
   test_set_type: {
     name: 'test_set_type',
-    label: 'Test Set',
+    label: m.entity_testSet(),
     type: 'component',
     component: markRaw(NameDescription),
     display: false,
@@ -122,7 +123,7 @@ const controls = {
 
   score: {
     name: 'score',
-    label: 'Avg score',
+    label: m.evaluation_avgScore(),
     type: 'component',
     field: 'average_score',
     component: markRaw(Score),
@@ -132,7 +133,7 @@ const controls = {
 
   average_latency: {
     name: 'average_latency',
-    label: 'Avg latency (ms)',
+    label: m.evaluation_avgLatencyMs(),
     field: 'average_latency',
     type: 'component',
     display: true,
@@ -143,7 +144,7 @@ const controls = {
 
   iteration_count: {
     name: 'iteration_count',
-    label: 'Iteration Count',
+    label: m.evaluation_iterationCount(),
     field: 'iteration_count',
     validate: true,
     // display: true,
@@ -153,7 +154,7 @@ const controls = {
   },
   avg_cost: {
     name: 'avg_cost',
-    label: 'Avg cost ($)',
+    label: m.evaluation_avgCostUsd(),
     type: 'component',
     field: 'average_cost',
     component: markRaw(Cost),
@@ -165,7 +166,7 @@ const controls = {
     code: 'report',
     type: 'component',
     display: true,
-    label: 'Report',
+    label: m.common_report(),
     component: markRaw(Report),
     align: 'center',
   },

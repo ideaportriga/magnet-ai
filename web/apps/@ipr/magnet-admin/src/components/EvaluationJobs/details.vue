@@ -13,18 +13,18 @@ layouts-details-layout.q-mx-auto(v-else, :style='{ "max-width": openDrawer ? "no
     .km-description.text-secondary-text.q-pt-8 {{ formattedDate }}
     .km-grid.q-mt-16
       .column.ba-border.border-radius-12.q-pa-16.no-wrap.fit
-        .km-heading-4.text-placeholder Avg. score
+        .km-heading-4.text-placeholder {{ m.evaluation_avgScore() }}
         .row
           km-chip(:color='color', :text-color='textColor', round, size='27px')
             .km-chart-value.q-pa-xs(:class='`text-${textColor}`') {{ averageScore }}
       .column.ba-border.border-radius-12.q-pa-16.no-wrap.fit
-        .km-heading-4.text-placeholder Records rated
+        .km-heading-4.text-placeholder {{ m.evaluation_recordsRated() }}
         .km-chart-value {{ recordsRated }}
       .column.ba-border.border-radius-12.q-pa-16.no-wrap.fit
-        .km-heading-4.text-placeholder Avg. total cost
+        .km-heading-4.text-placeholder {{ m.evaluation_avgTotalCost() }}
         .km-chart-value {{ totalCost }}
       .column.ba-border.border-radius-12.q-pa-16.no-wrap.fit
-        .km-heading-4.text-placeholder Avg. latency
+        .km-heading-4.text-placeholder {{ m.evaluation_avgLatency() }}
         .km-chart-value {{ latency }}
   template(#content)
     q-tabs.bb-border(
@@ -84,8 +84,8 @@ const removeMutation = queries.evaluation_jobs.useRemove()
 // Reactive data
 const tab = ref('records')
 const tabs = ref([
-  { name: 'records', label: 'Records' },
-  { name: 'settings', label: 'Variant details' },
+  { name: 'records', label: m.common_records() },
+  { name: 'settings', label: m.evaluation_variantDetails() },
 ])
 const showNewDialog = ref(false)
 const activeEvaluationSet = ref({})
@@ -225,9 +225,9 @@ const evaluationType = computed(() => {
 
 const typeLabel = computed(() => {
   if (evaluation.value?.type === 'prompt_eval') {
-    return 'Prompt Template'
+    return m.entity_promptTemplate()
   }
-  return 'RAG'
+  return m.entity_ragTool()
 })
 
 const openDrawer = computed(() => {
@@ -264,10 +264,10 @@ const navigate = (path = '') => {
 }
 
 const deleteEvaluationSet = () => {
-  notifyError(`Are you sure you want to delete ${selectedRow.value?.name}?`)
+  notifyError(m.evaluation_deleteNamedConfirm({ name: selectedRow.value?.name || '' }))
   removeMutation.mutate(selectedRow.value?.id)
   emit('update:closeDrawer', null)
-  notifySuccess('RAG Tool has been deleted.')
+  notifySuccess(m.notify_entityDeleted({ entity: m.entity_ragTool() }))
   navigate('/evaluation_set-tools')
 }
 

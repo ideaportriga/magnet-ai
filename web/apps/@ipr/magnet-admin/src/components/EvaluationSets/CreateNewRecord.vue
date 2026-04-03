@@ -1,10 +1,10 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Test Set',
-  confirmButtonLabel='Add & New',
+  :title='m.dialog_newTestSet()',
+  :confirmButtonLabel='m.common_addAndNew()',
   :cancelButtonLabel='m.common_cancel()',
-  confirmButtonLabel2='Add',
+  :confirmButtonLabel2='m.common_add()',
   @confirm='addRecord(true)',
   @confirm2='addRecord',
   @cancel='$emit("cancel")'
@@ -15,12 +15,12 @@ km-popup-confirm(
       :label='m.evaluationJobs_metadataFilter()',
       labelClass='km-field text-secondary-text q-mr-xs'
     )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Evaluation input
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_input() }}
     .full-width
       km-input(
         ref='user_inputRef',
         rows='10',
-        placeholder='Type your text here',
+        :placeholder='m.placeholder_typeYourTextHere()',
         :model-value='newRow.user_input',
         @input='newRow.user_input = $event',
         border-radius='8px',
@@ -28,12 +28,12 @@ km-popup-confirm(
         type='textarea',
         :rules='columnsSettings.user_input.rules'
       )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Expected output
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_expectedOutput() }}
     .full-width
       km-input(
         ref='expected_resultRef',
         rows='10',
-        placeholder='Type your text here',
+        :placeholder='m.placeholder_typeYourTextHere()',
         :model-value='newRow.expected_result',
         @input='newRow.expected_result = $event',
         border-radius='8px',

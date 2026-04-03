@@ -1,5 +1,6 @@
 import { sortDateColumn } from '@shared/utils/sortDateColumn'
 import { formatDateTime } from '@shared/utils/dateTime'
+import { m } from '@/paraglide/messages'
 
 const documnentsControls = {
   id: {
@@ -12,7 +13,7 @@ const documnentsControls = {
   },
   content: {
     name: 'content',
-    label: 'content',
+    label: m.common_content(),
     field: 'content',
     readonly: true,
     fromMetadata: false,
@@ -20,7 +21,7 @@ const documnentsControls = {
   },
   content_override: {
     name: 'content_override',
-    label: 'Content Override',
+    label: m.collections_contentOverride(),
     field: 'content_override',
     readonly: true,
     fromMetadata: false,
@@ -28,7 +29,7 @@ const documnentsControls = {
   },
   originalContent: {
     name: 'originalContent',
-    label: 'Original Content',
+    label: m.collections_originalContent(),
     field: 'originalContent',
     readonly: true,
     fromMetadata: false,
@@ -36,7 +37,7 @@ const documnentsControls = {
   },
   title: {
     name: 'metadata.title',
-    label: 'Title',
+    label: m.common_title(),
     field: (row) => row?.metadata?.['title'],
     display: true,
     columnNumber: 0,
@@ -45,7 +46,7 @@ const documnentsControls = {
   },
   type: {
     name: 'metadata.type',
-    label: 'Type',
+    label: m.common_type(),
     field: (row) => row?.metadata?.['type'],
     display: true,
     columnNumber: 1,
@@ -53,7 +54,7 @@ const documnentsControls = {
   },
   createdTime: {
     name: 'metadata.createdTime',
-    label: 'Created',
+    label: m.common_created(),
     field: (row) => row?.metadata?.['createdTime'],
     type: 'Date',
     sort: sortDateColumn,
@@ -63,7 +64,7 @@ const documnentsControls = {
   },
   modifiedTime: {
     name: 'metadata.modifiedTime',
-    label: 'Modified',
+    label: m.common_modifiedShort(),
     field: (row) => row?.metadata?.['modifiedTime'],
     type: 'Date',
     sort: sortDateColumn,
@@ -73,7 +74,7 @@ const documnentsControls = {
   },
   metadata: {
     name: 'metadata',
-    label: 'metadata',
+    label: m.common_metadata(),
     field: 'metadata',
     readonly: false,
     type: 'Object',

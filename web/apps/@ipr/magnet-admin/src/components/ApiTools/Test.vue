@@ -10,7 +10,7 @@
     .column.q-gap-4(v-if='!jsonMode')
       .row(v-for='field in form.fields')
         component.full-width(:is='field.render.component', v-bind='field.render.props', v-model='formValues[form.title][field.name]')
-        .km-description-2.text-secondary-text.q-pb-4.q-pl-8 {{ field.description ?? 'No description' }}
+        .km-description-2.text-secondary-text.q-pb-4.q-pl-8 {{ field.description ?? m.apiTools_noDescription() }}
     .column.q-gap-4.q-mb-16(v-else)
       km-codemirror(v-model='jsonString[form.title]', :style='{ minHeight: "150px" }', :options='{ mode: "application/json" }', language='json')
   .row.justify-end.bb-border.full-width

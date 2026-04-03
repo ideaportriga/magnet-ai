@@ -2,10 +2,11 @@ import { required, minLength, validSystemName } from '@shared/utils/validationRu
 import NameDescription from './component/NameDescription.vue'
 import { markRaw } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
+import { m } from '@/paraglide/messages'
 
 export const typeOptions = [
-  { value: 'rag_tool', label: 'RAG' },
-  { value: 'prompt_template', label: 'Prompt Template' },
+  { value: 'rag_tool', label: m.common_rag() },
+  { value: 'prompt_template', label: m.common_promptTemplate() },
 ]
 
 const controls = {
@@ -21,7 +22,7 @@ const controls = {
   name: {
     name: 'name',
     display: false,
-    label: 'Name',
+    label: m.common_name(),
     field: 'name',
     readonly: true,
     columnNumber: 0,
@@ -36,7 +37,7 @@ const controls = {
     name: 'description',
     description: 'description',
     display: false,
-    label: 'description',
+    label: m.common_description(),
     field: 'description',
     readonly: true,
     columnNumber: 0,
@@ -51,7 +52,7 @@ const controls = {
     name: 'system_name',
     system_name: 'system_name',
     display: false,
-    label: 'system_name',
+    label: m.common_systemName(),
     field: 'system_name',
     readonly: true,
     columnNumber: 0,
@@ -64,7 +65,7 @@ const controls = {
 
   nameDescription: {
     name: 'nameDescription',
-    label: 'Name',
+    label: m.common_name(),
     type: 'component',
     component: markRaw(NameDescription),
     display: true,
@@ -79,7 +80,7 @@ const controls = {
     name: 'type',
     code: 'type',
     display: true,
-    label: 'Type',
+    label: m.common_type(),
     field: (row) => {
       const type = row.type
       const typeOption = typeOptions.find((option) => option.value === type)
@@ -96,7 +97,7 @@ const controls = {
   },
   created: {
     name: 'created',
-    label: 'Created',
+    label: m.common_created(),
     field: (row) => row?.['created_at'],
     type: 'Date',
     display: true,
@@ -114,7 +115,7 @@ const controls = {
   },
   last_updated: {
     name: 'last_updated',
-    label: 'Last updated',
+    label: m.common_lastUpdated(),
     field: (row) => row?.['updated_at'],
     display: true,
     readonly: true,

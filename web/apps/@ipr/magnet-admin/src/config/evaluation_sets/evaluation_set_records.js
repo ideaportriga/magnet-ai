@@ -2,6 +2,7 @@ import { required, minLength } from '@shared/utils/validationRules'
 import TextWrap from './component/TextWrap.vue'
 import { markRaw, h } from 'vue'
 import RetrievalMetadataFilterChipList from '@ui/components/Retrieval/MetadataFilterChipList.vue'
+import { m } from '@/paraglide/messages'
 
 export const evaluationRecord = {
   rowsPerPage: 10,
@@ -13,7 +14,7 @@ export const columnsSettings = {
     name: 'metadata_filter',
     code: 'metadata_filter',
     display: true,
-    label: 'Evaluation metadata filter',
+    label: m.evaluationJobs_metadataFilter(),
     field: 'metadata_filter',
     readonly: true,
     columnNumber: 0,
@@ -35,7 +36,7 @@ export const columnsSettings = {
     name: 'user_input',
     code: 'user_input',
     display: true,
-    label: 'Evaluation input',
+    label: m.evaluation_input(),
     field: 'user_input',
     readonly: true,
     columnNumber: 1,
@@ -52,7 +53,7 @@ export const columnsSettings = {
     name: 'expected_result',
     code: 'expected_result',
     display: true,
-    label: 'Expected output',
+    label: m.evaluation_expectedOutput(),
     field: 'expected_result',
     readonly: true,
     columnNumber: 2,

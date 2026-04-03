@@ -1,11 +1,12 @@
 import { formatDateTime } from '@shared/utils/dateTime'
 import { ChipCopy } from '@ui'
 import { markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const controls = {
   name: {
     name: 'name',
-    label: 'Name',
+    label: m.common_name(),
     field: 'name',
     display: true,
     align: 'left',
@@ -14,7 +15,7 @@ const controls = {
   },
   system_name: {
     name: 'system_name',
-    label: 'System Name',
+    label: m.common_systemName(),
     field: 'system_name',
     display: true,
     align: 'left',
@@ -24,7 +25,7 @@ const controls = {
   },
   created_at: {
     name: 'created_at',
-    label: 'Created',
+    label: m.common_created(),
     field: 'created_at',
     display: true,
     align: 'left',
@@ -39,7 +40,7 @@ const controls = {
   },
   updated_at: {
     name: 'updated_at',
-    label: 'Last Updated',
+    label: m.common_lastUpdated(),
     field: 'updated_at',
     display: true,
     align: 'left',

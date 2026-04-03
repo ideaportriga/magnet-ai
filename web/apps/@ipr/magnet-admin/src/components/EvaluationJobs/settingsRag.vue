@@ -1,12 +1,12 @@
 <template lang="pug">
 div(style='min-width: 300px')
-  km-section(title='Variant basic info')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md RAG name
-      km-input(height='30px', placeholder='RAG name', readonly, :model-value='name')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Variant name
+  km-section(:title='m.section_variantBasicInfo()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_ragName() }}
+      km-input(height='30px', :placeholder='m.evaluation_ragName()', readonly, :model-value='name')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_variantName() }}
       .row
         .col
-          km-input(height='30px', placeholder='Variant name', readonly, :model-value='variantLabel')
+          km-input(height='30px', :placeholder='m.evaluation_variantName()', readonly, :model-value='variantLabel')
         .col-auto.q-ml-sm
           km-btn(
             flat,
@@ -17,14 +17,14 @@ div(style='min-width: 300px')
             @click='navigate("/rag-tools/" + this.evaluation?.tool?.id)'
           )
 
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Description
-      km-input(height='30px', placeholder='description', readonly, :model-value='evaluationVariant?.description')
-  km-section(title='Retrieval parameters')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Knowledge source
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_description() }}
+      km-input(height='30px', :placeholder='m.common_description()', readonly, :model-value='evaluationVariant?.description')
+  km-section(:title='m.evaluation_retrievalParameters()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_knowledgeSource() }}
       km-select(
         height='auto',
         minHeight='36px',
-        placeholder='Select knowledge sources',
+        :placeholder='m.common_selectKnowledgeSources()',
         multiple,
         :options='collections',
         v-model='collectionSystemNames',
@@ -33,41 +33,41 @@ div(style='min-width: 300px')
         readonly
       )
     .row.q-mb-md
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 Similarity score
+      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_similarityScore() }}
         km-input(
           type='number',
           height='30px',
-          placeholder='Similarity score',
+          :placeholder='m.evaluation_similarityScore()',
           readonly,
           :model-value='evaluationVariant?.retrieve?.similarity_score_threshold'
         )
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 No of chunks to select
+      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_chunksToSelect() }}
         km-input(
           type='number',
           height='30px',
-          placeholder='No of chunks to select',
+          :placeholder='m.evaluation_chunksToSelect()',
           readonly,
           :model-value='evaluationVariant?.retrieve?.max_chunks_retrieved'
         )
     .row.q-mb-md
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 Context window expansion size
+      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_contextWindowExpansionSize() }}
         km-input(
           type='number',
           height='30px',
-          placeholder='Context window expansion size',
+          :placeholder='m.evaluation_contextWindowExpansionSize()',
           readonly,
           :model-value='evaluationVariant?.retrieve?.chunk_context_window_expansion_size'
         )
       .col
 
-  km-section(title='Generation parameters')
+  km-section(:title='m.evaluation_generationParameters()')
     .row.q-mb-md
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 System prompt template
+      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_systemPromptTemplate() }}
         |
         km-select(
           height='auto',
           minHeight='36px',
-          placeholder='Select Prompt Template',
+          :placeholder='m.evaluation_selectPromptTemplate()',
           :options='promptTemplates',
           v-model='generateTemplate',
           hasDropdownSearch,
@@ -78,9 +78,9 @@ div(style='min-width: 300px')
           readonly,
           disabled
         )
-  km-section(title='Language parameters')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Enable multi-lingual RAG
-      q-toggle(height='30px', placeholder='Enable multi-lingual RAG', :model-value='evaluationVariant?.multilanguage?.enabled == true', readonly)
+  km-section(:title='m.evaluation_languageParameters()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_enableMultiLingualRag() }}
+      q-toggle(height='30px', :label='m.ragTools_enableMultiLingualRag()', :model-value='evaluationVariant?.multilanguage?.enabled == true', readonly)
 </template>
 
 <script>
@@ -133,7 +133,7 @@ export default {
     },
     variantLabel() {
       const match = this.evaluationVariant?.variant?.match(/variant_(\d+)/)
-      return `Variant ${match?.[1]}`
+      return `${m.common_variant()} ${match?.[1]}`
     },
     collectionSystemNames: {
       get() {

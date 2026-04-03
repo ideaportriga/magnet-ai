@@ -1,7 +1,7 @@
 <template lang="pug">
 km-drawer-layout(v-if='open && currentRecord', storageKey="drawer-evaluation-sets", noScroll)
   template(#header)
-    .km-heading-7 Test Set item details
+    .km-heading-7 {{ m.dialog_testSetItemDetails() }}
   .column.q-gap-12
     .col-auto(v-if='selectedEvaluationSet?.type === "rag_tool"')
       retrieval-metadata-filter(
@@ -10,11 +10,11 @@ km-drawer-layout(v-if='open && currentRecord', storageKey="drawer-evaluation-set
         labelClass='km-input-label text-text-grey q-mr-xs'
       )
     .col-auto
-      .km-input-label.text-text-grey Evaluation input
+      .km-input-label.text-text-grey {{ m.evaluation_input() }}
       km-input(
         ref='input',
         rows='16',
-        placeholder='Type your text here',
+        :placeholder='m.placeholder_typeYourTextHere()',
         :model-value='evaluationInput',
         @input='evaluationInput = $event',
         border-radius='8px',
@@ -22,11 +22,11 @@ km-drawer-layout(v-if='open && currentRecord', storageKey="drawer-evaluation-set
         type='textarea'
       )
     .col-auto
-      .km-input-label.text-text-grey Expected output
+      .km-input-label.text-text-grey {{ m.evaluation_expectedOutput() }}
       km-input(
         ref='input',
         rows='16',
-        placeholder='Type your text here',
+        :placeholder='m.placeholder_typeYourTextHere()',
         :model-value='expectedOutput',
         @input='expectedOutput = $event',
         border-radius='8px',

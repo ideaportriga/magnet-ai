@@ -38,7 +38,7 @@ div
     @cancel='showDeleteDialog = false'
   )
     .row.item-center.justify-center.km-heading-7 {{ m.collections_deleteMetadataRecords() }}
-    .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected records. Are you sure?` }}
+    .row.text-center.justify-center {{ m.agents_deleteConfirmMessage({ count: selectedRows?.length ?? 0 }) }}
 </template>
 
 <script setup lang="ts">
@@ -71,13 +71,13 @@ const data = computed(() => metadataConfig.value)
 
 const columns = [
   selectionColumn(),
-  componentColumn('enabled', 'Enabled', markRaw(Check), {
+  componentColumn('enabled', m.common_enabled(), markRaw(Check), {
     accessorKey: 'enabled',
     align: 'center',
     props: (row: any) => ({ name: 'enabled' }),
   }),
-  textColumn('name', 'Name'),
-  textColumn('mapping', 'Mapping'),
+  textColumn('name', m.common_name()),
+  textColumn('mapping', m.common_mapping()),
 ]
 
 const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(data, columns, {

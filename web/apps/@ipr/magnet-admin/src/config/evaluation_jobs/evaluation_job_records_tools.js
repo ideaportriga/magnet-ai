@@ -1,6 +1,7 @@
 import { required, minLength } from '@shared/utils/validationRules'
 import TextWrap from './component/TextWrap.vue'
 import { markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 export const evaluationRecord = {
   rowsPerPage: 5,
   sortBy: 'user_message',
@@ -10,7 +11,7 @@ export const evaluationRecord = {
 export const columnsSettings = {
   iteration: {
     name: 'iteration',
-    label: 'Iteration',
+    label: m.evaluation_iteration(),
     field: 'iteration',
     display: true,
     readonly: true,
@@ -23,7 +24,7 @@ export const columnsSettings = {
     name: 'user_message',
     code: 'user_message',
     display: true,
-    label: 'Evaluation input',
+    label: m.evaluation_input(),
     field: 'user_message',
     readonly: true,
     columnNumber: 0,
@@ -41,7 +42,7 @@ export const columnsSettings = {
     name: 'generated_output',
     code: 'generated_output',
     display: true,
-    label: 'Generated output',
+    label: m.evaluation_generatedOutput(),
     field: 'generated_output',
     readonly: true,
     columnNumber: 2,
@@ -56,7 +57,7 @@ export const columnsSettings = {
     name: 'expected_output',
     code: 'expected_output',
     display: true,
-    label: 'Expected output',
+    label: m.evaluation_expectedOutput(),
     field: 'expected_output',
     readonly: true,
     columnNumber: 1,
@@ -69,7 +70,7 @@ export const columnsSettings = {
   },
   score: {
     name: 'score',
-    label: 'Score',
+    label: m.evaluation_score(),
     field: 'score',
     display: true,
     sortable: true,
@@ -80,7 +81,7 @@ export const columnsSettings = {
 export const columnsCompareSettings = {
   iteration: {
     name: 'iteration',
-    label: 'Iteration',
+    label: m.evaluation_iteration(),
     field: 'iteration',
     display: true,
     readonly: true,
@@ -93,11 +94,11 @@ export const columnsCompareSettings = {
     name: 'variant',
     code: 'variant',
     display: true,
-    label: 'Variant',
+    label: m.common_variant(),
     field: (row) => {
       const variant = row.variant
       const match = variant?.match(/variant_(\d+)/)
-      return `Variant ${match?.[1]}`
+      return `${m.common_variant()} ${match?.[1]}`
     },
     readonly: true,
     columnNumber: 0,
@@ -113,7 +114,7 @@ export const columnsCompareSettings = {
     name: 'generated_output',
     code: 'generated_output',
     display: true,
-    label: 'Generated output',
+    label: m.evaluation_generatedOutput(),
     field: 'generated_output',
     readonly: true,
     columnNumber: 2,
@@ -127,7 +128,7 @@ export const columnsCompareSettings = {
 
   score: {
     name: 'score',
-    label: 'Score',
+    label: m.evaluation_score(),
     field: 'score',
     display: true,
     sortable: true,

@@ -1,12 +1,12 @@
 <template lang="pug">
 div(style='min-width: 300px')
-  km-section(title='Variant basic info')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Prompt template
-      km-input(height='30px', placeholder='Prompt template', readonly, :model-value='name')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Variant name
+  km-section(:title='m.section_variantBasicInfo()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_promptTemplate() }}
+      km-input(height='30px', :placeholder='m.common_promptTemplate()', readonly, :model-value='name')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_variantName() }}
       .row.items-center
         .col
-          km-input(height='30px', placeholder='Variant name', readonly, :model-value='variantLabel')
+          km-input(height='30px', :placeholder='m.evaluation_variantName()', readonly, :model-value='variantLabel')
         .col-auto.q-ml-sm
           km-btn(
             flat,
@@ -17,29 +17,29 @@ div(style='min-width: 300px')
             @click='navigate("/prompt-templates/" + this.evaluation?.tool?.id)'
           )
 
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Description
-      km-input(height='30px', placeholder='description', readonly, :model-value='evaluationVariant?.description')
-  km-section(title='Variant parameters')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Prompt template body
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_description() }}
+      km-input(height='30px', :placeholder='m.common_description()', readonly, :model-value='evaluationVariant?.description')
+  km-section(:title='m.section_variantParameters()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.evaluation_promptTemplateBody() }}
       km-input(
         ref='input',
         rows='10',
-        placeholder='Type your text here',
+        :placeholder='m.prompts_typeYourText()',
         border-radius='8px',
         height='36px',
         type='textarea',
         :model-value='evaluationVariant?.text',
         readonly
       )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Model
-      km-input(height='30px', placeholder='Model', readonly, :model-value='modelName')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_model() }}
+      km-input(height='30px', :placeholder='m.common_model()', readonly, :model-value='modelName')
     .row.q-mb-md
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 Temperature
-        km-input(type='number', height='30px', placeholder='Temperature', readonly, :model-value='evaluationVariant?.temperature')
-      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 Top P
-        km-input(type='number', height='30px', placeholder='Top P', readonly, :model-value='evaluationVariant?.topP')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Respond with JSON
-      q-toggle(height='30px', placeholder='Respond with JSON', :model-value='true', readonly)
+      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_temperature() }}
+        km-input(type='number', height='30px', :placeholder='m.evaluation_temperature()', readonly, :model-value='evaluationVariant?.temperature')
+      .col.km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_topP() }}
+        km-input(type='number', height='30px', :placeholder='m.evaluation_topP()', readonly, :model-value='evaluationVariant?.topP')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.evaluation_respondWithJson() }}
+      q-toggle(height='30px', :label='m.evaluation_respondWithJson()', :model-value='true', readonly)
 </template>
 
 <script>
@@ -83,7 +83,7 @@ export default {
     },
     variantLabel() {
       const match = this.evaluationVariant?.variant?.match(/variant_(\d+)/)
-      return `Variant ${match?.[1]}`
+      return `${m.common_variant()} ${match?.[1]}`
     },
   },
   methods: {

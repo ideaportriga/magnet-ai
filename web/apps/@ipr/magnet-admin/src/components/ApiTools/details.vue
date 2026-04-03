@@ -41,8 +41,8 @@ layouts-details-layout(v-if='apiTool')
       @confirm='confirmDelete',
       @cancel='showDeleteDialog = false'
     )
-      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: 'API Tool' }) }}
-      .row.text-center.justify-center {{ m.deleteConfirm_permanentDeleteDisable({ entity: 'API Tool' }) }}
+      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_apiTool() }) }}
+      .row.text-center.justify-center {{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_apiTool() }) }}
   template(#content)
     .column.full-height(style='min-height: 0')
       q-tabs.bb-border.full-width(
@@ -82,8 +82,8 @@ export default {
       m,
       tab: ref('parameters'),
       tabs: ref([
-        { name: 'parameters', label: 'Parameters' },
-        { name: 'information', label: 'API Information' },
+        { name: 'parameters', label: m.apiTools_parameters() },
+        { name: 'information', label: m.apiTools_apiInformation() },
       ]),
       openPropDetails: ref(false),
       selectedRow: ref(null),
@@ -192,10 +192,10 @@ export default {
         this.updateField('tools', tools.filter((_, i) => i !== toolIndex))
         const result = await this.saveServer()
         if (!result.success) throw result.error || new Error('Failed to save')
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_deletedSuccessfully({ entity: 'API Tool' }), timeout: 1000 })
+         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_deletedSuccessfully({ entity: m.entity_apiTool() }), timeout: 1000 })
         this.$router?.push(`/api-servers/${this.$route.params.id}`)
       } catch (error) {
-        const errorMessage = error?.message || 'Failed to delete API Tool.'
+        const errorMessage = error?.message || m.notify_failedToDelete()
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: errorMessage, timeout: 3000 })
       } finally {
         this.saving = false

@@ -62,7 +62,7 @@ export default {
     },
     uniqueSystemName(value) {
       if (this.items.some((item) => item.system_name === value)) {
-        return 'System name already exists'
+        return m.validation_systemNameAlreadyExists()
       }
       return false
     },

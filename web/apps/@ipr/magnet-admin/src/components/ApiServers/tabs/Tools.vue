@@ -54,8 +54,8 @@ const data = computed(() => draft.value?.tools ?? [])
 
 const columns = [
   selectionColumn(),
-  nameDescriptionColumn('Name & Description'),
-  chipCopyColumn('System name'),
+  nameDescriptionColumn(m.common_nameDescription()),
+  chipCopyColumn(m.common_systemName()),
 ]
 
 const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(data, columns, {

@@ -14,15 +14,15 @@
           .col-auto
             .grid-container.ba-border.bg-white.border-radius-12.q-py-xs.q-pr-md
               .grid-item
-                km-score(:score='averageScore || "Not rated"')
-              .grid-item-left.km-label Avg score
+                km-score(:score='averageScore || m.evaluation_notRated()')
+              .grid-item-left.km-label {{ m.evaluation_avgScore() }}
               .grid-item.km-chip.text-text-gray {{ recordsRated }}
-              .grid-item-left.km-label Records rated
+              .grid-item-left.km-label {{ m.evaluation_recordsRated() }}
               .grid-item(v-if='evaluationType == "prompt_eval"')
                 q-chip.km-chip(:color='color', :text-color='textColor', :label='totalCost')
-              .grid-item-left.km-label(v-if='evaluationType == "prompt_eval"') Avg total cost
+              .grid-item-left.km-label(v-if='evaluationType == "prompt_eval"') {{ m.evaluation_avgTotalCost() }}
               .grid-item.km-chip.text-text-gray {{ latency }}
-              .grid-item-left.km-label Avg latency
+              .grid-item-left.km-label {{ m.evaluation_avgLatency() }}
 
         q-tabs(
           v-model='tab',
@@ -81,8 +81,8 @@ export default {
       evalStore,
       tab: ref('records'),
       tabs: ref([
-        { name: 'records', label: 'Records' },
-        { name: 'settings', label: 'Variant details' },
+        { name: 'records', label: m.common_records() },
+        { name: 'settings', label: m.evaluation_variantDetails() },
       ]),
       showNewDialog: ref(false),
       activeEvaluationSet: ref({}),
@@ -236,21 +236,21 @@ export default {
     },
     deleteEvaluationSet() {
       this.$q.notify({
-        message: `Are you sure you want to delete ${this.selectedRow?.name}?`,
+        message: m.evaluation_deleteNamedConfirm({ name: this.selectedRow?.name || '' }),
         color: 'red-9', textColor: 'white',
         icon: 'error',
         group: 'error',
         timeout: 0,
         actions: [
           {
-            label: 'Cancel',
+            label: m.common_cancel(),
             color: 'yellow',
             handler: () => {
               /* ... */
             },
           },
           {
-            label: 'Delete',
+            label: m.common_delete(),
             color: 'white',
             handler: () => {
               this.loadingDelelete = true
@@ -260,7 +260,7 @@ export default {
                 color: 'green-9', textColor: 'white',
                 icon: 'check_circle',
                 group: 'success',
-                message: 'RAG Tool has been deleted.',
+                message: m.notify_entityDeleted({ entity: m.entity_ragTool() }),
                 timeout: 1000,
               })
               this.navigate('/evaluation_set-tools')

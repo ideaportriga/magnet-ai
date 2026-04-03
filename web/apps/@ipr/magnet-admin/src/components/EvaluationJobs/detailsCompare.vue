@@ -7,13 +7,13 @@ layouts-details-layout.q-mx-auto(v-else, noHeader)
       .col.items-center
         .row.q-gap-12.no-wrap.items-baseline
           .col-auto
-            .km-field.text-secondary-text Evaluated tool:
+            .km-field.text-secondary-text {{ m.evaluation_evaluatedTool() }}
           .col-auto
             .km-heading-3.q-mr-sm {{ evaluation_list?.[0]?.tool?.name }}
       .col
         .row.q-gap-12.no-wrap.items-baseline
           .col-auto
-            .km-field.text-secondary-text Test set:
+            .km-field.text-secondary-text {{ m.evaluation_testSet() }}
           .col-auto
             .km-heading-3.q-mr-sm {{ evaluation_list?.[0]?.test_sets?.[0] }}
   template(#content)
@@ -48,11 +48,12 @@ export default {
     const modelItems = computed(() => modelData.value?.items ?? [])
 
     return {
+      m,
       evalStore,
       tab: ref('records'),
       tabs: ref([
-        { name: 'records', label: 'Records' },
-        { name: 'settings', label: 'Variant details' },
+        { name: 'records', label: m.common_records() },
+        { name: 'settings', label: m.evaluation_variantDetails() },
       ]),
       showNewDialog: ref(false),
       activeEvaluationSet: ref({}),

@@ -6,7 +6,7 @@
         .col-auto.center-flex-y
           km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
         .col-auto.center-flex-y.q-ml-md(v-if='groupBy !== "flat"')
-          .text-secondary-text.q-mr-sm Group by:
+          .text-secondary-text.q-mr-sm {{ m.evaluation_groupBy() }}
           km-select(
             :options='groups',
             v-model='groupBy',
@@ -19,7 +19,7 @@
           )
         .col-auto.center-flex-y.q-ml-md
           template(v-if='filterObject?.tool || filterObject?.job')
-            .text-secondary-text.q-mr-sm {{ filterObject?.tool ? 'Tool:' : 'Job:' }}
+            .text-secondary-text.q-mr-sm {{ filterObject?.tool ? m.evaluation_toolLabel() : m.evaluation_jobLabel() }}
             q-chip.q-my-none(text-color='primary', color='primary-light', square, size='12px')
               .row.fit.items-center
                 .col.text-center {{ filterObject?.tool ? filterObject?.tool : filterObject?.job }}
@@ -39,7 +39,7 @@
             iconSize='16px',
             hoverBg='primary-bg',
             :disable='selected.length < 2',
-            :tooltip='selected.length < 2 ? "Select at least 2 records" : ""'
+            :tooltip='selected.length < 2 ? m.evaluation_selectAtLeastRecords({ count: 2 }) : ""'
           )
         .col-auto.center-flex-y
           km-btn.q-mr-12(
@@ -54,7 +54,7 @@
             iconSize='16px',
             hoverBg='primary-bg',
             :disable='selected.length < 2',
-            :tooltip='selected.length < 2 ? "Select at least 2 records" : ""'
+            :tooltip='selected.length < 2 ? m.evaluation_selectAtLeastRecords({ count: 2 }) : ""'
           )
         .col-auto.center-flex-y
           km-btn.q-mr-12(
@@ -69,7 +69,7 @@
             iconSize='16px',
             hoverBg='primary-bg',
             :disable='selected.length < 1',
-            :tooltip='selected.length < 1 ? "Select at least 1 records" : ""'
+            :tooltip='selected.length < 1 ? m.evaluation_selectAtLeastRecords({ count: 1 }) : ""'
           )
         .col-auto.center-flex-y
           km-btn.q-mr-12(
@@ -92,26 +92,26 @@
             .col(v-if='filterObject?.job')
               .row.q-gap-12.no-wrap.items-baseline
                 .col-auto
-                  .km-field.text-secondary-text Job start:
+                  .km-field.text-secondary-text {{ m.evaluation_jobStart() }}
                 .col-auto
                   .km-heading-3.q-mr-sm {{ filterObjectStartData }}
             .col
               .row.q-gap-12.no-wrap.items-baseline
                 .col-auto
-                  .km-field.text-secondary-text Evaluated tool:
+                  .km-field.text-secondary-text {{ m.evaluation_evaluatedTool() }}
                 .col-auto
                   .km-heading-3.q-mr-sm {{ filterObject?.row?.tool?.name }}
             .col(v-if='filterObject?.job')
               .row.q-gap-12.no-wrap.items-baseline
                 .col-auto
-                  .km-field.text-secondary-text Test set:
+                  .km-field.text-secondary-text {{ m.evaluation_testSet() }}
                 .col-auto
                   .km-heading-3.q-mr-sm {{ filterObject?.row?.test_sets?.[0] }}
         .col.q-ml-md
           q-chip.km-small-chip(
             color='in-progress',
             text-color='text-gray',
-            :label='filterObject.row?.type === "prompt_eval" ? "Prompt Template" : "RAG"'
+            :label='filterObject.row?.type === "prompt_eval" ? m.entity_promptTemplate() : m.entity_ragTool()'
           )
       q-separator.q-my-sm(v-if='filterObject?.row')
       .col(style='min-height: 0')
@@ -131,19 +131,19 @@ km-popup-confirm(
   @confirm='deleteSelected',
   @cancel='showDeleteDialog = false'
 )
-  .row.item-center.justify-center.km-heading-7 Delete Evaluation
-  .row.text-center.justify-center {{ `You are going to delete ${selected?.length} selected Evaluation. Are you sure?` }}
+  .row.item-center.justify-center.km-heading-7 {{ m.evaluation_deleteTitle() }}
+  .row.text-center.justify-center {{ m.evaluation_deleteSelectedConfirm({ count: selected?.length ?? 0 }) }}
 
 km-popup-confirm(
   :visible='showRerunDialog',
-  confirmButtonLabel='Run',
+  :confirmButtonLabel='m.common_run()',
   :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='rerunSelected',
   @cancel='showRerunDialog = false'
 )
-  .row.item-center.justify-center.km-heading-7 Rerun Evaluation
-  .row.text-center.justify-center {{ `You are going to rerun ${selected?.length} selected Evaluation. Are you sure?` }}
+  .row.item-center.justify-center.km-heading-7 {{ m.evaluation_rerunTitle() }}
+  .row.text-center.justify-center {{ m.evaluation_rerunSelectedConfirm({ count: selected?.length ?? 0 }) }}
 </template>
 
 <script setup lang="ts">
@@ -173,8 +173,8 @@ const selected = ref<EvaluationJob[]>([])
 
 const groupBy = ref<string>(route.query?.job_id ? 'flat' : 'job')
 const groups = [
-  { label: 'Evaluation job', value: 'job' },
-  { label: 'Evaluated tool', value: 'tool' },
+  { label: m.evaluation_groupJob(), value: 'job' },
+  { label: m.evaluation_groupTool(), value: 'tool' },
 ]
 
 interface FilterObject {
@@ -198,7 +198,7 @@ const modelItems = computed(() => modelListData.value?.items ?? [])
 
 // Flat columns for individual evaluation jobs
 const flatColumns: ColumnDef<EvaluationJob, unknown>[] = [
-  componentColumn<EvaluationJob>('varian_name', 'Variant details', VariantName, {
+  componentColumn<EvaluationJob>('varian_name', m.evaluation_variantDetails(), VariantName, {
     accessorKey: 'tool',
     sortable: true,
     sortFn: (a, b) => {
@@ -216,7 +216,7 @@ const flatColumns: ColumnDef<EvaluationJob, unknown>[] = [
       )?.display_name
       return modelLabel || ''
     },
-    header: 'Model',
+    header: m.common_model(),
     enableSorting: true,
     cell: ({ getValue }) => {
       const val = getValue()
@@ -224,26 +224,26 @@ const flatColumns: ColumnDef<EvaluationJob, unknown>[] = [
     },
     meta: { align: 'left' },
   } as ColumnDef<EvaluationJob, unknown>,
-  componentColumn<EvaluationJob>('status', 'Status', Status, {
+  componentColumn<EvaluationJob>('status', m.common_status(), Status, {
     accessorKey: 'status',
     sortable: true,
   }),
-  componentColumn<EvaluationJob>('score', 'Avg score', Score, {
+  componentColumn<EvaluationJob>('score', m.evaluation_avgScore(), Score, {
     accessorKey: 'average_score',
     sortable: true,
     sortFn: (a, b) => (a.average_score || 0) - (b.average_score || 0),
   }),
-  componentColumn<EvaluationJob>('average_latency', 'Avg latency (ms)', Latency, {
+  componentColumn<EvaluationJob>('average_latency', m.evaluation_avgLatencyMs(), Latency, {
     accessorKey: 'average_latency',
     sortable: true,
     sortFn: (a, b) => (a.average_latency || 0) - (b.average_latency || 0),
   }),
-  componentColumn<EvaluationJob>('avg_cost', 'Avg cost ($)', Cost, {
+  componentColumn<EvaluationJob>('avg_cost', m.evaluation_avgCostUsd(), Cost, {
     accessorKey: 'average_cost',
     sortable: true,
     sortFn: (a, b) => (a.average_cost || 0) - (b.average_cost || 0),
   }),
-  componentColumn<EvaluationJob>('report', 'Report', Report, {
+  componentColumn<EvaluationJob>('report', m.common_report(), Report, {
     align: 'center',
   }),
 ]
@@ -300,27 +300,27 @@ const groupedByToolRows = computed(() => groupRecordsByKey(allRows.value, 'tool.
 
 // Grouped columns - simplified for grouped view
 const groupedColumns: ColumnDef<EvaluationJob, unknown>[] = [
-  componentColumn<EvaluationJob>('varian_name', 'Variant details', VariantName, {
+  componentColumn<EvaluationJob>('varian_name', m.evaluation_variantDetails(), VariantName, {
     accessorKey: 'tool',
     sortable: true,
   }),
-  componentColumn<EvaluationJob>('status', 'Status', Status, {
+  componentColumn<EvaluationJob>('status', m.common_status(), Status, {
     accessorKey: 'status',
     sortable: true,
   }),
-  componentColumn<EvaluationJob>('score', 'Avg score', Score, {
+  componentColumn<EvaluationJob>('score', m.evaluation_avgScore(), Score, {
     accessorKey: 'average_score',
     sortable: true,
   }),
-  componentColumn<EvaluationJob>('average_latency', 'Avg latency (ms)', Latency, {
+  componentColumn<EvaluationJob>('average_latency', m.evaluation_avgLatencyMs(), Latency, {
     accessorKey: 'average_latency',
     sortable: true,
   }),
-  componentColumn<EvaluationJob>('avg_cost', 'Avg cost ($)', Cost, {
+  componentColumn<EvaluationJob>('avg_cost', m.evaluation_avgCostUsd(), Cost, {
     accessorKey: 'average_cost',
     sortable: true,
   }),
-  componentColumn<EvaluationJob>('report', 'Report', Report, {
+  componentColumn<EvaluationJob>('report', m.common_report(), Report, {
     align: 'center',
   }),
 ]

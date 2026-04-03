@@ -6,11 +6,12 @@ import Type from './component/Type.vue'
 import { markRaw } from 'vue'
 import DateTime from './component/DateTime.vue'
 import { formatDateTime } from '@shared/utils/dateTime'
+import { m } from '@/paraglide/messages'
 
 export const statusOptions = [
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'failed', label: 'Failed' },
+  { value: 'in_progress', label: m.status_inProgress() },
+  { value: 'completed', label: m.status_completed() },
+  { value: 'failed', label: m.status_failed() },
 ]
 
 const controls = {
@@ -35,7 +36,7 @@ const controls = {
   evaluated_tools: {
     name: 'evaluated_tools',
     display: true,
-    label: 'Tool name',
+    label: m.evaluation_toolName(),
     type: 'component',
     readonly: true,
     align: 'left',
@@ -52,7 +53,7 @@ const controls = {
   tool_type: {
     name: 'tool_type',
     display: true,
-    label: 'Tool type',
+    label: m.evaluation_toolType(),
     type: 'component',
     readonly: true,
     align: 'left',
@@ -68,7 +69,7 @@ const controls = {
   },
   job_start: {
     name: 'job_start',
-    label: 'Last Eval started',
+    label: m.evaluation_lastEvalStarted(),
     field: 'started_at',
     display: true,
     readonly: true,
@@ -90,7 +91,7 @@ const controls = {
 
   total_evaluations: {
     name: 'total_evaluations',
-    label: 'Total evaluations',
+    label: m.evaluation_totalEvaluations(),
     field: (row) => row?.records?.length || 0,
     display: true,
     sortable: true,
@@ -99,7 +100,7 @@ const controls = {
 
   max_score: {
     name: 'max_score',
-    label: 'Max avg. score',
+    label: m.evaluation_maxAvgScore(),
     type: 'component',
     component: markRaw(MaxScore),
     display: true,
@@ -190,7 +191,7 @@ const controls = {
     code: 'report',
     type: 'component',
     display: true,
-    label: 'Report',
+    label: m.common_report(),
     component: markRaw(Report),
     align: 'center',
   },

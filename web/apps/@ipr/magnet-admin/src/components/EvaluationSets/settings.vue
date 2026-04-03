@@ -1,12 +1,12 @@
 <template lang="pug">
 div
-  km-section(title='Type', subTitle='Type of objects that the Test Set will be used for')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
+  km-section(:title='m.common_type()', :subTitle='m.evaluationSets_typeDescription()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
     km-select(
       height='auto',
       minHeight='36px',
-      placeholder='Type',
-      :options='[ { value: "rag_tool", label: "RAG" }, { value: "prompt_template", label: "Prompt Template" }, ]',
+      :placeholder='m.common_type()',
+      :options='typeOptions',
       v-model='type',
       ref='typeRef',
       option-value='value',
@@ -19,6 +19,7 @@ div
 import { computed } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { typeOptions } from '@/config/evaluation_sets/evaluation_sets'
 
 const { draft, updateField } = useEntityDetail('evaluation_sets')
 

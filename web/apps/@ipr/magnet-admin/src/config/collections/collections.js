@@ -4,6 +4,7 @@ import { markRaw, ref } from 'vue'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { ChipCopy } from '@ui'
 import { getCachedItems } from '@/queries/getCachedItems'
+import { m } from '@/paraglide/messages'
 
 /**
  * Transform plugin field schema to frontend component config
@@ -31,7 +32,7 @@ const staticSourceTypeChildren = {
     // sharepoint_site_url is now in provider (not here)
     {
       name: 'sharepoint_library',
-      label: 'Library',
+      label: m.collections_library(),
       field: 'sharepoint_library',
       component: 'km-input',
       readonly: (collection) => !!collection?.last_synced,
@@ -39,7 +40,7 @@ const staticSourceTypeChildren = {
     },
     {
       name: 'sharepoint_folder',
-      label: 'Folder',
+      label: m.collections_folder(),
       field: 'sharepoint_folder',
       component: 'km-input',
       readonly: (collection) => !!collection?.sharepoint_folder,
@@ -47,7 +48,7 @@ const staticSourceTypeChildren = {
     },
     {
       name: 'sharepoint_recursive',
-      label: 'Include subfolders',
+      label: m.collections_includeSubfolders(),
       field: 'sharepoint_recursive',
       component: 'km-toggle',
       disable: (collection) => !!collection?.sharepoint_recursive,
@@ -58,7 +59,7 @@ const staticSourceTypeChildren = {
     // sharepoint_site_url is now in provider (not here)
     {
       name: 'sharepoint_pages_page_name',
-      label: 'Page name',
+      label: m.collections_pageName(),
       field: 'sharepoint_pages_page_name',
       component: 'km-input',
       disable: (collection) => !!collection?.last_synced,
@@ -66,7 +67,7 @@ const staticSourceTypeChildren = {
     },
     {
       name: 'sharepoint_pages_embed_title',
-      label: 'Embed titles instead of content',
+      label: m.collections_embedTitlesInsteadOfContent(),
       field: 'sharepoint_pages_embed_title',
       component: 'km-toggle',
       disable: (collection) => !!collection?.last_synced,
@@ -76,9 +77,9 @@ const staticSourceTypeChildren = {
   File: [
     {
       name: 'file_url',
-      label: 'File URL(s)',
+      label: m.collections_fileUrls(),
       field: 'file_url',
-      description: 'Links to supported files: PDF, DOCX, XLSX, PPTX, HTML, images, and more',
+      description: m.collections_supportedFileLinks(),
       component: 'file-url-upload',
       readonly: (collection) => !!collection?.last_synced,
       type: 'String',
@@ -88,7 +89,7 @@ const staticSourceTypeChildren = {
   Salesforce: [
     {
       name: 'object_api_name',
-      label: 'Object API Name',
+      label: m.collections_objectApiName(),
       field: 'object_api_name',
       component: 'km-input',
       readonly: (collection) => !!collection?.last_synced,
@@ -96,7 +97,7 @@ const staticSourceTypeChildren = {
     },
     {
       name: 'output_config',
-      label: 'Output config',
+      label: m.collections_outputConfig(),
       field: 'output_config',
       component: 'km-codemirror',
       readonly: (collection) => !!collection?.last_synced,
@@ -107,7 +108,7 @@ const staticSourceTypeChildren = {
     // confluence_url is now in provider (not here)
     {
       name: 'confluence_space',
-      label: 'Confluence space key',
+      label: m.collections_confluenceSpaceKey(),
       field: 'confluence_space',
       component: 'km-input',
       readonly: (collection) => !!collection?.last_synced,
@@ -124,7 +125,7 @@ const staticSourceTypeChildren = {
   'Fluid Topics': [
     {
       name: 'fluid_topics_search_filters',
-      label: 'Search filters',
+      label: m.collections_searchFilters(),
       field: 'fluid_topics_search_filters',
       component: 'km-codemirror',
       readonly: (collection) => !!collection?.last_synced,
@@ -135,27 +136,27 @@ const staticSourceTypeChildren = {
     // base_url is now in provider (not here)
     {
       name: 'languages',
-      label: 'Languages',
+      label: m.collections_languages(),
       field: 'languages',
-      description: 'Comma-separated list of language codes (e.g., en,ru)',
+      description: m.collections_languagesHint(),
       component: 'km-input',
       readonly: (collection) => !!collection?.last_synced,
       type: 'String',
     },
     {
       name: 'sections',
-      label: 'Sections',
+      label: m.collections_sections(),
       field: 'sections',
-      description: 'Comma-separated list of documentation sections (e.g., quickstarts,admin)',
+      description: m.collections_sectionsHint(),
       component: 'km-input',
       readonly: (collection) => !!collection?.last_synced,
       type: 'String',
     },
     {
       name: 'max_depth',
-      label: 'Max Crawl Depth',
+      label: m.collections_maxCrawlDepth(),
       field: 'max_depth',
-      description: 'Maximum depth for crawling documentation pages (default: 5)',
+      description: m.collections_maxCrawlDepthHint(),
       component: 'km-input',
       readonly: (collection) => !!collection?.last_synced,
       type: 'Number',
@@ -228,7 +229,7 @@ const controls = {
   },
   nameDescription: {
     name: 'nameDescription',
-    label: 'Name',
+    label: m.common_nameDescription(),
     field: 'name',
     type: 'component',
     component: markRaw(NameDescription),
@@ -242,9 +243,9 @@ const controls = {
 
   category: {
     name: 'category',
-    label: 'Category',
+    label: m.common_category(),
     field: 'category',
-    options: ['Knowledge base', 'User Manual'],
+    options: [m.collections_knowledgeBase(), m.collections_userManual()],
     columnNumber: 3,
     validate: true,
     rules: [required()],
@@ -253,7 +254,7 @@ const controls = {
   },
   description: {
     description: 'description',
-    label: 'Description',
+    label: m.common_description(),
     field: 'description',
     name: 'description',
     validate: true,
@@ -265,7 +266,7 @@ const controls = {
     name: 'system_name',
     code: 'system_name',
     display: true,
-    label: 'System name',
+    label: m.common_systemName(),
     field: 'system_name',
     type: 'component',
     component: markRaw(ChipCopy),
@@ -280,7 +281,7 @@ const controls = {
   },
   created: {
     name: 'created',
-    label: 'Created',
+    label: m.common_created(),
     field: 'created_at',
     type: 'Date',
     display: true,
@@ -298,7 +299,7 @@ const controls = {
   },
   last_synced: {
     name: 'last_synced',
-    label: 'Last synced',
+    label: m.collections_lastSynced(),
     field: 'last_synced',
     readonly: true,
     type: 'Date',
@@ -309,17 +310,17 @@ const controls = {
   },
   show_in_qa: {
     name: 'show_in_qa',
-    label: 'Show in Q&A',
+    label: m.collections_showInQa(),
     field: 'show_in_qa',
     type: 'Boolean',
-    format: (val) => (val ? 'Yes' : 'No'),
+    format: (val) => (val ? m.common_yes() : m.common_no()),
     columnNumber: 4,
     fromMetadata: false,
     display: false,
   },
   source_type: {
     name: 'source_type',
-    label: 'Source',
+    label: m.collections_source(),
     field: (row) => row?.source?.source_type,
     // Use dynamic options from plugins
     get options() {
@@ -336,7 +337,7 @@ const controls = {
   },
   name: {
     name: 'name',
-    label: 'Name',
+    label: m.common_name(),
     field: 'name',
     validate: true,
     rules: [required(), minLength(3, 'Collection name must consist of more than 3 characters')],
@@ -347,9 +348,9 @@ const controls = {
   },
   type: {
     name: 'type',
-    label: 'Type',
+    label: m.common_type(),
     field: 'type',
-    options: ['Public', 'Internal'],
+    options: [m.collections_public(), m.collections_internal()],
     columnNumber: 2,
     validate: true,
     rules: [required()],
@@ -358,12 +359,12 @@ const controls = {
   },
   chunking_strategy: {
     name: 'chunking_strategy',
-    label: 'Chunking strategy',
+    label: m.collections_chunkingStrategy(),
     field: 'chunking_strategy',
     options: [
-      { label: 'None', value: 'none' },
-      { label: 'Recursive Character Text Splitting', value: 'recursive_character_text_splitting' },
-      { label: 'HTML Header Splitting', value: 'html_header_splitting' },
+      { label: m.collections_none(), value: 'none' },
+      { label: m.collections_recursiveCharacterTextSplitting(), value: 'recursive_character_text_splitting' },
+      { label: m.collections_htmlHeaderSplitting(), value: 'html_header_splitting' },
     ],
     columnNumber: 2,
     validate: true,
@@ -373,7 +374,7 @@ const controls = {
   },
   chunk_size: {
     name: 'chunk_size',
-    label: 'Chunk size',
+    label: m.collections_chunkSize(),
     field: 'chunk_size',
     columnNumber: 2,
     validate: true,
@@ -382,7 +383,7 @@ const controls = {
   },
   chunk_overlap: {
     name: 'chunk_overlap',
-    label: 'Chunk overlap',
+    label: m.collections_chunkOverlap(),
     field: 'chunk_overlap',
     columnNumber: 2,
     validate: true,
@@ -391,12 +392,12 @@ const controls = {
   },
   chunk_transformation_method: {
     name: 'chunk_transformation_method',
-    label: 'Chunk transformation method',
+    label: m.collections_chunkTransformationMethod(),
     field: 'chunk_transformation_method',
     options: [
-      { label: 'Replace chunk content', value: 'replace' },
-      { label: 'Prepend before chunk', value: 'prepend' },
-      { label: 'Append after chunk', value: 'append' },
+      { label: m.collections_replaceChunkContent(), value: 'replace' },
+      { label: m.collections_prependBeforeChunk(), value: 'prepend' },
+      { label: m.collections_appendAfterChunk(), value: 'append' },
     ],
     columnNumber: 2,
     validate: true,
@@ -405,13 +406,13 @@ const controls = {
   },
   chunk_usage_method: {
     name: 'chunk_usage_method',
-    label: 'Chunk usage method',
+    label: m.collections_chunkUsageMethod(),
     field: 'chunk_usage_method',
     options: [
-      { label: 'Use original chunk for both indexing and retrieval', value: 'original_both' },
-      { label: 'Use transformed chunk for both indexing and retrieval', value: 'transformed_both' },
-      { label: 'Use original chunk for indexing and transformed chunk for retrieval', value: 'original_indexing_transformed_retrieval' },
-      { label: 'Use transformed chunk for indexing and original chunk for retrieval', value: 'transformed_indexing_original_retrieval' },
+      { label: m.collections_useOriginalChunkBoth(), value: 'original_both' },
+      { label: m.collections_useTransformedChunkBoth(), value: 'transformed_both' },
+      { label: m.collections_useOriginalIndexingTransformedRetrieval(), value: 'original_indexing_transformed_retrieval' },
+      { label: m.collections_useTransformedIndexingOriginalRetrieval(), value: 'transformed_indexing_original_retrieval' },
     ],
     columnNumber: 2,
     validate: true,
@@ -420,7 +421,7 @@ const controls = {
   },
   semantic_search_supported: {
     name: 'semantic_search_supported',
-    label: 'Support semantic search',
+    label: m.collections_supportSemanticSearch(),
     field: 'semantic_search_supported',
     type: 'Boolean',
     columnNumber: 2,
@@ -430,7 +431,7 @@ const controls = {
   },
   support_keyword_search: {
     name: 'support_keyword_search',
-    label: 'Support keyword search',
+    label: m.collections_supportKeywordSearch(),
     field: 'support_keyword_search',
     type: 'Boolean',
     columnNumber: 2,
@@ -440,7 +441,7 @@ const controls = {
   },
   metadata: {
     name: 'metadata',
-    label: 'metadata',
+    label: m.common_metadata(),
     field: 'metadata',
     readonly: false,
     type: 'Object',
