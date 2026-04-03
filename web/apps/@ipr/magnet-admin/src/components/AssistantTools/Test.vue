@@ -41,7 +41,7 @@
 
         .row.justify-end.q-pr-md
           .col-auto
-            km-btn(icon='fas fa-copy', iconColor='icon', iconSize='16px', size='sm', flat, contentClass='text-label', label='Copy', @click='copy')
+            km-btn(icon='fas fa-copy', iconColor='icon', iconSize='16px', size='sm', flat, contentClass='text-label', :label='m.common_copy()', @click='copy')
 </template>
 
 <script>

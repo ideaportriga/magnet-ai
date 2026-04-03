@@ -5,7 +5,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
       .row
         .col Preview
         .col-auto
-          km-btn(flat, simple, label='Evaluate', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
+          km-btn(flat, simple, :label='m.common_evaluate()', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
   .column.full-height.full-width.no-wrap.q-px-16
     .col-auto(style='overflow-x: auto')
       .row.items-center.q-mb-xs
@@ -136,14 +136,14 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
               color='primary',
               iconColor='primary',
               labelClass='km-title',
-              label='View costs & latency',
+              :label='m.common_viewCostsLatency()',
               @click='showDetails = true',
               flat,
               iconSize='16px',
               hoverBg='primary-bg'
             )
           .col-auto
-            q-toggle(v-model='markdown', label='Markdown', color='primary')
+            q-toggle(v-model='markdown', :label='m.common_markdown()', color='primary')
     q-scroll-area.col(style='min-height: 0')
       template(v-if='loading')
         .row.justify-center
@@ -161,10 +161,10 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
     .col-auto
       .row.items-center
         .col-auto
-          km-btn(flat, simple, label='Clear preview', iconSize='16px', icon='fas fa-eraser', @click='clearText')
+          km-btn(flat, simple, :label='m.common_clearPreview()', iconSize='16px', icon='fas fa-eraser', @click='clearText')
         q-space
         .col-auto
-          km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', label='Copy', tooltip='Copy')
+          km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', :label='m.common_copy()', tooltip='Copy')
 
   evaluation-jobs-create-new(
     :showNewDialog='showNewDialog',
@@ -179,7 +179,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
     :visible='showEvaluationCreateDialog',
     confirmButtonLabel='View Evaluation',
     notificationIcon='far fa-circle-check',
-    cancelButtonLabel='Cancel',
+    :cancelButtonLabel='m.common_cancel()',
     @cancel='showEvaluationCreateDialog = false',
     @confirm='navigateToEval()'
   )
@@ -190,7 +190,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
     :visible='showDetails',
     title='Costs & Latency',
     confirmButtonLabel='OK',
-    cancelButtonLabel='Cancel',
+    :cancelButtonLabel='m.common_cancel()',
     @cancel='showDetails = false',
     @confirm='showDetails = false'
   )

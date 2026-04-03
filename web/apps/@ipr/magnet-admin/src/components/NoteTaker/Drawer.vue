@@ -6,7 +6,7 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
       .col-auto(v-if='currentJob')
         q-btn(
           flat, dense, size='sm', color='grey-7',
-          icon='restart_alt', label='Start over',
+          icon='restart_alt', :label='m.common_startOver()',
           @click='resetPreview', no-caps
         )
     .km-description.text-secondary-text.q-mb-sm(v-if='!currentJob') Test your note taker configuration with a recording.
@@ -197,7 +197,7 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
           q-btn.full-width(
             color='primary', unelevated, dense, no-caps,
             :disable='!canRun', @click='runPreview', :loading='running',
-            icon='play_arrow', label='Run pipeline'
+            icon='play_arrow', :label='m.common_runPipeline()'
           )
 
       //- Transcribed: Continue button
@@ -205,7 +205,7 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
         .q-pt-sm
           q-btn.full-width(
             unelevated, dense, color='primary', no-caps,
-            label='Continue', icon='play_arrow',
+            :label='m.common_continue()', icon='play_arrow',
             @click='continuePostprocessing', :loading='processingContinue'
           )
 
@@ -214,7 +214,7 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
         .q-pt-sm
           q-btn.full-width(
             unelevated, dense, color='primary', no-caps,
-            label='Try again', icon='refresh',
+            :label='m.common_tryAgain()', icon='refresh',
             @click='resetPreview'
           )
 </template>

@@ -1,7 +1,7 @@
 <template lang="pug">
 .column.full-height(style='min-height: 0')
   div(style='width: 300px')
-    km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+    km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
   .km-title.q-pl-16.q-pb-8.q-pt-lg.text-text-grey Inputs
   .col(style='min-height: 0')
     km-data-table(fill-height, :table='table', row-key='name', :activeRowId='selectedRow?.name', @row-click='select')

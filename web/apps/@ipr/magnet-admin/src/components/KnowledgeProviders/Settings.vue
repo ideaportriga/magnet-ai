@@ -39,10 +39,10 @@
     .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in connectionEntries', :key='key')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(label='Key', :model-value='key', @update:model-value='updateConnectionKey(key, $event)')
+        km-input(:label='m.common_key()', :model-value='key', @update:model-value='updateConnectionKey(key, $event)')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(label='Value', :model-value='value', @update:model-value='updateConnectionValue(key, $event)')
+        km-input(:label='m.common_value()', :model-value='value', @update:model-value='updateConnectionValue(key, $event)')
       .col-auto
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
         km-btn(@click='removeConnection(key)', icon='o_delete', size='sm', flat, color='negative')

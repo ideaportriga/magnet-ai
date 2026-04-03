@@ -49,13 +49,13 @@ km-popup-confirm(
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-sm Features
     .row.q-col-gutter-md.q-px-8.q-mb-md
       .col-6
-        km-checkbox(label='JSON Mode', v-model='newRow.json_mode', dense)
+        km-checkbox(:label='m.common_jsonMode()', v-model='newRow.json_mode', dense)
       .col-6
-        km-checkbox(label='Structured Output', v-model='newRow.json_schema', dense)
+        km-checkbox(:label='m.common_structuredOutput()', v-model='newRow.json_schema', dense)
       .col-6
-        km-checkbox(label='Tool Calling', v-model='newRow.tool_calling', dense)
+        km-checkbox(:label='m.common_toolCalling()', v-model='newRow.tool_calling', dense)
       .col-6
-        km-checkbox(label='Reasoning', v-model='newRow.reasoning', dense)
+        km-checkbox(:label='m.common_reasoning()', v-model='newRow.reasoning', dense)
 
   //- Vector Config (Embeddings)
   template(v-if='newRow.type === "embeddings"')
@@ -75,7 +75,7 @@ km-popup-confirm(
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-sm Features
     .row.q-col-gutter-md.q-px-8.q-mb-md
       .col-6
-        km-checkbox(label='Diarization', v-model='newRow.diarization', dense)
+        km-checkbox(:label='m.noteTaker_diarization()', v-model='newRow.diarization', dense)
 </template>
 
 <script>

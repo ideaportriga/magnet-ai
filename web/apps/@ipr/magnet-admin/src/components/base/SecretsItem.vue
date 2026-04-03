@@ -2,13 +2,13 @@
 .row.items-center.q-gap-8.no-wrap.q-mt-md
   .col
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-    km-input(label='Key', :model-value='itemKey', @update:model-value='update(itemKey, $event, value)', :readonly='!isNew')
+    km-input(:label='m.common_key()', :model-value='itemKey', @update:model-value='update(itemKey, $event, value)', :readonly='!isNew')
 
   .col
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
     .row.items-center.q-gap-8.no-wrap.relative-position
       km-input.full-width(
-        label='Value',
+        :label='m.common_value()',
         :model-value='getSecretDisplayValue(itemKey, value)',
         @update:model-value='updateSecret(itemKey, itemKey, $event)',
         :readonly='!editMode',

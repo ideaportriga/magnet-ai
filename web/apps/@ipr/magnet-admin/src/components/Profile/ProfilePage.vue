@@ -3,7 +3,7 @@ layouts-details-layout(noHeader)
   template(#content)
     km-tabs(v-model='tab')
       q-tab(name='profile', :label='m.user_profile()')
-      q-tab(name='access', label='Access')
+      q-tab(name='access', :label='m.common_access()')
       q-tab(name='security', :label='m.user_security()')
     .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
       .row.q-gap-16.full-height.full-width

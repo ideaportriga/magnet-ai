@@ -3,7 +3,7 @@ km-popup-confirm(
   :visible='showNewDialog',
   title='New Test Set',
   confirmButtonLabel='Add & New',
-  cancelButtonLabel='Cancel',
+  :cancelButtonLabel='m.common_cancel()',
   confirmButtonLabel2='Add',
   @confirm='addRecord(true)',
   @confirm2='addRecord',
@@ -12,7 +12,7 @@ km-popup-confirm(
   .q-pb-xs.q-pl-8.q-mb-md(v-if='selectedEvaluationSet?.type === "rag_tool"')
     retrieval-metadata-filter(
       v-model='newRow.metadata_filter',
-      label='Evaluation metadata filter',
+      :label='m.evaluationJobs_metadataFilter()',
       labelClass='km-field text-secondary-text q-mr-xs'
     )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Evaluation input

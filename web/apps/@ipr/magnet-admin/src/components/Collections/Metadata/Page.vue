@@ -2,12 +2,12 @@
 div
   .row.q-gap-8.justify-end
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     km-btn.q-mr-12(
       v-if='selectedRows.length > 0',
       icon='delete',
-      label='Delete',
+      :label='m.common_delete()',
       iconColor='icon',
       hoverColor='primary',
       labelClass='km-title',
@@ -17,7 +17,7 @@ div
       @click='showDeleteDialog = true'
     )
     km-btn(:label='m.collections_autoMap()', @click='autoMap')
-    km-btn(label='New', @click='showNewDialog = true')
+    km-btn(:label='m.common_new()', @click='showNewDialog = true')
 
   .row
     km-data-table(

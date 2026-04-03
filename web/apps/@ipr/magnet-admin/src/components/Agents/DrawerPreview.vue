@@ -115,7 +115,7 @@ km-drawer-layout(storageKey="drawer-agents-preview", :defaultWidth="500", :maxWi
               template(v-if='processing')
                 .column.justify-center.items-center
                   q-spinner-dots(size='62px', color='primary')
-                  km-btn(flat, simple, label='Stop', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
+                  km-btn(flat, simple, :label='m.panel_stop()', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
               .column.no-wrap.q-px-16.q-gap-8
                 template(v-for='(message, index) in allMessages')
                   agent-message(

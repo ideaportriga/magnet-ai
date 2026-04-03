@@ -103,8 +103,8 @@ km-drawer-layout(v-if='!!selectedRow', storageKey='drawer-dashboard-rag')
 
       .col-auto
       .row.items-center.q-gap-8
-        km-btn.self-end(label='Cancel', @click='cancelUpdate', v-if='isUpdated', flat)
-        km-btn.self-end(label='Update', @click='updateAnalytics', v-if='isUpdated')
+        km-btn.self-end(:label='m.common_cancel()', @click='cancelUpdate', v-if='isUpdated', flat)
+        km-btn.self-end(:label='m.common_update()', @click='updateAnalytics', v-if='isUpdated')
 </template>
 <script>
 import _ from 'lodash'

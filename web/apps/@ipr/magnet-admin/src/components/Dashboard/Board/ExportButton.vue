@@ -1,5 +1,5 @@
 <template lang="pug">
-q-btn-dropdown.km-export-dropdown(flat, color='secondary-text', label='Export', no-caps, icon='fas fa-file-export')
+q-btn-dropdown.km-export-dropdown(flat, color='secondary-text', :label='m.common_export()', no-caps, icon='fas fa-file-export')
   q-list
     q-item(clickable, v-close-popup, @click='$emit("exportToCsv")')
       q-item-section

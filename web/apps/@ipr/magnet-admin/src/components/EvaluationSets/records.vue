@@ -2,13 +2,13 @@
 .column.full-height(style='min-height: 0')
   .row.q-mb-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     .col-auto.center-flex-y
       km-btn.q-mr-12(
         v-if='selectedRows.length > 0',
         icon='delete',
-        label='Delete',
+        :label='m.common_delete()',
         @click='showDeleteDialog = true',
         iconColor='icon',
         hoverColor='primary',
@@ -18,10 +18,10 @@
         hoverBg='primary-bg'
       )
     .col-auto.center-flex-y
-      km-btn.q-mr-12(label='Import', disabled)
+      km-btn.q-mr-12(:label='m.common_import()', disabled)
 
     .col-auto.center-flex-y
-      km-btn.q-mr-12(label='Add record', @click='openNewDetails')
+      km-btn.q-mr-12(:label='m.common_addRecord()', @click='openNewDetails')
   .col(style='min-height: 0')
     km-data-table(
       fill-height,
@@ -34,8 +34,8 @@
 evaluation-sets-create-new-record(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', @addRecord='addRecord', v-if='showNewDialog')
 km-popup-confirm(
   :visible='showDeleteDialog',
-  confirmButtonLabel='Delete',
-  cancelButtonLabel='Cancel',
+  :confirmButtonLabel='m.common_delete()',
+  :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='deleteSelected',
   @cancel='showDeleteDialog = false'

@@ -69,17 +69,17 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
           component(v-if='!loading', :is='Component', :key='route.fullPath')
 km-popup-confirm(
   :visible='showLeaveConfirm',
-  confirmButtonLabel='Save changes',
-  confirmButtonLabel2='Don\'t save changes',
+  :confirmButtonLabel='m.common_saveChanges()',
+  :confirmButtonLabel2='m.common_dontSaveChanges()',
   confirmButtonType2='secondary',
-  cancelButtonLabel='Cancel',
+  :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='saveChanges',
   @cancel='cancelLeave',
   @confirm2='confirmLeave'
 )
-  .row.item-center.justify-center.km-heading-7.q-mb-md Unsaved Changes
-  .row.text-center.justify-center You have unsaved changes here. Please choose what you would like to do.
+  .row.item-center.justify-center.km-heading-7.q-mb-md {{ m.workspace_unsavedChanges() }}
+  .row.text-center.justify-center {{ m.workspace_unsavedPageMessage() }}
 </template>
 
 <script>

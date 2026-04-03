@@ -31,7 +31,7 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
             style='max-width: 400px'
           )
     .row.q-gutter-sm.items-center.q-mb-sm
-      km-btn(label='Execute', icon='play_arrow', @click='execute')
+      km-btn(:label='m.common_execute()', icon='play_arrow', @click='execute')
       q-spinner(v-if='executing', size='24px', color='primary')
       .km-description.text-secondary-text(v-if='!expectedInputParams.length') No input params. Add in Expected input tab or use empty input.
     .ba-border.border-radius-8.q-pa-8.q-mt-sm(v-if='executeResult !== null')

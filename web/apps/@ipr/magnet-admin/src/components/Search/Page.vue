@@ -29,7 +29,7 @@
     q-separator.q-mb-xs
     .col-auto
       .row.items-center
-        km-btn(flat, simple, label='Clear preview', iconSize='16px', icon='fas fa-eraser', @click='clearAnswers', :disable='!answers?.length')
+        km-btn(flat, simple, :label='m.common_clearPreview()', iconSize='16px', icon='fas fa-eraser', @click='clearAnswers', :disable='!answers?.length')
 </template>
 
 <script>

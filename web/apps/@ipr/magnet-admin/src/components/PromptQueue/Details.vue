@@ -23,7 +23,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
         .col-auto.full-width
           .row.items-center.justify-between.q-mb-sm
             .km-heading-6 Steps
-            km-btn(label='Add step', icon='add', @click='addStep')
+            km-btn(:label='m.common_addStep()', icon='add', @click='addStep')
           .q-gutter-sm
             template(v-for='(step, stepIdx) in stepsList', :key='stepIdx')
               .ba-border.border-radius-8.q-pa-8.q-mb-sm
@@ -100,13 +100,13 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                       )
                       .km-description.text-secondary-text Store as result.{output_key} (e.g. result.data)
                 .row.q-mt-sm
-                  km-btn(label='Add prompt', icon='add', flat, dense, @click='addPrompt(stepIdx)')
+                  km-btn(:label='m.common_addPrompt()', icon='add', flat, dense, @click='addPrompt(stepIdx)')
                 template(v-if='false')
                   .row.q-mb-sm.q-mt-sm
                     q-checkbox(
                       :model-value='isStepApiToolCallEnabled(stepIdx)',
                       @update:model-value='(v) => setStepApiToolCallEnabled(stepIdx, v)',
-                      label='API tool call'
+                      :label='m.promptQueue_apiToolCall()'
                     )
                   .ba-border.border-radius-8.q-pa-6.q-mb-sm(v-if='isStepApiToolCallEnabled(stepIdx)')
                     .km-field.text-secondary-text.q-pb-xs.q-mb-xs API Server
@@ -176,7 +176,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
               style='max-width: 200px',
               @keydown.enter.prevent='addExpectedInputParam'
             )
-            km-btn(label='Add', icon='add', flat, dense, @click='addExpectedInputParam')
+            km-btn(:label='m.common_add()', icon='add', flat, dense, @click='addExpectedInputParam')
           .q-gutter-sm
             .row.q-gutter-sm(v-for='param in expectedInputParams', :key='param')
               q-chip(
@@ -200,7 +200,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
               style='max-width: 200px',
               @keydown.enter.prevent='addTestInput'
             )
-            km-btn(label='Add', icon='add', flat, dense, @click='addTestInput')
+            km-btn(:label='m.common_add()', icon='add', flat, dense, @click='addTestInput')
           .q-gutter-sm
             .ba-border.border-radius-8.q-pa-8.q-mb-sm(v-for='(ti, tiIdx) in testInputsList', :key='tiIdx')
               .row.items-center.justify-between.q-mb-sm

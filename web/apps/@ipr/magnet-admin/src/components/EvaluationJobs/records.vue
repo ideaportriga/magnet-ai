@@ -2,7 +2,7 @@
 .column.full-height(style='min-height: 0')
   .row.q-mb-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
   .col(style='min-height: 0')
     km-data-table(
       fill-height,

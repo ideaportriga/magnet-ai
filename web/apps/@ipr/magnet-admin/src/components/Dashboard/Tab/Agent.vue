@@ -24,12 +24,12 @@
             .column.q-gap-16
               .row
                 .col
-                  dashboard-board-label-value(label='Total conversations', :value='data.totalConversations')
+                  dashboard-board-label-value(:label='m.dashboard_totalConversations()', :value='data.totalConversations')
                 .col
-                  dashboard-board-label-value(label='Avg. messages per conversation', :value='avgMessagesInConversation')
+                  dashboard-board-label-value(:label='m.dashboard_avgMessagesPerConversation()', :value='avgMessagesInConversation')
               .row
                 .col
-                  dashboard-board-label-value(label='Unique users', :value='data.uniqueUsers')
+                  dashboard-board-label-value(:label='m.dashboard_uniqueUsers()', :value='data.uniqueUsers')
                 .col
 
         dashboard-board-card(header='Performance & cost', theme='dark')
@@ -38,29 +38,29 @@
               .row
                 .col
                   dashboard-board-label-value(
-                    label='Avg. conversation cost',
+                    :label='m.dashboard_avgConversationCost()',
                     :value='data.avgCost',
                     tooltip='How much one conversation costs on average'
                   )
                 .col
-                  dashboard-board-label-value(label='Total tool cost', :value='data.totalCost')
-            dashboard-board-label-value(label='Avg. latency', :value='data.avgLatency', tooltip='Time that it takes an Agent to respond on average')
+                  dashboard-board-label-value(:label='m.dashboard_totalToolCost()', :value='data.totalCost')
+            dashboard-board-label-value(:label='m.dashboard_avgLatency()', :value='data.avgLatency', tooltip='Time that it takes an Agent to respond on average')
         dashboard-board-card(header='Case deflection')
           template(v-slot:body)
             .column.q-gap-16
               dashboard-board-label-value(
-                label='Case deflection rate',
+                :label='m.dashboard_caseDeflectionRate()',
                 :value='caseDeflectionRate',
                 tooltip='How many questions were answered by the agent'
               )
-              dashboard-board-label-value(label='Issues processed', tooltip='How many issues were processed by the agent')
+              dashboard-board-label-value(:label='m.dashboard_issuesProcessed()', tooltip='How many issues were processed by the agent')
               .col
                 template(v-if='resolutionDiagram.length')
                   dashboard-board-box-diagram(:data='resolutionDiagram')
                 template(v-else)
                   dashboard-board-box-diagram(:data='[{ title: "N/A", icon: null, backgroundColor: "table-header" }]')
               dashboard-board-min-label-value(
-                label='Case processing rate',
+                :label='m.dashboard_caseProcessingRate()',
                 :value='caseProcessingRate',
                 tooltip='How many cases were processed by the agent'
               )
@@ -72,12 +72,12 @@
                 //-   dashboard-board-label-value(label='Total votes', :value='data.likes + data.dislikes')
                 .col
                   dashboard-board-label-value.q-mt-auto(
-                    label='Satisfaction rate',
+                    :label='m.dashboard_satisfactionRate()',
                     :value='satisfactionRate',
                     tooltip='The percentage of positive feedback out of all user feedback'
                   )
               .row
-                dashboard-board-label-value(label='Feedback ratio')
+                dashboard-board-label-value(:label='m.dashboard_feedbackRatio()')
               .col.full-width
                 template(v-if='data.likes + data.dislikes > 0')
                   dashboard-board-box-diagram(
@@ -86,7 +86,7 @@
                 template(v-else)
                   dashboard-board-box-diagram(:data='[{ title: "N/A", icon: null, backgroundColor: "table-header" }]')
               dashboard-board-min-label-value(
-                label='Feedback rate',
+                :label='m.dashboard_feedbackRate()',
                 :value='feedbackProcessRate',
                 tooltip='Number of feedback processed out of total questions'
               )
@@ -110,7 +110,7 @@
         dashboard-board-card(header='Copy answer rate', tooltip='How frequently the RAG Tool output is copied by users')
           template(v-slot:body)
             .column.q-gap-16
-              dashboard-board-label-value(label='Copy answer rate', :value='data.copyRate')
+              dashboard-board-label-value(:label='m.dashboard_copyAnswerRate()', :value='data.copyRate')
       .km-grid-1.q-mt-16(v-else)
         dashboard-board-card(header='Agent overview')
           template(v-slot:body)
@@ -121,7 +121,7 @@
     .column.q-gap-16.full-width
       .row
         .col-auto.center-flex-y.full-width
-          //km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
+          //km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
           q-space
           .col-auto
             dashboard-board-export-button(@exportToCsv='exportToFile("csv")', @exportToJson='exportToFile("json")')

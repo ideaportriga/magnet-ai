@@ -25,7 +25,7 @@
     :visible='showEndpointWarning',
     title='Change Endpoint',
     confirmButtonLabel='Yes, Change Endpoint',
-    cancelButtonLabel='Cancel',
+    :cancelButtonLabel='m.common_cancel()',
     notification='Changing the endpoint will permanently delete all encrypted secrets. You will need to re-enter all credentials after this change.',
     @confirm='confirmEndpointChange',
     @cancel='cancelEndpointChange'
@@ -39,15 +39,15 @@
     .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in connectionEntries', :key='key')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(label='Key', :model-value='key', @update:model-value='updateConnectionKey(key, $event)')
+        km-input(:label='m.common_key()', :model-value='key', @update:model-value='updateConnectionKey(key, $event)')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(label='Value', :model-value='value', @update:model-value='updateConnectionValue(key, $event)')
+        km-input(:label='m.common_value()', :model-value='value', @update:model-value='updateConnectionValue(key, $event)')
       .col-auto
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
         km-btn(@click='removeConnection(key)', icon='o_delete', size='sm', flat, color='negative')
     .row.q-pt-16.items-center
-      km-btn(label='Add Record', @click='addConnection', size='sm', icon='o_add', flat)
+      km-btn(:label='m.common_addRecord()', @click='addConnection', size='sm', icon='o_add', flat)
       q-space
       km-btn(
         flat,
@@ -102,7 +102,7 @@
               .text-caption.text-grey-7.col-3 Request URL
               .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.computed_url }}
       q-card-actions(align='right')
-        km-btn(flat, label='Close', color='primary', @click='showTestDialog = false')
+        km-btn(flat, :label='m.common_close()', color='primary', @click='showTestDialog = false')
 
   q-separator.q-mt-lg.q-mb-lg
   km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
@@ -111,7 +111,7 @@
       q-space
       km-btn(
         flat,
-        label='Pre-populate keys',
+        :label='m.common_prePopulateKeys()',
         size='sm',
         icon='o_auto_fix_high',
         color='primary',

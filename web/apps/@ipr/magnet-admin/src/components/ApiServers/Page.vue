@@ -28,7 +28,7 @@
           .km-heading-7.text-black You have no API Servers yet
           .km-description.text-black Use an API specification or add an API Server manually
           .row.items-center.justify-center.q-mt-lg
-            km-btn(label='Add API Server', @click='showNewDialog = true')
+            km-btn(:label='m.common_addApiServer()', @click='showNewDialog = true')
   api-servers-new-server(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 </template>
 

@@ -18,7 +18,7 @@
       )
       q-radio.q-my-sm(:model-value='server.transport', dense, label='sse', val='sse', size='xs', disabled, color='grey-6', disable)
     .row.q-mt-lg
-      km-btn(label='Test connection', @click='testConnection', size='sm', icon='fa fa-arrow-right-arrow-left', flat, iconSize='14px')
+      km-btn(:label='m.mcpServers_testConnection()', @click='testConnection', size='sm', icon='fa fa-arrow-right-arrow-left', flat, iconSize='14px')
 
   q-separator.q-mt-lg.q-mb-lg
   km-section(:title='m.section_headers()', :subTitle='m.subtitle_useHeaders()')
@@ -28,15 +28,15 @@
     .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in headers', :key='key')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
-        km-input(label='Key', :model-value='key', @update:model-value='updateHeader(key, $event, value)')
+        km-input(:label='m.common_key()', :model-value='key', @update:model-value='updateHeader(key, $event, value)')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
-        km-input(label='Value', :model-value='value', @update:model-value='updateHeader(key, key, $event)')
+        km-input(:label='m.common_value()', :model-value='value', @update:model-value='updateHeader(key, key, $event)')
       .col-auto
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
         km-btn(@click='removeHeader(key)', icon='o_delete', size='sm', flat, color='negative')
     .row.q-pt-16
-      km-btn(label='Add Header Record', @click='addHeader', size='sm', icon='o_add', flat)
+      km-btn(:label='m.common_addHeaderRecord()', @click='addHeader', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
   km-section(:title='m.section_secrets()', :subTitle='m.subtitle_useSecretsMcp()')
     km-secrets(v-model:secrets='secrets', :original-secrets='originalMcpSecrets', :remount-value='remountValue')

@@ -13,8 +13,8 @@
       no-caps,
       content-class='km-tabs'
     )
-      q-tab(name='configurations', label='Configurations')
-      q-tab(name='providers', label='Bot Providers')
+      q-tab(name='configurations', :label='m.common_configurations()')
+      q-tab(name='providers', :label='m.noteTaker_botProviders()')
 
     //- ── Configurations tab ─────────────────────────────────
     template(v-if='tab === "configurations"')

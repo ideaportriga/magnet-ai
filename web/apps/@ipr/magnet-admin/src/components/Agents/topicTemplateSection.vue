@@ -1,13 +1,13 @@
 <template lang="pug">
 div
   km-section(
-    title='Topic selection Prompt Template',
-    subTitle='Topic selection prompt instructs the Agent how to detect correct Topics from user input and handle cases when a Topic was not found.'
+    :title='m.agents_topicSelectionPromptTemplate()',
+    :subTitle='m.subtitle_topicSelection()'
   )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.section_promptTemplate() }}
     km-select(
       height='30px',
-      placeholder='Standart Q&A Prompt',
+      :placeholder='m.placeholder_selectPromptTemplate()',
       :options='promptTemplatesOptions',
       v-model='topicSelectionPromptTemplate',
       hasDropdownSearch,
@@ -16,13 +16,13 @@ div
       option-value='system_name',
       :option-show='(item) => item?.category === "agent"'
     )
-    .km-description.text-secondary-text.q-pb-4 Your Prompt Template model must support JSON mode
+    .km-description.text-secondary-text.q-pb-4 {{ m.agents_promptTemplateMustSupportJson() }}
     .row.q-mt-sm
       .col-auto
         km-btn(
           flat,
           simple,
-          :label='topicSelectionPromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+          :label='topicSelectionPromptTemplate ? m.agents_openPromptTemplate() : m.agents_openPromptTemplatesLibrary()',
           iconSize='16px',
           icon='fas fa-comment-dots',
           @click='topicSelectionPromptTemplate ? navigate(`prompt-templates/${topicSelectionPromptTemplateId}`) : navigate("prompt-templates")'

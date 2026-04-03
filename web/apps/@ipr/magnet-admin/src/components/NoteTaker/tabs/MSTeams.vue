@@ -23,13 +23,13 @@ div
     .row.items-center.q-gap-12.q-mt-md.q-pl-8
       km-btn(
         icon='add',
-        label='New Bot Provider',
+        :label='m.noteTaker_newBotProvider()',
         flat, dense, no-caps,
         @click='showCreateProvider = true'
       )
       km-btn(
         icon='sync',
-        label='Check Status',
+        :label='m.common_checkStatus()',
         flat, dense, no-caps,
         @click='checkRuntimeStatus',
         :loading='statusLoading'
@@ -67,7 +67,7 @@ km-popup-confirm(
   :visible='showCreateProvider',
   title='New Teams Note Taker Provider',
   confirmButtonLabel='Create',
-  cancelButtonLabel='Cancel',
+  :cancelButtonLabel='m.common_cancel()',
   notification='Credentials will be encrypted at rest.',
   @confirm='createProvider',
   @cancel='showCreateProvider = false'

@@ -2,11 +2,11 @@
 .column.full-height(style='width: 100%; min-height: 0').no-wrap
   .row
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     .col-auto.center-flex-y
-      km-btn.q-mr-12(flat, label='Import', icon='fas fa-download', @click='openImportDialog', :loading='loadingAvailableModels')
-      km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+      km-btn.q-mr-12(flat, :label='m.common_import()', icon='fas fa-download', @click='openImportDialog', :loading='loadingAvailableModels')
+      km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
   .row.q-mt-md
     .col-auto.center-flex-y
       km-filter-bar(v-model:config='filterConfig', v-model:filterObject='filterObject', outputFormat='sql')
@@ -15,7 +15,7 @@
       km-btn.q-mr-12(
         v-if='selectedRows.length > 0',
         icon='delete',
-        label='Delete',
+        :label='m.common_delete()',
         @click='showDeleteDialog = true',
         iconColor='icon',
         hoverColor='primary',
@@ -35,8 +35,8 @@
 model-providers-new-model(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 km-popup-confirm(
   :visible='showDeleteDialog',
-  confirmButtonLabel='Delete',
-  cancelButtonLabel='Cancel',
+  :confirmButtonLabel='m.common_delete()',
+  :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='deleteSelected',
   @cancel='showDeleteDialog = false'
@@ -118,11 +118,11 @@ q-dialog(v-model='showImportDialog', persistent)
             q-item-section(side)
               .row.items-center.q-gap-4
                 template(v-if='isModelAlreadyAdded(model)')
-                  km-chip(label='Already added', color='light', text-color='grey-7', round)
+                  km-chip(:label='m.common_alreadyAdded()', color='light', text-color='grey-7', round)
                 template(v-else)
-                  km-chip(v-if='model.supports_function_calling', label='Tools', color='primary-light', text-color='primary', round, tooltip='Function/Tool Calling')
-                  km-chip(v-if='model.supports_json_mode', label='JSON', color='primary-light', text-color='primary', round, tooltip='JSON Mode')
-                  km-chip(v-if='model.supports_vision', label='Vision', color='primary-light', text-color='primary', round, tooltip='Vision/Image Support')
+                  km-chip(v-if='model.supports_function_calling', :label='m.common_tools()', color='primary-light', text-color='primary', round, tooltip='Function/Tool Calling')
+                  km-chip(v-if='model.supports_json_mode', :label='m.common_json()', color='primary-light', text-color='primary', round, tooltip='JSON Mode')
+                  km-chip(v-if='model.supports_vision', :label='m.common_vision()', color='primary-light', text-color='primary', round, tooltip='Vision/Image Support')
 
         .text-center.q-pa-lg.text-secondary-text(v-else-if='!loadingAvailableModels')
           | No models found
@@ -132,9 +132,9 @@ q-dialog(v-model='showImportDialog', persistent)
     q-card-actions.q-pa-md(align='right')
       .text-secondary-text.q-mr-md(v-if='selectedModelsToImport.length > 0')
         | {{ selectedModelsToImport.length }} model(s) selected
-      km-btn(flat, label='Cancel', color='primary', @click='showImportDialog = false')
+      km-btn(flat, :label='m.common_cancel()', color='primary', @click='showImportDialog = false')
       km-btn(
-        label='Import Selected',
+        :label='m.common_importSelected()',
         @click='importSelectedModels',
         :disable='selectedModelsToImport.length === 0',
         :loading='importingModels'

@@ -13,7 +13,7 @@
                 q-space
                 q-chip.q-ma-none.km-heading.text-uppercase(v-if='channel', :label='channel', color='chip-accent-bg', textColor='primary')
                 q-chip.q-ma-none.km-heading.text-uppercase(v-if='type', :label='type', color='light')
-                q-chip.q-ma-none.km-heading.text-white(v-if='status === "error"', label='ERROR', color='red')
+                q-chip.q-ma-none.km-heading.text-white(v-if='status === "error"', :label='m.common_errorLabel()', color='red')
               .text-secondary-text {{ startTime }}
             .row.justify-between.q-gap-12.full-width
               .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm

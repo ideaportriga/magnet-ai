@@ -12,7 +12,7 @@
       km-btn(icon='fa fa-pen', flat, iconSize='12px', @click='enterEditMode', size='xs', v-if='!editMode')
       km-btn(icon='fa fa-xmark', flat, iconSize='12px', @click='cancelEditMode', size='xs', v-if='editMode && !isNew')
       //- km-input(
-      //- label='Value', 
+      //- :label='m.common_value()', 
       //- :model-value='getSecretDisplayValue(itemKey, value)', 
       //- @update:model-value='updateSecret(itemKey, itemKey, $event)', 
       //- :readonly='!editMode',

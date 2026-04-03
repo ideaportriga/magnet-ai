@@ -25,7 +25,7 @@
     :options='hiddenFilters',
     modelValue=''
   )
-  km-btn(label='Clear all filters', @click='clearAll', flat, v-if='showClearAll')
+  km-btn(:label='m.common_clearAllFilters()', @click='clearAll', flat, v-if='showClearAll')
 </template>
 <script>
 import { m } from '@/paraglide/messages'

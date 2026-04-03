@@ -46,8 +46,8 @@ km-drawer-layout(v-if='open', storageKey="drawer-observability-traces")
       observability-traces-top-results-input-output(:span='span')
     template(v-else)
       .column.q-gap-32(v-if='span?.input || span?.output')
-        observability-traces-default-span-renderer(:value='span?.input', label='Inputs')
-        observability-traces-default-span-renderer(:value='span?.output', label='Outputs')
+        observability-traces-default-span-renderer(:value='span?.input', :label='m.common_inputs()')
+        observability-traces-default-span-renderer(:value='span?.output', :label='m.common_outputs()')
   template(v-else-if='tab == "prompt_template"')
     .column.q-gap-24
       .column.q-gap-6

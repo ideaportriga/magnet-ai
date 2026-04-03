@@ -3,13 +3,13 @@ div
   .km-heading-4.q-mb-md {{ m.agents_topicActions() }}
   .row.q-mb-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     .col-auto.center-flex-y
       km-btn.q-mr-12(
         v-if='selectedRows.length > 0',
         icon='delete',
-        label='Delete',
+        :label='m.common_delete()',
         @click='showDeleteDialog = true',
         iconColor='icon',
         hoverColor='primary',
@@ -18,7 +18,7 @@ div
         iconSize='16px',
         hoverBg='primary-bg'
       )
-      km-btn.q-mr-12(label='New', @click='openNewDetails')
+      km-btn.q-mr-12(:label='m.common_new()', @click='openNewDetails')
   .row
     km-data-table(
       :table='table',
@@ -29,8 +29,8 @@ div
   agents-create-new-action(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', v-if='showNewDialog')
 km-popup-confirm(
   :visible='showDeleteDialog',
-  confirmButtonLabel='Delete',
-  cancelButtonLabel='Cancel',
+  :confirmButtonLabel='m.common_delete()',
+  :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='deleteSelected',
   @cancel='showDeleteDialog = false'

@@ -24,38 +24,38 @@
           dashboard-board-card(header='Usage', theme='dark')
             template(v-slot:body)
               .column.q-gap-16
-                dashboard-board-label-value(label='Total tool calls', :value='data.totalCalls')
-                dashboard-board-label-value(label='Unique users', :value='data.uniqueUsers')
+                dashboard-board-label-value(:label='m.dashboard_totalToolCalls()', :value='data.totalCalls')
+                dashboard-board-label-value(:label='m.dashboard_uniqueUsers()', :value='data.uniqueUsers')
           dashboard-board-card(header='Performance & cost', theme='dark')
             template(v-slot:body)
               .column.q-gap-16
                 .row
                   .col
                     dashboard-board-label-value(
-                      label='Avg. tool call cost',
+                      :label='m.dashboard_avgToolCallCost()',
                       :value='data.avgCost',
                       tooltip='How much one RAG Tool call costs on average'
                     )
                   .col
-                    dashboard-board-label-value(label='Total tool cost', :value='data.totalCost')
+                    dashboard-board-label-value(:label='m.dashboard_totalToolCost()', :value='data.totalCost')
                 dashboard-board-label-value(
-                  label='Avg. tool call latency',
+                  :label='m.dashboard_avgToolCallLatency()',
                   :value='data.avgLatency',
                   tooltip='How long one RAG Tool call takes on average'
                 )
           dashboard-board-card(header='Answer rate')
             template(v-slot:body)
               .column.q-gap-16
-                dashboard-board-label-value(label='Answer rate', :value='answerRate')
+                dashboard-board-label-value(:label='m.dashboard_answerRate()', :value='answerRate')
                 .row
-                  dashboard-board-label-value(label='Answer ratio')
+                  dashboard-board-label-value(:label='m.dashboard_answerRatio()')
                 //- dashboard-board-bars(:data='data.questions')
                 template(v-if='questionsDiagram.length')
                   dashboard-board-box-diagram(:data='questionsDiagram')
                 template(v-else)
                   dashboard-board-box-diagram(:data='[{ title: "N/A", icon: null, backgroundColor: "table-header" }]')
                 dashboard-board-min-label-value(
-                  label='RAG Queries analyzed',
+                  :label='m.dashboard_ragQueriesAnalyzed()',
                   :value='processRate.processed',
                   tooltip='Number of answers processed out of total questions'
                 )
@@ -65,13 +65,13 @@
                 .row
                   .col
                     dashboard-board-label-value.q-mt-auto(
-                      label='Satisfaction rate',
+                      :label='m.dashboard_satisfactionRate()',
                       :value='satisfactionRate',
                       tooltip='The percentage of positive feedback out of all user feedback'
                     )
 
                 .row
-                  dashboard-board-label-value(label='Feedback ratio')
+                  dashboard-board-label-value(:label='m.dashboard_feedbackRatio()')
                 .col.full-width
                   template(v-if='data.likes + data.dislikes > 0')
                     dashboard-board-box-diagram(
@@ -80,7 +80,7 @@
                   template(v-else)
                     dashboard-board-box-diagram(:data='[{ title: "N/A", icon: null, backgroundColor: "table-header" }]')
                 dashboard-board-min-label-value(
-                  label='Feedback rate',
+                  :label='m.dashboard_feedbackRate()',
                   :value='feedbackProcessRate',
                   tooltip='Percentage of RAG queries with user feedback vs. total RAG queries'
                 )

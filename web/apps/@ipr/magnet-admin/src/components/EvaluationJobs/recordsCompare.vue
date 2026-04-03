@@ -4,7 +4,7 @@
     km-btn(
       flat,
       simple,
-      label='Previous',
+      :label='m.common_previous()',
       iconSize='16px',
       icon='fas fa-chevron-left',
       @click='evalInputIndex = evalInputIndex - 1',
@@ -18,7 +18,7 @@
     km-btn(
       flat,
       simple,
-      label='Next',
+      :label='m.common_next()',
       iconSize='16px',
       iconAfter='fas fa-chevron-right',
       @click='evalInputIndex = evalInputIndex + 1',

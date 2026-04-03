@@ -9,7 +9,7 @@
         .col-auto.center-flex-y
           km-btn.q-mr-12(
             icon='refresh',
-            label='Refresh list',
+            :label='m.common_refreshList()',
             @click='refetch',
             iconColor='icon',
             hoverColor='primary',

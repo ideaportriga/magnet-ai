@@ -29,7 +29,7 @@
           .row.q-gap-8.no-wrap
             km-input.q-mb-sm.full-width(:model-value='item', @update:model-value='(e) => setEnum(e, index)')
             km-btn(@click='removeEnum(index)', flat, icon='fas fa-trash', icon-size='14px')
-      km-btn(label='Add', @click='newEnum("")', flat, icon='fas fa-plus', icon-size='14px')
+      km-btn(:label='m.common_add()', @click='newEnum("")', flat, icon='fas fa-plus', icon-size='14px')
 </template>
 <script>
 import { ref } from 'vue'

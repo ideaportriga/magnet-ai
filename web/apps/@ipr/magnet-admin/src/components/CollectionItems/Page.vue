@@ -6,7 +6,7 @@
       template(v-if='rows.length && !isLoading')
         .row.q-mb-12.q-mt-md
           .col-auto.center-flex
-            km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+            km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
         .col.ba-border.border-radius-12.bg-white.q-pa-16(style='min-height: 0')
           km-data-table(
             :table='table',

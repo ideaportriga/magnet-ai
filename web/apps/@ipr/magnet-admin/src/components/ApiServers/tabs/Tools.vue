@@ -2,11 +2,11 @@
 .column.full-height(v-if='data?.length', style='min-height: 0')
   .row.q-mb-12.q-gap-12
     .col-auto.center-flex-y
-      km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+      km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
     q-space
     .col-auto
       template(v-if='selectedRows.length > 0')
-        km-btn(@click='showDeleteDialog = true', icon='delete', flat, label='Delete')
+        km-btn(@click='showDeleteDialog = true', icon='delete', flat, :label='m.common_delete()')
     .col-auto
       km-btn(:label='m.apiServers_addTools()', @click='showNewDialog = true')
   .col(style='min-height: 0')

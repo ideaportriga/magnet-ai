@@ -13,7 +13,7 @@
   .col-auto
     km-input.full-width(icon-before='search', @input='search = $event', :model-value='search', placeholder='Search prompt templates', clearable)
   .row.q-pt-16
-    km-btn(label='New prompt template', @click='$emit("create")')
+    km-btn(:label='m.common_newPromptTemplate()', @click='$emit("create")')
 
   //- LIST
   .col.overflow-auto.q-pr-sm

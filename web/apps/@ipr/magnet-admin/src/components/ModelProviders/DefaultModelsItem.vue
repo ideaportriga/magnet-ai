@@ -21,14 +21,14 @@
               .row.q-mt-xs(v-if='opt.provider_system_name')
                 q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
       .row.q-pt-16.justify-between
-        km-btn(label='Cancel', flat, @click='cancelEdit')
-        km-btn(label='Save', @click='saveDefault')
+        km-btn(:label='m.common_cancel()', flat, @click='cancelEdit')
+        km-btn(:label='m.common_save()', @click='saveDefault')
 
 km-popup-confirm(
   :visible='showDialog',
   confirmButtonLabel='OK, change default',
   notificationIcon='fas fa-circle-info',
-  cancelButtonLabel='Cancel',
+  :cancelButtonLabel='m.common_cancel()',
   @cancel='showDialog = false',
   @confirm='confirmChange'
 )

@@ -36,7 +36,7 @@
         :value='ms_teams_secret_value',
         @update:value='ms_teams_secret_value = $event',
         :encrypted-value='has_ms_teams_secret_value',
-        label='Secret value',
+        :label='m.agents_secretValue()',
         placeholder='Enter MS Teams Secret Value',
         fake-encrypted-value='******'
       )
@@ -57,7 +57,7 @@
         :value='slack_token',
         @update:value='slack_token = $event',
         :encrypted-value='has_slack_encryptes.token',
-        label='Token',
+        :label='m.agents_token()',
         placeholder='Enter Slack Token',
         fake-encrypted-value='******'
       )
@@ -65,7 +65,7 @@
         :value='slack_client_secret',
         @update:value='slack_client_secret = $event',
         :encrypted-value='has_slack_encryptes.client_secret',
-        label='Client Secret',
+        :label='m.agents_clientSecret()',
         placeholder='Enter Slack Client Secret',
         fake-encrypted-value='******'
       )
@@ -73,14 +73,14 @@
         :value='slack_signing_secret',
         @update:value='slack_signing_secret = $event',
         :encrypted-value='has_slack_encryptes.signing_secret',
-        label='Signing Secret',
+        :label='m.agents_signingSecret()',
         placeholder='Enter Slack Signing Secret',
         fake-encrypted-value='******'
       )
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
       km-input(v-model='slack_scopes', placeholder='Enter Slack Agent Scopes (comma separated)')
       km-btn.q-mt-md(
-        label='Connect to Slack',
+        :label='m.agents_connectToSlack()',
         color='white',
         @click='openSlackInstall',
         :disable='isSlackInstallDisabled',
@@ -99,7 +99,7 @@
         :value='whatsapp_token',
         @update:value='whatsapp_token = $event',
         :encrypted-value='has_whatsapp_encrypted.token',
-        label='Token',
+        :label='m.agents_token()',
         placeholder='Enter WhatsApp Token',
         fake-encrypted-value='******'
       )
@@ -107,7 +107,7 @@
         :value='whatsapp_app_secret',
         @update:value='whatsapp_app_secret = $event',
         :encrypted-value='has_whatsapp_encrypted.app_secret',
-        label='App Secret',
+        :label='m.agents_appSecret()',
         placeholder='Enter WhatsApp App Secret',
         fake-encrypted-value='******'
       )

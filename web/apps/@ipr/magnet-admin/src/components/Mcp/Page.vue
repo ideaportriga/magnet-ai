@@ -28,7 +28,7 @@
           .km-heading-7.text-black You have no MCP servers yet
           .km-description.text-black Add a new MCP server to get started
           .row.items-center.justify-center.q-mt-lg
-            km-btn(label='Add MCP Server', @click='showNewDialog = true')
+            km-btn(:label='m.common_addMcpServer()', @click='showNewDialog = true')
   mcp-new-server(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 </template>
 

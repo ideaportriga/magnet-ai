@@ -4,9 +4,9 @@
   //- ── Toolbar ────────────────────────────────────────────────────────
   .row.items-center.q-mb-sm
     .col
-      km-input(placeholder='Search', iconBefore='search', v-model='searchString', clearable, style='max-width: 320px')
+      km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', clearable, style='max-width: 320px')
     .col-auto
-      km-btn(label='New Provider', icon='add', @click='openCreate')
+      km-btn(:label='m.common_newProvider()', icon='add', @click='openCreate')
 
   //- ── Table ──────────────────────────────────────────────────────────
   q-table(
@@ -50,8 +50,8 @@
   km-popup-confirm(
     :visible='showDialog',
     :title='editingProvider ? "Edit Provider" : "New Teams Note Taker Provider"',
-    confirmButtonLabel='Save',
-    cancelButtonLabel='Cancel',
+    :confirmButtonLabel='m.common_save()',
+    :cancelButtonLabel='m.common_cancel()',
     notification='Credentials are encrypted at rest.',
     @confirm='saveProvider',
     @cancel='closeDialog'
@@ -116,8 +116,8 @@
   km-popup-confirm(
     :visible='showDeleteConfirm',
     title='Delete Provider',
-    confirmButtonLabel='Delete',
-    cancelButtonLabel='Cancel',
+    :confirmButtonLabel='m.common_delete()',
+    :cancelButtonLabel='m.common_cancel()',
     confirm-button-color='negative',
     @confirm='deleteProvider',
     @cancel='showDeleteConfirm = false'

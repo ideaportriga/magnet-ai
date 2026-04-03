@@ -6,7 +6,7 @@ km-drawer-layout(v-if='open && currentRecord', storageKey="drawer-evaluation-set
     .col-auto(v-if='selectedEvaluationSet?.type === "rag_tool"')
       retrieval-metadata-filter(
         v-model='currentRecord.metadata_filter',
-        label='Evaluation metadata filter',
+        :label='m.evaluationJobs_metadataFilter()',
         labelClass='km-input-label text-text-grey q-mr-xs'
       )
     .col-auto

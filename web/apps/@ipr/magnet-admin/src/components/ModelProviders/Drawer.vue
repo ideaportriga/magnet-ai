@@ -20,21 +20,21 @@ km-drawer-layout(storageKey="drawer-model-providers", noScroll)
     .km-title General settings
     div
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Provider Name
-      km-input(label='Provider Name', :model-value='provider?.name', @update:model-value='updateProviderProperty("name", $event)')
+      km-input(:label='m.common_providerName()', :model-value='provider?.name', @update:model-value='updateProviderProperty("name", $event)')
     div
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Display Name
-      km-input(label='Display Name', :model-value='provider?.name', @update:model-value='updateProviderProperty("name", $event)')
+      km-input(:label='m.common_displayName()', :model-value='provider?.name', @update:model-value='updateProviderProperty("name", $event)')
     div
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
-      km-input(label='Description', :model-value='provider?.description', @update:model-value='updateProviderProperty("description", $event)')
+      km-input(:label='m.common_description()', :model-value='provider?.description', @update:model-value='updateProviderProperty("description", $event)')
     div
-      km-checkbox(label='Default', :model-value='false', disabled)
+      km-checkbox(:label='m.common_default()', :model-value='false', disabled)
     q-separator
     .km-title Capabilities
-    km-checkbox(label='JSON Mode', :model-value='false', disabled)
-    km-checkbox(label='JSON Schema', :model-value='false', disabled)
-    km-checkbox(label='Tool Calling', :model-value='false', disabled)
-    km-checkbox(label='Reasoning', :model-value='false', disabled)
+    km-checkbox(:label='m.common_jsonMode()', :model-value='false', disabled)
+    km-checkbox(:label='m.common_jsonSchema()', :model-value='false', disabled)
+    km-checkbox(:label='m.common_toolCalling()', :model-value='false', disabled)
+    km-checkbox(:label='m.common_reasoning()', :model-value='false', disabled)
   .column.no-wrap.fit.q-gap-16(v-if='tab == "pricing"')
     .km-title Pricing
 </template>

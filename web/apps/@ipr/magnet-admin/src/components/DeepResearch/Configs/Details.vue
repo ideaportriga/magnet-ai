@@ -21,7 +21,7 @@
           )
         .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
       .col-auto.row.items-start.no-wrap.q-gap-8.q-ml-md
-        km-btn(label='Record info', flat, icon='info', iconSize='16px')
+        km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
           q-tooltip.bg-white.block-shadow
             .q-pa-sm
               .q-mb-sm
@@ -36,8 +36,8 @@
               div
                 .text-secondary-text.km-button-xs-text Modified by:
                 .text-secondary-text.km-description {{ updated_by }}
-        km-btn(label='Create Run', flat, icon='play_arrow', iconSize='16px', @click='showRunDialog = true')
-        km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving')
+        km-btn(:label='m.common_createRun()', flat, icon='play_arrow', iconSize='16px', @click='showRunDialog = true')
+        km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving')
         q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
           q-menu(anchor='bottom right', self='top right')
             q-item(clickable, @click='showCloneDialog = true', dense)
@@ -49,7 +49,7 @@
         km-popup-confirm(
           :visible='showDeleteDialog',
           confirmButtonLabel='Delete Deep Research Config',
-          cancelButtonLabel='Cancel',
+          :cancelButtonLabel='m.common_cancel()',
           notificationIcon='fas fa-triangle-exclamation',
           @confirm='confirmDelete',
           @cancel='showDeleteDialog = false'
@@ -88,8 +88,8 @@
               placeholder='Optional client identifier'
             )
         q-card-actions(align='right')
-          km-btn(flat, label='Cancel', @click='showRunDialog = false')
-          km-btn(label='Create Run', :loading='creatingRun', @click='createRun')
+          km-btn(flat, :label='m.common_cancel()', @click='showRunDialog = false')
+          km-btn(:label='m.common_createRun()', :loading='creatingRun', @click='createRun')
     .col.ba-border.bg-white.border-radius-12.q-pa-16.overflow-auto(style='min-height: 0')
       .km-heading-6.q-mb-md General Settings
       .q-gutter-md
@@ -205,7 +205,7 @@
         q-toggle(
           v-model='webhookEnabled',
           color='primary',
-          label='Enable Webhook'
+          :label='m.common_enableWebhook()'
         )
               
       .q-gutter-md(v-if='webhookEnabled')
@@ -271,6 +271,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRouter, useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useDeepResearchStore } from '@/stores/deepResearchStore'

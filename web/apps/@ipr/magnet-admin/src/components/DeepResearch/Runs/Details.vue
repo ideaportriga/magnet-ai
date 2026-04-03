@@ -95,7 +95,7 @@
                     .col
                       q-expansion-item.bg-grey-1.border-radius-8(
                         dense,
-                        label='View Payload',
+                        :label='m.common_viewPayload()',
                         icon='code'
                       )
                         q-card.q-mt-xs
@@ -109,7 +109,7 @@
                         .text-caption.text-grey-7 Status: {{ webhookCall.response_status }}
                       q-expansion-item.bg-grey-1.border-radius-8(
                         dense,
-                        label='View Response',
+                        :label='m.common_viewResponse()',
                         icon='description'
                       )
                         q-card.q-mt-xs
@@ -127,7 +127,7 @@
               q-expansion-item.ba-border.bg-white.border-radius-12(
                 default-opened,
                 icon='input',
-                label='Input',
+                :label='m.common_input()',
                 header-class='text-h6 text-weight-bold q-pa-md'
               )
                 q-card.q-ma-md
@@ -313,6 +313,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { date, openURL } from 'quasar'
 import { useDeepResearchStore } from '@/stores/deepResearchStore'

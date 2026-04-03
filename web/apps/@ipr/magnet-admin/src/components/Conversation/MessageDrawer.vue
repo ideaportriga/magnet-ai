@@ -82,8 +82,8 @@ km-drawer-layout(storageKey="drawer-conversation-message")
 
     .col-auto
     .row.items-center.q-gap-8
-      km-btn.self-end(label='Cancel', @click='cancelUpdate', v-if='isUpdated', flat)
-      km-btn.self-end(label='Update', @click='updateMessage', v-if='isUpdated', :loading='loading', :disable='loading')
+      km-btn.self-end(:label='m.common_cancel()', @click='cancelUpdate', v-if='isUpdated', flat)
+      km-btn.self-end(:label='m.common_update()', @click='updateMessage', v-if='isUpdated', :loading='loading', :disable='loading')
 </template>
 
 <script>

@@ -14,13 +14,13 @@ q-separator.q-my-sm
         q-item-section
           q-item-label.km-label {{ option.label }}
         q-item-section(v-if='option?.active_variant', avatar)
-          q-chip.q-mr-sm(label='Active', color='primary-light', text-color='primary', flat, size='sm')
+          q-chip.q-mr-sm(:label='m.common_activate()', color='primary-light', text-color='primary', flat, size='sm')
   .col.q-mx-sm
     km-input-flat.km-description.full-width(placeholder='Description', :modelValue='variant_description', @change='updateVariantDescription')
   .col-auto.q-mr-sm
     km-btn.width-100(
       v-if='!isActive',
-      label='Activate',
+      :label='m.common_activate()',
       icon='far fa-circle-check',
       iconColor='icon',
       hoverColor='primary',
@@ -30,11 +30,11 @@ q-separator.q-my-sm
       hoverBg='primary-bg',
       @click='activateVariant'
     )
-    q-chip.q-mr-sm(v-if='isActive', label='Active', color='primary-light', text-color='primary')
+    q-chip.q-mr-sm(v-if='isActive', :label='m.common_activate()', color='primary-light', text-color='primary')
   q-separator(vertical, color='white')
   .col-auto.text-white.q-mx-md
     km-btn(
-      label='Copy to new',
+      :label='m.common_copyToNew()',
       icon='fas fa-plus',
       iconColor='icon',
       hoverColor='primary',
@@ -50,6 +50,7 @@ q-separator.q-my-sm
 
 <script setup>
 /* eslint-disable */
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { useNotify } from '@/composables/useNotify'

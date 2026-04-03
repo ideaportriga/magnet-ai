@@ -38,14 +38,14 @@ km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
         km-input(:model-value='description', @update:model-value='description = $event')
       .q-mt-8
         .row.items-center.q-gap-8
-          km-checkbox(label='Default Model', :model-value='is_default', dense, disable)
+          km-checkbox(:label='m.modelProviders_defaultModel()', :model-value='is_default', dense, disable)
           q-icon(name='o_info', size='16px', color='secondary-text')
             q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') If marked as Default, model will be selected by default on related tools
           .q-ml
-            km-btn(flat, label='Edit defaults', color='primary', @click='goToDefaultModels')
+            km-btn(flat, :label='m.modelProviders_editDefaults()', color='primary', @click='goToDefaultModels')
 
       .q-mt-8
-        km-checkbox(label='Active', :model-value='is_active', @update:model-value='is_active = $event')
+        km-checkbox(:label='m.common_activate()', :model-value='is_active', @update:model-value='is_active = $event')
         .km-description.text-secondary-text.q-pl-8.q-pt-xs When disabled, this model will not be available for selection
 
       q-separator.q-my-16
@@ -53,10 +53,10 @@ km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
       // Features section for prompts models
       template(v-if='type === "prompts"')
         .km-title Features
-        km-checkbox(label='JSON mode', :model-value='json_mode', @update:model-value='json_mode = $event')
-        km-checkbox(label='Structured Outputs', :model-value='json_schema', @update:model-value='json_schema = $event')
-        km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
-        km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
+        km-checkbox(:label='m.common_jsonMode()', :model-value='json_mode', @update:model-value='json_mode = $event')
+        km-checkbox(:label='m.common_structuredOutputs()', :model-value='json_schema', @update:model-value='json_schema = $event')
+        km-checkbox(:label='m.common_toolCalling()', :model-value='tool_calling', @update:model-value='tool_calling = $event')
+        km-checkbox(:label='m.common_reasoning()', :model-value='reasoning', @update:model-value='reasoning = $event')
 
       // Vector configuration for embeddings models
       template(v-if='type === "embeddings"')
@@ -186,7 +186,7 @@ km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
       q-separator.q-my-16
 
       .km-title Caching
-      km-checkbox(label='Enable Response Caching', :model-value='cacheEnabled', @update:model-value='cacheEnabled = $event')
+      km-checkbox(:label='m.common_enableResponseCaching()', :model-value='cacheEnabled', @update:model-value='cacheEnabled = $event')
       div(v-if='cacheEnabled')
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Cache TTL (seconds)
         km-input(height='32px', type='number', placeholder='3600', :model-value='cacheTtl', @update:model-value='cacheTtl = $event')
@@ -329,8 +329,8 @@ km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
           data-test='TestModel'
         )
         q-space
-        km-btn(v-if='isEntityChanged', flat, label='Cancel', color='primary', @click='cancelChanges', data-test='Cancel')
-        km-btn(v-if='isEntityChanged', label='Save', @click='save', data-test='Save')
+        km-btn(v-if='isEntityChanged', flat, :label='m.common_cancel()', color='primary', @click='cancelChanges', data-test='Cancel')
+        km-btn(v-if='isEntityChanged', :label='m.common_save()', @click='save', data-test='Save')
 
 //- Test Result Dialog
 q-dialog(v-model='showTestDialog')
@@ -379,7 +379,7 @@ q-dialog(v-model='showTestDialog')
             .text-caption.text-grey-7.col-3 Request URL
             .text-caption.text-mono.col-9(style='word-break: break-all; white-space: normal') {{ testResult.computed_url }}
     q-card-actions(align='right')
-      km-btn(flat, label='Close', color='primary', @click='showTestDialog = false')
+      km-btn(flat, :label='m.common_close()', color='primary', @click='showTestDialog = false')
 
 q-inner-loading(:showing='loading')
 </template>

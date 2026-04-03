@@ -8,7 +8,7 @@ q-separator.q-my-sm
           q-item-section
             q-item-label.km-label {{ option.label }}
           q-item-section(v-if='option?.active_variant', avatar)
-            q-chip.q-mr-sm(label='Active', color='primary-light', text-color='primary', flat, size='sm')
+            q-chip.q-mr-sm(:label='m.common_activate()', color='primary-light', text-color='primary', flat, size='sm')
     //- km-select(:options="variants" v-model="selected_variant" bg-color="background", height="30px", hasDropdownSearch).bg-white
     //-   template(#option="{ itemProps, opt, selected, toggleOption }")
     //-     q-item.ba-border(v-bind='itemProps' dense)
@@ -28,7 +28,7 @@ q-separator.q-my-sm
   .col-auto.q-mr-sm
     km-btn.width-100(
       v-if='!isActive',
-      label='Activate',
+      :label='m.common_activate()',
       icon='far fa-circle-check',
       iconColor='icon',
       hoverColor='primary',
@@ -38,12 +38,12 @@ q-separator.q-my-sm
       hoverBg='primary-bg',
       @click='activateVariantAction'
     )
-    q-chip.q-mr-sm(v-if='isActive', label='Active', color='primary-light', text-color='primary')
+    q-chip.q-mr-sm(v-if='isActive', :label='m.common_activate()', color='primary-light', text-color='primary')
 
   q-separator(vertical, color='white')
   .col-auto.text-white.q-mx-md
     km-btn(
-      label='Copy to new',
+      :label='m.common_copyToNew()',
       icon='fas fa-plus',
       iconColor='icon',
       hoverColor='primary',

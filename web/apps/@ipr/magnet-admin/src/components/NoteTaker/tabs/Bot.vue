@@ -26,7 +26,7 @@
       .col-auto
         km-btn(
           icon='add',
-          label='New Provider',
+          :label='m.common_newProvider()',
           flat, dense,
           @click='showCreateProvider = true'
         )
@@ -43,7 +43,7 @@
         dense
       ) {{ runtimeStatus.runtime_loaded ? 'Online' : 'Offline' }}
       km-btn(
-        label='Check Status',
+        :label='m.common_checkStatus()',
         flat, dense, icon='refresh',
         @click='checkRuntimeStatus',
         :loading='statusLoading'
@@ -67,7 +67,7 @@ km-popup-confirm(
   :visible='showCreateProvider',
   title='New Teams Note Taker Provider',
   confirmButtonLabel='Create',
-  cancelButtonLabel='Cancel',
+  :cancelButtonLabel='m.common_cancel()',
   notification='Credentials will be encrypted at rest.',
   @confirm='createProvider',
   @cancel='showCreateProvider = false'

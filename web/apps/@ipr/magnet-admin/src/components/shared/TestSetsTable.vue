@@ -15,7 +15,7 @@
   )
 template(v-if='selectedTestSet')
   .row.q-mb-sm
-    km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+    km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
   .full-width
     km-data-table(
       :table='table',

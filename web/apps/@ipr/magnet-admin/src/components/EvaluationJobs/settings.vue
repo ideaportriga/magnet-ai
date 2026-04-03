@@ -11,7 +11,7 @@ div(style='min-width: 300px')
           km-btn(
             flat,
             simple,
-            label='Open variant',
+            :label='m.common_openVariant()',
             iconSize='16px',
             icon='fas fa-book',
             @click='navigate("/prompt-templates/" + this.evaluation?.tool?.id)'

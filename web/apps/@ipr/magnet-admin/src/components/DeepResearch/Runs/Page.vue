@@ -7,7 +7,7 @@
         .col-auto.center-flex-y
           km-btn.q-mr-12(
             icon='refresh',
-            label='Refresh list',
+            :label='m.common_refreshList()',
             @click='refreshTable',
             iconColor='icon',
             hoverColor='primary',
@@ -17,7 +17,7 @@
             hoverBg='primary-bg'
           )
           km-btn(
-            label='New',
+            :label='m.common_new()',
             @click='showNewDialog = true'
           )
       .col(style='min-height: 0')
@@ -75,12 +75,13 @@
     )
 
           q-card-actions(align='right')
-    km-btn(flat, label='Cancel', color='primary', @click='closeDialog')
-    km-btn(label='Create Run', :loading='creating', @click='createRun')
+    km-btn(flat, :label='m.common_cancel()', color='primary', @click='closeDialog')
+    km-btn(:label='m.common_createRun()', :loading='creating', @click='createRun')
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, markRaw, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRouter } from 'vue-router'
 import { date } from 'quasar'
 import StatusChip from './StatusChip.vue'

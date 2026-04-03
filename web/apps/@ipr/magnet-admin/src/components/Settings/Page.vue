@@ -14,8 +14,8 @@
             content-class='km-tabs',
             @update:model-value='onTabChange'
           )
-            q-tab(name='import', label='Import')
-            q-tab(name='export', label='Export')
+            q-tab(name='import', :label='m.common_import()')
+            q-tab(name='export', :label='m.common_export()')
 
           .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width.relative-position(v-if='activeTab === "import"')
             q-inner-loading(:showing='loadingPreview || populating || checkingExists')
@@ -24,20 +24,20 @@
             .row.items-center.q-mb-md
               .km-heading-7 Import
               q-space
-              km-btn.q-mr-8(flat, label='Add from JSON', icon='fas fa-upload', @click='showUploadDialog = true')
-              km-btn.q-mr-8(flat, label='Add from Seed', icon='fas fa-database', :loading='loadingPreview', @click='addFromSeed')
+              km-btn.q-mr-8(flat, :label='m.common_addFromJson()', icon='fas fa-upload', @click='showUploadDialog = true')
+              km-btn.q-mr-8(flat, :label='m.common_addFromSeed()', icon='fas fa-database', :loading='loadingPreview', @click='addFromSeed')
               km-btn.q-mr-8(
-                label='Load Selected',
+                :label='m.common_loadSelected()',
                 :disable='selected.length === 0 || populating',
                 :loading='populating',
                 @click='loadSelected'
               )
-              km-btn(flat, label='Clear List', icon='fas fa-trash', :disable='rows.length === 0 || populating', @click='clearList')
+              km-btn(flat, :label='m.common_clearList()', icon='fas fa-trash', :disable='rows.length === 0 || populating', @click='clearList')
             .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-md
               km-notification-text(notification='The list is empty by default. Add candidate records from Seed or JSON, select needed rows, then click Load Selected.')
             .row.q-col-gutter-md.q-mb-md
               .col-2
-                km-input(placeholder='Search', iconBefore='search', v-model='importSearch', clearable)
+                km-input(:placeholder='m.common_search()', iconBefore='search', v-model='importSearch', clearable)
               .col-1
                 km-select(
                   v-model='importEntityTypeFilter',
@@ -109,17 +109,17 @@
             .row.items-center.q-mb-md
               .km-heading-7 Export
               q-space
-              km-btn.q-mr-8(flat, label='Add from Database', icon='fas fa-database', :loading='loadingExportPreview', @click='addFromDatabase')
+              km-btn.q-mr-8(flat, :label='m.common_addFromDatabase()', icon='fas fa-database', :loading='loadingExportPreview', @click='addFromDatabase')
               km-btn.q-mr-8(
-                label='Export Selected',
+                :label='m.common_exportSelected()',
                 :disable='selectedExport.length === 0 || exportingJson',
                 :loading='exportingJson',
                 @click='exportSelected'
               )
-              km-btn(flat, label='Clear List', icon='fas fa-trash', :disable='exportRows.length === 0 || exportingJson', @click='clearExportList')
+              km-btn(flat, :label='m.common_clearList()', icon='fas fa-trash', :disable='exportRows.length === 0 || exportingJson', @click='clearExportList')
             .row.q-col-gutter-md.q-mb-md
               .col-4
-                km-input(placeholder='Search', iconBefore='search', v-model='exportSearch', clearable)
+                km-input(:placeholder='m.common_search()', iconBefore='search', v-model='exportSearch', clearable)
               .col-4
                 km-select(
                   v-model='exportEntityTypeFilter',
@@ -169,15 +169,15 @@
             q-file(
               outlined,
               dense,
-              label='Upload File',
+              :label='m.common_uploadFile()',
               accept='.json,application/json',
               v-model='uploadFile',
               clearable
             )
       q-card-actions.card-section-style(align='right')
-        km-btn(flat, label='Cancel', @click='showUploadDialog = false')
+        km-btn(flat, :label='m.common_cancel()', @click='showUploadDialog = false')
         km-btn(
-          label='Add to List',
+          :label='m.common_addToList()',
           :disable='!uploadFile || uploadingJson',
           :loading='uploadingJson',
           @click='addFromJson'

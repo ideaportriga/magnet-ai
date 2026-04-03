@@ -20,7 +20,7 @@
   km-popup-confirm(
     :visible='showConfirmDialog',
     confirmButtonLabel='Ok, delete',
-    cancelButtonLabel='Cancel',
+    :cancelButtonLabel='m.common_cancel()',
     notificationIcon='fas fa-triangle-exclamation',
     @confirm='deleteSelected',
     @cancel='showConfirmDialog = false'

@@ -30,7 +30,7 @@
           km-btn.q-mr-12(
             v-if='groupBy == "flat"',
             icon='fas fa-download',
-            label='Report',
+            :label='m.common_report()',
             @click='getEvaluationReport',
             iconColor='icon',
             hoverColor='primary',
@@ -45,7 +45,7 @@
           km-btn.q-mr-12(
             v-if='groupBy == "flat"',
             icon='compare',
-            label='Compare',
+            :label='m.common_compare()',
             @click='compare(false)',
             iconColor='icon',
             hoverColor='primary',
@@ -60,7 +60,7 @@
           km-btn.q-mr-12(
             v-if='groupBy == "flat"',
             icon='delete',
-            label='Delete',
+            :label='m.common_delete()',
             @click='showDeleteDialog = true',
             iconColor='icon',
             hoverColor='primary',
@@ -74,7 +74,7 @@
         .col-auto.center-flex-y
           km-btn.q-mr-12(
             icon='refresh',
-            label='Refresh list',
+            :label='m.common_refreshList()',
             @click='refetch',
             iconColor='icon',
             hoverColor='primary',
@@ -125,8 +125,8 @@
     evaluation-jobs-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', v-if='showNewDialog')
 km-popup-confirm(
   :visible='showDeleteDialog',
-  confirmButtonLabel='Delete',
-  cancelButtonLabel='Cancel',
+  :confirmButtonLabel='m.common_delete()',
+  :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='deleteSelected',
   @cancel='showDeleteDialog = false'
@@ -137,7 +137,7 @@ km-popup-confirm(
 km-popup-confirm(
   :visible='showRerunDialog',
   confirmButtonLabel='Run',
-  cancelButtonLabel='Cancel',
+  :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='rerunSelected',
   @cancel='showRerunDialog = false'

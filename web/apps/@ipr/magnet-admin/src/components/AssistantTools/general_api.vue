@@ -48,7 +48,7 @@ div
   km-section(:title='m.section_requireConfirmation()', :subTitle='m.subtitle_requireConfirmation()')
     .column
       .col.q-mb-md
-        q-chip.km-small-chip(color='primary-light', text-color='primary', label='Upcoming feature')
+        q-chip.km-small-chip(color='primary-light', text-color='primary', :label='m.common_upcomingFeature()')
       .col
         q-toggle(:model-value='true', disable, dense)
 </template>

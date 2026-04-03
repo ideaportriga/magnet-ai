@@ -87,8 +87,8 @@ km-drawer-layout(storageKey="drawer-conversation")
       km-btn(flat, :label='m.conversation_viewTrace()', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
     .col-auto
     .row.items-center.q-gap-8
-      km-btn.self-end(label='Cancel', @click='cancelUpdate', v-if='isUpdated', flat)
-      km-btn.self-end(label='Update', @click='updateAnalytics', v-if='isUpdated')
+      km-btn.self-end(:label='m.common_cancel()', @click='cancelUpdate', v-if='isUpdated', flat)
+      km-btn.self-end(:label='m.common_update()', @click='updateAnalytics', v-if='isUpdated')
 
   q-inner-loading(:showing='loading')
 </template>

@@ -7,7 +7,7 @@ layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", m
         q-space
         km-btn.q-mr-12(
           icon='refresh',
-          label='Refresh list',
+          :label='m.common_refreshList()',
           @click='refetch',
           iconColor='icon',
           hoverColor='primary',

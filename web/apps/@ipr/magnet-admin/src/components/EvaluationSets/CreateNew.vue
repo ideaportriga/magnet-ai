@@ -41,7 +41,7 @@ km-popup-confirm(
     q-file.km-control.km-input.rounded-borders(
       style='height: 30px',
       outlined,
-      label='File upload',
+      :label='m.common_fileUpload()',
       ref='fileRef',
       v-model='newRow.file',
       accept='.xlsx, .xls',

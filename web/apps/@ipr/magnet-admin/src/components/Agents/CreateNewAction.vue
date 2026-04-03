@@ -12,7 +12,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
         //- .column.no-wrap.q-gap-16.full-height.full-width.overflow-auto.q-mb-md.q-mt-lg(style='min-height: 0')
         //-   .row
         //-     .col-auto.center-flex-y
-        //-     km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
+        //-     km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable) 
         //-   .row.q-gap-16.full-height.full-width  
         //-     .col.full-height.full-width
         //-       .column.items-center.full-height.full-width.q-gap-16.overflow-auto

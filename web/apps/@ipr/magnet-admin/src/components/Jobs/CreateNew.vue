@@ -22,7 +22,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
 
       // is_system checkbox for recurring jobs only
       .row.items-center.q-mt-md(v-if='form.executionType === "recurring"')
-        km-checkbox(v-model='form.is_system', label='System job (applies to all records)', :disable='form.executionType !== "recurring"')
+        km-checkbox(v-model='form.is_system', :label='m.collections_systemJob()', :disable='form.executionType !== "recurring"')
         //- When is_system is checked, all additional parameters are hidden, as it applies to all records
 
       // Hide additional parameters if is_system is checked
@@ -57,8 +57,8 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
             km-input(type='number', height='30px', v-model.number='form.retention_days', placeholder='30', :min='1')
           .km-tiny.text-secondary-text.q-pl-8.q-pt-xs Logs older than this will be deleted
           .row.items-center.q-mt-md.q-pl-8.q-gap-16
-            km-checkbox(v-model='form.cleanup_traces', label='Delete traces')
-            km-checkbox(v-model='form.cleanup_metrics', label='Delete metrics')
+            km-checkbox(v-model='form.cleanup_traces', :label='m.observability_deleteTraces()')
+            km-checkbox(v-model='form.cleanup_metrics', :label='m.observability_deleteMetrics()')
 
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md(v-if='form.executionType === "recurring"') Job interval
       .full-width(v-if='form.executionType === "recurring"')
@@ -95,16 +95,17 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
           km-input(height='30px', v-model='form.error_email', ref='errorEmailRef')
       .row.q-mt-lg
         .col-auto
-          km-btn(flat, label='Cancel', color='primary', @click='$emit("cancel")')
+          km-btn(flat, :label='m.common_cancel()', color='primary', @click='$emit("cancel")')
         .col
         .col-auto
-          km-btn(label='Save', @click='finish')
+          km-btn(:label='m.common_save()', @click='finish')
 </template>
 
 <script>
 import { ref, reactive, watch } from 'vue'
 import _ from 'lodash'
 import { fetchData } from '@shared'
+import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 
@@ -211,6 +212,7 @@ export default {
     const appStore = useAppStore()
 
     return {
+      m,
       form,
       intervals,
       days,
