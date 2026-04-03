@@ -1,13 +1,16 @@
-import { getCachedItems } from '@/queries/getCachedItems'
+import { getCachedCatalog } from '@/queries/useCatalogOptions'
 
 const getTracingTargetOptions = (knowledgeGraphNames: string[] = []) => {
   const options: string[] = []
 
-  options.push(...(getCachedItems('agents')?.map((item: any) => item.name) ?? []))
-  options.push(...(getCachedItems('collections')?.map((item: any) => item.name) ?? []))
-  options.push(...(getCachedItems('promptTemplates')?.map((item: any) => item.name) ?? []))
-  options.push(...(getCachedItems('rag_tools')?.map((item: any) => item.name) ?? []))
-  options.push(...(getCachedItems('retrieval')?.map((item: any) => item.name) ?? []))
+  // Use catalog instead of individual entity caches
+  const catalogItems = getCachedCatalog()
+  const entityTypes = ['agents', 'collections', 'promptTemplates', 'rag_tools', 'retrieval']
+  for (const item of catalogItems) {
+    if (entityTypes.includes(item.entity_type)) {
+      options.push(item.name)
+    }
+  }
   options.push(...knowledgeGraphNames)
 
   return [...new Set(options.filter(Boolean))]

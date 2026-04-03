@@ -62,6 +62,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
 import { ref, computed } from 'vue'
 
 import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { agentTopicActionsPopupColumns, agentTopicActionsAPIToolsPopupColumns } from '@/config/agents/topics'
 
@@ -76,20 +77,13 @@ export default {
   setup() {
     const queries = useEntityQueries()
 
-    const { data: apiServersData } = queries.api_servers.useList()
-    const api_servers = computed(() => apiServersData.value?.items ?? [])
-
-    const { data: ragToolsData } = queries.rag_tools.useList()
-    const rag_tools = computed(() => ragToolsData.value?.items ?? [])
-
-    const { data: retrievalData } = queries.retrieval.useList()
-    const retrieval_tools = computed(() => retrievalData.value?.items ?? [])
+    const { options: api_servers } = useCatalogOptions('api_servers')
+    const { options: rag_tools } = useCatalogOptions('rag_tools')
+    const { options: retrieval_tools } = useCatalogOptions('retrieval')
+    const { options: mcp_servers } = useCatalogOptions('mcp_servers')
 
     const { data: promptTemplatesData } = queries.promptTemplates.useList()
     const prompt_templates = computed(() => promptTemplatesData.value?.items ?? [])
-
-    const { data: mcpServersData } = queries.mcp_servers.useList()
-    const mcp_servers = computed(() => mcpServersData.value?.items ?? [])
 
     const { activeVariant, updateVariantField, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {

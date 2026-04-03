@@ -48,6 +48,7 @@
 import { ref, computed, onActivated } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
@@ -57,8 +58,7 @@ export default {
     const queries = useEntityQueries()
     const id = ref(route.params.id)
     onActivated(() => { id.value = route.params.id })
-    const { data: listData } = queries.agents.useList()
-    const visibleRows = computed(() => listData.value?.items ?? [])
+    const { options: visibleRows } = useCatalogOptions('agents')
     const { data: selectedRow } = queries.agents.useDetail(id)
     const { draft, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {

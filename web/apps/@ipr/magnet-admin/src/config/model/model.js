@@ -3,7 +3,7 @@ import Check from './component/Check.vue'
 import Features from './component/Features.vue'
 import TypeChip from './component/TypeChip.vue'
 import { markRaw } from 'vue'
-import { getCachedItems } from '@/queries/getCachedItems'
+import { getCachedCatalog } from '@/queries/useCatalogOptions'
 import { formatDateTime } from '@shared/utils/dateTime'
 
 const categoryOptions = [
@@ -52,10 +52,10 @@ const controls = {
     label: 'Provider',
     field: (row) => {
       const providerSystemName = row?.provider_system_name || row?.provider_name
-      const providerLabel = (getCachedItems('provider') || []).find(
+      const provider = (getCachedCatalog('provider') || []).find(
         (option) => option.system_name === providerSystemName || option.id === providerSystemName
       )
-      return providerLabel ? providerLabel.label : providerSystemName // Fallback to the system_name if label not found
+      return provider ? provider.name : providerSystemName
     },
     readonly: true,
     columnNumber: 0,

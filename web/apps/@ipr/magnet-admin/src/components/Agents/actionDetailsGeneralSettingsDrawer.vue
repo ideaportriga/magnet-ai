@@ -28,6 +28,7 @@ div
 <script>
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
@@ -35,16 +36,13 @@ export default {
   setup() {
     const { activeVariant, activeTopic: activeTopicRef, updateNestedListItemBySystemName } = useAgentEntityDetail()
     const queries = useEntityQueries()
-    const { data: promptTemplateData } = queries.promptTemplates.useList()
-    const promptTemplateItems = computed(() => promptTemplateData.value?.items ?? [])
-    const { data: ragData } = queries.rag_tools.useList()
-    const ragItems = computed(() => ragData.value?.items ?? [])
+    const { options: promptTemplateItems } = useCatalogOptions('promptTemplates')
+    const { options: ragItems } = useCatalogOptions('rag_tools')
+    const { options: retrievalItems } = useCatalogOptions('retrieval')
     const { data: apiServersData } = queries.api_servers.useList()
     const apiServers = computed(() => apiServersData.value?.items ?? [])
     const { data: mcpData } = queries.mcp_servers.useList()
     const mcpItems = computed(() => mcpData.value?.items ?? [])
-    const { data: retrievalData } = queries.retrieval.useList()
-    const retrievalItems = computed(() => retrievalData.value?.items ?? [])
 
     return {
       activeVariant,

@@ -54,6 +54,7 @@
 <script>
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { beforeRouteEnter } from '@/guards'
 import aiAppsControls from '@/config/ai_apps/ai_apps'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
@@ -65,7 +66,7 @@ export default {
     const { draft: ragDraft } = useVariantEntityDetail('rag_tools')
     const { data: aiAppsListData, isLoading } = queries.ai_apps.useList()
     const { mutateAsync: createAiApp } = queries.ai_apps.useCreate()
-    const { data: collectionsListData } = queries.collections.useList()
+    const { options: collectionsOptions } = useCatalogOptions('collections')
 
     const searchString = ref('')
     const selectedRow = ref(null)
@@ -95,7 +96,7 @@ export default {
       createAiApp,
       createNew: ref(false),
       loadingRefresh: ref(false),
-      collectionsListData,
+      collectionsOptions,
       newRow: ref({
         retrieve: {
           similarity_score_threshold: 0.75,
@@ -129,7 +130,7 @@ export default {
       return this.aiAppsListData?.items ?? []
     },
     collections() {
-      return (this.collectionsListData?.items ?? []).map((item) => ({
+      return (this.collectionsOptions ?? []).map((item) => ({
         ...item,
         value: item.id,
         label: item.name,

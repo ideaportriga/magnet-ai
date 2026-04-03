@@ -56,12 +56,10 @@ import { useState } from '@shared'
 import { useAuth } from '@shared'
 import { getCurrentInstance, computed, ref } from 'vue'
 import { useAppStore } from '@/stores/appStore'
-import { useDeepResearchStore } from '@/stores/deepResearchStore'
-import { usePromptQueueStore } from '@/stores/promptQueueStore'
 import { useSharedAuthStore } from '@shared/stores/authStore'
 import { queryClient } from '@/plugins/vueQuery'
 import { entityKeys } from '@/queries/queryKeys'
-import { getEntityApis } from '@/api/entityApis'
+import { getEntityApis, getApiClient } from '@/api/entityApis'
 import { initializePlugins } from '@/config/collections/collections'
 import AuthLoginPage from '@ui/components/auth/AuthLoginPage.vue'
 import AuthSignupPage from '@ui/components/auth/AuthSignupPage.vue'
@@ -73,8 +71,6 @@ export default {
     const loading = useState('globalLoading')
     const auth = useAuth()
     const appStore = useAppStore()
-    const drStore = useDeepResearchStore()
-    const pqStore = usePromptQueueStore()
     const { appContext } = getCurrentInstance()
 
     // useAuth stores userInfo in sharedAuthStore — read from there
@@ -117,8 +113,6 @@ export default {
       oidcBaseUrl,
       popupWidth,
       popupHeight,
-      drStore,
-      pqStore,
       loading,
       appContext,
       appStore,
@@ -184,6 +178,7 @@ export default {
   methods: {
     async loadData() {
       const apis = getEntityApis()
+      const client = getApiClient()
 
       // Prefetch plugins first (needed for dynamic forms)
       await queryClient.fetchQuery({
@@ -194,25 +189,12 @@ export default {
       // Initialize plugins configuration for collections (uses data from cache)
       initializePlugins()
 
-      // Prefetch all entity lists so they are available in the cache
-      // TanStack Query will auto-fetch when components mount, but prefetching ensures
-      // data is ready for config files that use getCachedItems()
-      const entitiesToPrefetch = [
-        'collections', 'rag_tools', 'retrieval', 'promptTemplates',
-        'ai_apps', 'evaluation_sets', 'evaluation_jobs', 'model',
-        'provider', 'agents', 'mcp_servers', 'api_keys', 'api_servers',
-      ]
-
-      await Promise.all([
-        ...entitiesToPrefetch.map((entity) =>
-          queryClient.prefetchQuery({
-            queryKey: entityKeys[entity].list({}),
-            queryFn: () => apis[entity].list(),
-          })
-        ),
-        this.drStore.fetchConfigs(),
-        this.pqStore.fetchPromptQueueConfigs(),
-      ])
+      // Prefetch catalog (lightweight list of all entities for dropdowns, filters, tab names)
+      await queryClient.fetchQuery({
+        queryKey: ['catalog'],
+        queryFn: () => client.get('catalog'),
+        staleTime: 5 * 60 * 1000,
+      })
     },
     async onAuthCompleted() {
       await this.getAuthData()

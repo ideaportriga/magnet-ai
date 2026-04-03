@@ -11,15 +11,13 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
 const route = useRoute()
 const router = useRouter()
 const { draft } = useEntityDetail('ai_apps')
-const queries = useEntityQueries()
-const { data: listData } = queries.ai_apps.useList()
-const items = computed(() => listData.value?.items ?? [])
+const { options: items } = useCatalogOptions('ai_apps')
 
 const activeRagId = computed(() => route.params.id)
 const activeAIAppDB = computed(() => items.value.find((item) => item.id == activeRagId.value))

@@ -4,14 +4,11 @@
 </template>
 
 <script>
-import { computed } from 'vue'
-import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 
 export default {
   setup() {
-    const queries = useEntityQueries()
-    const { data: listData } = queries.rag_tools.useList()
-    const items = computed(() => listData.value?.items ?? [])
+    const { options: items } = useCatalogOptions('rag_tools')
     return { items }
   },
   computed: {

@@ -102,11 +102,11 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
 </template>
 
 <script>
-import { ref, reactive, watch, computed } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import _ from 'lodash'
 import { fetchData } from '@shared'
-import { useEntityQueries } from '@/queries/entities'
 import { useAppStore } from '@/stores/appStore'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 
 const intervals = [
   { label: 'Every 5 minutes', value: 'every_5_minutes' },
@@ -160,9 +160,7 @@ export default {
   setup(props) {
     const job = _.cloneDeep(props.job)
 
-    const queries = useEntityQueries()
-    const { data: agentsData } = queries.agents.useList()
-    const agents = computed(() => agentsData.value?.items ?? [])
+    const { options: agents } = useCatalogOptions('agents')
 
     const form = reactive({
       ...{

@@ -678,11 +678,11 @@ router.afterEach(async (to) => {
           const ntStore = useNoteTakerStore()
           entityName = ntStore.activeRecord?.name || ''
         } else {
-          const { getCachedItems } = await import('@/queries/getCachedItems')
-          const cachedItems = getCachedItems(entityType)
-          if (cachedItems) {
-            const entity = cachedItems.find((i) => i.id === entityId)
-            entityName = entity?.name || entity?.system_name || ''
+          const { getCachedCatalog } = await import('@/queries/useCatalogOptions')
+          const catalogItems = getCachedCatalog(entityType)
+          const entity = catalogItems.find((i) => i.id === entityId)
+          if (entity) {
+            entityName = entity.name || entity.system_name || ''
           }
         }
       } catch {

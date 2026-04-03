@@ -71,7 +71,7 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
-import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
 import tabTypes from '@/config/ai_apps/tab_types'
@@ -92,16 +92,12 @@ export default {
   },
   emits: ['cancel'],
   setup() {
-    const queries = useEntityQueries()
     const { draft: ragDraft } = useVariantEntityDetail('rag_tools')
     const { draft, updateField } = useEntityDetail('ai_apps')
-    const { data: ragToolsData } = queries.rag_tools.useList()
-    const { data: agentsData } = queries.agents.useList()
-    const { data: retrievalData } = queries.retrieval.useList()
 
-    const items = computed(() => ragToolsData.value?.items ?? [])
-    const agentItems = computed(() => agentsData.value?.items ?? [])
-    const retrievalItems = computed(() => retrievalData.value?.items ?? [])
+    const { options: items } = useCatalogOptions('rag_tools')
+    const { options: agentItems } = useCatalogOptions('agents')
+    const { options: retrievalItems } = useCatalogOptions('retrieval')
 
     const entityConfig = useEntityConfig('rag_tools')
     const config = computed(() => entityConfig.config || {})
@@ -154,7 +150,7 @@ export default {
       return this.items.map((item) => ({
         label: item.name,
         value: item.system_name,
-        modified_at: item?._metadata?.modified_at,
+        modified_at: item?.updated_at,
       }))
     },
     ragToolCode: {
@@ -169,14 +165,14 @@ export default {
       return this.retrievalItems.map((item) => ({
         label: item.name,
         value: item.system_name,
-        modified_at: item?._metadata?.modified_at,
+        modified_at: item?.updated_at,
       }))
     },
     agentsOptions() {
       return this.agentItems.map((item) => ({
         label: item.name,
         value: item.system_name,
-        modified_at: item?._metadata?.modified_at,
+        modified_at: item?.updated_at,
       }))
     },
     agentsCode: {

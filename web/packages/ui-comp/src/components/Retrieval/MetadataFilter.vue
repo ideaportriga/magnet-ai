@@ -25,17 +25,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useTemplateRef, inject, ref } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import type { Filter } from '@shared/types'
 import _ from 'lodash'
 
-// Parent provides 'collectionsList' ref via provide/inject
-const allKnowledgeSources = inject<any>('collectionsList', ref([]))
-
 // Models & Props
 const filters = defineModel<Filter[]>({ default: [] })
-const { sources } = defineProps<{
+const props = defineProps<{
   sources?: string[]
+  collections?: any[]
   label?: string
   labelClass?: string
   iconSize?: string
@@ -45,10 +43,10 @@ const newFilterPopup = useTemplateRef('newFilterPopup')
 const editFilterPopup = useTemplateRef('editFilterPopup')
 
 const availableMetadataFields = computed(() => {
-  const items = allKnowledgeSources?.value || []
-  const filteredSources = !sources
+  const items = props.collections || []
+  const filteredSources = !props.sources
     ? items
-    : items.filter((source: any) => (sources || []).includes(source?.system_name))
+    : items.filter((source: any) => (props.sources || []).includes(source?.system_name))
   const fields: string[] = filteredSources.flatMap((source: any) =>
     (source?.metadata_config || [])
       .filter((config: any) => config.enabled)

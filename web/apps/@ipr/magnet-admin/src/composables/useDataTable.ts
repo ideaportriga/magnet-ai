@@ -12,7 +12,7 @@ import {
   type VisibilityState,
   type Updater,
 } from '@tanstack/vue-table'
-import { computed, ref, type MaybeRef, unref } from 'vue'
+import { computed, ref, watch, type MaybeRef, unref } from 'vue'
 import type { BaseEntity } from '@/types'
 import { useEntityQueries } from '@/queries/entities'
 
@@ -29,6 +29,8 @@ export interface UseDataTableOptions {
   extraParams?: MaybeRef<Record<string, unknown>>
   /** Client-side filter applied to API results before they reach the table */
   dataFilter?: (items: T[]) => T[]
+  /** Debounce delay in ms for server-side search (default: 300) */
+  searchDebounce?: number
 }
 
 function applyUpdater<T>(updater: Updater<T>, current: T): T {
@@ -52,6 +54,7 @@ export function useDataTable<T extends BaseEntity>(
     manualFiltering = true,
     extraParams,
     dataFilter,
+    searchDebounce = 300,
   } = options ?? {}
 
   // Table state
@@ -61,6 +64,18 @@ export function useDataTable<T extends BaseEntity>(
   const rowSelection = ref<RowSelectionState>({})
   const columnVisibility = ref<VisibilityState>(defaultColumnVisibility)
   const globalFilter = ref('')
+
+  // Debounced search value for server-side queries
+  const debouncedSearch = ref('')
+  let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+  watch(globalFilter, (val) => {
+    if (!manualFiltering) return // client-side filtering — no need to debounce
+    if (searchTimer) clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => {
+      debouncedSearch.value = val
+    }, searchDebounce)
+  })
 
   // Convert table state → API query params
   const queryParams = computed(() => {
@@ -85,9 +100,9 @@ export function useDataTable<T extends BaseEntity>(
       }
     }
 
-    // Global search filter
-    if (globalFilter.value) {
-      params.search = globalFilter.value
+    // Server-side search — only when manualFiltering is true
+    if (manualFiltering && debouncedSearch.value) {
+      params.search = debouncedSearch.value
     }
 
     return params
@@ -103,21 +118,12 @@ export function useDataTable<T extends BaseEntity>(
     manualPagination ? Math.ceil(totalRows.value / pagination.value.pageSize) : undefined,
   )
 
-  // Client-side search filtering (when not using server-side)
-  const filteredRows = computed(() => {
-    if (!globalFilter.value || manualFiltering) return rows.value
-    const search = globalFilter.value.toLowerCase()
-    return rows.value.filter((row) => {
-      return Object.values(row as Record<string, unknown>).some((val) =>
-        String(val ?? '').toLowerCase().includes(search),
-      )
-    })
-  })
-
   // TanStack Table instance
+  // When manualFiltering: false, TanStack's getFilteredRowModel() handles
+  // client-side search via globalFilter state — no need for pre-filtering.
   const table = useVueTable<T>({
     get data() {
-      return manualFiltering ? rows.value : filteredRows.value
+      return rows.value
     },
     columns,
     getCoreRowModel: getCoreRowModel(),

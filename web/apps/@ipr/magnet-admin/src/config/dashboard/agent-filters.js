@@ -1,4 +1,4 @@
-import { getCachedItems } from '@/queries/getCachedItems'
+import { getCachedCatalog } from '@/queries/useCatalogOptions'
 import { useDashboardStore } from '@/stores/dashboardStore'
 
 const filter = {
@@ -16,7 +16,7 @@ const filter = {
     get options() {
       const dashboardStore = useDashboardStore()
       if (dashboardStore.agentDashboardOptions?.tools) {
-        return getCachedItems('agents').map((item) => ({ label: item.name, value: item.system_name })) ?? []
+        return getCachedCatalog('agents').map((item) => ({ label: item.name, value: item.system_name }))
       }
       return []
     },

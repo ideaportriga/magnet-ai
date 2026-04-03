@@ -46,6 +46,7 @@ import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 
 export default {
   props: {
@@ -64,14 +65,14 @@ export default {
     const queries = useEntityQueries()
     const { draft } = useVariantEntityDetail('rag_tools')
     const { mutateAsync: createRagTool } = queries.rag_tools.useCreate()
-    const { data: collectionsData } = queries.collections.useList()
+    const { options: collections } = useCatalogOptions('collections')
 
     return {
       draft,
       config,
       createRagTool,
       createNew: ref(false),
-      collectionsData,
+      collections,
       requiredFields,
       newRow: reactive({
         name: '',
@@ -119,9 +120,6 @@ export default {
     }
   },
   computed: {
-    collections() {
-      return this.collectionsData?.items ?? []
-    },
     name: {
       get() {
         return this.newRow?.name || ''

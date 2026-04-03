@@ -1,4 +1,4 @@
-import { getCachedItems } from '@/queries/getCachedItems'
+import { getCachedCatalog } from '@/queries/useCatalogOptions'
 import { useDashboardStore } from '@/stores/dashboardStore'
 
 const filter = {
@@ -14,7 +14,7 @@ const filter = {
     label: 'RAG Tool',
     key: 'feature_system_name',
     get options() {
-      return getCachedItems('rag_tools').map((item) => ({ label: item.name, value: item.system_name })) ?? []
+      return getCachedCatalog('rag_tools').map((item) => ({ label: item.name, value: item.system_name }))
     },
     search: true,
     // overviewFilter: true,

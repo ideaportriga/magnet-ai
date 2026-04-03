@@ -21,6 +21,7 @@
 import { ref, computed, onActivated } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
@@ -31,8 +32,7 @@ export default {
     const id = ref(route.params.id)
     onActivated(() => { id.value = route.params.id })
     const { data: selectedRow } = queries.agents.useDetail(id)
-    const { data: listData } = queries.agents.useList()
-    const items = computed(() => listData.value?.items ?? [])
+    const { options: items } = useCatalogOptions('agents')
     const removeMutation = queries.agents.useRemove()
     const { draft, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {

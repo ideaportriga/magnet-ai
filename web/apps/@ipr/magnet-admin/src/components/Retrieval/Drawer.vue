@@ -11,7 +11,7 @@ km-drawer-layout(storageKey="drawer-retrieval", noScroll)
           .km-heading-5 {{ uiSettings?.header_configuration?.header }}
         .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
           .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
-      retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter', :sources='collectionSystemNames')
+      retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter', :sources='collectionSystemNames', :collections='collectionItems')
       q-separator.q-mt-md(v-if='allowMetadataFilter')
       retrieval-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, retrieval, :searchString='searchString', @searchRetrieval='handleSearchRetrieval')
       template(v-if='isShowHints')
@@ -51,11 +51,12 @@ km-drawer-layout(storageKey="drawer-retrieval", noScroll)
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import useState from '@shared/composables/useState'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
+import { useEntityQueries } from '@/queries/entities'
 
 export default {
   props: ['open'],
@@ -64,6 +65,8 @@ export default {
     const searchStore = useSearchStore()
     const { answers, answersLoading: loading, metadataFilter } = storeToRefs(searchStore)
     const sharedPrompt = useState('searchPrompt')
+    const { data: collectionsData } = useEntityQueries().collections.useList()
+    const collectionItems = computed(() => collectionsData.value?.items ?? [])
     return {
       draft,
       activeVariant,
@@ -73,6 +76,7 @@ export default {
       answers,
       metadataFilter,
       sharedPrompt,
+      collectionItems,
       showHints: ref(true),
       selectedAnswer: ref({}),
       showChunkInfo: ref(false),

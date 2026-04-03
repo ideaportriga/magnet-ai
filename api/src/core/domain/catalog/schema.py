@@ -14,3 +14,7 @@ class CatalogItem(BaseModel):
     entity_type: str
     entity_label: str
     updated_at: Optional[datetime] = None
+    display_name: Optional[str] = None
+    type: Optional[str] = None
+    category: Optional[str] = None
+    parent_system_name: Optional[str] = None

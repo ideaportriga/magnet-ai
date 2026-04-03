@@ -49,14 +49,13 @@ q-separator.q-my-sm
 
 <script>
 import { ref, computed } from 'vue'
-import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
   props: ['activeRow'],
   emits: ['update:closeDrawer'],
   setup() {
-    const queries = useEntityQueries()
     const {
       draft, isDirty, updateField, updateVariantField,
       selectedVariant, activeVariant, variants,
@@ -64,8 +63,7 @@ export default {
       deleteVariant: composableDeleteVariant, activateVariant: composableActivateVariant,
       save, revert,
     } = useVariantEntityDetail('rag_tools')
-    const { data: listData } = queries.rag_tools.useList()
-    const items = computed(() => listData.value?.items ?? [])
+    const { options: items } = useCatalogOptions('rag_tools')
 
     return {
       draft,

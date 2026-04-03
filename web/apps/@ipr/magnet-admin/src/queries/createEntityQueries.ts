@@ -76,6 +76,7 @@ export function createEntityQueries<T extends BaseEntity>(
         mutationFn: (data) => api.create(data),
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: keys.all })
+          qc.invalidateQueries({ queryKey: ['catalog'] })
         },
         onError: (error) => handleMutationError(error, 'create'),
       })
@@ -99,6 +100,7 @@ export function createEntityQueries<T extends BaseEntity>(
         mutationFn: (id) => api.remove(id),
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: keys.all })
+          qc.invalidateQueries({ queryKey: ['catalog'] })
         },
         onError: (error) => handleMutationError(error, 'remove'),
       })

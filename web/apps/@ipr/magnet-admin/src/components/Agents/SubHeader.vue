@@ -49,16 +49,14 @@ q-separator.q-my-sm
 
 <script>
 import { ref, computed } from 'vue'
-import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   props: ['activeRow'],
   emits: ['update:closeDrawer'],
   setup() {
-    const queries = useEntityQueries()
-    const { data: listData } = queries.agents.useList()
-    const items = computed(() => listData.value?.items ?? [])
+    const { options: items } = useCatalogOptions('agents')
     const { draft, isDirty, updateField, updateVariantField,
             selectedVariant, activeVariant, variants, setSelectedVariant,
             createVariant, deleteVariant, activateVariant,

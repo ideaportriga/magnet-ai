@@ -1,4 +1,4 @@
-import { getCachedItems } from '@/queries/getCachedItems'
+import { getCachedCatalog } from '@/queries/useCatalogOptions'
 import { useDashboardStore } from '@/stores/dashboardStore'
 
 const filter = {
@@ -14,7 +14,7 @@ const filter = {
     key: 'feature_system_name',
     search: true,
     get options() {
-      return getCachedItems('promptTemplates').map((item) => ({ label: item.display_name ?? item.name, value: item.system_name }))
+      return getCachedCatalog('promptTemplates').map((item) => ({ label: item.name, value: item.system_name }))
     },
   },
   source: {
@@ -63,7 +63,7 @@ const filter = {
     key: 'model.display_name',
     search: true,
     get options() {
-      return getCachedItems('model').map((item) => ({ label: item.display_name ?? item.name, value: item.display_name ?? item.name }))
+      return getCachedCatalog('model').map((item) => ({ label: item.display_name ?? item.name, value: item.display_name ?? item.name }))
     },
   },
   ['x_attributes.org-id']: {

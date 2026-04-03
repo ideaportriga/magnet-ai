@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
@@ -28,6 +28,8 @@ import { useDeepResearchStore } from '@/stores/deepResearchStore'
 
 const drStore = useDeepResearchStore()
 const router = useRouter()
+
+onMounted(() => drStore.fetchConfigs())
 
 const showNewDialog = ref(false)
 

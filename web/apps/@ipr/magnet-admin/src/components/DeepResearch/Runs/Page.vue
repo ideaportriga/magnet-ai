@@ -227,6 +227,7 @@ const fetchRuns = async () => {
 }
 
 onMounted(async () => {
+  drStore.fetchConfigs()
   if (!runs.value.length) {
     await fetchRuns()
   }

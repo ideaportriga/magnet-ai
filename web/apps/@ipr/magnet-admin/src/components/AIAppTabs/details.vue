@@ -28,25 +28,19 @@ layouts-details-layout(v-if='currentTab', v-model:name='name', v-model:descripti
 <script setup>
 import { ref, computed, onActivated, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { cloneDeep } from 'lodash'
 
 const route = useRoute()
 const router = useRouter()
-const queries = useEntityQueries()
 const { draft, updateField } = useEntityDetail('ai_apps')
 
 const openTest = ref(true)
 
-const { data: ragToolsListData } = queries.rag_tools.useList()
-const ragToolsItems = computed(() => ragToolsListData.value?.items ?? [])
-
-const { data: agentsListData } = queries.agents.useList()
-const agentItems = computed(() => agentsListData.value?.items ?? [])
-
-const { data: retrievalListData } = queries.retrieval.useList()
-const retrievalItems = computed(() => retrievalListData.value?.items ?? [])
+const { options: ragToolsItems } = useCatalogOptions('rag_tools')
+const { options: agentItems } = useCatalogOptions('agents')
+const { options: retrievalItems } = useCatalogOptions('retrieval')
 
 const activeAIAppTabSystemName = computed(() => route.params?.tab)
 const activeAIAppTabChildSystemName = computed(() => route.query?.child)

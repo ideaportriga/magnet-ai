@@ -124,6 +124,7 @@ km-section(title='Chunk limits', subTitle='Control how many chunks are passed to
 <script>
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
@@ -133,13 +134,13 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { activeVariant, updateVariantField } = useVariantEntityDetail('rag_tools')
-    const { data: collectionsListData } = queries.collections.useList()
+    const { options: catalogCollections } = useCatalogOptions('collections')
     const { data: modelListData } = queries.model.useList()
 
     return {
       activeVariant,
       updateVariantField,
-      collectionsListData,
+      catalogCollections,
       modelListData,
       test: ref(true),
       iconPicker: ref(false),
@@ -156,7 +157,7 @@ export default {
   },
   computed: {
     collections() {
-      return (this.collectionsListData?.items ?? []).map((item) => ({
+      return this.catalogCollections.map((item) => ({
         ...item,
         value: item.id,
         label: item.name,

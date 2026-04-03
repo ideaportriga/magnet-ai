@@ -50,16 +50,6 @@ const app = {
     const { useAppStore } = await import('@/stores/appStore')
     appInstance.provide('appStore', useAppStore())
 
-    // Provide collections list for MetadataFilter (replaces useChroma('collections'))
-    // Loaded via API client (not TanStack Query hook — can't use hooks outside setup())
-    const { ref: vueRef } = await import('vue')
-    const { getApiClient } = await import('@/api')
-    const collectionsList = vueRef([])
-    getApiClient().get('sql_collections').then((data) => {
-      collectionsList.value = data?.items ?? data ?? []
-    }).catch(() => { /* non-critical — MetadataFilter will have empty sources */ })
-    appInstance.provide('collectionsList', collectionsList)
-
     // Install plugins (router must come AFTER Pinia)
     appInstance.use(router)
     appInstance.use(Quasar, quasarConf)

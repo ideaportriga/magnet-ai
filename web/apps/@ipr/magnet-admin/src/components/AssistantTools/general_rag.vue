@@ -51,6 +51,7 @@ div
 
 <script>
 import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { computed } from 'vue'
 
@@ -60,20 +61,17 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { draft, updateField } = useEntityDetail('assistant_tools')
-    const { data: ragToolsListData } = queries.rag_tools.useList()
+    const { options: ragItems } = useCatalogOptions('rag_tools')
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
-      ragToolsListData,
+      ragItems,
       draft,
       updateField,
       promptItems,
     }
   },
   computed: {
-    ragItems() {
-      return this.ragToolsListData?.items ?? []
-    },
     rag: {
       get() {
         return this.draft?.rag?.rag_tool || ''

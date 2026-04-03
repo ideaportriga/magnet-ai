@@ -10,6 +10,10 @@ export interface CatalogItem {
   entity_type: string
   entity_label: string
   updated_at: string | null
+  display_name?: string | null
+  type?: string | null
+  category?: string | null
+  parent_system_name?: string | null
 }
 
 export function useCatalog() {

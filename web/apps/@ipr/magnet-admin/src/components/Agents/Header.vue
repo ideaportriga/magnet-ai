@@ -16,18 +16,17 @@
 
 <script>
 import { computed } from 'vue'
-import { useEntityQueries } from '@/queries/entities'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   props: ['activeRow'],
   setup() {
-    const queries = useEntityQueries()
     useAgentEntityDetail()
-    const { data: listData } = queries.agents.useList()
+    const { options: items } = useCatalogOptions('agents')
 
     return {
-      listData,
+      items,
     }
   },
   computed: {
@@ -39,9 +38,6 @@ export default {
     },
     activeActionId() {
       return this.$route.params?.actionId || ''
-    },
-    items() {
-      return this.listData?.items || []
     },
     activeAgent() {
       return this.items.find((item) => item.id == this.activeRowId)

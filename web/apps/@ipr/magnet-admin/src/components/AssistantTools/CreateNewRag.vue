@@ -30,6 +30,7 @@ import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { useCatalogOptions } from '@/queries/useCatalogOptions'
 
 export default {
   props: {
@@ -46,11 +47,10 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { mutateAsync: createEntity } = queries.assistant_tools.useCreate()
-    const { data: ragItemsData } = queries.rag_tools.useList()
+    const { options: ragItems } = useCatalogOptions('rag_tools')
     const { draft } = useEntityDetail('assistant_tools')
     const appStore = useAppStore()
 
-    const ragItems = computed(() => ragItemsData.value?.items ?? [])
     const entityConfig = useEntityConfig('assistant_tools')
     const config = computed(() => entityConfig.config || {})
     const requiredFields = computed(() => entityConfig.requiredFields || [])
