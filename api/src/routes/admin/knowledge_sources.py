@@ -518,7 +518,7 @@ class KnowledgeSourcesController(Controller):
             }
             result.append(plugin_info)
 
-        return {"plugins": result}
+        return result
 
     @post()
     async def create_collection(
