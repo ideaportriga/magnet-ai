@@ -328,11 +328,6 @@ const routes = [
     },
   },
   {
-    path: '/api-tools',
-    name: 'ApiTools',
-    component: () => import('@/components/ApiTools/Page.vue'),
-  },
-  {
     path: '/usage',
     redirect: '/usage/rag',
   },

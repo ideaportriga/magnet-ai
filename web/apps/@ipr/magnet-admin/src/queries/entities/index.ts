@@ -4,7 +4,7 @@ import type {
   AiApp,
   ApiKey,
   ApiServer,
-  ApiTool,
+
   AssistantTool,
   Collection,
   Document,
@@ -37,8 +37,6 @@ export interface AllEntityQueries {
   provider: EntityQueries<Provider>
   agents: EntityQueries<Agent>
   assistant_tools: EntityQueries<AssistantTool>
-  api_tools: EntityQueries<ApiTool>
-  api_tool_providers: EntityQueries<ApiTool>
   jobs: EntityQueries<Job>
   mcp_servers: EntityQueries<McpServer>
   api_keys: EntityQueries<ApiKey>
@@ -65,8 +63,6 @@ export function initEntityQueries(apis: EntityApis): AllEntityQueries {
     provider: createEntityQueries<Provider>('provider', apis.provider),
     agents: createEntityQueries<Agent>('agents', apis.agents),
     assistant_tools: createEntityQueries<AssistantTool>('assistant_tools', apis.assistant_tools),
-    api_tools: createEntityQueries<ApiTool>('api_tools', apis.api_tools),
-    api_tool_providers: createEntityQueries<ApiTool>('api_tool_providers', apis.api_tool_providers),
     jobs: createEntityQueries<Job>('jobs', apis.jobs),
     mcp_servers: createEntityQueries<McpServer>('mcp_servers', apis.mcp_servers),
     api_keys: createEntityQueries<ApiKey>('api_keys', apis.api_keys),

@@ -29,8 +29,6 @@ export const entityKeys = {
   provider: createEntityKeys('provider'),
   agents: createEntityKeys('agents'),
   assistant_tools: createEntityKeys('assistant_tools'),
-  api_tools: createEntityKeys('api_tools'),
-  api_tool_providers: createEntityKeys('api_tool_providers'),
   jobs: createEntityKeys('jobs'),
   mcp_servers: createEntityKeys('mcp_servers'),
   api_keys: createEntityKeys('api_keys'),

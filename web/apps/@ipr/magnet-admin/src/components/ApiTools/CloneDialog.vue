@@ -1,7 +1,7 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='show',
-  title='Clone Assistant Tool',
+  title='Clone API Tool',
   confirmButtonLabel='Clone',
   cancelButtonLabel='Cancel',
   @confirm='cloneTool',
@@ -20,22 +20,20 @@ km-popup-confirm(
     km-input(v-model='newTool.system_name', :rules='[uniqueSystemName]', ref='systemNameInput')
 </template>
 <script>
-import { ref, computed } from 'vue'
-import { useEntityQueries } from '@/queries/entities'
+import { ref } from 'vue'
+import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
   props: ['show', 'tool'],
   emits: ['cancel'],
   setup() {
     const newTool = ref(null)
     const loading = ref(false)
-    const queries = useEntityQueries()
-    const { data: apiToolsListData } = queries.api_tools.useList()
-    const { mutateAsync: createApiTool } = queries.api_tools.useCreate()
-    return { newTool, loading, apiToolsListData, createApiTool }
+    const { draft, updateField, save: saveServer } = useEntityDetail('api_servers')
+    return { newTool, loading, draft, updateField, saveServer }
   },
   computed: {
     items() {
-      return this.apiToolsListData?.items ?? []
+      return this.draft?.tools ?? []
     },
   },
   watch: {
@@ -46,16 +44,20 @@ export default {
   methods: {
     async cloneTool() {
       this.loading = true
-
-      const systemName = this.$refs.systemNameInput.validate()
-      if (systemName) {
-        const data = await this.createApiTool(this.newTool)
-        if (data?.id) {
-          this.$router?.push(`/api-tools/${data.id}`)
-          this.$emit('cancel')
+      try {
+        const systemName = this.$refs.systemNameInput.validate()
+        if (systemName) {
+          const tools = [...(this.draft?.tools || []), this.newTool]
+          this.updateField('tools', tools)
+          const result = await this.saveServer()
+          if (result.success) {
+            this.$router?.push(`/api-servers/${this.$route.params.id}/tools/${this.newTool.system_name}`)
+            this.$emit('cancel')
+          }
         }
+      } finally {
+        this.loading = false
       }
-      this.loading = false
     },
     uniqueSystemName(value) {
       if (this.items.some((item) => item.system_name === value)) {

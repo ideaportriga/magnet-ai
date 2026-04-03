@@ -14,7 +14,7 @@ import providersControls from '@/config/provider/provider'
 import { fetchData } from '@shared'
 import patchObject from '@shared/utils/patchObject'
 import assistantToolsControls from '@/config/assistant-tools/assistant-tools'
-import apiToolsControls from '@/config/api-tools/api-tools'
+
 import apiKeysControls from '@/config/api-keys/table'
 import agentsControls from '@/config/agents/agents'
 import jobsControls from '@/config/jobs/jobs'
@@ -122,11 +122,6 @@ const assistantToolsPagination = {
 const aiAppTablePagination = {
   rowsPerPage: 10,
   sortBy: 'last_updated',
-  descending: true,
-}
-const apiToolsPagination = {
-  rowsPerPage: 10,
-  sortBy: 'modified_at',
   descending: true,
 }
 
@@ -1909,107 +1904,7 @@ const apiObservabilityTraces = {
       })
   },
 }
-const apiApiTools = {
-  get: async (service, endpoint) => {
-    return await fetchData({
-      endpoint,
-      service: `sql_api_tools`,
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then(async (response) => {
-        if (response.ok) {
-          const res = await response.json()
 
-          return res.items.map((item) => ({
-            ...item,
-          }))
-        }
-        if (response.error) throw response
-      })
-      .then((data) => {
-        return data
-      })
-  },
-  update: async (service, endpoint, { id, data }, { dispatch }) => {
-    return await fetchData({
-      method: 'PATCH',
-      endpoint,
-      credentials: 'include',
-      service: `sql_api_tools/${id}`,
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-      .then((response) => {
-        if (response.ok) return true
-        if (response.error) throw response
-      })
-      .then(() => {
-        dispatch('get', { entity: 'api_tools' })
-        return true
-      })
-  },
-  create: async (service, endpoint, payload) => {
-    return await fetchData({
-      method: 'POST',
-      endpoint,
-      credentials: 'include',
-      service: `sql_api_tools`,
-      body: payload,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-  },
-  delete: async (service, endpoint, { id }) => {
-    return await fetchData({
-      method: 'DELETE',
-      endpoint,
-      credentials: 'include',
-      service: `sql_api_tools/${id}`,
-      body: '',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }).then((response) => {
-      if (response.ok) return id
-      if (response.error) throw response
-    })
-  },
-}
-const apiApiToolProviders = {
-  get: async (service, endpoint) => {
-
-    return await fetchData({
-      endpoint,
-      credentials: 'include',
-      service: `api_tool_providers`,
-    })
-      .then(async (response) => {
-        if (response.ok) {
-          const res = await response.json()
-          return res.system_names.map((system_name) => ({
-            systemName: system_name,
-          }))
-        }
-        if (response.error) throw response
-      })
-      .then((data) => {
-        return data
-      })
-      .catch((res) => {
-        throw {
-          technicalError: res?.error,
-          text: `Error in getting API Tool Provider list`,
-        }
-      })
-  },
-}
 const apiAgents = {
   get: async (service, endpoint) => {
 
@@ -2624,22 +2519,6 @@ export default {
     keyField: {
       field: 'id',
       urlKey: 'id',
-    },
-  },
-  api_tools: {
-    config: patchObject(apiToolsControls, { ...controlsDefaultProps }),
-    pagination: apiToolsPagination,
-    api: apiApiTools,
-    keyField: {
-      field: 'id',
-      urlKey: 'id',
-    },
-  },
-  api_tool_providers: {
-    config: { ...controlsDefaultProps },
-    api: apiApiToolProviders,
-    keyField: {
-      field: 'id',
     },
   },
   agents: {

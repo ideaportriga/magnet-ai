@@ -94,7 +94,7 @@ const entityIconMap: Record<string, string> = {
   evaluation_sets: 'fas fa-table-list',
   assistant_tools: 'fas fa-wrench',
   knowledge_graph: 'o_hub',
-  api_tools: 'fas fa-plug',
+
 }
 
 const entityRouteMap: Record<string, string> = {
@@ -111,7 +111,7 @@ const entityRouteMap: Record<string, string> = {
   api_servers: '/api-servers',
   mcp_servers: '/mcp',
   knowledge_graph: '/knowledge-graph',
-  api_tools: '/api-tools',
+
 }
 
 function entityIcon(type: string): string {

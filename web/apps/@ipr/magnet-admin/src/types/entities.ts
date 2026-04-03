@@ -120,12 +120,6 @@ export interface AssistantTool extends BaseEntity {
   definition?: unknown
 }
 
-export interface ApiTool extends BaseEntity {
-  api_provider?: string
-  active_variant?: string
-  method?: string
-  path?: string
-}
 
 export interface Job extends BaseEntity {
   status?: string

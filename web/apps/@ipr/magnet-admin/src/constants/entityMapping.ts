@@ -20,7 +20,7 @@ export const ROUTE_ENTITY_TO_BUFFER_TYPE: Record<string, string> = {
   model: 'model',
   mcp_servers: 'mcp_servers',
   api_servers: 'api_servers',
-  api_tools: 'api_tools',
+
   observability_traces: 'observability_traces',
   rag_tools: 'rag_tools',
   retrieval: 'retrieval',
@@ -40,7 +40,7 @@ export const ROUTE_ENTITY_TO_QUERY_KEY: Record<string, keyof AllEntityQueries> =
   model: 'model',
   mcp_servers: 'mcp_servers',
   api_servers: 'api_servers',
-  api_tools: 'api_tools',
+
   observability_traces: 'observability_traces',
   rag_tools: 'rag_tools',
   retrieval: 'retrieval',

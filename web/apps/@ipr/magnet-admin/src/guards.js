@@ -1,5 +1,5 @@
 const mapRoutesChildrenParent = {
-  ApiToolsDetails: 'ApiTools',
+
   EvaluationSetDetails: 'EvaluationSets',
   PromptTemplatesItem: 'PromptTemplates',
   AIAppDetail: 'AIApp',

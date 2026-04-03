@@ -5,7 +5,7 @@ import type {
   AiApp,
   ApiKey,
   ApiServer,
-  ApiTool,
+
   AssistantTool,
   Collection,
   Document,
@@ -37,8 +37,6 @@ export interface EntityApis {
   provider: EntityApi<Provider>
   agents: EntityApi<Agent>
   assistant_tools: EntityApi<AssistantTool>
-  api_tools: EntityApi<ApiTool>
-  api_tool_providers: EntityApi<ApiTool>
   jobs: EntityApi<Job>
   mcp_servers: EntityApi<McpServer>
   api_keys: EntityApi<ApiKey>
@@ -63,8 +61,6 @@ const SERVICE_PATHS: Record<keyof EntityApis, string> = {
   provider: 'providers',
   agents: 'agents',
   assistant_tools: 'assistant_tools',
-  api_tools: 'sql_api_tools',
-  api_tool_providers: 'api_tool_providers',
   jobs: 'jobs',
   mcp_servers: 'mcp_servers',
   api_keys: 'api_keys',

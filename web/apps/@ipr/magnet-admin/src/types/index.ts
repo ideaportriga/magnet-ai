@@ -12,7 +12,7 @@ export type {
   Provider,
   Agent,
   AssistantTool,
-  ApiTool,
+
   Job,
   McpServer,
   ApiKey,

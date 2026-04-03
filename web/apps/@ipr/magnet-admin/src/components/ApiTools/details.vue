@@ -70,17 +70,12 @@ api-tools-clone-dialog(:show='showCloneDialog', :tool='clonedTool', @cancel='sho
 <script>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import _ from 'lodash'
 export default {
   setup() {
     const route = useRoute()
-    const queries = useEntityQueries()
     const { draft, isDirty, updateField, save: saveServer, revert } = useEntityDetail('api_servers')
-
-    const { mutateAsync: removeApiTool } = queries.api_tools.useRemove()
-    const { data: apiToolsListData } = queries.api_tools.useList()
 
     return {
       tab: ref('parameters'),
@@ -95,8 +90,6 @@ export default {
       updateField,
       saveServer,
       revert,
-      removeApiTool,
-      apiToolsListData,
       saving: ref(false),
       showDeleteDialog: ref(false),
       showCloneDialog: ref(false),
@@ -190,9 +183,15 @@ export default {
     async confirmDelete() {
       this.saving = true
       try {
-        await this.removeApiTool(this.apiTool.id)
+        const tools = this.draft?.tools
+        if (!tools) throw new Error('No tools found')
+        const toolIndex = tools.findIndex((t) => t.system_name === this.$route.params.name)
+        if (toolIndex === -1) throw new Error('Tool not found')
+        this.updateField('tools', tools.filter((_, i) => i !== toolIndex))
+        const result = await this.saveServer()
+        if (!result.success) throw result.error || new Error('Failed to save')
         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'API Tool has been deleted.', timeout: 1000 })
-        this.$router?.push('/api-tools')
+        this.$router?.push(`/api-servers/${this.$route.params.id}`)
       } catch (error) {
         const errorMessage = error?.message || 'Failed to delete API Tool.'
         this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: errorMessage, timeout: 3000 })
@@ -206,7 +205,7 @@ export default {
       delete newTool.id
       newTool.system_name = newTool.system_name + '_COPY'
       let i = 2
-      const items = this.apiToolsListData?.items || []
+      const items = this.draft?.tools || []
       while (items.some((item) => item.system_name === newTool.system_name)) {
         i++
         newTool.system_name = `${this.apiTool.system_name}_COPY_${i}`

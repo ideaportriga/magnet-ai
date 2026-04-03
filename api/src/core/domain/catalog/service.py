@@ -16,7 +16,6 @@ ENTITY_TABLES = [
     ("mcp_servers", "mcp_servers", "MCP Server"),
     ("knowledge_graph", "knowledge_graphs", "Knowledge Graph"),
     ("api_servers", "api_servers", "API Server"),
-    ("api_tools", "api_tools", "API Tool"),
 ]
 
 # Extra columns per entity type (beyond the base set).
