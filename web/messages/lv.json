@@ -1467,5 +1467,13 @@
   "notify_failedToDeleteNamed": "Neizdevās dzēst {name}",
   "common_refine": "Precizēt",
   "notify_answerCopied": "Atbilde ir nokopēta starpliktuvē",
-  "collections_searchHint": "Veikt semantisko meklēšanu jūsu vaicājumam. Atgriež 15 labākos rezultātus"
+  "collections_searchHint": "Veikt semantisko meklēšanu jūsu vaicājumam. Atgriež 15 labākos rezultātus",
+  "common_pending": "Gaida",
+  "common_uploading": "Augšupielādē...",
+  "collections_uploadFiles": "Augšupielādēt failus ({count})",
+  "validation_onlyHttpHttpsUrls": "Atļauti tikai http/https URL",
+  "validation_invalidUrl": "Nederīgs URL",
+  "notify_unsupportedFormatNamed": "Neatbalstīts formāts: {name}",
+  "notify_failedToUploadNamed": "Neizdevās augšupielādēt {name}",
+  "notify_uploadFailed": "Augšupielāde neizdevās"
 }

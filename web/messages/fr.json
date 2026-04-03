@@ -1467,5 +1467,13 @@
   "notify_failedToDeleteNamed": "Échec de suppression de {name}",
   "common_refine": "Affiner",
   "notify_answerCopied": "La réponse a été copiée dans le presse-papiers",
-  "collections_searchHint": "Effectuer une recherche sémantique pour votre terme. Retourne les 15 meilleurs résultats"
+  "collections_searchHint": "Effectuer une recherche sémantique pour votre terme. Retourne les 15 meilleurs résultats",
+  "common_pending": "En attente",
+  "common_uploading": "Téléversement...",
+  "collections_uploadFiles": "Téléverser les fichiers ({count})",
+  "validation_onlyHttpHttpsUrls": "Seules les URL http/https sont autorisées",
+  "validation_invalidUrl": "URL invalide",
+  "notify_unsupportedFormatNamed": "Format non pris en charge : {name}",
+  "notify_failedToUploadNamed": "Échec du téléversement de {name}",
+  "notify_uploadFailed": "Échec du téléversement"
 }

@@ -18,16 +18,16 @@ div
     .dropzone-content
       q-icon.q-mb-sm(:name='dragOver ? "fas fa-cloud-arrow-down" : "fas fa-cloud-upload-alt"', size='32px', :color='dragOver ? "primary" : "grey-6"')
       .text-body2(:class='dragOver ? "text-primary" : "text-grey-7"')
-        template(v-if='dragOver') Drop files here
-        template(v-else) Drag & drop files or #[span.text-primary.cursor-pointer click to browse]
-      .text-caption.text-grey.q-mt-xs PDF, DOCX, XLSX, PPTX, HTML, images and more
+        template(v-if='dragOver') {{ m.collections_dropFilesHere() }}
+        template(v-else) {{ m.collections_dragAndDrop() }} #[span.text-primary.cursor-pointer {{ m.collections_clickToBrowse() }}]
+      .text-caption.text-grey.q-mt-xs {{ m.collections_fileFormats() }}
 
   //- URL input
   .row.q-mt-sm.items-center.q-gap-sm
     km-input.col.url-input(
       :model-value='urlInput',
       @input='urlInput = $event',
-      placeholder='Add URL to file (https://...)',
+      :placeholder='m.collections_addUrlPlaceholder()',
       icon-before='fas fa-link',
       :error-message='urlError',
       :error='!!urlError',
@@ -63,7 +63,7 @@ div
         //- Size (pending files only)
         span.text-caption.text-grey.q-ml-sm.q-mr-sm(v-if='item.size') ({{ formatSize(item.size) }})
         //- Upload badge for pending
-        q-badge.q-mr-sm(v-if='item.type === "file" && !item.uploaded', color='orange-2', text-color='orange-9', label='pending')
+        q-badge.q-mr-sm(v-if='item.type === "file" && !item.uploaded', color='orange-2', text-color='orange-9', :label='m.common_pending()')
         //- Remove button
         q-btn(
           flat, round, dense, size='sm',
@@ -76,7 +76,7 @@ div
   //- Upload button for pending files
   .row.q-mt-sm(v-if='pendingFiles.length && collectionId')
     km-btn(
-      :label='uploading ? "Uploading..." : `Upload ${pendingFiles.length} file${pendingFiles.length > 1 ? "s" : ""}`',
+      :label='uploading ? m.common_uploading() : m.collections_uploadFiles({ count: pendingFiles.length })',
       icon='fas fa-cloud-upload-alt',
       color='primary',
       :disable='uploading',
@@ -86,7 +86,7 @@ div
   .row.q-mt-sm(v-else-if='pendingFiles.length && !collectionId')
     .text-caption.text-grey
       q-icon.q-mr-xs(name='fas fa-circle-info', size='12px')
-      | Files will be uploaded after saving the knowledge source
+      | {{ m.collections_filesWillBeUploaded() }}
 </template>
 
 <script setup>
@@ -142,10 +142,10 @@ const urlError = computed(() => {
   if (!urlInput.value) return ''
   try {
     const url = new URL(urlInput.value)
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'Only http/https URLs are allowed'
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return m.validation_onlyHttpHttpsUrls()
     return ''
   } catch {
-    return 'Invalid URL'
+    return m.validation_invalidUrl()
   }
 })
 
@@ -243,11 +243,11 @@ function addFiles(files) {
     }
   }
   if (rejected.length) {
-    q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: `Unsupported format: ${rejected.join(', ')}` })
+    q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: m.notify_unsupportedFormatNamed({ name: rejected.join(', ') }) })
   }
   const total = [...pendingFiles.value, ...accepted]
   if (total.length > 10) {
-    q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: 'Maximum 10 files at a time' })
+    q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: m.collections_maxFiles() })
     pendingFiles.value = total.slice(0, 10)
   } else {
     pendingFiles.value = total
@@ -276,10 +276,10 @@ async function uploadToTemp(files) {
         setUploadedFiles(newFiles)
         pendingFiles.value = pendingFiles.value.filter((f) => f.name !== file.name)
       } else {
-        q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to upload ${file.name}` })
+        q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.notify_failedToUploadNamed({ name: file.name }) })
       }
     } catch (e) {
-      q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Upload failed: ${e.message || e}` })
+      q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `${m.notify_uploadFailed()}: ${e.message || e}` })
     }
   }
 }
@@ -319,13 +319,13 @@ async function uploadPending() {
         }]
         setUploadedFiles(newFiles)
       } else {
-        q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to upload ${file.name}` })
+        q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.notify_failedToUploadNamed({ name: file.name }) })
       }
     }
     pendingFiles.value = []
-    q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Files uploaded successfully' })
+    q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.collections_filesUploadedSuccessfully() })
   } catch (e) {
-    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Upload failed: ${e.message || e}` })
+    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `${m.notify_uploadFailed()}: ${e.message || e}` })
   } finally {
     uploading.value = false
   }

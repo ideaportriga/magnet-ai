@@ -1467,5 +1467,13 @@
   "notify_failedToDeleteNamed": "{name} konnte nicht gelöscht werden",
   "common_refine": "Verfeinern",
   "notify_answerCopied": "Antwort wurde in die Zwischenablage kopiert",
-  "collections_searchHint": "Semantische Suche nach Ihrem Begriff ausführen. Gibt die 15 besten Ergebnisse zurück"
+  "collections_searchHint": "Semantische Suche nach Ihrem Begriff ausführen. Gibt die 15 besten Ergebnisse zurück",
+  "common_pending": "Ausstehend",
+  "common_uploading": "Wird hochgeladen...",
+  "collections_uploadFiles": "Dateien hochladen ({count})",
+  "validation_onlyHttpHttpsUrls": "Nur http/https-URLs sind erlaubt",
+  "validation_invalidUrl": "Ungültige URL",
+  "notify_unsupportedFormatNamed": "Nicht unterstütztes Format: {name}",
+  "notify_failedToUploadNamed": "{name} konnte nicht hochgeladen werden",
+  "notify_uploadFailed": "Hochladen fehlgeschlagen"
 }

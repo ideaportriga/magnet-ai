@@ -146,7 +146,7 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
         .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_keywordSearchHint() }}
       .column.full-width(v-if='stepper === 3')
         .km-button-xs-text.text-secondary-text {{ m.collections_scheduleSync() }}
-          q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='scheduleEnabled', ref='scheduleEnabledRef')
+          q-toggle(height='30px', v-model='scheduleEnabled', ref='scheduleEnabledRef')
           .km-description.text-secondary-text {{ m.collections_automaticallySyncKnowledgeSource() }}
           template(v-if='scheduleEnabled')
             .q-px-md.q-mt-md

@@ -1467,5 +1467,13 @@
   "notify_failedToDeleteNamed": "Не удалось удалить {name}",
   "common_refine": "Уточнить",
   "notify_answerCopied": "Ответ скопирован в буфер обмена",
-  "collections_searchHint": "Выполнить семантический поиск по вашему запросу. Возвращает 15 лучших результатов"
+  "collections_searchHint": "Выполнить семантический поиск по вашему запросу. Возвращает 15 лучших результатов",
+  "common_pending": "В ожидании",
+  "common_uploading": "Загрузка...",
+  "collections_uploadFiles": "Загрузить файлы ({count})",
+  "validation_onlyHttpHttpsUrls": "Разрешены только URL с http/https",
+  "validation_invalidUrl": "Неверный URL",
+  "notify_unsupportedFormatNamed": "Неподдерживаемый формат: {name}",
+  "notify_failedToUploadNamed": "Не удалось загрузить {name}",
+  "notify_uploadFailed": "Ошибка загрузки"
 }

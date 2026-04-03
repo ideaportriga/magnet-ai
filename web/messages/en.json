@@ -1467,5 +1467,13 @@
   "notify_failedToDeleteNamed": "Failed to delete {name}",
   "common_refine": "Refine",
   "notify_answerCopied": "Answer has been copied to clipboard",
-  "collections_searchHint": "Perform semantic search for your search term. Returns best 15 results"
+  "collections_searchHint": "Perform semantic search for your search term. Returns best 15 results",
+  "common_pending": "Pending",
+  "common_uploading": "Uploading...",
+  "collections_uploadFiles": "Upload files ({count})",
+  "validation_onlyHttpHttpsUrls": "Only http/https URLs are allowed",
+  "validation_invalidUrl": "Invalid URL",
+  "notify_unsupportedFormatNamed": "Unsupported format: {name}",
+  "notify_failedToUploadNamed": "Failed to upload {name}",
+  "notify_uploadFailed": "Upload failed"
 }

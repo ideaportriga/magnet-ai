@@ -1467,5 +1467,13 @@
   "notify_failedToDeleteNamed": "Impossibile eliminare {name}",
   "common_refine": "Affina",
   "notify_answerCopied": "La risposta è stata copiata negli appunti",
-  "collections_searchHint": "Esegui una ricerca semantica per il tuo termine. Restituisce i 15 migliori risultati"
+  "collections_searchHint": "Esegui una ricerca semantica per il tuo termine. Restituisce i 15 migliori risultati",
+  "common_pending": "In sospeso",
+  "common_uploading": "Caricamento...",
+  "collections_uploadFiles": "Carica file ({count})",
+  "validation_onlyHttpHttpsUrls": "Sono consentiti solo URL http/https",
+  "validation_invalidUrl": "URL non valido",
+  "notify_unsupportedFormatNamed": "Formato non supportato: {name}",
+  "notify_failedToUploadNamed": "Impossibile caricare {name}",
+  "notify_uploadFailed": "Caricamento non riuscito"
 }

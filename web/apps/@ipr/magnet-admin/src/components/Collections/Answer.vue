@@ -35,7 +35,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                     color='score-relevant',
                     :label='score(source.score)',
                     label-class='km-small-chip',
-                    :tooltip='`Score: ${score(source.score)}`'
+                    :tooltip='m.panel_score({ score: score(source.score) })'
                   )
               template(v-if='source?.metadata?.type === "video"')
                 .row.width-100.q-px-24
