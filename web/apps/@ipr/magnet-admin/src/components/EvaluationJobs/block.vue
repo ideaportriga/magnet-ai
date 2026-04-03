@@ -77,6 +77,7 @@ export default {
     const { mutateAsync: removeEvaluationJob } = queries.evaluation_jobs.useRemove()
 
     return {
+      m,
       evalStore,
       tab: ref('records'),
       tabs: ref([

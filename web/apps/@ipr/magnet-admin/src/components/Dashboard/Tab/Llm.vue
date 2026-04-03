@@ -165,6 +165,7 @@ export default {
     })
 
     return {
+      m,
       top,
       detailedList,
       detailsLoading,

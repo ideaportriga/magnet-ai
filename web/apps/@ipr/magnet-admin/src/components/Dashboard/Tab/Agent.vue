@@ -240,6 +240,7 @@ export default {
     })
 
     return {
+      m,
       rags,
       detailedList,
       detailsLoading,

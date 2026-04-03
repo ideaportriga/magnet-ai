@@ -29,6 +29,7 @@ export default {
   setup() {
     const { logout } = useAuth()
     return {
+      m,
       logout,
     }
   },

@@ -98,6 +98,7 @@ export default defineComponent({
     const providerItems = computed(() => providerData.value?.items ?? [])
 
     return {
+      m,
       tab: ref('input_output'),
       tabs: ref([
         { name: 'error', label: 'Error', availableFor: [] },

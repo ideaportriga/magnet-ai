@@ -227,6 +227,7 @@ export default defineComponent({
     const md = new MarkdownIt({ html: false, breaks: true })
 
     return {
+      m,
       draft,
       activeVariant,
       testSetItem,

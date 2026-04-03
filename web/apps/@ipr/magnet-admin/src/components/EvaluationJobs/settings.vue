@@ -56,6 +56,7 @@ export default {
     const evalStore = useEvaluationStore()
 
     return {
+      m,
       modelItems,
       evalStore,
     }

@@ -47,6 +47,7 @@ export default {
   setup() {
     const { draft, updateField } = useEntityDetail('provider')
     return {
+      m,
       draft,
       updateField,
       tab: ref('parameters'),

@@ -71,7 +71,7 @@ export default {
     const { data: collectionsListData } = queries.collections.useList()
     const showFeedback = ref(false)
     const showFeedbackConfirm = ref(false)
-    return { activeVariant, searchStore, prompt, showFeedback, showFeedbackConfirm, collectionsListData }
+    return { m, activeVariant, searchStore, prompt, showFeedback, showFeedbackConfirm, collectionsListData }
   },
   computed: {
     uiSettings() {

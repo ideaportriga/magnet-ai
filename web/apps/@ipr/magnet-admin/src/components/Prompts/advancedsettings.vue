@@ -91,6 +91,7 @@ export default {
     const modelItems = computed(() => modelListData.value?.items ?? [])
 
     return {
+      m,
       activeVariant,
       updateVariantField,
       modelItems,

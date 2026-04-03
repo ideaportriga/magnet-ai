@@ -35,6 +35,7 @@ export default {
   setup() {
     const collapsed = ref([])
     return {
+      m,
       collapsed,
     }
   },

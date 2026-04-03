@@ -95,6 +95,7 @@ export default {
     const { data: promptTemplatesListData } = queries.promptTemplates.useList()
     const evalStore = useEvaluationStore()
     return {
+      m,
       collectionsListData,
       promptTemplatesListData,
       evalStore,

@@ -61,6 +61,7 @@ export default {
   setup() {
     const specsStore = useSpecificationsStore()
     return {
+      m,
       specsStore,
       inputText: ref(''),
       text: ref(undefined),

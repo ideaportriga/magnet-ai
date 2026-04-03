@@ -81,6 +81,7 @@ export default {
     const items = computed(() => listData.value?.items ?? [])
 
     return {
+      m,
       draft,
       isDirty,
       selectedVariant,

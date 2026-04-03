@@ -118,6 +118,7 @@ export default {
   emits: ['close', 'refresh'],
   setup() {
     return {
+      m,
       item: ref(null),
       tab: ref('details'),
       tabs: ref([

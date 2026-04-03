@@ -89,6 +89,7 @@ export default {
     const { draft, isLoading: loading } = useEntityDetail('observability_traces')
 
     return {
+      m,
       draft,
       loading,
       drawerOpened: ref(true),

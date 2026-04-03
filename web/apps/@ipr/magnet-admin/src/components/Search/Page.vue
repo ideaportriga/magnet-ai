@@ -47,6 +47,7 @@ export default {
     const queries = useEntityQueries()
     const { data: ragToolsListData } = queries.rag_tools.useList()
     return {
+      m,
       loading,
       answers,
       showHints: ref(true),

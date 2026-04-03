@@ -57,6 +57,7 @@ export default {
     const { draft } = useEntityDetail('evaluation_sets')
     const selectedEvaluationSet = computed(() => draft.value)
     return {
+      m,
       createNew: ref(false),
       newRow: ref({
         metadata_filter: [],

@@ -57,6 +57,7 @@ export default defineComponent({
     const routeId = computed(() => route.params.id)
     const { data: selectedEvaluationSet } = queries.evaluation_sets.useDetail(routeId)
     return {
+      m,
       testText: ref(''),
       text: ref(undefined),
       loading: ref(false),

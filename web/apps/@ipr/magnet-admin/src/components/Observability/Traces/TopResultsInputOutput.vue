@@ -46,6 +46,7 @@ export default {
   },
   setup() {
     return {
+      m,
       selectedResultsCollapsed: ref([]),
       discardedResultsCollapsed: ref([]),
     }

@@ -46,6 +46,7 @@ export default {
   },
   setup() {
     return {
+      m,
       hover: ref(null),
       expanded: ref(false),
     }

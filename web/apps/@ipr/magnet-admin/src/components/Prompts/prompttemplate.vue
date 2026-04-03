@@ -58,6 +58,7 @@ export default {
     const md = new MarkdownIt({ html: false, breaks: true })
     const { activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
     return {
+      m,
       activeVariant,
       updateVariantField,
       markdownRenderer: md,
