@@ -85,6 +85,7 @@ km-popup-confirm(
 import { useState, useAuth } from '@shared'
 import { useSharedAuthStore } from '@shared/stores/authStore'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useSidebarState } from '@/composables/useSidebarState'
 import { useAppStore } from '@/stores/appStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
@@ -146,12 +147,15 @@ export default {
       document.removeEventListener('fullscreenchange', onFullscreenChange)
     })
 
+    const queryClient = useQueryClient()
+
     return {
       loading,
       editBuffer,
       knowledgeGraphPageStore,
       popupStore,
       saveService,
+      queryClient,
       drawerVisible: ref(true),
       environment,
       sidebarWidth,
@@ -195,7 +199,19 @@ export default {
         const bufferKey = this.editBuffer.findBufferKeyByEntityType(ROUTE_ENTITY_TO_BUFFER_TYPE['collections'] || 'collections')
         const draft = bufferKey ? this.editBuffer.getDraft(bufferKey) : null
         const providerSystemName = draft?.provider_system_name
-        return providerSystemName ? `/knowledge-providers/${providerSystemName}` : `/${segments[1]}`
+        if (providerSystemName) {
+          // Find provider ID and category from TanStack Query cache
+          const cached = this.queryClient.getQueriesData({ queryKey: ['provider'] })
+          for (const [, data] of cached) {
+            const items = data?.data ?? data?.items ?? (Array.isArray(data) ? data : [])
+            const provider = items.find?.((p) => p?.system_name === providerSystemName)
+            if (provider?.id) {
+              const prefix = provider.category === 'knowledge' ? 'knowledge-providers' : 'model-providers'
+              return `/${prefix}/${provider.id}`
+            }
+          }
+        }
+        return `/${segments[1]}`
       }
       if (segments[1] === 'deep-research' && segments[2] === 'runs') {
         return `/deep-research/runs`

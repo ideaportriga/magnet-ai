@@ -4,7 +4,7 @@ km-secrets-item(
   :value='value',
   @update='updateSecret',
   @delete='deleteSecret',
-  v-for='[key, value] in Object.entries(secrets)',
+  v-for='[key, value] in Object.entries(secrets || {})',
   :is-new='!originalSecrets.includes(key)',
   :key='`${key}-${remountValue}`'
 )
@@ -17,7 +17,7 @@ import { ref, computed, watch } from 'vue'
 const props = defineProps({
   secrets: {
     type: Object,
-    required: true,
+    default: () => ({}),
   },
   originalSecrets: {
     type: Array,

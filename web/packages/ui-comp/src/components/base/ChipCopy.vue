@@ -1,20 +1,22 @@
-<template lang="pug">
-.row
-  km-btn.col-auto.km-cell-button.ellipsis(
-    style='max-width: 200px',
-    @click.stop='copy',
-    hoverColor='primary',
-    labelClass='km-title',
-    flat,
-    iconSize='16px',
-    hoverBg='primary-bg',
-    icon='far fa-copy',
-    :iconColor='hover ? "icon" : "btn-simple-bg"',
-    :label='row.system_name || label',
-    @mouseenter='hover = true',
-    @mouseleave='hover = false',
-    simple
-  )
+<template>
+  <div class="row">
+    <km-btn
+      class="col-auto km-cell-button ellipsis"
+      style="max-width: 200px"
+      hover-color="primary"
+      label-class="km-title"
+      flat
+      icon-size="16px"
+      hover-bg="primary-bg"
+      icon="far fa-copy"
+      :icon-color="hover ? 'icon' : 'btn-simple-bg'"
+      :label="row.system_name || label"
+      simple
+      @click.stop="copy"
+      @mouseenter="hover = true"
+      @mouseleave="hover = false"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">

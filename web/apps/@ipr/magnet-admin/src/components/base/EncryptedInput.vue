@@ -27,11 +27,11 @@ import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   value: {
-    type: String,
+    type: [String, Boolean],
     required: true,
   },
   encryptedValue: {
-    type: String,
+    type: [String, Boolean],
     required: true,
   },
   label: {
@@ -67,9 +67,9 @@ const localValue = computed(() => {
     if (props.fakeEncryptedValue) {
       return props.fakeEncryptedValue
     }
-    return props.encryptedValue
+    return props.encryptedValue || ''
   }
-  return props.value
+  return props.value || ''
 })
 
 const cancelEditMode = () => {
