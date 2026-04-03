@@ -69,6 +69,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
 
 <script lang="ts">
 import { copyToClipboard } from 'quasar'
+import { notify } from '@shared/utils/notify'
 
 import { ref } from 'vue'
 
@@ -122,13 +123,7 @@ export default {
 
     copy() {
       copyToClipboard(this.mainAnswer.text || '')
-      this.$q.notify({
-        position: 'top',
-        message: 'Answer has been copied to clipboard',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
+      notify.copied()
     },
 
     refine(question) {

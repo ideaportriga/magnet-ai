@@ -19,7 +19,7 @@ template(v-else)
 <script setup>
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useQuasar } from 'quasar'
+import { notify } from '@shared/utils/notify'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { nameDescriptionColumn } from '@/utils/columnHelpers'
 import { useEntityDetail } from '@/composables/useEntityDetail'
@@ -28,7 +28,7 @@ import { useEntityQueries } from '@/queries/entities'
 const router = useRouter()
 const route = useRoute()
 const { draft, save } = useEntityDetail('mcp_servers')
-const q = useQuasar()
+
 const queries = useEntityQueries()
 const { mutateAsync: syncMcpServer } = queries.mcp_servers.useSync()
 
@@ -49,21 +49,9 @@ const syncTools = async () => {
     const result = await save()
     if (!result.success) throw result.error || new Error('Failed to save')
     await syncMcpServer(draft.value.id)
-    q.notify({
-      position: 'top',
-      message: 'MCP Tools have been synced.',
-      color: 'positive',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    notify.success('MCP Tools have been synced.')
   } catch (error) {
-    q.notify({
-      position: 'top',
-      message: 'Failed to sync MCP Tools.',
-      color: 'negative',
-      textColor: 'black',
-      timeout: 1000,
-    })
+    notify.error('Failed to sync MCP Tools.')
   }
 }
 </script>

@@ -78,12 +78,12 @@ layouts-details-layout(v-if='api_server')
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
+import { notify } from '@shared/utils/notify'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
 const route = useRoute()
 const router = useRouter()
-const q = useQuasar()
+
 const { draft, data: api_server, isDirty, isLoading, updateField, save, remove, revert } = useEntityDetail('api_servers')
 
 const showInfo = ref(false)
@@ -128,12 +128,12 @@ async function handleSave() {
   try {
     const result = await save()
     if (result.success) {
-      q.notify({ position: 'top', color: 'positive', message: 'Saved successfully', timeout: 2000 })
+      notify.success('Saved successfully')
     } else if (result.error) {
       throw result.error
     }
   } catch (error) {
-    q.notify({ position: 'top', color: 'negative', message: error.message || 'Failed to save', timeout: 3000 })
+    notify.error(error.message || 'Failed to save')
   } finally {
     saving.value = false
   }
@@ -141,7 +141,7 @@ async function handleSave() {
 
 async function confirmDelete() {
   await remove()
-  q.notify({ position: 'top', message: 'API Server has been deleted.', color: 'positive', textColor: 'black', timeout: 1000 })
+  notify.success('API Server has been deleted.')
   router.push('/api-servers')
 }
 </script>

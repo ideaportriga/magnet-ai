@@ -75,13 +75,13 @@ layouts-details-layout(v-if='draft')
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
+import { notify } from '@shared/utils/notify'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
 const route = useRoute()
 const router = useRouter()
-const q = useQuasar()
+
 const { draft, isDirty, updateField, save, revert, remove } = useEntityDetail('mcp_servers')
 const queries = useEntityQueries()
 
@@ -130,12 +130,12 @@ async function handleSave() {
   try {
     const result = await save()
     if (result.success) {
-      q.notify({ position: 'top', color: 'positive', message: 'Saved successfully', timeout: 2000 })
+      notify.success('Saved successfully')
     } else if (result.error) {
       throw result.error
     }
   } catch (error) {
-    q.notify({ position: 'top', color: 'negative', message: error.message || 'Failed to save', timeout: 3000 })
+    notify.error(error.message || 'Failed to save')
   } finally {
     saving.value = false
   }
@@ -147,9 +147,9 @@ async function saveAndSync() {
     const result = await save()
     if (!result.success) throw result.error || new Error('Failed to save')
     await syncMcpServer(draft.value.id)
-    q.notify({ position: 'top', color: 'positive', message: 'Saved and synced successfully', timeout: 2000 })
+    notify.success('Saved and synced successfully')
   } catch (error) {
-    q.notify({ position: 'top', color: 'negative', message: error.message || 'Failed to save and sync', timeout: 3000 })
+    notify.error(error.message || 'Failed to save and sync')
   } finally {
     syncing.value = false
   }
@@ -157,7 +157,7 @@ async function saveAndSync() {
 
 async function confirmDelete() {
   await remove()
-  q.notify({ position: 'top', message: 'MCP Server has been deleted.', color: 'positive', textColor: 'black', timeout: 1000 })
+  notify.success('MCP Server has been deleted.')
   router.push('/mcp')
 }
 </script>

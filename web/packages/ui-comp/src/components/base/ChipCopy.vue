@@ -17,37 +17,24 @@
   )
 </template>
 
-<script>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { copyToClipboard } from 'quasar'
-export default {
-  props: {
-    row: {
-      type: Object,
-      default: () => ({}),
-    },
-    label: {
-      type: String,
-      default: 'Copy',
-    },
-  },
-  setup() {
-    return {
-      hover: ref(false),
-    }
-  },
-  methods: {
-    copy() {
-      copyToClipboard(this.row.system_name || this.label || '')
-      this.$q.notify({
-        position: 'top',
-        message: 'System name has been copied to clipboard',
-        color: 'positive',
-        textColor: 'black',
-        timeout: 1000,
-      })
-    },
-  },
+import { notify } from '@shared/utils/notify'
+
+const props = withDefaults(defineProps<{
+  row?: Record<string, unknown>
+  label?: string
+}>(), {
+  row: () => ({}),
+  label: 'Copy',
+})
+
+const hover = ref(false)
+
+function copy() {
+  copyToClipboard(String(props.row.system_name || props.label || ''))
+  notify.copied()
 }
 </script>
 

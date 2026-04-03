@@ -39,7 +39,8 @@ q-dialog(:model-value='showNewDialog', @cancel='onCancel', @hide='onCancel')
 <script setup>
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { useQuasar, copyToClipboard } from 'quasar'
+import { copyToClipboard } from 'quasar'
+import { notify } from '@shared/utils/notify'
 
 const queries = useEntityQueries()
 const { mutateAsync: createApiKey } = queries.api_keys.useCreate()
@@ -48,7 +49,7 @@ const name = ref('')
 const loading = ref(false)
 const key = ref('')
 const step = ref(0)
-const q = useQuasar()
+
 
 const props = defineProps({
   showNewDialog: {
@@ -71,13 +72,7 @@ const create = () => {
       key.value = data.api_key
     })
     .catch((error) => {
-      q.notify({
-        position: 'top',
-        message: 'Error creating API Key',
-        color: 'negative',
-        textColor: 'black',
-        timeout: 1000,
-      })
+      notify.error('Error creating API Key')
     })
     .finally(() => {
       loading.value = false
@@ -86,13 +81,7 @@ const create = () => {
 
 const copyKey = () => {
   copyToClipboard(key.value)
-  q.notify({
-    position: 'top',
-    message: 'Key has been copied to clipboard',
-    color: 'positive',
-    textColor: 'black',
-    timeout: 1000,
-  })
+  notify.copied()
 }
 
 const onCancel = () => {

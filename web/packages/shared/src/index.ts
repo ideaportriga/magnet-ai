@@ -41,6 +41,7 @@ export { formatDateTime } from './lib/utils/dateTime'
 export { transformFilterToMongoQuery } from './lib/utils/filterTransformation.js'
 export { default as getTabComponent } from './lib/utils/getTabComponent.ts'
 export { formatDuration, formatTraceType, convertFiltersToFilterObject } from './lib/utils/index.ts'
+export { notify } from './lib/utils/notify'
 export {
   mountLog,
   setTheme,

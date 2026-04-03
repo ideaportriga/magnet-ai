@@ -9,7 +9,7 @@
         .col-auto.center-flex-y
           km-btn.q-mr-12(label='New', @click='showNewDialog = true')
       .col.overflow-auto(style='min-height: 0')
-        template(v-if='isLoading && !items.length')
+        template(v-if='isLoading && !visibleRows.length')
           .flex.flex-center.full-height
             q-spinner(size='40px', color='primary')
         template(v-else-if='visibleRows.length')
