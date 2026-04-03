@@ -12,7 +12,7 @@ div
             .km-label.q-mb-sm Create a job to schedule automatic syncing for this Knowledge Source
         .row.items-center.justify-center
           .col-auto
-            km-btn(:label='m.collections_createNewJob()', @click='showNewDialog = true')
+            km-btn(:label='m.common_createNewJob()', @click='showNewDialog = true')
       //- job_id exists but job not loaded yet - show loading state
       template(v-else-if='jobId && !job')
         .row.items-center.justify-center
@@ -61,7 +61,7 @@ div
       .col-auto
         km-btn.q-mr-12(
           icon='refresh',
-          :label='m.collections_refreshList()',
+          :label='m.common_refreshList()',
           @click='refetchTraces',
           iconColor='icon',
           hoverColor='primary',

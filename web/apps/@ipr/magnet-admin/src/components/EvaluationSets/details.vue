@@ -83,9 +83,9 @@ km-popup-confirm(
   @cancel='showEvaluationCreateDialog = false',
   @confirm='navigateToEval'
 )
-  .row.item-center.justify-center.km-heading-7 {{ m.evalConfirm_evaluationStarted() }}
-  .row.text-center.justify-center {{ m.evalConfirm_evaluationMayTakeTime() }}
-  .row.text-center.justify-center {{ m.evalConfirm_viewRunResults() }}
+  .row.item-center.justify-center.km-heading-7 {{ m.common_evaluationStarted() }}
+  .row.text-center.justify-center {{ m.common_evaluationTakeTime() }}
+  .row.text-center.justify-center {{ m.common_evaluationViewResults() }}
 </template>
 
 <script setup>

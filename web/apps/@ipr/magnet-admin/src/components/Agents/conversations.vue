@@ -99,7 +99,7 @@ export default {
           options: [
             { label: m.agents_runtimeApi(), value: 'Runtime API' },
             { label: m.agents_runtimeAiApp(), value: 'Runtime AI App' },
-            { label: m.agents_preview(), value: 'preview' },
+            { label: m.common_preview(), value: 'preview' },
             { label: m.agents_evaluation(), value: 'evaluation' },
           ],
           multiple: true,

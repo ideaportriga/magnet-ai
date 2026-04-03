@@ -29,20 +29,35 @@ const { locale, setLocale, locales } = useLocale()
 const localeLabels = {
   en: 'EN',
   ru: 'RU',
+  lv: 'LV',
+  es: 'ES',
+  fr: 'FR',
+  de: 'DE',
+  it: 'IT',
 }
 
 const localeFullLabels = {
   en: 'English',
   ru: 'Русский',
+  lv: 'Latviešu',
+  es: 'Español',
+  fr: 'Français',
+  de: 'Deutsch',
+  it: 'Italiano',
 }
 
 const currentLabel = computed(() => localeLabels[locale.value] || locale.value)
 
+const localeOrder = ['en', 'lv', 'es', 'fr', 'de', 'ru', 'it']
+
 const localeOptions = computed(() =>
-  locales.map((loc) => ({
-    value: loc,
-    label: localeFullLabels[loc] || loc,
-  }))
+  localeOrder
+    .filter((loc) => locales.includes(loc))
+    .concat(locales.filter((loc) => !localeOrder.includes(loc)))
+    .map((loc) => ({
+      value: loc,
+      label: localeFullLabels[loc] || loc,
+    }))
 )
 </script>
 

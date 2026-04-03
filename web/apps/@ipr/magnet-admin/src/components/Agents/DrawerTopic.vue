@@ -26,7 +26,7 @@ km-drawer-layout(storageKey="drawer-agents-topic")
       @click='openTopicDetails',
       iconSize='16px',
       color='secondary-text',
-      :label='m.agents_moreDetailsAndActions()'
+      :label='m.common_moreDetailsAndActions()'
     )
 </template>
 

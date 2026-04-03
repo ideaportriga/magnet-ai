@@ -25,7 +25,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("
             max-files='1',
             rounded,
             outlined,
-            :label='m.apiServers_uploadFile()',
+            :label='m.common_uploadFile()',
             v-model='file',
             accept='.json, .yaml',
             dense,

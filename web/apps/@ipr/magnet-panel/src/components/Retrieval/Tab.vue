@@ -12,10 +12,10 @@
           retrieval-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, :retrieval_tool='retrieval_tool')
         template(v-if='isShowHints')
           .row.items-center.q-mt-16.q-mb-8
-            .col.km-heading-3 {{ m.panel_youCanAskLikeThis() }}
+            .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
             .col-auto
               km-btn(flat, color='primary', @click='showHints = false')
-                .km-button-text {{ m.panel_dontShowHints() }}
+                .km-button-text {{ m.common_dontShowHints() }}
           // Hints
           template(v-if='$theme === "default"')
             template(v-for='(item, index) in sampleQuestion', :key='index')

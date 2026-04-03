@@ -110,7 +110,7 @@ q-separator.q-my-lg
 
 <!-- Chunk limits section -->
 km-section(:title='m.section_chunkLimits()', :subTitle='m.subtitle_controlChunks()')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_numberOfChunksToSelect() }}
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_numberOfChunksToSelect() }}
   div(style='max-width: 200px')
     km-input(type='number', height='30px', :placeholder='m.common_numberOfChunksToSelect()', v-model='maxChunksRetrieved')
   .km-description.text-secondary-text.q-pb-4 {{ m.ragTools_maxChunksToLlm() }}

@@ -11,7 +11,7 @@
 
   //- SEARCH
   .col-auto
-    km-input.full-width(icon-before='search', @input='search = $event', :model-value='search', :placeholder='m.agents_searchPromptTemplates()', clearable)
+    km-input.full-width(icon-before='search', @input='search = $event', :model-value='search', :placeholder='m.common_searchPromptTemplates()', clearable)
   .row.q-pt-16
     km-btn(:label='m.common_newPromptTemplate()', @click='$emit("create")')
 

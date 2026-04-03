@@ -22,7 +22,7 @@ div
         km-btn(
           flat,
           simple,
-          :label='topicSelectionPromptTemplate ? m.agents_openPromptTemplate() : m.agents_openPromptTemplatesLibrary()',
+          :label='topicSelectionPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
           iconSize='16px',
           icon='fas fa-comment-dots',
           @click='topicSelectionPromptTemplate ? navigate(`prompt-templates/${topicSelectionPromptTemplateId}`) : navigate("prompt-templates")'

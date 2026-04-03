@@ -11,13 +11,13 @@ div
     q-toggle(v-model='settingsSampleQuestions', color='primary')
     template(v-if='settingsSampleQuestions')
       .q-mb-lg
-        .km-input-label {{ m.agents_question1() }}
+        .km-input-label {{ m.common_question1() }}
         km-input(v-model='question1', placeholder='What are our most popular pricing plans?')
       .q-mb-lg
-        .km-input-label {{ m.agents_question2() }}
+        .km-input-label {{ m.common_question2() }}
         km-input(v-model='question2', placeholder='How to change password in mobile application?')
       div
-        .km-input-label {{ m.agents_question3() }}
+        .km-input-label {{ m.common_question3() }}
         km-input(v-model='question3', placeholder='What is the maximum discount that can be applied on top of other discounts?')
   q-separator.q-my-lg
   km-section(:title='m.section_memoryStrategy()', :subTitle='m.subtitle_controlMemory()')

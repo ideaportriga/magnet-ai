@@ -157,7 +157,7 @@ export default {
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
         group: 'success',
-        message: m.agents_variantActivated(),
+        message: m.common_variantActivated(),
         timeout: 1000,
       })
     },
@@ -167,12 +167,12 @@ export default {
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
         group: 'success',
-        message: m.agents_variantAdded(),
+        message: m.common_variantAdded(),
         timeout: 1000,
       })
     },
     doDeleteVariant() {
-      this.confirm(m.agents_deleteVariantConfirm(), () => this.deleteVariant())
+      this.confirm(m.common_deleteVariantConfirm(), () => this.deleteVariant())
     },
 
     confirm(message, callback) {
@@ -201,7 +201,7 @@ export default {
                 color: 'green-9', textColor: 'white',
                 icon: 'check_circle',
                 group: 'success',
-                message: m.agents_variantDeleted(),
+                message: m.common_variantDeleted(),
                 timeout: 1000,
               })
             },
