@@ -18,7 +18,7 @@
             <div class="row q-col-gutter-lg">
               <!-- Name -->
               <div class="col-6">
-                <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Name</div>
+                <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Profile Name</div>
                 <div class="km-description text-secondary-text q-mt-xs q-mb-md">Set profile name for this content configuration.</div>
                 <km-input ref="nameRef" v-model="form.name" :rules="nameRules" :readonly="isLockedNativeProfile || isReadonlyProfile" required />
               </div>
@@ -34,6 +34,18 @@
                   emit-value
                   map-options
                 />
+                <div v-if="isSourceMetadataReader" class="q-mt-md">
+                  <div class="km-input-label q-pb-xs">Metadata Field Name</div>
+                  <km-input
+                    ref="metadataFieldNameRef"
+                    v-model="form.reader.options.field_name"
+                    placeholder="e.g., transcription"
+                    :rules="[required()]"
+                    required
+                    :readonly="isReadonlyProfile"
+                  />
+                  <div class="km-description text-secondary-text q-mt-xs">Name of the field in source metadata to use as content.</div>
+                </div>
               </div>
             </div>
           </div>
@@ -419,6 +431,7 @@ import {
   SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME,
   SHAREPOINT_PAGE_READER,
   SHAREPOINT_SOURCE_TYPE,
+  SOURCE_METADATA_READER,
   VIRTUAL_FALLBACK_PROFILE_NAME,
 } from './models'
 import SourceTreeDropdown from './SourceTreeDropdown.vue'
@@ -628,6 +641,7 @@ const form = ref(getDefaultForm())
 const initialFormState = ref(getDefaultForm())
 const nameRef = ref()
 const promptTemplateRef = ref()
+const metadataFieldNameRef = ref()
 const newSplitter = ref('')
 const showNewSplitterInput = ref(false)
 const newSplitterInput = ref()
@@ -637,6 +651,7 @@ const dialogTitle = computed(() => (isReadonlyProfile.value ? 'View Content Prof
 const dismissLabel = computed(() => (isReadonlyProfile.value ? 'Close' : 'Cancel'))
 const isLockedNativeProfile = computed(() => isEditing.value && isLockedFluidTopicsNativeProfile(props.config ?? form.value))
 const isSharePointPageReader = computed(() => form.value.reader.name === SHAREPOINT_PAGE_READER)
+const isSourceMetadataReader = computed(() => form.value.reader.name === SOURCE_METADATA_READER)
 const isLLMStrategy = computed(() => form.value.chunker.strategy === 'llm')
 const isRecursiveStrategy = computed(() => form.value.chunker.strategy === 'recursive_character_text_splitting')
 const isKreuzbergStrategy = computed(() => form.value.chunker.strategy === 'kreuzberg')
@@ -818,6 +833,14 @@ const save = async () => {
   const isNameValid = isLockedNativeProfile.value || (nameRef.value as any)?.validate?.() !== false
   if (!isNameValid) {
     isValid &&= false
+  }
+
+  // Validate metadata field name when source metadata reader is selected
+  if (isSourceMetadataReader.value) {
+    const isFieldNameValid = (metadataFieldNameRef.value as any)?.validate?.() !== false
+    if (!isFieldNameValid) {
+      isValid &&= false
+    }
   }
 
   // Validate prompts when LLM strategy is selected

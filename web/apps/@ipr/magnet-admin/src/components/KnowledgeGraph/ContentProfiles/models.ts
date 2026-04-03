@@ -35,6 +35,8 @@ export const KREUZBERG_READER = 'kreuzberg'
 export const KREUZBERG_READER_LABEL = 'Kreuzberg'
 export const LITEPARSE_READER = 'liteparse'
 export const LITEPARSE_READER_LABEL = 'LiteParse'
+export const SOURCE_METADATA_READER = 'source_metadata'
+export const SOURCE_METADATA_READER_LABEL = 'Metadata Reader'
 
 export const readerOptions = [
   { label: 'Plain Text Reader', value: 'plain_text' },
@@ -45,6 +47,10 @@ export const readerOptions = [
   {
     label: FLUID_TOPICS_STRUCTURED_READER_LABEL,
     value: FLUID_TOPICS_STRUCTURED_READER,
+  },
+  {
+    label: SOURCE_METADATA_READER_LABEL,
+    value: SOURCE_METADATA_READER,
   },
 ]
 

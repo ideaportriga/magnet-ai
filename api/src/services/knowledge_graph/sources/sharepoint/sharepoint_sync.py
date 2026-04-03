@@ -11,7 +11,7 @@ from core.db.session import async_session_maker
 
 from ...content_config_services import get_content_config
 from ...metadata_services import accumulate_discovered_metadata_fields
-from ...models import SyncCounters, SyncPipelineConfig
+from ...models import ContentReaderName, SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
 from .sharepoint_models import (
     SHAREPOINT_SYSTEM_FOLDERS,
@@ -237,6 +237,16 @@ class SharePointSyncPipeline(
                     source_metadata: dict[str, Any] = {}
                     file_bytes: bytes | None = None
 
+                    # Determine reader name to decide whether file download is needed
+                    reader_name = (
+                        content_config.reader.get("name", "")
+                        if content_config.reader
+                        else ""
+                    )
+                    is_source_metadata_reader = (
+                        reader_name == ContentReaderName.SOURCE_METADATA
+                    )
+
                     # For .aspx pages, get HTML content from CanvasContent1 instead of downloading file bytes
                     is_aspx_page = filename.lower().endswith(".aspx")
 
@@ -259,7 +269,22 @@ class SharePointSyncPipeline(
                                 ),
                             )
 
-                        if is_aspx_page:
+                        if is_source_metadata_reader:
+                            # Source metadata reader: content comes from metadata,
+                            # no file download needed. Use the metadata field value
+                            # as content bytes for hashing / change detection.
+                            field_name = (
+                                content_config.reader.get("options", {}).get(
+                                    "field_name", ""
+                                )
+                                if content_config.reader
+                                else ""
+                            )
+                            field_value = str(source_metadata.get(field_name, ""))
+                            # Always produce bytes (even if empty) so the document
+                            # is still created with its title / metadata.
+                            file_bytes = field_value.encode("utf-8")
+                        elif is_aspx_page:
                             # For pages, get HTML content from CanvasContent1 property
                             from .sharepoint_utils import fetch_sharepoint_page_content
 
@@ -285,7 +310,9 @@ class SharePointSyncPipeline(
                                 server_relative_url=file_ref.server_relative_url,
                             )
 
-                    if not file_bytes:
+                    if file_bytes is None or (
+                        not file_bytes and not is_source_metadata_reader
+                    ):
                         await ctx.inc("skipped")
                         continue
 

@@ -397,11 +397,14 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
         file_metadata: dict[str, Any] | None = None
 
         if isinstance(content, bytes) and content_config:
+            effective_context = dict(content_reader_context or {})
+            if source_metadata is not None:
+                effective_context["source_metadata"] = source_metadata
             loaded = await load_content_from_bytes_async(
                 content,
                 content_config,
                 filename=filename,
-                context=content_reader_context,
+                context=effective_context,
             )
             file_metadata = loaded.get("metadata")
             total_pages = file_metadata.get("total_pages") if file_metadata else None

@@ -33,6 +33,7 @@ FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_VALUE = str(
 )
 FLUID_TOPICS_SOURCE_SELECTOR = f"{GROUP_KEY_PREFIX}{SourceType.FLUID_TOPICS}"
 SHAREPOINT_PAGES_PROFILE_NAME = "SharePoint Pages (LLM Chunking)"
+SHAREPOINT_VIDEO_TRANSCRIPTION_PROFILE_NAME = "SharePoint Video Transcription"
 SHAREPOINT_SOURCE_SELECTOR = f"{GROUP_KEY_PREFIX}{SourceType.SHAREPOINT}"
 SHAREPOINT_PAGE_PROMPT_TEMPLATE_SYSTEM_NAME = "SHAREPOINT_PAGE_CHUNKING"
 FLUID_TOPICS_STRUCTURED_EDITABLE_CHUNKER_OPTION_KEYS = (
@@ -697,6 +698,31 @@ def get_default_content_configs() -> list[ContentConfig]:
                     "prompt_template_system_name": "",
                     "chunk_title_pattern": "",
                     "chunk_content_type": ChunkContentType.MARKDOWN,
+                },
+            },
+        ),
+        ContentConfig(
+            name=SHAREPOINT_VIDEO_TRANSCRIPTION_PROFILE_NAME,
+            enabled=True,
+            glob_pattern="*.mp4,*.avi,*.mov,*.wmv,*.mkv,*.webm",
+            source_ids=[SHAREPOINT_SOURCE_SELECTOR],
+            reader={
+                "name": ContentReaderName.SOURCE_METADATA,
+                "options": {"field_name": "VideoDescription"},
+            },
+            chunker={
+                "strategy": ChunkerStrategy.RECURSIVE,
+                "options": {
+                    "llm_batch_size": 18000,
+                    "llm_batch_overlap": 0.1,
+                    "llm_last_segment_increase": 0.0,
+                    "recursive_chunk_overlap": 0.1,
+                    "chunk_max_size": 18000,
+                    "splitters": ["\n\n", "\n", " ", ""],
+                    "prompt_template_system_name": "",
+                    "document_title_pattern": "",
+                    "chunk_title_pattern": "",
+                    "chunk_content_type": ChunkContentType.PLAIN_TEXT,
                 },
             },
         ),
