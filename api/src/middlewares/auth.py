@@ -71,14 +71,17 @@ def create_auth_middleware(
             async def send_wrapper(message: Message) -> None:
                 if message["type"] == "http.response.start":
                     if auth.tokens_refreshed:
+                        settings = get_auth_settings()
+                        token_max_age = 3600  # 1 hour
+                        refresh_max_age = settings.REFRESH_TOKEN_EXPIRATION_DAYS * 86400
                         headers = MutableScopeHeaders.from_message(message=message)
                         headers.add(
                             "Set-Cookie",
-                            f"token={auth.tokens_refreshed.token}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+                            f"token={auth.tokens_refreshed.token}; Max-Age={token_max_age}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
                         )
                         headers.add(
                             "Set-Cookie",
-                            f"refresh_token={auth.tokens_refreshed.refresh_token}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+                            f"refresh_token={auth.tokens_refreshed.refresh_token}; Max-Age={refresh_max_age}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
                         )
 
                 await send(message)

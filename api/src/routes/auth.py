@@ -11,6 +11,8 @@ from litestar.response import Redirect, Response
 from litestar.response.base import ASGIResponse
 from litestar.status_codes import HTTP_200_OK
 
+from core.config.base import get_auth_settings
+
 from config.auth import (
     AUTH_SCOPE,
     CLIENT_ID,
@@ -247,15 +249,19 @@ class AuthController(Controller):
                 "Failed to create session for OIDC user"
             )
 
+        settings = get_auth_settings()
+        token_max_age = 3600  # 1 hour
+        refresh_max_age = settings.REFRESH_TOKEN_EXPIRATION_DAYS * 86400
+
         response = Response(content=None)
         asgi_response = response.to_asgi_response(app=None, request=request)
         asgi_response.headers.add(
             "Set-Cookie",
-            f"token={token}; Max-Age=3600; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+            f"token={token}; Max-Age={token_max_age}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
         )
         asgi_response.headers.add(
             "Set-Cookie",
-            f"refresh_token={refresh_token}; Max-Age=259200; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+            f"refresh_token={refresh_token}; Max-Age={refresh_max_age}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
         )
         # Clear nonce cookie after validation
         asgi_response.headers.add(

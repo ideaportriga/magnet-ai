@@ -17,6 +17,7 @@ from litestar.exceptions import NotAuthorizedException, NotFoundException
 from pydantic import BaseModel, Field
 
 from core.config.app import alchemy
+from core.config.base import get_auth_settings
 from middlewares.auth import Auth
 from services.users import auth_service
 from services.users import refresh_token_service
@@ -178,6 +179,9 @@ class LocalAuthController(Controller):
                 ),
             )
 
+            settings = get_auth_settings()
+            refresh_max_age = settings.REFRESH_TOKEN_EXPIRATION_DAYS * 86400
+
             # Set refresh token as HttpOnly cookie
             response.set_cookie(
                 key="refresh_token",
@@ -186,7 +190,7 @@ class LocalAuthController(Controller):
                 secure=True,
                 samesite="none",
                 path="/",
-                max_age=259200,  # 3 days
+                max_age=refresh_max_age,
             )
             # Also set access token as cookie for consistency with OIDC flow
             response.set_cookie(
@@ -234,6 +238,9 @@ class LocalAuthController(Controller):
 
             await session.commit()
 
+            settings = get_auth_settings()
+            refresh_max_age = settings.REFRESH_TOKEN_EXPIRATION_DAYS * 86400
+
             response = Response(
                 RefreshResponse(access_token=access_token),
             )
@@ -244,7 +251,7 @@ class LocalAuthController(Controller):
                 secure=True,
                 samesite="none",
                 path="/",
-                max_age=259200,  # 3 days
+                max_age=refresh_max_age,
             )
             response.set_cookie(
                 key="token",
