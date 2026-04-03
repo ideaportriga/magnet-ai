@@ -68,11 +68,7 @@ const columns = [
   dateColumn<KnowledgeGraph>('created_at', 'Created'),
 ]
 
-const { table, rows, isLoading, globalFilter } = useDataTable<KnowledgeGraph>('knowledge_graph', columns, {
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
-})
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<KnowledgeGraph>('knowledge_graph', columns)
 
 const openDetails = (row: KnowledgeGraph) => {
   router.push(`/knowledge-graph/${row.id}`)

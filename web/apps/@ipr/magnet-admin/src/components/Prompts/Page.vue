@@ -11,7 +11,7 @@
       .col(style='min-height: 0')
         km-data-table(
           :table='table',
-          :loading='isLoading',
+          :loading='isLoading', :fetching='isFetching',
           fill-height,
           row-key='id',
           @row-click='openDetails'
@@ -40,11 +40,8 @@ const columns = [
   dateColumn<PromptTemplate>('updated_at', 'Last Updated'),
 ]
 
-const { table, isLoading, globalFilter } = useDataTable<PromptTemplate>('promptTemplates', columns, {
+const { table, isLoading, isFetching, globalFilter } = useDataTable<PromptTemplate>('promptTemplates', columns, {
   defaultSort: [{ id: 'updated_at', desc: true }],
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
 })
 
 const openDetails = async (row: PromptTemplate) => {

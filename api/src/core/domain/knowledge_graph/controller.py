@@ -95,6 +95,8 @@ class KnowledgeGraphController(Controller):
                 "id_filter": UUID,
                 "search": "name",
                 "search_ignore_case": True,
+                "sort_field": "updated_at",
+                "sort_order": "desc",
             },
         ),
         **providers.create_service_dependencies(

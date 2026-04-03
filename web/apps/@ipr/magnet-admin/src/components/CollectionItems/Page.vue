@@ -51,10 +51,7 @@ const extraParams = computed(() => ({
   collection_id: route.params.id as string,
 }))
 
-const { table, rows, isLoading, globalFilter } = useDataTable<Document>('documents', columns, {
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<Document>('documents', columns, {
   extraParams,
 })
 

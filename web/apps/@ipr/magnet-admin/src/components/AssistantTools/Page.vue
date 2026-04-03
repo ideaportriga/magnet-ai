@@ -24,7 +24,7 @@
       .col(style='min-height: 0')
         km-data-table(
           :table='table',
-          :loading='isLoading',
+          :loading='isLoading', :fetching='isFetching',
           fill-height,
           row-key='id',
           @row-click='openDetails'
@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { nameDescriptionColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
@@ -55,12 +55,11 @@ const columns = [
   dateColumn<AssistantTool>('updated_at', 'Last Updated'),
 ]
 
-const { table, rows, isLoading, globalFilter } = useDataTable<AssistantTool>('assistant_tools', columns, {
+const extraParams = computed(() => ({ type: tab.value }))
+
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<AssistantTool>('assistant_tools', columns, {
   defaultSort: [{ id: 'updated_at', desc: true }],
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
-  dataFilter: (items: AssistantTool[]) => items.filter((row) => row.type === tab.value),
+  extraParams,
 })
 
 const openDetails = async (row: AssistantTool) => {

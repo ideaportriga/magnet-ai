@@ -117,7 +117,7 @@
       .col(style='min-height: 0')
         km-data-table(
           :table='currentTable',
-          :loading='isLoading',
+          :loading='isLoading', :fetching='isFetching',
           :fill-height='!filterObject?.row',
           row-key='id',
           @row-click='selectRecord'
@@ -248,14 +248,9 @@ const flatColumns: ColumnDef<EvaluationJob, unknown>[] = [
 ]
 
 // Use useDataTable to fetch data
-const { table: flatTable, rows: allRows, isLoading, globalFilter, refetch } = useDataTable<EvaluationJob>(
+const { table: flatTable, rows: allRows, isLoading, isFetching, globalFilter, refetch } = useDataTable<EvaluationJob>(
   'evaluation_jobs',
   flatColumns,
-  {
-    manualPagination: false,
-    manualSorting: false,
-    manualFiltering: false,
-  },
 )
 
 // Grouped data computation

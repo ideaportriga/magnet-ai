@@ -10,6 +10,8 @@ export interface KmColumnMeta {
   align?: 'left' | 'center' | 'right'
   class?: string
   width?: string
+  /** Backend field name for server-side sorting (when column id differs from DB field) */
+  sortField?: string
 }
 
 /**
@@ -146,7 +148,7 @@ export function nameDescriptionColumn<T extends BaseEntity>(
       ])
     },
     enableSorting: options?.sortable ?? true,
-    meta: { align: 'left', width: options?.width } as KmColumnMeta,
+    meta: { align: 'left', width: options?.width, sortField: 'name' } as KmColumnMeta,
   }
 }
 

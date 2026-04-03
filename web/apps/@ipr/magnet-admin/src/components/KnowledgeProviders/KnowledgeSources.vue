@@ -9,7 +9,7 @@
   .col(style='min-height: 0')
     km-data-table(
       :table='table',
-      :loading='isLoading',
+      :loading='isLoading', :fetching='isFetching',
       fill-height,
       row-key='id',
       @row-click='openDetails'
@@ -48,7 +48,7 @@ const columns = [
   dateColumn<Collection>('created_at', 'Created'),
 ]
 
-const { table, rows, isLoading, globalFilter } = useDataTable<Collection>('collections', columns, {
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<Collection>('collections', columns, {
   defaultSort: [{ id: 'created_at', desc: true }],
   manualPagination: false,
   manualSorting: false,

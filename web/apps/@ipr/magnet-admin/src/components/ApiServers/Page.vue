@@ -15,7 +15,7 @@
         .col(style='min-height: 0')
           km-data-table(
             :table='table',
-            :loading='isLoading',
+            :loading='isLoading', :fetching='isFetching',
             fill-height,
             row-key='system_name',
             @row-click='openDetails'
@@ -49,11 +49,8 @@ const columns = [
   dateColumn<ApiServer>('updated_at', 'Last Updated'),
 ]
 
-const { table, rows, isLoading, globalFilter } = useDataTable<ApiServer>('api_servers', columns, {
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<ApiServer>('api_servers', columns, {
   defaultSort: [{ id: 'updated_at', desc: true }],
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
 })
 
 const openDetails = async (row: ApiServer) => {

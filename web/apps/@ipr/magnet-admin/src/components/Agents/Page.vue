@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDateTime } from '@shared/utils'
 import { useEntityQueries } from '@/queries/entities'
@@ -57,24 +57,28 @@ const router = useRouter()
 const queries = useEntityQueries()
 const showNewDialog = ref(false)
 const searchString = ref('')
+const debouncedSearch = ref('')
 
-const { data, isLoading } = queries.agents.useList()
-
-const items = computed<Agent[]>(() => (data.value?.items ?? []) as Agent[])
-
-const visibleRows = computed(() => {
-  let rows = [...items.value]
-  if (searchString.value) {
-    const search = searchString.value.toLowerCase()
-    rows = rows.filter(
-      (row) =>
-        row.name?.toLowerCase().includes(search) ||
-        row.system_name?.toLowerCase().includes(search) ||
-        row.description?.toLowerCase().includes(search),
-    )
-  }
-  return rows.sort((a, b) => new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime())
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchString, (val) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { debouncedSearch.value = val }, 300)
 })
+
+const queryParams = computed(() => {
+  const params: Record<string, unknown> = {
+    orderBy: 'updated_at',
+    sortOrder: 'desc',
+    currentPage: 1,
+    pageSize: 50,
+  }
+  if (debouncedSearch.value) params.search = debouncedSearch.value
+  return params
+})
+
+const { data, isLoading } = queries.agents.useList(queryParams)
+
+const visibleRows = computed<Agent[]>(() => (data.value?.items ?? []) as Agent[])
 
 const formatDate = (val?: string) => (val ? formatDateTime(val) : '-')
 

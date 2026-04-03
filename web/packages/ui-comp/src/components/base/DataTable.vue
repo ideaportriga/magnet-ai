@@ -74,10 +74,10 @@
           </tr>
         </tbody>
       </table>
-
-      <!-- Loading bar (when data exists but refetching) -->
-      <q-linear-progress v-if="loading && rows.length > 0" indeterminate color="primary" class="km-data-table__loading-bar" />
     </div>
+
+    <!-- Subtle refetch indicator (thin bar at top of table) -->
+    <q-linear-progress v-if="fetching && rows.length > 0" indeterminate color="primary" class="km-data-table__fetching-bar" />
 
     <!-- Pagination footer -->
     <div v-if="showPagination" class="km-data-table__footer row items-center q-px-md q-py-sm text-grey ba-border">
@@ -172,6 +172,8 @@ function resolveComponent(comp: any, cell: Cell<T, unknown>, row: Row<T>): Compo
 const props = withDefaults(defineProps<{
   table: Table<T>
   loading?: boolean
+  /** Subtle indicator for background refetches (thin progress bar) */
+  fetching?: boolean
   fillHeight?: boolean
   dense?: boolean
   activeRowId?: string | number
@@ -180,6 +182,7 @@ const props = withDefaults(defineProps<{
   pageSizeOptions?: number[]
 }>(), {
   loading: false,
+  fetching: false,
   fillHeight: false,
   dense: false,
   hidePagination: false,
@@ -217,6 +220,7 @@ function getRowKey(row: Row<T>): string | number {
   position: relative;
   min-width: 0;
   width: 100%;
+  overflow: hidden;
 }
 .km-data-table--fill-height {
   height: 100%;
@@ -251,11 +255,14 @@ function getRowKey(row: Row<T>): string | number {
   font-size: var(--km-font-size-body, 13px);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
-.km-data-table__loading-bar {
+.km-data-table__fetching-bar {
   position: absolute;
-  top: 0;
+  top: 48px;
   left: 0;
   right: 0;
+  z-index: 2;
+  height: 2px !important;
+  opacity: 0.6;
 }
 .km-data-table__footer {
   flex-shrink: 0;

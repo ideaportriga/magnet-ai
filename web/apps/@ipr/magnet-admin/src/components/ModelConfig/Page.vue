@@ -24,7 +24,7 @@
       .col(style='min-height: 0')
         km-data-table(
           :table='table',
-          :loading='isLoading',
+          :loading='isLoading', :fetching='isFetching',
           fill-height,
           row-key='id',
           @row-click='openDetails'
@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, componentColumn, dateColumn } from '@/utils/columnHelpers'
@@ -66,15 +66,14 @@ const allColumns = [
   dateColumn<Model>('updated_at', 'Last Updated'),
 ]
 
-const { table, rows, isLoading, globalFilter } = useDataTable<Model>('model', allColumns, {
+const extraParams = computed(() => ({ type: tab.value }))
+
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<Model>('model', allColumns, {
   defaultSort: [{ id: 'updated_at', desc: true }],
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
+  extraParams,
   dataFilter: (items: Model[]) => {
-    const filtered = items.filter((item) => item.type === tab.value)
     // Pin is_default rows to the top
-    return filtered.sort((a, b) => {
+    return [...items].sort((a, b) => {
       if (a.is_default && !b.is_default) return -1
       if (!a.is_default && b.is_default) return 1
       return 0

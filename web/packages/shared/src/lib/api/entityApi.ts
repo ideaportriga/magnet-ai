@@ -5,6 +5,7 @@ export interface PaginationParams {
   pageSize?: number
   orderBy?: string
   sortOrder?: 'asc' | 'desc'
+  search?: string
 }
 
 export interface ListResponse<T> {
@@ -35,10 +36,13 @@ export function createEntityApi<T>(client: ApiClient, servicePath: string): Enti
     if (params.orderBy !== undefined) result.orderBy = params.orderBy
     if (params.sortOrder !== undefined) result.sortOrder = params.sortOrder
     // Pass through any extra filter params
+    const reserved = ['currentPage', 'pageSize', 'orderBy', 'sortOrder']
     for (const [key, value] of Object.entries(params)) {
-      if (['currentPage', 'pageSize', 'orderBy', 'sortOrder'].includes(key)) continue
+      if (reserved.includes(key)) continue
       if (value !== undefined && value !== null) {
-        result[key] = value as string | number | boolean | string[]
+        // Backend expects "searchString" not "search"
+        const mappedKey = key === 'search' ? 'searchString' : key
+        result[mappedKey] = value as string | number | boolean | string[]
       }
     }
     return result
@@ -47,12 +51,13 @@ export function createEntityApi<T>(client: ApiClient, servicePath: string): Enti
   return {
     async list(params) {
       const queryParams = buildPaginationParams(params)
-      const response = await client.get<{ items: T[]; total?: number } | T[]>(servicePath, queryParams)
-      // API may return { items: [...], total: N } or just an array
+      const response = await client.get<{ items?: T[]; data?: T[]; total?: number } | T[]>(servicePath, queryParams)
+      // API may return { data: [...], total: N } (Advanced Alchemy OffsetPagination),
+      // { items: [...], total: N }, or just an array
       if (Array.isArray(response)) {
         return { items: response }
       }
-      return { items: response.items ?? [], total: response.total }
+      return { items: response.data ?? response.items ?? [], total: response.total }
     },
 
     async getById(id) {

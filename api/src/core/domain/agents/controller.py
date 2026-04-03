@@ -34,6 +34,8 @@ class AgentsController(Controller):
             "search": "name",
             "search_ignore_case": True,
             "pagination_size": DEFAULT_PAGINATION_SIZE,
+            "sort_field": "updated_at",
+            "sort_order": "desc",
         },
     )
 

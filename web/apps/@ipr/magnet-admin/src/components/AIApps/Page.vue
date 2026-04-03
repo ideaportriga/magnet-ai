@@ -52,7 +52,7 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { beforeRouteEnter } from '@/guards'
@@ -64,23 +64,30 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { draft: ragDraft } = useVariantEntityDetail('rag_tools')
-    const { data: aiAppsListData, isLoading } = queries.ai_apps.useList()
     const { mutateAsync: createAiApp } = queries.ai_apps.useCreate()
     const { options: collectionsOptions } = useCatalogOptions('collections')
 
     const searchString = ref('')
+    const debouncedSearch = ref('')
+    let searchTimer = null
+    watch(searchString, (val) => {
+      if (searchTimer) clearTimeout(searchTimer)
+      searchTimer = setTimeout(() => { debouncedSearch.value = val }, 300)
+    })
+
+    const queryParams = computed(() => {
+      const params = { orderBy: 'updated_at', sortOrder: 'desc', currentPage: 1, pageSize: 50 }
+      if (debouncedSearch.value) params.search = debouncedSearch.value
+      return params
+    })
+
+    const { data: aiAppsListData, isLoading } = queries.ai_apps.useList(queryParams)
+
     const selectedRow = ref(null)
     const pagination = ref({ page: 1, rowsPerPage: 0 })
     const columns = computed(() => Object.values(aiAppsControls).sort((a, b) => (a.columnNumber || 0) - (b.columnNumber || 0)))
     const visibleColumns = computed(() => columns.value.filter((c) => c.display).map((c) => c.name))
-    const items = computed(() => aiAppsListData.value?.items ?? [])
-    const visibleRows = computed(() => {
-      const search = (searchString.value || '').toLowerCase()
-      if (!search) return items.value
-      return items.value.filter((el) =>
-        Object.values(el).some((val) => typeof val === 'string' && val.toLowerCase().includes(search))
-      )
-    })
+    const visibleRows = computed(() => aiAppsListData.value?.items ?? [])
 
     return {
       ragDraft,

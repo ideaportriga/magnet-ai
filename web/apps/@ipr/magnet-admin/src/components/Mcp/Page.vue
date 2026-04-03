@@ -15,7 +15,7 @@
         .col(style='min-height: 0')
           km-data-table(
             :table='table',
-            :loading='isLoading',
+            :loading='isLoading', :fetching='isFetching',
             fill-height,
             row-key='system_name',
             @row-click='openDetails'
@@ -45,14 +45,11 @@ const showNewDialog = ref(false)
 const columns = [
   nameDescriptionColumn<McpServer>('Name'),
   chipCopyColumn<McpServer>('System name'),
-  dateColumn<McpServer>('last_synced_at', 'Last Synced'),
+  dateColumn<McpServer>('last_synced_at', 'Last Synced', { sortable: false }),
 ]
 
-const { table, rows, isLoading, globalFilter } = useDataTable<McpServer>('mcp_servers', columns, {
-  defaultSort: [{ id: 'last_synced_at', desc: true }],
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<McpServer>('mcp_servers', columns, {
+  defaultSort: [{ id: 'updated_at', desc: true }],
 })
 
 const openDetails = async (row: McpServer) => {

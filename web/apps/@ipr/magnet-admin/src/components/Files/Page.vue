@@ -188,7 +188,7 @@ const columns = [
   },
 ]
 
-const { table, isLoading, globalFilter, refetch } = useDataTable<StoredFile>('files', columns, {
+const { table, isLoading, isFetching, globalFilter, refetch } = useDataTable<StoredFile>('files', columns, {
   defaultSort: [{ id: 'created_at', desc: true }],
   defaultPageSize: 50,
   extraParams,

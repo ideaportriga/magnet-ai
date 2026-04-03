@@ -8,7 +8,7 @@
 .col(style='min-height: 0')
   km-data-table(
     :table='table',
-    :loading='isLoading',
+    :loading='isLoading', :fetching='isFetching',
     fill-height,
     row-key='system_name',
     @row-click='openDetails'
@@ -36,7 +36,7 @@ const columns = [
   dateColumn<Provider>('updated_at', 'Last Updated'),
 ]
 
-const { table, isLoading, globalFilter } = useDataTable<Provider>('provider', columns, {
+const { table, isLoading, isFetching, globalFilter } = useDataTable<Provider>('provider', columns, {
   defaultSort: [{ id: 'updated_at', desc: true }],
   manualPagination: false,
   manualSorting: false,

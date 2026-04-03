@@ -89,7 +89,10 @@ export function useDataTable<T extends BaseEntity>(
     }
 
     if (manualSorting && sorting.value.length > 0) {
-      params.orderBy = sorting.value[0].id
+      const sortColId = sorting.value[0].id
+      const sortCol = columns.find((c) => (c as { id?: string }).id === sortColId)
+      const metaSortField = (sortCol?.meta as { sortField?: string })?.sortField
+      params.orderBy = metaSortField ?? sortColId
       params.sortOrder = sorting.value[0].desc ? 'desc' : 'asc'
     }
 
@@ -109,7 +112,7 @@ export function useDataTable<T extends BaseEntity>(
   })
 
   // TanStack Query — auto-refetches when queryParams change
-  const { data, isLoading, isError, error, refetch } = entityQ.useList(queryParams) as ReturnType<typeof entityQ.useList>
+  const { data, isLoading, isFetching, isError, error, refetch } = entityQ.useList(queryParams) as ReturnType<typeof entityQ.useList>
 
   const rawRows = computed<T[]>(() => ((data.value as { items?: T[] })?.items ?? []) as T[])
   const rows = computed<T[]>(() => dataFilter ? dataFilter(rawRows.value) : rawRows.value)
@@ -166,6 +169,7 @@ export function useDataTable<T extends BaseEntity>(
     rows,
     totalRows,
     isLoading,
+    isFetching,
     isError,
     error,
     refetch,

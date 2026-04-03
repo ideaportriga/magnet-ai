@@ -72,7 +72,7 @@ div
         )
     km-data-table(
       :table='table',
-      :loading='isLoadingTraces',
+      :loading='isLoadingTraces', :fetching='isFetchingTraces',
       row-key='id',
       dense,
       @row-click='openDetails',
@@ -131,7 +131,7 @@ const columns = [
   },
 ]
 
-const { table, isLoading: isLoadingTraces, refetch: refetchTraces } = useDataTable(
+const { table, isLoading: isLoadingTraces, isFetching: isFetchingTraces, refetch: refetchTraces } = useDataTable(
   'observability_traces',
   columns,
   {

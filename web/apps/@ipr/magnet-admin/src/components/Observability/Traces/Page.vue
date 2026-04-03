@@ -21,7 +21,7 @@
       .col(style='min-height: 0')
         km-data-table(
           :table='table',
-          :loading='isLoading',
+          :loading='isLoading', :fetching='isFetching',
           fill-height,
           dense,
           row-key='id',
@@ -58,7 +58,7 @@ const columns = [
   }),
 ]
 
-const { table, isLoading, refetch } = useDataTable<ObservabilityTrace>('observability_traces', columns, {
+const { table, isLoading, isFetching, refetch } = useDataTable<ObservabilityTrace>('observability_traces', columns, {
   defaultSort: [{ id: 'start_time', desc: true }],
   defaultPageSize: 15,
   manualPagination: true,

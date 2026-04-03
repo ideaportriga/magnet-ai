@@ -20,7 +20,7 @@ layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", m
       .col.q-pt-16(style='min-height: 0')
         km-data-table(
           :table='table',
-          :loading='isLoading',
+          :loading='isLoading', :fetching='isFetching',
           fill-height,
           dense,
           row-key='id',
@@ -119,7 +119,7 @@ const columns = [
   dateColumn<Job>('created_at', 'Created'),
 ]
 
-const { table, isLoading, refetch } = useDataTable<Job>('jobs', columns, {
+const { table, isLoading, isFetching, refetch } = useDataTable<Job>('jobs', columns, {
   defaultSort: [{ id: 'created_at', desc: true }],
   manualPagination: true,
   manualSorting: true,

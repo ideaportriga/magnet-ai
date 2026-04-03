@@ -33,7 +33,7 @@ const columns = [
   dateColumn<Provider>('updated_at', 'Last Updated'),
 ]
 
-const { table, isLoading, globalFilter } = useDataTable<Provider>('provider', columns, {
+const { table, isLoading, isFetching, globalFilter } = useDataTable<Provider>('provider', columns, {
   defaultSort: [{ id: 'updated_at', desc: true }],
   manualPagination: false,
   manualSorting: false,

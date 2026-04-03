@@ -11,7 +11,7 @@
       .col(style='min-height: 0')
         km-data-table(
           :table='table',
-          :loading='isLoading',
+          :loading='isLoading', :fetching='isFetching',
           fill-height,
           row-key='id',
           @row-click='openDetails'
@@ -53,11 +53,7 @@ const columns = [
   dateColumn<ApiKey>('created_at', 'Created'),
 ]
 
-const { table, rows, isLoading, globalFilter } = useDataTable<ApiKey>('api_keys', columns, {
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
-})
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<ApiKey>('api_keys', columns)
 
 const deleteTitle = computed(() => {
   if (selected.value.length === 1) {
