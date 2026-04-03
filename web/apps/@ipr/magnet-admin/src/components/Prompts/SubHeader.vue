@@ -24,7 +24,7 @@ q-separator.q-my-sm
     //-         )
       //- q-item-label.km-label {{opt}} 
   .col.q-mx-sm
-    km-input-flat.km-description.full-width(placeholder='Description', :modelValue='variant_description', @change='variant_description = $event')
+    km-input-flat.km-description.full-width(:placeholder='m.common_description()', :modelValue='variant_description', @change='variant_description = $event')
   .col-auto.q-mr-sm
     km-btn.width-100(
       v-if='!isActive',
@@ -172,18 +172,18 @@ export default {
 
       const match = variant?.match(/variant_(\d+)/)
       if (!match) return variant
-      return `Variant ${match?.[1]}`
+      return `${m.common_variant()} ${match?.[1]}`
     },
     activateVariantAction() {
       this.activateVariant()
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Variant has been activated.', timeout: 1000 })
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.common_variantActivated(), timeout: 1000 })
     },
     addVariant() {
       this.createVariant()
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'New variant has been added.', timeout: 1000 })
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.common_variantAdded(), timeout: 1000 })
     },
     deleteVariantAction() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.deleteVariant())
+      this.confirm(m.common_deleteVariantConfirm(), () => this.deleteVariant())
     },
 
     confirm(message, callback) {
@@ -196,19 +196,19 @@ export default {
         timeout: 0,
         actions: [
           {
-            label: 'Cancel',
+             label: m.common_cancel(),
             color: 'yellow',
             handler: () => {
               /* ... */
             },
           },
           {
-            label: 'Delete',
+             label: m.common_delete(),
             color: 'white',
             handler: () => {
               // notify with success
               callback()
-              this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Variant has been deleted.', timeout: 1000 })
+               this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.common_variantDeleted(), timeout: 1000 })
             },
           },
         ],
@@ -217,27 +217,34 @@ export default {
 
     deletePromptTemplate() {
       this.$q.notify({
-        message: `Are you sure you want to delete this prompt template?`,
+        message: m.deleteConfirm_aboutToDelete({ entity: m.entity_promptTemplate() }),
         color: 'red-9', textColor: 'white',
         icon: 'error',
         group: 'error',
         timeout: 0,
         actions: [
           {
-            label: 'Cancel',
+             label: m.common_cancel(),
             color: 'yellow',
             handler: () => {
               /* ... */
             },
           },
           {
-            label: 'Delete',
+             label: m.common_delete(),
             color: 'white',
             handler: () => {
               this.loadingDelelete = true
               this.removeEntity(this.$route.params.id)
               this.$emit('update:closeDrawer', null)
-              this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Prompt has been deleted.', timeout: 1000 })
+               this.$q.notify({
+                 color: 'green-9',
+                 textColor: 'white',
+                 icon: 'check_circle',
+                 group: 'success',
+                 message: m.notify_entityDeleted({ entity: m.entity_promptTemplate() }),
+                 timeout: 1000,
+               })
               this.navigate('/prompt-templates')
             },
           },

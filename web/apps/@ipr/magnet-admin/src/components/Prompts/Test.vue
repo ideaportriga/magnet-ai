@@ -1,20 +1,20 @@
 <template lang="pug">
 .column.bg-white.ba-border.q-px-lg.q-pt-4.q-pb-24.q-gap-16.border-radius-12(:class='{ "no-pointer-events prevent-select opaque": readonly }')
-  .km-heading-4.q-pt-24 Test prompt template
+  .km-heading-4.q-pt-24 {{ m.common_testPromptTemplate() }}
 
   .row.items-center.q-gap-8.q-mt-sm
     .col-auto.q-pl-xs
       .circle-accent
     .col
       //- .km-description.text-secondary-text Test your prompt with text in input below. Prompt will be applied to it automatically.
-      .km-description.text-secondary-text Enter text below to test your prompt on top of this text. Your prompt will be applied to it.
+      .km-description.text-secondary-text {{ m.common_enterTextToTest() }}
 
   //- QUESTION
 
   km-input.full-width(
     ref='input',
     autogrow,
-    placeholder='Type text to test your prompt',
+    :placeholder='m.common_typeTextToTest()',
     :model-value='inputText',
     @input='inputText = $event',
     @keydown.enter='submit',

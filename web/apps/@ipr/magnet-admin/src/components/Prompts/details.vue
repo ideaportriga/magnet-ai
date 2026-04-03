@@ -19,7 +19,7 @@ layouts-details-layout(v-if='!loading')
     q-separator.q-mt-8
     .row.items-center.q-pt-8.q-gap-4
       .km-input-label.q-pl-6.text-secondary-text {{ m.common_category() }}
-      km-select-flat(placeholder='API Provider', :options='categoryOptions', v-model='category', showLabel)
+      km-select-flat(:placeholder='m.label_apiProvider()', :options='categoryOptions', v-model='category', showLabel)
   template(#subheader)
     prompts-sub-header
   template(#header-actions)
@@ -177,10 +177,10 @@ export default {
       return this.entity?.updated_at ? this.formatDate(this.entity.updated_at) : ''
     },
     created_by() {
-      return this.entity?.created_by || 'Unknown'
+      return this.entity?.created_by || m.common_unknown()
     },
     updated_by() {
-      return this.entity?.updated_by || 'Unknown'
+      return this.entity?.updated_by || m.common_unknown()
     },
   },
 
@@ -207,9 +207,9 @@ export default {
       this.saving = true
       try {
         await this.composableSave()
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_savedSuccessfully(), timeout: 2000 })
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || m.notify_failedToSave(), timeout: 3000 })
       } finally {
         this.saving = false
       }
@@ -217,7 +217,14 @@ export default {
     async confirmDelete() {
       await this.removeMutation.mutateAsync(this.$route.params.id)
       this.$emit('update:closeDrawer', null)
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Prompt Template has been deleted.', timeout: 1000 })
+      this.$q.notify({
+        color: 'green-9',
+        textColor: 'white',
+        icon: 'check_circle',
+        group: 'success',
+        message: m.notify_entityDeleted({ entity: m.entity_promptTemplate() }),
+        timeout: 1000,
+      })
       this.navigate('/prompt-templates')
     },
     formatDate(date) {

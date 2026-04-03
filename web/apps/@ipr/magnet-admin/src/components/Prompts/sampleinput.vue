@@ -1,8 +1,8 @@
 <template lang="pug">
 div
-  km-section(title='Notes', subTitle='Store your sample input here and copy to preview area')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Notes
-    km-input(ref='input', rows='20', placeholder='Type your text here', border-radius='8px', height='36px', type='textarea', v-model='sampleText')
+  km-section(:title='m.section_notes()', :subTitle='m.subtitle_storeSampleInput()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_notes() }}
+    km-input(ref='input', rows='20', :placeholder='m.prompts_typeYourText()', border-radius='8px', height='36px', type='textarea', v-model='sampleText')
 </template>
 
 <script>
@@ -12,7 +12,7 @@ import { m } from '@/paraglide/messages'
 export default {
   setup() {
     const { activeVariant, updateVariantField } = useVariantEntityDetail('promptTemplates')
-    return { activeVariant, updateVariantField }
+    return { m, activeVariant, updateVariantField }
   },
   computed: {
     sampleText: {

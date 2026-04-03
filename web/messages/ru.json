@@ -1261,5 +1261,7 @@
   "agents_userFeedback": "Обратная связь",
   "agents_sentiment": "Тональность",
   "agents_organization": "Организация",
-  "agents_agentTopic": "Тема агента"
+  "agents_agentTopic": "Тема агента",
+  "prompts_inputOptions": "Параметры ввода",
+  "prompts_showRawTemplate": "Показать исходный шаблон"
 }

@@ -18,7 +18,7 @@ div
           .km-field.text-secondary-text.q-mb-sm {{ m.prompts_jsonNoGuarantee() }}
           .km-field.text-secondary-text {{ m.prompts_keepInMind() }}
             |
-            a.km-link.word-break-all.cursor-pointer(:href='currentModelObject?.jsonFormatDocumetaion', target='_blank') edge cases
+            a.km-link.word-break-all.cursor-pointer(:href='currentModelObject?.jsonFormatDocumetaion', target='_blank') {{ m.prompts_edgeCases() }}
             |  {{ m.prompts_edgeCasesResult() }}
       q-separator.q-my-lg
       q-chip.km-small-chip.q-mb-lg(
@@ -33,9 +33,9 @@ div
       .row.q-mb-md
         .km-field.text-secondary-text.q-mt-sm {{ m.prompts_ensureResponseSchema() }}
       template(v-if='isMatchSchema')
-        .km-field.text-secondary-text.q-pb-xs JSON schema
+        .km-field.text-secondary-text.q-pb-xs {{ m.common_jsonSchema() }}
           km-codemirror(v-model='matchSchema')
-          .km-description.text-secondary-text.q-pb-4 If filled in, output will match provided schema
+          .km-description.text-secondary-text.q-pb-4 {{ m.prompts_outputMatchSchema() }}
 </template>
 
 <script>
@@ -52,6 +52,7 @@ export default {
     const modelItems = computed(() => modelListData.value?.items ?? [])
 
     return {
+      m,
       draft,
       activeVariant,
       updateVariantField,

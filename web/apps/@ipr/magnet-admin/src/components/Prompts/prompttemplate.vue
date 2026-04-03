@@ -13,7 +13,7 @@ div
           :color="viewMode === 'code' ? 'primary' : 'grey-5'"
           @click="viewMode = 'code'"
         )
-          q-tooltip.bg-white.block-shadow.km-description.text-text-grey Show raw template
+          q-tooltip.bg-white.block-shadow.km-description.text-text-grey {{ m.prompts_showRawTemplate() }}
         q-btn(
           flat
           round
@@ -22,7 +22,7 @@ div
           :color="viewMode === 'preview' ? 'primary' : 'grey-5'"
           @click="viewMode = 'preview'"
         )
-          q-tooltip.bg-white.block-shadow.km-description.text-text-grey Show rendered preview
+          q-tooltip.bg-white.block-shadow.km-description.text-text-grey {{ m.prompts_showRenderedPreview() }}
 
     // Preview: render as markdown with {vars} as chips
     div.q-px-8.q-pt-sm.prompt-locked.markdown-content(v-if="viewMode === 'preview'")
@@ -33,7 +33,7 @@ div
       v-else
       ref='input'
       rows='20'
-      placeholder='Type your text here'
+      :placeholder='m.prompts_typeYourText()'
       border-radius='8px'
       height='36px'
       type='textarea'

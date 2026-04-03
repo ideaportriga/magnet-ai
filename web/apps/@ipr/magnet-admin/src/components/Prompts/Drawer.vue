@@ -20,7 +20,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
             :color="inputViewMode === 'code' ? 'primary' : 'grey-5'",
             @click="inputViewMode = 'code'"
           )
-            q-tooltip.bg-white.block-shadow.km-description.text-text-grey Show raw input
+            q-tooltip.bg-white.block-shadow.km-description.text-text-grey {{ m.prompts_showRawInput() }}
           q-btn(
             flat,
             round,
@@ -29,7 +29,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
             :color="inputViewMode === 'preview' ? 'primary' : 'grey-5'",
             @click="inputViewMode = 'preview'"
           )
-            q-tooltip.bg-white.block-shadow.km-description.text-text-grey Show rendered preview
+            q-tooltip.bg-white.block-shadow.km-description.text-text-grey {{ m.prompts_showRenderedPreview() }}
 
       div.prompt-locked.markdown-content(v-show="inputViewMode === 'preview'")
         div(v-html='inputRenderedHtml')
@@ -38,7 +38,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
         data-test='preview-input',
         ref='input',
         rows='10',
-        placeholder='Type your text here',
+        :placeholder='m.prompts_typeYourText()',
         :model-value='testText',
         @input='testText = $event',
         @keydown.enter='submit',
@@ -46,12 +46,12 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
         height='36px',
         type='textarea'
       )
-      .km-field.text-secondary-text Plain text or JSON
+      .km-field.text-secondary-text {{ m.prompts_plainTextOrJson() }}
       .q-mt-md
       .row.q-mt-sm.items-center
         .col-auto
           km-select-flat(
-            placeholder='Input Options',
+            :placeholder='m.prompts_inputOptions()',
             :options='inputOptions',
             :model-value='selectedInputOptionOption',
             @update:model-value='onInputOptionSelect'
@@ -63,7 +63,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
             accept='.pdf,.docx,.doc,.pptx,.ppt,.xlsx,.xls,.odt,.ods,.rtf,.html,.htm,.csv,.tsv,.txt,.md,.eml,.epub,.png,.jpg,.jpeg,.gif,.webp,.bmp,.tiff',
             multiple,
             :loading='fileUploadInProgress',
-            hint='Drop files or click to browse (PDF, Word, Excel, PowerPoint, images, etc.)',
+            :hint='m.prompts_dropFiles()',
             @update:model-value='onFilePickerUpdate'
           )
       template(v-if='selectedInputOption === "audio"')
@@ -73,7 +73,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
             accept='.flac,.m4a,.mp3,.ogg,.wav,.webm,.mp4',
             :loading='audioUpload.isUploading.value',
             :loading-text='audioUpload.uploadStatus.value',
-            hint='Drop audio file or click to browse',
+            :hint='m.prompts_dropAudioFile()',
             @update:model-value='onAudioFilePickerUpdate'
           )
           .row(v-if='audioUpload.error.value').q-mt-xs
@@ -91,7 +91,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
                 padding='6px 12px'
               )
                 q-icon(name='fas fa-microphone', size='14px', class='q-mr-xs')
-                | Start recording
+                | {{ m.prompts_startRecording() }}
               q-btn(
                 v-else,
                 outline,
@@ -101,12 +101,12 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
                 padding='6px 12px'
               )
                 q-icon(name='fas fa-stop', size='14px', class='q-mr-xs')
-                | Stop recording
+                | {{ m.prompts_stopRecording() }}
             .col(v-if='isLoadingToken || scribe.isConnected.value')
               q-spinner(v-if='isLoadingToken', size='20px', color='primary')
               span(v-else-if='scribe.isConnected.value').text-error-text
                 span.q-mr-xs ●
-                | Recording…
+                | {{ m.prompts_recording() }}
           .row(v-if='scribe.error.value').q-mt-xs
             .col.text-negative.text-body2 {{ scribe.error.value }}
       .q-mt-md
@@ -129,7 +129,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
         //- OUTPUT
         .row.q-py-8.items-center
           .col
-            .km-heading-5.text-text-grey Output
+            .km-heading-5.text-text-grey {{ m.common_output() }}
           .col.row.justify-center
             km-btn.width-100(
               v-if='detailedResponse',
@@ -164,7 +164,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
           km-btn(flat, simple, :label='m.common_clearPreview()', iconSize='16px', icon='fas fa-eraser', @click='clearText')
         q-space
         .col-auto
-          km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', :label='m.common_copy()', tooltip='Copy')
+          km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', :label='m.common_copy()', :tooltip='m.common_copy()')
 
   evaluation-jobs-create-new(
     :showNewDialog='showNewDialog',
@@ -177,19 +177,19 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
   )
   km-popup-confirm(
     :visible='showEvaluationCreateDialog',
-    confirmButtonLabel='View Evaluation',
+    :confirmButtonLabel='m.common_viewEvaluation()',
     notificationIcon='far fa-circle-check',
     :cancelButtonLabel='m.common_cancel()',
     @cancel='showEvaluationCreateDialog = false',
     @confirm='navigateToEval()'
   )
-    .row.item-center.justify-center.km-heading-7 Evaluation has started!
-    .row.text-center.justify-center It may take some time for the Evaluation to finish.
-    .row.text-center.justify-center You'll be able to view run results on the Evaluation screen.
+    .row.item-center.justify-center.km-heading-7 {{ m.common_evaluationStarted() }}
+    .row.text-center.justify-center {{ m.common_evaluationTakeTime() }}
+    .row.text-center.justify-center {{ m.common_evaluationViewResults() }}
   km-popup-confirm(
     :visible='showDetails',
-    title='Costs & Latency',
-    confirmButtonLabel='OK',
+    :title='m.prompts_costsAndLatency()',
+    :confirmButtonLabel='m.common_ok()',
     :cancelButtonLabel='m.common_cancel()',
     @cancel='showDetails = false',
     @confirm='showDetails = false'
@@ -270,10 +270,10 @@ export default defineComponent({
     },
     inputOptions() {
       return [
-        { label: 'Manual input', value: null },
-        { label: 'Document upload', value: 'pdf' },
-        { label: 'Audio upload', value: 'audio' },
-        { label: 'Speech to Text', value: 'speech' },
+        { label: m.prompts_manualInput(), value: null },
+        { label: m.prompts_documentUpload(), value: 'pdf' },
+        { label: m.prompts_audioUpload(), value: 'audio' },
+        { label: m.prompts_speechToText(), value: 'speech' },
       ]
     },
     selectedInputOptionOption() {
@@ -429,7 +429,7 @@ export default defineComponent({
     },
     copy() {
       copyToClipboard(this.text || '')
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Output has been copied to clipboard', timeout: 1000 })
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.prompts_outputCopied(), timeout: 1000 })
     },
     clearText() {
       this.text = undefined
@@ -492,7 +492,7 @@ export default defineComponent({
       const formData = new FormData()
 
       if (!file) {
-        throw Error('File is mising')
+         throw Error(m.prompts_fileMissing())
       }
 
       formData.append('file', file)
@@ -515,8 +515,8 @@ export default defineComponent({
         .catch((response) => {
           throw {
             technicalError: response?.error,
-            text: `Error parsing PDF file`,
-          }
+             text: m.prompts_errorParsingPdf(),
+           }
         })
     },
   },

@@ -34,7 +34,7 @@ km-popup-confirm(
       data-test='select-category',
       height='auto',
       minHeight='36px',
-      placeholder='Categories',
+      :placeholder='m.label_categories()',
       :options='categoryOptions',
       v-model='newRow.category',
       ref='categoryRef',
@@ -186,7 +186,7 @@ export default {
         // Handle validation error
 
         if (notify) {
-          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Name, Description, System name and Category are required`, timeout: 1000 })
+          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.validation_required(), timeout: 1000 })
         }
         return false
       }

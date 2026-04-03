@@ -2,10 +2,10 @@
 .col-auto.q-mb-md
   .col-auto
     .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey Model
+      .km-input-label.text-text-grey {{ m.common_model() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='modelLabel',
           @input='modelLabel = $event',
           border-radius='8px',
@@ -15,10 +15,10 @@
         )
     q-separator.q-my-md
     .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey Total tokens
+      .km-input-label.text-text-grey {{ m.agents_totalTokens() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='totalTokens',
           @input='totalTokens = $event',
           border-radius='8px',
@@ -26,10 +26,10 @@
           type='text',
           readonly
         )
-      .km-input-label.text-text-grey Total cost
+      .km-input-label.text-text-grey {{ m.agents_totalCost() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='totalCost',
           @input='totalCost = $event',
           border-radius='8px',
@@ -40,10 +40,10 @@
     q-separator.q-my-md
 
     .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey Input tokens
+      .km-input-label.text-text-grey {{ m.agents_inputTokens() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='inputTokens',
           @input='inputTokens = $event',
           border-radius='8px',
@@ -51,10 +51,10 @@
           type='text',
           readonly
         )
-      .km-input-label.text-text-grey Input cost
+      .km-input-label.text-text-grey {{ m.agents_inputCost() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='inputCost',
           @input='inputCost = $event',
           border-radius='8px',
@@ -62,13 +62,13 @@
           type='text',
           readonly
         )
-        .km-description.text-secondary-text 1M tokens - ${{ priceInput }}
+        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceInput }) }}
 
     .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey Output tokens
+      .km-input-label.text-text-grey {{ m.agents_outputTokens() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='outputTokens',
           @input='outputTokens = $event',
           border-radius='8px',
@@ -76,10 +76,10 @@
           type='text',
           readonly
         )
-      .km-input-label.text-text-grey Output cost
+      .km-input-label.text-text-grey {{ m.agents_outputCost() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='outputCost',
           @input='outputCost = $event',
           border-radius='8px',
@@ -87,12 +87,12 @@
           type='text',
           readonly
         )
-        .km-description.text-secondary-text 1M tokens - ${{ priceOutput }}
+        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceOutput }) }}
     .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey Cached tokens
+      .km-input-label.text-text-grey {{ m.agents_cachedTokens() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='cachedTokens',
           @input='cachedTokens = $event',
           border-radius='8px',
@@ -100,10 +100,10 @@
           type='text',
           readonly
         )
-      .km-input-label.text-text-grey Cached cost
+      .km-input-label.text-text-grey {{ m.agents_cachedCost() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='cachedCost',
           @input='cachedCost = $event',
           border-radius='8px',
@@ -111,14 +111,14 @@
           type='text',
           readonly
         )
-        .km-description.text-secondary-text 1M tokens - ${{ priceCached }}
+        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceCached }) }}
 
     q-separator.q-my-md
     .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey Latency
+      .km-input-label.text-text-grey {{ m.agents_latency() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.prompts_typeYourText()',
           :model-value='latency',
           @input='latency = $event',
           border-radius='8px',
@@ -147,6 +147,7 @@ export default defineComponent({
     const modelItems = computed(() => modelListData.value?.items ?? [])
 
     return {
+      m,
       text: ref(undefined),
       loading: ref(false),
       modelItems,

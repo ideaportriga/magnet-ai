@@ -1261,5 +1261,7 @@
   "agents_userFeedback": "User feedback",
   "agents_sentiment": "Sentiment",
   "agents_organization": "Organization",
-  "agents_agentTopic": "Agent topic"
+  "agents_agentTopic": "Agent topic",
+  "prompts_inputOptions": "Options d'entrée",
+  "prompts_showRawTemplate": "Afficher le modèle brut"
 }
