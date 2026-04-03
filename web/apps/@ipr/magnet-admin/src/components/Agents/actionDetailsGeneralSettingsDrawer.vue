@@ -1,18 +1,18 @@
 <template lang="pug">
 div
-  .km-field.text-secondary-text.q-pb-sm.q-pl-8 Name for LLM
-    km-input(ref='input', placeholder='Name for the LLM', border-radius='8px', height='36px', v-model='function_name')
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 Helps LLM find and execute Action. Must be unique within the Topic. Cannot contain spaces.
-  .km-field.text-secondary-text.q-pb-sm.q-pl-8 Description for LLM
+  .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_nameForLlmShort() }}
+    km-input(ref='input', :placeholder='m.agents_nameForLlm()', border-radius='8px', height='36px', v-model='function_name')
+    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_nameLlmHelp() }}
+  .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_descriptionForLlmShort() }}
     km-input(ref='input', rows='8', border-radius='8px', height='36px', type='textarea', v-model='function_description')
 
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 Tool of origin
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.agents_toolOfOriginLabel() }}
   .row.q-gap-8.items-center.q-pl-8
     .km-label {{ tool_name }}
     q-icon.cursor-pointer(name='fa fa-external-link', color='secondary', size='10', @click='openTool', v-if='tool_name')
     km-chip.text-grey.q-ml-sm(:label='getToolTypeLabel(action?.type)', color='in-progress')
   template(v-if='action?.type === "mcp_tool"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-sm Tool provider
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-sm {{ m.agents_toolProvider() }}
     .row.q-gap-8.items-center.q-pl-8
       .km-label {{ tool_object?.name }}
       q-icon.cursor-pointer(
@@ -22,11 +22,12 @@ div
         @click='navigate(`mcp/${tool_object?.id}`)',
         v-if='tool_object?.name'
       )
-      km-chip.text-grey.q-ml-sm(label='MCP Server', color='in-progress')
+      km-chip.text-grey.q-ml-sm(:label='m.entity_mcpServer()', color='in-progress')
 </template>
 
 <script>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
@@ -45,6 +46,7 @@ export default {
     const mcpItems = computed(() => mcpData.value?.items ?? [])
 
     return {
+      m,
       activeVariant,
       activeTopicRef,
       updateNestedListItemBySystemName,
@@ -236,12 +238,12 @@ export default {
     },
     getToolTypeLabel(name) {
       const dict = [
-        { name: 'api', label: 'API Tool' },
-        { name: 'rag', label: 'RAG Tool' },
-        { name: 'prompt_template', label: 'Prompt Template' },
-        { name: 'mcp_tool', label: 'MCP Tool' },
-        { name: 'retrieval', label: 'Retrieval Tool' },
-        { name: 'knowledge_graph', label: 'Knowledge Graph' },
+        { name: 'api', label: this.m.agents_apiTool() },
+        { name: 'rag', label: this.m.agents_ragTool() },
+        { name: 'prompt_template', label: this.m.common_promptTemplate() },
+        { name: 'mcp_tool', label: this.m.agents_mcpTool() },
+        { name: 'retrieval', label: this.m.agents_retrievalToolLabel() },
+        { name: 'knowledge_graph', label: this.m.agents_knowledgeGraphLabel() },
       ]
 
       return dict.find((item) => item.name === name)?.label || name

@@ -120,6 +120,7 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
+import { m } from '@/paraglide/messages'
 import { QTableColumn } from 'quasar'
 import { computed, ref, watch } from 'vue'
 import { useAppStore } from '@/stores/appStore'

@@ -91,6 +91,7 @@ div
 
 <script setup>
 import { ref, computed, watch, useTemplateRef, inject } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useQuasar } from 'quasar'
 import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'

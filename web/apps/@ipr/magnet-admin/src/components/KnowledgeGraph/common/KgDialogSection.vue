@@ -26,6 +26,7 @@
 
 <script setup lang="ts">
 import { colors } from 'quasar'
+import { m } from '@/paraglide/messages'
 import { computed, ref } from 'vue'
 
 interface Props {

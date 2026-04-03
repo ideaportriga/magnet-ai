@@ -1,7 +1,7 @@
 <template lang="pug">
 div
-  km-section(title='Topic processing Prompt Template', subTitle='Provides general instructions and is applicable to all Topics across Agent.')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+  km-section(:title='m.agents_topicProcessingPromptTemplate()', :subTitle='m.subtitle_agentInstructions()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
     km-select(
       height='30px',
       :options='promptTemplatesOptions',
@@ -12,13 +12,13 @@ div
       option-value='system_name',
       :option-show='(item) => item?.category === "agent"'
     )
-    .km-description.text-secondary-text.q-pb-4 Your Prompt Template model must support tool calling
+    .km-description.text-secondary-text.q-pb-4 {{ m.agents_promptTemplateMustSupportToolCalling() }}
     .row.q-mt-sm
       .col-auto
         km-btn(
           flat,
           simple,
-          :label='topicProcessingPromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+          :label='topicProcessingPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
           iconSize='16px',
           icon='fas fa-comment-dots',
           @click='topicProcessingPromptTemplate ? navigate(`prompt-templates/${topicProcessingPromptTemplateId}`) : navigate("prompt-templates")'
@@ -27,6 +27,7 @@ div
 
 <script>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
@@ -38,6 +39,7 @@ export default {
     const { activeVariant, updateVariantField } = useAgentEntityDetail()
 
     return {
+      m,
       activeVariant,
       updateVariantField,
       promptTemplateItems,

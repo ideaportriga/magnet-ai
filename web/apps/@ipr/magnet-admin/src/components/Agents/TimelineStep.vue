@@ -28,31 +28,31 @@ q-timeline-entry(:key='step.started_at', :icon='step.icon', :color='isExpanded ?
       .col
         .row
           .col-1.q-mr-md
-            .km-field.text-secondary-text Intent
+            .km-field.text-secondary-text {{ m.agents_intent() }}
           .col
             km-chip(:label='step.details.intent', color='light')
       .col(v-if='step.details?.topic')
         .row
           .col-1.q-mr-md
-            .km-field.text-secondary-text Topic
+            .km-field.text-secondary-text {{ m.agents_topic() }}
           .col
             km-chip(:label='step.details?.topic', color='light')
       .col
         .row
           .col-auto.q-mr-md
-            .km-field.text-secondary-text Reason
+            .km-field.text-secondary-text {{ m.agents_reason() }}
           .col-auto
             | {{ step.details.reason }}
     template(v-else-if='step.type === "topic_completion"')
       .col
         .row
           .col-auto.q-mr-md
-            .km-field.text-secondary-text Topic
+            .km-field.text-secondary-text {{ m.agents_topic() }}
           .col {{ step.details.topic.name }}
       .col
         .row
           .col-auto.q-mr-md
-            .km-field.text-secondary-text Topic Description
+            .km-field.text-secondary-text {{ m.agents_topicDescription() }}
           .col-auto {{ step.details.topic.description }}
 
         .q-mt-sm(v-if='step.details?.action_call_requests')
@@ -61,7 +61,7 @@ q-timeline-entry(:key='step.started_at', :icon='step.icon', :color='isExpanded ?
               .row.q-mb-sm.items-center
                 km-chip(:label='rq.action_type', color='light')
                 .q-ml-sm {{ rq.function_name }}
-              .km-field.text-secondary-text Request
+              .km-field.text-secondary-text {{ m.agents_request() }}
               km-codemirror(:model-value='stringify(rq?.arguments)', readonly, style='min-height: 100px')
 
     template(v-else-if='step.type === "topic_action_call"')
@@ -70,14 +70,14 @@ q-timeline-entry(:key='step.started_at', :icon='step.icon', :color='isExpanded ?
           .row.q-mb-sm.items-center
             km-chip(:label='step.details.request.action_type', color='light')
             .q-ml-sm {{ step.details.request.function_name }}
-          .km-field.text-secondary-text(v-if='step.details?.request && !isExpanded') Request
+          .km-field.text-secondary-text(v-if='step.details?.request && !isExpanded') {{ m.agents_request() }}
             km-codemirror(:model-value='stringify(step.details.request.arguments)', readonly, style='min-height: 50px')
       div(v-if='step.details')
         q-slide-transition
           div(v-if='step.details?.request && isExpanded')
-            .km-field.text-secondary-text Request
+            .km-field.text-secondary-text {{ m.agents_request() }}
             km-codemirror(:model-value='stringify(step?.details?.request)', readonly, style='min-height: 100px')
-            .km-field.text-secondary-text Response
+            .km-field.text-secondary-text {{ m.agents_response() }}
             km-codemirror(:model-value='stringify(step?.details?.response)', readonly, style='min-height: 100px')
 
     teplate(v-else)
@@ -86,12 +86,14 @@ q-timeline-entry(:key='step.started_at', :icon='step.icon', :color='isExpanded ?
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 export default {
   props: {
     step: Object,
   },
   setup() {
     return {
+      m,
       isExpanded: ref(false),
     }
   },

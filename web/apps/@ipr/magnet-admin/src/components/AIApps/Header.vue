@@ -10,6 +10,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute, useRouter } from 'vue-router'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useEntityDetail } from '@/composables/useEntityDetail'

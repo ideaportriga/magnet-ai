@@ -9,10 +9,11 @@ km-secrets-item(
   :key='`${key}-${remountValue}`'
 )
 .row.q-pt-16
-  km-btn(label='Add Secret', @click='addSecret', size='sm', icon='o_add', flat)
+  km-btn(:label='m.base_addSecret()', @click='addSecret', size='sm', icon='o_add', flat)
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const props = defineProps({
   secrets: {

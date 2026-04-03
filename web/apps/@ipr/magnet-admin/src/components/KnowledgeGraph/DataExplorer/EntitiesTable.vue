@@ -77,6 +77,7 @@
 
 <script setup lang="ts">
 import type { QTableColumn } from 'quasar'
+import { m } from '@/paraglide/messages'
 import { computed } from 'vue'
 import { getEntityDefinitionsFromSettings } from '../EntityExtraction/models'
 import type { EntityRecord, EntityTypeSummary } from './models'

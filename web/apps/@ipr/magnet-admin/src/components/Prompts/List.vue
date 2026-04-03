@@ -55,6 +55,7 @@
 
 <script>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 const promptSearchFields = ['name', 'description']
 export default {

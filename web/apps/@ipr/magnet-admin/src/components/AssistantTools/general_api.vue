@@ -1,6 +1,6 @@
 <template lang="pug">
 div
-  km-section(title='Settings', subTitle='Assistant Tool parameters')
+  km-section(:title='m.common_settings()', :subTitle='m.subtitle_assistantToolParams()')
     .km-field.text-secondary-text.q-pb-md.q-pl-8 Operation type
       km-select(
         height='30px',
@@ -28,7 +28,7 @@ div
       )
 
   q-separator.q-my-lg
-  km-section(title='Descriptions for LLM', subTitle='Descriptions by which the LLM will choose this Assistant Tool')
+  km-section(:title='m.section_descriptionsForLlm()', :subTitle='m.subtitle_llmDescriptions()')
     .km-field.text-secondary-text.q-pb-md.q-pl-8 Name
       km-input(v-model='nameForLLM', placeholder='Tool name for the LLM')
       .km-description.text-secondary-text Tool name for the LLM
@@ -45,7 +45,7 @@ div
       )
       .km-description.text-secondary-textTool Description for the LLM
   q-separator.q-my-lg
-  km-section(title='Require confirmation', subTitle='Require human confirmation before calling API')
+  km-section(:title='m.section_requireConfirmation()', :subTitle='m.subtitle_requireConfirmation()')
     .column
       .col.q-mb-md
         q-chip.km-small-chip(color='primary-light', text-color='primary', label='Upcoming feature')
@@ -55,6 +55,7 @@ div
 
 <script>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
@@ -66,6 +67,7 @@ export default {
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
+      m,
       provider: 'siebel_test',
       draft,
       updateField,

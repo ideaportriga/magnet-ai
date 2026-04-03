@@ -3,20 +3,21 @@ div
   agents-topic-action-template-section
   q-separator.q-my-lg
   km-section(
-    title='Topic advanced instructions',
-    subTitle='Optional additional instructions on how to call actions inside the Topic.These instructions will be merged into Agent\'s Topic processing prompt inside the {TOPIC_INSTRUCTIONS} placeholder.'
+    :title='m.agents_topicAdvancedInstructions()',
+    :subTitle='m.agents_topicAdvancedInstructionsSubtitle()'
   )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Advanced instructions
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.agents_advancedInstructionsLabel() }}
       km-input(ref='input', rows='10', border-radius='8px', height='36px', type='textarea', v-model='instructions')
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 export default {
   emits: ['openTest'],
   setup() {
     const { activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
-    return { activeVariant, updateNestedListItemBySystemName }
+    return { m, activeVariant, updateNestedListItemBySystemName }
   },
   computed: {
     routeParams() {

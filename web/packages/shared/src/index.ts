@@ -1,3 +1,6 @@
+// i18n
+export { initLocale, useLocale } from './lib/i18n'
+
 // Auth
 export { createAuthClient, createAuthFetch } from './lib/auth'
 export type { AuthClient, UserInfo, LoginResult, SignupResult, SessionInfo, MfaSetupInfo } from './lib/auth'

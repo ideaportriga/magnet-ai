@@ -131,6 +131,7 @@
 </template>
 <script>
 import { fetchData } from '@shared'
+import { m } from '@/paraglide/messages'
 import { ref, computed, markRaw, h } from 'vue'
 import filter from '@/config/dashboard/rag-filters'
 import controls from '@/config/dashboard/rag-table'

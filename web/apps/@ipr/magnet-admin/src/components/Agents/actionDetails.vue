@@ -8,10 +8,10 @@
         .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
           .col
             .row.items-center
-              km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
+              km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :modelValue='name', @change='name = $event')
             .row.items-center
               km-input-flat.km-description.full-width.text-black(
-                placeholder='Description',
+                :placeholder='m.common_description()',
                 :modelValue='description',
                 @change='description = $event'
               )
@@ -46,6 +46,7 @@
 
 <script>
 import { ref, computed, onActivated } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
@@ -62,6 +63,7 @@ export default {
     const { data: selectedRow } = queries.agents.useDetail(id)
     const { draft, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
+      m,
       draft,
       activeVariant,
       updateNestedListItemBySystemName,
@@ -73,9 +75,9 @@ export default {
   },
   computed: {
     tabs() {
-      const tabs = [{ name: 'general-settings', label: 'General Settings' }]
+      const tabs = [{ name: 'general-settings', label: this.m.agents_generalSettings() }]
       if (this.action?.type == 'api') {
-        tabs.push({ name: 'parameters', label: 'Parameters' })
+        tabs.push({ name: 'parameters', label: this.m.agents_parameters() })
       }
       return tabs
     },

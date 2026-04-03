@@ -7,60 +7,60 @@ km-inner-loading(:showing='loading')
         .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
           .col
             .row.items-center
-              km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
+              km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :modelValue='name', @change='name = $event')
             .row.items-center
               km-input-flat.km-description.full-width.text-black(
-                placeholder='Description',
+                :placeholder='m.common_description()',
                 :modelValue='description',
                 @change='description = $event'
               )
             .row.items-center.q-pl-6
               q-icon.col-auto(name='o_info', color='text-secondary')
-                q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
+                q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
               km-input-flat.col.km-description.text-black.full-width.text-black(
-                placeholder='Enter system name',
+                :placeholder='m.placeholder_enterSystemNameReadable()',
                 :modelValue='system_name',
                 @change='system_name = $event',
                 @focus='showInfo = true',
                 @blur='showInfo = false'
               )
-            .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
+            .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
           .col-auto.row.items-center.no-wrap.q-gap-8.q-ml-md
-            km-btn(label='Record info', flat, icon='info', iconSize='16px')
+            km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
               q-tooltip.bg-white.block-shadow
                 .q-pa-sm
                   .q-mb-sm
-                    .text-secondary-text.km-button-xs-text Created:
+                    .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
                     .text-secondary-text.km-description {{ created_at }}
                   .q-mb-sm
-                    .text-secondary-text.km-button-xs-text Modified:
+                    .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
                     .text-secondary-text.km-description {{ modified_at }}
                   .q-mb-sm
-                    .text-secondary-text.km-button-xs-text Created by:
+                    .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
                     .text-secondary-text.km-description {{ created_by }}
                   div
-                    .text-secondary-text.km-button-xs-text Modified by:
+                    .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
                     .text-secondary-text.km-description {{ updated_by }}
-            km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-            km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
+            km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+            km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
             q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
               q-menu(anchor='bottom right', self='top right')
                 q-item(clickable, @click='showNewDialog = true', dense)
                   q-item-section
-                    .km-heading-3 Clone
+                    .km-heading-3 {{ m.common_clone() }}
                 q-item(clickable, @click='showDeleteDialog = true', dense)
                   q-item-section
-                    .km-heading-3 Delete
+                    .km-heading-3 {{ m.common_delete() }}
             km-popup-confirm(
               :visible='showDeleteDialog',
-              confirmButtonLabel='Delete AI App',
-              cancelButtonLabel='Cancel',
+              :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_aiApp() })',
+              :cancelButtonLabel='m.common_cancel()',
               notificationIcon='fas fa-triangle-exclamation',
               @confirm='confirmDelete',
               @cancel='showDeleteDialog = false'
             )
-              .row.item-center.justify-center.km-heading-7 You are about to delete the AI App
-              .row.text-center.justify-center This action will permanently delete the AI App and its AI Tabs.
+              .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_aiApp() }) }}
+              .row.text-center.justify-center {{ m.deleteConfirm_aiAppBody() }}
 
         .ba-border.bg-white.border-radius-12.q-pa-16(style='min-width: 300px')
           q-tabs.bb-border.full-width(
@@ -98,6 +98,7 @@ import { VueDraggable } from 'vue-draggable-plus'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 import { storeToRefs } from 'pinia'
+import { m } from '@/paraglide/messages'
 
 export default {
   components: {
@@ -115,6 +116,7 @@ export default {
     const { mutateAsync: createEntity } = queries.ai_apps.useCreate()
 
     return {
+      m,
       draft,
       isLoading,
       isDirty,
@@ -140,8 +142,8 @@ export default {
       clickedRow: ref({}),
       folderTab: ref('records'),
       folderTabs: ref([
-        { name: 'records', label: 'AI Tabs' },
-        { name: 'settings', label: 'Settings' },
+        { name: 'records', label: m.common_aiTabs() },
+        { name: 'settings', label: m.common_settings() },
       ]),
       clearSemanticSearchAnswers,
     }

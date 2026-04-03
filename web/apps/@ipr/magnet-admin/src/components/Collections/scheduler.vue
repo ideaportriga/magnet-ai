@@ -12,7 +12,7 @@ div
             .km-label.q-mb-sm Create a job to schedule automatic syncing for this Knowledge Source
         .row.items-center.justify-center
           .col-auto
-            km-btn(label='Create new job', @click='showNewDialog = true')
+            km-btn(:label='m.collections_createNewJob()', @click='showNewDialog = true')
       //- job_id exists but job not loaded yet - show loading state
       template(v-else-if='jobId && !job')
         .row.items-center.justify-center
@@ -61,7 +61,7 @@ div
       .col-auto
         km-btn.q-mr-12(
           icon='refresh',
-          label='Refresh list',
+          :label='m.collections_refreshList()',
           @click='refetchTraces',
           iconColor='icon',
           hoverColor='primary',
@@ -84,6 +84,7 @@ jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false
 
 <script setup>
 import { ref, nextTick, computed, markRaw, onMounted } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { DateTime } from 'luxon'

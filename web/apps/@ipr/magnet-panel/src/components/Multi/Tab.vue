@@ -24,11 +24,12 @@
         q-tab-panel.q-pa-none(:name='panel.name')
           component(:is='panel.component.name', :key='panel.name', v-bind='panel.component.props')
   template(v-else)
-    .bg-light.q-pt-xl.justify-center.flex.text-secondary-text.km-title There are no available tabs
+    .bg-light.q-pt-xl.justify-center.flex.text-secondary-text.km-title {{ m.panel_noAvailableTabsMulti() }}
 </template>
 
 <script>
 import { defineComponent, ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAiApps } from '@/pinia'
 import getTabComponent from '@shared/utils/getTabComponent'
 
@@ -37,7 +38,7 @@ export default defineComponent({
   setup() {
     const currentTab = ref('')
     const aiAppsStore = useAiApps()
-    return { currentTab, aiAppsStore }
+    return { currentTab, aiAppsStore, m }
   },
   computed: {
     panels() {

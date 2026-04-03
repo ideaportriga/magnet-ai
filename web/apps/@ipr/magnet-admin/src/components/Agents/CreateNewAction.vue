@@ -4,7 +4,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
     q-card-section.card-section-style
       .row
         .col
-          .km-heading-7 New Action
+          .km-heading-7 {{ m.agents_newAction() }}
         .col-auto
           q-btn(icon='close', flat, dense, @click='$emit("cancel")')
     q-card-section.card-section-style.q-mb-md
@@ -53,14 +53,14 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
         //-           )
       .row.q-mt-lg
         .col-auto
-          km-btn(flat, label='Cancel', color='primary', @click='$emit("cancel")')
+          km-btn(flat, :label='m.common_cancel()', color='primary', @click='$emit("cancel")')
         .col
         .col-auto
-          km-btn(label='Add', @click='create')
+          km-btn(:label='m.common_add()', @click='create')
 </template>
 <script>
 import { ref, computed } from 'vue'
-
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
@@ -87,16 +87,17 @@ export default {
 
     const { activeVariant, updateVariantField, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
+      m,
       activeVariant,
       updateVariantField,
       updateNestedListItemBySystemName,
       searchString: ref(''),
       tabs: ref([
-        { name: 'api', label: 'API Tools' },
-        { name: 'mcp_tool', label: 'MCP Tools' },
-        { name: 'rag', label: 'RAG Tools' },
-        { name: 'retrieval', label: 'Retrieval Tools' },
-        { name: 'prompt_template', label: 'Prompt Templates' },
+        { name: 'api', label: m.agents_apiTools() },
+        { name: 'mcp_tool', label: m.agents_mcpTools() },
+        { name: 'rag', label: m.agents_ragTools() },
+        { name: 'retrieval', label: m.agents_retrievalTools() },
+        { name: 'prompt_template', label: m.agents_promptTemplates() },
       ]),
       tab: ref('api'),
       selected: ref([]),
@@ -184,7 +185,7 @@ export default {
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
         group: 'success',
-        message: 'New action(s) have been added',
+        message: m.agents_actionAdded(),
         timeout: 1000,
       })
 

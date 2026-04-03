@@ -2,7 +2,7 @@
 .bg-white.fit.height-100.fit.q-pb-32
   .col-auto
     .row.items-center.justify-between
-      .km-heading-7.q-mb-16 Inputs
+      .km-heading-7.q-mb-16 {{ m.common_inputs() }}
   //-     km-checkbox(v-model="jsonMode" label="JSON mode")
   .column(v-for='form in form')
     .row
@@ -20,7 +20,7 @@
 
   .col-auto.q-mt-lg
     .row.items-center.justify-between
-      .km-heading-7.q-mb-xs Outputs
+      .km-heading-7.q-mb-xs {{ m.common_outputs() }}
     .column.q-gap-4(v-if='response')
       km-codemirror(
         v-if='response',
@@ -36,6 +36,7 @@
 </template>
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
@@ -50,6 +51,7 @@ export default {
       appStore,
       formValues,
       fields,
+      m,
       jsonMode: ref(true),
       jsonString: ref({}),
       response: ref(null),

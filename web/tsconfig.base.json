@@ -17,6 +17,7 @@
     "paths": {
       "@shared": ["packages/shared/src/index.ts"],
       "@shared/*": ["packages/shared/src/lib/*"],
+      "@i18n": ["packages/shared/src/lib/i18n/index.ts"],
       "@themes": ["packages/themes/src/index.ts"],
       "@ui": ["packages/ui-comp/src/index.ts"],
       "@ui/*": ["packages/ui-comp/src/*"]

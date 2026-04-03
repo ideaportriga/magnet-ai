@@ -246,6 +246,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { VueDraggable } from 'vue-draggable-plus'
 import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow } from '../common'
 import { type SourceRow, getSourceTypeName } from '../Sources/models'

@@ -2,7 +2,7 @@
 km-drawer-layout(storageKey='drawer-ai-apps-preview', :defaultWidth='520', :maxWidth='1200', noScroll)
   template(#header)
     .row
-      .col Preview
+      .col {{ m.common_preview() }}
       .col-auto
   .col.relative-position.full-height
     iframe.absolute-full(
@@ -22,6 +22,7 @@ km-drawer-layout(storageKey='drawer-ai-apps-preview', :defaultWidth='520', :maxW
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useState } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
@@ -31,7 +32,7 @@ export default {
     const loading = useState('globalLoading')
     const { draft } = useEntityDetail('ai_apps')
 
-    return { loading, tab, iframe, draft }
+    return { m, loading, tab, iframe, draft }
   },
   computed: {
     baseUrl() {

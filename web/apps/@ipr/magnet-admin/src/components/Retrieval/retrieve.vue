@@ -1,11 +1,11 @@
 <template lang="pug">
 <!-- Knowledge sources section -->
-km-section(title='Knowledge sources', subTitle='Select one or multiple Knowledge sources to search')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge sources
+km-section(:title='m.label_knowledgeSources()', :subTitle='m.subtitle_selectKnowledgeSourcesRetrieval()')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_knowledgeSources() }}
   km-select(
     height='auto',
     minHeight='36px',
-    placeholder='Select knowledge sources',
+    :placeholder='m.common_selectKnowledgeSources()',
     multiple,
     :options='collections',
     v-model='collectionSystemNames',
@@ -14,54 +14,54 @@ km-section(title='Knowledge sources', subTitle='Select one or multiple Knowledge
   )
   .row.q-mt-sm
     .col-auto
-      km-btn(flat, simple, label='Open Knowledge sources', iconSize='16px', icon='fas fa-book', @click='navigate("knowledge-sources")')
+      km-btn(flat, simple, :label='m.common_openKnowledgeSources()', iconSize='16px', icon='fas fa-book', @click='navigate("knowledge-sources")')
 q-separator.q-my-lg
 
 <!-- Search capabilities section -->
 km-section(
-  title='Search capabilities',
-  subTitle='Configure how search will be performed. To activate hybrid search, enable both semantic and keyword search.'
+  :title='m.retrieval_searchCapabilities()',
+  :subTitle='m.subtitle_configureSearch()'
 )
   .column.q-gap-16
     .column
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(v-model='allowMetadataFilter', dense)
-        .col.q-mb-sm Allow metadata filtering
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm Allow to use filtering by metadata to exclude documents, that are not relevant to the search.
+        .col.q-mb-sm {{ m.retrieval_allowMetadataFiltering() }}
+      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.retrieval_allowMetadataFilteringDesc() }}
     .column
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(:model-value='true', disable, dense)
-        .col.q-mb-sm Use semantic (vector) search
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm Use vector embeddings to search documents semantically, based on their meaning rather than just exact matches. Currently, cannot be turned off.
+        .col.q-mb-sm {{ m.retrieval_useSemanticSearch() }}
+      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.retrieval_useSemanticSearchDesc() }}
     .column
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(v-model='useKeywordSearch', dense)
-        .col.q-mb-sm Use keyword search
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm Use direct keyword matching. Note that keyword search capabilities depend on the underlying database implementation.
+        .col.q-mb-sm {{ m.retrieval_useKeywordSearch() }}
+      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.retrieval_useKeywordSearchDesc() }}
 q-separator.q-my-lg
 
 <!-- Re-ranking section -->
 km-section(
-  title='Re-ranking',
-  subTitle='Re-ranking significantly improves search results by selecting most relevant chunks in two steps. Makes an extra call to LLM.'
+  :title='m.retrieval_reRanking()',
+  :subTitle='m.subtitle_reranking()'
 )
   .column
     .col
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(v-model='isReRanking', dense)
-        .col.q-mb-sm Re-rank with LLM
+        .col.q-mb-sm {{ m.retrieval_reRankWithLlm() }}
     .col
     template(v-if='isReRanking')
       .col.q-mt-md
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 LLM model
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_llmModel() }}
         km-select(
           height='auto',
           minHeight='36px',
-          placeholder='Re-rank Model',
+          :placeholder='m.common_reRankModel()',
           v-model='reRankingModel',
           :options='modelOptions',
           optionLabel='display_name',
@@ -75,35 +75,36 @@ km-section(
                 q-item-label.km-label {{ opt.display_name }}
                 .row.q-mt-xs(v-if='opt.provider_system_name')
                   q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-        .km-field.text-secondary-text Use LLM to rank candidate results. Makes extra calls to LLM
+        .km-field.text-secondary-text {{ m.retrieval_useLlmToRank() }}
       q-separator.q-my-md
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max number of chunks to retrieve for re-ranking
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_maxChunksForReranking() }}
       div(style='max-width: 200px')
-        km-input(type='number', height='30px', placeholder='Number of chunks to select', v-model='reRankingMaxChankRetrieve')
-      .km-description.text-secondary-text.q-pb-4 If re-ranking is turned on, these chunks will be re-ordered to select the most relevant results.
+        km-input(type='number', height='30px', :placeholder='m.common_numberOfChunksToSelect()', v-model='reRankingMaxChankRetrieve')
+      .km-description.text-secondary-text.q-pb-4 {{ m.retrieval_rerankingChunksDesc() }}
 q-separator.q-my-lg
 
 <!-- Similarity score section -->
-km-section(title='Similarity score', subTitle='How strictly a user query should match retrieved documents.')
+km-section(:title='m.section_similarityScore()', :subTitle='m.subtitle_similarityScore()')
   km-slider-card(
     v-model='similarityScoreThreshold',
-    name='Similarity score threshold',
+    :name='m.retrieval_similarityScoreThreshold()',
     :min='0',
     :max='1',
-    minLabel='Unrelated',
-    maxLabel='Similar',
+    :minLabel='m.retrieval_unrelated()',
+    :maxLabel='m.retrieval_similar()',
     :defaultValue='0.75',
-    description='Minimum similarity score needed for a chunk to be retrieved. We recommend using lower threshold if re-ranking is on.'
+    :description='m.retrieval_similarityScoreDesc()'
   )
 q-separator.q-my-lg
-km-section(title='Chunk limits', subTitle='Configure how chunks of content are retrieved and ranked')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 Number of chunks to select
+km-section(:title='m.section_chunkLimits()', :subTitle='m.subtitle_configureRetrieval()')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_numberOfChunksToSelect() }}
   div(style='max-width: 200px')
-    km-input(type='number', height='30px', placeholder='Number of chunks', v-model='maxChunksRetrieved')
-  .km-description.text-secondary-text.q-pb-4 Max number of best retrieved chunks
+    km-input(type='number', height='30px', :placeholder='m.common_numberOfChunks()', v-model='maxChunksRetrieved')
+  .km-description.text-secondary-text.q-pb-4 {{ m.retrieval_maxBestChunks() }}
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { isEqual, orderBy, pickBy } from 'lodash'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
@@ -122,6 +123,7 @@ export default {
     const { data: modelListData } = queries.model.useList()
 
     return {
+      m,
       activeVariant,
       updateVariantField,
       catalogCollections,

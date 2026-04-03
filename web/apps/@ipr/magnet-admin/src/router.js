@@ -1,3 +1,5 @@
+// Route labels are English strings used as i18n keys.
+// Components should use m[`entity_${route.meta.entityType}`]() for translated labels.
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { usePopupStore } from '@/stores/popupStore'
 import { useEditBufferStore } from '@/stores/editBufferStore'

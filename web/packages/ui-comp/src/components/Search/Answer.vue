@@ -15,9 +15,9 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
         .row.stretch.no-wrap
           .search-answer-text.stretch.km-title.q-my-4.text-pre-wrap {{ answer.prompt }}
         template(v-if='$theme === "default"')
-          km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', tooltip='Refine')
+          km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='t.refine')
         template(v-else)
-          km-btn.self-start(svgIcon='edit', iconColor='primary', iconSize='12px', size='xs', flat, @click='refine(answer.prompt)', tooltip='Refine')
+          km-btn.self-start(svgIcon='edit', iconColor='primary', iconSize='12px', size='xs', flat, @click='refine(answer.prompt)', :tooltip='t.refine')
 
   //- ANSWER
   .col-auto.q-pt-md
@@ -56,7 +56,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
               )
               .row(style='flex: 1 0 0; align-self: stretch')
 
-              km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', tooltip='Copy')
+              km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', :tooltip='t.copy')
             template(v-else)
               km-btn(
                 svgIcon='like',
@@ -81,11 +81,11 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                 :class='{ "bg-dislike-bg border-radius-6": feedback === false }'
               )
               .row(style='flex: 1 0 0; align-self: stretch')
-              km-btn(svgIcon='copy', iconColor='primary', iconSize='12px', size='xs', flat, @click='copy', tooltip='Copy')
+              km-btn(svgIcon='copy', iconColor='primary', iconSize='12px', size='xs', flat, @click='copy', :tooltip='t.copy')
 
         template(v-if='mainAnswer.hasAnswers')
           .column.q-py-12.full-width.q-gap-8.bt-border.q-mt-sm
-            .km-description.text-grey The answer was found using information from the following articles:
+            .km-description.text-grey {{ t.sourcesIntro }}
 
             template(v-for='(source, index) in mainAnswerSources')
               .row.q-gap-12.items-center
@@ -104,7 +104,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                     a.km-link-title.word-break-all.cursor-pointer(:href='source?.metadata?.source', target='_blank') {{ `${source?.metadata?.title} ${source?.metadata?.pageNumber || source?.metadata?.page ? ` | Page ${source?.metadata?.pageNumber || source?.metadata?.page} ` : ''}` }}
 
                   template(v-else)
-                    .km-link-title.word-break-all.text-primary-text {{ source?.metadata?.title || 'Unknown source' }}
+                    .km-link-title.word-break-all.text-primary-text {{ source?.metadata?.title || t.unknownSource }}
 
                 .col-auto.self-start
                   km-chip.border-radius-12.text-score-relevant-text.q-py-2(
@@ -134,8 +134,22 @@ import { notify } from '@shared/utils/notify'
 
 import { ref } from 'vue'
 
+const DEFAULT_T = {
+  refine: 'Refine',
+  copy: 'Copy',
+  unknownSource: 'Unknown source',
+  sourcesIntro: 'The answer was found using information from the following articles:',
+}
+
 export default {
-  props: ['answer', 'uiSettings'],
+  props: {
+    answer: {},
+    uiSettings: {},
+    t: {
+      type: Object,
+      default: () => DEFAULT_T,
+    },
+  },
   emits: ['refine'],
   setup() {
     const showFeedback = ref(false)

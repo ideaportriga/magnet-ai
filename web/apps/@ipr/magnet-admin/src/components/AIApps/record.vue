@@ -5,7 +5,7 @@
       .col-auto(style='width: 60px')
         .row.items-center(v-if='hovered[row.system_name] && !isMoving')
           km-btn(flat, icon='fas fa-bars', iconSize='20px', color='secondary-text')
-          q-tooltip(anchor='top middle', self='bottom middle') Drag to reorder AI Tab
+          q-tooltip(anchor='top middle', self='bottom middle') {{ m.aiApps_dragToReorder() }}
       .col
         .row
           .col-auto.km-heading-4 {{ row.name }}
@@ -26,13 +26,14 @@
               iconSize='14px',
               color='secondary-text'
             )
-            q-tooltip(anchor='top middle', self='bottom middle') {{ row?.inactive ? 'Activate AI Tab' : 'Deactivate AI Tab' }}
+            q-tooltip(anchor='top middle', self='bottom middle') {{ row?.inactive ? m.aiApps_activateTab() : m.aiApps_deactivateTab() }}
           .col-auto
             km-btn(v-if='hovered[row.system_name]', flat, icon='fas fa-trash', @click.stop='removeRecord', iconSize='14px', color='secondary-text')
-            q-tooltip(anchor='top middle', self='bottom middle') Delete AI Tab
+            q-tooltip(anchor='top middle', self='bottom middle') {{ m.aiApps_deleteTab() }}
 </template>
 <script>
 import { getTabByVal } from '@/config/ai_apps/tab_types'
+import { m } from '@/paraglide/messages'
 export default {
   props: {
     row: Object,
@@ -44,6 +45,7 @@ export default {
   },
   setup() {
     return {
+      m,
       getTabByVal,
     }
   },

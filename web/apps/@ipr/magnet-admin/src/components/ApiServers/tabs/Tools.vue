@@ -8,7 +8,7 @@
       template(v-if='selectedRows.length > 0')
         km-btn(@click='showDeleteDialog = true', icon='delete', flat, label='Delete')
     .col-auto
-      km-btn(label='Add Tools', @click='showNewDialog = true')
+      km-btn(:label='m.apiServers_addTools()', @click='showNewDialog = true')
   .col(style='min-height: 0')
     km-data-table(:table='table', fill-height, row-key='system_name', @row-click='handleRowClick')
 template(v-else)
@@ -16,25 +16,26 @@ template(v-else)
     .col.q-pa-xl.bg-light.border-radius-12
       .row.items-center.justify-center.q-mb-md
         q-icon(name='fa fa-arrow-right-arrow-left', size='48px', color='primary')
-      .km-heading-7.text-black You have no API tools yet
-      .km-description.text-black Use an API specification to create tools
+      .km-heading-7.text-black {{ m.apiServers_noApiToolsYet() }}
+      .km-description.text-black {{ m.apiServers_useApiSpec() }}
       .row.items-center.justify-center.q-mt-lg
-        km-btn(label='Add Tools', @click='showNewDialog = true')
+        km-btn(:label='m.apiServers_addTools()', @click='showNewDialog = true')
 api-servers-new-tools(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 km-popup-confirm(
   :visible='showDeleteDialog',
-  confirmButtonLabel='Delete',
-  cancelButtonLabel='Cancel',
+  :confirmButtonLabel='m.common_delete()',
+  :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='deleteSelected',
   @cancel='showDeleteDialog = false'
 )
-  .km-title.q-pl-16.q-pb-8.q-pt-lg.text-text-grey.text-center Are you sure you want to delete the selected tools?
-  .km-description.q-pl-16.q-pb-8.q-pt-lg.text-text-grey.text-center This action cannot be undone.
+  .km-title.q-pl-16.q-pb-8.q-pt-lg.text-text-grey.text-center {{ m.apiServers_deleteToolsConfirm() }}
+  .km-description.q-pl-16.q-pb-8.q-pt-lg.text-text-grey.text-center {{ m.apiServers_actionCannotBeUndone() }}
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRouter, useRoute } from 'vue-router'
 import { fetchData } from '@shared'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'

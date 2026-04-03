@@ -11,6 +11,7 @@ user-security-page(
 
 <script>
 import { computed, ref, onMounted } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAuth } from '@shared'
 import UserSecurityPage from '@ui/components/user/UserSecurityPage.vue'
 import { useSharedAuthStore } from '@shared/stores/authStore'

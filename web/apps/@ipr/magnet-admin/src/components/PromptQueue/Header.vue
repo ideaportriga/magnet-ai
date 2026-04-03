@@ -5,6 +5,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { usePromptQueueStore } from '@/stores/promptQueueStore'
 
 const pqStore = usePromptQueueStore()

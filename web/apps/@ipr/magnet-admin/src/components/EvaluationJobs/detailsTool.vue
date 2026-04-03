@@ -57,6 +57,7 @@
 
 <script>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useEvaluationStore } from '@/stores/evaluationStore'

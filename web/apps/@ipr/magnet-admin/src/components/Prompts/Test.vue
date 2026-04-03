@@ -52,6 +52,7 @@
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useSpecificationsStore } from '@/stores/specificationsStore'
 
 export default {

@@ -63,6 +63,7 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
+import { m } from '@/paraglide/messages'
 import { computed, inject, onUnmounted, ref, watch, type Ref } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 import { KgDialogBase, KgDialogSection } from '../../common'

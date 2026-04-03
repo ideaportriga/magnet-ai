@@ -4,10 +4,10 @@
     .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
       .row.q-mb-12
         .col-auto.center-flex-y
-          km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
+          km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
         q-space
         .col-auto.center-flex-y
-          km-btn.q-mr-12(data-test='new-btn', label='New', @click='openNewDetails')
+          km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='openNewDetails')
       .col.overflow-auto(style='min-height: 0')
         q-table.full-width(
           grid,
@@ -58,6 +58,7 @@ import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { beforeRouteEnter } from '@/guards'
 import aiAppsControls from '@/config/ai_apps/ai_apps'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
+import { m } from '@/paraglide/messages'
 
 export default {
   beforeRouteEnter,
@@ -130,6 +131,7 @@ export default {
         system_name: '',
       }),
       showNewDialog: ref(false),
+      m,
     }
   },
   computed: {

@@ -80,6 +80,7 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'

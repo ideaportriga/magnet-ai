@@ -44,6 +44,7 @@ div
 
 <script>
 import { isEqual, orderBy, pickBy } from 'lodash'
+import { m } from '@/paraglide/messages'
 import { ref } from 'vue'
 import MarkdownIt from 'markdown-it'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'

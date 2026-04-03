@@ -1,31 +1,31 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New MCP Server',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to add headers and secrets later in MCP Server settings.',
+  :title='m.dialog_newMcpServer()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_addHeadersMcp()',
   @confirm='createMCPServer',
   @cancel='$emit("cancel")'
 )
   .column.q-gap-16
     .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
       .full-width
         km-input(data-test='name-input', height='30px', v-model='name', ref='nameRef', :rules='[required()]')
 
     .col
-      .km-field.text-secondary-text.q-pl-8 System name
+      .km-field.text-secondary-text.q-pl-8 {{ m.common_systemName() }}
       .full-width
         km-input(data-test='name-input', height='30px', v-model='system_name', ref='systemRef', :rules='[required()]')
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 System name serves as a unique record ID
+      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_systemNameUniqueId() }}
 
     .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 URL
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_url() }}
       .full-width
         km-input(data-test='name-input', height='30px', v-model='url', ref='urlRef', :rules='[required()]')
     .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Transport
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_transport() }}
       .row.q-gap-16
         q-radio.q-my-sm(name='transport', dense, label='streamable-http', val='streamable-http', v-model='transport', size='xs')
         q-radio.q-my-sm(name='transport', dense, label='sse', val='sse', v-model='transport', size='xs')
@@ -33,6 +33,7 @@ km-popup-confirm(
 
 <script setup>
 import { ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { required } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'

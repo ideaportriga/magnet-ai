@@ -2,60 +2,60 @@
 km-inner-loading(:showing='loading')
 layouts-details-layout(v-if='!loading', :noHeader='false', :contentContainerStyle='{ maxWidth: "1200px", minWidth: "500px" }')
   template(#header)
-    km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='recordName', @input='recordName = $event')
+    km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :modelValue='recordName', @input='recordName = $event')
     km-input-flat.km-description.full-width.text-black(
-      placeholder='Description',
+      :placeholder='m.common_description()',
       :modelValue='recordDescription',
       @input='recordDescription = $event'
     )
     .row.items-center.q-pl-6
       q-icon.col-auto(name='o_info', color='text-secondary')
-        q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
+        q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
       km-input-flat.col.km-description.full-width(
-        placeholder='Enter system name',
+        :placeholder='m.placeholder_enterSystemNameReadable()',
         :modelValue='recordSystemName',
         @input='recordSystemName = $event'
       )
   template(#header-actions)
-    km-btn(label='Record info', flat, icon='info', iconSize='16px')
+    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
       q-tooltip.bg-white.block-shadow
         .q-pa-sm
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
             .text-secondary-text.km-description {{ created_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Modified:
+            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
             .text-secondary-text.km-description {{ modified_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created by:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
             .text-secondary-text.km-description {{ created_by }}
           div
-            .text-secondary-text.km-button-xs-text Modified by:
+            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Reload Runtime', flat, icon='fas fa-sync', iconSize='16px', @click='reloadRuntime', :loading='reloading')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving')
+    km-btn(:label='m.common_reloadRuntime()', flat, icon='fas fa-sync', iconSize='16px', @click='reloadRuntime', :loading='reloading')
+    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showDeleteDialog = true', dense)
           q-item-section
-            .km-heading-3 Delete
+            .km-heading-3 {{ m.common_delete() }}
     km-popup-confirm(
       :visible='showDeleteDialog',
-      confirmButtonLabel='Delete Note Taker',
-      cancelButtonLabel='Cancel',
+      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_noteTaker() })',
+      :cancelButtonLabel='m.common_cancel()',
       notificationIcon='fas fa-triangle-exclamation',
       @confirm='confirmDelete',
       @cancel='showDeleteDialog = false'
     )
-      .row.item-center.justify-center.km-heading-7 You are about to delete the Note Taker config
-      .row.text-center.justify-center This action will permanently delete the Note Taker configuration.
+      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_noteTaker() }) }}
+      .row.text-center.justify-center {{ m.deleteConfirm_noteTakerBody() }}
   template(#content)
     km-tabs(v-model='tab')
-      q-tab(name='transcription', label='Transcription')
-      q-tab(name='post-processing', label='Post-processing')
-      q-tab(name='embedding', label='Embedding')
-      q-tab(name='integrations', label='Integrations')
-      q-tab(name='ms-teams', label='MS Teams Settings')
+      q-tab(name='transcription', :label='m.common_transcription()')
+      q-tab(name='post-processing', :label='m.common_postProcessing()')
+      q-tab(name='embedding', :label='m.common_embedding()')
+      q-tab(name='integrations', :label='m.common_integrations()')
+      q-tab(name='ms-teams', :label='m.common_msTeamsSettings()')
 
     .col.overflow-auto.q-mt-lg(style='min-height: 0')
       template(v-if='tab === "transcription"')
@@ -80,6 +80,7 @@ import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useRouter, useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
+import { m } from '@/paraglide/messages'
 
 import NoteTakerTabTranscription from './tabs/Transcription.vue'
 import NoteTakerTabPostProcessing from './tabs/PostProcessing.vue'

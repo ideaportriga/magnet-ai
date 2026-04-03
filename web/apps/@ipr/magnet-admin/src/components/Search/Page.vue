@@ -34,6 +34,7 @@
 
 <script>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { storeToRefs } from 'pinia'
 import { useEntityQueries } from '@/queries/entities'
 import { useSearchStore } from '@/stores/searchStore'

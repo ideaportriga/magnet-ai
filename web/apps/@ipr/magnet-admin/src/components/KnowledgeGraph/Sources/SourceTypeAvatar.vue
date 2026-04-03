@@ -19,6 +19,7 @@
 </template>
 
 <script setup lang="ts">
+import { m } from '@/paraglide/messages'
 defineProps<{
   name: string
   image?: string

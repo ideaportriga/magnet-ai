@@ -74,6 +74,7 @@
 </template>
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const filter = {
   channel: {

@@ -1,33 +1,34 @@
 <template lang="pug">
 div
-  km-section(title='Header configuration', subTitle='Configure heading and subheading for your RAG tool')
+  km-section(:title='m.section_headerConfiguration()', :subTitle='m.subtitle_configureRagHeading()')
     .q-mb-lg
-      .km-input-label Heading text
-      km-input(@input='headingText = $event', :model-value='headingText', placeholder='E.g. Welcome to our Q&A!')
-      .km-tiny Not displayed if left blank
+      .km-input-label {{ m.ragTools_headingText() }}
+      km-input(@input='headingText = $event', :model-value='headingText', :placeholder='m.ragTools_headingPlaceholder()')
+      .km-tiny {{ m.ragTools_notDisplayedIfBlank() }}
     div
-      .km-input-label Subheading text
-      km-input(@input='subHeadingText = $event', :model-value='subHeadingText', placeholder='E.g. Use this tool to search our knowledge base')
-      .km-tiny Not displayed if left blank
+      .km-input-label {{ m.ragTools_subheadingText() }}
+      km-input(@input='subHeadingText = $event', :model-value='subHeadingText', :placeholder='m.ragTools_subheadingPlaceholder()')
+      .km-tiny {{ m.ragTools_notDisplayedIfBlank() }}
   q-separator.q-my-lg
-  km-section(title='User feedback', subTitle='Allow users to send their feedback in form of like or dislike')
+  km-section(:title='m.section_userFeedback()', :subTitle='m.subtitle_allowFeedback()')
     q-toggle.q-mb-lg(v-model='isUserFeedbackOn', dense)
   q-separator.q-my-lg
-  km-section(title='Sample questions', subTitle='Display up to 3 question suggestions to help users formulate their questions')
+  km-section(:title='m.section_sampleQuestions()', :subTitle='m.subtitle_sampleQuestions()')
     q-toggle.q-mb-lg(v-model='isSampleQestion', dense)
     template(v-if='isSampleQestion')
       .q-mb-lg
-        .km-input-label Question 1
-        km-input(v-model='question1', placeholder='What are our most popular pricing plans?')
+        .km-input-label {{ m.common_question1() }}
+        km-input(v-model='question1', :placeholder='m.ragTools_sampleQuestion1Placeholder()')
       .q-mb-lg
-        .km-input-label Question 2
-        km-input(v-model='question2', placeholder='How to change password in mobile application?')
+        .km-input-label {{ m.common_question2() }}
+        km-input(v-model='question2', :placeholder='m.ragTools_sampleQuestion2Placeholder()')
       div
-        .km-input-label Question 3
-        km-input(v-model='question3', placeholder='What is the maximum discount that can be applied on top of other discounts?')
+        .km-input-label {{ m.common_question3() }}
+        km-input(v-model='question3', :placeholder='m.ragTools_sampleQuestion3Placeholder()')
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 
 export default {
@@ -36,7 +37,7 @@ export default {
 
   setup() {
     const { activeVariant, updateVariantField } = useVariantEntityDetail('rag_tools')
-    return { activeVariant, updateVariantField }
+    return { m, activeVariant, updateVariantField }
   },
   computed: {
     isAllowToBypassCache: {

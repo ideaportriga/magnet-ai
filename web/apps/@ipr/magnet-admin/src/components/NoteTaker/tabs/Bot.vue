@@ -120,6 +120,7 @@ km-popup-confirm(
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import { useRouter, useRoute } from 'vue-router'

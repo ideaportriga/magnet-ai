@@ -21,6 +21,7 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import ToolCallDisplay from './ToolCallDisplay.vue'
 
 type ToolFunction = {

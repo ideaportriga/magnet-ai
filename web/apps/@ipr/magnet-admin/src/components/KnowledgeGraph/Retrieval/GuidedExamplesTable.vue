@@ -70,6 +70,7 @@
 
 <script setup lang="ts">
 import type { QTableColumn } from 'quasar'
+import { m } from '@/paraglide/messages'
 import { ref } from 'vue'
 import GuidedExampleDialog from './GuidedExampleDialog.vue'
 import type { RetrievalExample } from './models'

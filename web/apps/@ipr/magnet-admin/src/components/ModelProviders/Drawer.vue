@@ -40,6 +40,7 @@ km-drawer-layout(storageKey="drawer-model-providers", noScroll)
 </template>
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
 export default {

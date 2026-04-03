@@ -52,6 +52,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
 
 <script lang="ts">
 import { useEntityQueries } from '@/queries/entities'
+import { m } from '@/paraglide/messages'
 import { copyToClipboard } from 'quasar'
 import { storeToRefs } from 'pinia'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'

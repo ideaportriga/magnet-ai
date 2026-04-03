@@ -16,7 +16,7 @@ layouts-details-layout(noHeader, :contentContainerStyle='{ maxWidth: "1200px", m
           iconSize='16px',
           hoverBg='primary-bg'
         )
-        km-btn(data-test='new-btn', label='New', @click='showNewDialog = true')
+        km-btn(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
       .col.q-pt-16(style='min-height: 0')
         km-data-table(
           :table='table',
@@ -36,6 +36,7 @@ import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
+import { m } from '@/paraglide/messages'
 import type { Job } from '@/types'
 
 const route = useRoute()
@@ -110,13 +111,13 @@ if (route.query.job_id) {
 }
 
 const columns = [
-  textColumn<Job>('name', 'Name'),
-  textColumn<Job>('status', 'Status'),
-  textColumn<Job>('job_type', 'Type'),
+  textColumn<Job>('name', m.common_name()),
+  textColumn<Job>('status', m.common_status()),
+  textColumn<Job>('job_type', m.common_type()),
   dateColumn<Job>('last_run', 'Last run'),
   dateColumn<Job>('next_run', 'Next run'),
   textColumn<Job>('job_interval', 'Interval'),
-  dateColumn<Job>('created_at', 'Created'),
+  dateColumn<Job>('created_at', m.common_created()),
 ]
 
 const { table, isLoading, isFetching, refetch } = useDataTable<Job>('jobs', columns, {

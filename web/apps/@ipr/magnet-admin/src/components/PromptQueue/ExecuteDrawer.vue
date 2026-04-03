@@ -47,6 +47,7 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
 
 <script setup>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { usePromptQueueStore } from '@/stores/promptQueueStore'
 import { useNotify } from '@/composables/useNotify'
 

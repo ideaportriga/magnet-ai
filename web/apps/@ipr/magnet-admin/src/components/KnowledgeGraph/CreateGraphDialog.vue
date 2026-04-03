@@ -27,6 +27,7 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
+import { m } from '@/paraglide/messages'
 import { ref } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 

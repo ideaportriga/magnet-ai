@@ -20,6 +20,7 @@
 </template>
 <script setup>
 import { ref, onMounted, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()

@@ -1,21 +1,21 @@
 <template lang="pug">
 div
   km-section(
-    title='Enable post-processing',
-    subTitle='Enable to collect data about RAG tool calls for monitoring and analysis purposes. Adds extra calls to LLM.'
+    :title='m.ragTools_enablePostProcessing()',
+    :subTitle='m.subtitle_collectRagData()'
   )
     q-toggle(v-model='postProcessEnabled', dense)
 
   template(v-if='postProcessEnabled') 
     q-separator.q-my-lg
     km-section(
-      title='Post-processing Prompt Template',
-      subTitle='Select post-processing Prompt Template. Add question topics that the LLM will use to classify user questions'
+      :title='m.agents_postProcessingPromptTemplate()',
+      :subTitle='m.subtitle_selectPostProcessing()'
     )
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
       km-select(
         height='30px',
-        placeholder='Prompt template',
+        :placeholder='m.common_promptTemplate()',
         :options='prompts',
         v-model='categorisePromptCode',
         :option-show='(el) => el.category === "rag"',
@@ -26,14 +26,14 @@ div
           km-btn(
             flat,
             simple,
-            :label='categorisePromptCode ? "Open Prompt Template" : "Open Prompt Templates Library"',
+            :label='categorisePromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
             iconSize='16px',
             icon='fas fa-comment-dots',
             @click='openPromptTemplate'
           )
 
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-md Question classification topics
-      km-input-list-add(v-model='categories', btnLabel='Add')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-md {{ m.ragTools_questionClassificationTopics() }}
+      km-input-list-add(v-model='categories', :btnLabel='m.common_add()')
 
   //- q-separator.q-my-lg
   //- km-section(title="Check for hallucinations", subTitle="Ask LLM to review its own response. A hallucination is a response that is not grounded in provided context")
@@ -92,6 +92,7 @@ div
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
@@ -106,6 +107,7 @@ export default {
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
+      m,
       activeVariant,
       updateVariantField,
       promptItems,

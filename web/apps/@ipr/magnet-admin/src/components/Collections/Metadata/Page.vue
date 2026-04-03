@@ -16,7 +16,7 @@ div
       hoverBg='primary-bg',
       @click='showDeleteDialog = true'
     )
-    km-btn(label='Auto-map', @click='autoMap')
+    km-btn(:label='m.collections_autoMap()', @click='autoMap')
     km-btn(label='New', @click='showNewDialog = true')
 
   .row
@@ -31,18 +31,19 @@ div
 
   km-popup-confirm(
     :visible='showDeleteDialog',
-    confirmButtonLabel='Delete',
-    cancelButtonLabel='Cancel',
+    :confirmButtonLabel='m.common_delete()',
+    :cancelButtonLabel='m.common_cancel()',
     notificationIcon='fas fa-triangle-exclamation',
     @confirm='deleteSelected',
     @cancel='showDeleteDialog = false'
   )
-    .row.item-center.justify-center.km-heading-7 Delete Metadata Records
+    .row.item-center.justify-center.km-heading-7 {{ m.collections_deleteMetadataRecords() }}
     .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected records. Are you sure?` }}
 </template>
 
 <script setup lang="ts">
 import { ref, computed, markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useCollectionMetadataStore } from '@/stores/entityDetailStores'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'

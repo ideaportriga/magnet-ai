@@ -182,6 +182,7 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
+import { m } from '@/paraglide/messages'
 import { formatRelative } from '@shared/utils'
 import { QTableColumn, useQuasar } from 'quasar'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'

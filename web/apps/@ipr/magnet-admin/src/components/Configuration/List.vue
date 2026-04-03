@@ -4,16 +4,16 @@
   .col-auto
     .row.items-center
       .col
-        .km-heading-4 Prompt templates
+        .km-heading-4 {{ m.nav_promptTemplates() }}
 
       //- .col-auto
       //-   km-btn(label="New" size="sm" @click="$emit('create')")
 
   //- SEARCH
   .col-auto
-    km-input.full-width(icon-before='search', @input='search = $event', :model-value='search', placeholder='Search prompt templates', clearable)
+    km-input.full-width(icon-before='search', @input='search = $event', :model-value='search', :placeholder='m.common_searchPromptTemplates()', clearable)
   .row.q-pt-16
-    km-btn(label='New prompt template', @click='$emit("create")')
+    km-btn(:label='m.common_newPromptTemplate()', @click='$emit("create")')
 
   //- LIST
   .col.overflow-auto.q-pr-sm
@@ -54,6 +54,7 @@
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 const promptSearchFields = ['name', 'description']
@@ -65,6 +66,7 @@ export default {
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
+      m,
       search: ref(''),
       promptItems,
     }

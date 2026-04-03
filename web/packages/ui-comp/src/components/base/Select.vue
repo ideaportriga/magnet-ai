@@ -34,16 +34,16 @@ q-select.km-control.km-select.ba-border(
       .km-label.text-placeholder(:class='{ "q-pl-6": iconBefore }') {{ permanentPlaceholder }}:
   template(#no-option)
     q-item(v-if='hasDropdownSearch')
-      km-input.full-width(ref='searchInput', placeholder='Search', iconBefore='search', v-model='needle', @input='handleSearch')
+      km-input.full-width(ref='searchInput', :placeholder='searchLabel', iconBefore='search', v-model='needle', @input='handleSearch')
     template(else)
       .km-label.q-pa-md.text-placeholder {{ noOptionText }}
 
   template(#before-options)
     q-item(v-if='multiple && selectAll')
-      km-checkbox(:model-value='isAllSelected', @update:model-value='toggleSelectAll', color='primary') Select All
+      km-checkbox(:model-value='isAllSelected', @update:model-value='toggleSelectAll', color='primary') {{ selectAllLabel }}
     q-separator
     q-item(v-if='hasDropdownSearch')
-      km-input.full-width(ref='searchInput', placeholder='Search', iconBefore='search', v-model='needle', @input='handleSearch') 
+      km-input.full-width(ref='searchInput', :placeholder='searchLabel', iconBefore='search', v-model='needle', @input='handleSearch') 
     q-separator
 
   template(v-slot:selected='scope', v-if='multiple && !useChips')
@@ -51,9 +51,9 @@ q-select.km-control.km-select.ba-border(
       template(v-if='modelValue?.length === 1')
         div {{ modelValue?.[0]?.label }}
       template(v-else-if='modelValue?.length')
-        div {{ modelValue?.length }} selected
+        div {{ modelValue?.length }} {{ selectedSuffix }}
       template(v-else)
-        div nothing selected
+        div {{ nothingSelectedLabel }}
 
   template(#selected-item='scope', v-if='useChips')
     q-chip.q-my-none(text-color='primary', color='primary-light', square, size='12px', :tabindex='scope.tabindex') 
@@ -129,7 +129,23 @@ export default {
     clearable: Boolean,
     noOptionText: {
       type: String,
-      default: 'No Options available',
+      default: 'No options available',
+    },
+    selectAllLabel: {
+      type: String,
+      default: 'Select All',
+    },
+    searchLabel: {
+      type: String,
+      default: 'Search',
+    },
+    selectedSuffix: {
+      type: String,
+      default: 'selected',
+    },
+    nothingSelectedLabel: {
+      type: String,
+      default: 'nothing selected',
     },
     showCount: {
       type: Boolean,

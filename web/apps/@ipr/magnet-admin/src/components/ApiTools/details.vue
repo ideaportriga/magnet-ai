@@ -8,41 +8,41 @@ layouts-details-layout(v-if='apiTool')
     //-   .km-input-label.q-pl-6.text-secondary-text.q-pb-4(style='line-height: 16px') API Provider
       //- km-select-flat(placeholder='API Provider', :options='apiProviderOptions', v-model='apiProvider')
   template(#header-actions)
-    km-btn(label='Record info', flat, icon='info', iconSize='16px')
+    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
       q-tooltip.bg-white.block-shadow
         .q-pa-sm
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
             .text-secondary-text.km-description {{ metadata.created_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Modified:
+            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
             .text-secondary-text.km-description {{ metadata.modified_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created by:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
             .text-secondary-text.km-description {{ metadata.created_by }}
           div
-            .text-secondary-text.km-button-xs-text Modified by:
+            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
             .text-secondary-text.km-description {{ metadata.updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
+    km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='clone', dense)
           q-item-section
-            .km-heading-3 Clone
+            .km-heading-3 {{ m.common_clone() }}
         q-item(clickable, @click='showDeleteDialog = true', dense)
           q-item-section
-            .km-heading-3 Delete
+            .km-heading-3 {{ m.common_delete() }}
     km-popup-confirm(
       :visible='showDeleteDialog',
-      confirmButtonLabel='Delete API Tool',
-      cancelButtonLabel='Cancel',
+      :confirmButtonLabel='m.dialog_deleteApiTool()',
+      :cancelButtonLabel='m.common_cancel()',
       notificationIcon='fas fa-triangle-exclamation',
       @confirm='confirmDelete',
       @cancel='showDeleteDialog = false'
     )
-      .row.item-center.justify-center.km-heading-7 You are about to delete the API Tool
-      .row.text-center.justify-center This action will permanently delete the API Tool and disable it in all tools that are using it, e.g. Agents.
+      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: 'API Tool' }) }}
+      .row.text-center.justify-center {{ m.deleteConfirm_permanentDeleteDisable({ entity: 'API Tool' }) }}
   template(#content)
     .column.full-height(style='min-height: 0')
       q-tabs.bb-border.full-width(
@@ -72,12 +72,14 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import _ from 'lodash'
+import { m } from '@/paraglide/messages'
 export default {
   setup() {
     const route = useRoute()
     const { draft, isDirty, updateField, save: saveServer, revert } = useEntityDetail('api_servers')
 
     return {
+      m,
       tab: ref('parameters'),
       tabs: ref([
         { name: 'parameters', label: 'Parameters' },
@@ -104,8 +106,8 @@ export default {
       return {
         created_at: this.formatDate(this.apiTool?.created_at),
         modified_at: this.formatDate(this.apiTool?.updated_at),
-        created_by: this.apiTool?.created_by ? `${this.apiTool?.created_by}` : 'Unknown',
-        updated_by: this.apiTool?.updated_by ? `${this.apiTool?.updated_by}` : 'Unknown',
+        created_by: this.apiTool?.created_by ? `${this.apiTool?.created_by}` : m.common_unknown(),
+        updated_by: this.apiTool?.updated_by ? `${this.apiTool?.updated_by}` : m.common_unknown(),
       }
     },
     name: {
@@ -170,12 +172,12 @@ export default {
       try {
         const result = await this.saveServer()
         if (result.success) {
-          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_savedSuccessfully(), timeout: 2000 })
         } else {
           throw result.error || new Error('Failed to save')
         }
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Failed to save API Tool.', timeout: 2000 })
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.notify_failedToSave(), timeout: 2000 })
       } finally {
         this.saving = false
       }
@@ -190,7 +192,7 @@ export default {
         this.updateField('tools', tools.filter((_, i) => i !== toolIndex))
         const result = await this.saveServer()
         if (!result.success) throw result.error || new Error('Failed to save')
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'API Tool has been deleted.', timeout: 1000 })
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_deletedSuccessfully({ entity: 'API Tool' }), timeout: 1000 })
         this.$router?.push(`/api-servers/${this.$route.params.id}`)
       } catch (error) {
         const errorMessage = error?.message || 'Failed to delete API Tool.'

@@ -7,6 +7,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import path from 'path'
+import { paraglideVitePlugin } from '@inlang/paraglide-js'
 
 export default defineConfig({
   root: __dirname,
@@ -29,6 +30,10 @@ export default defineConfig({
     }),
     nxViteTsPaths(),
     nxCopyAssetsPlugin(['*.md']),
+    paraglideVitePlugin({
+      project: path.resolve(__dirname, '../../../project.inlang'),
+      outdir: path.resolve(__dirname, 'src/paraglide'),
+    }),
   ],
   // Uncomment this if you are using workers.
   // worker: {

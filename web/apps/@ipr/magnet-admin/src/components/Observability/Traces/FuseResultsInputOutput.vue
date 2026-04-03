@@ -22,6 +22,7 @@
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { formatScore } from '@shared/utils'
 
 export default {

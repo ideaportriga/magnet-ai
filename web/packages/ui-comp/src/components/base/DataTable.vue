@@ -40,7 +40,7 @@
           <tr v-else-if="rows.length === 0">
             <td :colspan="table.getAllColumns().length" class="text-center q-py-xl">
               <slot name="empty-state">
-                <div class="text-grey-6 km-description">No records found</div>
+                <div class="text-grey-6 km-description">{{ noRecordsLabel }}</div>
               </slot>
             </td>
           </tr>
@@ -88,7 +88,7 @@
       <q-space />
 
       <div class="row items-center q-gap-8">
-        <span class="km-description">Rows per page:</span>
+        <span class="km-description">{{ rowsPerPageLabel }}</span>
         <q-select
           v-model="pageSize"
           :options="pageSizeOptions"
@@ -180,6 +180,8 @@ const props = withDefaults(defineProps<{
   rowKey?: string
   hidePagination?: boolean
   pageSizeOptions?: number[]
+  noRecordsLabel?: string
+  rowsPerPageLabel?: string
 }>(), {
   loading: false,
   fetching: false,
@@ -192,6 +194,9 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'row-click': [row: T]
 }>()
+
+const noRecordsLabel = computed(() => props.noRecordsLabel ?? 'No records found')
+const rowsPerPageLabel = computed(() => props.rowsPerPageLabel ?? 'Rows per page:')
 
 const rows = computed(() => props.table.getRowModel().rows)
 

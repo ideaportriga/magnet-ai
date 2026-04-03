@@ -1,15 +1,15 @@
 <template lang="pug">
 .full-width
-  km-section(title='Connection settings', subTitle='Endpoint URL')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 URL
+  km-section(:title='m.section_connectionSettings()', :subTitle='m.subtitle_endpointUrl()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_url() }}
     .row.items-center.q-gap-16.no-wrap
       km-input.full-width(:model-value='server?.url', readonly)
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-lg Verify ssl certificate
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-lg {{ m.apiServers_verifySsl() }}
     .row.items-center.q-gap-16.no-wrap
       q-toggle(v-model='verifySsl')
         .text-secondary-text {{ verifySsl ? 'Yes' : 'No' }}
   q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Custom Headers', subTitle='Add custom HTTP headers to include with every request')
+  km-section(:title='m.section_customHeaders()', :subTitle='m.apiServers_customHeadersNotification()')
     km-notification-text(
       notification='Define custom headers that will be sent with each API request. Use placeholders in curly braces to reference secrets.'
     )
@@ -24,9 +24,9 @@
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
         km-btn(@click='removeCustomHeader(key)', icon='o_delete', size='sm', flat, color='negative')
     .row.q-pt-16
-      km-btn(label='Add Custom Header', @click='addCustomHeader', size='sm', icon='o_add', flat)
+      km-btn(:label='m.apiServers_addCustomHeader()', @click='addCustomHeader', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Security schema', subTitle='Authentication and authorization scheme to access the endpoint')
+  km-section(:title='m.section_securitySchema()', :subTitle='m.apiServers_securitySchemaSubtitle()')
     km-notification-text
       div Supported types: apiKey, basic, oauth2. Check
         | &nbsp;
@@ -38,7 +38,7 @@
       km-input.full-width(v-model='serverSecurityScheme', type='textarea', rows='4')
     .km-small-chip.q-pa-4.q-pl-8.text-error-text(v-if='parsingError') Invalid JSON format. Please check your input and ensure it follows valid JSON syntax.
   q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Security Values', subTitle='Security values depending on security schema type')
+  km-section(:title='m.section_securityValues()', :subTitle='m.apiServers_securityValuesSubtitle()')
     km-notification-text(
       notification='Do not expose sensitive data in this section. Instead, use placeholders and provide actual values in the Secrets section. Use curly braces to insert placeholders.'
     )
@@ -53,14 +53,15 @@
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
         km-btn(@click='removeSecurityValue(key)', icon='o_delete', size='sm', flat, color='negative')
     .row.q-pt-16
-      km-btn(label='Add Security Value', @click='addSecurityValue', size='sm', icon='o_add', flat)
+      km-btn(:label='m.apiServers_addSecurityValue()', @click='addSecurityValue', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or passwords.')
+  km-section(:title='m.section_secrets()', :subTitle='m.apiServers_secretsSubtitle()')
     km-secrets(v-model:secrets='secrets', :original-secrets='originalApiSecrets', :remount-value='remountValue')
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
 const { draft, data, updateField } = useEntityDetail('api_servers')

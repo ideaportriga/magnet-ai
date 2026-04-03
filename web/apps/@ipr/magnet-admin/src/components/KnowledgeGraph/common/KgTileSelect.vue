@@ -30,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import { m } from '@/paraglide/messages'
 export interface TileOption {
   value: string
   label: string

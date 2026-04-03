@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogBase, KgDialogSection, KgTileSelect, type TileOption } from '../common'
 import { MetadataDiscoveredField, MetadataFieldDefinition } from './models'
 

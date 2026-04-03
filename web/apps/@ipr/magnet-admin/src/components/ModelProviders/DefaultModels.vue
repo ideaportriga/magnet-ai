@@ -9,6 +9,7 @@
 </template>
 <script setup>
 import { useEntityQueries } from '@/queries/entities'
+import { m } from '@/paraglide/messages'
 
 const queries = useEntityQueries()
 queries.model.useList()

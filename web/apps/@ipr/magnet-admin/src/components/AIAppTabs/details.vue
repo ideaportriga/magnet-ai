@@ -3,17 +3,17 @@ km-inner-loading(:showing='!currentTab')
 layouts-details-layout(v-if='currentTab', v-model:name='name', v-model:description='description', v-model:systemName='system_name')
   template(#content)
     .col-auto.full-width
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Tab type
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.label_tabType() }}
         |
         .full-width.column
-          q-radio.q-my-sm(name='tab_type', dense, label='RAG Tool', val='RAG', v-model='tab_type')
-          q-radio.q-mb-sm(name='tab_type', dense, label='Retrieval Tool', val='Retrieval', v-model='tab_type')
+          q-radio.q-my-sm(name='tab_type', dense, :label='m.label_ragTool()', val='RAG', v-model='tab_type')
+          q-radio.q-mb-sm(name='tab_type', dense, :label='m.label_retrievalTool()', val='Retrieval', v-model='tab_type')
           q-radio.q-mb-sm(name='tab_type', dense, label='Custom', val='Custom', v-model='tab_type')
-          q-radio.q-mb-sm(name='tab_type', dense, label='Agent', val='Agent', v-model='tab_type')
+          q-radio.q-mb-sm(name='tab_type', dense, :label='m.label_agent()', val='Agent', v-model='tab_type')
         template(v-if='tab_type === "Custom"')
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Custom code
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_customCode() }}
             km-codemirror(v-model='config.jsonString', style='max-height: 600px')
-            .km-description.text-secondary-text.q-pb-4 Enter your custom code in JSON format
+            .km-description.text-secondary-text.q-pb-4 {{ m.hint_enterCustomCodeJson() }}
         template(v-else)
           .col.q-pt-md
             .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ tab_type }}
@@ -31,6 +31,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { cloneDeep } from 'lodash'
+import { m } from '@/paraglide/messages'
 
 const route = useRoute()
 const router = useRouter()

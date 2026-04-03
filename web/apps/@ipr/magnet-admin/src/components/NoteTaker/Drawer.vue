@@ -221,6 +221,7 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import type { PreviewJob } from '@/stores/noteTakerStore'
 import { useNotify } from '@/composables/useNotify'

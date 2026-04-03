@@ -44,6 +44,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 import _ from 'lodash'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'

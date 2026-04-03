@@ -24,6 +24,7 @@
 </template>
 <script setup>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const props = defineProps({
   itemKey: {

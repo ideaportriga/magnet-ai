@@ -9,7 +9,7 @@
       .col-auto.center-flex-y
       q-space
       .col-auto.center-flex-y
-        km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+        km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
 
     VueDraggable.row.q-pb-12(v-model='tabs', group='nested', draggable='.drag-elem', @start='handleDragStart', @end='handleDragEnd')
       .drag-elem(v-for='item in tabs', :key='item.id')
@@ -48,14 +48,14 @@
 
   km-popup-confirm(
     :visible='showDeleteDialog',
-    confirmButtonLabel='Delete',
-    cancelButtonLabel='Cancel',
+    :confirmButtonLabel='m.common_delete()',
+    :cancelButtonLabel='m.common_cancel()',
     notificationIcon='fas fa-triangle-exclamation',
     @confirm='deleteTab(clickedRow)',
     @cancel='showDeleteDialog = false'
   )
-    .row.item-center.justify-center.km-heading-7 You are about to delete an AI Tab
-    .row.text-center.justify-center End users won't see any changes until you save the AI App.
+    .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.common_aiTabs() }) }}
+    .row.text-center.justify-center {{ m.aiApps_deleteTabNotice() }}
 </template>
 
 <script setup>
@@ -64,6 +64,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { VueDraggable } from 'vue-draggable-plus'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
+import { m } from '@/paraglide/messages'
 
 // Composables
 const route = useRoute()

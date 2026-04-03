@@ -4,7 +4,7 @@ km-drawer-layout(storageKey="drawer-conversation-message")
     .row.no-wrap.full-width.q-px-16.q-py-6
       .row.cursor-pointer.q-gap-8.items-center(@click='$emit("close")')
         q-icon(name='fas fa-arrow-left', size='14px', color='secondary')
-        .km-title.text-secondary-text Back to conversation
+        .km-title.text-secondary-text {{ m.conversation_backToConversation() }}
     .bb-border
     .row.no-wrap.full-width.q-px-16.q-py-6
       q-tabs(
@@ -78,7 +78,7 @@ km-drawer-layout(storageKey="drawer-conversation-message")
   q-separator
   .row.items-center.q-pa-16.justify-between.bt-border(v-if='selectedRow?.trace_id || isUpdated')
     .row.items-center.q-gap-8.cursor-pointer(@click='openDetails', v-if='selectedRow?.trace_id')
-      km-btn(flat, label='View trace', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
+      km-btn(flat, :label='m.conversation_viewTrace()', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
 
     .col-auto
     .row.items-center.q-gap-8
@@ -88,6 +88,7 @@ km-drawer-layout(storageKey="drawer-conversation-message")
 
 <script>
 import _ from 'lodash'
+import { m } from '@/paraglide/messages'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { fetchData } from '@shared'
 

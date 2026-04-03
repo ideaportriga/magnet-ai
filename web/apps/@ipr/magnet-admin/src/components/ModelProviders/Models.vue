@@ -143,6 +143,7 @@ q-dialog(v-model='showImportDialog', persistent)
 
 <script>
 import { ref, computed, markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { getEntityApis } from '@/api'

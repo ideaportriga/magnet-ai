@@ -2,58 +2,56 @@
 km-inner-loading(:showing='loading')
 layouts-details-layout(v-if='!loading')
   template(#header)
-    km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
-    km-input-flat.km-description.full-width.text-black(placeholder='Description', :modelValue='description', @change='description = $event')
+    km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :modelValue='name', @change='name = $event')
+    km-input-flat.km-description.full-width.text-black(:placeholder='m.common_description()', :modelValue='description', @change='description = $event')
     .row.items-center.q-pl-6
       q-icon.col-auto(name='o_info', color='text-secondary')
-        q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
+        q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
       km-input-flat.col.km-description.text-black.full-width(
-        placeholder='Enter system name',
+        :placeholder='m.placeholder_enterSystemNameReadable()',
         :modelValue='system_name',
         @change='system_name = $event',
         @focus='showInfo = true',
         @blur='showInfo = false',
         :rules='[validSystemName()]'
       )
-    .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
+    .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
   template(#header-actions)
-    km-btn(label='Record info', flat, icon='info', iconSize='16px')
+    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
       q-tooltip.bg-white.block-shadow
         .q-pa-sm
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
             .text-secondary-text.km-description {{ created_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Modified:
+            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
             .text-secondary-text.km-description {{ modified_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created by:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
             .text-secondary-text.km-description {{ created_by }}
           div
-            .text-secondary-text.km-button-xs-text Modified by:
+            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='saveEntity', :loading='saving', :disable='saving || !isDirty')
+    km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='saveEntity', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
           q-item-section
-            .km-heading-3 Clone
+            .km-heading-3 {{ m.common_clone() }}
         q-item(clickable, @click='showDeleteDialog = true', dense)
           q-item-section
-            .km-heading-3 Delete
+            .km-heading-3 {{ m.common_delete() }}
     km-popup-confirm(
       :visible='showDeleteDialog',
-      confirmButtonLabel='Delete Model',
+      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_model() })',
       notificationIcon='fas fa-circle-info',
-      cancelButtonLabel='Cancel',
+      :cancelButtonLabel='m.common_cancel()',
       @cancel='showDeleteDialog = false',
       @confirm='deleteRecord'
     )
-      .row.item-center.justify-center.km-heading-7 You are about to delete the Model
-      .row.text-center.justify-center If any of your Prompt Templates are using this model, please
-      .row.text-center.justify-center change it to another one, otherwise affected Prompt Templates
-      .row.text-center.justify-center will stop working.
+      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_model() }) }}
+      .row.text-center.justify-center {{ m.deleteConfirm_modelBody() }}
   template(#content)
     .column.full-height(style='min-height: 0')
       km-tabs(v-model='tab')
@@ -72,6 +70,7 @@ import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { validSystemName } from '@shared/utils/validationRules'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { m } from '@/paraglide/messages'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -92,10 +91,11 @@ export default {
       revert,
       refetch,
       buildPayload,
+      m,
       tab: ref('model'),
       tabs: ref([
-        { name: 'model', label: 'Settings' },
-        { name: 'pricing', label: 'Pricing' },
+        { name: 'model', label: m.common_settings() },
+        { name: 'pricing', label: m.common_pricing() },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),

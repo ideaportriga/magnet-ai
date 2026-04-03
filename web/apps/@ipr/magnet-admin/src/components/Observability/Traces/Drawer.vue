@@ -77,6 +77,7 @@ km-drawer-layout(v-if='open', storageKey="drawer-observability-traces")
 
 <script>
 import { defineComponent, ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 
 export default defineComponent({

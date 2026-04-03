@@ -8,6 +8,7 @@ test-sets-table(
 
 <script setup>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import TestSetsTable from '@/components/shared/TestSetsTable.vue'
 

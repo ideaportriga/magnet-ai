@@ -6,6 +6,7 @@
 </template>
 
 <script setup lang="ts">
+import { m } from '@/paraglide/messages'
 defineProps<{
   icon: string
   label: string

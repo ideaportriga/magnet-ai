@@ -46,6 +46,7 @@ km-popup-confirm(
 
 <script setup>
 import { ref, computed, h, markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useEntityDetail } from '@/composables/useEntityDetail'

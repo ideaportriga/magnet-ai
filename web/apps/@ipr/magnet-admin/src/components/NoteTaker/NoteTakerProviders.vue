@@ -130,6 +130,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { required, toUpperCaseWithUnderscores } from '@shared'
 import { useEntityQueries } from '@/queries/entities'

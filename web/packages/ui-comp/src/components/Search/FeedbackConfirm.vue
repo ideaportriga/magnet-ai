@@ -5,21 +5,37 @@ q-dialog(:model-value='modal', @hide='$emit("update:modal", false)')
       q-btn(icon='fas fa-times', text-color='blue-grey-3', flat, round, dense, v-close-popup)
     .column.q-gap-8
       .col-12
-        .km-title Thank you!
+        .km-title {{ mergedT.title }}
       .col-12.q-pb-24
-        .km-paragraph Your feedback will help us generate better answers.
+        .km-paragraph {{ mergedT.description }}
       .row.right-flex.q-gap-16
-        km-btn(label='Close', @click='$emit("update:modal", false)')
+        km-btn(:label='mergedT.close', @click='$emit("update:modal", false)')
 </template>
 
 <script lang="ts">
+const DEFAULT_T = {
+  title: 'Thank you!',
+  description: 'Your feedback will help us generate better answers.',
+  close: 'Close',
+}
+
 export default {
-  props: ['modal'],
+  props: {
+    modal: {},
+    t: {
+      type: Object,
+      default: () => ({}),
+    },
+  },
   emits: ['update:modal'],
   setup() {
     return {}
   },
-  computed: {},
+  computed: {
+    mergedT() {
+      return { ...DEFAULT_T, ...this.t }
+    },
+  },
   watch: {},
   created() {},
   mounted() {},

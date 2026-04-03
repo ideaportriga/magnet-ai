@@ -80,6 +80,7 @@
     "@codemirror/lang-json": "^6.0.1",
     "@codemirror/lang-python": "^6.1.7",
     "@elevenlabs/client": "^0.15.0",
+    "@inlang/paraglide-js": "^2",
     "@quasar/extras": "^1.16.17",
     "@tanstack/vue-query": "^5.95.2",
     "@tanstack/vue-table": "^8.21.3",

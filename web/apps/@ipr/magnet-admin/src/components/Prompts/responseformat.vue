@@ -40,6 +40,7 @@ div
 
 <script>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 

@@ -7,6 +7,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import { quasar, transformAssetUrls } from '@quasar/vite-plugin'
 import path from 'path'
 import basicSsl from '@vitejs/plugin-basic-ssl'
+import { paraglideVitePlugin } from '@inlang/paraglide-js'
 // import { fileURLToPath } from 'url'
 // const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // const __buildDir = path.resolve(__dirname, '../../knowledge-magnet/panel')
@@ -32,6 +33,10 @@ export default defineConfig({
     nxViteTsPaths(),
     nxCopyAssetsPlugin(['*.md']),
     vueDevTools(),
+    paraglideVitePlugin({
+      project: path.resolve(__dirname, '../../../project.inlang'),
+      outdir: path.resolve(__dirname, 'src/paraglide'),
+    }),
   ],
   build: {
     outDir: '../../../knowledge-magnet/admin/app',

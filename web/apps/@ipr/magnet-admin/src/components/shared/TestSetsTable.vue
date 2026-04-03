@@ -27,6 +27,7 @@ template(v-if='selectedTestSet')
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn } from '@/utils/columnHelpers'

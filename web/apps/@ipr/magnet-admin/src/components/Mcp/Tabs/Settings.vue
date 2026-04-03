@@ -1,10 +1,10 @@
 <template lang="pug">
 .full-width
-  km-section(title='Connection settings', subTitle='Endpoint URL and transport protocol used to communicate with the server')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 URL
+  km-section(:title='m.section_connectionSettings()', :subTitle='m.subtitle_endpointUrlTransport()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_url() }}
     .row.items-center.q-gap-16.no-wrap
       km-input.full-width(:model-value='server.url', readonly)
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg Transport
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg {{ m.label_transport() }}
     .row.items-center.q-gap-16.no-wrap
       q-radio.q-my-sm(
         :model-value='server.transport',
@@ -21,9 +21,9 @@
       km-btn(label='Test connection', @click='testConnection', size='sm', icon='fa fa-arrow-right-arrow-left', flat, iconSize='14px')
 
   q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Headers', subTitle='Use headers to send additional information with your request, such as authentication tokens.')
+  km-section(:title='m.section_headers()', :subTitle='m.subtitle_useHeaders()')
     km-notification-text(
-      notification='Do not expose sensitive data in this section. Instead, use placeholders and provide actual values in the Secrets section. Use curly braces to insert placeholders.'
+      :notification='m.hint_noSensitiveData()'
     )
     .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in headers', :key='key')
       .col
@@ -38,7 +38,7 @@
     .row.q-pt-16
       km-btn(label='Add Header Record', @click='addHeader', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
+  km-section(:title='m.section_secrets()', :subTitle='m.subtitle_useSecretsMcp()')
     km-secrets(v-model:secrets='secrets', :original-secrets='originalMcpSecrets', :remount-value='remountValue')
 </template>
 <script setup>
@@ -47,6 +47,7 @@ import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useNotify } from '@/composables/useNotify'
+import { m } from '@/paraglide/messages'
 
 const { notifySuccess, notifyError } = useNotify()
 const { draft, data, updateField } = useEntityDetail('mcp_servers')

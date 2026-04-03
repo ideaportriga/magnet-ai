@@ -1,10 +1,18 @@
 import { isString } from 'lodash'
 
+/**
+ * Default validation messages (English).
+ * Pass translated strings via the `message` parameter of each rule
+ * to override these defaults: e.g. `required(m.validation_required())`
+ */
 const REQUIRED_DEFAULT_MESSAGE = 'Field can not be empty'
 const MINLEGTH_DEFAULT_MESSAGE = (min) => `Field must consist of more than ${min} characters`
-const INVALID_JSON_MESSAGE = ' Incorect json format'
+const INVALID_JSON_MESSAGE = 'Incorrect json format'
 const INVALID_SYSTEM_NAME_MESSAGE = 'System name can only contain letters, numbers, underscores and hyphens, and must not start with a number'
 const INVISIBLE_CHARS_MESSAGE = 'Field contains invisible or whitespace characters that are not allowed'
+const LEADING_TRAILING_SPACES_MESSAGE = 'Field must not have leading or trailing spaces'
+const SYSTEM_NAME_SPACES_MESSAGE = 'System name must not have leading or trailing spaces'
+const SYSTEM_NAME_INVISIBLE_CHARS_MESSAGE = 'System name contains invisible characters that are not allowed'
 
 // Regex to detect invisible/whitespace characters (except regular space within text)
 // eslint-disable-next-line no-control-regex
@@ -57,20 +65,20 @@ export const notLessThan = (min, message) => {
  * Validates that a value does not contain invisible or problematic whitespace characters.
  * Allows regular spaces within text but not leading/trailing spaces or special Unicode whitespace.
  */
-export const noInvisibleChars = (message) => {
+export const noInvisibleChars = (message, spacesMessage) => {
   return (value) => {
     if (!isString(value)) return true
-    
+
     // Check for leading/trailing whitespace
     if (value !== value.trim()) {
-      return message ?? 'Field must not have leading or trailing spaces'
+      return spacesMessage ?? message ?? LEADING_TRAILING_SPACES_MESSAGE
     }
-    
+
     // Check for invisible Unicode characters
     if (INVISIBLE_CHARS_REGEX.test(value)) {
       return message ?? INVISIBLE_CHARS_MESSAGE
     }
-    
+
     return true
   }
 }
@@ -82,27 +90,27 @@ export const noInvisibleChars = (message) => {
  * - No spaces or special characters
  * - No invisible characters
  */
-export const validSystemName = (message) => {
+export const validSystemName = (message, { spacesMessage, invisibleCharsMessage } = {}) => {
   return (value) => {
     if (!isString(value) || !value) return true // Let required() handle empty values
-    
+
     const trimmed = value.trim()
-    
+
     // Check for leading/trailing whitespace (means original had spaces)
     if (value !== trimmed) {
-      return 'System name must not have leading or trailing spaces'
+      return spacesMessage ?? SYSTEM_NAME_SPACES_MESSAGE
     }
-    
+
     // Check for invisible Unicode characters
     if (INVISIBLE_CHARS_REGEX.test(value)) {
-      return 'System name contains invisible characters that are not allowed'
+      return invisibleCharsMessage ?? SYSTEM_NAME_INVISIBLE_CHARS_MESSAGE
     }
-    
+
     // Check for valid format
     if (!VALID_SYSTEM_NAME_REGEX.test(value)) {
       return message ?? INVALID_SYSTEM_NAME_MESSAGE
     }
-    
+
     return true
   }
 }

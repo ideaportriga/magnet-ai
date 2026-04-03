@@ -1,12 +1,12 @@
 <template lang="pug">
 <!-- Knowledge sources section -->
-km-section(title='Knowledge sources', subTitle='Select one or multiple Knowledge sources to ground your RAG.')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge sources
+km-section(:title='m.label_knowledgeSources()', :subTitle='m.subtitle_selectKnowledgeSourcesRag()')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_knowledgeSources() }}
   km-select(
     data-test='knowledge-sources',
     height='auto',
     minHeight='36px',
-    placeholder='Select knowledge sources',
+    :placeholder='m.common_selectKnowledgeSources()',
     multiple,
     :options='collections',
     v-model='collectionSystemNames',
@@ -15,63 +15,63 @@ km-section(title='Knowledge sources', subTitle='Select one or multiple Knowledge
   )
   .row.q-mt-sm
     .col-auto
-      km-btn(flat, simple, label='Open Knowledge sources', iconSize='16px', icon='fas fa-book', @click='navigate("knowledge-sources")')
+      km-btn(flat, simple, :label='m.common_openKnowledgeSources()', iconSize='16px', icon='fas fa-book', @click='navigate("knowledge-sources")')
 q-separator.q-my-lg
 
 <!-- Search capabilities section -->
 km-section(
-  title='Search capabilities',
-  subTitle='Configure how search will be performed. To activate hybrid search, enable both semantic and keyword search.'
+  :title='m.ragTools_searchCapabilities()',
+  :subTitle='m.subtitle_configureSearch()'
 )
   .column.q-gap-16
     .column
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(v-model='allowMetadataFilter', dense)
-        .col.q-mb-sm Allow metadata filtering
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm Allow to use filtering by metadata to exclude documents, that are not relevant to the search.
+        .col.q-mb-sm {{ m.ragTools_allowMetadataFiltering() }}
+      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.ragTools_allowMetadataFilteringDesc() }}
     .column
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(:model-value='true', disable, dense)
-        .col.q-mb-sm Use semantic (vector) search
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm Use vector embeddings to search documents semantically, based on their meaning rather than just exact matches. Currently, cannot be turned off.
+        .col.q-mb-sm {{ m.ragTools_useSemanticSearch() }}
+      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.ragTools_useSemanticSearchDesc() }}
     .column
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(v-model='useKeywordSearch', dense)
-        .col.q-mb-sm Use keyword search
-      .km-description.text-secondary-text.q-mt-xs.q-ml-sm Use direct keyword matching. Note that keyword search capabilities depend on the underlying database implementation.
+        .col.q-mb-sm {{ m.ragTools_useKeywordSearch() }}
+      .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.ragTools_useKeywordSearchDesc() }}
 q-separator.q-my-lg
 
 <!-- Semantic cache section -->
-km-section(title='Semantic cache', subTitle='Semantic caching helps improve performance and maintain high response quality')
+km-section(:title='m.section_semanticCache()', :subTitle='m.subtitle_semanticCache()')
   .column
     .col.q-mb-md
-      q-chip.km-small-chip(color='primary-light', text-color='primary', label='Upcoming feature')
+      q-chip.km-small-chip(color='primary-light', text-color='primary', :label='m.common_upcomingFeature()')
     .col
       q-toggle(v-model='semanticCache', disable, dense) 
 q-separator.q-my-lg
 
 <!-- Re-ranking section -->
 km-section(
-  title='Re-ranking',
-  subTitle='Re-ranking significantly improves search results by selecting most relevant chunks in two steps. Makes an extra call to LLM.'
+  :title='m.ragTools_reRanking()',
+  :subTitle='m.subtitle_reranking()'
 )
   .column
     .col
       .row.items-baseline
         .col-auto.q-mr-sm
           q-toggle(v-model='isReRanking', dense)
-        .col.q-mb-sm Re-rank with LLM
+        .col.q-mb-sm {{ m.ragTools_reRankWithLlm() }}
     .col
     template(v-if='isReRanking')
       .col.q-mt-md
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 LLM model
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_llmModel() }}
         km-select(
           height='auto',
           minHeight='36px',
-          placeholder='Re-rank Model',
+          :placeholder='m.common_reRankModel()',
           v-model='reRankingModel',
           :options='modelOptions',
           optionLabel='display_name',
@@ -85,43 +85,44 @@ km-section(
                 q-item-label.km-label {{ opt.display_name }}
                 .row.q-mt-xs(v-if='opt.provider_system_name')
                   q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
-        .km-field.text-secondary-text Use LLM to rank candidate results. Makes extra calls to LLM
+        .km-field.text-secondary-text {{ m.ragTools_useLlmToRank() }}
       q-separator.q-my-md
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max number of chunks to retrieve for re-ranking
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_maxChunksForReranking() }}
       div(style='max-width: 200px')
-        km-input(type='number', height='30px', placeholder='Number of chunks to select', v-model='reRankingMaxChankRetrieve')
-      .km-description.text-secondary-text.q-pb-4 If re-ranking is turned on, these chunks will be re-ordered to select the most relevant results.
+        km-input(type='number', height='30px', :placeholder='m.common_numberOfChunksToSelect()', v-model='reRankingMaxChankRetrieve')
+      .km-description.text-secondary-text.q-pb-4 {{ m.ragTools_rerankingChunksDesc() }}
 
 q-separator.q-my-lg
 
 <!-- Similarity score section -->
-km-section(title='Similarity score', subTitle='How strictly a user query should match retrieved documents.')
+km-section(:title='m.section_similarityScore()', :subTitle='m.subtitle_similarityScore()')
   km-slider-card(
     v-model='similarityScoreThreshold',
-    name='Similarity score threshold',
+    :name='m.ragTools_similarityScoreThreshold()',
     :min='0',
     :max='1',
-    minLabel='Unrelated',
-    maxLabel='Similar',
+    :minLabel='m.ragTools_unrelated()',
+    :maxLabel='m.ragTools_similar()',
     :defaultValue='0.75',
-    description='Minimum similarity score needed for a chunk to be retrieved. We recommend using lower threshold if re-ranking is on.'
+    :description='m.ragTools_similarityScoreDesc()'
   )
 q-separator.q-my-lg
 
 <!-- Chunk limits section -->
-km-section(title='Chunk limits', subTitle='Control how many chunks are passed to the language model')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 Number of chunks to select
+km-section(:title='m.section_chunkLimits()', :subTitle='m.subtitle_controlChunks()')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_numberOfChunksToSelect() }}
   div(style='max-width: 200px')
-    km-input(type='number', height='30px', placeholder='Number of chunks to select', v-model='maxChunksRetrieved')
-  .km-description.text-secondary-text.q-pb-4 Max number of best retrieved chunks to send to LLM
+    km-input(type='number', height='30px', :placeholder='m.common_numberOfChunksToSelect()', v-model='maxChunksRetrieved')
+  .km-description.text-secondary-text.q-pb-4 {{ m.ragTools_maxChunksToLlm() }}
   q-separator.q-my-lg
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 Number of added chunks
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_numberOfAddedChunks() }}
   div(style='max-width: 200px')
-    km-input(type='number', height='30px', placeholder='Context window expansion size', v-model='chunkContextWindowExpansionSize')
-  .km-description.text-secondary-text.q-pb-4 Number of chunks to add before and after each chunk when sending to LLM for better context understanding
+    km-input(type='number', height='30px', :placeholder='m.common_numberOfChunksToSelect()', v-model='chunkContextWindowExpansionSize')
+  .km-description.text-secondary-text.q-pb-4 {{ m.ragTools_addedChunksDesc() }}
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
@@ -138,6 +139,7 @@ export default {
     const { data: modelListData } = queries.model.useList()
 
     return {
+      m,
       activeVariant,
       updateVariantField,
       catalogCollections,

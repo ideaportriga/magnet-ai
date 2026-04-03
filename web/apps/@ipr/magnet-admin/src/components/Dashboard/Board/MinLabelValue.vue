@@ -8,6 +8,7 @@
         .text-secondary-text {{ tooltip }}
 </template>
 <script>
+import { m } from '@/paraglide/messages'
 export default {
   props: {
     label: {

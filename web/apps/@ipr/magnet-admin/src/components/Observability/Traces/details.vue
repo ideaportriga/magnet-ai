@@ -79,6 +79,7 @@
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { formatDuration, formatTraceType } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'

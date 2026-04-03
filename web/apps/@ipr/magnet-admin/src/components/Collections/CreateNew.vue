@@ -4,7 +4,7 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
     q-card-section.card-section-style.q-mb-md
       .row
         .col
-          .km-heading-7 New Knowledge Source
+          .km-heading-7 {{ m.dialog_newKnowledgeSource() }}
         .col-auto
           q-btn(icon='close', flat, dense, @click='$emit("cancel")')
     q-card-section.card-section-style.q-mb-md
@@ -29,10 +29,10 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
         //-     :disable='!!providerSystemName'
         //-   )
         //-   .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='providerSystemName') Provider is pre-selected and cannot be changed when creating under a specific provider
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
         .full-width.q-mb-md
           km-input(v-model='nameCalc', ref='nameRef', :rules='config.name.rules')
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 System name
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_systemName() }}
         .full-width.q-mb-md
           km-input(v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
         //- .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source type
@@ -183,26 +183,27 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
 
       .row.q-mt-lg
         .col-auto
-          km-btn(flat, label='Cancel', color='primary', @click='cancelCreate')
+          km-btn(flat, :label='m.common_cancel()', color='primary', @click='cancelCreate')
         .col
         .col-auto
           .row.q-gap-16.no-wrap.items-center.q-py-4
             template(v-if='stepper === 0')
-              km-btn(label='Next', @click='next(1)')
+              km-btn(:label='m.common_next()', @click='next(1)')
             template(v-else-if='stepper === 1')
-              km-btn(flat, label='Back', @click='stepper = 0')
-              km-btn(label='Next', @click='next(2)')
+              km-btn(flat, :label='m.common_back()', @click='stepper = 0')
+              km-btn(:label='m.common_next()', @click='next(2)')
             template(v-else-if='stepper === 2')
-              km-btn(flat, label='Back', @click='stepper = 1')
-              km-btn(label='Next', @click='next(3)')
+              km-btn(flat, :label='m.common_back()', @click='stepper = 1')
+              km-btn(:label='m.common_next()', @click='next(3)')
             template(v-else-if='stepper === 3')
-              km-btn(flat, label='Back', @click='stepper = 2', :disable='loadingCreate')
-              km-btn(label='Save', @click='createNew(false)', :disable='loadingCreate')
-              km-btn(label='Save & Sync', @click='createNew(true)', :disable='loadingCreate')
+              km-btn(flat, :label='m.common_back()', @click='stepper = 2', :disable='loadingCreate')
+              km-btn(:label='m.common_save()', @click='createNew(false)', :disable='loadingCreate')
+              km-btn(:label='m.common_saveAndSync()', @click='createNew(true)', :disable='loadingCreate')
     q-inner-loading(:showing='loadingCreate', color='primary', size='50px')
 </template>
 <script>
 import { defineComponent, ref, reactive, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { cloneDeep } from 'lodash'
 import { required, minLength } from '@shared/utils/validationRules'
 import { toUpperCaseWithUnderscores, fetchData } from '@shared'
@@ -249,6 +250,7 @@ export default defineComponent({
     const times = Array.from({ length: 24 }, (_, i) => ({ label: `${i.toString().padStart(2, '0')}:00`, value: i.toString().padStart(2, '0') }))
 
     return {
+      m,
       customFields: ref({}),
       metadata: ref('{}'),
       show_in_qa: ref(false),

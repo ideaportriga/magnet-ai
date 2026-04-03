@@ -15,6 +15,7 @@
 
 <script setup>
 import { ref, computed, onMounted, markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'

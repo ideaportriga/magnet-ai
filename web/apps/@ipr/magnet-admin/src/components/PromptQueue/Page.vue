@@ -4,10 +4,10 @@
     .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
       .row.q-mb-12
         .col-auto.center-flex-y
-          km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+          km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
         q-space
         .col-auto.center-flex-y
-          km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+          km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
       .col(style='min-height: 0')
         km-data-table(
           fill-height,
@@ -23,6 +23,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn, chipCopyColumn, dateColumn } from '@/utils/columnHelpers'
+import { m } from '@/paraglide/messages'
 import PromptQueueCreateNew from './CreateNew.vue'
 import { usePromptQueueStore } from '@/stores/promptQueueStore'
 
@@ -37,8 +38,8 @@ const configs = computed(() => {
 })
 
 const columns = [
-  textColumn('name', 'Name'),
-  chipCopyColumn('System name'),
+  textColumn('name', m.common_name()),
+  chipCopyColumn(m.common_systemName()),
   textColumn('steps_count', 'Steps', {
     sortable: true,
     format: (val: unknown) => {
@@ -46,8 +47,8 @@ const columns = [
       return val != null ? String(val) : '0'
     },
   }),
-  dateColumn('created_at', 'Created'),
-  dateColumn('updated_at', 'Last updated'),
+  dateColumn('created_at', m.common_created()),
+  dateColumn('updated_at', m.common_lastUpdated()),
 ]
 
 // Map data to add steps_count

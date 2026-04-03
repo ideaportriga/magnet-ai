@@ -3,58 +3,58 @@ km-inner-loading(:showing='loading')
 layouts-details-layout(v-if='!loading', :noHeader='$route?.name !== "AgentDetail"', :noContentWrapper='$route?.name !== "AgentDetail"')
   template(#header)
     template(v-if='$route?.name === "AgentDetail"')
-      km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='name = $event')
-      km-input-flat.km-description.full-width.text-black(placeholder='Description', :modelValue='description', @change='description = $event')
+      km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :modelValue='name', @change='name = $event')
+      km-input-flat.km-description.full-width.text-black(:placeholder='m.common_description()', :modelValue='description', @change='description = $event')
       .row.items-center.q-pl-6
         q-icon.col-auto(name='o_info', color='text-secondary')
-          q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
+          q-tooltip.bg-white.block-shadow.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
         km-input-flat.col.km-description.full-width.text-black(
-          placeholder='Enter system name',
+          :placeholder='m.placeholder_enterSystemNameReadable()',
           :modelValue='system_name',
           @change='system_name = $event',
           @focus='showInfo = true',
           @blur='showInfo = false',
           :rules='[validSystemName()]'
         )
-        .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
+        .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
   template(#subheader)
     agents-sub-header
   template(#header-actions)
-    km-btn(label='Record info', flat, icon='info', iconSize='16px')
+    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
       q-tooltip.bg-white.block-shadow
         .q-pa-sm
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
             .text-secondary-text.km-description {{ created_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Modified:
+            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
             .text-secondary-text.km-description {{ modified_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created by:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
             .text-secondary-text.km-description {{ created_by }}
           div
-            .text-secondary-text.km-button-xs-text Modified by:
+            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
+    km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
           q-item-section
-            .km-heading-3 Clone
+            .km-heading-3 {{ m.common_clone() }}
         q-item(clickable, @click='showDeleteDialog = true', dense)
           q-item-section
-            .km-heading-3 Delete
+            .km-heading-3 {{ m.common_delete() }}
     km-popup-confirm(
       :visible='showDeleteDialog',
-      confirmButtonLabel='Delete Agent',
-      cancelButtonLabel='Cancel',
+      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_agent() })',
+      :cancelButtonLabel='m.common_cancel()',
       notificationIcon='fas fa-triangle-exclamation',
       @confirm='confirmDelete',
       @cancel='showDeleteDialog = false'
     )
-      .row.item-center.justify-center.km-heading-7 You are about to delete the Agent
-      .row.text-center.justify-center Deleting the Agent will also permanently delete its Topics with their interactions.
+      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_agent() }) }}
+      .row.text-center.justify-center {{ m.deleteConfirm_agentBody() }}
   template(#content)
     //- Child routes (topic/action) render their own content
     router-view(v-if='$route?.name !== "AgentDetail"')
@@ -93,6 +93,7 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { validSystemName } from '@shared/utils/validationRules'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
+import { m } from '@/paraglide/messages'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -106,6 +107,7 @@ export default {
             save: saveEntity, revert, remove: removeEntity, refetch, buildPayload, testSetItem } = useAgentEntityDetail()
 
     return {
+      m,
       draft,
       isDirty,
       updateField,
@@ -116,15 +118,15 @@ export default {
       tab: ref('topics'),
       tabs: ref([
         // { name: 'overview', label: 'Overview' },
-        { name: 'topics', label: 'Topics' },
-        { name: 'post-processing', label: 'Post-processing' },
+        { name: 'topics', label: m.common_topics() },
+        { name: 'post-processing', label: m.common_postProcessing() },
         // { name: 'prompts', label: 'Prompt Templates' },
         // { name: 'actions', label: 'Actions' },
-        { name: 'settings', label: 'Settings' },
-        { name: 'channels', label: 'Channels' },
-        { name: 'conversations', label: 'Conversations' },
-        { name: 'notes', label: 'Notes' },
-        { name: 'testSets', label: 'Test sets' },
+        { name: 'settings', label: m.common_settings() },
+        { name: 'channels', label: m.common_channels() },
+        { name: 'conversations', label: m.common_conversations() },
+        { name: 'notes', label: m.common_notes() },
+        { name: 'testSets', label: m.common_testSets() },
       ]),
       showNewDialog: ref(false),
       showDeleteDialog: ref(false),

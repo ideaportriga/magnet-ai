@@ -4,6 +4,7 @@
 </template>
 <script setup>
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { m } from '@/paraglide/messages'
 
 const { draft } = useEntityDetail('provider')
 const server = draft

@@ -75,6 +75,7 @@ div
 
 <script>
 import { isEqual } from 'lodash'
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'

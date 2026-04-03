@@ -46,6 +46,7 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 
 type ParameterProperty = {
   type?: string

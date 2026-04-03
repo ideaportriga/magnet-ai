@@ -5,7 +5,7 @@ km-drawer-layout(storageKey="drawer-agents-action", noScroll)
       km-btn(
         flat,
         simple,
-        :label='`Back to Agent Preview`',
+        :label='m.agents_backToAgentPreview()',
         iconSize='16px',
         icon='fas fa-arrow-left',
         @click='activeTopic = null',
@@ -42,13 +42,14 @@ km-drawer-layout(storageKey="drawer-agents-action", noScroll)
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
   setup() {
     const tab = ref('general-settings')
     const { activeVariant, activeTopic: activeTopicRef } = useAgentEntityDetail()
-    return { tab, activeVariant, activeTopicRef }
+    return { m, tab, activeVariant, activeTopicRef }
   },
   computed: {
     activeTopic: {
@@ -70,11 +71,11 @@ export default {
     },
     tabs() {
       const tabs = [
-        { name: 'general-settings', label: 'General Settings' },
-        { name: 'advanced-settings', label: 'Advanced Settings' },
+        { name: 'general-settings', label: m.agents_generalSettings() },
+        { name: 'advanced-settings', label: m.agents_advancedSettings() },
       ]
       if (this.action?.type === 'api' || this.action?.type === 'mcp_tool') {
-        tabs.push({ name: 'parameters', label: 'Parameters' })
+        tabs.push({ name: 'parameters', label: m.agents_parameters() })
       }
       return tabs
     },

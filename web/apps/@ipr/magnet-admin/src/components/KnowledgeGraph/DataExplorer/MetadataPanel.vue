@@ -145,6 +145,7 @@
 
 <script setup lang="ts">
 import { fetchData } from '@shared'
+import { m } from '@/paraglide/messages'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/appStore'

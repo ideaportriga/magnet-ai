@@ -32,6 +32,7 @@ div
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import { useRouter } from 'vue-router'

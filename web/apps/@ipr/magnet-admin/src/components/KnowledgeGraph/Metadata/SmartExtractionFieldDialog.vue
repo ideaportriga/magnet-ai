@@ -83,6 +83,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgToggleField } from '../common'
 import { AllowedValue, MetadataValueType, ValueTypeOptions } from './models'
 

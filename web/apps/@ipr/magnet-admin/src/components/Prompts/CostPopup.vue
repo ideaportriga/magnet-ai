@@ -129,6 +129,7 @@
 </template>
 <script>
 import { defineComponent, ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 
 export default defineComponent({

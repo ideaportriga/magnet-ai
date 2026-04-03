@@ -38,6 +38,7 @@ km-popup-confirm(
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { fetchData } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useAppStore } from '@/stores/appStore'

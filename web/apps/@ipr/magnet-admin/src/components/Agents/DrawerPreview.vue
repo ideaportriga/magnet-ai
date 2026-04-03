@@ -6,7 +6,7 @@ km-drawer-layout(storageKey="drawer-agents-preview", :defaultWidth="500", :maxWi
       .col-auto.q-ml-sm(v-if='selectedMessage')
         q-btn(icon='close', flat, dense, @click='selectedMessage = null')
     .row
-      .col.km-heading-7 Agent Preview
+      .col.km-heading-7 {{ m.agents_agentPreview() }}
   .row.full-height.no-wrap
     .col.full-height(v-if='selectedMessage', style='overflow: hidden')
       .column.full-height
@@ -158,10 +158,10 @@ km-drawer-layout(storageKey="drawer-agents-preview", :defaultWidth="500", :maxWi
                 )
                 template(v-if='isShowHints')
                   .row.items-center.q-mt-sm
-                    .col.km-heading-3 You can ask like this...
+                    .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
                     .col-auto
                       km-btn(flat, color='primary', @click='showHints = false')
-                        .km-button-text Don't show hints
+                        .km-button-text {{ m.common_dontShowHints() }}
                   template(v-for='(item, index) in sampleQuestion', :key='index')
                     km-btn(flat, @click='refine(item)')
                       .wrapped-text {{ item }}
@@ -179,6 +179,7 @@ import { copyToClipboard } from 'quasar'
 import _ from 'lodash'
 import { uid } from 'quasar'
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { fetchData } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
@@ -251,6 +252,7 @@ export default {
       feedbackConfirmModal,
       traceId: ref(null),
       showHints: ref(true),
+      m,
     }
   },
   computed: {
@@ -512,7 +514,7 @@ export default {
     copyMessage(message) {
       copyToClipboard(message.content)
       this.$q.notify({
-        message: 'Copied to clipboard',
+        message: m.common_copiedToClipboard(),
         color: 'dark',
         icon: 'content_copy',
         group: 'copied',

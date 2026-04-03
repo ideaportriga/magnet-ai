@@ -1,12 +1,13 @@
 <template lang="pug">
 .full-width
   div(style='width: 300px')
-    km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
-  .km-title.q-pl-16.q-pb-8.q-pt-lg.text-text-grey Inputs
+    km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+  .km-title.q-pl-16.q-pb-8.q-pt-lg.text-text-grey {{ m.common_inputs() }}
   km-data-table(:table='table', row-key='name', :activeRowId='props.selectedRow?.name', @row-click='select')
 </template>
 <script setup>
 import { computed, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
@@ -79,8 +80,8 @@ const rows = computed(() => {
 })
 
 const columns = [
-  textColumn('name', 'Name'),
-  textColumn('description', 'Description'),
+  textColumn('name', m.common_name()),
+  textColumn('description', m.common_description()),
   textColumn('in', 'In'),
 ]
 

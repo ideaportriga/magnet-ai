@@ -8,14 +8,14 @@ q-separator.q-my-sm
           q-item-section
             q-item-label.km-label {{ option.label }}
           q-item-section(v-if='option?.active_variant', avatar)
-            q-chip.q-mr-sm(label='Active', color='primary-light', text-color='primary', flat, size='sm')
+            q-chip.q-mr-sm(:label='m.common_active()', color='primary-light', text-color='primary', flat, size='sm')
 
   .col.q-mx-sm
-    km-input-flat.km-description.full-width(placeholder='Description', :modelValue='variant_description', @change='variant_description = $event')
+    km-input-flat.km-description.full-width(:placeholder='m.common_description()', :modelValue='variant_description', @change='variant_description = $event')
   .col-auto.q-mr-sm
     km-btn.width-100(
       v-if='!isActive',
-      label='Activate',
+      :label='m.common_activate()',
       icon='far fa-circle-check',
       iconColor='icon',
       hoverColor='primary',
@@ -25,12 +25,12 @@ q-separator.q-my-sm
       hoverBg='primary-bg',
       @click='activateVariant'
     )
-    q-chip.q-mr-sm(v-if='isActive', label='Active', color='primary-light', text-color='primary')
+    q-chip.q-mr-sm(v-if='isActive', :label='m.common_active()', color='primary-light', text-color='primary')
 
   q-separator(vertical, color='white')
   .col-auto.text-white.q-mx-md
     km-btn(
-      label='Copy to new',
+      :label='m.common_copyToNew()',
       icon='fas fa-plus',
       iconColor='icon',
       hoverColor='primary',
@@ -48,6 +48,7 @@ q-separator.q-my-sm
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
@@ -66,6 +67,7 @@ export default {
     const { options: items } = useCatalogOptions('rag_tools')
 
     return {
+      m,
       draft,
       isDirty,
       updateField,
@@ -157,14 +159,14 @@ export default {
         timeout: 0,
         actions: [
           {
-            label: 'Cancel',
+            label: m.common_cancel(),
             color: 'yellow',
             handler: () => {
               /* ... */
             },
           },
           {
-            label: 'Delete',
+            label: m.common_delete(),
             color: 'white',
             handler: () => {
               callback()
@@ -172,7 +174,7 @@ export default {
                 color: 'green-9', textColor: 'white',
                 icon: 'check_circle',
                 group: 'success',
-                message: 'Variant has been deleted.',
+                message: m.common_variantDeleted(),
                 timeout: 1000,
               })
             },
@@ -190,7 +192,7 @@ export default {
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
         group: 'success',
-        message: 'Variant has been activated.',
+        message: m.common_variantActivated(),
         timeout: 1000,
       })
     },
@@ -200,12 +202,12 @@ export default {
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
         group: 'success',
-        message: 'New variant has been added.',
+        message: m.common_variantAdded(),
         timeout: 1000,
       })
     },
     deleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.composableDeleteVariant())
+      this.confirm(m.common_deleteVariantConfirm(), () => this.composableDeleteVariant())
     },
     async openDetails(row) {
       await this.$router.push(`/prompt-templates/${row.id}`)

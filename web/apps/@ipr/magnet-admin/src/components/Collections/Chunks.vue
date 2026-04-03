@@ -4,7 +4,7 @@
   .row.q-mb-12.items-center
     .col-auto
       km-input(
-        placeholder='Search chunks...',
+        :placeholder='m.collections_searchChunks()',
         iconBefore='search',
         :model-value='searchText',
         @input='onSearchInput',
@@ -13,7 +13,7 @@
       )
     .col
     .col-auto
-      km-btn(label='Delete all chunks', :loading='deleteLoading', @click='showDeleteConfirm = true', flat, icon='fas fa-trash', iconSize='14px')
+      km-btn(:label='m.collections_deleteAllChunks()', :loading='deleteLoading', @click='showDeleteConfirm = true', flat, icon='fas fa-trash', iconSize='14px')
 
   //- Table
   .col(style='min-height: 0')
@@ -28,14 +28,14 @@
       template(#empty-state)
         .column.flex-center.q-py-xl
           km-icon(name='empty-collection', width='200', height='200')
-          .km-title.q-py-16.text-label Nothing in this knowledge source yet!
+          .km-title.q-py-16.text-label {{ m.collectionItems_nothingInSourceYet() }}
 
   //- Delete confirmation
   km-popup-confirm(
     :visible='showDeleteConfirm',
     notificationIcon='fas fa-triangle-exclamation',
-    confirmButtonLabel='Yes, delete all',
-    cancelButtonLabel='Cancel',
+    :confirmButtonLabel='m.collections_yesDeleteAll()',
+    :cancelButtonLabel='m.common_cancel()',
     @confirm='confirmDelete',
     @cancel='showDeleteConfirm = false'
   )
@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/vue-query'
 import {

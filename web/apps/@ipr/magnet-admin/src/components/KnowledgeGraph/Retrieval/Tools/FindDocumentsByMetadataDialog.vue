@@ -44,6 +44,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogBase, KgDialogSection, KgPromptSection, KgSectionControl, type ControlOption } from '../../common'
 
 const props = defineProps<{

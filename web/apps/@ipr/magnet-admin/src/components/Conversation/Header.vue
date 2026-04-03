@@ -5,6 +5,7 @@
 
 <script>
 import { useConversationStore } from '@/stores/conversationStore'
+import { m } from '@/paraglide/messages'
 import { storeToRefs } from 'pinia'
 export default {
   name: 'ConversationHeader',

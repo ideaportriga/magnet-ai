@@ -29,13 +29,13 @@
 .bg-light.fit.column.no-wrap.q-pt-xs.bl-border.bg-light.items-center.justify-center(v-else-if='ai_app === undefined')
   q-spinner.text-primary(size='80px')
 .bg-light.fit.column.no-wrap.q-pt-xs.bl-border.bg-light.items-center.justify-center(v-else-if='ai_app === null')
-  empty-tab(text='There are no available app for this system name')
+  empty-tab(:text='m.panel_noAvailableApp()')
 .bg-light.fit.column.no-wrap.q-pt-xs.bl-border.bg-light.items-center.justify-center(v-else)
   empty-tab
 
 //footer
 .bg-footer-bg.full-width.row.justify-center.items-center.footer.items-center
-  .footer-text Powered by Magnet AI by IdeaPort Riga
+  .footer-text {{ m.panel_poweredBy() }}
 </template>
 
 <script>
@@ -43,6 +43,7 @@ import { ref, getCurrentInstance, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import getTabComponent from '@shared/utils/getTabComponent'
 import { useMainStore, useAiApps, useAuth } from '@/pinia'
+import { m } from '@/paraglide/messages'
 
 const UserMenu = defineAsyncComponent(() => import('@ui/components/user/UserMenu.vue'))
 export default {
@@ -67,7 +68,7 @@ export default {
       router.push(path)
     }
 
-    return { tab, isIframe, parentApp, appContext, mainStore, aiAppsStore, auth, handleLogout, handleNavigate }
+    return { tab, isIframe, parentApp, appContext, mainStore, aiAppsStore, auth, handleLogout, handleNavigate, m }
   },
   computed: {
     loading() {

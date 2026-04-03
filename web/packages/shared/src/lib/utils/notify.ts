@@ -41,6 +41,7 @@ export const notify = {
       group: 'info',
     }),
 
+  /** Pass translated string: notify.copied(m.common_copiedToClipboard()) */
   copied: (message = 'Copied to clipboard') =>
     Notify.create({
       message,

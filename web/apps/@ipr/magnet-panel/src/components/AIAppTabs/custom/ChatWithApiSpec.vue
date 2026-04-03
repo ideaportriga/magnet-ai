@@ -3,7 +3,7 @@
   .column.full-width(style='max-width: 800px')
     .col-auto.row.justify-between.items-center.q-gap-16
       .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 OpenAPI spec
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.panel_openApiSpec() }}
         q-file.km-control.km-input.rounded-borders(
           :multiple='true',
           max-files='1',
@@ -33,7 +33,7 @@
       km-btn.rounded-borders(
         size='sm',
         flat,
-        :label='showAuthParams ? "Hide auth params" : "Show auth params"',
+        :label='showAuthParams ? m.panel_hideAuthParams() : m.panel_showAuthParams()',
         :icon='showAuthParams ? "arrow_drop_up" : "arrow_drop_down"',
         @click='showAuthParams = !showAuthParams'
       )
@@ -48,12 +48,12 @@
     .col-auto
       .row.q-gap-16.no-wrap
         template(v-if='parsedSpec')
-          km-btn(color='primary', link, @click='showParsedSpec = true') View parsed spec
+          km-btn(color='primary', link, @click='showParsedSpec = true') {{ m.panel_viewParsedSpec() }}
         template(v-if='tools')
-          km-btn(color='primary', link, @click='showTools = true') View function tools
+          km-btn(color='primary', link, @click='showTools = true') {{ m.panel_viewFunctionTools() }}
 
     .col-auto.row.items-center.q-mt-md
-      .km-field.text-secondary-text.q-mr-md Show internal messages
+      .km-field.text-secondary-text.q-mr-md {{ m.panel_showInternalMessages() }}
       q-toggle(v-model='showAllMessages', dense)
 
     .col.column.q-gap-12.q-mt-md.full-width
@@ -62,7 +62,7 @@
           .km-title {{ message.role }}
 
           template(v-if='message.role == "tool"')
-            .km-field.q-mb-sm [Result for {{ message.tool_call_id }}]
+            .km-field.q-mb-sm {{ m.panel_toolResult({ toolCallId: message.tool_call_id }) }}
             km-markdown(:source='message.content')
 
           template(v-else-if='!!message.content')
@@ -81,7 +81,7 @@
         km-input(
           ref='input',
           rows='10',
-          placeholder='Enter user message...',
+          :placeholder='m.placeholder_enterUserMessage()',
           :model-value='userMessage',
           @input='userMessage = $event',
           border-radius='8px',
@@ -91,7 +91,7 @@
         )
         .row.justify-end.q-py-md
           .col-auto.q-mr-md
-            km-btn(flat, simple, label='Clear chat', iconSize='16px', icon='fas fa-eraser', @click='clearChat')
+            km-btn(flat, simple, :label='m.panel_clearChat()', iconSize='16px', icon='fas fa-eraser', @click='clearChat')
           .col-auto
             q-btn(type='submit', color='primary', :disable='cantSendUserMessage', unelevated, padding='6px 7px', style='maxheight: 28px')
               template(v-slot:default)
@@ -108,6 +108,7 @@
 </template>
 <script>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useChatCompletion, usePromptTemplates } from '@/pinia'
 import { storeToRefs } from 'pinia'
 
@@ -211,6 +212,7 @@ export default {
       authParams,
       showAuthParams,
       chatCompletionStore,
+      m,
     }
   },
   computed: {},

@@ -24,6 +24,7 @@
 </template>
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const props = defineProps({
   value: {

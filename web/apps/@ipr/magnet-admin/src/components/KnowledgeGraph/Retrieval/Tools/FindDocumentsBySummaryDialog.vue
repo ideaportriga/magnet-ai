@@ -67,6 +67,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogBase, KgDialogSection, KgFieldRow, KgPromptSection, KgSectionControl } from '../../common'
 import { searchMethodOptions } from '../models'
 

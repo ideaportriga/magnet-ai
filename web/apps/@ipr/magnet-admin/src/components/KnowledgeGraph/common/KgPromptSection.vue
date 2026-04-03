@@ -58,6 +58,7 @@
 
 <script setup lang="ts">
 import { colors } from 'quasar'
+import { m } from '@/paraglide/messages'
 import { computed, ref, watch } from 'vue'
 import KgDialogSection from './KgDialogSection.vue'
 

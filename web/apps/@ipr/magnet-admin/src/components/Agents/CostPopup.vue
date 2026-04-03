@@ -2,7 +2,7 @@
 .col-auto.q-mb-md
   .col-auto
     .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey Model
+      .km-input-label.text-text-grey {{ m.common_model() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -15,7 +15,7 @@
         )
     q-separator.q-my-md
     .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey Total tokens
+      .km-input-label.text-text-grey {{ m.agents_totalTokens() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -26,7 +26,7 @@
           type='text',
           readonly
         )
-      .km-input-label.text-text-grey Total cost
+      .km-input-label.text-text-grey {{ m.agents_totalCost() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -40,7 +40,7 @@
     q-separator.q-my-md
 
     .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey Input tokens
+      .km-input-label.text-text-grey {{ m.agents_inputTokens() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -51,7 +51,7 @@
           type='text',
           readonly
         )
-      .km-input-label.text-text-grey Input cost
+      .km-input-label.text-text-grey {{ m.agents_inputCost() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -62,10 +62,10 @@
           type='text',
           readonly
         )
-        .km-description.text-secondary-text 1M tokens - ${{ priceInput }}
+        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceInput }) }}
 
     .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey Output tokens
+      .km-input-label.text-text-grey {{ m.agents_outputTokens() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -76,7 +76,7 @@
           type='text',
           readonly
         )
-      .km-input-label.text-text-grey Output cost
+      .km-input-label.text-text-grey {{ m.agents_outputCost() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -87,9 +87,9 @@
           type='text',
           readonly
         )
-        .km-description.text-secondary-text 1M tokens - ${{ priceOutput }}
+        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceOutput }) }}
     .row.q-gap-16.justify-between.q-mb-sm
-      .km-input-label.text-text-grey Cached tokens
+      .km-input-label.text-text-grey {{ m.agents_cachedTokens() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -100,7 +100,7 @@
           type='text',
           readonly
         )
-      .km-input-label.text-text-grey Cached cost
+      .km-input-label.text-text-grey {{ m.agents_cachedCost() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -111,11 +111,11 @@
           type='text',
           readonly
         )
-        .km-description.text-secondary-text 1M tokens - ${{ priceCached }}
+        .km-description.text-secondary-text {{ m.agents_1mTokensPrice({ price: priceCached }) }}
 
     q-separator.q-my-md
     .row.q-gap-16.justify-between
-      .km-input-label.text-text-grey Latency
+      .km-input-label.text-text-grey {{ m.agents_latency() }}
         km-input(
           ref='input',
           placeholder='Type your text here',
@@ -129,6 +129,7 @@
 </template>
 <script>
 import { defineComponent, ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 
 export default defineComponent({
@@ -146,6 +147,7 @@ export default defineComponent({
     const modelItems = computed(() => modelListData.value?.items ?? [])
 
     return {
+      m,
       text: ref(undefined),
       loading: ref(false),
       modelItems,

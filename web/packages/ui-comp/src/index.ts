@@ -29,6 +29,7 @@ import InputFlat from './components/base/InputFlat.vue'
 import InputListAdd from './components/base/InputListAdd.vue'
 import JsonEditor from './components/base/JsonEditor.vue'
 import Loader from './components/base/Loader.vue'
+import LocaleSwitcher from './components/base/LocaleSwitcher.vue'
 import Markdown from './components/base/Markdown.vue'
 import NavSection from './components/base/NavSection.vue'
 import NotificationText from './components/base/NotificationText.vue'
@@ -81,6 +82,7 @@ export {
   InputListAdd,
   JsonEditor,
   Loader,
+  LocaleSwitcher,
   Markdown,
   NavSection,
   NotificationText,

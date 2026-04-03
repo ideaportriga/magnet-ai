@@ -6,9 +6,9 @@ q-dialog(:model-value='modal', @hide='$emit("update:modal", false)')
     .row.right-flex(style='position: absolute; right: 16px; top: 13px')
       q-btn(icon='fas fa-times', text-color='blue-grey-3', flat, round, dense, v-close-popup)
     .column.q-gap-8
-      .km-title Please help us improve the answers!
+      .km-title {{ mergedT.title }}
       .q-pb-24
-        .km-paragraph Why were you not happy with the answer?
+        .km-paragraph {{ mergedT.subtitle }}
 
       q-option-group.filter-list-chipped(
         v-model="reason"
@@ -18,19 +18,19 @@ q-dialog(:model-value='modal', @hide='$emit("update:modal", false)')
       )
 
       .q-py-24
-        .km-heading.q-px-8.q-px-2.q-mb-xs Comment
+        .km-heading.q-px-8.q-px-2.q-mb-xs {{ mergedT.commentLabel }}
         km-input.search-prompt-input(
           rounded,
           outlined,
           autogrow,
           bg-color='background',
-          placeholder='How could we improve the answer?',
+          :placeholder='mergedT.commentPlaceholder',
           :model-value='comment',
           @update:modelValue='comment = $event'
         )
       .row.right-flex.q-gap-16
         km-btn(
-          label='Send feedback',
+          :label='mergedT.sendFeedback',
           @click='submit()'
         )
 </template>
@@ -38,25 +38,47 @@ q-dialog(:model-value='modal', @hide='$emit("update:modal", false)')
 <script lang="ts">
 import { ref } from 'vue'
 
+const DEFAULT_T = {
+  title: 'Please help us improve the answers!',
+  subtitle: 'Why were you not happy with the answer?',
+  commentLabel: 'Comment',
+  commentPlaceholder: 'How could we improve the answer?',
+  sendFeedback: 'Send feedback',
+  reasonNotRelevant: "It isn't relevant",
+  reasonNotCorrect: "It isn't correct",
+  reasonOutdated: "It's outdated",
+}
+
 export default {
-  props: ['modal'],
+  props: {
+    modal: {},
+    t: {
+      type: Object,
+      default: () => ({}),
+    },
+  },
   emits: ['onSubmit', 'update:modal'],
   setup() {
     const comment = ref('')
 
     const reason = ref()
-    const reasonsList = ref([
-      { label: 'It isn’t relevant', value: 'not_relevant' },
-      { label: 'It isn’t correct', value: 'inaccurate' },
-      { label: 'It’s outdated', value: 'outdated' },
-    ])
     return {
-      reasonsList,
       reason,
       comment,
     }
   },
-  computed: {},
+  computed: {
+    mergedT() {
+      return { ...DEFAULT_T, ...this.t }
+    },
+    reasonsList() {
+      return [
+        { label: this.mergedT.reasonNotRelevant, value: 'not_relevant' },
+        { label: this.mergedT.reasonNotCorrect, value: 'inaccurate' },
+        { label: this.mergedT.reasonOutdated, value: 'outdated' },
+      ]
+    },
+  },
   watch: {},
   created() {},
   mounted() {},

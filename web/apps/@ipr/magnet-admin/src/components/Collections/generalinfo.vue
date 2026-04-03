@@ -17,7 +17,7 @@
         component(:is='item.component', v-model='source_fields[item.field]', :readonly='isDisable', :disable='isDisable')
   <!-- CHUNKING -->
   q-separator.q-my-lg
-  km-section(title='Chunking', subTitle='Configure how documents are split into smaller, manageable pieces for processing')
+  km-section(:title='m.section_chunking()', :subTitle='m.collections_chunkingSubtitle()')
     .column.q-gap-16
       .col
         .km-input-label.q-pb-xs Chunking strategy
@@ -92,7 +92,7 @@
 
   <!-- INDEXING -->
   q-separator.q-my-lg
-  km-section(title='Indexing', subTitle='Configure indexing methods to optimize document retrieval and search accuracy')
+  km-section(:title='m.section_indexing()', :subTitle='m.collections_indexingSubtitle()')
     .column.q-gap-16
       .km-description.q-mt-sm Enabling both semantic search and keyword search activates hybrid search, which combines the benefits of both approaches, but will increase latency and cost of the search and the source sync.
       .col
@@ -129,6 +129,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRouter, useRoute } from 'vue-router'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { useEntityQueries } from '@/queries/entities'

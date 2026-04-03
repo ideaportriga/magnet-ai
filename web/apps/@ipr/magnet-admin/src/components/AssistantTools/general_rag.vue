@@ -1,6 +1,6 @@
 <template lang="pug">
 div
-  km-section(title='Type', subTitle='Operation type')
+  km-section(:title='m.common_type()', :subTitle='m.subtitle_operationType()')
     .km-field.text-secondary-text.q-pb-md.q-pl-8 Operation type
       km-select(
         height='30px',
@@ -14,7 +14,7 @@ div
         disabled
       )
   q-separator.q-my-lg
-  km-section(title='RAG Tools')
+  km-section(:title='m.entity_ragtools()')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 RAG Tools
       km-select(
         height='auto',
@@ -31,7 +31,7 @@ div
       )
 
   q-separator.q-my-lg
-  km-section(title='Descriptions for LLM', subTitle='Descriptions by which the LLM will choose this Assistant Tool')
+  km-section(:title='m.section_descriptionsForLlm()', :subTitle='m.subtitle_llmDescriptions()')
     .km-field.text-secondary-text.q-pb-md.q-pl-8 Name
       km-input(v-model='nameForLLM', placeholder='Max chunk size')
       .km-description.text-secondary-text Tool name for the LLM
@@ -52,6 +52,7 @@ div
 <script>
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { computed } from 'vue'
 
@@ -65,6 +66,7 @@ export default {
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
+      m,
       ragItems,
       draft,
       updateField,

@@ -102,6 +102,7 @@ div
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import { useRouter } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'

@@ -225,6 +225,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import StructureGuideDialog from './StructureGuideDialog.vue'
 import { BASE_VARIANT_NAME, type ValidationError } from './promptConfigConverter'
 

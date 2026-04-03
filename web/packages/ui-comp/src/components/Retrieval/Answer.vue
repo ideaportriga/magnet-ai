@@ -11,7 +11,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
         .row.stretch.q-ma-auto.no-wrap
           .search-answer-text.stretch.km-title.q-my-4.text-pre-wrap {{ answer.prompt }}
 
-        km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', tooltip='Refine')
+        km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='t.refine')
 
   //- ANSWER
   .col-auto.q-pt-md
@@ -31,7 +31,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                   a.km-link-title.word-break-all.cursor-pointer(@click='$emit("selectAnswer", source)') {{ `${source?.metadata?.title} ${source?.metadata?.pageNumber || source?.metadata?.page ? ` | Page ${source?.metadata?.pageNumber || source?.metadata?.page} ` : ''}` }}
                     .km-field.text-secondary-text.q-py-xs.clamp-text {{ source?.content }}
                 template(v-else)
-                  .km-link-title.word-break-all.text-primary-text {{ source?.metadata?.title || 'Unknown source' }}
+                  .km-link-title.word-break-all.text-primary-text {{ source?.metadata?.title || t.unknownSource }}
 
               .col-auto.self-start
                 km-chip.border-radius-12.text-score-relevant-text.q-py-2(
@@ -55,9 +55,9 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                   )
   km-popup-confirm(
     :visible='showResultingPrompt',
-    title='Resulting prompt details',
-    confirmButtonLabel='Copy to clipboard',
-    cancelButtonLabel='Cancel',
+    :title='t.resultingPromptDetails',
+    :confirmButtonLabel='t.copyToClipboard',
+    :cancelButtonLabel='t.cancel',
     @confirm='copyToClipboard("test")',
     @cancel='showResultingPrompt = false'
   )
@@ -73,8 +73,23 @@ import { notify } from '@shared/utils/notify'
 
 import { ref } from 'vue'
 
+const DEFAULT_T = {
+  refine: 'Refine',
+  unknownSource: 'Unknown source',
+  resultingPromptDetails: 'Resulting prompt details',
+  copyToClipboard: 'Copy to clipboard',
+  cancel: 'Cancel',
+}
+
 export default {
-  props: ['answer', 'uiSettings'],
+  props: {
+    answer: {},
+    uiSettings: {},
+    t: {
+      type: Object,
+      default: () => DEFAULT_T,
+    },
+  },
   emits: ['refine', 'feedback', 'selectAnswer'],
   setup() {
     const showFeedback = ref(false)

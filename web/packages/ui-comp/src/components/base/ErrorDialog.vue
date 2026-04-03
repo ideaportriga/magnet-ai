@@ -4,7 +4,7 @@ q-dialog(v-model='visible', persistent, @hide='clearError')
     //- Header
     q-card-section.row.items-center.q-pb-sm
       q-icon.q-mr-sm(name='fas fa-circle-exclamation', size='20px', color='negative')
-      .km-heading-7.col Error
+      .km-heading-7.col {{ i18n.error }}
       q-btn(icon='close', flat, round, dense, size='sm', @click='visible = false')
 
     q-separator
@@ -12,7 +12,7 @@ q-dialog(v-model='visible', persistent, @hide='clearError')
     //- Body
     q-card-section
       .km-body.q-mb-sm(v-if='text') {{ text }}
-      .km-body(v-else) An unexpected error occurred.
+      .km-body(v-else) {{ i18n.unexpectedError }}
 
       //- Technical details (collapsible)
       template(v-if='technicalError')
@@ -35,16 +35,38 @@ q-dialog(v-model='visible', persistent, @hide='clearError')
         color='grey-7',
         size='sm',
         :icon='copied ? "fas fa-check" : "fas fa-copy"',
-        :label='copied ? "Copied" : "Copy error"',
+        :label='copied ? i18n.copied : i18n.copyError',
         @click='copyError'
       )
       q-space
-      q-btn(flat, no-caps, color='primary', label='OK', v-close-popup)
+      q-btn(flat, no-caps, color='primary', :label='i18n.ok', v-close-popup)
 </template>
 
 <script>
 import { ref, inject } from 'vue'
+
+const DEFAULT_I18N = {
+  error: 'Error',
+  unexpectedError: 'An unexpected error occurred.',
+  copied: 'Copied',
+  copyError: 'Copy error',
+  ok: 'OK',
+  errorReport: '--- Error Report ---',
+  httpStatus: 'HTTP Status:',
+  requestUrl: 'Request URL:',
+  page: 'Page:',
+  time: 'Time:',
+  stackTrace: 'Stack Trace:',
+  browser: 'Browser:',
+}
+
 export default {
+  props: {
+    i18n: {
+      type: Object,
+      default: () => ({ ...DEFAULT_I18N }),
+    },
+  },
   setup() {
     const appStore = inject('appStore', null)
     return {
@@ -74,15 +96,15 @@ export default {
     async copyError() {
       const em = this.errorMessage || {}
       const lines = []
-      lines.push('--- Error Report ---')
+      lines.push(this.i18n.errorReport)
       if (this.text) lines.push(`Error: ${this.text}`)
       if (this.technicalError) lines.push(`Details: ${this.technicalError}`)
-      if (em.statusCode) lines.push(`HTTP Status: ${em.statusCode}`)
-      if (em.requestUrl) lines.push(`Request URL: ${em.requestUrl}`)
-      lines.push(`Page: ${em.route || window.location.href}`)
-      lines.push(`Time: ${em.timestamp || new Date().toISOString()}`)
-      if (em.stack) lines.push(`\nStack Trace:\n${em.stack}`)
-      lines.push(`\nBrowser: ${navigator.userAgent}`)
+      if (em.statusCode) lines.push(`${this.i18n.httpStatus} ${em.statusCode}`)
+      if (em.requestUrl) lines.push(`${this.i18n.requestUrl} ${em.requestUrl}`)
+      lines.push(`${this.i18n.page} ${em.route || window.location.href}`)
+      lines.push(`${this.i18n.time} ${em.timestamp || new Date().toISOString()}`)
+      if (em.stack) lines.push(`\n${this.i18n.stackTrace}\n${em.stack}`)
+      lines.push(`\n${this.i18n.browser} ${navigator.userAgent}`)
 
       try {
         await navigator.clipboard.writeText(lines.join('\n'))

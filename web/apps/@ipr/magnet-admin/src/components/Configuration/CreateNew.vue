@@ -1,28 +1,28 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New RAG Tool',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to edit these and other settings after saving.',
+  :title='m.dialog_newRagTool()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_editAfterSaving()',
   @confirm='createRag',
   @cancel='$emit("cancel")'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
-      km-input(data-test='name-input', height='30px', placeholder='E.g. Demo RAG Tool', v-model='name', ref='nameRef', :rules='config.name.rules')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
+      km-input(data-test='name-input', height='30px', :placeholder='m.placeholder_exampleDemoRagTool()', v-model='name', ref='nameRef', :rules='config.name.rules')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
       km-input(
         data-test='system_name-input',
         height='30px',
-        placeholder='E.g. RAG_TOOL_DEMO',
+        :placeholder='m.placeholder_exampleRagToolDemo()',
         v-model='system_name',
         ref='system_nameRef',
         :rules='config.system_name.rules'
       )
-    .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge sources
+    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_knowledgeSources() }}
     km-select(
       data-test='knowledge-sources',
       height='auto',
@@ -41,6 +41,7 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive } from 'vue'
+import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
@@ -68,6 +69,7 @@ export default {
     const { options: collections } = useCatalogOptions('collections')
 
     return {
+      m,
       draft,
       config,
       createRagTool,

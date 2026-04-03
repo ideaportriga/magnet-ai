@@ -103,6 +103,7 @@
 
 <script setup lang="ts">
 import type { QInput, QSelect } from 'quasar'
+import { m } from '@/paraglide/messages'
 import { computed, nextTick, ref } from 'vue'
 
 interface Props {

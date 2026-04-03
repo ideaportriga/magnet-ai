@@ -1,26 +1,27 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New API Server',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to add security values and secrets later in API Server settings.',
+  :title='m.dialog_newApiServer()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_addSecurityApiServer()',
   @confirm='createRecord',
   @cancel='$emit("cancel")'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
       km-input(data-test='name-input', height='30px', v-model='name', ref='nameRef', :rules='[required()]')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
       km-input(data-test='system_name-input', height='30px', v-model='system_name', ref='system_nameRef', :rules='[required()]')
-    .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md URL
+    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.label_url() }}
     .full-width
       km-input(data-test='url-input', height='30px', v-model='newRow.url', ref='urlRef', :rules='[required()]')
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { required, minLength } from '@shared/utils/validationRules'
@@ -45,6 +46,7 @@ export default {
     const { mutateAsync: createEntity } = queries.api_servers.useCreate()
 
     return {
+      m,
       createEntity,
       aiAppDraft,
       createNew: ref(false),

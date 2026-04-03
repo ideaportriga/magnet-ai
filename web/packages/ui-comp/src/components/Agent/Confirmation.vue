@@ -4,7 +4,7 @@
     :class='{ "ba-border": $theme === "default", "bg-agent-message": $theme !== "default", "ba-primary-important cursor-pointer": (hoverEnabled && hover) || isSelected }'
   )
     .row.q-px-16(:class='{ "bg-table-header q-py-8": $theme === "default", "q-pt-16": $theme !== "default" }')
-      .km-title(:class='{ "text-text-weak": $theme === "default", "text-black": $theme !== "default" }') {{ !multiple ? 'Confirm action' : 'Select actions to confirm' }}
+      .km-title(:class='{ "text-text-weak": $theme === "default", "text-black": $theme !== "default" }') {{ !multiple ? mergedT.confirmAction : mergedT.selectActions }}
     .row.q-px-16.q-py-lg
       template(v-if='!multiple')
         .km-label {{ requests[0].action_message }}
@@ -22,11 +22,11 @@
       .col
       .col-auto.flex.items-center.justify-center
         template(v-if='requests.length > 1')
-          .km-label {{ numberOfConfirmations }} of {{ requests.length }} selected
+          .km-label {{ numberOfConfirmations }} {{ mergedT.ofSelected.replace('...', String(requests.length)) }}
         template(v-else)
-          km-btn(flat, label='Reject', color='primary', @click='cancel', :disable='disabled')
+          km-btn(flat, :label='mergedT.reject', color='primary', @click='cancel', :disable='disabled')
       .col-auto
-        km-btn(:label='!multiple ? "Confirm" : "Confirm choice"', @click='confirmSelected', :disable='disabled')
+        km-btn(:label='!multiple ? mergedT.confirm : mergedT.confirmChoice', @click='confirmSelected', :disable='disabled')
   .row.q-px-8.q-gap-8.items-center.justify-between.full-width.q-mt-4(style='height: 22px')
     .km-field.text-secondary-text {{ date }}
     .row.q-gap-8(v-if='hoverEnabled && hover')
@@ -34,6 +34,16 @@
 </template>
 <script>
 import { ref } from 'vue'
+
+const DEFAULT_T = {
+  confirmAction: 'Confirm action',
+  selectActions: 'Select actions to confirm',
+  ofSelected: 'of ... selected',
+  reject: 'Reject',
+  confirm: 'Confirm',
+  confirmChoice: 'Confirm choice',
+}
+
 export default {
   props: {
     message: {
@@ -56,6 +66,10 @@ export default {
       type: Object,
       default: null,
     },
+    t: {
+      type: Object,
+      default: () => ({}),
+    },
   },
   emits: ['confirm'],
 
@@ -68,6 +82,9 @@ export default {
   },
 
   computed: {
+    mergedT() {
+      return { ...DEFAULT_T, ...this.t }
+    },
     requests() {
       return this.message?.action_call_requests || []
     },

@@ -8,6 +8,7 @@
 </template>
 
 <script setup lang="ts">
+import { m } from '@/paraglide/messages'
 interface Props {
   interactive?: boolean
   tooltip?: string

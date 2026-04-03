@@ -43,6 +43,7 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { columnsSettings } from '@/config/evaluation_sets/evaluation_set_records'
 import { uid } from 'quasar'
 import { useEntityDetail } from '@/composables/useEntityDetail'

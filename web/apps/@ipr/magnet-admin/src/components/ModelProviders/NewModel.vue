@@ -80,6 +80,7 @@ km-popup-confirm(
 
 <script>
 import { ref, reactive } from 'vue'
+import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { useEntityQueries } from '@/queries/entities'

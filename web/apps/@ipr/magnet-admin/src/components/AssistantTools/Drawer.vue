@@ -1,13 +1,14 @@
 <template lang="pug">
 km-drawer-layout(storageKey="drawer-assistant-tools")
   template(#header)
-    .km-heading-7(v-if='!showChunkInfo') Assistant tool definition
+    .km-heading-7(v-if='!showChunkInfo') {{ m.assistantTools_toolDefinition() }}
   .column(v-if='!showChunkInfo')
     km-codemirror(:modelValue='definition', :readonly='true', language='json')
 </template>
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { storeToRefs } from 'pinia'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
@@ -23,6 +24,7 @@ export default {
       answers,
       draft,
       searchStore,
+      m,
       showHints: ref(true),
       selectedAnswer: ref({}),
       showChunkInfo: ref(false),

@@ -51,12 +51,13 @@ export function createEntityApi<T>(client: ApiClient, servicePath: string): Enti
   return {
     async list(params) {
       const queryParams = buildPaginationParams(params)
-      const response = await client.get<{ data?: T[]; total?: number } | T[]>(servicePath, queryParams)
-      // API returns either T[] (plain array) or { data: [...], total: N } (Advanced Alchemy OffsetPagination)
+      const response = await client.get<{ items?: T[]; data?: T[]; total?: number } | T[]>(servicePath, queryParams)
+      // API may return { data: [...], total: N } (Advanced Alchemy OffsetPagination),
+      // { items: [...], total: N }, or just an array
       if (Array.isArray(response)) {
         return { items: response }
       }
-      return { items: response.data ?? [], total: response.total }
+      return { items: response.data ?? response.items ?? [], total: response.total }
     },
 
     async getById(id) {

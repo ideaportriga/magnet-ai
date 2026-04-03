@@ -82,6 +82,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogBase, KgDialogSection, KgFieldRow, KgPromptSection, KgTileSelect, type TileOption } from '../../common'
 
 export interface ExitToolConfig {

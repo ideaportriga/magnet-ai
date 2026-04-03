@@ -84,6 +84,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogBase, KgDialogSection, KgDropdownField, KgFieldRow, KgTileSelect, KgWarningBanner, type TileOption } from '../common'
 
 export type MetadataExtractionApproach = 'chunks' | 'document'

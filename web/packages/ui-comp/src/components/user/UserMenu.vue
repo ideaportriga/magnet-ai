@@ -16,27 +16,42 @@
       q-item(clickable, v-close-popup, @click='$emit("navigate", "/profile")')
         q-item-section(side)
           q-icon(name='person', size='20px')
-        q-item-section Profile
+        q-item-section {{ t.profile }}
 
       q-item(clickable, v-close-popup, @click='$emit("navigate", "/profile/security")')
         q-item-section(side)
           q-icon(name='security', size='20px')
-        q-item-section Security
+        q-item-section {{ t.security }}
 
       q-separator
 
       q-item(clickable, v-close-popup, @click='$emit("logout")')
         q-item-section(side)
           q-icon(name='logout', size='20px', color='negative')
-        q-item-section.text-negative Log out
+        q-item-section.text-negative {{ t.logOut }}
 </template>
+
+<script lang="ts">
+const DEFAULT_T = {
+  profile: 'Profile',
+  security: 'Security',
+  logOut: 'Log out',
+}
+export default {}
+</script>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   userInfo: Record<string, any> | null
-}>()
+  /** i18n labels — pass translated strings to override English defaults */
+  t?: Record<string, string>
+}>(), {
+  t: () => ({ ...DEFAULT_T }),
+})
+
+const t = computed(() => ({ ...DEFAULT_T, ...props.t }))
 
 defineEmits<{
   logout: []

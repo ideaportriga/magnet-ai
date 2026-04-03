@@ -21,6 +21,7 @@
 
 <script setup lang="ts">
 import { KgDialogBase } from '../../common';
+import { m } from '@/paraglide/messages'
 
 defineProps<{
   modelValue: boolean

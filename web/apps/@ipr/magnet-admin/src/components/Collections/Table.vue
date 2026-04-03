@@ -35,6 +35,7 @@ q-table.full-width(
 
 <script>
 import { defineComponent } from 'vue'
+import { m } from '@/paraglide/messages'
 
 export default defineComponent({
   name: 'QTableWrapper',

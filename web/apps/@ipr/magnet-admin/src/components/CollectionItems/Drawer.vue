@@ -3,7 +3,7 @@ km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
   template(#header)
     .row.items-center
       km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
-    .km-heading-4 Chunk details
+    .km-heading-4 {{ m.collectionItems_chunkDetails() }}
   //- .col-auto
   //-   .row.items-center
   //-     .km-heading-7.q-mb-xs Chunk details
@@ -12,7 +12,7 @@ km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
     .col.center-flex-y
       .km-heading-4
     .col-auto.center-flex-y
-      km-btn(icon='fas fa-external-link-alt', label='View document', iconSize='16px', flat, @click='openDocument')
+      km-btn(icon='fas fa-external-link-alt', :label='m.collectionItems_viewDocument()', iconSize='16px', flat, @click='openDocument')
   .row.justify-between.q-pt-8.q-pl-8.q-pr-24
     .col-12.q-py-8
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title
@@ -94,6 +94,7 @@ km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
 </template>
 <script>
 import { defineComponent, ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { formatDateTime } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 
@@ -104,6 +105,7 @@ export default defineComponent({
     const { config } = useEntityConfig('documents')
     return {
       config,
+      m,
       indexedContentExpanded: ref(false),
       retrievalContentExpanded: ref(false),
       unmodifiedContentExpanded: ref(false),

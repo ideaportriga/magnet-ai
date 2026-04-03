@@ -1,10 +1,10 @@
 <template lang="pug">
 div
   km-section(
-    title='Topic selection Prompt Template',
-    subTitle='Topic selection prompt instructs the Agent how to detect correct Topics from user input and handle cases when a Topic was not found.'
+    :title='m.agents_topicSelectionPromptTemplate()',
+    :subTitle='m.subtitle_topicSelection()'
   )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
     km-select(
       height='30px',
       placeholder='Standart Q&A Prompt',
@@ -16,23 +16,23 @@ div
       option-value='system_name',
       :option-show='(item) => item?.category === "agent"'
     )
-    .km-description.text-secondary-text.q-pb-4 Your Prompt Template model must support JSON mode
+    .km-description.text-secondary-text.q-pb-4 {{ m.agents_promptTemplateMustSupportJson() }}
     .row.q-mt-sm
       .col-auto
         km-btn(
           flat,
           simple,
-          :label='topicSelectionPromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+          :label='topicSelectionPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
           iconSize='16px',
           icon='fas fa-comment-dots',
           @click='topicSelectionPromptTemplate ? navigate(`prompt-templates/${topicSelectionPromptTemplateId}`) : navigate("prompt-templates")'
         )
   q-separator.q-my-lg
   km-section(
-    title='Topic processing Prompt Template',
-    subTitle='Topic processing prompt provides general instructions applicable to all Topics, like tone, or general contextual information like current date.'
+    :title='m.agents_topicProcessingPromptTemplate()',
+    :subTitle='m.subtitle_topicProcessing()'
   )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
     km-select(
       height='30px',
       :options='promptTemplatesOptions',
@@ -43,13 +43,13 @@ div
       option-value='system_name',
       :option-show='(item) => item?.category === "agent"'
     )
-    .km-description.text-secondary-text.q-pb-4 Your Prompt Template model must support tool calling
+    .km-description.text-secondary-text.q-pb-4 {{ m.agents_promptTemplateMustSupportToolCalling() }}
     .row.q-mt-sm
       .col-auto
         km-btn(
           flat,
           simple,
-          :label='topicProcessingPromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+          :label='topicProcessingPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
           iconSize='16px',
           icon='fas fa-comment-dots',
           @click='topicProcessingPromptTemplate ? navigate(`prompt-templates/${topicProcessingPromptTemplateId}`) : navigate("prompt-templates")'
@@ -58,6 +58,7 @@ div
 
 <script>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
@@ -70,6 +71,7 @@ export default {
     const { activeVariant, updateVariantField } = useAgentEntityDetail()
 
     return {
+      m,
       activeVariant,
       updateVariantField,
       promptTemplateItems,

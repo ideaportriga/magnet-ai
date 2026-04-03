@@ -5,7 +5,7 @@
       data-test='search-input',
       ref='input',
       autogrow,
-      placeholder='Type your question here',
+      :placeholder='mergedT.placeholder',
       :model-value='prompt',
       @input='prompt = $event',
       @keydown.enter='submit',
@@ -28,6 +28,10 @@
 <script>
 import useState from '@shared/composables/useState'
 
+const DEFAULT_T = {
+  placeholder: 'Type your question here',
+}
+
 export default {
   expose: ['refine'],
   props: {
@@ -48,6 +52,10 @@ export default {
       type: String,
       default: '',
     },
+    t: {
+      type: Object,
+      default: () => ({}),
+    },
   },
   emits: ['onLoad', 'search', 'searchRag', 'searchRagExecute'],
   setup() {
@@ -58,7 +66,11 @@ export default {
       loading,
     }
   },
-  computed: {},
+  computed: {
+    mergedT() {
+      return { ...DEFAULT_T, ...this.t }
+    },
+  },
   watch: {
     searchString: {
       deep: true,

@@ -9,6 +9,7 @@
 
 <script setup>
 import { computed, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { textColumn } from '@/utils/columnHelpers'
 

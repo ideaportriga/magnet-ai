@@ -3,7 +3,7 @@ km-drawer-layout(storageKey="drawer-collections-metadata", noScroll)
   template(#header)
     .row.items-center
       km-btn(flat, simple, :label='`Back to Preview`', iconSize='16px', icon='fas fa-arrow-left', @click='closeDrawer', color='secondary-text')
-    .km-heading-4 Metadata exposure
+    .km-heading-4 {{ m.common_metadata() }}
   .q-mb-md Configure how chunk metadata will be exposed for search and retrieval. To map metadata fields use JSONPath expression.
   .row.q-gap-16.q-mt-lg
     .col-12
@@ -28,6 +28,7 @@ km-drawer-layout(storageKey="drawer-collections-metadata", noScroll)
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useCollectionMetadataStore } from '@/stores/entityDetailStores'
 

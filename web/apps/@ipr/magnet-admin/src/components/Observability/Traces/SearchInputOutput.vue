@@ -61,6 +61,7 @@
 
 <script setup lang="ts">
 import { formatScore } from '@shared/utils'
+import { m } from '@/paraglide/messages'
 import { computed, ref } from 'vue'
 
 const props = defineProps<{

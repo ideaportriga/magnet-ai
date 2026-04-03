@@ -11,14 +11,14 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
         .row.stretch.q-ma-auto.no-wrap
           .search-answer-text.stretch.km-title.q-my-4.text-pre-wrap {{ answer.prompt }}
 
-        km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', tooltip='Refine')
+        km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='m.panel_refine()')
   .col-auto
     .row.q-gap-16.no-wrap
       .q-pt-xs
         q-icon(:name='"fas fa-user"', size='20px', color='semi-transparent-primary', style='visibility: hidden')
       .row.stretch
         .row.stretch.q-ma-auto.no-wrap
-          km-btn(color='primary', link, @click='showResultingPrompt = true', contentClass='q-pa-none') View resulting prompt
+          km-btn(color='primary', link, @click='showResultingPrompt = true', contentClass='q-pa-none') {{ m.ragTools_viewResultingPrompt() }}
 
   //- ANSWER
   .col-auto.q-pt-md
@@ -52,11 +52,11 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
             )
             .row(style='flex: 1 0 0; align-self: stretch')
 
-            km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', tooltip='Copy')
+            km-btn(icon='fas fa-copy', iconSize='16px', size='sm', flat, @click='copy', :tooltip='m.common_copy()')
 
         template(v-if='mainAnswer.hasAnswers')
           .column.q-py-12.full-width.q-gap-8.bt-border.q-mt-sm
-            .km-description.text-grey The answer was found using information from the following articles:
+            .km-description.text-grey {{ m.panel_answerFromArticles() }}
 
             template(v-for='(source, index) in mainAnswerSources')
               .row.q-gap-12.items-center
@@ -69,14 +69,14 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                     a.km-link-title.word-break-all.cursor-pointer(@click='$emit("selectAnswer", source)') {{ true ? source?.metadata?.title || source?.metadata?.source : `Source ${index + 1}` }}
 
                   template(v-else)
-                    .km-link-title.word-break-all.text-primary-text {{ source?.metadata?.title || 'Unknown source' }}
+                    .km-link-title.word-break-all.text-primary-text {{ source?.metadata?.title || m.panel_unknownSource() }}
 
                 .col-auto.self-start
                   km-chip.border-radius-12.text-score-relevant-text.q-py-2(
                     color='score-relevant',
                     :label='score(source.score)',
                     label-class='km-small-chip',
-                    :tooltip='`Score: ${score(source.score)}`'
+                    :tooltip='m.panel_score({ score: score(source.score) })'
                   )
               template(v-if='source?.metadata?.type === "video"')
                 .row.width-100.q-px-24
@@ -91,19 +91,20 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
                     )
   km-popup-confirm(
     :visible='showResultingPrompt',
-    title='Resulting prompt details',
-    confirmButtonLabel='Copy to clipboard',
-    cancelButtonLabel='Cancel',
+    :title='m.ragTools_resultingPromptDetails()',
+    :confirmButtonLabel='m.common_copyToClipboard()',
+    :cancelButtonLabel='m.common_cancel()',
     @confirm='copy("test")',
     @cancel='showResultingPrompt = false'
   )
     .row.justify-between.q-pt-8.q-pl-8
       .col-12.q-py-8
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Messages
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_messages() }}
         km-codemirror(v-model='resultingPromptMessages', :readonly='true', language='json')
 </template>
 
 <script lang="ts">
+import { m } from '@/paraglide/messages'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { copyToClipboard } from 'quasar'
 import { storeToRefs } from 'pinia'
@@ -122,7 +123,7 @@ export default {
     const { options: collectionsItems } = useCatalogOptions('collections')
     const showFeedback = ref(false)
     const showFeedbackConfirm = ref(false)
-    return { activeVariant, searchStore, prompt, showFeedback, showFeedbackConfirm, collectionsItems, showResultingPrompt: ref(false) }
+    return { m, activeVariant, searchStore, prompt, showFeedback, showFeedbackConfirm, collectionsItems, showResultingPrompt: ref(false) }
   },
   computed: {
     uiSettings() {
@@ -183,7 +184,7 @@ export default {
         icon: 'content_copy',
         color: 'dark',
         group: 'copied',
-        message: 'Answer has been copied to clipboard',
+        message: m.ragTools_answerCopied(),
         timeout: 1000,
       })
     },

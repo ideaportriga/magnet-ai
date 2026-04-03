@@ -37,38 +37,39 @@
         q-item-section
           .row.items-center.q-gap-sm
             q-icon(name='close', size='14px')
-            span Close
+            span {{ m.workspace_close() }}
       q-separator
       q-item(clickable, v-close-popup, @click='togglePin(contextMenuTab)')
         q-item-section
           .row.items-center.q-gap-sm
             q-icon(:name='contextMenuTab?.pinned ? "fas fa-thumbtack" : "fas fa-thumbtack"', size='14px')
-            span {{ contextMenuTab?.pinned ? 'Unpin' : 'Pin Tab' }}
+            span {{ contextMenuTab?.pinned ? m.workspace_unpin() : m.workspace_pinTab() }}
       q-separator
       q-item(clickable, v-close-popup, @click='closeOtherTabs')
-        q-item-section Close Others
+        q-item-section {{ m.workspace_closeOthers() }}
       q-item(clickable, v-close-popup, @click='closeTabsToRight')
-        q-item-section Close to the Right
+        q-item-section {{ m.workspace_closeToRight() }}
       q-item(clickable, v-close-popup, @click='closeTabsToLeft')
-        q-item-section Close to the Left
+        q-item-section {{ m.workspace_closeToLeft() }}
       q-separator
       q-item(clickable, v-close-popup, @click='closeAllTabs')
-        q-item-section Close All
+        q-item-section {{ m.workspace_closeAll() }}
 
 //- Dirty confirmation dialog
 km-popup-confirm(
   :visible='showDirtyConfirm',
-  confirmButtonLabel='Close without saving',
-  cancelButtonLabel='Cancel',
+  :confirmButtonLabel='m.common_closeWithoutSaving()',
+  :cancelButtonLabel='m.common_cancel()',
   notificationIcon='fas fa-triangle-exclamation',
   @confirm='confirmCloseTab',
   @cancel='showDirtyConfirm = false'
 )
-  .row.item-center.justify-center.km-heading-7.q-mb-md Unsaved Changes
-  .row.text-center.justify-center This tab has unsaved changes. Close it anyway?
+  .row.item-center.justify-center.km-heading-7.q-mb-md {{ m.workspace_unsavedChanges() }}
+  .row.text-center.justify-center {{ m.workspace_unsavedTabMessage() }}
 </template>
 
 <script setup lang="ts">
+import { m } from '@/paraglide/messages'
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore, type WorkspaceTab } from '@/stores/workspaceStore'

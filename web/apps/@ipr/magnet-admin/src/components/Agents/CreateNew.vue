@@ -1,24 +1,25 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Agent',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='Please give your Agent a name and description. You will be navigated to Agent configuration screen at the next step.',
+  :title='m.dialog_newAgent()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_agentNameDescription()',
   @confirm='createRow',
   @cancel='$emit("cancel")'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
-      km-input(height='30px', placeholder='E.g. Demo Agent', v-model='name', ref='nameRef', :rules='config.name.rules')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
+      km-input(height='30px', :placeholder='m.placeholder_exampleDemoAgent()', v-model='name', ref='nameRef', :rules='config.name.rules')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
-      km-input(height='30px', placeholder='E.g. AGENT_DEMO', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
-    .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
+      km-input(height='30px', :placeholder='m.placeholder_exampleAgentDemo()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
 </template>
 
 <script>
 import { ref, reactive } from 'vue'
+import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
@@ -45,6 +46,7 @@ export default {
 
     const { draft } = useAgentEntityDetail()
     return {
+      m,
       draft,
       modelListData,
       requiredFields,

@@ -16,6 +16,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogBase, KgDialogSection } from '../../common'
 import type { SourceRow } from '../models'
 

@@ -291,6 +291,7 @@
 
 <script setup lang="ts">
 import confluenceImage from '@/assets/brands/atlassian-confluence.png'
+import { m } from '@/paraglide/messages'
 import fluidTopicsImage from '@/assets/brands/fluid-topics.png'
 import sharepointImage from '@/assets/brands/sharepoint.svg'
 import { computed, ref, watch } from 'vue'

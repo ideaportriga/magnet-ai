@@ -64,6 +64,7 @@ km-drawer-layout(storageKey="drawer-mcp-tools")
 </template>
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { fetchData } from '@shared'
 import { useRoute } from 'vue-router'
 import { useEntityDetail } from '@/composables/useEntityDetail'

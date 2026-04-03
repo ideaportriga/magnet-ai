@@ -37,6 +37,7 @@ layouts-details-layout(v-if='tool')
     mcp-tool-drawer(:selectedRow='selectedRow', ref='drawer')
 </template>
 <script setup>
+import { m } from '@/paraglide/messages'
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEntityDetail } from '@/composables/useEntityDetail'

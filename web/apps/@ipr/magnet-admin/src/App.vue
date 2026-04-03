@@ -1,5 +1,5 @@
 <template lang="pug">
-.full-height.full-width(:class='{ "no-wrap column": $route.query.viewMode === "panel" || ai_app }')
+.full-height.full-width(:key='locale', :class='{ "no-wrap column": $route.query.viewMode === "panel" || ai_app }')
   //- Show spinner during initial config load or auth check
   template(v-if='initialLoading || authCheckInProgress')
     .flex.flex-center.full-height
@@ -32,15 +32,15 @@
     .flex.flex-center.full-height
       .column.items-center.q-pa-xl(style='max-width: 480px')
         q-icon(name='fas fa-lock', size='48px', color='grey-5')
-        .text-h6.q-mt-md.text-center Access restricted
+        .text-h6.q-mt-md.text-center {{ m.access_restricted() }}
         .text-body2.text-grey.q-mt-sm.text-center
-          | Your account does not have sufficient permissions to access the admin panel.
-          | Please contact your administrator to request access.
-        .text-caption.text-grey.q-mt-md Logged in as {{ userDisplayName }}
+          | {{ m.access_noPermissions() }}
+          |  {{ m.access_contactAdmin() }}
+        .text-caption.text-grey.q-mt-md {{ m.access_loggedInAs({ name: userDisplayName }) }}
         q-btn.q-mt-lg(
           outline,
           color='primary',
-          label='Log out',
+          :label='m.auth_logout()',
           no-caps,
           @click='handleLogout'
         )
@@ -55,6 +55,8 @@
 import { useState } from '@shared'
 import { useAuth } from '@shared'
 import { getCurrentInstance, computed, ref } from 'vue'
+import { m } from '@/paraglide/messages'
+import { useLocale } from '@shared/i18n'
 import { useAppStore } from '@/stores/appStore'
 import { useSharedAuthStore } from '@shared/stores/authStore'
 import { queryClient } from '@/plugins/vueQuery'
@@ -101,7 +103,11 @@ export default {
     const popupWidth = computed(() => appStore.config?.auth?.popup?.width || '600')
     const popupHeight = computed(() => appStore.config?.auth?.popup?.height || '400')
 
+    const { locale } = useLocale()
+
     return {
+      m,
+      locale,
       initialLoading,
       authPage,
       authClient,

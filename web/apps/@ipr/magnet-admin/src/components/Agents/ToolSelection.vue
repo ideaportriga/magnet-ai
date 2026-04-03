@@ -20,7 +20,7 @@
               km-chip(round, size='24px', :label='getSelectedQtyByType(t.name)', color='primary-light', text-color='primary')
 
   .row.q-mt-16
-    km-input(placeholder='Search', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
+    km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
   .column.no-wrap.q-gap-16.full-height.full-width.q-mb-md.q-mt-16.km-scroll-area-lg(
     style='height: 100% !important',
     :class='{ "overflow-auto": tab == "mcp_tool" || tab == "api" || tab == "knowledge_graph" }'
@@ -77,6 +77,7 @@
 <script setup>
 import { fetchData } from '@shared'
 import { ref, computed, onMounted, markRaw, h } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { agentTopicActionsPopupColumns } from '@/config/agents/topics'
 import { useEntityQueries } from '@/queries/entities'
@@ -129,12 +130,12 @@ onMounted(() => {
 
 const tab = ref('api')
 const tabs = ref([
-  { name: 'api', label: 'API Tools' },
-  { name: 'mcp_tool', label: 'MCP Tools' },
-  { name: 'knowledge_graph', label: 'Knowledge Graph' },
-  { name: 'rag', label: 'RAG Tools' },
-  { name: 'retrieval', label: 'Retrieval Tools' },
-  { name: 'prompt_template', label: 'Prompt Templates' },
+  { name: 'api', label: m.agents_apiTools() },
+  { name: 'mcp_tool', label: m.agents_mcpTools() },
+  { name: 'knowledge_graph', label: m.agents_knowledgeGraph() },
+  { name: 'rag', label: m.agents_ragTools() },
+  { name: 'retrieval', label: m.agents_retrievalTools() },
+  { name: 'prompt_template', label: m.agents_promptTemplates() },
 ])
 
 const searchString = ref('')
@@ -155,7 +156,7 @@ const toolColumns = [
   {
     id: 'nameDescription',
     accessorKey: 'name',
-    header: 'Name & Description',
+    header: m.agents_nameAndDescription(),
     cell: ({ row }) => h(markRaw(NameDescription), { row: row.original }),
     enableSorting: true,
     meta: {

@@ -5,6 +5,7 @@
 
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
+import { m } from '@/paraglide/messages'
 import { computed } from 'vue'
 
 const props = withDefaults(

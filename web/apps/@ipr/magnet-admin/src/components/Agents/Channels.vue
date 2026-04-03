@@ -1,6 +1,6 @@
 <template lang="pug">
 .q-mr-8
-  km-section(title='Web', subTitle='Make the Agent available as an iframe')
+  km-section(:title='m.section_web()', :subTitle='m.subtitle_web()')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_iframe', color='primary', size='sm', :disable='false')
     template(v-if='enable_iframe')
@@ -21,12 +21,12 @@
         .col-auto
           km-btn(icon='fas fa-external-link-alt', iconSize='16px', size='sm', flat, @click='openInNewTab', tooltip='Open in new tab')
   q-separator.q-my-lg
-  km-section(title='Microsoft Teams', subTitle='Provide identifiers and secrets to be used by the Microsoft Teams Agent')
+  km-section(:title='m.section_microsoftTeams()', :subTitle='m.subtitle_teamsCredentials()')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_ms_teams', color='primary', size='sm', :disable='false')
     template(v-if='enable_ms_teams')
       q-separator.q-mb-lg
-      km-notification-text(notification='Microsoft Teams credentials are stored on Agent level, not on the variant.')
+      km-notification-text(:notification='m.hint_teamsCredentialsAgent()')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
       km-input(v-model='ms_teams_client_id', placeholder='Enter MS Teams Client ID')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Tenant ID
@@ -45,12 +45,12 @@
           a.text-primary.cursor-pointer(@click='openHelp') Admin Manual
           | &nbsp;for further steps on MS Teams Agent installation
   q-separator.q-my-lg
-  km-section(title='Slack', subTitle='Provide identifiers and secrets to be used by the Slack Agent')
+  km-section(:title='m.section_slack()', :subTitle='m.subtitle_slackCredentials()')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_slack', color='primary', size='sm', :disable='false')
     template(v-if='enable_slack')
       q-separator.q-mb-lg
-      km-notification-text(notification='Slack credentials are stored on Agent level, not on the variant.')
+      km-notification-text(:notification='m.hint_slackCredentialsAgent()')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
       km-input(v-model='slack_client_id', placeholder='Enter Slack Client ID')
       km-encrypted-input.q-mt-md(
@@ -87,12 +87,12 @@
         :contentStyle='"width: auto;"'
       )
   q-separator.q-my-lg
-  km-section(title='WhatsApp', subTitle='Make the Agent available as a WhatsApp integration')
+  km-section(:title='m.section_whatsApp()', :subTitle='m.subtitle_whatsApp()')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16
       q-toggle(v-model='enable_whatsapp', color='primary', size='sm', :disable='false')
     template(v-if='enable_whatsapp')
       q-separator.q-mb-lg
-      km-notification-text(notification='WhatsApp credentials are stored on Agent level, not on the variant.')
+      km-notification-text(:notification='m.hint_whatsAppCredentialsAgent()')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Phone Number ID
       km-input(v-model='whatsapp_phone_number_id', placeholder='Enter WhatsApp Phone Number ID')
       km-encrypted-input.q-mt-md(
@@ -118,6 +118,7 @@
 </template>
 <script setup>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { copyToClipboard } from 'quasar'

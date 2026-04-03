@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import { formatDuration, formatRelative } from '@shared/utils'
+import { m } from '@/paraglide/messages'
 import type { QTableColumn } from 'quasar'
 import { ref } from 'vue'
 import { KgFileTypeBadge, KgStatusBadge } from '../common'

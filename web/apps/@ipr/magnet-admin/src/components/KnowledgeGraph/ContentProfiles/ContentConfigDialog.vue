@@ -379,6 +379,7 @@
 
 <script setup lang="ts">
 import router from '@/router'
+import { m } from '@/paraglide/messages'
 import { fetchData, required } from '@shared'
 import { computed, ref, watch } from 'vue'
 import { useAppStore } from '@/stores/appStore'

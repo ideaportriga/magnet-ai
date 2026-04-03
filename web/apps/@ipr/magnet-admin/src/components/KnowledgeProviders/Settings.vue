@@ -1,10 +1,10 @@
 <template lang="pug">
 .full-width
-  km-section(title='General info', subTitle='General Knowledge Source Provider settings')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
+  km-section(:title='m.section_generalInfo()', :subTitle='m.subtitle_generalKspSettings()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
     .row.items-center.q-gap-16.no-wrap
       km-select.full-width(:model-value='provider.type', readonly, disabled)
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg Endpoint
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg {{ m.label_endpoint() }}
     .row.items-center.q-gap-8.no-wrap
       .col
         .row.items-center.q-gap-8.no-wrap.relative-position
@@ -18,15 +18,15 @@
             km-btn(v-if='!isEditingEndpoint', icon='fa fa-pen', flat, iconSize='12px', @click='startEditingEndpoint', size='xs')
             km-btn(v-if='isEditingEndpoint', icon='fa fa-xmark', flat, iconSize='12px', @click='cancelEditingEndpoint', size='xs')
             km-btn(v-if='isEditingEndpoint', icon='fa fa-check', flat, iconSize='12px', @click='saveEndpoint', size='xs', color='primary')
-    .km-description.text-secondary-text.q-pb-4.q-pl-8(v-if='!isEditingEndpoint') Click edit to change endpoint. Warning: this will clear all secrets.
-    .km-description.text-negative.q-pb-4.q-pl-8(v-if='isEditingEndpoint') Changing endpoint will permanently delete all secrets!
+    .km-description.text-secondary-text.q-pb-4.q-pl-8(v-if='!isEditingEndpoint') {{ m.hint_endpointWarning() }}
+    .km-description.text-negative.q-pb-4.q-pl-8(v-if='isEditingEndpoint') {{ m.hint_changeEndpointWarning() }}
 
   km-popup-confirm(
     :visible='showEndpointWarning',
-    title='Change Endpoint',
-    confirmButtonLabel='Yes, Clear Secrets',
-    cancelButtonLabel='Cancel',
-    notification='Changing the endpoint will permanently delete all encrypted secrets. You will need to re-enter all credentials after this change.',
+    :title='m.dialog_changeEndpoint()',
+    :confirmButtonLabel='m.confirm_yesClearSecrets()',
+    :cancelButtonLabel='m.common_cancel()',
+    :notification='m.hint_changeEndpointWarning()',
     @confirm='confirmEndpointChange',
     @cancel='cancelEndpointChange'
   )
@@ -35,7 +35,7 @@
     .text-body2 New endpoint: {{ tempEndpoint }}
 
   q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Connection', subTitle='Connection parameters like endpoints and headers')
+  km-section(:title='m.section_connection()', :subTitle='m.subtitle_connectionParams()')
     .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in connectionEntries', :key='key')
       .col
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
@@ -47,15 +47,16 @@
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
         km-btn(@click='removeConnection(key)', icon='o_delete', size='sm', flat, color='negative')
     .row.q-pt-16
-      km-btn(label='Add Record', @click='addConnection', size='sm', icon='o_add', flat)
+      km-btn(:label='m.common_addRecord()', @click='addConnection', size='sm', icon='o_add', flat)
   q-separator.q-mt-lg.q-mb-lg
-  km-section(title='Secrets', subTitle='Use to store sensitive values such as API keys or tokens.')
+  km-section(:title='m.section_secrets()', :subTitle='m.subtitle_useSecretsKsp()')
     km-secrets(v-model:secrets='secrets', :original-secrets='originalProviderSecrets', :remount-value='remountValue')
 </template>
 
 <script setup>
 import { computed, ref } from 'vue'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { m } from '@/paraglide/messages'
 
 const { draft, data, updateField, updateFields } = useEntityDetail('provider')
 

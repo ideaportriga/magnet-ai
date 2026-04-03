@@ -22,6 +22,7 @@
 </template>
 
 <script lang="ts" setup>
+import { m } from '@/paraglide/messages'
 type ToolFunction = {
   name?: string
   arguments?: string

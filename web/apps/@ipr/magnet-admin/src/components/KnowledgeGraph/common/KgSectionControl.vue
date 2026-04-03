@@ -16,6 +16,7 @@
 </template>
 
 <script setup lang="ts">
+import { m } from '@/paraglide/messages'
 export type ControlOption = {
   label: string
   value: string

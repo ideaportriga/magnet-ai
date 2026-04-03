@@ -64,6 +64,7 @@ q-inner-loading(:showing='loading', color='primary')
 </template>
 <script>
 import { formatDateTime } from '@shared/utils/dateTime'
+import { m } from '@/paraglide/messages'
 import { formatDuration } from '@shared/utils'
 import { useConversationStore } from '@/stores/conversationStore'
 import { storeToRefs } from 'pinia'
@@ -75,6 +76,7 @@ export default {
     const convStore = useConversationStore()
     const { conversation, loading } = storeToRefs(convStore)
     return {
+      m,
       selectedMessage,
       loading,
       conversation,

@@ -3,8 +3,8 @@
   km-inner-loading(:showing='loading')
 layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:description='description', v-model:systemName='system_name', :contentContainerStyle='{ maxWidth: "1200px", minWidth: "600px", margin: "0 auto" }')
   template(#header-actions)
-    km-btn(label='Execute', flat, icon='play_arrow', iconSize='16px', @click='pqStore.executeDrawerOpen = true')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving')
+    km-btn(:label='m.common_execute()', flat, icon='play_arrow', iconSize='16px', @click='pqStore.executeDrawerOpen = true')
+    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving')
   template(#content)
     q-tabs.bb-border.full-width(
       v-model='tab',
@@ -15,9 +15,9 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
       indicator-color='primary',
       no-caps
     )
-      q-tab(name='steps', label='Steps')
-      q-tab(name='expected_input', label='Expected input')
-      q-tab(name='test_inputs', label='Test Inputs')
+      q-tab(name='steps', :label='m.common_steps()')
+      q-tab(name='expected_input', :label='m.common_expectedInput()')
+      q-tab(name='test_inputs', :label='m.common_testInputs()')
     .column.no-wrap.q-gap-12.full-height.full-width.overflow-auto.q-mb-sm.q-mt-sm(style='min-height: 0')
       template(v-if='tab === "steps"')
         .col-auto.full-width
@@ -234,6 +234,7 @@ import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { usePromptQueueStore } from '@/stores/promptQueueStore'
 import { useNotify } from '@/composables/useNotify'
+import { m } from '@/paraglide/messages'
 
 const pqStore = usePromptQueueStore()
 const route = useRoute()

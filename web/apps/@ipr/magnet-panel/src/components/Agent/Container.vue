@@ -13,9 +13,10 @@
   .col.overflow-auto
     agent-tab(:agent='selectedTab.config.agent', :tab='selectedTab', v-if='selectedTab')
   .bg-footer-bg.full-width.row.justify-center.items-center.footer.items-center(style='flex-shrink: 0')
-    .footer-text Powered by Magnet AI by IdeaPort Riga
+    .footer-text {{ m.panel_poweredBy() }}
 </template>
 <script setup>
+import { m } from '@/paraglide/messages'
 import { storeToRefs } from 'pinia'
 import { useAiApps } from '@/pinia'
 import { computed, watch } from 'vue'

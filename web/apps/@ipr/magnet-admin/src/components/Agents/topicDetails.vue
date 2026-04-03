@@ -19,6 +19,7 @@
 
 <script>
 import { ref, computed, onActivated } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
@@ -36,13 +37,14 @@ export default {
     const removeMutation = queries.agents.useRemove()
     const { draft, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
+      m,
       draft,
       activeVariant,
       updateNestedListItemBySystemName,
       tab: ref('prompts'),
       tabs: ref([
-        { name: 'actions', label: 'Actions' },
-        { name: 'prompts', label: 'Topic instructions' },
+        { name: 'actions', label: m.agents_actions() },
+        { name: 'prompts', label: m.agents_topicInstructions() },
       ]),
       showNewDialog: ref(false),
       activeAgentDetail: ref({}),
@@ -155,7 +157,7 @@ export default {
                 color: 'green-9', textColor: 'white',
                 icon: 'check_circle',
                 group: 'success',
-                message: 'Prompt has been deleted.',
+                message: m.agents_promptDeleted(),
                 timeout: 1000,
               })
               this.navigate('/prompt-templates')

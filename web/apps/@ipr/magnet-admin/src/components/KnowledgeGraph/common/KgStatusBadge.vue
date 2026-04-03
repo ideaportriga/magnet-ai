@@ -15,6 +15,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const props = defineProps<{
   status?: string | null

@@ -31,6 +31,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'

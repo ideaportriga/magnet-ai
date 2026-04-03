@@ -9,6 +9,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 
 type BannerVariant = 'warning' | 'error' | 'info' | 'neutral'
 

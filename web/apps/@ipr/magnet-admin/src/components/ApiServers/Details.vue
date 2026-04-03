@@ -4,54 +4,54 @@ layouts-details-layout(v-if='api_server')
   template(#header)
     .col
       .row.items-center
-        km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :model-value='name', @change='name = $event')
+        km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :model-value='name', @change='name = $event')
       .row.items-center.q-pl-6
         q-icon.col-auto(name='o_info', color='text-secondary')
-          q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
+          q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
         km-input-flat.col.km-description.text-black.full-width(
-          placeholder='Enter system name',
+          :placeholder='m.placeholder_enterSystemNameReadable()',
           :model-value='system_name',
           @change='system_name = $event',
           @focus='showInfo = true',
           @blur='showInfo = false'
         )
-      .km-description.text-secondary.q-pl-6(v-if='showInfo') It is highly recommended to fill in system name only once and not change it later.
+      .km-description.text-secondary.q-pl-6(v-if='showInfo') {{ m.hint_systemNameRecommendation() }}
   template(#header-actions)
-    km-btn(label='Record info', flat, icon='info', iconSize='16px')
+    km-btn(:label='m.common_recordInfo()', flat, icon='info', iconSize='16px')
       q-tooltip.bg-white.block-shadow
         .q-pa-sm
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdLabel() }}
             .text-secondary-text.km-description {{ created_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Modified:
+            .text-secondary-text.km-button-xs-text {{ m.common_modified() }}
             .text-secondary-text.km-description {{ modified_at }}
           .q-mb-sm
-            .text-secondary-text.km-button-xs-text Created by:
+            .text-secondary-text.km-button-xs-text {{ m.common_createdBy() }}
             .text-secondary-text.km-description {{ created_by }}
           div
-            .text-secondary-text.km-button-xs-text Modified by:
+            .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(label='Revert', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(label='Save', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
+    km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
     q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
         q-item(clickable, @click='showNewDialog = true', dense)
           q-item-section
-            .km-heading-3 Clone
+            .km-heading-3 {{ m.common_clone() }}
         q-item(clickable, @click='showDeleteDialog = true', dense)
           q-item-section
-            .km-heading-3 Delete
+            .km-heading-3 {{ m.common_delete() }}
     km-popup-confirm(
       :visible='showDeleteDialog',
-      confirmButtonLabel='Delete API Server',
-      cancelButtonLabel='Cancel',
+      :confirmButtonLabel='m.deleteConfirm_deleteEntity({ entity: m.entity_apiServer() })',
+      :cancelButtonLabel='m.common_cancel()',
       notificationIcon='fas fa-triangle-exclamation',
       @confirm='confirmDelete',
       @cancel='showDeleteDialog = false'
     )
-      .row.item-center.justify-center.km-heading-7 You are about to delete the API Server
-      .row.text-center.justify-center This action will permanently delete the API Server and disable it in all tools that are using it.
+      .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_apiServer() }) }}
+      .row.text-center.justify-center {{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_apiServer() }) }}
   template(#content)
     .column.full-height(style='min-height: 0')
       q-tabs.bb-border.full-width(
@@ -80,6 +80,7 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { notify } from '@shared/utils/notify'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { m } from '@/paraglide/messages'
 
 const route = useRoute()
 const router = useRouter()
@@ -92,8 +93,8 @@ const showDeleteDialog = ref(false)
 const showNewDialog = ref(false)
 const tab = ref('tools')
 const tabs = ref([
-  { name: 'tools', label: 'Tools' },
-  { name: 'settings', label: 'Settings' },
+  { name: 'tools', label: m.common_tools() },
+  { name: 'settings', label: m.common_settings() },
 ])
 
 const name = computed({

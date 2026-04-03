@@ -4,40 +4,41 @@ q-dialog(:model-value='showNewDialog', @cancel='onCancel', @hide='onCancel')
     q-card-section.card-section-style.q-pb-none
       .row
         .col
-          .km-heading-7 New API Key
+          .km-heading-7 {{ m.dialog_createApiKey() }}
         .col-auto
           q-btn(icon='close', flat, dense, @click='onCancel')
     q-card-section.card-section-style.q-mb-md
       .column(v-if='step === 0')
-        km-notification-text.q-mb-lg(notification='Create new API Key to access Magnet AI')
-        .km-field.text-secondary-text.q-pl-8.q-mb-xs Name
+        km-notification-text.q-mb-lg(:notification='m.hint_createApiKey()')
+        .km-field.text-secondary-text.q-pl-8.q-mb-xs {{ m.common_name() }}
         .full-width
           km-input(placeholder='My Test API Key', v-model='name', ref='nameRef')
         .row.q-mt-lg
           .col-auto
-            km-btn(flat, label='Cancel', color='primary', @click='onCancel')
+            km-btn(flat, :label='m.common_cancel()', color='primary', @click='onCancel')
           .col
           .col-auto.center-flex-y.q-mr-sm
             q-spinner(v-if='loading', color='primary', size='20px')
           .col-auto
-            km-btn(label='Create API Key', @click='create', :disable='loading || !name')
+            km-btn(:label='m.dialog_createApiKey()', @click='create', :disable='loading || !name')
       .column(v-if='step === 1')
         km-notification-text.q-mb-lg(
-          notification="For security reasons, this secret key is only displayed once and you won't be able to view it again. Copy and save the key to a secure destination. If you lose this secret key, you will need to generate a new one."
+          :notification='m.hint_secretKeyOnce()'
         )
         .row.q-gap-8.no-wrap.items-center
           .km-field.text-secondary-text.q-pl-8(style='white-space: nowrap') {{ name || 'Key' }}
           .full-width
             km-input(placeholder='My Test API Key', v-model='key', ref='keyRef', readonly)
-          km-btn(label='Copy', @click='copyKey', dense, flat, icon='fa fa-copy', iconSize='16px')
+          km-btn(:label='m.common_copy()', @click='copyKey', dense, flat, icon='fa fa-copy', iconSize='16px')
         .row.q-mt-lg
           q-space
           .col-auto
-            km-btn(label='Done', @click='onCancel')
+            km-btn(:label='m.common_done()', @click='onCancel')
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { copyToClipboard } from 'quasar'
 import { notify } from '@shared/utils/notify'

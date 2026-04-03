@@ -17,6 +17,7 @@ div
 
 <script setup>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 
 const { draft, updateField } = useEntityDetail('evaluation_sets')

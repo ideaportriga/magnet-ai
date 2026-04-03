@@ -3,17 +3,17 @@
   .column.items-center.auth-container(style='width: 360px')
     .row.items-center.q-mb-lg
       km-icon(name='magnet', width='23', height='25')
-      .km-heading-7.logo-text.q-ml-sm Create account
+      .km-heading-7.logo-text.q-ml-sm {{ t.createAccount }}
 
     //- Success state
     template(v-if='registered')
       .full-width.text-center.q-pa-md
         q-icon(name='fas fa-check-circle', size='48px', color='positive')
-        .text-h6.q-mt-md Account created
-        .text-body2.text-grey.q-mt-sm You can now log in with your email and password.
+        .text-h6.q-mt-md {{ t.accountCreated }}
+        .text-body2.text-grey.q-mt-sm {{ t.canLoginNow }}
         q-btn.full-width.q-mt-lg(
           color='primary',
-          label='Go to login',
+          :label='t.goToLogin',
           no-caps,
           @click='$emit("navigate", "login")'
         )
@@ -23,27 +23,27 @@
       q-form.full-width.q-gutter-sm(@submit.prevent='handleSignup')
         q-input(
           v-model='name',
-          label='Name',
+          :label='t.name',
           outlined,
           dense,
           autocomplete='name'
         )
         q-input(
           v-model='email',
-          label='Email',
+          :label='t.email',
           type='email',
           outlined,
           dense,
-          :rules='[val => !!val || "Email is required"]',
+          :rules='[val => !!val || t.emailRequired]',
           autocomplete='email'
         )
         q-input(
           v-model='password',
-          label='Password',
+          :label='t.password',
           :type='showPassword ? "text" : "password"',
           outlined,
           dense,
-          :rules='[val => val.length >= 8 || "Minimum 8 characters"]',
+          :rules='[val => val.length >= 8 || t.minPassword]',
           autocomplete='new-password'
         )
           template(v-slot:append)
@@ -52,7 +52,7 @@
               class='cursor-pointer',
               role='button',
               tabindex='0',
-              :aria-label='showPassword ? "Hide password" : "Show password"',
+              :aria-label='showPassword ? t.hidePassword : t.showPassword',
               @click='showPassword = !showPassword',
               @keydown.enter='showPassword = !showPassword',
               @keydown.space.prevent='showPassword = !showPassword'
@@ -63,22 +63,47 @@
         q-btn.full-width.q-mt-sm(
           type='submit',
           color='primary',
-          label='Sign up',
+          :label='t.signup',
           :loading='inProgress',
           no-caps
         )
 
       .q-mt-sm
-        a.text-caption.cursor-pointer.text-primary(tabindex='0', role='button', @click='$emit("navigate", "login")', @keydown.enter='$emit("navigate", "login")') Already have an account? Log in
+        a.text-caption.cursor-pointer.text-primary(tabindex='0', role='button', @click='$emit("navigate", "login")', @keydown.enter='$emit("navigate", "login")') {{ t.alreadyHaveAccount }}
 </template>
 
+<script lang="ts">
+const DEFAULT_T = {
+  createAccount: 'Create account',
+  accountCreated: 'Account created',
+  canLoginNow: 'You can now log in with your email and password.',
+  goToLogin: 'Go to login',
+  name: 'Name',
+  email: 'Email',
+  password: 'Password',
+  emailRequired: 'Email is required',
+  minPassword: 'Minimum 8 characters',
+  hidePassword: 'Hide password',
+  showPassword: 'Show password',
+  signup: 'Sign up',
+  alreadyHaveAccount: 'Already have an account? Log in',
+  signupFailed: 'Signup failed',
+}
+export default {}
+</script>
+
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { AuthClient } from '@shared/auth'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   authClient: AuthClient
-}>()
+  t?: Record<string, string>
+}>(), {
+  t: () => ({ ...DEFAULT_T }),
+})
+
+const t = computed(() => ({ ...DEFAULT_T, ...props.t }))
 
 const emit = defineEmits<{
   success: []
@@ -102,7 +127,7 @@ async function handleSignup() {
     await props.authClient.signup(email.value, password.value, name.value || undefined)
     registered.value = true
   } catch (e: any) {
-    errorMessage.value = e.message || 'Signup failed'
+    errorMessage.value = e.message || t.value.signupFailed
   } finally {
     inProgress.value = false
   }

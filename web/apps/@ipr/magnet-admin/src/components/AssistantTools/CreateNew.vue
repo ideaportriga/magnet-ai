@@ -1,14 +1,14 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Assistant Tool (API)',
-  confirmButtonLabel='Create Assistant Tool',
-  cancelButtonLabel='Cancel',
+  :title='m.dialog_newAssistantToolApi()',
+  :confirmButtonLabel='m.dialog_createAssistantTool()',
+  :cancelButtonLabel='m.common_cancel()',
   @confirm='createTools',
   @cancel='$emit("cancel")',
   :loading='loading'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md API Provider
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.label_apiProvider() }}
     .full-width
       km-select(
         height='30px',
@@ -21,15 +21,16 @@ km-popup-confirm(
         v-model='newRow.api_provider'
       )
 
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Specification
-    q-file(outlined, label='File upload', ref='fileRef', v-model='newRow.file', dense)
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_apiSpecification() }}
+    q-file(outlined, :label='m.common_uploadFile()', ref='fileRef', v-model='newRow.file', dense)
       template(v-slot:append)
         q-icon(name='attach_file')
 
-    .km-description.text-secondary-text.q-py-8 Upload API Specification to generate Assistant Tool. File format: JSON or YAML
+    .km-description.text-secondary-text.q-py-8 {{ m.hint_uploadApiSpecification() }}
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { fetchData } from '@shared'
@@ -60,6 +61,7 @@ export default {
     const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
+      m,
       createEntity,
       draft,
       appStore,

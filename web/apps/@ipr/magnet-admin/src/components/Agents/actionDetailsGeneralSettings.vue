@@ -1,35 +1,36 @@
 <template lang="pug">
 div
-  km-section(title='LLM instructions', subTitle='Instructions for the Language model that help Agents execute Action')
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 Name for the LLM
+  km-section(:title='m.section_llmInstructions()', :subTitle='m.subtitle_llmInstructions()')
+    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_nameForLlm() }}
       |
-      km-input(ref='input', placeholder='Name for the LLM', border-radius='8px', height='36px', v-model='function_name')
-        .km-field.text-secondary-text.q-pb-sm.q-pl-8 Helps LLM find and execute Action. Must be unique within the Topic. Cannot contain spaces.
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 Description for the LLM
+      km-input(ref='input', :placeholder='m.agents_nameForLlm()', border-radius='8px', height='36px', v-model='function_name')
+        .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_nameLlmHelp() }}
+    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_descriptionForLlm() }}
       km-input(ref='input', rows='8', border-radius='8px', height='36px', type='textarea', v-model='function_description')
   q-separator.q-my-lg
-  km-section(title='Display settings', subTitle='Configure information about the Action that is displayed to end user')
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 Display name
-      km-input(ref='input', placeholder='Display name', border-radius='8px', height='36px', v-model='display_name')
-      .km-field.text-secondary-text.q-pb-sm.q-pl-8 This name will be displayed for the end user when the action is selected by an Agent. Keep it short and non-technical.
-    .km-field.text-secondary-text.q-pb-sm.q-pl-8 Display description
-      km-input(ref='input', placeholder='Display description', border-radius='8px', height='36px', v-model='display_description')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 This description will be displayed for the end user when the action is selected by an Agent. Keep it short and non-technical.
+  km-section(:title='m.section_displaySettings()', :subTitle='m.subtitle_configureActionDisplay()')
+    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_displayName() }}
+      km-input(ref='input', :placeholder='m.agents_displayName()', border-radius='8px', height='36px', v-model='display_name')
+      .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_displayNameHelp() }}
+    .km-field.text-secondary-text.q-pb-sm.q-pl-8 {{ m.agents_displayDescription() }}
+      km-input(ref='input', :placeholder='m.agents_displayDescription()', border-radius='8px', height='36px', v-model='display_description')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.agents_displayDescriptionHelp() }}
   q-separator.q-my-lg
-  km-section(title='Tool of origin', subTitle='Tool from which the Action was created')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Tool of origin
+  km-section(:title='m.section_toolOfOrigin()', :subTitle='m.subtitle_toolOfOrigin()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.agents_toolOfOriginLabel() }}
       .row.items-center
         .col-auto.q-mr-8
           km-chip(round, size='24px', :label='getToolTypeLabel(action?.type)', color='primary-light', text-color='primary')
         .col.q-mr-8
-          km-input(ref='input', readonly, placeholder='Display description', border-radius='8px', height='36px', v-model='tool_name')
+          km-input(ref='input', readonly, :placeholder='m.agents_displayDescription()', border-radius='8px', height='36px', v-model='tool_name')
     .row
       .col-auto.q-mr-8
-        km-btn(flat, simple, :label='`Open ${getToolTypeLabel(action?.type)}`', iconSize='16px', icon='fas fa-arrow-right', @click='openTool')
+        km-btn(flat, simple, :label='m.agents_openTool({ toolType: getToolTypeLabel(action?.type) })', iconSize='16px', icon='fas fa-arrow-right', @click='openTool')
 </template>
 
 <script>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
@@ -45,6 +46,7 @@ export default {
     const apiServers = computed(() => apiServersData.value?.items ?? [])
 
     return {
+      m,
       activeVariant,
       updateNestedListItemBySystemName,
       promptTemplateItems,
@@ -208,9 +210,9 @@ export default {
     },
     getToolTypeLabel(name) {
       const dict = [
-        { name: 'api', label: 'API Tool' },
-        { name: 'rag', label: 'RAG Tool' },
-        { name: 'prompt_template', label: 'Prompt Template' },
+        { name: 'api', label: this.m.agents_apiTool() },
+        { name: 'rag', label: this.m.agents_ragTool() },
+        { name: 'prompt_template', label: this.m.common_promptTemplate() },
       ]
 
       return dict.find((item) => item.name === name)?.label || name

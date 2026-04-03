@@ -66,6 +66,7 @@
 
 <script>
 import { ref, computed, h, markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 import filter from '@/config/dashboard/llm-filters'
 import topControls from '@/config/dashboard/llm-table'
 import { fetchData } from '@shared'

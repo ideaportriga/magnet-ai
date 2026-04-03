@@ -30,7 +30,7 @@
       //- Files table
       .ba-border.border-radius-12.bg-white.q-pa-16.column(style="min-height: 0")
         .row.q-mb-12.items-center
-          km-input.q-mr-12(placeholder="Search", iconBefore="search", :modelValue="globalFilter", @input="globalFilter = $event", clearable)
+          km-input.q-mr-12(:placeholder="m.common_search()", iconBefore="search", :modelValue="globalFilter", @input="globalFilter = $event", clearable)
           q-select.q-mr-12(
             v-model="filterEntityType",
             :options="entityTypeOptions",
@@ -124,6 +124,7 @@ import { DateTime } from 'luxon'
 import { fetchData } from '@shared'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
+import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { useEntityQueries } from '@/queries/entities'
 import { useNotify } from '@/composables/useNotify'
@@ -171,7 +172,7 @@ const columns = [
   textColumn<StoredFile>('filename', 'Filename'),
   textColumn<StoredFile>('size', 'Size', { align: 'right' }),
   textColumn<StoredFile>('entity_type', 'Entity type'),
-  dateColumn<StoredFile>('created_at', 'Created'),
+  dateColumn<StoredFile>('created_at', m.common_created()),
   {
     id: 'expires_at',
     accessorKey: 'expires_at',

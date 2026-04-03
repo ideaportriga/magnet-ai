@@ -1,35 +1,35 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New AI App Tab',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to edit these and other settings after saving.',
+  :title='m.dialog_newAiAppTab()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_editAfterSaving()',
   @confirm='create',
   @cancel='$emit("cancel")'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
-      km-input(data-test='name-input', height='30px', placeholder='E.g. Help Center', v-model='name', ref='nameRef', :rules='config.name.rules')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
+      km-input(data-test='name-input', height='30px', :placeholder='m.placeholder_exampleHelpCenter()', v-model='name', ref='nameRef', :rules='config.name.rules')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
       km-input(
         data-test='name-system_name',
         height='30px',
-        placeholder='E.g. HELP_CENTER',
+        :placeholder='m.placeholder_exampleSystemNameHelpCenter()',
         v-model='system_name',
         ref='system_nameRef',
         :rules='config.system_name.rules'
       )
-    .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Tab type
+    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.label_tabType() }}
     |
     .full-width.column
       template(v-for='tab in tabTypes')
         q-radio.q-mb-xs(name='tab_type', dense, :label='tab.label', :val='tab.val', v-model='newRow.tab_type')
 
   template(v-if='newRow.tab_type === "RAG"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 RAG Tool
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_ragTool() }}
       km-select(
         height='30px',
         placeholder='RAG Tool',
@@ -41,7 +41,7 @@ km-popup-confirm(
         :rules='ragToolRules'
       )
   template(v-if='newRow.tab_type === "Retrieval"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Retrieval Tool
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_retrievalTool() }}
       km-select(
         height='30px',
         placeholder='Retrieval Tool',
@@ -53,11 +53,11 @@ km-popup-confirm(
         :rules='retrievalToolRules'
       )
   template(v-if='newRow.tab_type === "Custom"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Custom code
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_customCode() }}
       km-codemirror(v-model='newRow.config.jsonString', :rules='customCodeRules', ref='customCodeRef')
-      .km-description.text-secondary-text.q-pb-4 Enter your custom code in JSON format
+      .km-description.text-secondary-text.q-pb-4 {{ m.hint_enterCustomCodeJson() }}
   template(v-if='newRow.tab_type === "Agent"')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Agent
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_agent() }}
       km-select(
         height='30px',
         placeholder='Agent',
@@ -71,6 +71,7 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
@@ -104,6 +105,7 @@ export default {
     const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
+      m,
       ragDraft,
       draft,
       updateField,

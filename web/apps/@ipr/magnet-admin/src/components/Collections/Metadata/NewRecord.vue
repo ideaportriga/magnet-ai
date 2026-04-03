@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useNotify } from '@/composables/useNotify'
 

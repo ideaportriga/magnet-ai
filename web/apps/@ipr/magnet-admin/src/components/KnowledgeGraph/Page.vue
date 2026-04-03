@@ -10,11 +10,11 @@
         <div class="col ba-border border-radius-12 bg-white q-pa-16 column kg-table-wrapper">
           <div class="row q-mb-12">
             <div class="col-auto center-flex-y">
-              <km-input :model-value="globalFilter" placeholder="Search" icon-before="search" clearable @input="globalFilter = $event" />
+              <km-input :model-value="globalFilter" :placeholder="m.common_search()" icon-before="search" clearable @input="globalFilter = $event" />
             </div>
             <q-space />
             <div class="col-auto center-flex-y">
-              <km-btn class="q-mr-12" label="New" @click="showCreateDialog = true" />
+              <km-btn class="q-mr-12" :label="m.common_new()" @click="showCreateDialog = true" />
             </div>
           </div>
           <div class="col kg-table-inner">
@@ -55,6 +55,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { entityKeys } from '@/queries/queryKeys'
+import { m } from '@/paraglide/messages'
 import type { KnowledgeGraph } from '@/types'
 import CreateGraphDialog from './CreateGraphDialog.vue'
 
@@ -63,9 +64,9 @@ const queryClient = useQueryClient()
 const showCreateDialog = ref(false)
 
 const columns = [
-  textColumn<KnowledgeGraph>('name', 'Name'),
+  textColumn<KnowledgeGraph>('name', m.common_name()),
   textColumn<KnowledgeGraph>('documents_count', 'Documents', { align: 'right' }),
-  dateColumn<KnowledgeGraph>('created_at', 'Created'),
+  dateColumn<KnowledgeGraph>('created_at', m.common_created()),
 ]
 
 const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<KnowledgeGraph>('knowledge_graph', columns)

@@ -1,18 +1,18 @@
 <template lang="pug">
 div
-  .km-button-text User Confirmation
+  .km-button-text {{ m.agents_userConfirmation() }}
   q-separator.q-mb-16
   .row.items-center.q-pb-xs
-    .km-label.text-label Require confirmation
+    .km-label.text-label {{ m.agents_requireConfirmationLabel() }}
     km-toggle(v-model='requires_confirmation', label-class='text-label')
-  .km-description.text-label Require user confirmation before executing this Action
+  .km-description.text-label {{ m.agents_requireConfirmationDesc() }}
   .col(v-if='requires_confirmation')
     .row.items-center.q-pl-8.q-gap-4.q-pb-xs.q-pt-lg
-      .km-field.text-label Custom action description
+      .km-field.text-label {{ m.agents_customActionDescription() }}
     km-input(v-model='action_message_llm_description', border-radius='8px', height='36px', type='textarea', rows='3')
-    .km-description.text-label.q-pl-8.q-pt-xs Instructions from this field will override global instructions for this Action.
+    .km-description.text-label.q-pl-8.q-pt-xs {{ m.agents_instructionsOverrideGlobal() }}
     .row.items-center(@click='openGlobalInstructions = !openGlobalInstructions')
-      km-btn.q-mt-8.q-mb-6(label='View global instructions', flat, simple, dropdown)
+      km-btn.q-mt-8.q-mb-6(:label='m.agents_viewGlobalInstructions()', flat, simple, dropdown)
     km-input(
       :model-value='globalIntructions',
       border-radius='8px',
@@ -23,12 +23,12 @@ div
       v-if='openGlobalInstructions'
     )
 
-  .km-button-text.q-mt-lg Other
+  .km-button-text.q-mt-lg {{ m.agents_other() }}
     q-separator.q-mb-16
   .row.items-center.q-pb-xs
-    .km-label.text-label Use response as assistant message
+    .km-label.text-label {{ m.agents_useResponseAsAssistantMessage() }}
     km-toggle(v-model='use_response_as_assistant_message', label-class='text-label')
-  .km-description.text-label Uses the action response as assistant message without additional topic processing step. Only applicable if the action is not called in parallel with other actions.
+  .km-description.text-label {{ m.agents_useResponseAsAssistantMessageDesc() }}
 
   //- .km-button-text.q-pt-md End user display options
   //- q-separator.q-mb-lg
@@ -42,6 +42,7 @@ div
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 export default {
@@ -57,7 +58,7 @@ export default {
     const globalIntructions = ref(
       'A short natural-language action summary to show the user. It should clearly state what the action will do, including relevant argument values. Focus on action, not the result.'
     )
-    return { activeVariant, updateNestedListItemBySystemName, openGlobalInstructions, globalIntructions }
+    return { m, activeVariant, updateNestedListItemBySystemName, openGlobalInstructions, globalIntructions }
   },
   computed: {
     topic() {

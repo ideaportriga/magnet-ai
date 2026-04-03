@@ -5,13 +5,13 @@ km-drawer-layout(storageKey="drawer-agents-topic")
       km-btn(
         flat,
         simple,
-        :label='`Back to Agent Preview`',
+        :label='m.agents_backToAgentPreview()',
         iconSize='16px',
         icon='fas fa-arrow-left',
         @click='activeTopic = null',
         color='secondary-text'
       )
-    .km-heading-4.q-mt-md Topic details
+    .km-heading-4.q-mt-md {{ m.agents_topicDetails() }}
   .km-field.text-secondary-text.q-pb-sm.q-pl-8 Name
     km-input(ref='input', border-radius='8px', height='36px', type='text', v-model='name')
   .km-field.text-secondary-text.q-pb-sm.q-pl-8 System name
@@ -26,16 +26,17 @@ km-drawer-layout(storageKey="drawer-agents-topic")
       @click='openTopicDetails',
       iconSize='16px',
       color='secondary-text',
-      label='More details & Actions'
+      :label='m.agents_moreDetailsAndActions()'
     )
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 export default {
   setup() {
     const { activeVariant, activeTopic: activeTopicRef, updateNestedListItemBySystemName } = useAgentEntityDetail()
-    return { activeVariant, activeTopicRef, updateNestedListItemBySystemName }
+    return { m, activeVariant, activeTopicRef, updateNestedListItemBySystemName }
   },
   computed: {
     routeParams() {

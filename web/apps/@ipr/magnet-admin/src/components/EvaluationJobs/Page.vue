@@ -4,7 +4,7 @@
     .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
       .row.q-mb-12
         .col-auto.center-flex-y
-          km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+          km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
         .col-auto.center-flex-y.q-ml-md(v-if='groupBy !== "flat"')
           .text-secondary-text.q-mr-sm Group by:
           km-select(
@@ -84,7 +84,7 @@
             hoverBg='primary-bg'
           )
         .col-auto.center-flex-y
-          km-btn.q-mr-12(v-if='!filterObject?.row', label='New', @click='showNewDialog = true')
+          km-btn.q-mr-12(v-if='!filterObject?.row', :label='m.common_new()', @click='showNewDialog = true')
       q-separator.q-my-sm
       .row.q-mb-sm.items-center(v-if='filterObject?.row')
         .col-auto
@@ -153,6 +153,7 @@ import { useVueTable, getCoreRowModel, type ColumnDef } from '@tanstack/vue-tabl
 import { useDataTable } from '@/composables/useDataTable'
 import { componentColumn } from '@/utils/columnHelpers'
 import { useEntityQueries } from '@/queries/entities'
+import { m } from '@/paraglide/messages'
 import type { EvaluationJob } from '@/types'
 import _ from 'lodash'
 import { useEvaluationStore } from '@/stores/evaluationStore'

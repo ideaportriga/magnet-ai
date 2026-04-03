@@ -1,9 +1,9 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Assistant Tool (RAG)',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
+  :title='m.assistantTools_newAssistantToolRag()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
   @confirm='createTools',
   @cancel='$emit("cancel")',
   :loading='loading'
@@ -12,7 +12,7 @@ km-popup-confirm(
     km-select(
       height='auto',
       minHeight='30px',
-      placeholder='Select RAG',
+      :placeholder='m.assistantTools_selectRag()',
       :options='ragItems',
       v-model='rag',
       hasDropdownSearch,
@@ -24,6 +24,7 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
 import { fetchData } from '@shared'
@@ -68,6 +69,7 @@ export default {
       }),
       autoChangeCode: ref(true),
       loading: ref(false),
+      m,
     }
   },
   computed: {

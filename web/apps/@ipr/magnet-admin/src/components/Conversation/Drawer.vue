@@ -84,7 +84,7 @@ km-drawer-layout(storageKey="drawer-conversation")
         km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='comment')
   .row.items-center.q-pa-16.justify-between.bt-border.relative(style='z-index: 10')
     .row.items-center.q-gap-8.cursor-pointer(@click='openDetails', v-if='conversation?.trace_id')
-      km-btn(flat, label='View trace', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
+      km-btn(flat, :label='m.conversation_viewTrace()', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
     .col-auto
     .row.items-center.q-gap-8
       km-btn.self-end(label='Cancel', @click='cancelUpdate', v-if='isUpdated', flat)
@@ -95,6 +95,7 @@ km-drawer-layout(storageKey="drawer-conversation")
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { formatDateTime } from '@shared/utils/dateTime'
 import { formatDuration } from '@shared/utils'
 import _ from 'lodash'
@@ -115,9 +116,9 @@ export default {
     return {
       tab: ref('details'),
       tabs: ref([
-        { name: 'details', label: 'Conversation Details' },
-        { name: 'costs', label: 'Cost & Latency' },
-        { name: 'insights', label: 'Insights' },
+        { name: 'details', label: m.conversation_conversationDetails() },
+        { name: 'costs', label: m.conversation_costAndLatency() },
+        { name: 'insights', label: m.conversation_insights() },
       ]),
       statusOptions: ref([
         { label: 'Resolved', value: 'resolved' },

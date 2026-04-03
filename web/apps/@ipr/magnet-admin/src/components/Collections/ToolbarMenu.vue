@@ -23,6 +23,7 @@
 
 <script lang="ts">
 import { useAuth } from '@shared'
+import { m } from '@/paraglide/messages'
 
 export default {
   setup() {

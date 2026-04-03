@@ -1,34 +1,34 @@
 <template lang="pug">
 div
   .column.items-center.full-height.full-width.q-gap-16.overflow-auto
-    .row.km-heading-4 Configure your Agent
-    .row.km-paragraph Make sure your Agent has all the essential parts to start working!
+    .row.km-heading-4 {{ m.agents_configureYourAgent() }}
+    .row.km-paragraph {{ m.agents_agentEssentialParts() }}
 
     .row.q-gap-16.full-width.items-center
       .col
         km-card(
           icon='fas fa-tag',
-          label='Topics',
-          description='Areas of Agent capabilities that include one or multiple Actions',
-          actionLabel='Add Topic',
+          :label='m.common_topics()',
+          :description='m.agents_topicsDescription()',
+          :actionLabel='m.agents_addTopic()',
           @click='showNewTopicDialog = true',
           :qty='topicsQty'
         )
       .col
         km-card(
           icon='fas fa-puzzle-piece',
-          label='Actions',
-          description='Tools that the Agent can leverage to process user requests',
+          :label='m.entity_action()',
+          :description='m.agents_actionsDescription()',
           :qty='actionsQty',
-          actionLabel='Review Actions',
+          :actionLabel='m.agents_reviewActions()',
           @click='$emit("change-tab", "actions")'
         )
       .col
         km-card(
           icon='fas fa-wand-magic-sparkles',
-          label='Agent Prompt Templates',
-          description='Prompt Templates instruct the Agent how to select and process Topics.',
-          actionLabel='Review Prompt Templates',
+          :label='m.agents_agentPromptTemplates()',
+          :description='m.agents_agentPromptTemplatesDesc()',
+          :actionLabel='m.agents_reviewPromptTemplates()',
           @click='$emit("change-tab", "prompts")'
         )
 
@@ -37,12 +37,14 @@ div
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 export default {
   emits: ['change-tab'],
   setup() {
     const { activeVariant } = useAgentEntityDetail()
     return {
+      m,
       activeVariant,
       showNewTopicDialog: ref(false),
     }

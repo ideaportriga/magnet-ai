@@ -3,27 +3,27 @@
   .column.items-center.auth-container(style='width: 360px')
     .row.items-center.q-mb-lg
       km-icon(name='magnet', width='23', height='25')
-      .km-heading-7.logo-text.q-ml-sm Magnet AI
+      .km-heading-7.logo-text.q-ml-sm {{ t.magnetAi }}
 
     //- Local auth form
     .full-width.q-mb-md(v-if='!mfaRequired')
       q-form.q-gutter-sm(@submit.prevent='handleLogin')
         q-input(
           v-model='email',
-          label='Email',
+          :label='t.email',
           type='email',
           outlined,
           dense,
-          :rules='[val => !!val || "Email is required"]',
+          :rules='[val => !!val || t.emailRequired]',
           autocomplete='email'
         )
         q-input(
           v-model='password',
-          label='Password',
+          :label='t.password',
           :type='showPassword ? "text" : "password"',
           outlined,
           dense,
-          :rules='[val => !!val || "Password is required"]',
+          :rules='[val => !!val || t.passwordRequired]',
           autocomplete='current-password'
         )
           template(v-slot:append)
@@ -32,7 +32,7 @@
               class='cursor-pointer',
               role='button',
               tabindex='0',
-              :aria-label='showPassword ? "Hide password" : "Show password"',
+              :aria-label='showPassword ? t.hidePassword : t.showPassword',
               @click='showPassword = !showPassword',
               @keydown.enter='showPassword = !showPassword',
               @keydown.space.prevent='showPassword = !showPassword'
@@ -43,22 +43,22 @@
         q-btn.full-width.q-mt-sm(
           type='submit',
           color='primary',
-          label='Log in',
+          :label='t.login',
           :loading='loginInProgress',
           no-caps
         )
 
       .row.justify-between.q-mt-sm
-        a.text-caption.cursor-pointer.text-primary(tabindex='0', role='button', @click='$emit("navigate", "forgot-password")', @keydown.enter='$emit("navigate", "forgot-password")') Forgot password?
-        a.text-caption.cursor-pointer.text-primary(v-if='signupEnabled', tabindex='0', role='button', @click='$emit("navigate", "signup")', @keydown.enter='$emit("navigate", "signup")') Sign up
+        a.text-caption.cursor-pointer.text-primary(tabindex='0', role='button', @click='$emit("navigate", "forgot-password")', @keydown.enter='$emit("navigate", "forgot-password")') {{ t.forgotPassword }}
+        a.text-caption.cursor-pointer.text-primary(v-if='signupEnabled', tabindex='0', role='button', @click='$emit("navigate", "signup")', @keydown.enter='$emit("navigate", "signup")') {{ t.signup }}
 
     //- MFA challenge
     .full-width.q-mb-md(v-else)
-      .text-subtitle2.q-mb-sm Enter the 6-digit code from your authenticator app
+      .text-subtitle2.q-mb-sm {{ t.enterMfaCode }}
       q-form(@submit.prevent='handleMfa')
         q-input(
           v-model='mfaCode',
-          label='Authentication code',
+          :label='t.authenticationCode',
           outlined,
           dense,
           maxlength='8',
@@ -68,17 +68,17 @@
         q-btn.full-width.q-mt-sm(
           type='submit',
           color='primary',
-          label='Verify',
+          :label='t.verify',
           :loading='loginInProgress',
           no-caps
         )
-      a.text-caption.cursor-pointer.text-primary.q-mt-sm(tabindex='0', role='button', @click='mfaRequired = false; errorMessage = ""', @keydown.enter='mfaRequired = false; errorMessage = ""') Back to login
+      a.text-caption.cursor-pointer.text-primary.q-mt-sm(tabindex='0', role='button', @click='mfaRequired = false; errorMessage = ""', @keydown.enter='mfaRequired = false; errorMessage = ""') {{ t.backToLogin }}
 
     //- OAuth/OIDC providers divider
     template(v-if='providers.length > 0 && !mfaRequired')
       .row.items-center.full-width.q-my-md
         q-separator.col
-        .text-caption.q-mx-sm.text-grey or continue with
+        .text-caption.q-mx-sm.text-grey {{ t.orContinueWith }}
         q-separator.col
 
       .column.q-gutter-sm.full-width
@@ -95,11 +95,38 @@
             span {{ providerButtonLabel(provider) }}
 </template>
 
+<script lang="ts">
+const DEFAULT_T = {
+  magnetAi: 'Magnet AI',
+  email: 'Email',
+  password: 'Password',
+  emailRequired: 'Email is required',
+  passwordRequired: 'Password is required',
+  hidePassword: 'Hide password',
+  showPassword: 'Show password',
+  login: 'Log in',
+  forgotPassword: 'Forgot password?',
+  signup: 'Sign up',
+  enterMfaCode: 'Enter the 6-digit code from your authenticator app',
+  authenticationCode: 'Authentication code',
+  verify: 'Verify',
+  backToLogin: 'Back to login',
+  orContinueWith: 'or continue with',
+  loginWith: 'Log in with {provider}',
+  loggingInWith: 'Logging in with {provider} ...',
+  authFailed: 'Authentication failed',
+  oauthFailed: 'OAuth failed',
+  loginFailed: 'Login failed',
+  invalidCode: 'Invalid code',
+}
+export default {}
+</script>
+
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, computed } from 'vue'
 import type { AuthClient } from '@shared/auth'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   authClient: AuthClient
   providers?: string[]
   signupEnabled?: boolean
@@ -108,7 +135,13 @@ const props = defineProps<{
   /** Popup dimensions for OIDC providers */
   popupWidth?: string
   popupHeight?: string
-}>()
+  /** i18n labels — pass translated strings to override English defaults */
+  t?: Record<string, string>
+}>(), {
+  t: () => ({ ...DEFAULT_T }),
+})
+
+const t = computed(() => ({ ...DEFAULT_T, ...props.t }))
 
 const emit = defineEmits<{
   success: []
@@ -143,8 +176,8 @@ function providerButtonLabel(provider: string): string {
     github: 'GitHub',
   }
   const label = labels[provider] || provider
-  if (oauthInProgress.value === provider) return `Logging in with ${label}...`
-  return `Log in with ${label}`
+  if (oauthInProgress.value === provider) return t.value.loggingInWith.replace('{provider}', label)
+  return t.value.loginWith.replace('{provider}', label)
 }
 
 function providerIcon(provider: string): string | null {
@@ -198,10 +231,10 @@ async function onPopupMessage(event: MessageEvent) {
     if (ok) {
       emit('success')
     } else {
-      errorMessage.value = 'Authentication failed'
+      errorMessage.value = t.value.authFailed
     }
   } catch {
-    errorMessage.value = 'Authentication failed'
+    errorMessage.value = t.value.authFailed
   } finally {
     cleanup()
   }
@@ -225,7 +258,7 @@ async function handleOAuthRedirect(provider: string) {
     const { authorization_url } = await props.authClient.getOAuthUrl(provider)
     window.location.href = authorization_url
   } catch (e: any) {
-    errorMessage.value = e.message || 'OAuth failed'
+    errorMessage.value = e.message || t.value.oauthFailed
     oauthInProgress.value = null
   }
 }
@@ -245,7 +278,7 @@ async function handleLogin() {
       emit('success')
     }
   } catch (e: any) {
-    errorMessage.value = e.message || 'Login failed'
+    errorMessage.value = e.message || t.value.loginFailed
   } finally {
     loginInProgress.value = false
   }
@@ -260,7 +293,7 @@ async function handleMfa() {
     await props.authClient.verifyMfa(mfaCode.value)
     emit('success')
   } catch (e: any) {
-    errorMessage.value = e.message || 'Invalid code'
+    errorMessage.value = e.message || t.value.invalidCode
   } finally {
     loginInProgress.value = false
   }

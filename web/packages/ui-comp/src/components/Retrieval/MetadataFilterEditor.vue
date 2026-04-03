@@ -15,14 +15,14 @@
             v-if="emptyCondition"
             :model-value="emptyCondition"
             readonly
-            placeholder="undefined, null or empty string"
+            :placeholder="resolvedT.undefinedNullOrEmpty"
             @remove="removeCondition(emptyCondition)"
           />
           <retrieval-metadata-filter-condition
             v-if="existsCondition"
             :model-value="existsCondition"
             readonly
-            placeholder="exists"
+            :placeholder="resolvedT.exists"
             @remove="removeCondition(existsCondition)"
           />
         </div>
@@ -30,30 +30,30 @@
       <q-btn class="self-start" no-caps padding="5px 10px" color="secondary" text-color="primary" flat @click="addCondition()">
         <q-icon name="fas fa-plus" size="14px" />
         <span class="q-ml-sm">
-          {{ !emptyCondition || !existsCondition ? 'Add condition' : 'Add value condition' }}
+          {{ !emptyCondition || !existsCondition ? resolvedT.addCondition : resolvedT.addValueCondition }}
         </span>
         <q-menu v-if="!emptyCondition || !existsCondition" ref="conditionMenu">
           <q-list>
             <q-item clickable @click="addCondition('value')">
               <q-item-section>
-                <q-item-label>Value condition</q-item-label>
+                <q-item-label>{{ resolvedT.valueCondition }}</q-item-label>
               </q-item-section>
             </q-item>
             <q-item v-if="!emptyCondition" clickable @click="addCondition('empty')">
               <q-item-section>
-                <q-item-label>Empty condition</q-item-label>
+                <q-item-label>{{ resolvedT.emptyCondition }}</q-item-label>
               </q-item-section>
             </q-item>
             <q-item v-if="!existsCondition" clickable @click="addCondition('exists')">
               <q-item-section>
-                <q-item-label>Exists condition</q-item-label>
+                <q-item-label>{{ resolvedT.existsCondition }}</q-item-label>
               </q-item-section>
             </q-item>
           </q-list>
         </q-menu>
       </q-btn>
       <div class="row q-gap-8 justify-end q-my-sm">
-        <km-btn label="Cancel" flat @click="discardChanges" />
+        <km-btn :label="resolvedT.cancel" flat @click="discardChanges" />
         <km-btn :label="saveButtonLabel" @click="saveChanges" />
       </div>
     </div>
@@ -66,11 +66,25 @@ import type { QMenu, QPopupEdit } from 'quasar'
 import { useTemplateRef, computed, ref } from 'vue'
 import type { Condition, Filter } from '@shared/types'
 
+const DEFAULT_T = {
+  valueCondition: 'Value condition',
+  emptyCondition: 'Empty condition',
+  existsCondition: 'Exists condition',
+  addCondition: 'Add condition',
+  addValueCondition: 'Add value condition',
+  undefinedNullOrEmpty: 'undefined, null or empty string',
+  exists: 'exists',
+  cancel: 'Cancel',
+}
+
 // Models & Props
-defineProps<{
+const props = defineProps<{
   title: string
   saveButtonLabel: string
+  t?: Record<string, string>
 }>()
+
+const resolvedT = computed(() => ({ ...DEFAULT_T, ...props.t }))
 
 const filterPopup = useTemplateRef<QPopupEdit>('filterPopup')
 const conditionMenu = useTemplateRef<QMenu>('conditionMenu')

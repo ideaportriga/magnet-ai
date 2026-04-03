@@ -7,6 +7,7 @@ div
 
 <script>
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
+import { m } from '@/paraglide/messages'
 
 export default {
   setup() {

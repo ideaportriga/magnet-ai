@@ -1,7 +1,7 @@
 <template lang="pug">
 km-drawer-layout(storageKey="drawer-collections", noScroll)
   template(#header)
-    .km-heading-7(v-if='!showChunkInfo') Preview
+    .km-heading-7(v-if='!showChunkInfo') {{ m.common_preview() }}
   .column.full-height(v-if='!showChunkInfo')
     .col.column.no-wrap.q-pb-md.relative-position.q-px-16
       retrieval-metadata-filter(v-model='metadataFilter', :sources='[knowledgeSystemName]')
@@ -39,6 +39,7 @@ km-drawer-layout(storageKey="drawer-collections", noScroll)
 
 <script setup>
 import { fetchData } from '@shared'
+import { m } from '@/paraglide/messages'
 import { ref, computed, watch, onMounted, useTemplateRef } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useEntityDetail } from '@/composables/useEntityDetail'

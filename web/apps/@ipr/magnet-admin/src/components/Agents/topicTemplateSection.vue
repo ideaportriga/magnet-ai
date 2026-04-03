@@ -31,6 +31,7 @@ div
 
 <script>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
@@ -42,6 +43,7 @@ export default {
     const { activeVariant, updateVariantField } = useAgentEntityDetail()
 
     return {
+      m,
       activeVariant,
       updateVariantField,
       promptTemplateItems,

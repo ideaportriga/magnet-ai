@@ -198,6 +198,7 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
 </template>
 <script>
 import { defineComponent, ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { copyToClipboard } from 'quasar'
 import { useAppStore } from '@/stores/appStore'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'

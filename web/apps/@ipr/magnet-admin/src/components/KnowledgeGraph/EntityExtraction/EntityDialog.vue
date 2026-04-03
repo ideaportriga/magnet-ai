@@ -52,6 +52,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogBase, KgDialogSection, KgFieldRow } from '../common'
 import EntityColumnsSection from './EntityColumnsSection.vue'
 import { cloneEntityDefinitions, createEmptyEntity, type EntityDefinition } from './models'

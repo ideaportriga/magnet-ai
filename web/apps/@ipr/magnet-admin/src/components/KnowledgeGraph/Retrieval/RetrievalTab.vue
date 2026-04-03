@@ -234,6 +234,7 @@
 
 <script setup lang="ts">
 import { uid } from 'quasar'
+import { m } from '@/paraglide/messages'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'

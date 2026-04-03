@@ -62,6 +62,7 @@ q-separator.q-my-sm
 
 <script>
 import { useEntityQueries } from '@/queries/entities'
+import { m } from '@/paraglide/messages'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { ref, computed } from 'vue'
 

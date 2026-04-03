@@ -1,27 +1,27 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Knowledge Source Provider',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to add security values and secrets later in Knowledge Source Provider settings.',
+  :title='m.dialog_newKnowledgeSourceProvider()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_addSecurityKsp()',
   @confirm='createKnowledgeProvider',
   @cancel='$emit("cancel")'
 )
   .column.q-gap-16
     .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
       .full-width
         km-input(data-test='name-input', height='30px', v-model='name', ref='nameRef', :rules='[required()]')
 
     .col
-      .km-field.text-secondary-text.q-pl-8 System name
+      .km-field.text-secondary-text.q-pl-8 {{ m.common_systemName() }}
       .full-width
         km-input(data-test='system-name-input', height='30px', v-model='system_name', ref='system_nameRef', :rules='[required()]')
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 System name serves as a unique record ID
+      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_systemNameUniqueId() }}
 
     .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source Type
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_sourceType() }}
       .full-width
         km-select(
           data-test='select-type',
@@ -37,14 +37,15 @@ km-popup-confirm(
         )
 
     .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Endpoint
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_endpoint() }}
       .full-width
         km-input(data-test='endpoint-input', height='30px', v-model='newRow.endpoint', placeholder='https://api.example.com')
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 Provider API endpoint URL. Warning: changing endpoint later will clear all secrets
+      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_endpointWarning() }}
 </template>
 
 <script>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { m } from '@/paraglide/messages'
 import { required, toUpperCaseWithUnderscores } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
@@ -89,6 +90,7 @@ export default {
     })
 
     return {
+      m,
       createEntity,
       router,
       required,

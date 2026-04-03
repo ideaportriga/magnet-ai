@@ -9,6 +9,7 @@
 </template>
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 export default {
   setup() {

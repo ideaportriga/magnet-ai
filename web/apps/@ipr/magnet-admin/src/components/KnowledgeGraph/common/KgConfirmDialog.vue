@@ -51,6 +51,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import KgWarningBanner from './KgWarningBanner.vue'
 
 interface Props {

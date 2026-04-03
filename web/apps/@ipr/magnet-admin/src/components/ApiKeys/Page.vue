@@ -4,10 +4,10 @@
     .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
       .row.q-mb-12
         .col-auto.center-flex-y
-          km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+          km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
         q-space
         .col-auto.center-flex-y
-          km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+          km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
       .col(style='min-height: 0')
         km-data-table(
           :table='table',
@@ -35,6 +35,7 @@ import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, dateColumn } from '@/utils/columnHelpers'
 import { useEntityQueries } from '@/queries/entities'
+import { m } from '@/paraglide/messages'
 import type { ApiKey } from '@/types'
 
 const router = useRouter()
@@ -46,11 +47,11 @@ const { api_keys: apiKeysQ } = useEntityQueries()
 const { mutateAsync: removeApiKey } = apiKeysQ.useRemove()
 
 const columns = [
-  textColumn<ApiKey>('name', 'Name'),
+  textColumn<ApiKey>('name', m.common_name()),
   textColumn<ApiKey>('value_masked', 'Key', {
     format: (val) => val ? `................${val}` : '-',
   }),
-  dateColumn<ApiKey>('created_at', 'Created'),
+  dateColumn<ApiKey>('created_at', m.common_created()),
 ]
 
 const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<ApiKey>('api_keys', columns)

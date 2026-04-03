@@ -18,6 +18,7 @@ template(v-else)
 
 <script setup>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRouter, useRoute } from 'vue-router'
 import { notify } from '@shared/utils/notify'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'

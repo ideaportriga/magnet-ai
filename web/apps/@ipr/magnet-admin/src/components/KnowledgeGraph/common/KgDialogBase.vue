@@ -64,6 +64,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 
 export type DialogSize = 'sm' | 'md' | 'lg' | 'xl'
 

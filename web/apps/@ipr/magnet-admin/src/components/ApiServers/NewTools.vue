@@ -4,7 +4,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("
     q-card-section.card-section-style.q-mb-md
       .row
         .col
-          .km-heading-7 New API Tool
+          .km-heading-7 {{ m.apiServers_newApiTool() }}
         .col-auto
           q-btn(icon='close', flat, dense, @click='$emit("cancel")')
     q-card-section.card-section-style.q-mb-md
@@ -25,7 +25,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("
             max-files='1',
             rounded,
             outlined,
-            label='Upload File',
+            :label='m.apiServers_uploadFile()',
             v-model='file',
             accept='.json, .yaml',
             dense,
@@ -61,16 +61,17 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")', @hide='$emit("
               .km-description.text-secondary-text {{ !!tool.duplicate && addAsVariant ? `${tool.original_name} (${tool.duplicate})` : tool.system_name }}
       .row.q-mt-lg
         .col-auto
-          km-btn(flat, label='Cancel', color='primary', @click='$emit("cancel")')
+          km-btn(flat, :label='m.common_cancel()', color='primary', @click='$emit("cancel")')
         .col
         .col-auto
           template(v-if='stepper === 0')
-            km-btn(label='Next', @click='processFile', :disable='!readyForNext')
+            km-btn(:label='m.common_next()', @click='processFile', :disable='!readyForNext')
           template(v-else)
-            km-btn(label='Create', @click='finish')
+            km-btn(:label='m.common_create()', @click='finish')
 </template>
 <script>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { fetchData } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useQueryClient } from '@tanstack/vue-query'
@@ -97,6 +98,7 @@ export default {
       apiTools: ref([]),
       addAsVariant: ref(false),
       actionsDefinition: ref(''),
+      m,
       errorMessage: ref(null),
       appStore,
       queryClient,

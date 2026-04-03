@@ -1,16 +1,16 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Prompt Queue Config',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to add steps and prompt templates after saving.',
+  :title='m.dialog_newPromptQueueConfig()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_addStepsAfterSaving()',
   @confirm='createConfig',
   @cancel='emit("cancel")'
 )
   .column.q-gap-16
     .col
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
       .full-width
         km-input(
           v-if='showNewDialog',
@@ -22,7 +22,7 @@ km-popup-confirm(
         )
 
     .col
-      .km-field.text-secondary-text.q-pl-8 System name
+      .km-field.text-secondary-text.q-pl-8 {{ m.common_systemName() }}
       .full-width
         km-input(
           v-if='showNewDialog',
@@ -32,11 +32,12 @@ km-popup-confirm(
           ref='system_nameRef',
           :rules='[required()]'
         )
-      .km-description.text-secondary-text.q-pb-4.q-pl-8 System name serves as a unique record ID
+      .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_systemNameUniqueId() }}
 </template>
 
 <script setup>
 import { ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { required, toUpperCaseWithUnderscores } from '@shared'
 import { usePromptQueueStore } from '@/stores/promptQueueStore'
 import { useNotify } from '@/composables/useNotify'

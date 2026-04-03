@@ -32,14 +32,15 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
       .col-auto.q-mr-md
         .global-search-trigger.row.items-center.q-gap-8.cursor-pointer.q-px-sm.q-py-xs(@click='showSearch = true')
           q-icon(name='search', size='16px', color='secondary-text')
-          span.text-secondary-text.km-description Search
+          span.text-secondary-text.km-description {{ m.common_search() }}
           .global-search-shortcut
             span {{ isMac ? '⌘K' : 'Ctrl+K' }}
       global-search(v-model='showSearch')
-      //- Right-side header actions: Fullscreen + Help + Profile
+      //- Right-side header actions: Locale + Fullscreen + Help + Profile
       .col-auto.row.items-center.no-wrap.q-gap-4.q-mr-md
+        km-locale-switcher
         km-btn(flat, :icon='isFullscreen ? "fas fa-compress" : "fas fa-expand"', iconSize='16px', iconColor='icon', hoverColor='primary', hoverBg='primary-bg', size='sm', :tooltip='isFullscreen ? "Exit fullscreen" : "Fullscreen"', @click='toggleFullscreen')
-        km-btn(flat, icon='fa-regular fa-circle-question', iconSize='16px', iconColor='icon', label='Help', hoverColor='primary', hoverBg='primary-bg', size='sm', labelClass='km-title', @click='openHelp')
+        km-btn(flat, icon='fa-regular fa-circle-question', iconSize='16px', iconColor='icon', :label='m.common_help()', hoverColor='primary', hoverBg='primary-bg', size='sm', labelClass='km-title', @click='openHelp')
         .relative-position
           km-btn(flat, icon='fas fa-user-circle', iconSize='16px', iconColor='icon', :label='userDisplayName', hoverColor='primary', hoverBg='primary-bg', size='sm', labelClass='km-title')
           q-menu(anchor='bottom right', self='top right', :offset='[0, 4]')
@@ -47,11 +48,11 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
               q-item.km-nav-popup-item(clickable, v-close-popup, @click='navigate("/profile")')
                 q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
                   q-icon(name='fas fa-user', size='14px', color='icon')
-                q-item-section Profile
+                q-item-section {{ m.user_profile() }}
               q-item.km-nav-popup-item(clickable, v-close-popup, @click='logout')
                 q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
                   q-icon(name='fas fa-sign-out-alt', size='14px', color='icon')
-                q-item-section Log out
+                q-item-section {{ m.auth_logout() }}
   q-drawer.text-white(
     v-model='drawerVisible',
     :width='sidebarWidth',
@@ -83,6 +84,7 @@ km-popup-confirm(
 
 <script>
 import { useState, useAuth } from '@shared'
+import { m } from '@/paraglide/messages'
 import { useSharedAuthStore } from '@shared/stores/authStore'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
@@ -155,6 +157,7 @@ export default {
       knowledgeGraphPageStore,
       popupStore,
       saveService,
+      m,
       queryClient,
       drawerVisible: ref(true),
       environment,

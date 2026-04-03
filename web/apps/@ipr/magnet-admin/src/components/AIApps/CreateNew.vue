@@ -1,30 +1,31 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New AI App',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to edit these and other settings after saving.',
+  :title='m.dialog_newAiApp()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_editAfterSaving()',
   @confirm='createRecord',
   @cancel='$emit("cancel")'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
-      km-input(data-test='name-input', height='30px', placeholder='E.g. Service AI App', v-model='name', ref='nameRef', :rules='config.name.rules')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
+      km-input(data-test='name-input', height='30px', :placeholder='m.placeholder_exampleServiceAiApp()', v-model='name', ref='nameRef', :rules='config.name.rules')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
       km-input(
         data-test='system_name-input',
         height='30px',
-        placeholder='E.g. SERVICE_AI_APP',
+        :placeholder='m.placeholder_exampleSystemNameAiApp()',
         v-model='system_name',
         ref='system_nameRef',
         :rules='config.system_name.rules'
       )
-    .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
+    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
 </template>
 <script>
 import { ref, reactive } from 'vue'
+import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
@@ -50,6 +51,7 @@ export default {
     const { mutateAsync: createAiApp } = queries.ai_apps.useCreate()
 
     return {
+      m,
       config,
       createAiApp,
       draft,

@@ -2,7 +2,7 @@
 .row.no-wrap.overflow-hidden.full-height
   .col.column.no-wrap.full-height
     .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
-      .km-heading-4.q-pl-12 Chunks
+      .km-heading-4.q-pl-12 {{ m.common_chunks() }}
       template(v-if='rows.length && !isLoading')
         .row.q-mb-12.q-mt-md
           .col-auto.center-flex
@@ -20,13 +20,14 @@
           q-spinner(size='40px', color='primary')
       template(v-else)
         .column.flex-center
-          .km-title.q-py-16.text-label Nothing in this knowledge source yet!
+          .km-title.q-py-16.text-label {{ m.collectionItems_nothingInSourceYet() }}
         km-icon(name='empty-collection', width='250', height='250')
   collection-items-drawer
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useDataTable } from '@/composables/useDataTable'

@@ -8,7 +8,7 @@ q-separator.q-my-sm
           q-item-section
             q-item-label.km-label {{ opt.label }}
           q-item-section(v-if='opt?.active_variant', avatar)
-            q-chip.q-mr-sm(label='Active', color='primary-light', text-color='primary', flat, size='sm')
+            q-chip.q-mr-sm(:label='m.common_active()', color='primary-light', text-color='primary', flat, size='sm')
 
             //- q-item-label.km-label {{opt}} 
   .col.q-mx-sm
@@ -16,7 +16,7 @@ q-separator.q-my-sm
   .col-auto.q-mr-sm
     km-btn.width-100(
       v-if='!isActive',
-      label='Activate',
+      :label='m.common_activate()',
       icon='far fa-circle-check',
       iconColor='icon',
       hoverColor='primary',
@@ -26,11 +26,11 @@ q-separator.q-my-sm
       hoverBg='primary-bg',
       @click='doActivateVariant'
     )
-    q-chip.q-mr-sm(v-if='isActive', label='Active', color='primary-light', text-color='primary')
+    q-chip.q-mr-sm(v-if='isActive', :label='m.common_active()', color='primary-light', text-color='primary')
   q-separator(vertical, color='white')
   .col-auto.text-white.q-mx-md
     km-btn(
-      label='Copy to new',
+      :label='m.common_copyToNew()',
       icon='fas fa-plus',
       iconColor='icon',
       hoverColor='primary',
@@ -49,6 +49,7 @@ q-separator.q-my-sm
 
 <script>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
@@ -63,6 +64,7 @@ export default {
             save, revert } = useAgentEntityDetail()
 
     return {
+      m,
       draft,
       isDirty,
       updateField,
@@ -155,7 +157,7 @@ export default {
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
         group: 'success',
-        message: 'Variant has been activated.',
+        message: m.agents_variantActivated(),
         timeout: 1000,
       })
     },
@@ -165,12 +167,12 @@ export default {
         color: 'green-9', textColor: 'white',
         icon: 'check_circle',
         group: 'success',
-        message: 'New variant has been added.',
+        message: m.agents_variantAdded(),
         timeout: 1000,
       })
     },
     doDeleteVariant() {
-      this.confirm('Are you sure you want to delete this variant?', () => this.deleteVariant())
+      this.confirm(m.agents_deleteVariantConfirm(), () => this.deleteVariant())
     },
 
     confirm(message, callback) {
@@ -183,14 +185,14 @@ export default {
         timeout: 0,
         actions: [
           {
-            label: 'Cancel',
+            label: m.common_cancel(),
             color: 'yellow',
             handler: () => {
               /* ... */
             },
           },
           {
-            label: 'Delete',
+            label: m.common_delete(),
             color: 'white',
             handler: () => {
               // notify with success
@@ -199,7 +201,7 @@ export default {
                 color: 'green-9', textColor: 'white',
                 icon: 'check_circle',
                 group: 'success',
-                message: 'Variant has been deleted.',
+                message: m.agents_variantDeleted(),
                 timeout: 1000,
               })
             },
@@ -210,21 +212,21 @@ export default {
 
     deleteAgentDetail() {
       this.$q.notify({
-        message: `Are you sure you want to delete this agent?`,
+        message: m.agents_deleteAgentConfirm(),
         color: 'red-9', textColor: 'white',
         icon: 'error',
         group: 'error',
         timeout: 0,
         actions: [
           {
-            label: 'Cancel',
+            label: m.common_cancel(),
             color: 'yellow',
             handler: () => {
               /* ... */
             },
           },
           {
-            label: 'Delete',
+            label: m.common_delete(),
             color: 'white',
             handler: () => {
               this.loadingDelelete = true
@@ -234,7 +236,7 @@ export default {
                 color: 'green-9', textColor: 'white',
                 icon: 'check_circle',
                 group: 'success',
-                message: 'Prompt has been deleted.',
+                message: m.agents_promptDeleted(),
                 timeout: 1000,
               })
               this.navigate('/prompt-templates')

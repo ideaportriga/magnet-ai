@@ -1,5 +1,5 @@
 <template lang="pug">
-.full-height.full-width.no-wrap.column
+.full-height.full-width.no-wrap.column(:key='locale')
   template(v-if='auth.authCheckInProgress')
     .flex.flex-center.full-height
       q-spinner(size='30px', color='primary')
@@ -20,6 +20,7 @@ import { computed, getCurrentInstance } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { useMainStore, useRagTools, useCollections, useRetrieval, useAiApps, usePromptTemplates, useAgents, useAuth, useModel } from '@/pinia'
+import { useLocale } from '@shared/i18n'
 import LoginPage from '@/pages/LoginPage.vue'
 
 export default {
@@ -41,7 +42,10 @@ export default {
 
     const isPublicRoute = computed(() => route.meta?.public === true)
 
+    const { locale } = useLocale()
+
     return {
+      locale,
       appContext,
       authRequired,
       isPublicRoute,

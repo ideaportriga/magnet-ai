@@ -8,6 +8,7 @@
     .km-body {{ server?.name }}
 </template>
 <script setup>
+import { m } from '@/paraglide/messages'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEntityDetail } from '@/composables/useEntityDetail'

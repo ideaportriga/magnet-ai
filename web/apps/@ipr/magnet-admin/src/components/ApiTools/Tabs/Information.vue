@@ -1,6 +1,6 @@
 <template lang="pug">
 .full-width
-  km-section(title='API definition', subTitle='API specification for the API Tool')
+  km-section(:title='m.section_apiDefinition()', :subTitle='m.subtitle_apiSpecification()')
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Path
     .row.items-center.q-gap-16.no-wrap
       km-chip.text-secondary-text(:label='apiTool.method', color='light', round)
@@ -18,15 +18,16 @@
       readonly
     )
   q-separator.q-my-lg
-  km-section(title='Mock', subTitle='Mock response for the API Tool')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Mock enabled
+  km-section(:title='m.section_mock()', :subTitle='m.subtitle_mockResponse()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.apiTools_mockEnabled() }}
     km-toggle(v-model='mockResponseEnabled')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg Mock response
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-lg {{ m.apiTools_mockResponse() }}
     km-input.full-width(rows='14', border-radius='8px', height='36px', type='textarea', v-model='mockContent')
 </template>
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
   props: {
@@ -42,7 +43,7 @@ export default {
       { label: 'Current parameters', value: 'current' },
       { label: 'Original parameters', value: 'original' },
     ])
-    return { selectedParameters, parametersOptions, draft, updateField }
+    return { m, selectedParameters, parametersOptions, draft, updateField }
   },
   computed: {
     toolIndex() {

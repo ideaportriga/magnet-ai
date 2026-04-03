@@ -1,21 +1,21 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Retrieval Tool',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
-  notification='You will be able to edit these and other settings after saving.',
+  :title='m.dialog_newRetrievalTool()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
+  :notification='m.hint_editAfterSaving()',
   @confirm='createRetrieval',
   @cancel='$emit("cancel")'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
-      km-input(height='30px', placeholder='E.g. Demo Retrieval Tool', v-model='name', ref='nameRef', :rules='config.name.rules')
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
+      km-input(height='30px', :placeholder='m.placeholder_exampleDemoRetrievalTool()', v-model='name', ref='nameRef', :rules='config.name.rules')
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
-      km-input(height='30px', placeholder='E.g. RETRIEVAL_TOOL_DEMO', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
-    .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8 Knowledge sources
+      km-input(height='30px', :placeholder='m.placeholder_exampleRetrievalToolDemo()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_knowledgeSources() }}
   km-select(
     height='auto',
     minHeight='36px',
@@ -33,6 +33,7 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive } from 'vue'
+import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
@@ -60,6 +61,7 @@ export default {
     const { options: collections } = useCatalogOptions('collections')
 
     return {
+      m,
       draft,
       config,
       createRetrievalMutation,

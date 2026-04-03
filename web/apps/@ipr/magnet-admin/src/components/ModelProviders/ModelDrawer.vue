@@ -385,6 +385,7 @@ q-inner-loading(:showing='loading')
 </template>
 <script>
 import { ref, watch, computed, inject } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { getEntityApis } from '@/api'
 import { categoryOptions } from '../../config/model/model.js'

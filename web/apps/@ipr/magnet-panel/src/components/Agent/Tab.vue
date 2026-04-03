@@ -4,7 +4,7 @@
     template(v-if='processing')
       .column.justify-center.items-center
         q-spinner-dots(size='62px', color='primary')
-        km-btn(flat, simple, label='Stop', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
+        km-btn(flat, simple, :label='m.panel_stop()', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
     .column.no-wrap.q-px-16.q-gap-16
       template(v-if='welcomeMessage && allMessages?.length === 0 && !processing')
         agent-message(:message='{ role: "welcome", content: welcomeMessage }')
@@ -34,7 +34,7 @@
       km-input(
         ref='input',
         rows='3',
-        placeholder='Enter user message...',
+        :placeholder='m.placeholder_enterUserMessage()',
         :model-value='userMessage',
         @input='userMessage = $event',
         border-radius='8px',
@@ -44,10 +44,10 @@
       )
       template(v-if='isShowHints')
         .row.items-center.q-mt-16.q-mb-8
-          .col.km-heading-3 You can ask like this...
+          .col.km-heading-3 {{ m.panel_youCanAskLikeThis() }}
           .col-auto
             km-btn(flat, color='primary', @click='showHints = false')
-              .km-button-text Don’t show hints
+              .km-button-text {{ m.panel_dontShowHints() }}
 
         template(v-if='$theme === "default"')
           template(v-for='(item, index) in sampleQuestion', :key='index')
@@ -62,12 +62,12 @@
         .col-auto.q-mr-md(v-if='isUserMode')
           km-btn(flat, simple, icon='fas fa-redo', iconSize='16px', @click='clearChat')
           q-tooltip(anchor='top middle', self='bottom middle') 
-            .km-label Start a new conversation
+            .km-label {{ m.panel_startNewConversation() }}
         .col-auto.q-mr-md(v-if='!isUserMode')
           km-btn(
             flat,
             simple,
-            :label='showAllMessages ? "Hide debug messages" : "Show all messages"',
+            :label='showAllMessages ? m.panel_hideDebugMessages() : m.panel_showAllMessages()',
             iconSize='16px',
             :icon='showAllMessages ? "fas fa-eye-slash" : "fas fa-eye"',
             @click='showAllMessages = !showAllMessages'
@@ -79,6 +79,7 @@
 </template>
 <script>
 import { useAgents, useAgentTab, useAuth, useAiApps } from '@/pinia'
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { copyToClipboard } from 'quasar'
@@ -144,6 +145,7 @@ export default {
       feedbackConfirmModal,
       aiAppsStore,
       showHints,
+      m,
     }
   },
   computed: {
@@ -224,7 +226,7 @@ export default {
         copyToClipboard(message.content)
         this.agentTabStore.reportCopyUsage({ conversation_id: this.conversationId, message_id: message.id })
         this.$q.notify({
-          message: 'Copied to clipboard',
+          message: m.common_copiedToClipboard(),
           color: 'primary',
           icon: 'fas fa-copy',
           timeout: 1000,

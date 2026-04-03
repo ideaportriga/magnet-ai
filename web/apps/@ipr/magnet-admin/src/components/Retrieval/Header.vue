@@ -4,6 +4,7 @@
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 
@@ -12,7 +13,7 @@ export default {
     const queries = useEntityQueries()
     const { data: listData } = queries.retrieval.useList()
     const items = computed(() => listData.value?.items ?? [])
-    return { items }
+    return { m, items }
   },
   computed: {
     activeRetrievalId() {

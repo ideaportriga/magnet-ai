@@ -3,13 +3,13 @@
   template(v-if='activeActionId')
     .km-body.text-primary.km-breadcrumb-link(@click='navigate(`/agents/${activeRowId}`)') {{ activeRowName }}
     q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
-    .km-body.text-primary.km-breadcrumb-link(@click='navigate(`/agents/${activeRowId}/topics/${activeTopicId}`)') {{ activeTopic?.name || 'Topic' }}
+    .km-body.text-primary.km-breadcrumb-link(@click='navigate(`/agents/${activeRowId}/topics/${activeTopicId}`)') {{ activeTopic?.name || m.entity_topic() }}
     q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
-    .km-body {{ activeAction?.name || 'Action' }}
+    .km-body {{ activeAction?.name || m.entity_action() }}
   template(v-else-if='activeTopicId')
     .km-body.text-primary.km-breadcrumb-link(@click='navigate(`/agents/${activeRowId}`)') {{ activeRowName }}
     q-icon.text-secondary-text.km-breadcrumb-sep(name='chevron_right', size='18px')
-    .km-body {{ activeTopic?.name || 'Topic' }}
+    .km-body {{ activeTopic?.name || m.entity_topic() }}
   template(v-else)
     .km-body {{ activeRowName }}
 </template>
@@ -18,6 +18,7 @@
 import { computed } from 'vue'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
+import { m } from '@/paraglide/messages'
 
 export default {
   props: ['activeRow'],
@@ -26,6 +27,7 @@ export default {
     const { options: items } = useCatalogOptions('agents')
 
     return {
+      m,
       items,
     }
   },

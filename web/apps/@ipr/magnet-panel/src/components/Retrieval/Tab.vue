@@ -12,10 +12,10 @@
           retrieval-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, :retrieval_tool='retrieval_tool')
         template(v-if='isShowHints')
           .row.items-center.q-mt-16.q-mb-8
-            .col.km-heading-3 You can ask like this...
+            .col.km-heading-3 {{ m.panel_youCanAskLikeThis() }}
             .col-auto
               km-btn(flat, color='primary', @click='showHints = false')
-                .km-button-text Don’t show hints
+                .km-button-text {{ m.panel_dontShowHints() }}
           // Hints
           template(v-if='$theme === "default"')
             template(v-for='(item, index) in sampleQuestion', :key='index')
@@ -38,6 +38,7 @@
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useSearch, useAiApps } from '@/pinia'
 import { storeToRefs } from 'pinia'
 
@@ -65,6 +66,7 @@ export default {
       app,
       displayTab,
       searchStore,
+      m,
     }
   },
   computed: {

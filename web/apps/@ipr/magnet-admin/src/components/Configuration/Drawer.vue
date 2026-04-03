@@ -3,9 +3,9 @@ km-drawer-layout(storageKey="drawer-configuration", noScroll)
   template(#header)
     .km-heading-7(v-if='!showChunkInfo')
       .row
-        .col Preview
+        .col {{ m.common_preview() }}
         .col-auto
-          km-btn(flat, simple, label='Evaluate', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
+          km-btn(flat, simple, :label='m.common_evaluate()', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
   .column.full-height(v-if='!showChunkInfo')
     .col.column.no-wrap.q-pb-md.relative-position.q-px-16
       template(v-if='uiSettings?.header_configuration?.header')
@@ -18,10 +18,10 @@ km-drawer-layout(storageKey="drawer-configuration", noScroll)
       search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, rag, :searchString='searchString', @searchRag='handleSearchRag')
       template(v-if='isShowHints')
         .row.items-center
-          .col.km-heading-3 You can ask like this...
+          .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
           .col-auto
             km-btn(flat, color='primary', @click='showHints = false')
-              .km-button-text Don't show hints
+              .km-button-text {{ m.common_dontShowHints() }}
         template(v-for='(item, index) in sampleQuestion', :key='index')
           km-btn(flat, @click='refine(item)')
             .wrapped-text {{ item }}
@@ -36,7 +36,7 @@ km-drawer-layout(storageKey="drawer-configuration", noScroll)
     q-separator.q-mb-xs
     .col-auto.q-px-16
       .row.items-center
-        km-btn(flat, simple, label='Clear preview', iconSize='16px', icon='fas fa-eraser', @click='clearAnswers', :disable='!answers?.length')
+        km-btn(flat, simple, :label='m.common_clearPreviewAction()', iconSize='16px', icon='fas fa-eraser', @click='clearAnswers', :disable='!answers?.length')
   template(v-if='showChunkInfo')
     collections-drawer-chunk(:selectedRow='selectedAnswer', @close='showChunkInfo = false')
   evaluation-jobs-create-new(
@@ -50,18 +50,19 @@ km-drawer-layout(storageKey="drawer-configuration", noScroll)
   )
   km-popup-confirm(
     :visible='showEvaluationCreateDialog',
-    confirmButtonLabel='View Evaluation',
+    :confirmButtonLabel='m.common_viewEvaluation()',
     notificationIcon='far fa-circle-check',
-    cancelButtonLabel='Cancel',
+    :cancelButtonLabel='m.common_cancel()',
     @cancel='showEvaluationCreateDialog = false',
     @confirm='navigateToEval()'
   )
-    .row.item-center.justify-center.km-heading-7 Evaluation has started!
-    .row.text-center.justify-center It may take some time for the Evaluation to finish.
-    .row.text-center.justify-center You'll be able to view run results on the Evaluation screen.
+    .row.item-center.justify-center.km-heading-7 {{ m.common_evaluationStarted() }}
+    .row.text-center.justify-center {{ m.common_evaluationTakeTime() }}
+    .row.text-center.justify-center {{ m.common_evaluationViewResults() }}
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import useState from '@shared/composables/useState'
@@ -88,6 +89,7 @@ export default {
       metadataFilter,
       sharedPrompt,
       collectionItems,
+      m,
       showHints: ref(true),
       selectedAnswer: ref({}),
       showChunkInfo: ref(false),

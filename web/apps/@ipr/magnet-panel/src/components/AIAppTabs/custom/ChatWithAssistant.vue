@@ -4,7 +4,7 @@
     template(v-if='processing')
       .column.justify-center.items-center
         q-spinner-dots(size='62px', color='primary')
-        km-btn(flat, simple, label='Stop', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
+        km-btn(flat, simple, :label='m.panel_stop()', iconSize='16px', icon='fas fa-times', @click='abortController.abort()')
     .column.no-wrap.q-px-16.q-gap-8
       template(v-for='(message, index) in allMessages')
         .border-radius-12.q-pa-lg.full-width(
@@ -22,7 +22,7 @@
                 iconSize='12px',
                 flat,
                 @click='((messageToEdit = index), (messageToEditContent = message.content))',
-                tooltip='Edit'
+                :tooltip='m.common_edit()'
               )
               km-btn(
                 icon='fas fa-trash',
@@ -30,20 +30,20 @@
                 iconSize='12px',
                 flat,
                 @click='deleteMessage(index)',
-                tooltip='Delete',
+                :tooltip='m.common_delete()',
                 v-if='!messageToEdit'
               )
 
           template(v-if='message.role == "tool"')
-            .km-field.q-mb-sm [Result for {{ message.tool_call_id }}]
+            .km-field.q-mb-sm {{ m.panel_toolResult({ toolCallId: message.tool_call_id }) }}
 
           template(v-if='!!message.content')
             //- .km-field.text-pre-wrap {{ message.content }}
             template(v-if='messageToEdit === index')
               km-input.bg-light(v-model='messageToEditContent', rows='5', type='textarea')
               .row.justify-end.q-gap-8.q-pt-sm
-                km-btn(flat, simple, label='Discard Edit', iconSize='16px', icon='fas fa-times', @click='messageToEdit = null')
-                km-btn(flat, simple, label='Save', iconSize='16px', icon='fas fa-save', @click='saveMessage(index)')
+                km-btn(flat, simple, :label='m.panel_discardEdit()', iconSize='16px', icon='fas fa-times', @click='messageToEdit = null')
+                km-btn(flat, simple, :label='m.common_save()', iconSize='16px', icon='fas fa-save', @click='saveMessage(index)')
             template(v-else) 
               km-markdown(:source='message.content', style='overflow-wrap: break-word')
 
@@ -74,7 +74,7 @@
       km-input(
         ref='input',
         rows='10',
-        placeholder='Enter user message...',
+        :placeholder='m.placeholder_enterUserMessage()',
         :model-value='userMessage',
         @input='userMessage = $event',
         border-radius='8px',
@@ -84,12 +84,12 @@
       )
       .row.justify-end.q-py-md.items-center
         .col-auto.q-mr-md
-          km-btn(flat, simple, label='Clear chat', iconSize='16px', icon='fas fa-eraser', @click='clearChat')
+          km-btn(flat, simple, :label='m.panel_clearChat()', iconSize='16px', icon='fas fa-eraser', @click='clearChat')
         .col-auto.q-mr-md(v-if='!isUserMode')
           km-btn(
             flat,
             simple,
-            :label='showAllMessages ? "Hide debug messages" : "Show all messages"',
+            :label='showAllMessages ? m.panel_hideDebugMessages() : m.panel_showAllMessages()',
             iconSize='16px',
             :icon='showAllMessages ? "fas fa-eye-slash" : "fas fa-eye"',
             @click='showAllMessages = !showAllMessages'
@@ -101,6 +101,7 @@
 </template>
 <script>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useChatCompletion, usePromptTemplates, useRagTools } from '@/pinia'
 import { storeToRefs } from 'pinia'
 
@@ -158,6 +159,7 @@ export default {
       props,
       reactions,
       chatCompletionStore,
+      m,
     }
   },
   computed: {

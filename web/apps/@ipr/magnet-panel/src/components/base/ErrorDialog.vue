@@ -4,20 +4,21 @@ q-dialog(position='top', v-model='value', persistent, square, @hide='clearError'
     .row.bg-red.q-px-md.q-py-sm.items-center(style='height: 48px')
       q-icon.q-mr-sm(name='error_outline', size='28px')
       .col
-        .km-heading-6 Error
+        .km-heading-6 {{ m.error_dialog() }}
       q-btn(icon='close', flat, round, dense, v-close-popup)
     .column.q-px-lg.q-py-sm
-      .q-my-xs.km-body(v-if='!text && !technicalError') Unknown Error 2
+      .q-my-xs.km-body(v-if='!text && !technicalError') {{ m.error_unknownError() }}
       .q-my-xs.km-body(v-if='text') {{ errorMessage?.text }}
       .q-mt-sm.q-mb-xs.km-chip(v-if='technicalError') {{ errorMessage?.technicalError }}
       //- .q-my-xs(v-if="showDisclaimer")
       .q-mt-md.q-mb-sm.self-end
         div
-          q-btn(color='white', v-close-popup, flat) Ok
+          q-btn(color='white', v-close-popup, flat) {{ m.common_ok() }}
 </template>
 
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useMainStore } from '@/pinia'
 export default {
   setup() {
@@ -25,6 +26,7 @@ export default {
     return {
       value: ref(true),
       mainStore,
+      m,
     }
   },
   computed: {

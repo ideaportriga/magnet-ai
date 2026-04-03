@@ -85,6 +85,7 @@ div(style='min-width: 300px')
 
 <script>
 import { useEntityQueries } from '@/queries/entities'
+import { m } from '@/paraglide/messages'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 
 export default {

@@ -134,6 +134,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { onBeforeRouteLeave } from 'vue-router'
 import { providerSecretKeys, providerConnectionConfigKeys, formatProviderType } from '../../config/model_providers/providerTypes'
 import { useEntityQueries } from '@/queries/entities'

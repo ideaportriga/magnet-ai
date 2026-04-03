@@ -56,6 +56,7 @@ configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @
 
 <script setup>
 import { ref, computed, watch, onMounted, onActivated } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute, useRouter } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useEvaluationStore } from '@/stores/evaluationStore'

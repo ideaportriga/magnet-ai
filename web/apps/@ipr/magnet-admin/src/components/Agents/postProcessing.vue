@@ -1,6 +1,6 @@
 <template lang="pug">
 div
-  km-section(title='Conversation closure interval', subTitle='Interval after which inactive conversations will be marked as closed')
+  km-section(:title='m.section_conversationClosureInterval()', :subTitle='m.subtitle_closureInterval()')
     q-btn-toggle(
       v-model='conversationClosureInterval',
       toggle-color='primary-light',
@@ -10,14 +10,14 @@ div
       toggle-text-color='primary'
     )
   q-separator.q-my-lg
-  km-section(title='Post-processing', subTitle='Turn on post-processing for advanced Agent analysis and monitoring')
+  km-section(:title='m.section_postProcessing()', :subTitle='m.subtitle_turnOnPostProcessing()')
     q-toggle(v-model='postProcessing', color='primary')
   q-separator.q-my-lg
   km-section(
-    title='Post-processing Prompt Template',
-    subTitle='Prompt Template that controls the post-processing of Agent, including summary, language detection and case resolution check'
+    :title='m.agents_postProcessingPromptTemplate()',
+    :subTitle='m.subtitle_postProcessing()'
   )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
     km-select(
       height='30px',
       placeholder='Post-process Prompt',
@@ -34,22 +34,23 @@ div
         km-btn(
           flat,
           simple,
-          :label='postProcessTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+          :label='postProcessTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
           iconSize='16px',
           icon='fas fa-comment-dots',
           @click='postProcessTemplate ? navigate(`prompt-templates/${postProcessTemplateId}`) : navigate("prompt-templates")'
         )
   q-separator.q-my-lg
-  km-section(title='Message post-processing', subTitle='Turn on post-processing on message level')
+  km-section(:title='m.section_messagePostProcessing()', :subTitle='m.subtitle_turnOnMessagePostProcessing()')
     .column
       .col.q-mb-md
-        q-chip.km-small-chip(color='primary-light', text-color='primary', label='Upcoming feature')
+        q-chip.km-small-chip(color='primary-light', text-color='primary', :label='m.common_upcomingFeature()')
       .col
         q-toggle(:model-value='false', disable, dense)
 </template>
 
 <script>
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
@@ -70,6 +71,7 @@ export default {
     queries.jobs.useList()
 
     return {
+      m,
       activeVariant,
       updateVariantField,
       promptTemplateItems,

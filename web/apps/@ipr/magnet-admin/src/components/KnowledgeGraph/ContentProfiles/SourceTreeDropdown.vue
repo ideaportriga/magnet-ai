@@ -112,6 +112,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import KgInlineField from '../common/KgInlineField.vue'
 import type { SourceRow } from '../Sources/models'
 import { sourceRegistry, type SourceTypeKey } from '../Sources/SourceTypes/registry'

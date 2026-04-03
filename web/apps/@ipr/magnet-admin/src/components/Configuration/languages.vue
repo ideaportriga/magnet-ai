@@ -13,18 +13,18 @@ div
 
 
   km-section(
-    title='Enable multi-lingual RAG',
-    subTitle='Optimizes RAG for translation when users ask in other languages than knowledge source language. Makes 3 extra calls to LLM.'
+    :title='m.ragTools_enableMultiLingualRag()',
+    :subTitle='m.subtitle_optimizeRag()'
   )
     q-toggle.q-mb-lg.q-pl-8(v-model='isMultiLingualRAG', dense)
     template(v-if='isMultiLingualRAG')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 RAG Tool source language
-        km-select(height='30px', placeholder='RAG Tool source language', :options='languages', v-model='ragToolSourceLangualge')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_ragToolSourceLanguage() }}
+        km-select(height='30px', :placeholder='m.ragTools_ragToolSourceLanguage()', :options='languages', v-model='ragToolSourceLangualge')
       q-separator.q-my-lg
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Detection Prompt Template
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_detectionPromptTemplate() }}
         km-select(
           height='30px',
-          placeholder='Detect Q&A Language',
+          :placeholder='m.ragTools_detectQaLanguage()',
           :options='promptTemplates',
           v-model='detectLanguagePromptTemplate',
           hasDropdownSearch
@@ -34,16 +34,16 @@ div
             km-btn(
               flat,
               simple,
-              :label='detectLanguagePromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+              :label='detectLanguagePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
               iconSize='16px',
               icon='fas fa-comment-dots',
               @click='detectLanguagePromptTemplate ? navigate(`prompt-templates/${detectLanguagePromptTemplateId}`) : navigate("prompt-templates")'
             )
       q-separator.q-my-lg
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Translation Prompt Template
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.ragTools_translationPromptTemplate() }}
         km-select(
           height='30px',
-          placeholder='Translation Prompt Template',
+          :placeholder='m.ragTools_translationPromptTemplate()',
           :options='promptTemplates',
           v-model='translatePromptTemplate',
           hasDropdownSearch
@@ -53,7 +53,7 @@ div
             km-btn(
               flat,
               simple,
-              :label='translatePromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+              :label='translatePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
               iconSize='16px',
               icon='fas fa-comment-dots',
               @click='translatePromptTemplate ? navigate(`prompt-templates/${translatePromptTemplateId}`) : navigate("prompt-templates")'
@@ -61,6 +61,7 @@ div
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 export default {
@@ -71,6 +72,7 @@ export default {
     const { data: promptTemplateListData } = queries.promptTemplates.useList()
 
     return {
+      m,
       activeVariant,
       updateVariantField,
       promptTemplateListData,

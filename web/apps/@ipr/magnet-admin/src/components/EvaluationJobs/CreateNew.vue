@@ -1,9 +1,9 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Evaluation',
-  confirmButtonLabel='Save & Run',
-  cancelButtonLabel='Cancel',
+  :title='m.dialog_newEvaluation()',
+  :confirmButtonLabel='m.common_saveAndRun()',
+  :cancelButtonLabel='m.common_cancel()',
   @confirm='createEvaluationJob',
   @cancel='$emit("cancel")',
   :loading='loading'
@@ -117,6 +117,7 @@ import { ref, reactive, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { m } from '@/paraglide/messages'
 
 export default {
   props: {
@@ -163,6 +164,7 @@ export default {
     const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
+      m,
       evalStore,
       setItems,
       ragItems,

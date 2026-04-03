@@ -4,19 +4,19 @@
     .row.km-table-chip.km-small-chip.text-black {{ selectedRow.in }}
     .row.justify-between.q-pt-8
       .col-12.q-py-8
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
         km-input(:model-value='selectedRow.name', readonly)
       .col-12.q-py-8
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_description() }}
         .km-textarea-relaxed
           km-input(v-model='description', type='textarea', rows='3', autogrow)
       .row.q-gap-16.no-wrap.full-width
         .col
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
 
           km-select.full-width(v-model='type', :options='["string", "number", "integer", "boolean", "array", "object"]')
         .col
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Format
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_responseFormat() }}
           km-select.full-width(
             v-model='format',
             :options='formatOptions',
@@ -24,7 +24,7 @@
             :disabled='formatOptions.length === 0'
           )
       .column.q-mt-16.full-width
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Enum values
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.apiTools_enumValues() }}
         template(v-for='(item, index) in enum', :key='index')
           .row.q-gap-8.no-wrap
             km-input.q-mb-sm.full-width(:model-value='item', @update:model-value='(e) => setEnum(e, index)')
@@ -33,6 +33,7 @@
 </template>
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 export default {
   props: {
@@ -44,6 +45,7 @@ export default {
   setup() {
     const { draft, updateField } = useEntityDetail('api_servers')
     return {
+      m,
       list: ref([]),
       draft,
       updateField,

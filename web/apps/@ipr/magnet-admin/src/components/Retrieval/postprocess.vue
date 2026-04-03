@@ -1,16 +1,16 @@
 <template lang="pug">
 .ba-border.bg-white.border-radius-12.q-pa-lg(style='min-width: 300px')
-  km-section(title='Answered / Not answered check', subTitle='Turn on this option for monitoring purposes. Makes one extra call to LLM')
+  km-section(:title='m.retrieval_answeredCheck()', :subTitle='m.subtitle_turnOnMonitoring()')
     q-toggle.q-mb-lg(v-model='checkIsAnswered', dense)
     template(v-if='checkIsAnswered')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
-      km-select(height='30px', placeholder='Prompt template', :options='prompts', v-model='answeredPromptCode', hasDropdownSearch)
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
+      km-select(height='30px', :placeholder='m.common_promptTemplate()', :options='prompts', v-model='answeredPromptCode', hasDropdownSearch)
       .row.q-mt-sm
         .col-auto
           km-btn(
             flat,
             simple,
-            :label='answeredPromptCode ? "Open Prompt Template" : "Open Prompt Templates Library"',
+            :label='answeredPromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
             iconSize='16px',
             icon='fas fa-comment-dots',
             @click='answeredPromptCode ? navigate(`prompt-templates/${answeredPromptId}`) : navigate("prompt-templates")'
@@ -18,19 +18,19 @@
 
   q-separator.q-my-lg
   km-section(
-    title='Check for hallucinations',
-    subTitle='Ask LLM to review its own response. A hallucination is a response that is not grounded in provided context'
+    :title='m.retrieval_checkForHallucinations()',
+    :subTitle='m.subtitle_hallucinationCheck()'
   )
     q-toggle.q-mb-lg(v-model='checkIsHallucinate', dense)
     template(v-if='checkIsHallucinate')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
-      km-select(height='30px', placeholder='Prompt template', :options='prompts', v-model='hallucinatePromptCode', hasDropdownSearch)
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
+      km-select(height='30px', :placeholder='m.common_promptTemplate()', :options='prompts', v-model='hallucinatePromptCode', hasDropdownSearch)
       .row.q-mt-sm
         .col-auto
           km-btn(
             flat,
             simple,
-            :label='hallucinatePromptCode ? "Open Prompt Template" : "Open Prompt Templates Library"',
+            :label='hallucinatePromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
             iconSize='16px',
             icon='fas fa-comment-dots',
             @click='hallucinatePromptCode ? navigate(`prompt-templates/${hallucinatePromptId}`) : navigate("prompt-templates")'
@@ -41,33 +41,33 @@
           q-radio(v-model='checkForHallucinateMode', val='logs', dense)
         .col
           .column.q-pl-md
-            div Only log results
+            div {{ m.retrieval_onlyLogResults() }}
             .col
-              .km-field.text-secondary-text Perform check and log yes or no. Makes one extra call to LLM.
+              .km-field.text-secondary-text {{ m.retrieval_onlyLogResultsDesc() }}
       .row.q-mt-lg
         .col.q-mb-md
-          q-chip.km-small-chip(color='primary-light', text-color='primary', label='Upcoming feature')
+          q-chip.km-small-chip(color='primary-light', text-color='primary', :label='m.common_upcomingFeature()')
       .row
         .col-auto
           q-radio(v-model='checkForHallucinateMode', val='logsRegenerate', dense, disable)
         .col
           .column.q-pl-md
-            div Log results & re-generate answer
+            div {{ m.retrieval_logAndRegenerate() }}
             .col
-              .km-field.text-secondary-text Perform check and ask the LLM to re-generate the response. Makes X extra calls to LLM.
+              .km-field.text-secondary-text {{ m.retrieval_logAndRegenerateDesc() }}
 
   q-separator.q-my-lg
-  km-section(title='Detect question language', subTitle='Turn on this option for monitoring purposes. Makes one extra call to LLM')
+  km-section(:title='m.retrieval_detectQuestionLanguage()', :subTitle='m.subtitle_turnOnMonitoring()')
     q-toggle.q-mb-lg(v-model='detectLanguage', dense)
     template(v-if='detectLanguage')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Prompt template
-      km-select(height='30px', placeholder='Prompt template', :options='prompts', v-model='languageDetectPromptCode', hasDropdownSearch)
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
+      km-select(height='30px', :placeholder='m.common_promptTemplate()', :options='prompts', v-model='languageDetectPromptCode', hasDropdownSearch)
       .row.q-mt-sm
         .col-auto
           km-btn(
             flat,
             simple,
-            :label='languageDetectPromptCode ? "Open Prompt Template" : "Open Prompt Templates Library"',
+            :label='languageDetectPromptCode ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
             iconSize='16px',
             icon='fas fa-comment-dots',
             @click='languageDetectPromptCode ? navigate(`prompt-templates/${languageDetectPromptId}`) : navigate("prompt-templates")'
@@ -75,6 +75,7 @@
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
@@ -89,6 +90,7 @@ export default {
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
     return {
+      m,
       activeVariant,
       updateVariantField,
       promptItems,

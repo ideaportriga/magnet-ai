@@ -4,12 +4,13 @@
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 
 export default {
   setup() {
     const { options: items } = useCatalogOptions('rag_tools')
-    return { items }
+    return { m, items }
   },
   computed: {
     activeRagId() {

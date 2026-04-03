@@ -17,10 +17,10 @@
     .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
       .row.q-mb-12
         .col-auto.center-flex-y
-          km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+          km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
         q-space
         .col-auto.center-flex-y
-          km-btn.q-mr-12(label='New', @click='showNewDialog = true')
+          km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
       .col(style='min-height: 0')
         km-data-table(
           :table='table',
@@ -37,6 +37,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
 import { textColumn, componentColumn, dateColumn } from '@/utils/columnHelpers'
+import { m } from '@/paraglide/messages'
 import type { Model } from '@/types'
 import Check from '@/config/model/component/Check.vue'
 import Features from '@/config/model/component/Features.vue'
@@ -52,7 +53,7 @@ const tabs = [
 
 const allColumns = [
   textColumn<Model>('display_name', 'Display name'),
-  textColumn<Model>('model', 'Name', { sortable: true }),
+  textColumn<Model>('model', m.common_name(), { sortable: true }),
   componentColumn<Model>('features', 'Features', Features, {
     props: (row) => ({ name: 'features' }),
   }),
@@ -62,8 +63,8 @@ const allColumns = [
     align: 'center',
     props: (row) => ({ name: 'is_default' }),
   }),
-  dateColumn<Model>('created_at', 'Created'),
-  dateColumn<Model>('updated_at', 'Last Updated'),
+  dateColumn<Model>('created_at', m.common_created()),
+  dateColumn<Model>('updated_at', m.common_lastUpdated()),
 ]
 
 const extraParams = computed(() => ({ type: tab.value }))

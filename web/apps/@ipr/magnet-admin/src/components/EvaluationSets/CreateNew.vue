@@ -1,16 +1,16 @@
 <template lang="pug">
 km-popup-confirm(
   :visible='showNewDialog',
-  title='New Test Set',
-  confirmButtonLabel='Save',
-  cancelButtonLabel='Cancel',
+  :title='m.dialog_newTestSet()',
+  :confirmButtonLabel='m.common_save()',
+  :cancelButtonLabel='m.common_cancel()',
   @confirm='createEvaluationSet',
   @cancel='$emit("cancel")',
   :loading='loading'
 )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
-      km-input(height='30px', placeholder='E.g. My first Test Set', v-model='name', ref='nameRef', :rules='config.name.rules')
+      km-input(height='30px', :placeholder='m.placeholder_exampleMyFirstTestSet()', v-model='name', ref='nameRef', :rules='config.name.rules')
   //- .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Description
   //-   .full-width
   //-     km-input(
@@ -20,11 +20,11 @@ km-popup-confirm(
   //-       ref='descriptionRef',
   //-       :rules='config.description.rules'
   //-     )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
-      km-input(height='30px', placeholder='E.g. MY_FIRST_TEST_SET', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
-    .km-description.text-secondary-text.q-pb-4 System name serves as a unique record ID
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Type
+      km-input(height='30px', :placeholder='m.placeholder_exampleMyFirstTestSetSystemName()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+    .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_type() }}
     km-select(
       minHeight='30px',
       maxHeight='30px',
@@ -37,7 +37,7 @@ km-popup-confirm(
       map-options,
       :rules='config.type.rules'
     )
-  .km-field.text-secondary-text.q-pb-xs.q-pl-8(v-if='!copy') File
+  .km-field.text-secondary-text.q-pb-xs.q-pl-8(v-if='!copy') {{ m.label_file() }}
     q-file.km-control.km-input.rounded-borders(
       style='height: 30px',
       outlined,
@@ -58,6 +58,7 @@ km-popup-confirm(
 </template>
 <script>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, getCurrentInstance } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRouter } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
@@ -149,6 +150,7 @@ export default {
     }
 
     return {
+      m,
       createEntity,
       config,
       requiredFields,

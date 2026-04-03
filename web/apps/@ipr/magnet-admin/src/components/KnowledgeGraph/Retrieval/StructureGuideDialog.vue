@@ -94,6 +94,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import type { ValidationError } from './promptConfigConverter'
 import { useNotify } from '@/composables/useNotify'
 

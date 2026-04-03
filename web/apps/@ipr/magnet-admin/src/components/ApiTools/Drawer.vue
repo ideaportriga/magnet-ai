@@ -21,6 +21,7 @@ km-drawer-layout(storageKey="drawer-api-tools")
 </template>
 <script>
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 export default {
   props: {
     selectedRow: {
@@ -30,10 +31,11 @@ export default {
   },
   setup() {
     return {
+      m,
       tab: ref('details'),
       tabs: ref([
-        { name: 'details', label: 'Input Details' },
-        { name: 'test', label: 'Test API Tool' },
+        { name: 'details', label: m.apiTools_inputDetails() },
+        { name: 'test', label: m.apiTools_testApiTool() },
       ]),
     }
   },
@@ -47,11 +49,11 @@ export default {
     regulateTabs(parentTab) {
       if (parentTab === 'information') {
         this.tab = 'test'
-        this.tabs = [{ name: 'test', label: 'Test API Tool' }]
+        this.tabs = [{ name: 'test', label: m.apiTools_testApiTool() }]
       } else {
         this.tabs = [
-          { name: 'details', label: 'Input Details' },
-          { name: 'test', label: 'Test API Tool' },
+          { name: 'details', label: m.apiTools_inputDetails() },
+          { name: 'test', label: m.apiTools_testApiTool() },
         ]
       }
     },

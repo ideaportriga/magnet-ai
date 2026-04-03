@@ -7,7 +7,7 @@ q-dialog(:modelValue='modelValue', @update:modelValue='emit("update:modelValue",
       input.global-search-input.col.q-ml-md(
         ref='inputRef',
         v-model='query',
-        placeholder='Search Navigation...',
+        :placeholder='m.search_searchNavigation()',
         @keydown.down.prevent='moveDown',
         @keydown.up.prevent='moveUp',
         @keydown.enter.prevent='selectCurrent',
@@ -26,7 +26,7 @@ q-dialog(:modelValue='modelValue', @update:modelValue='emit("update:modelValue",
       template(v-else-if='flatResults.length === 0')
         .column.items-center.justify-center.q-pa-xl(style='min-height: 200px')
           q-icon(name='search', size='48px', color='grey-4')
-          .text-secondary-text.km-description.q-mt-md {{ query ? 'No results found' : 'Start typing to search...' }}
+          .text-secondary-text.km-description.q-mt-md {{ query ? m.search_noResultsFound() : m.search_startTyping() }}
 
       template(v-else)
         .global-search-list.q-pa-sm
@@ -54,17 +54,18 @@ q-dialog(:modelValue='modelValue', @update:modelValue='emit("update:modelValue",
     .row.items-center.q-px-lg.q-py-sm.q-gap-lg
       .row.items-center.q-gap-xs
         .global-search-kbd ↵
-        .km-description.text-secondary-text Select
+        .km-description.text-secondary-text {{ m.search_select() }}
       .row.items-center.q-gap-xs
         .global-search-kbd ↑
         .global-search-kbd ↓
-        .km-description.text-secondary-text Navigate
+        .km-description.text-secondary-text {{ m.search_navigate() }}
       .row.items-center.q-gap-xs
         .global-search-kbd ESC
-        .km-description.text-secondary-text Close
+        .km-description.text-secondary-text {{ m.common_close() }}
 </template>
 
 <script setup lang="ts">
+import { m } from '@/paraglide/messages'
 import { ref, computed, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCatalog, filterCatalog, type CatalogItem } from '@/queries/catalog'

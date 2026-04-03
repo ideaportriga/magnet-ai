@@ -1,6 +1,6 @@
 <template lang="pug">
 div
-  .km-heading-4.q-mb-md Topic Actions
+  .km-heading-4.q-mb-md {{ m.agents_topicActions() }}
   .row.q-mb-12
     .col-auto.center-flex-y
       km-input(placeholder='Search', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
@@ -35,12 +35,13 @@ km-popup-confirm(
   @confirm='deleteSelected',
   @cancel='showDeleteDialog = false'
 )
-  .row.item-center.justify-center.km-heading-7 Delete Topic Action Records
-  .row.text-center.justify-center {{ `You are going to delete ${selectedRows?.length} selected records. Are you sure?` }}
+  .row.item-center.justify-center.km-heading-7 {{ m.agents_deleteTopicActionRecords() }}
+  .row.text-center.justify-center {{ m.agents_deleteConfirmMessage({ count: selectedRows?.length }) }}
 </template>
 
 <script setup>
 import { ref, computed, markRaw } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useRoute } from 'vue-router'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'

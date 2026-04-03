@@ -7,6 +7,11 @@ import { quasarConf } from '@shared'
 import { Quasar } from 'quasar'
 import 'quasar/src/css/index.sass'
 
+// Import i18n (Paraglide JS)
+import * as runtime from '@/paraglide/runtime'
+import { initLocale } from '@shared/i18n'
+initLocale(runtime)
+
 // Import utility functions and helpers
 import { setTheme, registerComponents, registerGlobalProperties, errorHandler, registerDirectives, mountLog } from '@shared/utils/mountUtils'
 import { getComponentList } from '@shared'

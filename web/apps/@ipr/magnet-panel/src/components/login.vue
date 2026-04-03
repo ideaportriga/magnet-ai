@@ -3,11 +3,12 @@
   .column.items-center.auth-container
     .row
       km-icon(:name='"magnet"', width='23', height='25')
-      .km-heading-7.logo-text.q-ml-sm Magnet AI
+      .km-heading-7.logo-text.q-ml-sm {{ m.auth_magnetAi() }}
     km-btn.q-mt-md(bg='primary', color='border', :label='loginButtonText', @click='login', :disable='loginInProgress')
 </template>
 
 <script setup>
+import { m } from '@/paraglide/messages'
 import { useAuth } from '@/pinia'
 import { computed, ref, defineEmits, onUnmounted } from 'vue'
 
@@ -22,7 +23,7 @@ const oAuthPopupWidth = computed(() => auth.authConfig.popup.width)
 const oAuthPopupHeight = computed(() => auth.authConfig.popup.height)
 
 const loginButtonText = computed(() => {
-  return loginInProgress.value ? `Logging in with ${auth.authConfig.provider} ...` : `Log in with ${auth.authConfig.provider}`
+  return loginInProgress.value ? m.auth_loggingInWith({ provider: auth.authConfig.provider }) : m.auth_loginWith({ provider: auth.authConfig.provider })
 })
 
 const tokenReceived = ref(false)

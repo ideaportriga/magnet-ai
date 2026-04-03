@@ -5,7 +5,7 @@ template(v-if='searchResults.length > 0')
     .col
       .km-title {{ server.name }}
       .km-description {{ server.url }}
-    km-chip.text-primary(color='primary-transparent', :label='`${selectedQty} of ${server.tools.length} selected`', round, v-if='selectedQty > 0')
+    km-chip.text-primary(color='primary-transparent', :label='m.agents_ofSelected({ selected: selectedQty, total: server.tools.length })', round, v-if='selectedQty > 0')
     km-btn(:icon='open ? "o_expand_less" : "o_expand_more"', flat, color='icon', @click.stop='open = !open')
   .column.full-width.q-pl-lg(v-if='open')
     template(v-for='tool in searchResults')
@@ -14,11 +14,12 @@ template(v-if='searchResults.length > 0')
         .col
           .row.items-center.q-gap-8
             .km-title {{ tool.name }}
-            km-chip(v-if='tool.system_name === "fullSearch"', label='Full Search', color='primary-transparent', text-color='primary', round, dense)
+            km-chip(v-if='tool.system_name === "fullSearch"', :label='m.agents_fullSearch()', color='primary-transparent', text-color='primary', round, dense)
           .km-description {{ tool.description }}
 </template>
 <script setup>
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const props = defineProps({
   server: {

@@ -108,6 +108,7 @@ km-drawer-layout(v-if='!!selectedRow', storageKey='drawer-dashboard-rag')
 </template>
 <script>
 import _ from 'lodash'
+import { m } from '@/paraglide/messages'
 import { ref } from 'vue'
 import { formatDuration } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'

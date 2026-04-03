@@ -6,7 +6,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
+import { m } from '@/paraglide/messages'
 
 const ntStore = useNoteTakerStore()
-const activeRecordName = computed(() => ntStore.activeRecord?.name || 'Note Taker')
+const activeRecordName = computed(() => ntStore.activeRecord?.name || m.entity_noteTaker())
 </script>

@@ -10,10 +10,10 @@
         @row-click='selectRow'
       )
       .row.items-center.q-px-md.q-py-sm.text-grey.ba-border(v-if='pagination.rowsNumber')
-        .km-description {{ pagination.rowsNumber }} record{{ pagination.rowsNumber !== 1 ? 's' : '' }}
+        .km-description {{ m.common_recordCount({ total: pagination.rowsNumber }) }}
         q-space
         .row.items-center.q-gap-8
-          span.km-description Rows per page: {{ pagination.rowsPerPage }}
+          span.km-description {{ m.common_rowsPerPage() }} {{ pagination.rowsPerPage }}
         .row.items-center.q-ml-md.q-gap-4
           q-btn(flat, dense, round, icon='first_page', size='sm', :disable='pagination.page <= 1', @click='goToPage(1)')
           q-btn(flat, dense, round, icon='chevron_left', size='sm', :disable='pagination.page <= 1', @click='goToPage(pagination.page - 1)')
@@ -24,6 +24,7 @@
 <script>
 import { fetchData } from '@shared'
 import { ref, h } from 'vue'
+import { m } from '@/paraglide/messages'
 import agentDetailsControls from '@/config/dashboard/agent-details-table'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useLocalDataTable } from '@/composables/useLocalDataTable'
@@ -82,7 +83,7 @@ export default {
       defaultSort: [{ id: 'start_time', desc: true }],
     })
 
-    return { draft, detailedList, detailsTable }
+    return { m, draft, detailedList, detailsTable }
   },
 
   data() {
@@ -92,20 +93,20 @@ export default {
       searchString: '',
       listFilter: {
         source: {
-          label: 'Consumer type',
+          label: m.agents_consumerType(),
           key: 'source',
           type: 'component',
           options: [
-            { label: 'Runtime API', value: 'Runtime API' },
-            { label: 'Runtime AI App', value: 'Runtime AI App' },
-            { label: 'Preview', value: 'preview' },
-            { label: 'Evaluation', value: 'evaluation' },
+            { label: m.agents_runtimeApi(), value: 'Runtime API' },
+            { label: m.agents_runtimeAiApp(), value: 'Runtime AI App' },
+            { label: m.agents_preview(), value: 'preview' },
+            { label: m.agents_evaluation(), value: 'evaluation' },
           ],
           multiple: true,
           default: ['Runtime AI App', 'Runtime API'],
         },
         start_time: {
-          label: 'Time Period',
+          label: m.agents_timePeriod(),
           key: 'start_time',
           type: 'timePeriod',
           default: 'P1D',

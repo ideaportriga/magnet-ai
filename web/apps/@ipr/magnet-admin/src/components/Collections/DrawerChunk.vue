@@ -3,19 +3,19 @@
   .col-auto
     .row.items-center
       km-btn(flat, icon='fas fa-chevron-left', @click='$emit("close")', iconSize='20px', color='secondary-text')
-      .km-heading-7.q-mb-xs.q-ml-sm Chunk details
+      .km-heading-7.q-mb-xs.q-ml-sm {{ m.collectionItems_chunkDetails() }}
   q-separator.q-mb-md
 
   template(v-if='!selectedRow?.id')
     .flex.flex-center.full-height
-      .km-description.text-grey No chunk selected
+      .km-description.text-grey {{ m.collectionItems_noChunkSelected() }}
 
   template(v-else)
     .col-auto(v-if='selectedRow?.metadata?.source')
       .row.items-center
         .col
         .col-auto
-          km-btn(icon='fas fa-external-link-alt', label='View document', iconSize='16px', flat, @click='openDocument')
+          km-btn(icon='fas fa-external-link-alt', :label='m.collectionItems_viewDocument()', iconSize='16px', flat, @click='openDocument')
     .col
       q-scroll-area.fit
         .row.justify-between.q-pt-8.q-pl-8.q-pr-24
@@ -68,6 +68,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import type { Document } from '@/types'
 
 const props = defineProps<{ selectedRow?: Document | null }>()

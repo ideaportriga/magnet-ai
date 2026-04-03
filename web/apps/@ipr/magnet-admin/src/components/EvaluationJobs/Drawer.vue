@@ -200,6 +200,7 @@ km-drawer-layout(v-if='open && currentRecord', storageKey="drawer-evaluation-job
 </template>
 <script>
 import { defineComponent, ref, computed } from 'vue'
+import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 

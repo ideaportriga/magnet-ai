@@ -11,6 +11,7 @@
 
 <script setup lang="ts">
 import MarkdownIt from 'markdown-it'
+import { m } from '@/paraglide/messages'
 import MarkdownItAbbr from 'markdown-it-abbr'
 import MarkdownItAnchor from 'markdown-it-anchor'
 import MarkdownItFootnote from 'markdown-it-footnote'

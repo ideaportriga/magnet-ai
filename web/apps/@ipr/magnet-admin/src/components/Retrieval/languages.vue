@@ -1,24 +1,24 @@
 <template lang="pug">
 div
   km-section(
-    title='Detect question language',
-    subTitle='Can be used independently for monitoring purposes and is required for multi-lingual search. Makes one extra call to LLM.'
+    :title='m.retrieval_detectQuestionLanguage()',
+    :subTitle='m.subtitle_detectLanguageRetrieval()'
   )
     q-toggle.q-mb-lg(v-model='isDetectLanguage', dense)
       km-notification-text(
         v-if='isMultiLingualRAG',
-        notification='When "Detect question language" is disabled, "Enable multi-lingual Retrieval" will also be disabled',
+        :notification='m.retrieval_detectLanguageDisableWarning()',
         tooltip
       )
     template(v-if='isDetectLanguage')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Detection Prompt Template
-      km-select(height='30px', placeholder='Detect Q&A Language', :options='prompts', v-model='detectLanguagePromptTemplate', hasDropdownSearch)
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_detectionPromptTemplate() }}
+      km-select(height='30px', :placeholder='m.retrieval_detectQaLanguage()', :options='prompts', v-model='detectLanguagePromptTemplate', hasDropdownSearch)
       .row.q-mt-sm
         .col-auto
           km-btn(
             flat,
             simple,
-            :label='detectLanguagePromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+            :label='detectLanguagePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
             iconSize='16px',
             icon='fas fa-comment-dots',
             @click='detectLanguagePromptTemplate ? navigate(`prompt-templates/${detectLanguagePromptTemplateId}`) : navigate("prompt-templates")'
@@ -26,23 +26,23 @@ div
 
   q-separator.q-my-lg
   km-section(
-    title='Enable multi-lingual Retrieval',
-    subTitle='Optimizes Retrieval Tool for questions in other languages than knowledge source language. Makes one extra call to LLM.'
+    :title='m.retrieval_enableMultiLingualRetrieval()',
+    :subTitle='m.subtitle_optimizeRetrieval()'
   )
     q-toggle.q-mb-lg(v-model='isMultiLingualRAG', dense, :disable='!isDetectLanguage')
-      km-notification-text(v-if='!isDetectLanguage', notification='Language detection must be on to enable multi-lingual Retrieval', tooltip)
+      km-notification-text(v-if='!isDetectLanguage', :notification='m.retrieval_detectLanguageDisableNote()', tooltip)
     template(v-if='isMultiLingualRAG')
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 RAG Tool source language
-      km-select(height='30px', placeholder='RAG Tool source language', :options='languages', v-model='RetrievalToolSourceLangualge')
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_ragToolSourceLanguage() }}
+      km-select(height='30px', :placeholder='m.retrieval_ragToolSourceLanguage()', :options='languages', v-model='RetrievalToolSourceLangualge')
       q-separator.q-my-lg
-      .km-field.text-secondary-text.q-pb-xs.q-pl-8 Translation Prompt Template
-      km-select(height='30px', placeholder='Translation Prompt Template', :options='prompts', v-model='translatePromptTemplate', hasDropdownSearch)
+      .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.retrieval_translationPromptTemplate() }}
+      km-select(height='30px', :placeholder='m.retrieval_translationPromptTemplate()', :options='prompts', v-model='translatePromptTemplate', hasDropdownSearch)
       .row.q-mt-sm
         .col-auto
           km-btn(
             flat,
             simple,
-            :label='translatePromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+            :label='translatePromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
             iconSize='16px',
             icon='fas fa-comment-dots',
             @click='translatePromptTemplate ? navigate(`prompt-templates/${TranslatePromptTemplateId}`) : navigate("prompt-templates")'
@@ -50,6 +50,7 @@ div
 </template>
 
 <script>
+import { m } from '@/paraglide/messages'
 import { computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
@@ -61,7 +62,7 @@ export default {
     const { activeVariant, updateVariantField } = useVariantEntityDetail('retrieval')
     const { data: promptListData } = queries.promptTemplates.useList()
     const promptItems = computed(() => promptListData.value?.items ?? [])
-    return { activeVariant, updateVariantField, promptItems }
+    return { m, activeVariant, updateVariantField, promptItems }
   },
   computed: {
     languages() {

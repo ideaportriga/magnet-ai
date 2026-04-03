@@ -9,6 +9,7 @@
         knowledge-providers-table
 </template>
 <script setup>
+import { m } from '@/paraglide/messages'
 import { ref } from 'vue'
 const loading = ref(false)
 </script>

@@ -9,6 +9,7 @@ q-btn-dropdown.km-export-dropdown(flat, color='secondary-text', label='Export', 
         q-item-label Export as JSON
 </template>
 <script>
+import { m } from '@/paraglide/messages'
 export default {
   emits: ['exportToCsv', 'exportToJson'],
 }

@@ -133,6 +133,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { m } from '@/paraglide/messages'
 import { KgDialogSection, KgDropdownField, KgFieldRow } from '../common'
 import { ColumnTypeOptions, createEmptyColumn, type EntityColumn, type EntityColumnType } from './models'
 
