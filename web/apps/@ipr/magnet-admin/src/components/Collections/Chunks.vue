@@ -39,8 +39,8 @@
     @confirm='confirmDelete',
     @cancel='showDeleteConfirm = false'
   )
-    .row.item-center.justify-center.km-heading-7.q-mb-md Delete Chunks Confirmation
-    .row.text-center.justify-center Are you sure you want to delete all embedded chunks?
+    .row.item-center.justify-center.km-heading-7.q-mb-md {{ m.collections_deleteChunksConfirmation() }}
+    .row.text-center.justify-center {{ m.collections_deleteAllChunksConfirm() }}
 </template>
 
 <script setup lang="ts">
@@ -109,26 +109,26 @@ const pageCount = computed(() => Math.ceil(totalRows.value / pagination.value.pa
 const columns: ColumnDef<Document, unknown>[] = [
   {
     id: 'title',
-    header: 'Title',
+    header: m.common_title(),
     accessorFn: (row) => row.metadata?.title ?? '-',
     meta: { width: '40%' },
   },
   {
     id: 'type',
-    header: 'Type',
+    header: m.common_type(),
     accessorFn: (row) => row.metadata?.type ?? '-',
     meta: { width: '15%' },
   },
   {
     id: 'created_at',
-    header: 'Created',
+    header: m.common_created(),
     accessorFn: (row) => row.metadata?.createdTime ?? row.created_at ?? '',
     cell: (info) => formatDate(info.getValue() as string),
     meta: { width: '20%' },
   },
   {
     id: 'updated_at',
-    header: 'Modified',
+    header: m.common_modifiedShort(),
     accessorFn: (row) => row.metadata?.modifiedTime ?? row.updated_at ?? '',
     cell: (info) => formatDate(info.getValue() as string),
     meta: { width: '20%' },

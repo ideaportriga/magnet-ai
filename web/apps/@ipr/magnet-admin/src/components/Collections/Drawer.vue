@@ -22,7 +22,7 @@ km-drawer-layout(storageKey="drawer-collections", noScroll)
                 q-btn.border-radius-6(color='primary', @click='getAnswer', unelevated, padding='6px 7px')
                   template(v-slot:default)
                     q-icon(name='fas fa-search', size='16px')
-          .km-description.text-secondary-text.q-mt-xs Perform semantic search for your search term. Returns best 15 results
+          .km-description.text-secondary-text.q-mt-xs {{ m.collections_searchHint() }}
 
       template(v-if='answers.length || loading')
         q-scroll-area.full-height.col(ref='scroll')

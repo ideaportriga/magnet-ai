@@ -1,15 +1,15 @@
 <template lang="pug">
 div
   div(v-show='!loading')
-    km-section(title='Scheduled job info', subTitle='Job that controls the scheduled sync for this Knowledge Source')
+    km-section(:title='m.collections_scheduledJobInfo()', :subTitle='m.collections_scheduledJobSubtitle()')
       //- No job_id exists - show create button
       template(v-if='!jobId')
         .row.items-center.justify-center
           .col-auto
-            .km-heading-3 No job scheduled
+            .km-heading-3 {{ m.collections_noJobScheduled() }}
         .row.items-center.justify-center
           .col-auto
-            .km-label.q-mb-sm Create a job to schedule automatic syncing for this Knowledge Source
+            .km-label.q-mb-sm {{ m.collections_createJobDescription() }}
         .row.items-center.justify-center
           .col-auto
             km-btn(:label='m.common_createNewJob()', @click='showNewDialog = true')
@@ -20,43 +20,43 @@ div
             q-spinner(color='primary', size='24px')
         .row.items-center.justify-center.q-mt-sm
           .col-auto
-            .km-label Loading job information...
+            .km-label {{ m.collections_loadingJobInfo() }}
       //- Job loaded - show job info
       template(v-else)
         .col.q-pt-8
-          .km-input-label.q-pb-xs.q-pl-8 Scheduled job
+          .km-input-label.q-pb-xs.q-pl-8 {{ m.collections_scheduledJob() }}
           km-select(:disabled='true', :modelValue='jobName')
         .row.q-mt-sm
           .col-auto
-            km-btn(flat, simple, :label='"Open Job"', iconSize='16px', icon='fas fa-comment-dots', @click='openJob')
+            km-btn(flat, simple, :label='m.collections_openJob()', iconSize='16px', icon='fas fa-comment-dots', @click='openJob')
     q-separator.q-my-lg
 
     template(v-if='job')
-      km-section(title='Schedule settings and status', subTitle='Go to the Job details to edit settings or cancel scheduled sync.')
+      km-section(:title='m.collections_scheduleSettingsStatus()', :subTitle='m.collections_scheduleSettingsSubtitle()')
         .row.q-col-gutter-md
           .col-4
-            .km-field Status
+            .km-field {{ m.common_status() }}
             .km-label {{ jobStatus }}
           .col-4
-            .km-field Job interval
+            .km-field {{ m.collections_jobInterval() }}
             .km-label {{ jobInterval }}
           .col-4
-            .km-field Start On
+            .km-field {{ m.collections_startOn() }}
             .km-label {{ startDate }}
         .row.q-col-gutter-md.q-mt-md
           .col-4
-            .km-field Repeat at
+            .km-field {{ m.collections_repeatAt() }}
             .km-label {{ repeatAt }}
           .col-4
-            .km-field Last run
+            .km-field {{ m.common_lastRun() }}
             .km-label {{ formattedLastRun }}
           .col-4
-            .km-field Next run
+            .km-field {{ m.common_nextRun() }}
             .km-label {{ formattedNextRun }}
     .q-my-lg
     .row
       .col-auto
-        .km-heading-4.q-mb-sm Last sync runs
+        .km-heading-4.q-mb-sm {{ m.collections_lastSyncRuns() }}
       .col
       .col-auto
         km-btn.q-mr-12(
@@ -114,19 +114,19 @@ const extraParams = computed(() => ({
 }))
 
 const columns = [
-  componentColumn('status', 'Status', markRaw(StatusField), {
+  componentColumn('status', m.common_status(), markRaw(StatusField), {
     accessorKey: 'status',
     sortable: true,
     align: 'center',
   }),
-  dateColumn('start_time', 'Start Time'),
-  textColumn('latency', 'Latency', {
+  dateColumn('start_time', m.common_startTime()),
+  textColumn('latency', m.common_latency(), {
     format: (val) => (val ? formatDuration(val) : '-'),
   }),
   {
     id: 'type',
     accessorFn: (row) => jobRunTypeOptions?.find((el) => el.value === row?.extra_data?.job_definition?.job_type)?.label || '-',
-    header: 'Type',
+    header: m.common_type(),
     enableSorting: true,
     meta: { align: 'left' },
   },
@@ -149,20 +149,20 @@ const loading = ref(false)
 const showNewDialog = ref(false)
 
 const formDefault = computed(() => ({
-  name: 'Job for Knowledge Source',
+  name: m.collections_jobForKnowledgeSource(),
   jobType: 'sync_collection',
   executionType: 'recurring',
   system_name: draft.value?.system_name || '',
 }))
 
 const currentRow = computed(() => draft.value)
-const jobName = computed(() => job.value?.definition.name || jobId.value || 'N/A')
+const jobName = computed(() => job.value?.definition.name || jobId.value || m.common_notAvailable())
 const job = computed(() => jobDetailData.value ?? null)
-const jobStatus = computed(() => job.value?.status || 'N/A')
+const jobStatus = computed(() => job.value?.status || m.common_notAvailable())
 
 const customCronDisplay = computed(() => {
   const cron = job.value?.definition?.cron
-  if (!cron) return 'Custom'
+  if (!cron) return m.jobs_custom()
   const parts = [
     cron.minute || '*',
     cron.hour || '*',
@@ -175,24 +175,24 @@ const customCronDisplay = computed(() => {
 
 const jobInterval = computed(() => {
   const interval = job.value?.definition?.interval
-  if (!interval) return 'N/A'
+  if (!interval) return m.common_notAvailable()
   const intervalLabels = {
-    'every_5_minutes': 'Every 5 minutes',
-    'hourly': 'Hourly',
-    'daily': 'Daily',
-    'weekly': 'Weekly',
-    'monthly': 'Monthly',
+    'every_5_minutes': m.jobs_every5Min(),
+    'hourly': m.jobs_hourly(),
+    'daily': m.jobs_daily(),
+    'weekly': m.jobs_weekly(),
+    'monthly': m.jobs_monthly(),
     'custom': customCronDisplay.value,
   }
   return intervalLabels[interval] || interval
 })
 
 const startDate = computed(() => {
-  if (!job.value?.definition?.scheduled_start_time) return 'N/A'
+  if (!job.value?.definition?.scheduled_start_time) return m.common_notAvailable()
   const startTime = job.value.definition.scheduled_start_time
   const jobTimezone = job.value?.definition?.timezone || 'UTC'
   let dateObj = DateTime.fromISO(startTime)
-  if (!dateObj.isValid) return 'N/A'
+  if (!dateObj.isValid) return m.common_notAvailable()
   if (!startTime.includes('+') && !startTime.includes('Z') && !startTime.includes('-', 10)) {
     dateObj = DateTime.fromISO(startTime, { zone: jobTimezone })
   }
@@ -202,17 +202,17 @@ const startDate = computed(() => {
 
 const repeatAt = computed(() => {
   const cron = job.value?.definition?.cron
-  if (!cron) return 'N/A'
+  if (!cron) return m.common_notAvailable()
   return cronToHumanReadable(cron)
 })
 
 const formattedLastRun = computed(() => {
-  if (!job.value?.last_run) return 'Not run yet'
+  if (!job.value?.last_run) return m.collections_notRunYet()
   return formatDateTime(job.value.last_run)
 })
 
 const formattedNextRun = computed(() => {
-  if (!job.value?.next_run) return 'Not scheduled'
+  if (!job.value?.next_run) return m.collections_notScheduled()
   return formatDateTime(job.value.next_run)
 })
 
@@ -238,7 +238,7 @@ async function save() {
       await createCollection(currentRow.value)
     }
   } catch (error) {
-    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Failed to save. Please try again.', timeout: 5000 })
+    q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.collections_failedToSaveSchedule(), timeout: 5000 })
   } finally {
     loading.value = false
   }
@@ -249,7 +249,7 @@ function setJobId(id) {
 }
 
 function cronToHumanReadable(cron) {
-  if (!cron) return 'N/A'
+  if (!cron) return m.common_notAvailable()
   const { minute, hour, day, day_of_month, month, day_of_week } = cron
   const dayField = day || day_of_month
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -269,41 +269,41 @@ function cronToHumanReadable(cron) {
   if (minute && minute.startsWith('*/')) {
     const stepValue = parseInt(minute.substring(2))
     if (!isNaN(stepValue)) {
-      if (stepValue === 1) return 'Every minute'
-      return `Every ${stepValue} minutes`
+      if (stepValue === 1) return m.collections_everyMinute()
+      return m.collections_everyNMinutes({ count: stepValue })
     }
   }
   if (minute && !minute.includes('*') && (hour === '*' || !hour)) {
     const parsedMinute = parseInt(minute)
     if (!isNaN(parsedMinute)) {
       const minStr = String(parsedMinute).padStart(2, '0')
-      return `Every hour at :${minStr}`
+      return m.collections_everyHourAt({ minute: minStr })
     }
   }
   if (hour && hour.startsWith('*/')) {
     const stepValue = parseInt(hour.substring(2))
     if (!isNaN(stepValue)) {
       const minStr = minute && minute !== '*' ? String(parseInt(minute)).padStart(2, '0') : '00'
-      return `Every ${stepValue} hours at :${minStr}`
+      return m.collections_everyNHoursAt({ count: stepValue, minute: minStr })
     }
   }
   if (minute && hour && !minute.includes('*') && !hour.includes('*') &&
       (dayField === '*' || !dayField) && (day_of_week === '*' || !day_of_week)) {
     const timeStr = formatTime(hour, minute)
-    if (timeStr) return `Daily at ${timeStr}`
+    if (timeStr) return m.collections_dailyAt({ time: timeStr })
   }
   if (minute && hour && day_of_week && day_of_week !== '*' && !minute.includes('*') && !hour.includes('*')) {
     const timeStr = formatTime(hour, minute)
     const dayNum = parseInt(day_of_week)
     const dayName = !isNaN(dayNum) && dayNum >= 0 && dayNum <= 6 ? dayNames[dayNum] : day_of_week
-    if (timeStr) return `Every ${dayName} at ${timeStr}`
+    if (timeStr) return m.collections_everyDayAt({ day: dayName, time: timeStr })
   }
   if (minute && hour && dayField && dayField !== '*' && !minute.includes('*') && !hour.includes('*')) {
     const timeStr = formatTime(hour, minute)
     const dayNum = parseInt(dayField)
     if (timeStr && !isNaN(dayNum)) {
       const suffix = dayNum === 1 ? 'st' : dayNum === 2 ? 'nd' : dayNum === 3 ? 'rd' : 'th'
-      return `Monthly on the ${dayNum}${suffix} at ${timeStr}`
+      return m.collections_monthlyOnAt({ day: `${dayNum}${suffix}`, time: timeStr })
     }
   }
   const parts = [minute || '*', hour || '*', dayField || '*', month || '*', day_of_week || '*']

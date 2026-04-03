@@ -3,7 +3,7 @@
   .km-chip.text-secondary.text-uppercase
     .row.items-center
       km-btn.col-auto(:icon='"fas fa-chevron-left"', @click='navigate("knowledge-sources")', iconSize='16px', iconColor='secondary-text', flat)
-      .col Knowledge sources
+      .col {{ m.common_knowledgeSources() }}
     km-separator 
   template(v-for='item in knowledge')
     km-btn.width-100(
@@ -44,13 +44,13 @@ export default {
       return [
         {
           name: 'CollectionDetail',
-          label: 'Configuration',
+          label: m.common_configurations(),
           icon: 'fas fa-gear',
           path: `knowledge-sources/${this.id}`,
         },
         {
           name: 'CollectionItems',
-          label: 'Chunks',
+          label: m.common_chunks(),
           icon: 'fas fa-bars',
           path: `knowledge-sources/${this.id}/items`,
         },

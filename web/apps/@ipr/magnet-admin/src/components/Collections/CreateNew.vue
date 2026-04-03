@@ -10,7 +10,7 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
     q-card-section.card-section-style.q-mb-md
       .row.items-center.justify-center
         km-stepper.full-width(
-          :steps='[ { step: 0, description: "Basic configuration", icon: "pen" }, { step: 1, description: "Chunking settings", icon: "circle" }, { step: 2, description: "Indexing settings", icon: "circle" }, { step: 3, description: "Schedule", icon: "schedule" }, ]',
+          :steps='[ { step: 0, description: m.collections_basicConfiguration(), icon: "pen" }, { step: 1, description: m.collections_chunkingSettings(), icon: "circle" }, { step: 2, description: m.collections_indexingSettings(), icon: "circle" }, { step: 3, description: m.collections_schedule(), icon: "schedule" }, ]',
           :stepper='stepper'
         )
       .column.full-width(v-if='stepper === 0')
@@ -46,11 +46,11 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
               component(:is='item.component', v-model='source[item.field]', ref='sourceComponents')
       .column.full-width(v-if='stepper === 1')
         .col.q-pt-8.q-mt-sm
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Chunking strategy
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_chunkingStrategy() }}
           km-select(
             v-model='chunkingStrategy',
             ref='chunking_strategyRef',
-            placeholder='Chunking strategy',
+            :placeholder='m.collections_chunkingStrategy()',
             :options='config.chunking_strategy.options',
             :rules='config.chunking_strategy.rules',
             emit-value,
@@ -58,73 +58,73 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
             option-value='value',
             option-label='label'
           )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-sm Chunking strategy defines how documents are divided into smaller chunks for better search results.
+          .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_chunkingStrategyHint() }}
         .row.q-gap-16(v-if='chunkingStrategy === "recursive_character_text_splitting"')
           .col.q-pt-8.q-mt-sm
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Chunk size
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_chunkSize() }}
             km-input(type='number', v-model='chunkSize', ref='maxChunkRef')
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm Defines the maximum number of characters in each chunk when splitting.
+            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_chunkSizeHint() }}
           .col.q-pt-8.q-mt-sm
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Chunk overlap
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_chunkOverlap() }}
             km-input(type='number', v-model='chunkOverlap', ref='maxChunkRef')
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm Defines the overlap (in characters) between chunks when splitting.
+            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_chunkOverlapHint() }}
         .col.q-pt-8.q-mt-md.q-pl-8
           .row.items-baseline
             .col-auto.q-mr-sm
-              .km-field.text-secondary-text.absolute.q-ml-40 Enable chunk LLM transformation
+              .km-field.text-secondary-text.absolute.q-ml-40 {{ m.collections_enableChunkLlmTransformation() }}
               q-toggle(v-model='chunkTransformationEnabled', dense)
         .column.q-gap-16.q-pt-2.q-mt-sm(v-if='chunkTransformationEnabled')
           .col(v-if='chunkTransformationEnabled')
             km-select(
               v-model='chunkTransformationPromptTemplate',
-              placeholder='Select a prompt template',
+              :placeholder='m.collections_selectPromptTemplate()',
               :options='chunkTransformationPromptTemplateOptions',
               hasDropdownSearch,
               emit-value,
               map-options,
               option-value='system_name'
             )
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm Transforms document chunks before embedding to improve search quality. Note that this transformation can greatly increase latency and cost.
+            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_chunkTransformationPromptHint() }}
           .col
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 How to apply transformation
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_howToApplyTransformation() }}
             km-select(
               v-model='chunkTransformationMethod',
               :options='config.chunk_transformation_method.options',
-              placeholder='Select how to apply transformation',
+              :placeholder='m.collections_selectHowToApplyTransformation()',
               emit-value,
               map-options,
               option-value='value',
               option-label='label',
               :disabled='isDisable'
             )
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm Defines how transformation is applied to the chunk. For example, you can prepend/append generated text to the chunk, or replace chunk content entirely.
+            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_howToApplyTransformationHint() }}
           .col
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 How to use chunks
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_howToUseChunks() }}
             km-select(
               v-model='chunkUsageMethod',
               :options='config.chunk_usage_method.options',
-              placeholder='Select how to use chunks',
+              :placeholder='m.collections_selectHowToUseChunks()',
               emit-value,
               map-options,
               option-value='value',
               option-label='label',
               :disabled='isDisable'
             )
-            .km-description.text-secondary-text.q-mt-xs.q-ml-sm Defines which chunk is used for indexing and which for retrieval.
+            .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_howToUseChunksHint() }}
       .column.full-width(v-if='stepper === 2')
-        .km-description.q-mt-sm.q-pl-8 Enabling both semantic search and keyword search activates hybrid search, which combines the benefits of both approaches, but will increase latency and cost of the search and the source sync.
+        .km-description.q-mt-sm.q-pl-8 {{ m.collections_hybridSearchHint() }}
         .col.q-pt-8.q-mt-md.q-pl-8
           .row.items-baseline
             .col-auto.q-mr-sm
-              .km-field.text-secondary-text.absolute.q-ml-40 Support semantic search
+              .km-field.text-secondary-text.absolute.q-ml-40 {{ m.collections_supportSemanticSearch() }}
               km-toggle(v-model='supportSemanticSearch', ref='semantic_search_supportedRef', :rules='[indexingRules()]', dense, :disable='true')
-        .km-description.text-secondary-text.q-mt-xs.q-ml-sm Create vector embeddings to support semantic search, which allows you to search for documents based on their meaning rather than just exact matches. Currently, cannot be turned off.
+        .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_semanticSearchHint() }}
         .col.q-pt-8.q-mt-sm(v-if='supportSemanticSearch')
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Embedding Model
+          .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.collections_embeddingModel() }}
           km-select(
             height='auto',
             minHeight='36px',
-            placeholder='Embedding Model',
+            :placeholder='m.collections_embeddingModel()',
             v-model='ai_model',
             :options='modelOptions',
             optionLabel='display_name',
@@ -141,16 +141,16 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
         .col.q-pt-8.q-mt-md.q-pl-8
           .row.items-baseline
             .col-auto.q-mr-sm
-              .km-field.text-secondary-text.absolute.q-ml-40 Support keyword search
+              .km-field.text-secondary-text.absolute.q-ml-40 {{ m.collections_supportKeywordSearch() }}
               km-toggle(v-model='supportKeywordSearch', ref='support_keyword_searchRef', :rules='[indexingRules()]', dense)
-        .km-description.text-secondary-text.q-mt-xs.q-ml-sm Toggling this option enables direct keyword matching, which can be beneficial for some use cases. Note that keyword search capabilities depend on the underlying database implementation.
+        .km-description.text-secondary-text.q-mt-xs.q-ml-sm {{ m.collections_keywordSearchHint() }}
       .column.full-width(v-if='stepper === 3')
-        .km-button-xs-text.text-secondary-text Schedule sync
+        .km-button-xs-text.text-secondary-text {{ m.collections_scheduleSync() }}
           q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='scheduleEnabled', ref='scheduleEnabledRef')
-          .km-description.text-secondary-text Automatically sync knowledge source
+          .km-description.text-secondary-text {{ m.collections_automaticallySyncKnowledgeSource() }}
           template(v-if='scheduleEnabled')
             .q-px-md.q-mt-md
-              .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Job interval
+              .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md {{ m.collections_jobInterval() }}
               .full-width
                 q-btn-toggle(
                   v-model='form.interval',
@@ -162,22 +162,22 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
                 )
               .row.q-mt-md.items-center.q-gap-8.q-pl-8(v-if='form.interval === "daily" || form.interval === "weekly"')
                 .row.items-center.q-gap-8(v-if='form.interval === "weekly"')
-                  .km-field.text-secondary-text Every
+                  .km-field.text-secondary-text {{ m.collections_every() }}
                   km-select(v-model='form.day', :options='days')
                 .row.items-center.q-gap-8
-                  .km-field.text-secondary-text at
+                  .km-field.text-secondary-text {{ m.collections_at() }}
                   km-select(v-model='form.time', :options='times')
               //- Custom cron input
               .q-mt-md.q-pl-8(v-if='form.interval === "custom"')
-                .km-field.text-secondary-text.q-pb-xs Cron expression
+                .km-field.text-secondary-text.q-pb-xs {{ m.collections_cronExpression() }}
                 km-input(height='30px', v-model='form.customCron', placeholder='*/10 * * * *')
-                .km-tiny.text-secondary-text.q-mt-xs Format: minute hour day month day_of_week (e.g., */10 * * * * for every 10 min)
+                .km-tiny.text-secondary-text.q-mt-xs {{ m.collections_cronFormatHint() }}
               .row.q-mt-md.items-center
                 km-checkbox(size='40px', v-model='form.enabled')
-                .km-field Send error notifications
-              .km-tiny.text-secondary-text Email admin in case of syncing errors. Applies only for scheduled sync.
+                .km-field {{ m.collections_sendErrorNotifications() }}
+              .km-tiny.text-secondary-text {{ m.collections_errorNotificationHint() }}
               template(v-if='form.enabled')
-                .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Error notification email
+                .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md {{ m.collections_errorNotificationEmail() }}
                 .full-width
                   km-input(height='30px', v-model='form.error_email', ref='errorEmailRef')
 

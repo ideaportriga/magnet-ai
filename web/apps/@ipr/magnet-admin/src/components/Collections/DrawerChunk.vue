@@ -18,20 +18,20 @@
           km-btn(icon='fas fa-external-link-alt', :label='m.collectionItems_viewDocument()', iconSize='16px', flat, @click='openDocument')
     .col
       q-scroll-area.fit
-        .row.justify-between.q-pt-8.q-pl-8.q-pr-24
-          .col-12.q-py-8
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title
+          .row.justify-between.q-pt-8.q-pl-8.q-pr-24
+            .col-12.q-py-8
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_title() }}
             km-input(:model-value='selectedRow?.metadata?.title ?? "-"', :readonly='true', autogrow)
           .col-12.q-py-8
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
             km-input(:model-value='selectedRow?.metadata?.type ?? "-"', :readonly='true')
 
           //- Indexed content
           .col-12.q-py-8
             .row.items-center
               .km-field.text-secondary-text.q-pb-xs.q-pl-8.col
-                span(v-if='!hasAlternateContent') Indexed & retrieval content
-                span(v-else) Indexed content
+                span(v-if='!hasAlternateContent') {{ m.collectionItems_indexedRetrievalContent() }}
+                span(v-else) {{ m.collectionItems_indexedContent() }}
               .col-auto
                 q-btn(flat, round, color='secondary', :icon='indexedExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"', @click='indexedExpanded = !indexedExpanded', size='xs')
             km-input(:model-value='indexedExpanded ? selectedRow?.content : truncate(selectedRow?.content)', :readonly='true', autogrow)
@@ -39,7 +39,7 @@
           //- Retrieval content (if different from indexed)
           .col-12.q-py-8(v-if='retrievalContent && retrievalContent !== selectedRow?.content')
             .row.items-center
-              .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Retrieval content
+              .km-field.text-secondary-text.q-pb-xs.q-pl-8.col {{ m.collectionItems_retrievalContent() }}
               .col-auto
                 q-btn(flat, round, color='secondary', :icon='retrievalExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"', @click='retrievalExpanded = !retrievalExpanded', size='xs')
             km-input(:model-value='retrievalExpanded ? retrievalContent : truncate(retrievalContent)', :readonly='true', autogrow)
@@ -47,22 +47,22 @@
           //- Original unmodified content (if different)
           .col-12.q-py-8(v-if='unmodifiedContent && unmodifiedContent !== selectedRow?.content && unmodifiedContent !== retrievalContent')
             .row.items-center
-              .km-field.text-secondary-text.q-pb-xs.q-pl-8.col Original unmodified content
+              .km-field.text-secondary-text.q-pb-xs.q-pl-8.col {{ m.collectionItems_originalUnmodifiedContent() }}
               .col-auto
                 q-btn(flat, round, color='secondary', :icon='unmodifiedExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"', @click='unmodifiedExpanded = !unmodifiedExpanded', size='xs')
             km-input(:model-value='unmodifiedExpanded ? unmodifiedContent : truncate(unmodifiedContent)', :readonly='true', autogrow)
 
           //- Metadata JSON
           .col-12.q-py-8
-            .km-field.text-secondary-text.q-pl-8 Metadata
+            .km-field.text-secondary-text.q-pl-8 {{ m.common_metadata() }}
             km-codemirror.fit(:model-value='metadataJson', :readonly='true')
 
           //- Timestamps
           .col-6.q-py-8
-            .km-field.text-secondary-text.q-pl-8 Created
+            .km-field.text-secondary-text.q-pl-8 {{ m.common_created() }}
             km-input(:model-value='selectedRow?.metadata?.createdTime ?? "-"', :readonly='true')
           .col-6.q-py-8.q-pl-8
-            .km-field.text-secondary-text.q-pl-8 Last modified
+            .km-field.text-secondary-text.q-pl-8 {{ m.common_lastModified() }}
             km-input(:model-value='selectedRow?.metadata?.modifiedTime ?? "-"', :readonly='true')
 </template>
 

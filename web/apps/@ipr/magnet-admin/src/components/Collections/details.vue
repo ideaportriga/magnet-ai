@@ -151,8 +151,8 @@ const activeKnowledgeId = computed(() => route.params?.id)
 const activeRowDB = computed(() => items.value.find((item) => item.id == activeKnowledgeId.value))
 const activeMetadataConfig = computed(() => collectionMetadataStore.activeMetadataConfig)
 const loading = computed(() => !draft.value?.id)
-const created_by = computed(() => activeRowDB.value?.created_by ? `${activeRowDB.value.created_by}` : 'Unknown')
-const updated_by = computed(() => activeRowDB.value?.updated_by ? `${activeRowDB.value.updated_by}` : 'Unknown')
+const created_by = computed(() => activeRowDB.value?.created_by ? `${activeRowDB.value.created_by}` : m.common_unknown())
+const updated_by = computed(() => activeRowDB.value?.updated_by ? `${activeRowDB.value.updated_by}` : m.common_unknown())
 const created_at = computed(() => {
   if (!activeRowDB.value) return ''
   return formatDate(activeRowDB.value?.created)
@@ -184,12 +184,12 @@ async function deleteKnowledge() {
       color: 'green-9', textColor: 'white',
       icon: 'check_circle',
       group: 'success',
-      message: 'Knowledge source has been deleted.',
+      message: m.notify_entityDeleted({ entity: m.entity_knowledgeSource() }),
       timeout: 1000,
     })
     navigate('/knowledge-sources')
   } catch (error) {
-    const errorMessage = error?.message || 'Failed to delete Knowledge Source.'
+    const errorMessage = error?.message || m.notify_failedToDelete()
     q.notify({
       color: 'red-9', textColor: 'white',
       icon: 'error',
@@ -210,7 +210,7 @@ async function refreshCollection() {
 
 async function createSyncJob() {
   let jobData = {
-    name: `Sync ${activeRowDB.value?.name}`,
+    name: `${m.collections_sync()} ${activeRowDB.value?.name}`,
     job_type: 'one_time_immediate',
     notification_email: '',
     run_configuration: {
@@ -240,7 +240,7 @@ async function createSyncJob() {
     color: 'green-9', textColor: 'white',
     icon: 'check_circle',
     group: 'success',
-    message: 'Sync job has been created.',
+    message: m.collections_syncJobCreated(),
     timeout: 1000,
   })
 }
@@ -314,7 +314,7 @@ async function save() {
       color: 'green-9', textColor: 'white',
       icon: 'check_circle',
       group: 'success',
-      message: 'Saved successfully',
+      message: m.notify_savedSuccessfully(),
       timeout: 2000,
     })
   } catch (error) {

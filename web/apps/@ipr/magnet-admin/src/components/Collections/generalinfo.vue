@@ -1,8 +1,8 @@
 <template lang="pug">
 .q-pr-md
-  km-section(title='Source settings', subTitle='Content source route and parameters')
+  km-section(:title='m.collections_sourceSettings()', :subTitle='m.collections_sourceSettingsSubtitle()')
     .col.q-pt-8
-      .km-input-label.q-pb-xs.q-pl-8 Source type
+      .km-input-label.q-pb-xs.q-pl-8 {{ m.collections_sourceType() }}
       km-select(
         :options='dynamicSourceTypeOptions',
         v-model='source_type',
@@ -20,7 +20,7 @@
   km-section(:title='m.section_chunking()', :subTitle='m.collections_chunkingSubtitle()')
     .column.q-gap-16
       .col
-        .km-input-label.q-pb-xs Chunking strategy
+        .km-input-label.q-pb-xs {{ m.collections_chunkingStrategy() }}
         km-select(
           v-model='chunkingStrategy',
           :options='config.chunking_strategy.options',
@@ -30,21 +30,21 @@
           option-label='label',
           :disabled='isDisable'
         )
-        .km-description.text-secondary-text.q-mt-xs.q-ml-xs Chunking strategy defines how documents are divided into smaller chunks for better search results.
+        .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_chunkingStrategyHint() }}
       .row.q-gap-16(v-if='chunkingStrategy === "recursive_character_text_splitting"')
         .col
-          .km-input-label.q-pb-xs Chunk size
+          .km-input-label.q-pb-xs {{ m.collections_chunkSize() }}
           km-input(v-model='chunkSize', type='number', :readonly='isDisable')
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs Defines the maximum number of characters in each chunk when splitting.
+          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_chunkSizeHint() }}
         .col
-          .km-input-label.q-pb-xs Chunk overlap
+          .km-input-label.q-pb-xs {{ m.collections_chunkOverlap() }}
           km-input(v-model='chunkOverlap', type='number', :readonly='isDisable')
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs Defines the overlap (in characters) between chunks when splitting.
+          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_chunkOverlapHint() }}
       .col.q-mt-sm
         .row.items-baseline
           .col-auto.q-mr-sm
             q-toggle(v-model='chunkTransformationEnabled', dense, :disable='isDisable')
-          .col Enable chunk LLM transformation
+          .col {{ m.collections_enableChunkLlmTransformation() }}
       .column.q-gap-16(v-if='chunkTransformationEnabled')
         .col
           km-select(
@@ -56,17 +56,17 @@
             option-value='system_name',
             :disabled='isDisable'
           )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs Transforms document chunks before embedding to improve search quality. Note that this transformation can greatly increase latency and cost.
+          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_chunkTransformationPromptHint() }}
           .row.q-mt-sm
             .col-auto
               km-btn(
-                :label='chunkTransformationPromptTemplate ? "Open Prompt Template" : "Open Prompt Templates Library"',
+                :label='chunkTransformationPromptTemplate ? m.common_openPromptTemplate() : m.common_openPromptTemplatesLibrary()',
                 iconSize='16px',
                 icon='fas fa-comment-dots',
                 @click='chunkTransformationPromptTemplate ? navigate(`prompt-templates/${chunkTransformationPromptTemplateId}`) : navigate("prompt-templates")'
               )
         .col
-          .km-input-label.q-pb-xs How to apply transformation
+          .km-input-label.q-pb-xs {{ m.collections_howToApplyTransformation() }}
           km-select(
             v-model='chunkTransformationMethod',
             :options='config.chunk_transformation_method.options',
@@ -76,9 +76,9 @@
             option-label='label',
             :disabled='isDisable'
           )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs Defines how transformation is applied to the chunk. For example, you can prepend/append generated text to the chunk, or replace chunk content entirely.
+          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_howToApplyTransformationHint() }}
         .col
-          .km-input-label.q-pb-xs How to use chunks
+          .km-input-label.q-pb-xs {{ m.collections_howToUseChunks() }}
           km-select(
             v-model='chunkUsageMethod',
             :options='config.chunk_usage_method.options',
@@ -88,24 +88,24 @@
             option-label='label',
             :disabled='isDisable'
           )
-          .km-description.text-secondary-text.q-mt-xs.q-ml-xs Defines which chunk is used for indexing and which for retrieval.
+          .km-description.text-secondary-text.q-mt-xs.q-ml-xs {{ m.collections_howToUseChunksHint() }}
 
   <!-- INDEXING -->
   q-separator.q-my-lg
   km-section(:title='m.section_indexing()', :subTitle='m.collections_indexingSubtitle()')
     .column.q-gap-16
-      .km-description.q-mt-sm Enabling both semantic search and keyword search activates hybrid search, which combines the benefits of both approaches, but will increase latency and cost of the search and the source sync.
+      .km-description.q-mt-sm {{ m.collections_hybridSearchHint() }}
       .col
         .row.items-baseline
           .col-auto.q-mr-sm
             q-toggle(v-model='supportSemanticSearch', dense, :disable='true')
-          .col Support semantic search
-        .km-description.text-secondary-text.q-mt-sm Create vector embeddings to support semantic search, which allows you to search for documents based on their meaning rather than just exact matches. Currently, cannot be turned off.
+          .col {{ m.collections_supportSemanticSearch() }}
+        .km-description.text-secondary-text.q-mt-sm {{ m.collections_semanticSearchHint() }}
       .col(v-if='supportSemanticSearch')
-        .km-input-label.q-pb-xs Embedding model
+        .km-input-label.q-pb-xs {{ m.collections_embeddingModel() }}
         km-select(
           v-model='embeddingModel',
-          placeholder='Embedding Model',
+          :placeholder='m.collections_embeddingModel()',
           :options='embeddingModelOptions',
           optionValue='system_name',
           optionLabel='display_name',
@@ -123,8 +123,8 @@
         .row.items-baseline
           .col-auto.q-mr-sm
             q-toggle(v-model='supportKeywordSearch', dense)
-          .col Support keyword search
-        .km-description.text-secondary-text.q-mt-sm Toggling this option enables direct keyword matching, which can be beneficial for some use cases. Note that keyword search capabilities depend on the underlying database implementation.
+          .col {{ m.collections_supportKeywordSearch() }}
+        .km-description.text-secondary-text.q-mt-sm {{ m.collections_keywordSearchHint() }}
 </template>
 
 <script setup>

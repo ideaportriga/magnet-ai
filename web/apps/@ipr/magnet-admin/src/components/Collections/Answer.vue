@@ -11,7 +11,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
         .row.stretch.q-ma-auto.no-wrap
           .search-answer-text.stretch.km-title.q-my-4.text-pre-wrap {{ answer.prompt }}
 
-        km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', tooltip='Refine')
+        km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='m.common_refine()')
   //- ANSWER
   .col-auto.q-pt-md
     .row.q-gap-16.no-wrap
@@ -125,13 +125,13 @@ export default {
 
     copy() {
       copyToClipboard(this.mainAnswer.text || '')
-      this.$q.notify({
-        icon: 'content_copy',
-        color: 'dark',
-        group: 'copied',
-        message: 'Answer has been copied to clipboard',
-        timeout: 1000,
-      })
+        this.$q.notify({
+          icon: 'content_copy',
+          color: 'dark',
+          group: 'copied',
+          message: m.notify_answerCopied(),
+          timeout: 1000,
+        })
     },
 
     refine(question) {

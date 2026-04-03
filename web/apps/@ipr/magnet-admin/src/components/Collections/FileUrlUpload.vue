@@ -344,10 +344,10 @@ async function removeUploadedFile(file, index) {
       const newFiles = uploadedFiles.value.filter((_, i) => i !== index)
       updateField('source.uploaded_files', newFiles)
     } else {
-      q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Failed to delete ${file.filename}` })
+      q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.notify_failedToDeleteNamed({ name: file.filename }) })
     }
   } catch (e) {
-    q.notify({ color: 'red-9', textColor: 'white', message: `Delete failed: ${e.message || e}` })
+    q.notify({ color: 'red-9', textColor: 'white', message: `${m.notify_failedToDelete()}: ${e.message || e}` })
   }
 }
 </script>
