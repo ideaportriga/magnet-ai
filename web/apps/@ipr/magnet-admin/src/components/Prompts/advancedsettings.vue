@@ -1,11 +1,11 @@
 <template lang="pug">
 div
-  km-section(title='LLM model', subTitle='Choose what model you will use for output generation.')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 LLM Model
+  km-section(:title='m.section_llmModel()', :subTitle='m.subtitle_chooseModel()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_llmModel() }}
     km-select(
       height='auto',
       minHeight='36px',
-      placeholder='LLM Model',
+      :placeholder='m.common_llmModel()',
       v-model='model',
       :options='modelOptions',
       optionLabel='display_name',
@@ -20,8 +20,8 @@ div
               q-chip(color='primary-light', text-color='primary', size='sm', dense) {{ opt.provider_system_name }}
   q-separator.q-my-lg
   km-section(
-    title='Output diversity',
-    subTitle='Temperature controls randomness of output. Top p controls diversity and unpredictability of output. Use default value if you are not certain about these parameters.'
+    :title='m.prompts_outputDiversity()',
+    :subTitle='m.subtitle_temperature()'
   )
     km-slider-card.q-mb-lg(
       v-model='temperature',
@@ -29,10 +29,10 @@ div
       :min='0',
       :max='2',
       :defaultValue='1',
-      minLabel='Less random',
-      maxLabel='More random',
-      description='We generally recommend altering this or top p, but not both.',
-      infoTooltip='Temperature controls randomness of output.'
+      :minLabel='m.prompts_lessRandom()',
+      :maxLabel='m.prompts_moreRandom()',
+      :description='m.prompts_recommendAltering()',
+      :infoTooltip='m.prompts_temperatureTooltip()'
     )
 
   km-section
@@ -42,27 +42,27 @@ div
       :min='0',
       :max='1',
       :defaultValue='1',
-      minLabel='Less diverse',
-      maxLabel='More diverse',
-      description='We generally recommend altering this or top p, but not both.',
-      infoTooltip='Top p controls diversity and unpredictability of output.'
+      :minLabel='m.prompts_lessDiverse()',
+      :maxLabel='m.prompts_moreDiverse()',
+      :description='m.prompts_recommendAltering()',
+      :infoTooltip='m.prompts_topPTooltip()'
     )
   q-separator.q-my-lg
-  km-section(title='Output limit', subTitle='Limits generated output length. Leave blank if not necessary')
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Max tokens
+  km-section(:title='m.section_outputLimit()', :subTitle='m.subtitle_outputLimit()')
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.prompts_maxTokens() }}
       div(style='max-width: 200px')
-        km-input(type='number', height='30px', placeholder='Max tokens', v-model='maxTokens')
-      .km-description.text-secondary-text.q-pb-4 1 token = approx. 4 characters in English
+        km-input(type='number', height='30px', :placeholder='m.prompts_maxTokens()', v-model='maxTokens')
+      .km-description.text-secondary-text.q-pb-4 {{ m.prompts_tokenApprox() }}
   q-separator.q-my-lg
   km-section(
-    title='Observability',
-    subTitle='Control what data is logged for this prompt template. This affects traces and metrics collection.'
+    :title='m.nav_observability()',
+    :subTitle='m.prompts_controlLogging()'
   )
-    .km-field.text-secondary-text.q-pb-xs.q-pl-8 Logging Level
+    .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.prompts_loggingLevel() }}
     km-select(
       height='auto',
       minHeight='36px',
-      placeholder='Select logging level',
+      :placeholder='m.prompts_selectLoggingLevel()',
       v-model='observabilityLevel',
       :options='observabilityLevelOptions',
       optionLabel='label',
@@ -110,9 +110,9 @@ export default {
       cacheCollection: ref('Helpdesk Cache'),
       allowBypassCache: ref(false),
       observabilityLevelOptions: ref([
-        { label: 'Full (input/output included)', value: 'full' },
-        { label: 'Metadata only (tokens, cost, latency)', value: 'metadata-only' },
-        { label: 'None (no logging)', value: 'none' },
+        { label: m.prompts_loggingFull(), value: 'full' },
+        { label: m.prompts_loggingMetadataOnly(), value: 'metadata-only' },
+        { label: m.prompts_loggingNone(), value: 'none' },
       ]),
     }
   },

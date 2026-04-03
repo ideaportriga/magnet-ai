@@ -3,14 +3,14 @@ km-drawer-layout(storageKey="drawer-prompts", noScroll)
   template(#header)
     .km-heading-7
       .row
-        .col Preview
+        .col {{ m.common_preview() }}
         .col-auto
           km-btn(flat, simple, :label='m.common_evaluate()', iconSize='16px', icon='fas fa-clipboard-check', @click='showNewDialog = true')
   .column.full-height.full-width.no-wrap.q-px-16
     .col-auto(style='overflow-x: auto')
       .row.items-center.q-mb-xs
         .col
-          .km-heading-5.text-text-grey Input
+          .km-heading-5.text-text-grey {{ m.common_input() }}
         .col-auto
           q-btn(
             flat,

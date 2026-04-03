@@ -7,6 +7,7 @@ import AgentFeedback from './components/AgentFeedback.vue'
 import Topics from './components/Topics.vue'
 import Source from './components/Source.vue'
 import ChipCell from './components/ChipCell.vue'
+import { m } from '@/paraglide/messages'
 
 const controls = {
   start_time: {
