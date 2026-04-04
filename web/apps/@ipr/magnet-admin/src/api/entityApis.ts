@@ -74,8 +74,12 @@ const SERVICE_PATHS: Record<keyof EntityApis, string> = {
 let _client: ApiClient | null = null
 let _apis: EntityApis | null = null
 
-export function createEntityApis(baseUrl: string, credentials: RequestCredentials = 'include'): EntityApis {
-  _client = createApiClient({ baseUrl, credentials })
+export function createEntityApis(
+  baseUrl: string,
+  credentials: RequestCredentials = 'include',
+  fetchFn?: typeof fetch,
+): EntityApis {
+  _client = createApiClient({ baseUrl, credentials, fetchFn })
 
   _apis = {} as EntityApis
   for (const [key, path] of Object.entries(SERVICE_PATHS)) {

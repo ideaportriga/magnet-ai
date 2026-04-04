@@ -217,39 +217,39 @@ async def _get_user_info(
     Returns:
         Tuple of (account_id, email, name).
     """
-    import httpx
+    from utils.http_client import get_http_client
+
+    http_client = get_http_client()
 
     if provider == "google":
-        async with httpx.AsyncClient() as http_client:
-            resp = await http_client.get(
-                "https://www.googleapis.com/oauth2/v2/userinfo",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            return str(data["id"]), data.get("email"), data.get("name")
+        resp = await http_client.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return str(data["id"]), data.get("email"), data.get("name")
 
     elif provider == "github":
-        async with httpx.AsyncClient() as http_client:
-            resp = await http_client.get(
-                "https://api.github.com/user",
+        resp = await http_client.get(
+            "https://api.github.com/user",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        email = data.get("email")
+        # GitHub may not return email in profile; fetch from emails API
+        if not email:
+            emails_resp = await http_client.get(
+                "https://api.github.com/user/emails",
                 headers={"Authorization": f"Bearer {access_token}"},
             )
-            resp.raise_for_status()
-            data = resp.json()
-            email = data.get("email")
-            # GitHub may not return email in profile; fetch from emails API
-            if not email:
-                emails_resp = await http_client.get(
-                    "https://api.github.com/user/emails",
-                    headers={"Authorization": f"Bearer {access_token}"},
-                )
-                emails_resp.raise_for_status()
-                for e in emails_resp.json():
-                    if e.get("primary") and e.get("verified"):
-                        email = e["email"]
-                        break
-            return str(data["id"]), email, data.get("name") or data.get("login")
+            emails_resp.raise_for_status()
+            for e in emails_resp.json():
+                if e.get("primary") and e.get("verified"):
+                    email = e["email"]
+                    break
+        return str(data["id"]), email, data.get("name") or data.get("login")
 
     raise ValidationError(f"Unsupported provider for user info: {provider}")
 

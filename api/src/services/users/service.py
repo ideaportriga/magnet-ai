@@ -52,57 +52,75 @@ async def upsert_user_from_oidc(
     name = auth_data.get("name")
     now = datetime.now(UTC)
 
-    async with alchemy.get_session() as session:
-        service = UsersService(session=session)
+    # Retry once on IntegrityError to handle the race condition where two
+    # concurrent OIDC logins for the same email both see user=None and both
+    # try to INSERT.  The loser's INSERT fails with a unique-constraint
+    # violation; on retry the SELECT finds the row the winner created.
+    for attempt in range(2):
+        async with alchemy.get_session() as session:
+            service = UsersService(session=session)
 
-        # Try to find existing user by email
-        user = await service.get_one_or_none(email=email)
+            # Try to find existing user by email
+            user = await service.get_one_or_none(email=email)
 
-        if user is None:
-            # First login — create user
-            user = await service.create(
-                User(
-                    email=email,
-                    name=name,
-                    is_active=True,
-                    is_verified=True,  # OIDC users are pre-verified by the IdP
-                    last_login_at=now,
-                ),
-                auto_commit=False,
+            if user is None:
+                # First login — create user
+                try:
+                    user = await service.create(
+                        User(
+                            email=email,
+                            name=name,
+                            is_active=True,
+                            is_verified=True,  # OIDC users are pre-verified by the IdP
+                            last_login_at=now,
+                        ),
+                        auto_commit=False,
+                    )
+                    # Assign default role
+                    await _assign_default_role(session, user.id)
+                    logger.info("Created new user from OIDC: %s", email)
+                except Exception as exc:
+                    # Catch IntegrityError (unique email constraint) from concurrent insert
+                    from sqlalchemy.exc import IntegrityError
+
+                    if isinstance(exc, IntegrityError) and attempt == 0:
+                        logger.info("Concurrent user creation for %s — retrying", email)
+                        await session.rollback()
+                        continue
+                    raise
+            else:
+                # Returning user — update last_login_at and sync name if changed
+                user.last_login_at = now
+                if name and user.name != name:
+                    user.name = name
+                await service.update(user, auto_commit=False)
+
+            # Sync roles from OIDC token → DB
+            # IdP is the source of truth for OIDC users: roles added/removed in Entra ID
+            # are reflected in DB on every login.
+            oidc_roles = auth_data.get("roles", set())
+            if isinstance(oidc_roles, list):
+                oidc_roles = set(oidc_roles)
+            await _sync_oidc_roles(session, user.id, oidc_roles)
+
+            # Upsert OAuth account link
+            await _upsert_oauth_account(
+                session=session,
+                user_id=user.id,
+                oauth_name=oauth_name,
+                account_id=account_id,
+                account_email=email,
+                now=now,
             )
-            # Assign default role
-            await _assign_default_role(session, user.id)
-            logger.info("Created new user from OIDC: %s", email)
-        else:
-            # Returning user — update last_login_at and sync name if changed
-            user.last_login_at = now
-            if name and user.name != name:
-                user.name = name
-            await service.update(user, auto_commit=False)
 
-        # Sync roles from OIDC token → DB
-        # IdP is the source of truth for OIDC users: roles added/removed in Entra ID
-        # are reflected in DB on every login.
-        oidc_roles = auth_data.get("roles", set())
-        if isinstance(oidc_roles, list):
-            oidc_roles = set(oidc_roles)
-        await _sync_oidc_roles(session, user.id, oidc_roles)
+            await session.commit()
 
-        # Upsert OAuth account link
-        await _upsert_oauth_account(
-            session=session,
-            user_id=user.id,
-            oauth_name=oauth_name,
-            account_id=account_id,
-            account_email=email,
-            now=now,
-        )
+            # Reload user with fresh roles (selectin)
+            user = await service.get_one_or_none(email=email)
+            return user
 
-        await session.commit()
-
-        # Reload user with fresh roles (selectin)
-        user = await service.get_one_or_none(email=email)
-        return user
+    # Should not reach here, but satisfy type checker
+    raise RuntimeError("Failed to upsert user after retries")
 
 
 async def _upsert_oauth_account(

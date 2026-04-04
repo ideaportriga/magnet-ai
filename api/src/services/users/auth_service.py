@@ -18,7 +18,7 @@ from core.config.base import get_auth_settings
 from core.db.models.user.user import User
 from core.domain.users.service import UsersService
 from core.exceptions import AuthError, ConflictError
-from services.users.password import hash_password, verify_password
+from services.users.password import hash_password_async, verify_password_async
 from services.users.refresh_token_service import create_refresh_token
 
 logger = getLogger(__name__)
@@ -85,7 +85,7 @@ async def signup(
     if existing is not None:
         raise ConflictError("Email already registered")
 
-    hashed = hash_password(password)
+    hashed = await hash_password_async(password)
 
     user = await service.create(
         User(
@@ -136,7 +136,7 @@ async def authenticate(
     if not user.hashed_password:
         raise AuthError("Invalid email or password")
 
-    if not verify_password(password, user.hashed_password):
+    if not await verify_password_async(password, user.hashed_password):
         raise AuthError("Invalid email or password")
 
     if not user.is_active:

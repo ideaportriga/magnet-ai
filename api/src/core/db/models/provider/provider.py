@@ -83,6 +83,7 @@ class Provider(UUIDAuditSimpleBase):
         foreign_keys="AIModel.provider_system_name",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="noload",
     )
 
     collections: Mapped[list["Collection"]] = relationship(
@@ -91,6 +92,7 @@ class Provider(UUIDAuditSimpleBase):
         foreign_keys="Collection.provider_system_name",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        lazy="noload",
     )
 
     def __repr__(self) -> str:

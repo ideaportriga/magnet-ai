@@ -7,6 +7,7 @@ Backup codes are hashed with Argon2 (same as passwords).
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import secrets
@@ -19,7 +20,7 @@ import qrcode
 
 from core.db.models.user.user import User
 from core.exceptions import AuthError
-from services.users.password import hash_password, verify_password
+from services.users.password import hash_password_async, verify_password_async
 
 logger = getLogger(__name__)
 
@@ -42,13 +43,18 @@ def generate_provisioning_uri(secret: str, email: str) -> str:
     return totp.provisioning_uri(name=email, issuer_name=TOTP_ISSUER)
 
 
-def generate_qr_code_base64(provisioning_uri: str) -> str:
-    """Generate a QR code as base64-encoded PNG."""
+def _generate_qr_code_base64_sync(provisioning_uri: str) -> str:
+    """Generate a QR code as base64-encoded PNG (CPU-bound, sync)."""
     img = qrcode.make(provisioning_uri)
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
     buffer.seek(0)
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+
+async def generate_qr_code_base64(provisioning_uri: str) -> str:
+    """Generate a QR code as base64-encoded PNG without blocking the event loop."""
+    return await asyncio.to_thread(_generate_qr_code_base64_sync, provisioning_uri)
 
 
 def verify_totp_code(secret: str, code: str) -> bool:
@@ -64,9 +70,9 @@ def generate_backup_codes() -> list[str]:
     ]
 
 
-def hash_backup_codes(codes: list[str]) -> list[str]:
-    """Hash backup codes for storage (Argon2)."""
-    return [hash_password(code) for code in codes]
+async def hash_backup_codes(codes: list[str]) -> list[str]:
+    """Hash backup codes for storage (Argon2), non-blocking."""
+    return [await hash_password_async(code) for code in codes]
 
 
 async def setup_mfa(user: User) -> dict:
@@ -80,7 +86,7 @@ async def setup_mfa(user: User) -> dict:
     """
     secret = generate_totp_secret()
     uri = generate_provisioning_uri(secret, user.email)
-    qr_base64 = generate_qr_code_base64(uri)
+    qr_base64 = await generate_qr_code_base64(uri)
 
     return {
         "secret": secret,
@@ -114,7 +120,7 @@ async def confirm_mfa_setup(
 
     # Generate and hash backup codes
     plaintext_codes = generate_backup_codes()
-    hashed_codes = hash_backup_codes(plaintext_codes)
+    hashed_codes = await hash_backup_codes(plaintext_codes)
 
     # Save to user
     user.totp_secret = secret
@@ -156,7 +162,9 @@ async def verify_mfa(
     # Try backup codes
     if user.backup_codes:
         for i, hashed_code in enumerate(user.backup_codes):
-            if hashed_code is not None and verify_password(code, hashed_code):
+            if hashed_code is not None and await verify_password_async(
+                code, hashed_code
+            ):
                 # Consume the backup code
                 user.backup_codes[i] = None
                 # Force SQLAlchemy to detect the change (JSONB mutation)

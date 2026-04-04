@@ -32,6 +32,7 @@ class Collection(UUIDAuditSimpleBase):
         "Provider",
         back_populates="collections",
         foreign_keys=[provider_system_name],
+        lazy="noload",
     )
 
     # API configuration fields

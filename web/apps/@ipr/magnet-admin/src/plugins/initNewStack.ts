@@ -6,6 +6,7 @@ import { createEntityApis } from '@/api/entityApis'
 import { initEntityQueries } from '@/queries/entities'
 import { setEntityQueriesOptions } from '@/queries/createEntityQueries'
 import { useSharedAuthStore } from '@shared/stores/authStore'
+import { createAuthFetch } from '@shared/auth'
 
 /**
  * Initializes the Pinia + TanStack Query stack.
@@ -43,8 +44,12 @@ export async function initNewStack(app: App): Promise<void> {
     },
   })
 
-  // 6. Create typed API clients for all entities
-  const apis = createEntityApis(config.api.aiBridge.urlAdmin, config.credentials)
+  // 6. Create typed API clients for all entities (with automatic 401 → refresh → retry)
+  const authFetch = createAuthFetch(config.api.aiBridge.baseUrl, () => {
+    authStore.setAuthenticated(false)
+    authStore.clearUserInfo()
+  })
+  const apis = createEntityApis(config.api.aiBridge.urlAdmin, config.credentials, authFetch)
 
   // 7. Initialize TanStack Query composables
   initEntityQueries(apis)

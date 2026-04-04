@@ -37,6 +37,7 @@ class KnowledgeGraph(UUIDAuditSimpleBase):
         "KnowledgeGraphSource",
         back_populates="graph",
         cascade="all, delete-orphan",
+        lazy="noload",
     )
 
     # Discovered metadata fields (observed across documents/sources in this graph)
@@ -45,6 +46,7 @@ class KnowledgeGraph(UUIDAuditSimpleBase):
             "KnowledgeGraphMetadataDiscovery",
             back_populates="graph",
             cascade="all, delete-orphan",
+            lazy="noload",
         )
     )
 
@@ -54,5 +56,6 @@ class KnowledgeGraph(UUIDAuditSimpleBase):
             "KnowledgeGraphMetadataExtraction",
             back_populates="graph",
             cascade="all, delete-orphan",
+            lazy="noload",
         )
     )

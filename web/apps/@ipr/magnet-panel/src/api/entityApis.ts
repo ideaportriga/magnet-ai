@@ -25,8 +25,12 @@ const SERVICE_PATHS: Record<keyof PanelEntityApis, string> = {
 let _client: ApiClient | null = null
 let _apis: PanelEntityApis | null = null
 
-export function createPanelEntityApis(baseUrl: string, credentials: RequestCredentials = 'include'): PanelEntityApis {
-  _client = createApiClient({ baseUrl, credentials })
+export function createPanelEntityApis(
+  baseUrl: string,
+  credentials: RequestCredentials = 'include',
+  fetchFn?: typeof fetch,
+): PanelEntityApis {
+  _client = createApiClient({ baseUrl, credentials, fetchFn })
 
   _apis = {} as PanelEntityApis
   for (const [key, path] of Object.entries(SERVICE_PATHS)) {

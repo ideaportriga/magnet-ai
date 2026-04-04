@@ -198,9 +198,9 @@ class MfaController(Controller):
                 if not data.password:
                     raise NotAuthorizedException("Password required to disable MFA")
 
-                from services.users.password import verify_password
+                from services.users.password import verify_password_async
 
-                if not verify_password(data.password, user.hashed_password):
+                if not await verify_password_async(data.password, user.hashed_password):
                     raise NotAuthorizedException("Invalid password")
 
             await mfa_service.disable_mfa(session=session, user=user)

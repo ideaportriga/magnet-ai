@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import secrets
 from logging import getLogger
@@ -16,9 +17,11 @@ from .types import (
 logger = getLogger(__name__)
 
 
-# Cache for API keys
+# Cache for API keys (protected by _cache_lock to prevent partial visibility
+# during concurrent refresh operations)
 API_KEYS_ENTITIES_CACHE: list[ApiKeyConfigEntity] = []
 API_KEYS_PERSISTED_BY_HASH_CACHE: dict[str, ApiKeyConfigPersisted] = {}
+_cache_lock = asyncio.Lock()
 
 
 async def initialize_api_keys_cache() -> None:
@@ -56,35 +59,36 @@ def get_api_key_config(api_key: str) -> ApiKeyConfigPersisted:
 
 async def refresh_api_keys_caches() -> None:
     """Refresh API keys caches from SQLAlchemy."""
-    async with alchemy.get_session() as session:
-        service = APIKeysService(session=session)
-        api_keys = await service.list()
+    async with _cache_lock:
+        async with alchemy.get_session() as session:
+            service = APIKeysService(session=session)
+            api_keys = await service.list()
 
-        entities: list[ApiKeyConfigEntity] = []
-        dict_by_hash: dict[str, ApiKeyConfigPersisted] = {}
+            entities: list[ApiKeyConfigEntity] = []
+            dict_by_hash: dict[str, ApiKeyConfigPersisted] = {}
 
-        for api_key in api_keys:
-            api_key_schema = service.to_schema(api_key, schema_type=APIKey)
-            api_key_data = api_key_schema.model_dump()
+            for api_key in api_keys:
+                api_key_schema = service.to_schema(api_key, schema_type=APIKey)
+                api_key_data = api_key_schema.model_dump()
 
-            # Convert UUID to string if present
-            if "id" in api_key_data and api_key_data["id"] is not None:
-                api_key_data["id"] = str(api_key_data["id"])
+                # Convert UUID to string if present
+                if "id" in api_key_data and api_key_data["id"] is not None:
+                    api_key_data["id"] = str(api_key_data["id"])
 
-            # Store in hash cache with hash
-            api_key_persisted = ApiKeyConfigPersisted(**api_key_data)
-            dict_by_hash[api_key_persisted.hash] = api_key_persisted
+                # Store in hash cache with hash
+                api_key_persisted = ApiKeyConfigPersisted(**api_key_data)
+                dict_by_hash[api_key_persisted.hash] = api_key_persisted
 
-            # Store in entities cache without hash
-            entity_data = api_key_data.copy()
-            entity_data.pop("hash", None)
-            entities.append(ApiKeyConfigEntity(**entity_data))
+                # Store in entities cache without hash
+                entity_data = api_key_data.copy()
+                entity_data.pop("hash", None)
+                entities.append(ApiKeyConfigEntity(**entity_data))
 
-        global API_KEYS_ENTITIES_CACHE
-        global API_KEYS_PERSISTED_BY_HASH_CACHE
+            global API_KEYS_ENTITIES_CACHE
+            global API_KEYS_PERSISTED_BY_HASH_CACHE
 
-        API_KEYS_ENTITIES_CACHE = entities
-        API_KEYS_PERSISTED_BY_HASH_CACHE = dict_by_hash
+            API_KEYS_ENTITIES_CACHE = entities
+            API_KEYS_PERSISTED_BY_HASH_CACHE = dict_by_hash
 
 
 async def list_api_keys() -> list[ApiKeyConfigEntity]:

@@ -1,6 +1,5 @@
 """Shutdown plugin for handling application cleanup."""
 
-import atexit
 import os
 from logging import getLogger
 from typing import TYPE_CHECKING
@@ -41,8 +40,14 @@ class ShutdownPlugin(InitPluginProtocol):
         timeout = float(os.environ.get("GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS", "30"))
         await shutdown_background_tasks(shutdown_timeout=timeout)
 
-        # Close database connection pools
-        await self._close_database_connections()
+        # Close shared HTTP client
+        await self._close_http_client()
+
+        # Close vector DB connection pools
+        await self._close_vector_db_connections()
+
+        # Dispose the main ORM engine (returns all connections to the OS)
+        await self._close_main_engine()
 
     async def _shutdown_scheduler(self, app: Litestar) -> None:
         """Shutdown the scheduler."""
@@ -62,8 +67,28 @@ class ShutdownPlugin(InitPluginProtocol):
         else:
             logger.info("No scheduler to shut down")
 
-    async def _close_database_connections(self) -> None:
-        """Close database connection pools based on VECTOR_DB_TYPE."""
+    async def _close_http_client(self) -> None:
+        """Close the shared httpx.AsyncClient."""
+        try:
+            from utils.http_client import close_http_client
+
+            await close_http_client()
+            logger.info("Shared HTTP client closed")
+        except Exception as e:
+            logger.error("Error closing shared HTTP client: %s", e)
+
+    async def _close_main_engine(self) -> None:
+        """Dispose the main async engine and all managed engines."""
+        try:
+            from core.db.connection_manager import get_connection_manager
+
+            await get_connection_manager().close_all()
+            logger.info("Main database engines disposed successfully")
+        except Exception as e:
+            logger.error("Error disposing main database engines: %s", e)
+
+    async def _close_vector_db_connections(self) -> None:
+        """Close vector DB connection pools based on VECTOR_DB_TYPE."""
         if self.db_type == "ORACLE":
             await self._close_oracle_connections()
         elif self.db_type == "PGVECTOR":
@@ -72,14 +97,14 @@ class ShutdownPlugin(InitPluginProtocol):
     async def _close_oracle_connections(self) -> None:
         """Close Oracle connection pool."""
         logger.info("Closing Oracle connection pool...")
-
-        async def close_connection_pool():
+        try:
             from stores import get_db_client
 
             client = get_db_client()
             await client.close_pool()
-
-        atexit.register(close_connection_pool)
+            logger.info("Oracle connection pool closed successfully")
+        except Exception as e:
+            logger.error("Error closing Oracle connection pool: %s", e)
 
     async def _close_pgvector_connections(self) -> None:
         """Close PgVector connection pool."""
@@ -90,4 +115,4 @@ class ShutdownPlugin(InitPluginProtocol):
             await pgvector_client.close_pool()
             logger.info("PgVector connection pool closed successfully")
         except Exception as e:
-            logger.error(f"Error closing PgVector connection pool: {e}")
+            logger.error("Error closing PgVector connection pool: %s", e)

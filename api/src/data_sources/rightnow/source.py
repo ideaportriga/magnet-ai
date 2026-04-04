@@ -38,7 +38,7 @@ class RightNowDataSource(DataSource[dict]):
         }
 
         auth = self.__auth
-        async with httpx.AsyncClient(timeout=5000.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             try:
                 response = await client.get(
                     url=url,
@@ -75,7 +75,7 @@ class RightNowDataSource(DataSource[dict]):
 
     async def __get(self, url: str, headers: dict[str, str]) -> str:
         auth = self.__auth
-        async with httpx.AsyncClient(timeout=5000.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             try:
                 response = await client.get(url=url, auth=auth, headers=headers)
                 response.raise_for_status()

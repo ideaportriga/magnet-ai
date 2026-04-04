@@ -1,6 +1,7 @@
 export interface ApiClientConfig {
   baseUrl: string
   credentials?: RequestCredentials
+  fetchFn?: typeof fetch
 }
 
 export interface ApiError {
@@ -69,13 +70,13 @@ async function handleResponse<T>(response: Response): Promise<T> {
 }
 
 export function createApiClient(config: ApiClientConfig): ApiClient {
-  const { baseUrl, credentials = 'include' } = config
+  const { baseUrl, credentials = 'include', fetchFn = fetch } = config
 
   const jsonHeaders = { 'Content-Type': 'application/json' }
 
   return {
     async get<T>(path: string, params?: Record<string, string | number | boolean | string[]>): Promise<T> {
-      const response = await fetch(buildUrl(baseUrl, path, params), {
+      const response = await fetchFn(buildUrl(baseUrl, path, params), {
         method: 'GET',
         credentials,
       })
@@ -83,7 +84,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     },
 
     async post<T>(path: string, body?: unknown): Promise<T> {
-      const response = await fetch(buildUrl(baseUrl, path), {
+      const response = await fetchFn(buildUrl(baseUrl, path), {
         method: 'POST',
         credentials,
         headers: jsonHeaders,
@@ -93,7 +94,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     },
 
     async patch<T>(path: string, body?: unknown): Promise<T> {
-      const response = await fetch(buildUrl(baseUrl, path), {
+      const response = await fetchFn(buildUrl(baseUrl, path), {
         method: 'PATCH',
         credentials,
         headers: jsonHeaders,
@@ -103,7 +104,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     },
 
     async delete(path: string): Promise<void> {
-      const response = await fetch(buildUrl(baseUrl, path), {
+      const response = await fetchFn(buildUrl(baseUrl, path), {
         method: 'DELETE',
         credentials,
         headers: jsonHeaders,
@@ -115,7 +116,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
     },
 
     async postRaw(path: string, body?: unknown, signal?: AbortSignal): Promise<Response> {
-      return fetch(buildUrl(baseUrl, path), {
+      return fetchFn(buildUrl(baseUrl, path), {
         method: 'POST',
         credentials,
         headers: jsonHeaders,
