@@ -5,16 +5,16 @@ km-drawer-layout(v-if='open', storageKey="drawer-observability-traces")
     .row.q-mt-sm(style='font-size: 13px') {{ span?.description }}
     .column.q-gap-24.q-mt-md(v-if='trace?.type == "rag" && trace?.id == span?.parent_id && trace?.spans?.[0]?.id == span?.id')
       .column.q-gap-6
-        .km-input-label.text-text-grey Question
+        .km-input-label.text-text-grey {{ m.common_question() }}
         .km-heading-2 {{ traceMetadata.question }}
       .column.q-gap-6
-        .km-input-label.text-text-grey Language
+        .km-input-label.text-text-grey {{ m.common_language() }}
         .km-heading-2 {{ traceMetadata.language }}
       .column.q-gap-6
-        .km-input-label.text-text-grey Chunks retrieved
+        .km-input-label.text-text-grey {{ m.common_chunksRetrieved() }}
         .km-heading-2 {{ traceMetadata.chunks_retrieved }}
       .column.q-gap-6
-        .km-input-label.text-text-grey Answer
+        .km-input-label.text-text-grey {{ m.common_answer() }}
         .km-heading-2 {{ traceMetadata.answer }}
     .row.q-mt-md
       q-tabs(
@@ -51,10 +51,10 @@ km-drawer-layout(v-if='open', storageKey="drawer-observability-traces")
   template(v-else-if='tab == "prompt_template"')
     .column.q-gap-24
       .column.q-gap-6
-        .km-input-label.text-text-grey Name
+        .km-input-label.text-text-grey {{ m.common_name() }}
         .km-heading-2 {{ span?.prompt_template?.display_name }}
       .column.q-gap-6(v-if='span?.prompt_template?.variant')
-        .km-input-label.text-text-grey Variant
+        .km-input-label.text-text-grey {{ m.common_variant() }}
         .km-heading-2 {{ span?.prompt_template?.variant }}
   template(v-else-if='tab == "tools"')
     .column.q-gap-32(v-if='span?.extra_data?.tools && span?.extra_data?.tools.length > 0')
@@ -62,16 +62,16 @@ km-drawer-layout(v-if='open', storageKey="drawer-observability-traces")
   template(v-else-if='tab == "model"')
     .column.q-gap-24
       .column.q-gap-6
-        .km-input-label.text-text-grey Provider
+        .km-input-label.text-text-grey {{ m.common_provider() }}
         .km-heading-2 {{ providerName }}
       .column.q-gap-6
-        .km-input-label.text-text-grey LLM name
+        .km-input-label.text-text-grey {{ m.common_llmName() }}
         .km-heading-2 {{ span?.model?.parameters?.llm }}
       .column.q-gap-6(v-if='span?.model?.parameters?.temperature != undefined')
-        .km-input-label.text-text-grey Temperature
+        .km-input-label.text-text-grey {{ m.evaluation_temperature() }}
         .km-heading-2 {{ span?.model?.parameters?.temperature }}
       .column.q-gap-6(v-if='span?.model?.parameters?.top_p != undefined')
-        .km-input-label.text-text-grey Top P
+        .km-input-label.text-text-grey {{ m.common_topP() }}
         .km-heading-2 {{ span?.model?.parameters?.top_p }}
 </template>
 
@@ -101,11 +101,11 @@ export default defineComponent({
       m,
       tab: ref('input_output'),
       tabs: ref([
-        { name: 'error', label: 'Error', availableFor: [] },
-        { name: 'input_output', label: 'Inputs & Outputs', availableFor: ['span', 'search', 'embed', 'rerank', 'chat', 'tool'] },
-        { name: 'prompt_template', label: 'Prompt Template', availableFor: ['chat'] },
-        { name: 'tools', label: 'Tools', availableFor: ['chat'] },
-        { name: 'model', label: 'Model', availableFor: ['embed', 'rerank', 'chat'] },
+        { name: 'error', label: m.trace_tabError(), availableFor: [] },
+        { name: 'input_output', label: m.trace_tabInputsOutputs(), availableFor: ['span', 'search', 'embed', 'rerank', 'chat', 'tool'] },
+        { name: 'prompt_template', label: m.entity_promptTemplate(), availableFor: ['chat'] },
+        { name: 'tools', label: m.common_tools(), availableFor: ['chat'] },
+        { name: 'model', label: m.trace_tabModel(), availableFor: ['embed', 'rerank', 'chat'] },
       ]),
       providerItems,
     }

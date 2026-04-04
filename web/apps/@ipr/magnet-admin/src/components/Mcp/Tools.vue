@@ -52,11 +52,11 @@ const tab = ref('parameters')
 const tabs = ref([
   {
     name: 'parameters',
-    label: 'Parameters',
+    label: m.mcp_parameters(),
   },
   {
     name: 'definition',
-    label: 'Tool definition',
+    label: m.mcp_toolDefinition(),
   },
 ])
 
@@ -77,8 +77,8 @@ const rows = computed(() => {
 })
 
 const columns = [
-  textColumn('name', 'Name'),
-  textColumn('description', 'Description'),
+  textColumn('name', m.common_name()),
+  textColumn('description', m.common_description()),
 ]
 
 const { table } = useLocalDataTable(rows, columns)

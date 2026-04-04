@@ -1,14 +1,14 @@
 <template>
   <kg-dialog-base
     :model-value="dialogOpen"
-    title="API Ingest Source"
+    :title="m.knowledgeGraph_apiIngestSource()"
     :show-confirm="false"
-    cancel-label="Close"
+    :cancel-label="m.common_close()"
     size="md"
     @update:model-value="onModelUpdate"
     @cancel="onCancel"
   >
-    <kg-dialog-section title="Source Name" description="The name of this API ingest source." icon="edit">
+    <kg-dialog-section :title="m.knowledgeGraph_sourceName()" :description="m.knowledgeGraph_sourceNameDesc()" icon="edit">
       <km-input v-model="sourceName" height="36px" readonly />
     </kg-dialog-section>
   </kg-dialog-base>

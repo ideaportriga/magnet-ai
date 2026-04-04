@@ -1,9 +1,9 @@
 <template>
   <kg-dialog-base
     :model-value="props.showDialog"
-    title="Entity Extraction Settings"
-    subtitle="Configure how AI extracts structured entities from your documents"
-    confirm-label="Save Settings"
+    :title="m.knowledgeGraph_entityExtractionSettings()"
+    :subtitle="m.knowledgeGraph_entityExtractionSettingsSubtitle()"
+    :confirm-label="m.knowledgeGraph_saveSettings()"
     :loading="loading"
     size="md"
     @update:model-value="emit('update:showDialog', $event)"
@@ -12,19 +12,19 @@
   >
     <div class="column q-gap-16">
       <kg-dialog-section
-        title="Extraction Settings"
-        description="Choose when entity extraction runs and which prompt template should produce the structured entity output."
+        :title="m.knowledgeGraph_extractionSettingsSection()"
+        :description="m.knowledgeGraph_extractionSettingsSectionDesc()"
         icon="auto_awesome"
       >
         <div class="column q-gap-16">
-          <kg-field-row label="Extraction Mode" hint="Choose whether entities are extracted from full documents or from already-generated chunks.">
+          <kg-field-row :label="m.knowledgeGraph_extractionMode()" :hint="m.knowledgeGraph_extractionModeHint()">
             <kg-tile-select v-model="approach" :options="approachOptions" :cols="2" />
           </kg-field-row>
 
-          <kg-field-row label="Extraction Prompt" hint="Select a prompt template that returns structured entity records.">
+          <kg-field-row :label="m.knowledgeGraph_extractionPrompt()" :hint="m.knowledgeGraph_extractionPromptHint()">
             <kg-dropdown-field
               v-model="promptTemplateSystemName"
-              placeholder="Select a prompt template"
+              :placeholder="m.knowledgeGraph_selectPromptTemplate()"
               :options="promptTemplateOptions"
               :loading="loadingPromptTemplates"
               option-value="system_name"
@@ -37,23 +37,23 @@
       </kg-dialog-section>
 
       <kg-dialog-section
-        title="Segmentation Settings"
+        :title="m.knowledgeGraph_segmentationSettings()"
         :description="
           approach === 'document'
-            ? 'Split large documents into overlapping segments before extraction.'
-            : 'Chunk-based extraction uses the existing chunks, so segmentation settings are ignored.'
+            ? m.knowledgeGraph_segmentationDocDesc()
+            : m.knowledgeGraph_segmentationChunkDesc()
         "
         icon="content_cut"
       >
         <template v-if="approach === 'document'">
           <div class="row q-col-gutter-lg">
             <div class="col-12 col-md-5">
-              <kg-field-row label="Segment size (characters)">
+              <kg-field-row :label="m.knowledgeGraph_segmentSize()">
                 <km-input v-model.number="segmentSize" type="number" min="100" height="36px" />
               </kg-field-row>
             </div>
             <div class="col-12 col-md-7">
-              <kg-field-row label="Segment overlap">
+              <kg-field-row :label="m.knowledgeGraph_segmentOverlap()">
                 <div class="row items-center q-gap-md">
                   <q-slider
                     v-model="segmentOverlap"
@@ -72,7 +72,7 @@
         </template>
         <template v-else>
           <kg-warning-banner variant="neutral">
-            Chunk-based extraction reuses the graph's chunks directly, so document segmentation is not applied here.
+            {{ m.knowledgeGraph_chunkBasedSegmentationNote() }}
           </kg-warning-banner>
         </template>
       </kg-dialog-section>
@@ -92,14 +92,14 @@ import {
 
 const approachOptions: TileOption[] = [
   {
-    label: 'Document Based',
+    label: m.knowledgeGraph_approachDocumentLabel(),
     value: 'document',
-    description: 'Extract entities from full documents with automatic segmentation for large inputs. Recommended for most graphs.',
+    description: m.knowledgeGraph_approachDocumentDesc(),
   },
   {
-    label: 'Chunk Based',
+    label: m.knowledgeGraph_approachChunkLabel(),
     value: 'chunks',
-    description: 'Extract entities from each existing chunk. Useful when chunk-level provenance matters most.',
+    description: m.knowledgeGraph_approachChunkDesc(),
   },
 ]
 

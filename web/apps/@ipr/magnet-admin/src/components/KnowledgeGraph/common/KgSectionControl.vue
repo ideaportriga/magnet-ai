@@ -30,8 +30,8 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   options: () => [
-    { label: 'Agent decides', value: 'agent' },
-    { label: 'Static', value: 'configuration' },
+    { label: m.knowledgeGraph_agentDecides(), value: 'agent' },
+    { label: m.knowledgeGraph_static(), value: 'configuration' },
   ],
   disabled: false,
 })

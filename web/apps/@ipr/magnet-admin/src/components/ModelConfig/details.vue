@@ -68,7 +68,7 @@ model-config-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @c
 <script>
 import { ref, computed } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
-import { validSystemName } from '@shared/utils/validationRules'
+import { validSystemName } from '@/utils/validationRules'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { m } from '@/paraglide/messages'
 

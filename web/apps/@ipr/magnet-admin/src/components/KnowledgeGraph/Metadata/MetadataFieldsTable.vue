@@ -9,15 +9,15 @@
         <div class="lane-header">
           <div class="lane-header__title">
             <q-icon name="explore" size="18px" color="teal-7" />
-            <span>Discovered</span>
+            <span>{{ m.knowledgeGraph_discovered() }}</span>
             <span class="lane-header__count">{{ discoveredRows.length }}</span>
           </div>
-          <div class="lane-header__subtitle">Auto-detected from documents</div>
+          <div class="lane-header__subtitle">{{ m.knowledgeGraph_autoDetected() }}</div>
         </div>
         <div class="lane-content">
           <div v-if="discoveredRows.length === 0" class="lane-empty">
             <q-icon name="check_circle" size="32px" color="grey-4" />
-            <span>{{ search ? 'No matches' : 'No new fields' }}</span>
+            <span>{{ search ? m.knowledgeGraph_noMatchesInSearch() : m.knowledgeGraph_noNewFields() }}</span>
           </div>
           <div
             v-for="row in discoveredRows"
@@ -55,15 +55,15 @@
               <div class="field-card__actions field-card__actions--samples">
                 <template v-if="row.is_defined">
                   <q-btn flat dense size="sm" color="grey-7" icon="o_edit" @click.stop="editDefinedField(row)">
-                    <q-tooltip>Edit Schema</q-tooltip>
+                    <q-tooltip>{{ m.knowledgeGraph_editSchema() }}</q-tooltip>
                   </q-btn>
                 </template>
                 <template v-else>
                   <q-btn flat dense size="sm" color="teal-7" icon="o_add_circle" @click.stop="emit('promote-field', row)">
-                    <q-tooltip>Add to schema</q-tooltip>
+                    <q-tooltip>{{ m.knowledgeGraph_addToSchema() }}</q-tooltip>
                   </q-btn>
                   <q-btn flat dense size="sm" color="negative" icon="o_block" @click.stop="emit('discard-field', row.name)">
-                    <q-tooltip>Ignore this field</q-tooltip>
+                    <q-tooltip>{{ m.knowledgeGraph_ignoreField() }}</q-tooltip>
                   </q-btn>
                 </template>
               </div>
@@ -78,15 +78,15 @@
           <div class="lane-header__top">
             <div class="lane-header__title">
               <q-icon name="auto_awesome" size="18px" color="purple-7" />
-              <span>Smart Extraction</span>
+              <span>{{ m.knowledgeGraph_smartExtraction() }}</span>
               <span class="lane-header__count">{{ extractedRows.length }}</span>
             </div>
             <div class="lane-header__actions">
               <q-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="o_add_circle" @click.stop="emit('add-extraction-field')">
-                <q-tooltip>Add Field</q-tooltip>
+                <q-tooltip>{{ m.knowledgeGraph_addField() }}</q-tooltip>
               </q-btn>
               <q-btn round flat dense class="lane-icon-btn lane-icon-btn--ai" icon="settings" @click.stop="emit('open-extraction-settings')">
-                <q-tooltip>Settings</q-tooltip>
+                <q-tooltip>{{ m.common_settings() }}</q-tooltip>
               </q-btn>
               <q-btn
                 v-if="canRunExtraction"
@@ -99,17 +99,17 @@
                 :disable="runningExtraction"
                 @click.stop="emit('run-extraction')"
               >
-                <q-tooltip>Run Extraction</q-tooltip>
+                <q-tooltip>{{ m.knowledgeGraph_runExtractionTooltip() }}</q-tooltip>
               </q-btn>
             </div>
           </div>
-          <div class="lane-header__subtitle">Configure which fields AI should extract</div>
+          <div class="lane-header__subtitle">{{ m.knowledgeGraph_smartExtractionDesc() }}</div>
         </div>
         <div class="lane-content">
           <div v-if="extractedRows.length === 0" class="lane-empty">
             <q-icon name="smart_toy" size="32px" color="grey-4" />
-            <span>{{ search ? 'No matches' : 'No extraction fields yet' }}</span>
-            <span v-if="!search" class="lane-empty__hint">Add fields to define what AI should extract</span>
+            <span>{{ search ? m.knowledgeGraph_noMatchesInSearch() : m.knowledgeGraph_noExtractionFields() }}</span>
+            <span v-if="!search" class="lane-empty__hint">{{ m.knowledgeGraph_addFieldsHint() }}</span>
           </div>
           <div
             v-for="row in extractedRows"
@@ -135,10 +135,10 @@
               </template>
               <div class="field-card__actions field-card__actions--samples">
                 <q-btn flat dense size="sm" color="grey-7" icon="o_edit" @click.stop="emit('edit-extraction-field', row)">
-                  <q-tooltip>Edit</q-tooltip>
+                  <q-tooltip>{{ m.common_edit() }}</q-tooltip>
                 </q-btn>
                 <q-btn flat dense size="sm" color="negative" icon="o_delete" @click.stop="emit('delete-extraction-field', row)">
-                  <q-tooltip>Delete</q-tooltip>
+                  <q-tooltip>{{ m.common_delete() }}</q-tooltip>
                 </q-btn>
               </div>
             </div>
@@ -152,16 +152,16 @@
           <div class="lane-header__top">
             <div class="lane-header__title">
               <q-icon name="tune" size="18px" color="blue-7" />
-              <span>Schema</span>
+              <span>{{ m.knowledgeGraph_schemaLane() }}</span>
               <span class="lane-header__count">{{ schemaRows.length }}</span>
             </div>
             <div class="lane-header__actions">
               <q-btn round flat dense class="lane-icon-btn lane-icon-btn--schema" icon="o_add_circle" @click.stop="emit('add-field')">
-                <q-tooltip>Add Field</q-tooltip>
+                <q-tooltip>{{ m.knowledgeGraph_addField() }}</q-tooltip>
               </q-btn>
             </div>
           </div>
-          <div class="lane-header__subtitle">Defined metadata fields</div>
+          <div class="lane-header__subtitle">{{ m.knowledgeGraph_schemaLaneDesc() }}</div>
         </div>
         <div
           class="lane-content"
@@ -173,7 +173,7 @@
         >
           <div v-if="schemaRows.length === 0" class="lane-empty lane-empty--drop-target">
             <q-icon name="category" size="32px" color="grey-4" />
-            <span>{{ isDragOverSchema ? 'Drop to create field' : search ? 'No matches' : 'No schema fields' }}</span>
+            <span>{{ isDragOverSchema ? m.knowledgeGraph_dropToCreateField() : search ? m.knowledgeGraph_noMatchesInSearch() : m.knowledgeGraph_noSchemaFieldsShort() }}</span>
           </div>
           <div
             v-for="row in schemaRows"
@@ -204,10 +204,10 @@
                 <q-tooltip class="source-tooltip" :offset="[0, 6]">
                   <div class="source-tooltip__content">
                     <div class="source-tooltip__header">
-                      <span>Source resolution</span>
+                      <span>{{ m.knowledgeGraph_sourceResolution() }}</span>
                       <span class="source-tooltip__meta">{{ getSourceResolutionStatus(row).configured.length }}/{{ sources.length }}</span>
                     </div>
-                    <div v-if="getSourceResolutionStatus(row).hasWildcard" class="source-tooltip__wildcard">Applies to all sources (wildcard *)</div>
+                    <div v-if="getSourceResolutionStatus(row).hasWildcard" class="source-tooltip__wildcard">{{ m.knowledgeGraph_appliesToAllSources() }}</div>
                     <div v-else class="source-tooltip__list">
                       <div
                         v-for="src in sources"
@@ -231,10 +231,10 @@
             <div class="field-card__samples">
               <div class="field-card__actions field-card__actions--samples">
                 <q-btn flat dense size="sm" color="grey-7" icon="o_edit" @click.stop="emit('edit-field', row)">
-                  <q-tooltip>Edit</q-tooltip>
+                  <q-tooltip>{{ m.common_edit() }}</q-tooltip>
                 </q-btn>
                 <q-btn flat dense size="sm" color="negative" icon="o_delete" @click.stop="emit('delete-field', row)">
-                  <q-tooltip>Delete</q-tooltip>
+                  <q-tooltip>{{ m.common_delete() }}</q-tooltip>
                 </q-btn>
               </div>
             </div>
@@ -255,24 +255,24 @@
           <div class="lane-header__title">
             <q-icon :name="discardedExpanded ? 'expand_less' : 'expand_more'" size="18px" color="grey-5" class="collapse-icon" />
             <q-icon v-if="discardedExpanded" name="block" size="18px" color="grey-6" />
-            <span>Discarded</span>
+            <span>{{ m.knowledgeGraph_discarded() }}</span>
             <span v-if="discardedExpanded" class="lane-header__count">{{ discardedRows.length }}</span>
           </div>
-          <div v-if="discardedExpanded" class="lane-header__subtitle">Hidden from review</div>
-          <div v-else class="lane-header__subtitle lane-header__subtitle--collapsed">Click to expand</div>
+          <div v-if="discardedExpanded" class="lane-header__subtitle">{{ m.knowledgeGraph_hiddenFromReview() }}</div>
+          <div v-else class="lane-header__subtitle lane-header__subtitle--collapsed">{{ m.knowledgeGraph_clickToExpand() }}</div>
         </div>
         <transition name="lane-expand">
           <div v-if="discardedExpanded" class="lane-content">
             <div v-if="discardedRows.length === 0" class="lane-empty">
               <q-icon name="check" size="32px" color="grey-4" />
-              <span>{{ search ? 'No matches' : 'Nothing discarded' }}</span>
+              <span>{{ search ? m.knowledgeGraph_noMatchesInSearch() : m.knowledgeGraph_nothingDiscarded() }}</span>
             </div>
             <div v-for="row in discardedRows" :key="row.id" class="field-card field-card--discarded">
               <div class="field-card__header">
                 <span class="field-card__name">{{ row.name }}</span>
                 <div class="field-card__actions">
-                  <q-btn flat dense size="sm" color="primary" label="Restore" @click.stop="emit('restore-field', row.name)" />
-                  <q-btn flat dense size="sm" color="grey-7" label="Define" @click.stop="emit('promote-field', row)" />
+                  <q-btn flat dense size="sm" color="primary" :label="m.knowledgeGraph_restore()" @click.stop="emit('restore-field', row.name)" />
+                  <q-btn flat dense size="sm" color="grey-7" :label="m.knowledgeGraph_define()" @click.stop="emit('promote-field', row)" />
                 </div>
               </div>
               <div class="field-card__type">{{ getTypeLabel(row.value_type) }}</div>
@@ -619,7 +619,7 @@ const getSchemaFieldType = (field: MetadataFieldDefinition): string | null => {
 
   if (types.size === 0) return null
   if (types.size === 1) return getTypeLabel([...types][0])
-  return 'Mixed'
+  return m.knowledgeGraph_mixed()
 }
 
 const truncateValue = (value: string, maxLength = 30) => {

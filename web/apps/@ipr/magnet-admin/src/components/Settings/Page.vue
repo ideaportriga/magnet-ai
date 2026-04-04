@@ -20,9 +20,9 @@
           .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width.relative-position(v-if='activeTab === "import"')
             q-inner-loading(:showing='loadingPreview || populating || checkingExists')
               q-spinner-dots(color='primary', size='40px')
-              .km-description.text-primary.q-mt-sm {{ loadingPreview ? 'Loading seed records...' : populating ? 'Importing records...' : 'Checking records...' }}
+              .km-description.text-primary.q-mt-sm {{ loadingPreview ? m.settings_loadingSeedRecords() : populating ? m.settings_importingRecords() : m.settings_checkingRecords() }}
             .row.items-center.q-mb-md
-              .km-heading-7 Import
+              .km-heading-7 {{ m.settings_importHeading() }}
               q-space
               km-btn.q-mr-8(flat, :label='m.common_addFromJson()', icon='fas fa-upload', @click='showUploadDialog = true')
               km-btn.q-mr-8(flat, :label='m.common_addFromSeed()', icon='fas fa-database', :loading='loadingPreview', @click='addFromSeed')
@@ -34,7 +34,7 @@
               )
               km-btn(flat, :label='m.common_clearList()', icon='fas fa-trash', :disable='rows.length === 0 || populating', @click='clearList')
             .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-md
-              km-notification-text(notification='The list is empty by default. Add candidate records from Seed or JSON, select needed rows, then click Load Selected.')
+              km-notification-text(:notification='m.settings_importHint()')
             .row.q-col-gutter-md.q-mb-md
               .col-2
                 km-input(:placeholder='m.common_search()', iconBefore='search', v-model='importSearch', clearable)
@@ -46,7 +46,7 @@
                   map-options,
                   option-label='label',
                   option-value='value',
-                  placeholder='Entity Type'
+                  :placeholder='m.settings_entityTypePlaceholder()'
                 )
               .col-1
                 km-select(
@@ -56,12 +56,12 @@
                   map-options,
                   option-label='label',
                   option-value='value',
-                  placeholder='Status'
+                  :placeholder='m.common_status()'
                 )
             .row(v-if='rows.length === 0').q-mb-md.bg-light.q-pa-sm.border-radius-6
-              .km-description.text-secondary-text The list is empty. Use Add from Seed or Add from JSON.
+              .km-description.text-secondary-text {{ m.settings_importListEmpty() }}
             .row(v-if='selectedHasExisting').q-mb-md.bg-warning-low.q-pa-sm.border-radius-6
-              .km-description.text-primary Existing selected records will be overwritten.
+              .km-description.text-primary {{ m.settings_existingWillBeOverwritten() }}
             q-table.full-width(
               :rows='filteredImportRows',
               :columns='columns',
@@ -81,21 +81,21 @@
                 )
               template(v-slot:body-cell-source='props')
                 q-td(:props='props')
-                  q-chip(size='sm', color='primary-light', text-color='primary') {{ props.row.source === 'seed' ? 'Seed' : 'JSON' }}
+                  q-chip(size='sm', color='primary-light', text-color='primary') {{ props.row.source === 'seed' ? m.settings_sourceSeed() : m.settings_sourceJson() }}
               template(v-slot:body-cell-exists='props')
                 q-td(:props='props')
-                  q-chip(size='sm', color='primary-light', text-color='primary', v-if='props.row.exists === null') Unknown
+                  q-chip(size='sm', color='primary-light', text-color='primary', v-if='props.row.exists === null') {{ m.settings_unknown() }}
                   q-chip(size='sm', :color='props.row.exists ? "orange-2" : "green-2"', :text-color='props.row.exists ? "orange-8" : "green-8"', v-else)
-                    | {{ props.row.exists ? 'Already loaded' : 'Missing' }}
+                    | {{ props.row.exists ? m.settings_alreadyLoaded() : m.settings_missing() }}
               template(v-slot:body-cell-overwrite='props')
                 q-td(:props='props')
-                  .km-description.text-primary(v-if='props.row.overwrite') Will be overwritten
+                  .km-description.text-primary(v-if='props.row.overwrite') {{ m.settings_willBeOverwritten() }}
               template(v-slot:body-cell-progress='props')
                 q-td(:props='props')
                   .row.items-center.q-gap-8
                     q-spinner(size='14px', color='primary', v-if='props.row.progress === "loading"')
-                    q-chip(size='sm', color='green-2', text-color='green-8', v-if='props.row.progress === "success"') Loaded
-                    q-chip(size='sm', color='red-2', text-color='red-8', v-if='props.row.progress === "error"') Error
+                    q-chip(size='sm', color='green-2', text-color='green-8', v-if='props.row.progress === "success"') {{ m.settings_progressLoaded() }}
+                    q-chip(size='sm', color='red-2', text-color='red-8', v-if='props.row.progress === "error"') {{ m.settings_progressError() }}
                     .km-description.text-secondary-text(v-if='props.row.progressMessage') {{ props.row.progressMessage }}
 
             .row.q-mt-md.items-center
@@ -105,9 +105,9 @@
           .border.border-radius-12.bg-white.ba-border.q-my-16.q-pa-16.q-gap-16.full-width.relative-position(v-if='activeTab === "export"')
             q-inner-loading(:showing='loadingExportPreview || exportingJson')
               q-spinner-dots(color='primary', size='40px')
-              .km-description.text-primary.q-mt-sm {{ loadingExportPreview ? 'Loading records from database...' : 'Exporting records...' }}
+              .km-description.text-primary.q-mt-sm {{ loadingExportPreview ? m.settings_loadingFromDb() : m.settings_exportingRecords() }}
             .row.items-center.q-mb-md
-              .km-heading-7 Export
+              .km-heading-7 {{ m.settings_exportHeading() }}
               q-space
               km-btn.q-mr-8(flat, :label='m.common_addFromDatabase()', icon='fas fa-database', :loading='loadingExportPreview', @click='addFromDatabase')
               km-btn.q-mr-8(
@@ -128,15 +128,15 @@
                   map-options,
                   option-label='label',
                   option-value='value',
-                  placeholder='Entity Type'
+                  :placeholder='m.settings_entityTypePlaceholder()'
                 )
               .col-4
-                km-input(placeholder='Filter by Name', v-model='exportNameFilter', clearable)
+                km-input(:placeholder='m.settings_filterByName()', v-model='exportNameFilter', clearable)
             //- .row.bg-light.full-width.q-py-4.q-px-8.q-gap-8.no-wrap.items-center.q-mb-md
               q-icon(name='o_info', color='icon', size='20px', style='min-width: 20px')
               .km-paragraph Add records from any entity, select needed rows, then click Export Selected to download JSON in import format.
             .row(v-if='exportRows.length === 0').q-mb-md.bg-light.q-pa-sm.border-radius-6
-              .km-description.text-secondary-text The list is empty. Use Add from Database.
+              .km-description.text-secondary-text {{ m.settings_exportListEmpty() }}
             q-table.full-width(
               :rows='filteredExportRows',
               :columns='exportColumns',
@@ -159,13 +159,13 @@
     q-card.card-style(style='min-width: 700px')
       q-card-section.card-section-style
         .row.items-center
-          .km-heading-7 Add from JSON
+          .km-heading-7 {{ m.settings_addFromJsonTitle() }}
           q-space
           q-btn(icon='close', flat, dense, @click='showUploadDialog = false')
       q-card-section.card-section-style
         .row.q-col-gutter-md
           .col-12
-            .km-field.text-secondary-text.q-pb-xs JSON File
+            .km-field.text-secondary-text.q-pb-xs {{ m.settings_jsonFileLabel() }}
             q-file(
               outlined,
               dense,
@@ -235,31 +235,31 @@ const onTabChange = async (tab) => {
 }
 
 const columns = [
-  { name: 'source', label: 'Source', field: 'source', align: 'left', sortable: true },
-  { name: 'entity_type', label: 'Entity Type', field: 'entity_type', align: 'left', sortable: true },
-  { name: 'system_name', label: 'System Name', field: 'system_name', align: 'left', sortable: true },
-  { name: 'exists', label: 'Status', field: 'exists', align: 'left' },
-  { name: 'overwrite', label: 'Overwrite', field: 'overwrite', align: 'left' },
-  { name: 'progress', label: 'Progress', field: 'progress', align: 'left' },
+  { name: 'source', label: m.settings_colSource(), field: 'source', align: 'left', sortable: true },
+  { name: 'entity_type', label: m.settings_colEntityType(), field: 'entity_type', align: 'left', sortable: true },
+  { name: 'system_name', label: m.settings_colSystemName(), field: 'system_name', align: 'left', sortable: true },
+  { name: 'exists', label: m.common_status(), field: 'exists', align: 'left' },
+  { name: 'overwrite', label: m.settings_colOverwrite(), field: 'overwrite', align: 'left' },
+  { name: 'progress', label: m.settings_colProgress(), field: 'progress', align: 'left' },
 ]
 
 const exportColumns = [
-  { name: 'entity_type', label: 'Entity Type', field: 'entity_type', align: 'left', sortable: true },
-  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
-  { name: 'system_name', label: 'System Name', field: 'system_name', align: 'left', sortable: true },
+  { name: 'entity_type', label: m.settings_colEntityType(), field: 'entity_type', align: 'left', sortable: true },
+  { name: 'name', label: m.common_name(), field: 'name', align: 'left', sortable: true },
+  { name: 'system_name', label: m.settings_colSystemName(), field: 'system_name', align: 'left', sortable: true },
 ]
 
 const importEntityTypeOptions = computed(() => {
   const values = [...new Set(rows.value.map((row) => row.entity_type))].sort()
-  return [{ label: 'All', value: 'all' }, ...values.map((value) => ({ label: value, value }))]
+  return [{ label: m.common_all(), value: 'all' }, ...values.map((value) => ({ label: value, value }))]
 })
 
-const importStatusOptions = [
-  { label: 'All', value: 'all' },
-  { label: 'Missing', value: 'missing' },
-  { label: 'Already loaded', value: 'loaded' },
-  { label: 'Unknown', value: 'unknown' },
-]
+const importStatusOptions = computed(() => [
+  { label: m.common_all(), value: 'all' },
+  { label: m.settings_missing(), value: 'missing' },
+  { label: m.settings_alreadyLoaded(), value: 'loaded' },
+  { label: m.settings_unknown(), value: 'unknown' },
+])
 
 const filteredImportRows = computed(() => {
   const search = importSearch.value?.trim().toLowerCase() || ''
@@ -280,7 +280,7 @@ const filteredImportRows = computed(() => {
 
 const exportEntityTypeOptions = computed(() => {
   const values = [...new Set(exportRows.value.map((row) => row.entity_type))].sort()
-  return [{ label: 'All', value: 'all' }, ...values.map((value) => ({ label: value, value }))]
+  return [{ label: m.common_all(), value: 'all' }, ...values.map((value) => ({ label: value, value }))]
 })
 
 const filteredExportRows = computed(() => {
@@ -373,7 +373,7 @@ const addFromSeed = async () => {
   loadingPreview.value = false
 
   if (response?.error) {
-    notifyError('Failed to load seed preview')
+    notifyError(m.settings_failedLoadSeedPreview())
     return
   }
 
@@ -388,7 +388,7 @@ const addFromSeed = async () => {
   rows.value = [...nonSeedRows]
   mergeRows(seedRows)
 
-  notifySuccess(`Added ${seedRows.length} records from seed to the list.`)
+  notifySuccess(m.settings_addedSeedRecords({ count: String(seedRows.length) }))
 }
 
 const clearList = () => {
@@ -449,7 +449,7 @@ const addFromDatabase = async () => {
   loadingExportPreview.value = false
 
   if (response?.error) {
-    notifyError('Failed to load export preview.')
+    notifyError(m.settings_failedLoadExportPreview())
     return
   }
 
@@ -462,7 +462,7 @@ const addFromDatabase = async () => {
 
   selectedExport.value = []
 
-  notifySuccess(`Added ${exportRows.value.length} records to export list.`)
+  notifySuccess(m.settings_addedExportRecords({ count: String(exportRows.value.length) }))
 }
 
 const exportSelected = async () => {
@@ -491,7 +491,7 @@ const exportSelected = async () => {
   exportingJson.value = false
 
   if (response?.error) {
-    notifyError('Failed to export records.')
+    notifyError(m.settings_failedExportRecords())
     return
   }
 
@@ -507,7 +507,7 @@ const exportSelected = async () => {
   anchor.remove()
   URL.revokeObjectURL(fileUrl)
 
-  notifySuccess('Export file generated.')
+  notifySuccess(m.settings_exportFileGenerated())
 }
 
 const loadSelected = async () => {
@@ -563,7 +563,7 @@ const loadSelected = async () => {
         ...progressByKey.value,
         [row.row_key]: {
           status: 'error',
-          message: 'Failed to load',
+          message: m.settings_failedToLoad(),
         },
       }
       continue
@@ -576,7 +576,7 @@ const loadSelected = async () => {
       ...progressByKey.value,
       [row.row_key]: {
         status: 'success',
-        message: overwritten ? 'Overwritten' : 'Created',
+        message: overwritten ? m.settings_recordOverwritten() : m.settings_recordCreated(),
       },
     }
 
@@ -603,7 +603,7 @@ const addFromJson = async () => {
     payload = JSON.parse(content)
   } catch {
     uploadingJson.value = false
-    notifyError('Invalid JSON file')
+    notifyError(m.settings_invalidJsonFile())
     return
   }
 
@@ -640,7 +640,7 @@ const addFromJson = async () => {
 
     if (!normalizedRows.length) {
       uploadingJson.value = false
-      notifyError('Export JSON must contain entity keys with arrays of records that include system_name.')
+      notifyError(m.settings_invalidExportJson())
       return
     }
   } else {
@@ -651,7 +651,7 @@ const addFromJson = async () => {
 
     if (invalidItems.length > 0) {
       uploadingJson.value = false
-      notifyError('Each JSON record must include entity_type and system_name.')
+      notifyError(m.settings_invalidRecordJson())
       return
     }
 
@@ -695,7 +695,7 @@ const addFromJson = async () => {
 
   checkingExists.value = false
 
-  notifySuccess(`Added ${normalizedRows.length} JSON records to the list.`)
+  notifySuccess(m.settings_addedJsonRecords({ count: String(normalizedRows.length) }))
 }
 
 onMounted(async () => {

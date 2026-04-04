@@ -2,7 +2,7 @@
   <kg-dialog-base
     :model-value="modelValue"
     :title="localTool?.label"
-    confirm-label="Apply"
+    :confirm-label="m.common_apply()"
     size="md"
     @update:model-value="$emit('update:modelValue', $event)"
     @cancel="$emit('update:modelValue', false)"
@@ -11,14 +11,14 @@
     <!-- Tool Description -->
     <kg-prompt-section
       v-model="localTool.description"
-      title="Tool Description"
-      description="Explain when the agent should use this tool. This description will be used to generate a prompt for the agent."
+      :title="m.retrieval_toolDescription()"
+      :description="m.retrieval_toolDescriptionHint()"
     />
 
     <!-- Search Settings Section -->
     <kg-dialog-section
-      title="Search Settings"
-      description="Tune tool settings to control the scope and precision of the search. Choose whether the agent can override the search method or must follow this configuration."
+      :title="m.retrieval_searchSettings()"
+      :description="m.retrieval_searchSettingsDesc()"
       icon="tune"
       icon-color="teal-7"
     >
@@ -30,19 +30,19 @@
         <kg-field-row :cols="2">
           <div :class="{ 'col-span-2': localTool.searchMethod !== 'hybrid' }">
             <div class="row items-center q-gutter-x-sm q-pb-sm">
-              <div class="km-input-label">Method</div>
-              <q-badge color="orange-1" text-color="orange-9" label="Coming Soon" class="text-weight-medium" />
+              <div class="km-input-label">{{ m.retrieval_method() }}</div>
+              <q-badge color="orange-1" text-color="orange-9" :label="m.common_comingSoon()" class="text-weight-medium" />
             </div>
             <km-select v-model="localTool.searchMethod" :options="searchMethodOptions" emit-value map-options disable />
           </div>
           <div v-if="localTool.searchMethod === 'hybrid'">
             <div class="km-input-label q-pb-12">
-              <span>Hybrid Score Distribution</span>
+              <span>{{ m.retrieval_hybridScoreDistribution() }}</span>
             </div>
             <div class="row items-center q-gutter-x-md">
-              <span class="km-input-label text-primary text-weight-bold">Keyword {{ ((1 - localTool.hybridWeight) * 100).toFixed(0) }}%</span>
+              <span class="km-input-label text-primary text-weight-bold">{{ m.retrieval_keyword() }} {{ ((1 - localTool.hybridWeight) * 100).toFixed(0) }}%</span>
               <q-slider v-model="localTool.hybridWeight" :min="0" :max="1" :step="0.05" color="primary" class="col" />
-              <span class="km-input-label text-primary text-weight-bold">{{ (localTool.hybridWeight * 100).toFixed(0) }}% Vector</span>
+              <span class="km-input-label text-primary text-weight-bold">{{ (localTool.hybridWeight * 100).toFixed(0) }}% {{ m.retrieval_vector() }}</span>
             </div>
           </div>
         </kg-field-row>
@@ -50,13 +50,13 @@
         <kg-field-row :cols="2">
           <div>
             <div class="km-input-label row justify-between q-pb-12">
-              <span>Score Threshold</span>
+              <span>{{ m.retrieval_scoreThreshold() }}</span>
               <span class="text-primary text-weight-bold">{{ localTool.scoreThreshold }}</span>
             </div>
             <q-slider v-model="localTool.scoreThreshold" :min="0" :max="1" :step="0.01" color="primary" />
           </div>
           <div>
-            <div class="km-input-label q-pb-sm">Result Limit</div>
+            <div class="km-input-label q-pb-sm">{{ m.retrieval_resultLimit() }}</div>
             <km-input v-model.number="localTool.limit" type="number" :min="1" :max="20" />
           </div>
         </kg-field-row>

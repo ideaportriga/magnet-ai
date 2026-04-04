@@ -21,20 +21,20 @@ km-drawer-layout(storageKey="drawer-mcp-tools")
       .col.fit(v-if='selectedRow')
         .row.justify-between
           .col-12.q-py-8
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Name
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
             km-input(:model-value='selectedRow.name', readonly)
           .col-12.q-py-8
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_description() }}
             .km-textarea-relaxed
               km-input(v-model='selectedRow.description', type='textarea', rows='3', autogrow, readonly)
           .col-12.q-py-8
-            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Type
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_type() }}
             km-input(:model-value='selectedRow.type', readonly)
   template(v-if='tab == "test"')
     .q-pb-32
       .col-auto
         .row.items-center.justify-between
-          .km-heading-7.q-mb-16 Inputs
+          .km-heading-7.q-mb-16 {{ m.common_inputs() }}
         .column.fit
           km-codemirror(
             v-model='inputParametersString',
@@ -52,7 +52,7 @@ km-drawer-layout(storageKey="drawer-mcp-tools")
 
       .col-auto
         .row.items-center.justify-between
-          .km-heading-7.q-mb-16 Outputs
+          .km-heading-7.q-mb-16 {{ m.common_outputs() }}
         .column.fit(v-if='output')
           km-codemirror(
             :model-value='JSON.stringify(output, null, 2)',
@@ -86,12 +86,13 @@ export default {
       output: ref(''),
       tab: ref('details'),
       tabs: ref([
-        { name: 'details', label: 'Input Details' },
-        { name: 'test', label: 'Test MCP Tool' },
+        { name: 'details', label: m.mcp_inputDetails() },
+        { name: 'test', label: m.mcp_testMcpTool() },
       ]),
       route,
       draft,
       appStore,
+      m,
     }
   },
 
@@ -109,11 +110,11 @@ export default {
     regulateTabs(parentTab) {
       if (parentTab === 'definition') {
         this.tab = 'test'
-        this.tabs = [{ name: 'test', label: 'Test MCP Tool' }]
+        this.tabs = [{ name: 'test', label: m.mcp_testMcpTool() }]
       } else {
         this.tabs = [
-          { name: 'details', label: 'Input Details' },
-          { name: 'test', label: 'Test MCP Tool' },
+          { name: 'details', label: m.mcp_inputDetails() },
+          { name: 'test', label: m.mcp_testMcpTool() },
         ]
       }
     },
@@ -129,7 +130,7 @@ export default {
       } catch (e) {
         this.appStore.setErrorMessage({
           technicalError: e,
-          text: 'Input is not a valid JSON',
+          text: m.mcp_invalidJsonInput(),
         })
         return
       }

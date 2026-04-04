@@ -1,9 +1,9 @@
 <template>
   <kg-dialog-base
     :model-value="showDialog"
-    :title="`Add to Schema: ${discoveredField?.name || 'Field'}`"
+    :title="m.knowledgeGraph_addToSchema({ name: discoveredField?.name || 'Field' })"
     :subtitle="discoveredField?.name"
-    confirm-label="Continue"
+    :confirm-label="m.common_continue()"
     size="md"
     :disable-confirm="!canContinue"
     @update:model-value="$emit('update:show-dialog', $event)"
@@ -12,8 +12,8 @@
   >
     <!-- Action Selection -->
     <kg-dialog-section
-      title="Choose Action"
-      description="Select how you want to add this discovered field to your schema."
+      :title="m.knowledgeGraph_chooseAction()"
+      :description="m.knowledgeGraph_chooseActionDesc()"
       icon="add_circle"
       icon-color="primary"
     >
@@ -23,14 +23,14 @@
     <!-- Field Selection (shown when linking to existing) -->
     <kg-dialog-section
       v-if="selectedAction === 'link'"
-      title="Select Schema Field"
-      description="Choose which existing schema field to link this discovered field to."
+      :title="m.knowledgeGraph_selectSchemaField()"
+      :description="m.knowledgeGraph_selectSchemaFieldDesc()"
       icon="link"
       icon-color="teal-7"
     >
       <div v-if="existingFields.length === 0" class="no-fields-message">
         <q-icon name="info" size="24px" color="grey-5" />
-        <span>No schema fields defined yet. Please create a new field instead.</span>
+        <span>{{ m.knowledgeGraph_noSchemaFieldsYet() }}</span>
       </div>
       <q-list v-else class="field-list" bordered separator>
         <q-item
@@ -81,15 +81,15 @@ const selectedFieldId = ref<string>('')
 const actionOptions: TileOption[] = [
   {
     value: 'create',
-    label: 'Create New Field',
+    label: m.knowledgeGraph_createNewField(),
     icon: 'add',
-    description: 'Define a new schema field based on this discovered field.',
+    description: m.knowledgeGraph_createNewFieldDesc(),
   },
   {
     value: 'link',
-    label: 'Link to Existing',
+    label: m.knowledgeGraph_linkToExisting(),
     icon: 'link',
-    description: 'Map this discovered field to an existing schema field.',
+    description: m.knowledgeGraph_linkToExistingDesc(),
   },
 ]
 

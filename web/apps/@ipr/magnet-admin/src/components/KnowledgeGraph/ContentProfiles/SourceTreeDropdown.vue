@@ -20,7 +20,7 @@
           <div class="source-item-checkbox" :class="{ 'source-item-checkbox--active': isAllSourcesSelected }">
             <q-icon v-if="isAllSourcesSelected" name="check" size="10px" class="source-item-checkbox-icon" />
           </div>
-          <span class="source-item-label">Any Source</span>
+          <span class="source-item-label">{{ m.knowledgeGraph_anySource() }}</span>
         </div>
 
         <!-- Level 2: Source type groups -->
@@ -73,7 +73,7 @@
                   class="source-item-checkbox-icon"
                 />
               </div>
-              <span class="source-item-label">Any {{ group.label }} source</span>
+              <span class="source-item-label">{{ m.knowledgeGraph_anyNamedSource({ name: group.label }) }}</span>
             </div>
 
             <!-- Level 3: Individual sources -->
@@ -166,7 +166,7 @@ const sourceGroups = computed<SourceGroup[]>(() => {
     .filter((type) => !sourceRegistry[type].comingSoon)
     .map((type) => ({
       type,
-      label: type === 'upload' ? 'Manual Uploads' : sourceRegistry[type].label,
+      label: type === 'upload' ? m.knowledgeGraph_manualUploads() : sourceRegistry[type].label,
       sources: groupMap.get(type) || [],
     }))
 })

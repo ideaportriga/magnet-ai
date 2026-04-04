@@ -1,8 +1,8 @@
 <template>
   <kg-dialog-base
     :model-value="props.showDialog"
-    :title="isEditMode ? 'Edit Metadata Field' : 'Define Metadata Field'"
-    :confirm-label="isEditMode ? 'Save Changes' : 'Create Field'"
+    :title="isEditMode ? m.knowledgeGraph_editMetadataField() : m.knowledgeGraph_defineMetadataField()"
+    :confirm-label="isEditMode ? m.knowledgeGraph_saveChanges() : m.knowledgeGraph_createField()"
     :loading="loading"
     size="md"
     @update:model-value="emit('update:showDialog', $event)"
@@ -11,23 +11,23 @@
   >
     <div class="column q-gap-16">
       <!-- Basic Info Section -->
-      <kg-dialog-section title="Field Identity" description="Define the field name and display properties" icon="edit">
+      <kg-dialog-section :title="m.knowledgeGraph_fieldIdentity()" :description="m.knowledgeGraph_fieldIdentityDesc()" icon="edit">
         <kg-field-row :cols="2">
-          <kg-field-row label="Field Name">
+          <kg-field-row :label="m.knowledgeGraph_fieldName()">
             <km-input ref="fieldNameInputRef" v-model="fieldName" height="36px" />
           </kg-field-row>
-          <kg-field-row label="Display Name">
+          <kg-field-row :label="m.knowledgeGraph_displayName()">
             <km-input v-model="displayName" height="36px" />
           </kg-field-row>
         </kg-field-row>
 
-        <kg-field-row label="Description" class="q-mt-md">
+        <kg-field-row :label="m.common_description()" class="q-mt-md">
           <km-input
             v-model="description"
             autogrow
             rows="1"
             type="textarea"
-            placeholder="Describe what this field represents and how it should be used..."
+            :placeholder="m.knowledgeGraph_columnDescPlaceholder()"
             height="36px"
           />
         </kg-field-row>
@@ -35,11 +35,11 @@
 
       <!-- Field & Value Mappings -->
       <kg-dialog-section
-        title="Field & Value Mappings"
-        description="Configure which metadata fields and values map to this field definition, and set the resolution priority per source"
+        :title="m.knowledgeGraph_fieldValueMappings()"
+        :description="m.knowledgeGraph_fieldValueMappingsDesc()"
         icon="layers"
       >
-        <div v-if="!hasSourceOptions" class="text-caption text-grey-6 italic">No sources available in this knowledge graph.</div>
+        <div v-if="!hasSourceOptions" class="text-caption text-grey-6 italic">{{ m.knowledgeGraph_noSourcesAvailableInGraph() }}</div>
 
         <div v-else class="value-resolution">
           <!-- Expandable source sections -->
@@ -66,14 +66,14 @@
                   <span v-if="source.chain.length > 0" class="source-section__badge">
                     {{ source.chain.length }} step{{ source.chain.length > 1 ? 's' : '' }}
                   </span>
-                  <span v-else class="source-section__badge source-section__badge--empty">Not configured</span>
+                  <span v-else class="source-section__badge source-section__badge--empty">{{ m.knowledgeGraph_notConfigured() }}</span>
                 </div>
               </div>
 
               <!-- Source content (expandable) -->
               <div v-if="activeResolutionSourceId === source.source_id" class="source-section__content">
                 <div class="source-section__toolbar">
-                  <span class="source-section__hint">First non-empty value wins, drag to reorder</span>
+                  <span class="source-section__hint">{{ m.knowledgeGraph_firstNonEmpty() }}</span>
                   <!-- Origin buttons -->
                   <div class="origin-buttons">
                     <button
@@ -84,7 +84,7 @@
                       @click="addChainStep('file')"
                     >
                       <q-icon name="description" size="12px" />
-                      <span>File</span>
+                      <span>{{ m.knowledgeGraph_fileMetadata() }}</span>
                     </button>
                     <button
                       type="button"
@@ -94,7 +94,7 @@
                       @click="addChainStep('source')"
                     >
                       <q-icon name="cloud_download" size="12px" />
-                      <span>Source</span>
+                      <span>{{ m.knowledgeGraph_sourceMetadata() }}</span>
                     </button>
                     <button
                       type="button"
@@ -104,7 +104,7 @@
                       @click="addChainStep('llm')"
                     >
                       <q-icon name="smart_toy" size="12px" />
-                      <span>LLM</span>
+                      <span>{{ m.knowledgeGraph_smartExtraction() }}</span>
                     </button>
                     <button
                       type="button"
@@ -114,7 +114,7 @@
                       @click="addChainStep('constant')"
                     >
                       <q-icon name="pin" size="12px" />
-                      <span>Constant</span>
+                      <span>{{ m.knowledgeGraph_constantValue() }}</span>
                     </button>
                   </div>
                 </div>
@@ -149,7 +149,7 @@
                           <kg-dropdown-field
                             v-model="step.field_name"
                             :options="smartExtractionFieldOptions(step.field_name)"
-                            placeholder="Select extraction field"
+                            :placeholder="m.knowledgeGraph_selectExtractionField()"
                             option-value="value"
                             option-label="label"
                             :option-meta="(o) => o.meta"
@@ -158,14 +158,14 @@
                             dense
                             :show-error="showValueResolutionErrors && !step.field_name"
                           />
-                          <div v-if="showValueResolutionErrors && !step.field_name" class="value-chain__error">Required</div>
+                          <div v-if="showValueResolutionErrors && !step.field_name" class="value-chain__error">{{ m.common_required() }}</div>
                         </template>
 
                         <template v-else>
                           <kg-dropdown-field
                             v-model="step.field_name"
                             :options="fieldOptionsForStep(step.kind, activeResolutionSource.source_id, step.field_name)"
-                            placeholder="Select field"
+                            :placeholder="m.knowledgeGraph_selectField()"
                             option-value="value"
                             option-label="label"
                             :option-meta="(o) => o.meta"
@@ -174,7 +174,7 @@
                             dense
                             :show-error="showValueResolutionErrors && !step.field_name"
                           />
-                          <div v-if="showValueResolutionErrors && !step.field_name" class="value-chain__error">Required</div>
+                          <div v-if="showValueResolutionErrors && !step.field_name" class="value-chain__error">{{ m.common_required() }}</div>
                         </template>
                       </div>
                     </div>
@@ -205,7 +205,7 @@
                     <div class="value-chain__config">
                       <km-input
                         v-model="activeResolutionConstantStep.constant_value"
-                        placeholder="Enter value (or comma-separated values)"
+                        :placeholder="m.knowledgeGraph_enterValueOrComma()"
                         :class="{
                           'value-chain__input--error':
                             showValueResolutionErrors &&
@@ -221,7 +221,7 @@
                         "
                         class="value-chain__error"
                       >
-                        Required
+                        {{ m.common_required() }}
                       </div>
                     </div>
                   </div>
@@ -233,7 +233,7 @@
 
                 <div v-if="source.chain.length === 0" class="value-chain__empty">
                   <q-icon name="add_circle_outline" size="18px" color="grey-5" />
-                  <span>Add steps to define how this field is populated</span>
+                  <span>{{ m.knowledgeGraph_addStepsHint() }}</span>
                 </div>
               </div>
             </div>
@@ -476,7 +476,7 @@ const fieldOptionsForStep = (kind: MetadataFieldValueSourceKind, sourceId: strin
 
   const sel = String(selectedValue || '').trim()
   if (sel && !opts.some((o) => o.value === sel)) {
-    opts.unshift({ label: sel, value: sel, meta: 'Not currently discovered' })
+    opts.unshift({ label: sel, value: sel, meta: m.knowledgeGraph_notCurrentlyDiscovered() })
   }
 
   return opts
@@ -496,7 +496,7 @@ const smartExtractionFieldOptions = (selectedValue?: string): FieldOption[] => {
 
   const sel = String(selectedValue || '').trim()
   if (sel && !opts.some((o) => o.value === sel)) {
-    opts.unshift({ label: sel, value: sel, meta: 'Field not found' })
+    opts.unshift({ label: sel, value: sel, meta: m.knowledgeGraph_fieldNotFound() })
   }
 
   return opts
@@ -504,10 +504,10 @@ const smartExtractionFieldOptions = (selectedValue?: string): FieldOption[] => {
 
 const valueSourceKindLabel = (kind: MetadataFieldValueSourceKind) => {
   const labels: Record<MetadataFieldValueSourceKind, string> = {
-    source: 'Source Metadata',
-    file: 'File Metadata',
-    llm: 'Smart Extraction',
-    constant: 'Constant Value',
+    source: m.knowledgeGraph_sourceMetadata(),
+    file: m.knowledgeGraph_fileMetadata(),
+    llm: m.knowledgeGraph_smartExtraction(),
+    constant: m.knowledgeGraph_constantValue(),
   }
   return labels[kind] || kind
 }

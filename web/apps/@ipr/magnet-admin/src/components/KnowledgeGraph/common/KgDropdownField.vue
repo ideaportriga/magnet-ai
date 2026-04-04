@@ -21,7 +21,7 @@
     @popup-hide="onPopupHide"
   >
     <template #append>
-      <span v-if="hasValue && clearable" class="styled-select__clear" @click.stop="handleClear">CLEAR</span>
+      <span v-if="hasValue && clearable" class="styled-select__clear" @click.stop="handleClear">{{ m.common_clear() }}</span>
     </template>
     <template v-if="searchable" #before-options>
       <q-item class="styled-select__search-item">
@@ -31,7 +31,7 @@
             v-model="searchQuery"
             dense
             borderless
-            placeholder="Search..."
+            :placeholder="m.placeholder_search()"
             class="styled-select__search-input"
             @keydown.stop
           >
@@ -50,7 +50,7 @@
       <!-- No results sentinel - render as non-clickable message -->
       <q-item v-if="opt.__noResults" disable class="styled-select__option--empty styled-select__no-results">
         <q-item-section class="text-center">
-          <q-item-label class="text-grey-5">No matching options</q-item-label>
+          <q-item-label class="text-grey-5">{{ m.common_noMatchingOptions() }}</q-item-label>
         </q-item-section>
       </q-item>
       <!-- Select all option -->
@@ -126,8 +126,8 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: 'Select option',
-  noOptionsLabel: 'No options available',
+  placeholder: () => m.placeholder_selectOption(),
+  noOptionsLabel: () => m.common_noOptionsAvailable(),
   optionValue: 'value',
   optionLabel: 'label',
   showError: false,
@@ -139,7 +139,7 @@ const props = withDefaults(defineProps<Props>(), {
   searchable: false,
   multiple: false,
   showAllOption: false,
-  allOptionLabel: 'Select All',
+  allOptionLabel: () => m.common_selectAll(),
 })
 
 const $emit = defineEmits<{

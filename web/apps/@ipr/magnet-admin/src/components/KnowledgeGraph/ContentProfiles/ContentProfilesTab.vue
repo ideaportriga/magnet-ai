@@ -2,8 +2,8 @@
   <div class="q-px-md">
     <div class="row items-start q-col-gutter-md q-mb-md">
       <div class="col">
-        <div class="km-heading-7">Content Profiles</div>
-        <div class="km-description text-secondary-text">Configure how different content types are processed and chunked</div>
+        <div class="km-heading-7">{{ m.knowledgeGraph_contentProfiles() }}</div>
+        <div class="km-description text-secondary-text">{{ m.knowledgeGraph_contentProfilesDescription() }}</div>
       </div>
     </div>
 
@@ -12,10 +12,10 @@
     <div v-if="displayContentConfigs.length === 0" class="q-mt-md">
       <div class="text-center q-pa-lg">
         <q-icon name="folder_open" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">No content profiles added yet</div>
-        <div class="km-description text-grey-6">Start by creating a new content profile</div>
+        <div class="km-heading-7 text-grey-7 q-mt-md">{{ m.knowledgeGraph_noContentProfilesYet() }}</div>
+        <div class="km-description text-grey-6">{{ m.knowledgeGraph_startByCreatingProfile() }}</div>
         <div class="q-mt-md">
-          <km-btn label="Create Profile" @click="openContentConfigDialog()" />
+          <km-btn :label="m.knowledgeGraph_createProfile()" @click="openContentConfigDialog()" />
         </div>
       </div>
     </div>
@@ -23,8 +23,8 @@
     <div v-else class="q-mt-md">
       <kg-table-toolbar>
         <template #trailing>
-          <km-btn flat icon="o_add_circle" label="New Profile" size="sm" :disable="saving" @click="openContentConfigDialog()" />
-          <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="saving" @click="emit('refresh')" />
+          <km-btn flat icon="o_add_circle" :label="m.knowledgeGraph_newProfile()" size="sm" :disable="saving" @click="openContentConfigDialog()" />
+          <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" :disable="saving" @click="emit('refresh')" />
         </template>
       </kg-table-toolbar>
 
@@ -84,7 +84,7 @@
                       <q-item-section thumbnail>
                         <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                       </q-item-section>
-                      <q-item-section>Delete</q-item-section>
+                      <q-item-section>{{ m.common_delete() }}</q-item-section>
                     </q-item>
                   </q-list>
                 </q-menu>
@@ -98,10 +98,10 @@
     <!-- Delete Content Profile Dialog -->
     <kg-confirm-dialog
       v-model="showDeleteDialog"
-      title="Delete content configuration"
+      :title="m.knowledgeGraph_deleteContentConfig()"
       icon="delete_outline"
-      :description="`Are you sure you want to delete '${deletingProfile?.name}'?`"
-      confirm-label="Delete"
+      :description="m.knowledgeGraph_deleteContentConfigConfirm({ name: deletingProfile?.name ?? '' })"
+      :confirm-label="m.common_delete()"
       destructive
       @confirm="performDelete"
     />
@@ -183,13 +183,13 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
   },
   {
     name: 'name',
-    label: 'Name',
+    label: m.common_name(),
     field: 'name',
     align: 'left' as const,
   },
   {
     name: 'content_matching',
-    label: 'Content Matching',
+    label: m.knowledgeGraph_contentMatching(),
     field: (row) => getContentMatchingSentence(row, sources.value),
     align: 'left' as const,
     sortable: false,
@@ -197,14 +197,14 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
   },
   {
     name: 'chunk_strategy',
-    label: 'Chunk Strategy',
+    label: m.knowledgeGraph_chunkStrategy(),
     field: (row) => row?.chunker?.strategy,
     format: (value) => chunkingStrategyOptions.find((o) => o.value === value)?.label || value || '-',
     align: 'left' as const,
   },
   {
     name: 'enabled',
-    label: 'Active',
+    label: m.common_active(),
     field: 'enabled',
     align: 'center' as const,
   },

@@ -24,24 +24,24 @@
                     .col-auto.q-ml-auto
                       q-chip.km-button-text(text-color='primary', color='primary-light')
                         q-icon.q-mr-xs(name='fas fa-wand-magic-sparkles')
-                        div {{ row?.variants?.find((v) => v?.variant == row?.active_variant)?.value?.topics?.length || 0 }} Topics
+                        div {{ row?.variants?.find((v) => v?.variant == row?.active_variant)?.value?.topics?.length || 0 }} {{ m.agents_topics() }}
                   .row.q-mt-sm
                     km-chip-copy(:label='row?.system_name')
                 q-separator
                 .row.justify-between
                   q-item.q-pa-lg
                     q-item-section
-                      q-item-label Created
+                      q-item-label {{ m.common_created() }}
                       q-item-label(caption) {{ formatDate(row.created_at) }}
                   q-item.q-pa-lg
                     q-item-section
-                      q-item-label Updated
+                      q-item-label {{ m.common_updated() }}
                       q-item-label(caption) {{ formatDate(row.updated_at) }}
         template(v-else)
           .flex.flex-center.full-height
-            .km-description.text-grey-6 No agents found
+            .km-description.text-grey-6 {{ m.agents_noAgentsFound() }}
       .row.items-center.q-px-md.q-py-sm.text-grey(style='flex-shrink: 0; border-top: 1px solid rgba(0,0,0,0.12)')
-        .km-description {{ visibleRows.length }} records
+        .km-description {{ visibleRows.length }} {{ m.common_records() }}
 
     agents-create-new(:showNewDialog='showNewDialog', @cancel='showNewDialog = false', v-if='showNewDialog')
 </template>
@@ -53,6 +53,7 @@ import { formatDateTime } from '@shared/utils'
 import { useEntityQueries } from '@/queries/entities'
 import { m } from '@/paraglide/messages'
 import type { Agent } from '@/types'
+
 
 const router = useRouter()
 const queries = useEntityQueries()

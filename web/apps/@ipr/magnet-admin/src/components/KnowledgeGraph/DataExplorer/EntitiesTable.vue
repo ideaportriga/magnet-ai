@@ -18,7 +18,7 @@
                   <q-item-section thumbnail>
                     <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                   </q-item-section>
-                  <q-item-section>Delete All Records</q-item-section>
+                  <q-item-section>{{ m.dataExplorer_deleteAllEntities() }}</q-item-section>
                 </q-item>
               </q-list>
             </q-menu>
@@ -64,7 +64,7 @@
                   <q-item-section thumbnail>
                     <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                   </q-item-section>
-                  <q-item-section>Delete</q-item-section>
+                  <q-item-section>{{ m.common_delete() }}</q-item-section>
                 </q-item>
               </q-list>
             </q-menu>
@@ -113,14 +113,14 @@ const emit = defineEmits<{
 const entityTypesColumns: QTableColumn<EntityTypeSummary>[] = [
   {
     name: 'entity',
-    label: 'Entity',
+    label: m.knowledgeGraph_entityLabel(),
     field: 'entity',
     align: 'left',
     sortable: true,
   },
   {
     name: 'count',
-    label: 'Records',
+    label: m.common_records(),
     field: 'count',
     align: 'left',
     sortable: true,
@@ -223,7 +223,7 @@ function formatEntityCellValue(value: unknown) {
   }
 
   if (typeof value === 'boolean') {
-    return value ? 'True' : 'False'
+    return value ? m.common_trueValue() : m.common_falseValue()
   }
 
   return String(value)

@@ -47,8 +47,8 @@ const intervals = [
 ]
 
 const memoryStrategyOptions = [
-  { label: 'Last N messages', value: 'last_n' },
-  { label: 'All messages', value: 'all' },
+  { label: m.agents_lastNMessages(), value: 'last_n' },
+  { label: m.agents_allMessages(), value: 'all' },
 ]
 
 export default {

@@ -24,7 +24,7 @@ import { ref, reactive, computed } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useEntityQueries } from '@/queries/entities'
 import { cloneDeep } from 'lodash'
-import { required, minLength } from '@shared/utils/validationRules'
+import { required, minLength } from '@/utils/validationRules'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 

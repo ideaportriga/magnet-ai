@@ -205,7 +205,7 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
 import { defineComponent, ref, reactive, computed } from 'vue'
 import { m } from '@/paraglide/messages'
 import { cloneDeep } from 'lodash'
-import { required, minLength } from '@shared/utils/validationRules'
+import { required, minLength } from '@/utils/validationRules'
 import { toUpperCaseWithUnderscores, fetchData } from '@shared'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { useEntityQueries } from '@/queries/entities'

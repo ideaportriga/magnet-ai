@@ -25,8 +25,8 @@
         .col-auto.q-pa-xl.bg-light.border-radius-12
           .row.items-center.justify-center.q-mb-md
             q-icon(name='fa fa-arrow-right-arrow-left', size='48px', color='primary')
-          .km-heading-7.text-black You have no MCP servers yet
-          .km-description.text-black Add a new MCP server to get started
+          .km-heading-7.text-black {{ m.mcp_noServersYet() }}
+          .km-description.text-black {{ m.mcp_addServerToGetStarted() }}
           .row.items-center.justify-center.q-mt-lg
             km-btn(:label='m.common_addMcpServer()', @click='showNewDialog = true')
   mcp-new-server(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
@@ -46,7 +46,7 @@ const showNewDialog = ref(false)
 const columns = [
   nameDescriptionColumn<McpServer>(m.common_name()),
   chipCopyColumn<McpServer>(m.common_systemName()),
-  dateColumn<McpServer>('last_synced_at', 'Last Synced', { sortable: false }),
+  dateColumn<McpServer>('last_synced_at', m.mcp_lastSynced(), { sortable: false }),
 ]
 
 const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<McpServer>('mcp_servers', columns, {

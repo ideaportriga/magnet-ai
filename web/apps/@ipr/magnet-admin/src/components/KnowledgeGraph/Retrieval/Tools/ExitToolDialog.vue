@@ -2,7 +2,7 @@
   <kg-dialog-base
     :model-value="modelValue"
     :title="tool?.label"
-    confirm-label="Apply"
+    :confirm-label="m.common_apply()"
     size="xl"
     scrollable
     max-height="820px"
@@ -13,21 +13,21 @@
     <!-- Tool Description -->
     <kg-prompt-section
       v-model="localTool.description"
-      title="Tool Description"
-      description="Describe when the agent should call the exit tool to terminate the ReAct loop and deliver the final answer."
+      :title="m.retrieval_toolDescription()"
+      :description="m.retrieval_exitToolDescriptionHint()"
     />
 
     <!-- Exit Instructions -->
     <kg-dialog-section
-      title="Exit Instructions"
-      description="Configure the strategy and iteration limits for the retrieval loop."
+      :title="m.retrieval_exitInstructions()"
+      :description="m.retrieval_exitInstructionsDesc()"
       icon="logout"
       icon-color="deep-orange-7"
     >
       <kg-tile-select v-model="localTool.strategy" :options="strategyOptions" :cols="3" />
       <div class="q-mt-32 q-mx-sm">
         <div class="km-input-label row justify-between q-pb-8">
-          <span>Max Iterations</span>
+          <span>{{ m.retrieval_maxIterationsLabel() }}</span>
           <span class="text-primary text-weight-bold">{{ localTool.maxIterations }}</span>
         </div>
         <q-slider v-model="localTool.maxIterations" :min="1" :max="15" :step="1" markers :marker-labels-class="'text-caption'" />
@@ -35,8 +35,8 @@
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Output Instructions"
-      description="Define the structure and presentation of the final answer, including format and source attribution."
+      :title="m.retrieval_outputInstructions()"
+      :description="m.retrieval_outputInstructionsDesc()"
       icon="output"
       icon-color="green-7"
     >
@@ -44,17 +44,17 @@
         <!-- Output Format, Answer Mode & Source Attribution - Horizontal -->
         <kg-field-row :cols="3">
           <div>
-            <div class="km-input-label q-pb-sm">Output Format</div>
+            <div class="km-input-label q-pb-sm">{{ m.retrieval_outputFormat() }}</div>
             <km-select v-model="localTool.outputFormat" :options="outputFormatOptions" emit-value map-options />
           </div>
           <div>
-            <div class="km-input-label q-pb-sm">Answer Mode</div>
+            <div class="km-input-label q-pb-sm">{{ m.retrieval_answerMode() }}</div>
             <km-select v-model="localTool.answerMode" :options="answerModeOptions" emit-value map-options />
           </div>
           <div>
             <div class="q-pb-sm row items-center q-gutter-x-sm">
-              <span class="km-input-label text-grey-6">Source Attribution</span>
-              <q-badge color="orange-1" text-color="orange-9" label="Coming Soon" class="text-weight-medium" />
+              <span class="km-input-label text-grey-6">{{ m.retrieval_sourceAttribution() }}</span>
+              <q-badge color="orange-1" text-color="orange-9" :label="m.common_comingSoon()" class="text-weight-medium" />
             </div>
             <km-select
               :model-value="isAnswerOnly ? 'none' : localTool.sourceAttribution"
@@ -70,8 +70,8 @@
         <kg-prompt-section
           v-model="localTool.additionalOutputInstructions"
           v-model:expanded="additionalInstructionsExpanded"
-          title="Additional Output Instructions"
-          placeholder="Define additional guidelines or constraints for the response..."
+          :title="m.retrieval_additionalOutputInstructions()"
+          :placeholder="m.retrieval_additionalOutputPlaceholder()"
           variant="field"
           collapse
         />
@@ -110,40 +110,40 @@ const emit = defineEmits<{
 const strategyOptions: TileOption[] = [
   {
     value: 'confidence',
-    label: 'Confidence-based',
+    label: m.retrieval_confidenceBased(),
     icon: 'psychology',
-    description: 'Exit when confident enough to answer, balancing thoroughness with efficiency.',
+    description: m.retrieval_confidenceBasedDesc(),
   },
   {
     value: 'exhaustive',
-    label: 'Exhaustive',
+    label: m.retrieval_exhaustive(),
     icon: 'search',
-    description: 'Explore all available tools before exiting, ensuring comprehensive coverage.',
+    description: m.retrieval_exhaustiveDesc(),
   },
   {
     value: 'efficient',
-    label: 'Efficient',
+    label: m.retrieval_efficient(),
     icon: 'bolt',
-    description: 'Exit as soon as a satisfactory answer is found, prioritizing speed.',
+    description: m.retrieval_efficientDesc(),
   },
 ]
 
 const outputFormatOptions = [
-  { label: 'Markdown', value: 'markdown' },
-  { label: 'Plain Text', value: 'plain' },
+  { label: m.retrieval_outputMarkdown(), value: 'markdown' },
+  { label: m.retrieval_outputPlainText(), value: 'plain' },
 ]
 
 const answerModeOptions = [
-  { label: 'Answer Only', value: 'answer_only' },
-  { label: 'Sources Only', value: 'sources_only' },
-  { label: 'Answer + Sources', value: 'answer_with_sources' },
+  { label: m.retrieval_answerOnly(), value: 'answer_only' },
+  { label: m.retrieval_sourcesOnly(), value: 'sources_only' },
+  { label: m.retrieval_answerWithSources(), value: 'answer_with_sources' },
 ]
 
 const sourceAttributionOptions = [
-  { label: 'None', value: 'none' },
-  { label: 'Used sources only', value: 'used' },
-  { label: 'All queried sources', value: 'all' },
-  { label: 'All sources (highlight used)', value: 'all_highlighted' },
+  { label: m.retrieval_sourceNone(), value: 'none' },
+  { label: m.retrieval_sourceUsed(), value: 'used' },
+  { label: m.retrieval_sourceAll(), value: 'all' },
+  { label: m.retrieval_sourceAllHighlighted(), value: 'all_highlighted' },
 ]
 
 const isAnswerOnly = computed(() => localTool.value.answerMode === 'answer_only')

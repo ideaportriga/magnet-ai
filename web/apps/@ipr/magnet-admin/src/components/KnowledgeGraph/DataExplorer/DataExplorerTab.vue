@@ -3,8 +3,8 @@
     <div class="col q-px-md">
       <div class="row items-center q-mb-md">
         <div class="col">
-          <div class="km-heading-7">Data Explorer</div>
-          <div class="km-description text-secondary-text">Browse documents, chunks and extracted entities in this knowledge graph</div>
+          <div class="km-heading-7">{{ m.dataExplorer_title() }}</div>
+          <div class="km-description text-secondary-text">{{ m.dataExplorer_description() }}</div>
         </div>
         <div class="col-auto row items-center q-gutter-md">
           <div class="view-mode-toggle">
@@ -18,7 +18,7 @@
                 <span class="view-mode-toggle__icon">
                   <q-icon name="description" size="18px" />
                 </span>
-                <span class="view-mode-toggle__label">Documents</span>
+                <span class="view-mode-toggle__label">{{ m.dataExplorer_documents() }}</span>
                 <span class="view-mode-toggle__icon-spacer" aria-hidden="true" />
               </button>
               <button
@@ -29,7 +29,7 @@
                 <span class="view-mode-toggle__icon">
                   <q-icon name="hub" size="18px" />
                 </span>
-                <span class="view-mode-toggle__label">Entities</span>
+                <span class="view-mode-toggle__label">{{ m.dataExplorer_entities() }}</span>
                 <span class="view-mode-toggle__icon-spacer" aria-hidden="true" />
               </button>
             </div>
@@ -43,11 +43,11 @@
         <template #leading>
           <q-btn v-if="viewMode === 'entities' && selectedEntityType" flat dense icon="arrow_back" @click="clearSelectedEntityType" />
           <div v-if="viewMode === 'entities' && selectedEntityType" class="km-heading-8">{{ selectedEntityType }}</div>
-          <km-input v-if="hasRecords" v-model="searchQuery" placeholder="Search..." icon-before="search" clearable class="search-input" />
+          <km-input v-if="hasRecords" v-model="searchQuery" :placeholder="m.common_search()" icon-before="search" clearable class="search-input" />
         </template>
 
         <template #trailing>
-          <km-btn flat icon="refresh" label="Refresh" size="sm" @click="refresh" />
+          <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" @click="refresh" />
         </template>
       </kg-table-toolbar>
 
@@ -56,22 +56,20 @@
       <div v-if="!loading && !hasRecords" class="text-center q-pa-lg">
         <q-icon :name="viewMode === 'documents' ? 'description' : 'hub'" size="64px" color="grey-5" />
         <div class="km-heading-7 text-grey-7 q-mt-md">
-          {{ viewMode === 'documents' ? 'No documents yet' : 'No entities yet' }}
+          {{ viewMode === 'documents' ? m.dataExplorer_noDocumentsYet() : m.dataExplorer_noEntitiesYet() }}
         </div>
         <div class="km-description text-grey-6 q-mb-md">
-          {{
-            viewMode === 'documents' ? 'Upload documents to this knowledge graph to get started.' : 'Run entity extraction to populate entities here.'
-          }}
+          {{ viewMode === 'documents' ? m.dataExplorer_noDocumentsDesc() : m.dataExplorer_noEntitiesDesc() }}
         </div>
-        <q-btn no-caps unelevated color="primary" label="Refresh" @click="refresh" />
+        <q-btn no-caps unelevated color="primary" :label="m.common_refresh()" @click="refresh" />
       </div>
 
       <div v-if="!loading && hasRecords && viewMode === 'documents' && filteredDocuments.length === 0" class="text-center q-pa-lg">
-        <div class="km-description text-grey-6">Try a different search query</div>
+        <div class="km-description text-grey-6">{{ m.dataExplorer_tryDifferentSearch() }}</div>
       </div>
 
       <div v-if="!loading && viewMode === 'entities' && selectedEntityType && entityRecords.length === 0" class="text-center q-pa-lg">
-        <div class="km-description text-grey-6">No extracted records for this entity type yet</div>
+        <div class="km-description text-grey-6">{{ m.dataExplorer_noEntityRecords() }}</div>
       </div>
 
       <documents-table
@@ -102,10 +100,10 @@
     <!-- Delete Document Dialog -->
     <kg-confirm-dialog
       v-model="showDeleteDialog"
-      title="Delete document"
+      :title="m.dataExplorer_deleteDocument()"
       icon="delete_outline"
-      :description="`Are you sure you want to delete '${deletingDocument?.title || deletingDocument?.name}'?`"
-      confirm-label="Delete"
+      :description="m.dataExplorer_deleteDocumentConfirm({ name: deletingDocument?.title || deletingDocument?.name || '' })"
+      :confirm-label="m.common_delete()"
       destructive
       :loading="deleteInProgress"
       @confirm="performDelete"
@@ -114,10 +112,10 @@
     <!-- Delete Entity Record Dialog -->
     <kg-confirm-dialog
       v-model="showDeleteEntityRecordDialog"
-      title="Delete entity record"
+      :title="m.dataExplorer_deleteEntityRecord()"
       icon="delete_outline"
-      :description="`Are you sure you want to delete entity '${deletingEntityRecord?.record_identifier}'?`"
-      confirm-label="Delete"
+      :description="m.dataExplorer_deleteEntityRecordConfirm({ name: deletingEntityRecord?.record_identifier || '' })"
+      :confirm-label="m.common_delete()"
       destructive
       :loading="deleteEntityRecordInProgress"
       @confirm="performDeleteEntityRecord"
@@ -126,10 +124,10 @@
     <!-- Delete Entity Type Dialog -->
     <kg-confirm-dialog
       v-model="showDeleteEntityTypeDialog"
-      title="Delete all records"
+      :title="m.dataExplorer_deleteAllRecords()"
       icon="delete_outline"
-      :description="`Are you sure you want to delete all ${deletingEntityType?.count || 0} records of '${deletingEntityType?.entity}'?`"
-      confirm-label="Delete All"
+      :description="m.dataExplorer_deleteAllRecordsConfirm({ count: deletingEntityType?.count || 0, name: deletingEntityType?.entity || '' })"
+      :confirm-label="m.common_deleteAll()"
       destructive
       :loading="deleteEntityTypeInProgress"
       @confirm="performDeleteEntityType"
@@ -209,7 +207,7 @@ const fetchDocuments = async () => {
       documents.value = await response.json()
     }
   } catch (error) {
-    notifyError('Failed to load documents. Please try again.')
+    notifyError(m.dataExplorer_failedToLoadDocuments())
   } finally {
     loading.value = false
   }

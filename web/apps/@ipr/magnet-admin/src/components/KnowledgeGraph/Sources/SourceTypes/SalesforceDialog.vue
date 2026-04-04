@@ -2,8 +2,8 @@
   <kg-dialog-source-base
     :show-dialog="dialogOpen"
     :source="props.source || null"
-    :title="isEditMode ? 'Edit Salesforce Connection' : 'Connect to Salesforce'"
-    :confirm-label="isEditMode ? 'Save Changes' : 'Connect'"
+    :title="isEditMode ? m.knowledgeGraph_sf_editTitle() : m.knowledgeGraph_sf_connectTitle()"
+    :confirm-label="isEditMode ? m.knowledgeGraph_saveChanges() : m.common_connect()"
     :loading="loading"
     :disable-confirm="loading || !isFormValid"
     :error="error"
@@ -15,8 +15,8 @@
     @changed="clearError"
   >
     <kg-dialog-section
-      title="Provider"
-      description="Select the Knowledge Source provider that holds your Salesforce credentials."
+      :title="m.knowledgeGraph_sf_sectionProviderTitle()"
+      :description="m.knowledgeGraph_sf_sectionProviderDesc()"
       icon="key"
     >
       <q-select
@@ -26,73 +26,73 @@
         option-value="id"
         emit-value
         map-options
-        placeholder="Select a Salesforce provider"
+        :placeholder="m.knowledgeGraph_sf_providerPlaceholder()"
         outlined
         dense
         :loading="loadingProviders"
-        :no-options-label="loadingProviders ? 'Loading providers...' : 'No Salesforce providers found'"
+        :no-options-label="loadingProviders ? m.knowledgeGraph_sf_loadingProviders() : m.knowledgeGraph_sf_noProvidersFound()"
         @update:model-value="clearError"
       />
       <div v-if="!loadingProviders && providerOptions.length === 0" class="text-caption text-negative q-mt-xs">
-        No Salesforce Knowledge Source providers found. Create one in Knowledge Providers first.
+        {{ m.knowledgeGraph_sf_noProvidersFoundMsg() }}
       </div>
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Object API Name"
-      description="Salesforce Knowledge Article View object API name. Default is 'Knowledge__kav'."
+      :title="m.knowledgeGraph_sf_sectionObjectApiNameTitle()"
+      :description="m.knowledgeGraph_sf_sectionObjectApiNameDesc()"
       icon="data_object"
     >
       <km-input
         v-model="objectApiName"
         height="36px"
-        placeholder="Knowledge__kav"
+        :placeholder="m.knowledgeGraph_sf_objectApiNamePlaceholder()"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Article ID Field"
-      description="Salesforce field used as the stable document identifier. Defaults to 'ArticleNumber' (recommended — stable across versions). Use 'Id' only if you want version-level deduplication."
+      :title="m.knowledgeGraph_sf_sectionArticleIdFieldTitle()"
+      :description="m.knowledgeGraph_sf_sectionArticleIdFieldDesc()"
       icon="fingerprint"
     >
       <km-input
         v-model="articleIdField"
         height="36px"
-        placeholder="ArticleNumber"
+        :placeholder="m.knowledgeGraph_sf_articleIdFieldPlaceholder()"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Title Field"
-      description="Salesforce field used as the document title. Defaults to 'Title'."
+      :title="m.knowledgeGraph_sf_sectionTitleFieldTitle()"
+      :description="m.knowledgeGraph_sf_sectionTitleFieldDesc()"
       icon="title"
     >
       <km-input
         v-model="titleField"
         height="36px"
-        placeholder="Title"
+        :placeholder="m.knowledgeGraph_sf_titleFieldPlaceholder()"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Metadata Fields"
-      description="Comma-separated list of Salesforce field names to store as document metadata (for filtering/retrieval). E.g. Title, CreatedDate, LastModifiedDate"
+      :title="m.knowledgeGraph_sf_sectionMetadataTitle()"
+      :description="m.knowledgeGraph_sf_sectionMetadataDesc()"
       icon="label"
     >
       <km-input
         v-model="metadataFields"
         height="36px"
-        placeholder="Title, CreatedDate, LastModifiedDate"
+        :placeholder="m.knowledgeGraph_sf_metadataPlaceholder()"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Output Config"
-      description="A template string defining how each article is rendered. Reference Salesforce field names in curly braces, e.g. {Summary}."
+      :title="m.knowledgeGraph_sf_sectionOutputConfigTitle()"
+      :description="m.knowledgeGraph_sf_sectionOutputConfigDesc()"
       icon="article"
     >
       <q-input
@@ -101,25 +101,25 @@
         dense
         autogrow
         type="textarea"
-        placeholder="{Summary}"
+        :placeholder="m.knowledgeGraph_sf_outputConfigPlaceholder()"
         :input-style="{ 'min-height': '80px', 'font-family': 'var(--km-font-mono)' }"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="External URL Template"
-      description="Optional. URL template for linking back to the original article. Use {FieldName} placeholders for Salesforce fields. Referenced fields are automatically included in the query."
+      :title="m.knowledgeGraph_sf_sectionExternalUrlTitle()"
+      :description="m.knowledgeGraph_sf_sectionExternalUrlDesc()"
       icon="link"
     >
       <km-input
         v-model="externalUrlTemplate"
         height="36px"
-        placeholder="https://yoursite.my.site.com/help/s/article/{UrlName}"
+        :placeholder="m.knowledgeGraph_sf_externalUrlPlaceholder()"
         @update:model-value="clearError"
       />
       <div class="text-caption text-grey-7 q-mt-xs">
-        Example: https://yoursite.my.site.com/help/s/article/{UrlName}
+        {{ m.knowledgeGraph_sf_externalUrlExample() }}
       </div>
     </kg-dialog-section>
   </kg-dialog-source-base>
@@ -283,7 +283,7 @@ async function applySchedule(sourceId: string, schedule: ScheduleFormState) {
 
   if (response.ok) return
 
-  let msg = 'Failed to update sync schedule'
+  let msg = m.knowledgeGraph_failedToUpdateSyncSchedule()
   try {
     const err = await response.json()
     msg = err?.detail || err?.error || msg
@@ -336,17 +336,17 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
         try {
           await applySchedule(result.id, schedule)
         } catch (e: any) {
-          notifyError(e?.message || 'Source created, but schedule could not be saved')
+          notifyError(e?.message || m.knowledgeGraph_sourceCreatedScheduleFailed())
         }
       }
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to connect to Salesforce'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_sf_failedToConnect()
     }
   } catch (err: any) {
 
-    error.value = err.message || 'Failed to connect to Salesforce. Please try again.'
+    error.value = err.message || m.knowledgeGraph_sf_failedToConnectRetry()
   } finally {
     loading.value = false
   }
@@ -387,11 +387,11 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to save Salesforce source'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_sf_failedToSave()
     }
   } catch (err: any) {
 
-    error.value = err.message || 'Failed to save Salesforce source. Please try again.'
+    error.value = err.message || m.knowledgeGraph_sf_failedToSaveRetry()
   } finally {
     loading.value = false
   }

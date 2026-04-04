@@ -83,7 +83,7 @@ configuration-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @
 
 <script>
 import { ref } from 'vue'
-import { validSystemName } from '@shared/utils/validationRules'
+import { validSystemName } from '@/utils/validationRules'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { m } from '@/paraglide/messages'
 

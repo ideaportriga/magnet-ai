@@ -1,15 +1,15 @@
 <template>
   <kg-dialog-section
-    title="Columns"
-    description="Define the columns (attributes) for this entity. Mark one column as the identifier to serve as a unique key."
+    :title="m.knowledgeGraph_columnsSection()"
+    :description="m.knowledgeGraph_columnsDesc()"
     icon="o_view_column"
     icon-color="teal"
   >
     <div class="entity-columns-list">
       <div v-if="columns.length === 0" class="entity-columns-empty">
         <q-icon name="o_view_column" size="28px" color="grey-4" />
-        <div class="text-grey-6 text-caption q-mt-xs">No columns defined yet</div>
-        <q-btn no-caps unelevated color="teal-8" icon="add" label="Add Column" class="entity-add-col-btn q-mt-sm" @click="addColumn" />
+        <div class="text-grey-6 text-caption q-mt-xs">{{ m.knowledgeGraph_noColumnsDefined() }}</div>
+        <q-btn no-caps unelevated color="teal-8" icon="add" :label="m.knowledgeGraph_addColumn()" class="entity-add-col-btn q-mt-sm" @click="addColumn" />
       </div>
 
       <div v-for="(col, idx) in columns" :key="col.id" class="entity-column-card" :class="{ 'entity-column-card--identifier': col.is_identifier }">
@@ -21,7 +21,7 @@
               color="grey-6"
               class="entity-column-toggle-icon"
             />
-            <span class="entity-column-name" :class="{ 'text-grey-5': !col.name }">{{ col.name || 'Unnamed' }}</span>
+            <span class="entity-column-name" :class="{ 'text-grey-5': !col.name }">{{ col.name || m.knowledgeGraph_unnamed() }}</span>
             <q-badge v-if="col.is_identifier" color="amber-8" text-color="white" class="entity-column-id-badge">ID</q-badge>
             <q-badge v-if="col.is_required" color="blue-7" text-color="white" class="entity-column-id-badge">REQ</q-badge>
           </div>
@@ -32,22 +32,22 @@
 
         <div v-if="expandedColumns.has(col.id)" class="entity-column-body">
           <div class="entity-column-grid">
-            <kg-field-row :cols="1" label="Column name">
+            <kg-field-row :cols="1" :label="m.knowledgeGraph_columnNameLabel()">
               <km-input
                 :model-value="col.name"
                 outlined
                 dense
-                placeholder="e.g. product_id"
+                :placeholder="m.knowledgeGraph_columnNamePlaceholder()"
                 class="entity-col-control entity-col-field-name"
                 @update:model-value="updateColumnName(idx, $event)"
               />
             </kg-field-row>
 
-            <kg-field-row :cols="1" label="Type">
+            <kg-field-row :cols="1" :label="m.common_type()">
               <kg-dropdown-field
                 :model-value="col.type"
                 :options="columnTypeOptions"
-                placeholder="Select type"
+                :placeholder="m.knowledgeGraph_selectType()"
                 option-value="value"
                 option-label="label"
                 dense
@@ -56,7 +56,7 @@
               />
             </kg-field-row>
 
-            <kg-field-row :cols="1" label="Identifier" class="entity-col-field--identifier">
+            <kg-field-row :cols="1" :label="m.knowledgeGraph_identifierLabel()" class="entity-col-field--identifier">
               <div
                 class="entity-col-identifier-toggle"
                 :class="{ 'entity-col-identifier-toggle--active': col.is_identifier }"
@@ -68,7 +68,7 @@
                 @keydown.space.prevent="setIdentifier(idx, !col.is_identifier)"
               >
                 <span class="entity-col-identifier-toggle__label">
-                  {{ col.is_identifier ? 'Primary identifier' : 'Mark as identifier' }}
+                  {{ col.is_identifier ? m.knowledgeGraph_primaryIdentifier() : m.knowledgeGraph_markAsIdentifier() }}
                 </span>
                 <q-toggle
                   :model-value="col.is_identifier"
@@ -82,7 +82,7 @@
               </div>
             </kg-field-row>
 
-            <kg-field-row :cols="1" label="Required" class="entity-col-field--required">
+            <kg-field-row :cols="1" :label="m.knowledgeGraph_requiredLabel()" class="entity-col-field--required">
               <div
                 class="entity-col-identifier-toggle entity-col-required-toggle"
                 :class="{ 'entity-col-required-toggle--active': col.is_required, 'entity-col-required-toggle--locked': col.is_identifier }"
@@ -94,7 +94,7 @@
                 @keydown.space.prevent="!col.is_identifier && updateColumn(idx, { is_required: !col.is_required })"
               >
                 <span class="entity-col-identifier-toggle__label">
-                  {{ col.is_required ? 'Required field' : 'Mark as required' }}
+                  {{ col.is_required ? m.knowledgeGraph_requiredField() : m.knowledgeGraph_markAsRequired() }}
                 </span>
                 <q-toggle
                   :model-value="col.is_required"
@@ -107,14 +107,14 @@
               </div>
             </kg-field-row>
 
-            <kg-field-row :cols="1" label="Description" class="entity-col-field--description">
+            <kg-field-row :cols="1" :label="m.common_description()" class="entity-col-field--description">
               <km-input
                 :model-value="col.description"
                 outlined
                 dense
                 type="textarea"
                 autogrow
-                placeholder="Explain what this column captures and how it should be used"
+                :placeholder="m.knowledgeGraph_columnDescPlaceholder()"
                 :input-style="{ minHeight: '84px', maxHeight: '160px' }"
                 @update:model-value="updateColumnDescription(idx, $event)"
               />
@@ -125,7 +125,7 @@
 
       <button v-if="columns.length > 0" class="entity-add-col-btn-dashed" @click="addColumn">
         <q-icon name="add" size="16px" />
-        <span>Add Column</span>
+        <span>{{ m.knowledgeGraph_addColumn() }}</span>
       </button>
     </div>
   </kg-dialog-section>

@@ -2,6 +2,7 @@ import { markRaw } from 'vue'
 import { StatusField, TypeField, ChannelField } from './components'
 import { formatDuration } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'
+import { m } from '@/paraglide/messages'
 
 const controls = {
   id: {
@@ -15,7 +16,7 @@ const controls = {
   },
   status: {
     name: 'status',
-    label: 'Status',
+    label: m.common_status(),
     field: 'status',
     display: true,
     align: 'center',
@@ -24,7 +25,7 @@ const controls = {
   },
   name: {
     name: 'name',
-    label: 'Tracing Target',
+    label: m.trace_tracingTarget(),
     field: 'name',
     display: true,
     readonly: true,
@@ -33,7 +34,7 @@ const controls = {
   },
   type: {
     name: 'type',
-    label: 'Type',
+    label: m.common_type(),
     field: 'type',
     display: true,
     align: 'left',
@@ -43,7 +44,7 @@ const controls = {
   },
   channel: {
     name: 'channel',
-    label: 'Channel',
+    label: m.common_channel(),
     field: 'channel',
     display: true,
     readonly: true,
@@ -58,7 +59,7 @@ const controls = {
   },
   start_time: {
     name: 'start_time',
-    label: 'Start Time',
+    label: m.common_startTime(),
     field: 'start_time',
     display: true,
     readonly: true,
@@ -74,7 +75,7 @@ const controls = {
   },
   end_time: {
     name: 'end_time',
-    label: 'End Time',
+    label: m.common_endTime(),
     field: 'end_time',
     display: true,
     readonly: true,
@@ -90,7 +91,7 @@ const controls = {
   },
   latency: {
     name: 'latency',
-    label: 'Latency',
+    label: m.common_latency(),
     field: 'latency',
     display: true,
     align: 'left',
@@ -99,7 +100,7 @@ const controls = {
   },
   total_cost: {
     name: 'cost_details.total',
-    label: 'Total Cost',
+    label: m.agents_totalCost(),
     field: (row: any) => row?.cost_details?.total,
     display: true,
     align: 'left',

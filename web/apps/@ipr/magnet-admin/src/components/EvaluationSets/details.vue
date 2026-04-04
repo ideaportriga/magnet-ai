@@ -92,7 +92,7 @@ km-popup-confirm(
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { validSystemName } from '@shared/utils/validationRules'
+import { validSystemName } from '@/utils/validationRules'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useEvaluationSetRecordStore } from '@/stores/entityDetailStores'
 import { m } from '@/paraglide/messages'

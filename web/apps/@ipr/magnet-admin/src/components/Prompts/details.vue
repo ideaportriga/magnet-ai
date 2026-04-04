@@ -88,7 +88,7 @@ import { categoryOptions } from '@/config/prompts/prompts'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { ref } from 'vue'
-import { validSystemName } from '@shared/utils/validationRules'
+import { validSystemName } from '@/utils/validationRules'
 import { m } from '@/paraglide/messages'
 
 export default {

@@ -132,7 +132,8 @@
 import { ref, computed, reactive, watch } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
-import { required, toUpperCaseWithUnderscores } from '@shared'
+import { toUpperCaseWithUnderscores } from '@shared'
+import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
 import { useNotify } from '@/composables/useNotify'
 

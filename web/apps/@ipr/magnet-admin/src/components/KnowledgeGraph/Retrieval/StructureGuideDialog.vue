@@ -86,7 +86,7 @@
       <!-- Footer -->
       <q-card-actions class="q-pa-md">
         <q-space />
-        <km-btn label="Close" flat color="primary" @click="$emit('update:modelValue', false)" />
+        <km-btn :label="m.common_close()" flat color="primary" @click="$emit('update:modelValue', false)" />
       </q-card-actions>
     </q-card>
   </q-dialog>

@@ -27,10 +27,10 @@
     )
     .row.items-center.q-gap-8.no-wrap.q-mt-lg(v-for='[key, value] in headers', :key='key')
       .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Key
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_key() }}
         km-input(:label='m.common_key()', :model-value='key', @update:model-value='updateHeader(key, $event, value)')
       .col
-        .km-field.text-secondary-text.q-pb-xs.q-pl-8 Value
+        .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_value() }}
         km-input(:label='m.common_value()', :model-value='value', @update:model-value='updateHeader(key, key, $event)')
       .col-auto
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 &nbsp;
@@ -115,9 +115,9 @@ const testConnection = async () => {
       headers: { 'Content-Type': 'application/json' },
     })
     if (response.error) throw response
-    notifySuccess('MCP Server connection test: Success')
+    notifySuccess(m.mcp_connectionTestSuccess())
   } catch (error) {
-    notifyError('MCP Server connection test: Error')
+    notifyError(m.mcp_connectionTestError())
   }
 }
 </script>

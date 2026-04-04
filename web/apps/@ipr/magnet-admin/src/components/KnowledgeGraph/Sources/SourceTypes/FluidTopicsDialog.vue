@@ -2,8 +2,8 @@
   <kg-dialog-source-base
     :show-dialog="dialogOpen"
     :source="props.source || null"
-    :title="isEditMode ? 'Edit Fluid Topics Connection' : 'Connect to Fluid Topics'"
-    :confirm-label="isEditMode ? 'Save Changes' : 'Connect'"
+    :title="isEditMode ? m.knowledgeGraph_editFluidTopicsConnection() : m.knowledgeGraph_connectToFluidTopics()"
+    :confirm-label="isEditMode ? m.knowledgeGraph_saveChanges() : m.common_connect()"
     :loading="loading"
     :disable-confirm="loading"
     :error="error"
@@ -15,8 +15,8 @@
     @changed="clearError"
   >
     <kg-dialog-section
-      title="Content Filtering"
-      description="Define filtering criteria using JSON to control which content is imported from Fluid Topics."
+      :title="m.knowledgeGraph_ft_contentFiltering()"
+      :description="m.knowledgeGraph_ft_contentFilteringDesc()"
       icon="filter_list"
       focus-highlight
     >
@@ -109,7 +109,7 @@ async function applySchedule(sourceId: string, schedule: ScheduleFormState) {
 
   if (response.ok) return
 
-  let msg = 'Failed to update sync schedule'
+  let msg = m.knowledgeGraph_failedToUpdateSyncSchedule()
   try {
     const err = await response.json()
     msg = err?.detail || err?.error || msg
@@ -132,7 +132,7 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
     try {
       parsedConfig = JSON.parse(jsonFilter.value)
     } catch (e) {
-      throw new Error('Invalid JSON format')
+      throw new Error(m.common_invalidJsonFormat())
     }
 
     const endpoint = appStore.config.api.aiBridge.urlAdmin
@@ -160,17 +160,17 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
         try {
           await applySchedule(result.id, schedule)
         } catch (e: any) {
-          notifyError(e?.message || 'Source created, but schedule could not be saved')
+          notifyError(e?.message || m.knowledgeGraph_sourceCreatedScheduleFailed())
         }
       }
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to connect to Fluid Topics'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_ft_failedToConnect()
     }
   } catch (err: any) {
 
-    error.value = err.message || 'Failed to connect to Fluid Topics. Please try again.'
+    error.value = err.message || m.knowledgeGraph_ft_failedToConnect()
   } finally {
     loading.value = false
   }
@@ -186,7 +186,7 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
     try {
       parsedFilter = JSON.parse(jsonFilter.value)
     } catch (e) {
-      throw new Error('Invalid JSON format')
+      throw new Error(m.common_invalidJsonFormat())
     }
 
     const endpoint = appStore.config.api.aiBridge.urlAdmin
@@ -208,11 +208,11 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to save Fluid Topics source'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_ft_failedToSave()
     }
   } catch (err: any) {
 
-    error.value = err.message || 'Failed to save Fluid Topics source. Please try again.'
+    error.value = err.message || m.knowledgeGraph_ft_failedToSave()
   } finally {
     loading.value = false
   }

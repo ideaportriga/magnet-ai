@@ -5,7 +5,7 @@
       .km-input-label.text-text-grey {{ m.common_model() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='modelLabel',
           @input='modelLabel = $event',
           border-radius='8px',
@@ -18,7 +18,7 @@
       .km-input-label.text-text-grey {{ m.agents_totalTokens() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='totalTokens',
           @input='totalTokens = $event',
           border-radius='8px',
@@ -29,7 +29,7 @@
       .km-input-label.text-text-grey {{ m.agents_totalCost() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='totalCost',
           @input='totalCost = $event',
           border-radius='8px',
@@ -43,7 +43,7 @@
       .km-input-label.text-text-grey {{ m.agents_inputTokens() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='inputTokens',
           @input='inputTokens = $event',
           border-radius='8px',
@@ -54,7 +54,7 @@
       .km-input-label.text-text-grey {{ m.agents_inputCost() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='inputCost',
           @input='inputCost = $event',
           border-radius='8px',
@@ -68,7 +68,7 @@
       .km-input-label.text-text-grey {{ m.agents_outputTokens() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='outputTokens',
           @input='outputTokens = $event',
           border-radius='8px',
@@ -79,7 +79,7 @@
       .km-input-label.text-text-grey {{ m.agents_outputCost() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='outputCost',
           @input='outputCost = $event',
           border-radius='8px',
@@ -92,7 +92,7 @@
       .km-input-label.text-text-grey {{ m.agents_cachedTokens() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='cachedTokens',
           @input='cachedTokens = $event',
           border-radius='8px',
@@ -103,7 +103,7 @@
       .km-input-label.text-text-grey {{ m.agents_cachedCost() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='cachedCost',
           @input='cachedCost = $event',
           border-radius='8px',
@@ -118,7 +118,7 @@
       .km-input-label.text-text-grey {{ m.agents_latency() }}
         km-input(
           ref='input',
-          placeholder='Type your text here',
+          :placeholder='m.common_typeYourText()',
           :model-value='latency',
           @input='latency = $event',
           border-radius='8px',

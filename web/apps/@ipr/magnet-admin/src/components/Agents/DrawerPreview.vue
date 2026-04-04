@@ -148,7 +148,7 @@ km-drawer-layout(storageKey="drawer-agents-preview", :defaultWidth="500", :maxWi
                 km-input(
                   ref='input',
                   rows='8',
-                  placeholder='Type your question here...',
+                  :placeholder='m.agents_typeYourQuestion()',
                   :model-value='userMessage',
                   @input='userMessage = $event',
                   border-radius='8px',

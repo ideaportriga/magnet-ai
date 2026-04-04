@@ -1,8 +1,8 @@
 <template>
   <kg-dialog-base
     :model-value="dialogOpen"
-    title="File Upload"
-    confirm-label="Upload"
+    :title="m.knowledgeGraph_fileUpload()"
+    :confirm-label="m.common_upload()"
     :disable-confirm="!canUpload"
     :error="error"
     size="md"
@@ -11,8 +11,8 @@
     @confirm="uploadDocument"
   >
     <kg-dialog-section
-      title="File Source"
-      description="Choose whether to upload files from your local computer or import content from a URL."
+      :title="m.knowledgeGraph_fileSource()"
+      :description="m.knowledgeGraph_fileSourceDesc()"
       icon-color="primary"
     >
       <template #header-actions>
@@ -41,7 +41,7 @@
             clearable
             counter
             bottom-slots
-            hint="Select files to upload. Drag & drop files or click to browse."
+            :hint="m.knowledgeGraph_uploadHint()"
             @rejected="onRejected"
           >
             <template #prepend>
@@ -51,9 +51,9 @@
         </div>
 
         <div v-if="uploadMode === 'url'">
-          <km-input v-model="urlInput" label="File URL" placeholder="https://example.com/file.pdf" dense @keyup.enter="uploadDocument" />
+          <km-input v-model="urlInput" :label="m.knowledgeGraph_fileUrl()" :placeholder="m.knowledgeGraph_fileUrlPlaceholder()" dense @keyup.enter="uploadDocument" />
           <div class="q-ml-12 q-mt-8 q-mb-1 km-tiny text-secondary-text">
-            Enter a direct link to a file from the web.
+            {{ m.knowledgeGraph_enterFileUrl() }}
           </div>
         </div>
       </div>
@@ -84,8 +84,8 @@ const error = ref('')
 const uploadMode = ref<'local' | 'url'>('local')
 
 const modeOptions = [
-  { label: 'Local Computer', value: 'local' },
-  { label: 'Import from URL', value: 'url' },
+  { label: m.knowledgeGraph_localComputer(), value: 'local' },
+  { label: m.knowledgeGraph_importFromUrl(), value: 'url' },
 ]
 
 // Access global uploading flag provided by Details.vue to show spinner in table
@@ -96,7 +96,7 @@ const kgDndDisabled = inject<Ref<boolean>>('kgDndDisabled')
 const kgRefreshSources = inject<() => void>('kgRefreshSources')
 
 const onRejected = () => {
-  error.value = 'Some files were not accepted. Please check file type or size.'
+  error.value = m.knowledgeGraph_filesNotAccepted()
 }
 
 // Enable/disable global DnD overlay based on dialog visibility
@@ -148,7 +148,7 @@ const canUpload = computed(() => {
 
 const uploadDocument = async () => {
   if (!canUpload.value) {
-    error.value = 'Please select a file or enter a URL'
+    error.value = m.knowledgeGraph_pleaseSelectFileOrUrl()
     return
   }
 
@@ -208,7 +208,7 @@ const uploadDocument = async () => {
     }
   } catch (err: any) {
 
-    error.value = err.message || 'Failed to upload one or more documents. Please try again.'
+    error.value = err.message || m.knowledgeGraph_failedToUpload()
   } finally {
     if (kgUploading) kgUploading.value = false
     if (kgDndDisabled) kgDndDisabled.value = false

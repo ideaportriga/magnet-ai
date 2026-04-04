@@ -58,9 +58,9 @@ const collapsed = ref<boolean[]>([])
 const getOutputMessage = () => {
   // Maintain backward compatibility, when output is a string
   if (typeof props.span?.output === 'string') {
-    return { label: 'Generated Text', content: props.span?.output ?? '' }
+    return { label: m.trace_generatedText(), content: props.span?.output ?? '' }
   }
-  return { ...(props.span?.output ?? {}), label: 'Generated Text' }
+  return { ...(props.span?.output ?? {}), label: m.trace_generatedText() }
 }
 
 // Helper for role formatting
@@ -72,9 +72,9 @@ function formatRole(value?: string) {
 // Format message
 function formatMessage(message: any): any {
   if (message?.role === 'assistant' && message?.tool_calls) {
-    return { type: 'tools', label: 'Tool Calls', content: message.tool_calls }
+    return { type: 'tools', label: m.trace_toolCalls(), content: message.tool_calls }
   } else if (message?.role === 'tool') {
-    return { type: 'text', label: 'Call Results', content: message.content }
+    return { type: 'text', label: m.trace_callResults(), content: message.content }
   } else if (message?.content) {
     return { type: 'text', label: message.label ?? message.role, content: message.content }
   }

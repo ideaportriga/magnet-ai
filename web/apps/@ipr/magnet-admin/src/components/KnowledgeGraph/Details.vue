@@ -15,7 +15,7 @@
                   <div class="kg-name-row">
                     <km-input-flat
                       class="kg-name-input km-heading-4 text-black"
-                      placeholder="Knowledge Graph Name"
+                      :placeholder="m.knowledgeGraph_namePlaceholder()"
                       :model-value="name"
                       @change="onNameChange"
                     />
@@ -23,7 +23,7 @@
                   <div class="kg-description-row">
                     <km-input-flat
                       class="kg-description-input km-description text-secondary-text"
-                      placeholder="Add a description..."
+                      :placeholder="m.knowledgeGraph_descriptionPlaceholder()"
                       :model-value="description"
                       @change="onDescriptionChange"
                     />
@@ -36,16 +36,16 @@
                 <div class="kg-system-name-section">
                   <div class="kg-system-name-label">
                     <q-icon name="o_key" size="12px" class="q-mr-xs" />
-                    <span>System ID</span>
+                    <span>{{ m.knowledgeGraph_systemId() }}</span>
                     <q-icon name="o_info" size="12px" class="kg-info-icon">
                       <q-tooltip class="bg-white block-shadow text-secondary-text km-description" self="top middle" :offset="[0, 8]">
-                        System name serves as a unique identifier for this knowledge graph
+                        {{ m.knowledgeGraph_systemNameHint() }}
                       </q-tooltip>
                     </q-icon>
                   </div>
                   <km-input-flat
                     class="kg-system-name-input km-description text-black"
-                    placeholder="enter-system-name"
+                    :placeholder="m.placeholder_enterSystemName()"
                     :model-value="systemName"
                     @change="onSystemNameChange"
                     @focus="showInfo = true"
@@ -54,7 +54,7 @@
                   <transition name="kg-fade">
                     <div v-if="showInfo" class="kg-system-name-hint">
                       <q-icon name="o_lightbulb" size="11px" />
-                      <span>Set once and avoid changing later</span>
+                      <span>{{ m.knowledgeGraph_setOnce() }}</span>
                     </div>
                   </transition>
                 </div>
@@ -62,7 +62,7 @@
                 <div class="kg-action-divider" />
 
                 <button class="test-retrieval-btn" @click="openRetrievalDrawer">
-                  <span class="btn-label">Test Retrieval</span>
+                  <span class="btn-label">{{ m.knowledgeGraph_testRetrieval() }}</span>
                   <q-icon name="arrow_forward" size="16px" class="btn-arrow" />
                 </button>
               </div>
@@ -75,10 +75,10 @@
             @click="goToSettings"
           >
             <q-icon name="o_warning" size="xs" class="q-mr-sm" />
-            <div class="text-caption text-weight-medium">No embedding model configured.</div>
+            <div class="text-caption text-weight-medium">{{ m.knowledgeGraph_noEmbeddingModel() }}</div>
             <q-space />
             <div class="row items-center q-gutter-xs text-red-8">
-              <span class="text-caption">Go to Settings</span>
+              <span class="text-caption">{{ m.common_goToSettings() }}</span>
               <q-icon name="chevron_right" size="xs" />
             </div>
           </div>
@@ -97,13 +97,13 @@
                 content-class="km-tabs"
                 @update:model-value="onTabAttemptChange"
               >
-                <q-tab name="sources" label="Sources" />
-                <q-tab name="explorer" label="Data Explorer" />
-                <q-tab name="metadata" label="Metadata Studio" :alert="metadataUnsaved" alert-color="orange-9" />
-                <q-tab name="entityExtraction" label="Entity Extraction" />
-                <q-tab name="contentProfiles" label="Content Profiles" />
-                <q-tab name="retrieval" label="Retrieval" :alert="retrievalUnsaved" alert-color="orange-9" />
-                <q-tab name="settings" label="Settings" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
+                <q-tab name="sources" :label="m.knowledgeGraph_sources()" />
+                <q-tab name="explorer" :label="m.knowledgeGraph_dataExplorer()" />
+                <q-tab name="metadata" :label="m.knowledgeGraph_metadataStudio()" :alert="metadataUnsaved" alert-color="orange-9" />
+                <q-tab name="entityExtraction" :label="m.knowledgeGraph_entityExtraction()" />
+                <q-tab name="contentProfiles" :label="m.knowledgeGraph_contentProfiles()" />
+                <q-tab name="retrieval" :label="m.knowledgeGraph_retrieval()" :alert="retrievalUnsaved" alert-color="orange-9" />
+                <q-tab name="settings" :label="m.common_settings()" :alert="!hasEmbeddingModel && !loading" alert-color="orange-9" />
               </q-tabs>
             </div>
 
@@ -183,41 +183,41 @@
       <div class="kg-dnd-icon-wrapper">
         <q-icon name="cloud_upload" class="kg-dnd-icon" />
       </div>
-      <div class="kg-dnd-title">Drop your files here</div>
-      <div class="kg-dnd-subtitle">Release to upload to this knowledge graph</div>
+      <div class="kg-dnd-title">{{ m.knowledgeGraph_dropFilesHere() }}</div>
+      <div class="kg-dnd-subtitle">{{ m.knowledgeGraph_releaseToUpload() }}</div>
     </div>
   </div>
 
   <!-- Leave Retrieval Tab Confirmation -->
   <km-popup-confirm
     :visible="showRetrievalLeaveDialog"
-    confirm-button-label="Save & Switch"
-    confirm-button-label2="Don't save"
+    :confirm-button-label="m.common_saveAndSwitch()"
+    :confirm-button-label2="m.common_dontSave()"
     confirm-button-type2="secondary"
-    cancel-button-label="Stay on Retrieval"
+    :cancel-button-label="m.knowledgeGraph_stayOnRetrieval()"
     notification-icon="fas fa-triangle-exclamation"
     @confirm="handleRetrievalSaveAndSwitch"
     @confirm2="handleRetrievalDiscard"
     @cancel="handleRetrievalStay"
   >
-    <div class="row item-center justify-center km-heading-7 q-mb-md">Unsaved Changes</div>
-    <div class="row text-center justify-center">You have unsaved changes in Retrieval. What would you like to do before switching tabs?</div>
+    <div class="row item-center justify-center km-heading-7 q-mb-md">{{ m.common_unsavedChanges() }}</div>
+    <div class="row text-center justify-center">{{ m.knowledgeGraph_unsavedRetrievalChanges() }}</div>
   </km-popup-confirm>
 
   <!-- Leave Metadata Tab Confirmation -->
   <km-popup-confirm
     :visible="showMetadataLeaveDialog"
-    confirm-button-label="Save & Switch"
-    confirm-button-label2="Don't save"
+    :confirm-button-label="m.common_saveAndSwitch()"
+    :confirm-button-label2="m.common_dontSave()"
     confirm-button-type2="secondary"
-    cancel-button-label="Stay on Metadata"
+    :cancel-button-label="m.knowledgeGraph_stayOnMetadata()"
     notification-icon="fas fa-triangle-exclamation"
     @confirm="handleMetadataSaveAndSwitch"
     @confirm2="handleMetadataDiscard"
     @cancel="handleMetadataStay"
   >
-    <div class="row item-center justify-center km-heading-7 q-mb-md">Unsaved Changes</div>
-    <div class="row text-center justify-center">You have unsaved changes in Metadata Schema. What would you like to do before switching tabs?</div>
+    <div class="row item-center justify-center km-heading-7 q-mb-md">{{ m.common_unsavedChanges() }}</div>
+    <div class="row text-center justify-center">{{ m.knowledgeGraph_unsavedMetadataChanges() }}</div>
   </km-popup-confirm>
 </template>
 
@@ -432,7 +432,7 @@ const updateGraph = async (payload: Record<string, any>) => {
     await updateGraphMutation({ id: graphId.value, data: payload })
     // TanStack Query invalidates + refetches the detail query automatically on success
   } catch (e) {
-    notifyError('Failed to save changes. Please try again.')
+    notifyError(m.knowledgeGraph_failedToSaveChanges())
   }
 }
 
@@ -574,11 +574,11 @@ const uploadFiles = async (files: File[]) => {
 
     // Show success or error notification
     if (errorCount === 0) {
-      notifySuccess(`Successfully uploaded ${successCount} file${successCount > 1 ? 's' : ''}`)
+      notifySuccess(successCount > 1 ? m.knowledgeGraph_uploadedFilesPlural({ count: String(successCount) }) : m.knowledgeGraph_uploadedFiles({ count: String(successCount) }))
     } else if (successCount > 0) {
       notifyWarning(`Uploaded ${successCount} file${successCount > 1 ? 's' : ''}, ${errorCount} failed`)
     } else {
-      notifyError(errorMessage || 'Failed to upload files. Please try again.')
+      notifyError(errorMessage || m.knowledgeGraph_failedToUploadFiles())
     }
 
     // Refresh sources, explorer, and details to reflect uploaded docs
@@ -588,7 +588,7 @@ const uploadFiles = async (files: File[]) => {
       fetchGraphDetails()
     }
   } catch (error) {
-    notifyError('Failed to upload files. Please try again.')
+    notifyError(m.knowledgeGraph_failedToUploadFiles())
   } finally {
     kgUploading.value = false
   }

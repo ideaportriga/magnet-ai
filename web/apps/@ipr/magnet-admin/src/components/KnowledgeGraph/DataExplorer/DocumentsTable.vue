@@ -29,7 +29,7 @@
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Delete</q-item-section>
+                    <q-item-section>{{ m.common_delete() }}</q-item-section>
                   </q-item>
                 </q-list>
               </q-menu>
@@ -80,28 +80,28 @@ const pagination = ref({ rowsPerPage: 10, page: 1 })
 const documentsColumns: QTableColumn<Document>[] = [
   {
     name: 'name',
-    label: 'Document',
+    label: m.common_document(),
     field: 'name',
     align: 'left',
     sortable: true,
   },
   {
     name: 'source_name',
-    label: 'Source',
+    label: m.common_source(),
     field: 'source_name',
     align: 'left',
     sortable: true,
   },
   {
     name: 'content_profile',
-    label: 'Profile',
+    label: m.common_profile(),
     field: 'content_profile',
     align: 'left',
     sortable: true,
   },
   {
     name: 'chunks_count',
-    label: 'Chunks',
+    label: m.common_chunks(),
     field: 'chunks_count',
     format: (val) => val || 0,
     align: 'right',
@@ -109,14 +109,14 @@ const documentsColumns: QTableColumn<Document>[] = [
   },
   {
     name: 'status',
-    label: 'Status',
+    label: m.common_status(),
     field: 'status',
     align: 'left',
     sortable: true,
   },
   {
     name: 'processing_time',
-    label: 'Processing Time',
+    label: m.common_processingTime(),
     field: 'processing_time',
     format: (val) => formatDuration(val && val * 1000),
     align: 'right',
@@ -124,7 +124,7 @@ const documentsColumns: QTableColumn<Document>[] = [
   },
   {
     name: 'updated_at',
-    label: 'Updated',
+    label: m.common_updated(),
     field: 'updated_at',
     format: formatRelative,
     align: 'left',
@@ -132,7 +132,7 @@ const documentsColumns: QTableColumn<Document>[] = [
   },
   {
     name: 'created_at',
-    label: 'Created',
+    label: m.common_created(),
     field: 'created_at',
     format: formatRelative,
     align: 'left',

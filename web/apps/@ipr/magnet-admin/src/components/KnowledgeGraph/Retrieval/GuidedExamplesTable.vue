@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="row justify-start items-center q-mb-sm">
-      <km-btn label="Add Example" size="sm" flat @click="openDialog(null)" />
+      <km-btn :label="m.retrieval_addExample()" size="sm" flat @click="openDialog(null)" />
     </div>
 
     <q-table
@@ -41,14 +41,14 @@
                   <q-item-section thumbnail>
                     <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
                   </q-item-section>
-                  <q-item-section>Edit</q-item-section>
+                  <q-item-section>{{ m.common_edit() }}</q-item-section>
                 </q-item>
                 <q-separator />
                 <q-item clickable @click="$emit('remove', slotProps.row.id)">
                   <q-item-section thumbnail>
                     <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                   </q-item-section>
-                  <q-item-section>Delete</q-item-section>
+                  <q-item-section>{{ m.common_delete() }}</q-item-section>
                 </q-item>
               </q-list>
             </q-menu>
@@ -59,7 +59,7 @@
       <template #no-data>
         <div>
           <q-icon name="lightbulb" size="24px" color="grey-5" class="q-mr-sm" />
-          <span class="text-grey-6">No examples yet. Add one to guide the agent's behavior.</span>
+          <span class="text-grey-6">{{ m.retrieval_noExamplesYet() }}</span>
         </div>
       </template>
     </q-table>
@@ -97,14 +97,14 @@ const columns: QTableColumn[] = [
   },
   {
     name: 'title',
-    label: 'Label',
+    label: m.retrieval_exampleLabel(),
     field: 'title',
     align: 'left',
     style: 'width: 180px',
   },
   {
     name: 'input',
-    label: 'User Message',
+    label: m.retrieval_userMessage(),
     field: 'input',
     align: 'left',
   },

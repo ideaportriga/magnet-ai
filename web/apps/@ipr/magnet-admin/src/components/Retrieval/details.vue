@@ -81,7 +81,7 @@ retrieval-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @canc
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
-import { validSystemName } from '@shared/utils/validationRules'
+import { validSystemName } from '@/utils/validationRules'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { m } from '@/paraglide/messages'
 

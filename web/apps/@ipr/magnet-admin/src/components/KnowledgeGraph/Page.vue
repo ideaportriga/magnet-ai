@@ -34,10 +34,10 @@
             <div class="row items-center justify-center q-mb-md">
               <q-icon name="o_hub" size="48px" color="primary" />
             </div>
-            <div class="km-heading-7 text-black">No knowledge graphs yet</div>
-            <div class="km-description text-black">Create a new knowledge graph to get started</div>
+            <div class="km-heading-7 text-black">{{ m.knowledgeGraph_noGraphsYet() }}</div>
+            <div class="km-description text-black">{{ m.knowledgeGraph_noGraphsYetDesc() }}</div>
             <div class="row items-center justify-center q-mt-lg">
-              <km-btn label="Create Knowledge Graph" @click="showCreateDialog = true" />
+              <km-btn :label="m.knowledgeGraph_createKnowledgeGraph()" @click="showCreateDialog = true" />
             </div>
           </div>
         </div>

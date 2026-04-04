@@ -1,9 +1,9 @@
 <template>
   <kg-dialog-base
     :model-value="showDialog"
-    :title="isNew ? 'Add Example' : 'Edit Example'"
-    subtitle="Guided example help tune how the agent retrieves and responds to questions."
-    :confirm-label="isNew ? 'Add Example' : 'Save Changes'"
+    :title="isNew ? m.retrieval_addExampleTitle() : m.retrieval_editExampleTitle()"
+    :subtitle="m.retrieval_exampleSubtitle()"
+    :confirm-label="isNew ? m.retrieval_addExample() : m.retrieval_saveChanges()"
     :disable-confirm="!isValid"
     size="md"
     @update:model-value="$emit('update:showDialog', $event)"
@@ -12,22 +12,22 @@
   >
     <!-- Example Label Section -->
     <kg-dialog-section
-      title="Example Label"
-      description="A short, descriptive name to identify this example."
+      :title="m.retrieval_exampleLabelSection()"
+      :description="m.retrieval_exampleLabelDesc()"
       icon="label"
       icon-color="blue-7"
       focus-highlight
     >
       <km-input
         v-model="form.title"
-        placeholder="e.g., Product return policy inquiry"
+        :placeholder="m.retrieval_exampleLabelPlaceholder()"
       />
     </kg-dialog-section>
 
     <!-- User Message Section -->
     <kg-dialog-section
-      title="User Message"
-      description="The question or message the user would send to the agent."
+      :title="m.retrieval_userMessageSection()"
+      :description="m.retrieval_userMessageDesc()"
       icon="chat_bubble_outline"
       icon-color="teal-7"
       focus-highlight
@@ -37,14 +37,14 @@
         type="textarea"
         autogrow
         rows="3"
-        placeholder="What does your return policy cover? Can I return items purchased online?"
+        :placeholder="m.retrieval_userMessagePlaceholder()"
       />
     </kg-dialog-section>
 
     <!-- Agent Response Section -->
     <kg-dialog-section
-      title="Agent Response"
-      description="The expected response, including proper citations and tone."
+      :title="m.retrieval_agentResponse()"
+      :description="m.retrieval_agentResponseDesc()"
       icon="smart_toy"
       icon-color="deep-purple-6"
       focus-highlight
@@ -54,7 +54,7 @@
         type="textarea"
         autogrow
         rows="4"
-        placeholder="Our return policy allows returns within 30 days of purchase for most items [1]. Online purchases can be returned either by mail or in-store [2]..."
+        :placeholder="m.retrieval_agentResponsePlaceholder()"
       />
     </kg-dialog-section>
   </kg-dialog-base>

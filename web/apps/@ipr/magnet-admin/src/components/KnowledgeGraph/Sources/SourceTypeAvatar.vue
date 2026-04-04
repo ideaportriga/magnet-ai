@@ -7,7 +7,7 @@
     clickable
     @click="!disabled && emit('select')"
   >
-    <q-badge v-if="comingSoon" color="orange-1" text-color="orange-9" label="Coming Soon" class="coming-soon-badge text-weight-medium" />
+    <q-badge v-if="comingSoon" color="orange-1" text-color="orange-9" :label="m.common_comingSoon()" class="coming-soon-badge text-weight-medium" />
     <q-card-section class="column items-center justify-center">
       <q-avatar :color="backgroundColor" square size="72px" class="border-radius-12">
         <q-img v-if="image" :src="image" width="48px" height="48px" no-spinner no-transition />

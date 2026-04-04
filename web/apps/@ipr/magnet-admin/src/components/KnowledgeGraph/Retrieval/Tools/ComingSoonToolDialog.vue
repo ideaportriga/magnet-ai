@@ -1,8 +1,8 @@
 <template>
   <kg-dialog-base
     :model-value="modelValue"
-    :title="tool?.label || 'Tool Coming Soon'"
-    confirm-label="Close"
+    :title="tool?.label || m.knowledgeGraph_toolComingSoon()"
+    :confirm-label="m.common_close()"
     cancel-label=""
     size="sm"
     @update:model-value="$emit('update:modelValue', $event)"
@@ -10,10 +10,10 @@
   >
     <div class="column items-center justify-center q-py-md text-center">
       <q-icon name="warning" color="orange-8" size="56px" class="q-mb-md" />
-      <div class="km-heading-6 text-bold text-orange-9 q-mb-xs">Coming Soon</div>
+      <div class="km-heading-6 text-bold text-orange-9 q-mb-xs">{{ m.common_comingSoon() }}</div>
       <div class="km-description km-body-lg text-secondary-text q-mt-xs">
-        <div>This tool is part of the future retrieval toolkit.</div>
-        <div class="text-weight-medium">It will not execute until support for this tool is implemented.</div>
+        <div>{{ m.knowledgeGraph_toolComingSoonDesc() }}</div>
+        <div class="text-weight-medium">{{ m.knowledgeGraph_toolComingSoonWarning() }}</div>
       </div>
     </div>
   </kg-dialog-base>

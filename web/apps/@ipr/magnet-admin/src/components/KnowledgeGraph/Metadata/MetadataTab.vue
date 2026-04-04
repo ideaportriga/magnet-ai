@@ -3,9 +3,9 @@
     <!-- Header -->
     <div class="row items-start q-col-gutter-md q-mb-md">
       <div class="col">
-        <div class="km-heading-7">Metadata Schema</div>
+        <div class="km-heading-7">{{ m.knowledgeGraph_metadataSchema() }}</div>
         <div class="km-description text-secondary-text">
-          Define, discover, and manage metadata fields across all documents in this knowledge graph
+          {{ m.knowledgeGraph_metadataSchemaDesc() }}
         </div>
       </div>
     </div>
@@ -14,12 +14,12 @@
 
     <kg-table-toolbar>
       <template #leading>
-        <km-input v-model="searchQuery" placeholder="Search all fields..." icon-before="search" clearable class="search-input" />
+        <km-input v-model="searchQuery" :placeholder="m.knowledgeGraph_searchAllFields()" icon-before="search" clearable class="search-input" />
       </template>
       <template #trailing>
         <km-btn flat size="sm" :disable="availablePresets.length === 0">
           <q-icon name="o_bookmark_add" size="22px" color="secondary" />
-          <div class="q-pl-sm km-button-sm-text">Preset</div>
+          <div class="q-pl-sm km-button-sm-text">{{ m.common_preset() }}</div>
           <q-icon name="expand_more" size="22px" class="q-pl-xs" />
           <q-menu anchor="bottom right" self="top right" :offset="[0, 4]" class="preset-dropdown-menu">
             <q-list dense class="preset-dropdown-list">
@@ -39,7 +39,7 @@
             </q-list>
           </q-menu>
         </km-btn>
-        <km-btn flat icon="refresh" label="Refresh" size="sm" @click="handleRefresh" />
+        <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" @click="handleRefresh" />
       </template>
     </kg-table-toolbar>
 
@@ -119,12 +119,12 @@
     <!-- Delete Field Definition Dialog -->
     <kg-confirm-dialog
       v-model="showDeleteFieldDialog"
-      title="Delete field definition"
+      :title="m.knowledgeGraph_deleteFieldDefinitionTitle()"
       icon="delete_outline"
-      :description="`Are you sure you want to delete the field '${deletingField?.display_name || deletingField?.name}'?`"
-      confirm-label="Delete"
+      :description="m.knowledgeGraph_deleteFieldDefinitionDesc({ name: deletingField?.display_name || deletingField?.name || '' })"
+      :confirm-label="m.common_delete()"
       destructive
-      warning="This won't delete existing metadata values, only the field definition."
+      :warning="m.knowledgeGraph_deleteFieldWarning()"
       warning-variant="info"
       @confirm="performDeleteField"
     />
@@ -132,10 +132,10 @@
     <!-- Delete Extraction Field Dialog -->
     <kg-confirm-dialog
       v-model="showDeleteExtractedFieldDialog"
-      title="Delete extraction field"
+      :title="m.knowledgeGraph_deleteExtractionFieldTitle()"
       icon="delete_outline"
-      :description="`Are you sure you want to delete the extraction field '${deletingExtractedField?.name}'?`"
-      confirm-label="Delete"
+      :description="m.knowledgeGraph_deleteExtractionFieldDesc({ name: deletingExtractedField?.name || '' })"
+      :confirm-label="m.common_delete()"
       destructive
       :loading="deleteExtractedFieldInProgress"
       @confirm="performDeleteExtractedField"
@@ -404,7 +404,7 @@ const runExtraction = async () => {
     })
 
     if (!res.ok) {
-      notifyError('Failed to start extraction')
+      notifyError(m.knowledgeGraph_failedToStartExtraction())
       return
     }
 
@@ -413,16 +413,17 @@ const runExtraction = async () => {
     const docs = Number(data?.processed_documents || 0)
     const chunks = Number(data?.processed_chunks || 0)
     const errors = Number(data?.errors || 0)
+    const errorsSuffix = errors ? m.knowledgeGraph_extractionErrorsSuffix({ count: String(errors) }) : ''
     const message =
       approach === 'chunks'
-        ? `Extraction completed: ${docs} documents updated, ${chunks} chunks processed${errors ? ` (${errors} errors)` : ''}.`
-        : `Extraction completed: ${docs} documents processed${errors ? ` (${errors} errors)` : ''}.`
+        ? m.knowledgeGraph_extractionCompletedChunks({ docs: String(docs), chunks: String(chunks), errorsSuffix })
+        : m.knowledgeGraph_extractionCompletedDocs({ docs: String(docs), errorsSuffix })
 
     notifySuccess(message)
     await fetchMetadataValues()
   } catch (error) {
 
-    notifyError('Error running extraction')
+    notifyError(m.knowledgeGraph_errorRunningExtraction())
   } finally {
     runningExtraction.value = false
   }
@@ -614,7 +615,7 @@ const saveSettings = async () => {
     })
 
     if (!res.ok) {
-      notifyError('Failed to save settings')
+      notifyError(m.knowledgeGraph_failedToSaveSettings())
       return
     }
 
@@ -627,7 +628,7 @@ const saveSettings = async () => {
     }
   } catch (error) {
 
-    notifyError('Error saving settings')
+    notifyError(m.knowledgeGraph_errorSavingSettings())
   } finally {
     saving.value = false
     // If state changed while we were saving, immediately schedule another save.
@@ -752,7 +753,7 @@ const onPromoteLinkExisting = (payload: { discovered: MetadataDiscoveredField; t
   }
 
   syncDefinitionsToValues()
-  notifySuccess(`Linked "${row.name}" to "${targetField.display_name || targetField.name}"`)
+  notifySuccess(m.knowledgeGraph_linkedFieldTo({ source: row.name, target: targetField.display_name || targetField.name }))
 }
 
 const onFieldSave = (field: MetadataFieldDefinition) => {
@@ -795,16 +796,16 @@ const onSmartExtractionFieldSave = async (field: SmartExtractionFieldDefinition)
     })
 
     if (!res.ok) {
-      notifyError('Failed to save extraction field')
+      notifyError(m.knowledgeGraph_failedToSaveExtractionField())
       return
     }
 
     showSmartExtractionFieldDialog.value = false
     await fetchExtractedFields()
-    notifySuccess('Extraction field saved')
+    notifySuccess(m.knowledgeGraph_extractionFieldSaved())
   } catch (error) {
 
-    notifyError('Error saving extraction field')
+    notifyError(m.knowledgeGraph_errorSavingExtractionField())
   }
 }
 
@@ -832,15 +833,15 @@ const performDeleteExtractedField = async () => {
       credentials: 'include',
     })
     if (!res.ok) {
-      notifyError('Failed to delete extraction field')
+      notifyError(m.knowledgeGraph_failedToDeleteExtractionField())
       return
     }
     showDeleteExtractedFieldDialog.value = false
     await fetchExtractedFields()
-    notifySuccess('Extraction field deleted')
+    notifySuccess(m.knowledgeGraph_extractionFieldDeleted())
   } catch (error) {
 
-    notifyError('Error deleting extraction field')
+    notifyError(m.knowledgeGraph_errorDeletingExtractionField())
   } finally {
     deleteExtractedFieldInProgress.value = false
   }
@@ -904,7 +905,7 @@ const addPresetField = async (preset: PresetFieldDefinition) => {
 
     } else {
       await fetchExtractedFields()
-      notifySuccess(`Added preset field "${preset.display_name || preset.name}" to schema and smart extraction`)
+      notifySuccess(m.knowledgeGraph_presetFieldAdded({ name: preset.display_name || preset.name }))
     }
   } catch (error) {
 
@@ -975,7 +976,7 @@ const quickCreateField = (row: MetadataDiscoveredField) => {
     discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== row.name)
   }
   syncDefinitionsToValues()
-  notifySuccess(`Created schema field "${field.display_name || field.name}"`)
+  notifySuccess(m.knowledgeGraph_schemaFieldCreated({ name: field.display_name || field.name }))
 }
 
 const quickReplaceField = (payload: { discovered: MetadataDiscoveredField; target: MetadataFieldDefinition }) => {
@@ -1035,7 +1036,7 @@ const quickReplaceField = (payload: { discovered: MetadataDiscoveredField; targe
     discardedFieldNames.value = discardedFieldNames.value.filter((n) => n !== row.name)
   }
   syncDefinitionsToValues()
-  notifySuccess(`Linked "${row.name}" to "${targetField.display_name || targetField.name}"`)
+  notifySuccess(m.knowledgeGraph_linkedFieldTo({ source: row.name, target: targetField.display_name || targetField.name }))
 }
 
 // Quick field creation/replacement from extraction field via drag-and-drop
@@ -1054,7 +1055,7 @@ const quickCreateFromExtraction = (extractedField: MetadataExtractedField) => {
   }
   definedFields.value.push(field)
   syncDefinitionsToValues()
-  notifySuccess(`Created schema field "${field.display_name || field.name}" from extraction field`)
+  notifySuccess(m.knowledgeGraph_schemaFieldCreatedFromExtraction({ name: field.display_name || field.name }))
 }
 
 const quickReplaceFromExtraction = (payload: { extracted: MetadataExtractedField; target: MetadataFieldDefinition }) => {
@@ -1098,7 +1099,7 @@ const quickReplaceFromExtraction = (payload: { extracted: MetadataExtractedField
   }
 
   syncDefinitionsToValues()
-  notifySuccess(`Linked extraction field "${extractedField.name}" to "${targetField.display_name || targetField.name}"`)
+  notifySuccess(m.knowledgeGraph_linkedExtractionFieldTo({ source: extractedField.name, target: targetField.display_name || targetField.name }))
 }
 
 watch(showFieldDialog, (open) => {

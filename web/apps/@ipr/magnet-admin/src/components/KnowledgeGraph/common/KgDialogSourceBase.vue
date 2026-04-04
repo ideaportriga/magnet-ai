@@ -11,13 +11,13 @@
     @cancel="$emit('cancel')"
     @confirm="onConfirm"
   >
-    <kg-dialog-section title="Source Name" description="Give this source a friendly name." icon="edit">
-      <km-input v-model="localSourceName" height="36px" placeholder="E.g., Engineering Docs" />
+    <kg-dialog-section :title="m.knowledgeGraph_sourceName()" :description="m.knowledgeGraph_sourceNameDescription()" icon="edit">
+      <km-input v-model="localSourceName" height="36px" :placeholder="m.knowledgeGraph_sourceNamePlaceholder()" />
     </kg-dialog-section>
 
     <slot />
 
-    <kg-dialog-section v-if="syncable" title="Schedule" description="Pick how often to sync and at what time." icon="event" focus-highlight>
+    <kg-dialog-section v-if="syncable" :title="m.knowledgeGraph_syncSchedule()" :description="m.knowledgeGraph_syncScheduleDescription()" icon="event" focus-highlight>
       <template #header-actions>
         <q-btn-toggle
           v-model="schedule.interval"
@@ -31,25 +31,25 @@
 
       <div class="row items-center q-gutter-x-sm q-gutter-y-sm">
         <template v-if="schedule.interval === 'none'">
-          <div class="km-description text-secondary-text" style="padding: 9px 0">Automatic syncing is turned off.</div>
+          <div class="km-description text-secondary-text" style="padding: 9px 0">{{ m.knowledgeGraph_syncOff() }}</div>
         </template>
 
         <template v-else-if="schedule.interval === 'weekly'">
           <div class="row items-center q-gap-6">
-            <div class="km-field text-secondary-text">every</div>
+            <div class="km-field text-secondary-text">{{ m.knowledgeGraph_every() }}</div>
             <km-select v-model="schedule.day" :options="days" emit-value map-options style="min-width: 190px" />
           </div>
         </template>
 
         <template v-if="schedule.interval !== 'hourly' && schedule.interval !== 'none'">
           <div class="row items-center q-gap-6">
-            <div class="km-field text-secondary-text">at</div>
+            <div class="km-field text-secondary-text">{{ m.knowledgeGraph_at() }}</div>
             <km-select v-model="schedule.hour" :options="times" emit-value map-options style="min-width: 160px" />
           </div>
         </template>
 
         <template v-else-if="schedule.interval === 'hourly'">
-          <div class="km-description text-secondary-text" style="padding: 9px 0">Runs at the start of every hour.</div>
+          <div class="km-description text-secondary-text" style="padding: 9px 0">{{ m.knowledgeGraph_syncHourlyDesc() }}</div>
         </template>
       </div>
     </kg-dialog-section>
@@ -97,20 +97,20 @@ const syncable = computed(() => props.syncable === true)
 const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
 const intervals: Option<ScheduleInterval>[] = [
-  { label: 'None', value: 'none' },
-  { label: 'Hourly', value: 'hourly' },
-  { label: 'Daily', value: 'daily' },
-  { label: 'Weekly', value: 'weekly' },
+  { label: m.common_none(), value: 'none' },
+  { label: m.jobs_hourly(), value: 'hourly' },
+  { label: m.jobs_daily(), value: 'daily' },
+  { label: m.jobs_weekly(), value: 'weekly' },
 ]
 
 const days: Option<number>[] = [
-  { label: 'Monday', value: 0 },
-  { label: 'Tuesday', value: 1 },
-  { label: 'Wednesday', value: 2 },
-  { label: 'Thursday', value: 3 },
-  { label: 'Friday', value: 4 },
-  { label: 'Saturday', value: 5 },
-  { label: 'Sunday', value: 6 },
+  { label: m.weekday_monday(), value: 0 },
+  { label: m.weekday_tuesday(), value: 1 },
+  { label: m.weekday_wednesday(), value: 2 },
+  { label: m.weekday_thursday(), value: 3 },
+  { label: m.weekday_friday(), value: 4 },
+  { label: m.weekday_saturday(), value: 5 },
+  { label: m.weekday_sunday(), value: 6 },
 ]
 
 const times: Option<number>[] = Array.from({ length: 24 }, (_, i) => {

@@ -371,7 +371,7 @@
       <q-card-actions class="q-py-lg q-pr-lg">
         <km-btn :label="dismissLabel" flat color="primary" @click="cancel" />
         <q-space v-if="!isReadonlyProfile" />
-        <km-btn v-if="!isReadonlyProfile" label="Save" @click="save" />
+        <km-btn v-if="!isReadonlyProfile" :label="m.common_save()" @click="save" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -380,7 +380,8 @@
 <script setup lang="ts">
 import router from '@/router'
 import { m } from '@/paraglide/messages'
-import { fetchData, required } from '@shared'
+import { fetchData } from '@shared'
+import { required } from '@/utils/validationRules'
 import { computed, ref, watch } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 import { useNotify } from '@/composables/useNotify'
@@ -449,7 +450,7 @@ const loadTemplates = async () => {
     }
   } catch (error) {
 
-    notifyError('Failed to load prompt templates')
+    notifyError(m.knowledgeGraph_failedToLoadPromptTemplates())
   } finally {
     loadingTemplates.value = false
   }

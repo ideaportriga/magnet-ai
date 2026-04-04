@@ -91,7 +91,7 @@ agents-create-new(v-if='showNewDialog', :showNewDialog='showNewDialog', @cancel=
 <script>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { validSystemName } from '@shared/utils/validationRules'
+import { validSystemName } from '@/utils/validationRules'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { m } from '@/paraglide/messages'
 
@@ -203,9 +203,9 @@ export default {
       this.saving = true
       try {
         await this.saveEntity()
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.agents_savedSuccessfully(), timeout: 2000 })
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
+        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || m.agents_failedToSave(), timeout: 3000 })
       } finally {
         this.saving = false
       }
@@ -213,7 +213,7 @@ export default {
     async confirmDelete() {
       await this.removeEntity()
       this.$emit('update:closeDrawer', null)
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Agent deleted successfully', timeout: 1000 })
+      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.agents_agentDeleted(), timeout: 1000 })
       this.navigate('/agents')
     },
     formatDate(date) {

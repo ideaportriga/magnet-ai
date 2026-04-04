@@ -13,7 +13,7 @@
         class="variant-group-btn q-px-8"
         @click="showStructureGuide = true"
       >
-        <q-tooltip>Prompt template is invalid</q-tooltip>
+        <q-tooltip>{{ m.knowledgeGraph_promptTemplateInvalid() }}</q-tooltip>
       </q-btn>
       <q-btn-dropdown
         flat
@@ -27,7 +27,7 @@
         <q-list class="variant-dropdown-list">
           <div class="variant-dropdown-header">
             <q-icon name="tune" size="16px" class="q-mr-sm text-secondary-text" />
-            <span>Prompt Variants</span>
+            <span>{{ m.knowledgeGraph_promptVariants() }}</span>
           </div>
           <q-separator class="q-my-xs" />
           <!-- Custom rendering to add separator after base variant -->
@@ -63,7 +63,7 @@
       <q-separator vertical color="grey-4" />
       <!-- Open prompt variant -->
       <q-btn flat dense icon="open_in_new" class="open-variant-btn variant-group-btn q-px-8" @click="$emit('open-variant')">
-        <q-tooltip>Open prompt variant</q-tooltip>
+        <q-tooltip>{{ m.knowledgeGraph_openPromptVariant() }}</q-tooltip>
       </q-btn>
     </div>
 
@@ -76,7 +76,7 @@
       class="q-px-12 km-body-sm"
       style="height: 36px"
       :loading="saving"
-      label="Save"
+      :label="m.common_save()"
       :disable="!hasUnsavedChanges"
       @click="$emit('save-current')"
     />
@@ -87,7 +87,7 @@
       split
       color="primary"
       :loading="saving"
-      :label="isBaseVariant ? 'Save as New' : 'Save'"
+      :label="isBaseVariant ? m.knowledgeGraph_saveAsNew() : m.common_save()"
       :disable="!hasUnsavedChanges"
       content-class="save-dropdown-menu"
       @click="handleSavePrimaryAction"
@@ -95,7 +95,7 @@
       <q-list class="save-dropdown-list">
         <div class="save-dropdown-header">
           <q-icon name="save_alt" size="16px" class="q-mr-sm" />
-          <span>Save Options</span>
+          <span>{{ m.knowledgeGraph_saveOptions() }}</span>
         </div>
         <q-separator class="q-my-xs" />
 
@@ -107,9 +107,9 @@
             </div>
           </q-item-section>
           <q-item-section>
-            <q-item-label class="save-label">{{ isBaseVariant ? 'Change Base Variant' : 'Save' }}</q-item-label>
+            <q-item-label class="save-label">{{ isBaseVariant ? m.knowledgeGraph_changeBaseVariant() : m.common_save() }}</q-item-label>
             <q-item-label class="save-caption">
-              {{ isBaseVariant ? 'Update the base prompt template' : 'Save changes to selected variant' }}
+              {{ isBaseVariant ? m.knowledgeGraph_updateBasePromptTemplate() : m.knowledgeGraph_saveChangesToVariant() }}
             </q-item-label>
           </q-item-section>
         </q-item>
@@ -122,8 +122,8 @@
             </div>
           </q-item-section>
           <q-item-section>
-            <q-item-label class="save-label">Save as New</q-item-label>
-            <q-item-label class="save-caption">Create a new prompt template variant</q-item-label>
+            <q-item-label class="save-label">{{ m.knowledgeGraph_saveAsNew() }}</q-item-label>
+            <q-item-label class="save-caption">{{ m.knowledgeGraph_createNewVariantCaption() }}</q-item-label>
           </q-item-section>
         </q-item>
       </q-list>
@@ -135,7 +135,7 @@
         <q-card-section>
           <div class="row items-center">
             <div class="col">
-              <div class="km-heading-7">Create New Variant</div>
+              <div class="km-heading-7">{{ m.knowledgeGraph_createNewVariant() }}</div>
             </div>
             <div class="col-auto">
               <q-btn v-close-popup icon="close" flat dense />
@@ -144,25 +144,25 @@
         </q-card-section>
 
         <q-card-section>
-          <div class="text-caption text-grey-7 q-mb-lg">Create a new prompt template variant based on your current retrieval configuration.</div>
+          <div class="text-caption text-grey-7 q-mb-lg">{{ m.knowledgeGraph_createNewVariantDesc() }}</div>
 
           <div class="column q-gutter-y-lg">
             <div>
-              <div class="km-input-label q-pb-sm">Display Name</div>
+              <div class="km-input-label q-pb-sm">{{ m.common_displayName() }}</div>
               <km-input
-                placeholder="e.g., Custom Variant 1"
+                :placeholder="m.knowledgeGraph_variantNamePlaceholder()"
                 :model-value="newVariantDisplayName"
-                :rules="[(v) => !!v || 'Display name is required']"
+                :rules="[(v) => !!v || m.knowledgeGraph_displayNameRequired()]"
                 @update:model-value="onDisplayNameChange"
               />
             </div>
 
             <div>
-              <div class="km-input-label q-pb-sm">Description</div>
+              <div class="km-input-label q-pb-sm">{{ m.common_description() }}</div>
               <km-input
                 type="textarea"
                 :rows="3"
-                placeholder="Description..."
+                :placeholder="m.common_descriptionPlaceholder()"
                 :model-value="newVariantDescription"
                 @update:model-value="newVariantDescription = $event"
               />
@@ -171,9 +171,9 @@
         </q-card-section>
 
         <q-card-actions class="q-py-lg q-px-md" align="right">
-          <km-btn v-close-popup label="Cancel" flat color="primary" />
+          <km-btn v-close-popup :label="m.common_cancel()" flat color="primary" />
           <q-space />
-          <km-btn label="Create & Save" :disable="!isValidVariantName" @click="saveAsNewVariant" />
+          <km-btn :label="m.knowledgeGraph_createAndSave()" :disable="!isValidVariantName" @click="saveAsNewVariant" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -184,7 +184,7 @@
         <q-card-section>
           <div class="row items-center">
             <div class="col row items-center q-gutter-x-sm">
-              <div class="km-heading-7">Are you sure you want to proceed?</div>
+              <div class="km-heading-7">{{ m.knowledgeGraph_confirmProceed() }}</div>
             </div>
             <div class="col-auto">
               <q-btn v-close-popup icon="close" flat dense />
@@ -194,26 +194,26 @@
 
         <q-card-section>
           <div class="text-body2 q-mb-md">
-            You are about to update the
-            <strong>Base Variant.</strong>
+            {{ m.knowledgeGraph_aboutToUpdateThe() }}
+            <strong>{{ m.knowledgeGraph_baseVariantDot() }}</strong>
           </div>
 
           <div class="bg-yellow-1 q-pa-md rounded-borders text-grey-9 q-mb-md" style="border: 1px solid var(--q-warning)">
             <div class="row items-start no-wrap">
               <q-icon name="warning" color="yellow-8" size="26px" class="q-mr-sm q-mt-xs" />
               <div class="km-body-sm" style="line-height: 1.4">
-                This change will affect
-                <strong>all knowledge graphs</strong>
-                that use the default configuration and do not have a specific variant selected.
+                {{ m.knowledgeGraph_changeWillAffect() }}
+                <strong>{{ m.knowledgeGraph_allKnowledgeGraphsLabel() }}</strong>
+                {{ m.knowledgeGraph_thatUseDefaultConfig() }}
               </div>
             </div>
           </div>
         </q-card-section>
 
         <q-card-actions class="q-py-lg q-px-md" align="right">
-          <km-btn v-close-popup label="Cancel" flat color="primary" />
+          <km-btn v-close-popup :label="m.common_cancel()" flat color="primary" />
           <q-space />
-          <km-btn v-close-popup label="Update Base Variant" @click="$emit('save-current')" />
+          <km-btn v-close-popup :label="m.knowledgeGraph_updateBaseVariant()" @click="$emit('save-current')" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -280,7 +280,7 @@ function handleSaveToCurrent() {
 
 function initializeNewVariantForm() {
   // Prefill display name with graph name + " Variant"
-  const defaultDisplayName = props.graphName ? `Variant for ${props.graphName} retrieval agent` : 'New Variant'
+  const defaultDisplayName = props.graphName ? m.knowledgeGraph_variantForGraph({ name: props.graphName }) : m.knowledgeGraph_newVariant()
   newVariantDisplayName.value = defaultDisplayName
   // Convert to snake_case for internal name
   newVariantName.value = defaultDisplayName
@@ -289,8 +289,8 @@ function initializeNewVariantForm() {
     .replace(/[^a-z0-9_]/g, '')
   // Prefill description
   newVariantDescription.value = props.graphName
-    ? `Generated from retrieval configuration of knowledge graph ${props.graphName}`
-    : 'Generated from retrieval configuration'
+    ? m.knowledgeGraph_variantDesc({ name: props.graphName })
+    : m.knowledgeGraph_variantDescDefault()
 }
 
 function onDisplayNameChange(val: string) {

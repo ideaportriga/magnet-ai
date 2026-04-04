@@ -4,8 +4,8 @@
       <q-card-section class="q-pa-lg">
         <div class="row items-center">
           <div class="col">
-            <div class="km-heading-7">Add New Source</div>
-            <div class="dialog-subtitle">Choose a source type to get started</div>
+            <div class="km-heading-7">{{ m.knowledgeGraph_addNewSource() }}</div>
+            <div class="dialog-subtitle">{{ m.knowledgeGraph_chooseSourceType() }}</div>
           </div>
           <div class="col-auto">
             <q-btn icon="close" flat dense @click="onCancel" />
@@ -18,7 +18,7 @@
       <q-card-section class="q-pb-xl q-px-xl">
         <div class="source-grid">
           <source-type-avatar
-            name="File Upload"
+            :name="m.knowledgeGraph_fileUpload()"
             icon="fas fa-upload"
             icon-color="black"
             background-color="grey-3"

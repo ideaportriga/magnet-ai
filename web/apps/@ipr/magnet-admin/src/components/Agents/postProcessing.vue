@@ -20,7 +20,7 @@ div
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
     km-select(
       height='30px',
-      placeholder='Post-process Prompt',
+      :placeholder='m.agents_postProcessPromptPlaceholder()',
       :options='promptTemplatesOptions',
       v-model='postProcessTemplate',
       hasDropdownSearch,
@@ -55,9 +55,9 @@ import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 
 const intervals = [
-  { label: '1 day', value: '1D' },
-  { label: '3 day', value: '3D' },
-  { label: '1 week', value: '7D' },
+  { label: m.agents_interval1Day(), value: '1D' },
+  { label: m.agents_interval3Days(), value: '3D' },
+  { label: m.agents_interval1Week(), value: '7D' },
 ]
 
 export default {

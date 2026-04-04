@@ -55,7 +55,8 @@ km-popup-confirm(
 <script>
 import { ref, reactive, computed } from 'vue'
 import { m } from '@/paraglide/messages'
-import { required, toUpperCaseWithUnderscores } from '@shared'
+import { toUpperCaseWithUnderscores } from '@shared'
+import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
 import { providerTypeOptions, providerEndpointHints } from '../../config/model_providers/providerTypes'

@@ -2,8 +2,8 @@
   <kg-dialog-source-base
     :show-dialog="dialogOpen"
     :source="props.source || null"
-    :title="isEditMode ? 'Edit SharePoint Connection' : 'Connect to SharePoint'"
-    :confirm-label="isEditMode ? 'Save Changes' : 'Connect'"
+    :title="isEditMode ? m.knowledgeGraph_sp_editTitle() : m.knowledgeGraph_sp_connectTitle()"
+    :confirm-label="isEditMode ? m.knowledgeGraph_saveChanges() : m.common_connect()"
     :loading="loading"
     :disable-confirm="loading || !isFormValid"
     :error="error"
@@ -14,24 +14,24 @@
     @confirm="onConfirm"
     @changed="clearError"
   >
-    <kg-dialog-section title="Connection" description="Enter the SharePoint site URL to connect. Use the full site URL." icon="link">
+    <kg-dialog-section :title="m.knowledgeGraph_sp_sectionConnectionTitle()" :description="m.knowledgeGraph_sp_sectionConnectionDesc()" icon="link">
       <km-input
         ref="siteUrlRef"
         v-model="siteUrl"
         height="36px"
-        placeholder="https://your-domain.sharepoint.com/sites/your-site"
+        :placeholder="m.knowledgeGraph_sp_siteUrlPlaceholder()"
         :rules="siteUrlRules"
         required
       />
     </kg-dialog-section>
 
-    <kg-dialog-section title="Scope" description="Optionally configure which content to sync from SharePoint." icon="folder">
+    <kg-dialog-section :title="m.knowledgeGraph_sp_sectionScopeTitle()" :description="m.knowledgeGraph_sp_sectionScopeDesc()" icon="folder">
       <q-btn-toggle
         v-model="contentType"
         :options="[
-          { label: 'Documents', value: 'documents' },
-          { label: 'Pages', value: 'pages' },
-          { label: 'Custom', value: 'custom' }
+          { label: m.knowledgeGraph_sp_toggleDocuments(), value: 'documents' },
+          { label: m.knowledgeGraph_sp_togglePages(), value: 'pages' },
+          { label: m.knowledgeGraph_sp_toggleCustom(), value: 'custom' }
         ]"
         toggle-color="primary"
         unelevated
@@ -39,28 +39,28 @@
       />
 
       <div class="q-mb-md">
-        <div class="km-input-label q-pb-xs">Library</div>
+        <div class="km-input-label q-pb-xs">{{ m.knowledgeGraph_sp_labelLibrary() }}</div>
         <km-input v-model="library" height="36px" />
       </div>
 
       <template v-if="library !== SITEPAGES_LIBRARY">
         <div class="q-mb-md">
-          <div class="km-input-label q-pb-xs">Folder Path</div>
-          <km-input v-model="folderPath" height="36px" placeholder="MyFolder/SubFolder" />
+          <div class="km-input-label q-pb-xs">{{ m.knowledgeGraph_sp_labelFolderPath() }}</div>
+          <km-input v-model="folderPath" height="36px" :placeholder="m.knowledgeGraph_sp_folderPathPlaceholder()" />
         </div>
 
         <kg-toggle-field
           v-model="includeSubfolders"
-          title="Include Subfolders"
-          description="Sync all nested folders under the selected path"
+          :title="m.knowledgeGraph_sp_includeSubfoldersTitle()"
+          :description="m.knowledgeGraph_sp_includeSubfoldersDesc()"
           class="q-mt-lg"
         />
       </template>
 
       <div v-else class="text-grey-7 text-body2">
-        <div>Will sync all pages from the SitePages library</div>
+        <div>{{ m.knowledgeGraph_sp_willSyncAllPages() }}</div>
         <div class="q-mt-sm">
-          Tip: SitePages content is processed through the SharePoint Pages content profile for `.aspx` files.
+          {{ m.knowledgeGraph_sp_sitePagesContentProfileTip() }}
         </div>
       </div>
     </kg-dialog-section>
@@ -135,8 +135,8 @@ const contentType = computed({
 const siteUrlRef = ref<any>(null)
 
 const siteUrlRules = [
-  (val: string) => !!(val && val.trim()) || 'Site URL is required',
-  (val: string) => /^https?:\/\//.test(val || '') || 'Must start with http(s)://',
+  (val: string) => !!(val && val.trim()) || m.knowledgeGraph_sp_siteUrlRequired(),
+  (val: string) => /^https?:\/\//.test(val || '') || m.knowledgeGraph_sp_siteUrlMustStartHttp(),
 ]
 
 const isFormValid = computed(() => !!siteUrl.value.trim())
@@ -202,7 +202,7 @@ async function applySchedule(sourceId: string, schedule: ScheduleFormState) {
 
   if (response.ok) return
 
-  let msg = 'Failed to update sync schedule'
+  let msg = m.knowledgeGraph_failedToUpdateSyncSchedule()
   try {
     const err = await response.json()
     msg = err?.detail || err?.error || msg
@@ -257,17 +257,17 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
           await applySchedule(result.id, schedule)
         } catch (e: any) {
           // Avoid keeping the dialog in "create" mode after the source has been created.
-          notifyError(e?.message || 'Source created, but schedule could not be saved')
+          notifyError(e?.message || m.knowledgeGraph_sourceCreatedScheduleFailed())
         }
       }
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to connect to SharePoint'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_sp_failedToConnect()
     }
   } catch (err) {
 
-    error.value = 'Failed to connect to SharePoint. Please try again.'
+    error.value = m.knowledgeGraph_sp_failedToConnectRetry()
   } finally {
     loading.value = false
   }
@@ -305,11 +305,11 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to save SharePoint source'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_sp_failedToSave()
     }
   } catch (err) {
 
-    error.value = 'Failed to save SharePoint source. Please try again.'
+    error.value = m.knowledgeGraph_sp_failedToSaveRetry()
   } finally {
     loading.value = false
   }

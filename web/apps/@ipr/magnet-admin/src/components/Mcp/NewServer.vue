@@ -34,7 +34,7 @@ km-popup-confirm(
 <script setup>
 import { ref, watch } from 'vue'
 import { m } from '@/paraglide/messages'
-import { required } from '@shared'
+import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
 const props = defineProps({

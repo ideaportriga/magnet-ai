@@ -3,8 +3,8 @@
     <div v-if="open" class="metadata-panel">
       <div class="panel-header">
         <div class="panel-header-content">
-          <span class="panel-title">Document Info</span>
-          <span v-if="totalCount > 0" class="panel-count">{{ totalCount }} fields</span>
+          <span class="panel-title">{{ m.dataExplorer_documentInfo() }}</span>
+          <span v-if="totalCount > 0" class="panel-count">{{ m.dataExplorer_fields({ count: totalCount }) }}</span>
         </div>
         <q-btn flat dense round icon="close" size="sm" class="panel-close-btn" @click="$emit('close')" />
       </div>
@@ -14,8 +14,8 @@
           <div class="empty-icon-wrapper">
             <q-icon name="label_off" size="32px" />
           </div>
-          <div class="empty-text">No information available</div>
-          <div class="empty-subtext">This document has no AI summary or metadata</div>
+          <div class="empty-text">{{ m.dataExplorer_noInformation() }}</div>
+          <div class="empty-subtext">{{ m.dataExplorer_noInformationDesc() }}</div>
         </div>
 
         <div v-else class="metadata-groups">
@@ -24,12 +24,12 @@
             <div class="group-header group-header--summary">
               <div class="row items-center q-gutter-x-sm">
                 <q-icon name="auto_awesome" size="16px" />
-                <span class="group-title">AI Summary</span>
+                <span class="group-title">{{ m.dataExplorer_aiSummary() }}</span>
               </div>
             </div>
             <div class="group-content">
               <p v-if="hasSummary" class="summary-text">{{ summary }}</p>
-              <div v-else class="text-grey-5 text-italic q-py-sm">No summary available</div>
+              <div v-else class="text-grey-5 text-italic q-py-sm">{{ m.dataExplorer_noSummary() }}</div>
             </div>
           </div>
 
@@ -38,7 +38,7 @@
             <div class="group-header group-header--file">
               <div class="row items-center q-gutter-x-sm">
                 <q-icon name="insert_drive_file" size="16px" />
-                <span class="group-title">File Properties</span>
+                <span class="group-title">{{ m.dataExplorer_fileProperties() }}</span>
               </div>
             </div>
             <div class="group-content">
@@ -46,7 +46,7 @@
                 <div class="item-key-wrapper">
                   <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
                   <q-icon v-if="isDefined(item.key)" name="check_circle" color="primary" size="14px">
-                    <q-tooltip>Defined in Metadata Schema</q-tooltip>
+                    <q-tooltip>{{ m.dataExplorer_definedInSchema() }}</q-tooltip>
                   </q-icon>
                 </div>
                 <div class="item-value">
@@ -69,14 +69,14 @@
             <div class="group-header group-header--source">
               <div class="row items-center q-gutter-x-sm">
                 <q-icon name="cloud_sync" size="16px" />
-                <span class="group-title">Source Information</span>
+                <span class="group-title">{{ m.dataExplorer_sourceInformation() }}</span>
               </div>
             </div>
             <div class="group-content">
               <div v-for="item in sourceMetadata" :key="`source:${item.key}`" class="metadata-item">
                 <div class="item-key-wrapper">
                   <q-icon v-if="isDefined(item.key)" name="fact_check" size="14px" color="primary" class="q-mr-xs">
-                    <q-tooltip>Defined in Metadata Schema</q-tooltip>
+                    <q-tooltip>{{ m.dataExplorer_definedInSchema() }}</q-tooltip>
                   </q-icon>
                   <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
                 </div>
@@ -112,7 +112,7 @@
             <div class="group-header group-header--ai">
               <div class="row items-center q-gutter-x-sm">
                 <q-icon name="psychology" size="16px" />
-                <span class="group-title">AI Extracted</span>
+                <span class="group-title">{{ m.dataExplorer_aiExtracted() }}</span>
               </div>
             </div>
             <div class="group-content">
@@ -120,7 +120,7 @@
                 <div class="item-key-wrapper">
                   <div class="item-key" :class="{ 'item-key--defined': isDefined(item.key) }">{{ item.label }}</div>
                   <q-icon v-if="isDefined(item.key)" name="check_circle" size="14px" color="primary">
-                    <q-tooltip>Defined in Metadata Schema</q-tooltip>
+                    <q-tooltip>{{ m.dataExplorer_definedInSchema() }}</q-tooltip>
                   </q-icon>
                 </div>
                 <div class="item-value">

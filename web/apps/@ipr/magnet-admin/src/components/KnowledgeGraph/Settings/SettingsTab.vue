@@ -2,13 +2,13 @@
   <div class="q-px-md">
     <div class="row items-center q-mb-md">
       <div class="col">
-        <div class="km-heading-7">Graph Settings</div>
-        <div class="km-description text-secondary-text">Configure the embedding model used for ingestion and graph building</div>
+        <div class="km-heading-7">{{ m.knowledgeGraph_graphSettings() }}</div>
+        <div class="km-description text-secondary-text">{{ m.knowledgeGraph_graphSettingsDesc() }}</div>
       </div>
       <div v-if="hasChanges" class="col-auto">
         <div class="row q-gutter-sm">
-          <km-btn label="Cancel" flat color="grey-7" @click="resetForm" />
-          <km-btn label="Save Changes" :loading="saving" :disable="!hasChanges" @click="saveSettings" />
+          <km-btn :label="m.common_cancel()" flat color="grey-7" @click="resetForm" />
+          <km-btn :label="m.common_saveChanges()" :loading="saving" :disable="!hasChanges" @click="saveSettings" />
         </div>
       </div>
     </div>
@@ -17,18 +17,18 @@
 
     <div class="q-mt-md">
       <q-form @submit="saveSettings">
-        <km-section title="Indexing" sub-title="Select the embedding model used to create vector representations of content">
+        <km-section :title="m.knowledgeGraph_indexingSection()" :sub-title="m.knowledgeGraph_indexingSectionDesc()">
           <div class="column q-gap-16">
             <div class="col">
               <div class="row items-center q-gutter-xs q-mb-xs">
-                <span class="km-input-label">Embedding model</span>
+                <span class="km-input-label">{{ m.knowledgeGraph_embeddingModelLabel() }}</span>
                 <q-icon v-if="!embeddingModel" name="o_warning" color="red" size="xs" />
               </div>
               <kg-dropdown-field
                 v-model="embeddingModel"
                 :options="embeddingModelOptions"
-                placeholder="Select embedding model"
-                no-options-label="No embedding models available"
+                :placeholder="m.knowledgeGraph_selectEmbeddingModel()"
+                :no-options-label="m.knowledgeGraph_noEmbeddingModels()"
                 option-value="system_name"
                 option-label="display_name"
                 :option-meta="formatVectorSize"
@@ -125,7 +125,7 @@ const saveSettings = async () => {
     })
 
     if (!res.ok) {
-      notifyError('Failed to save settings')
+      notifyError(m.knowledgeGraph_failedToSaveSettings())
       return
     }
 
@@ -134,7 +134,7 @@ const saveSettings = async () => {
     emit('refresh')
   } catch (error) {
 
-    notifyError('Error saving configuration')
+    notifyError(m.knowledgeGraph_errorSavingConfiguration())
   } finally {
     saving.value = false
   }

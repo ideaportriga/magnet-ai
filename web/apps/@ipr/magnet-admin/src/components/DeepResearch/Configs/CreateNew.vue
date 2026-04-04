@@ -37,7 +37,8 @@ km-popup-confirm(
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { required, toUpperCaseWithUnderscores } from '@shared'
+import { toUpperCaseWithUnderscores } from '@shared'
+import { required } from '@/utils/validationRules'
 import { useDeepResearchStore } from '@/stores/deepResearchStore'
 import { useNotify } from '@/composables/useNotify'
 

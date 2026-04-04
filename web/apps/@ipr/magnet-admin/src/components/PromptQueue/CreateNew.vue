@@ -38,7 +38,8 @@ km-popup-confirm(
 <script setup>
 import { ref, watch } from 'vue'
 import { m } from '@/paraglide/messages'
-import { required, toUpperCaseWithUnderscores } from '@shared'
+import { toUpperCaseWithUnderscores } from '@shared'
+import { required } from '@/utils/validationRules'
 import { usePromptQueueStore } from '@/stores/promptQueueStore'
 import { useNotify } from '@/composables/useNotify'
 

@@ -1,9 +1,9 @@
 <template>
   <kg-dialog-base
     :model-value="modelValue"
-    :title="isEditing ? 'Edit Entity' : 'New Entity'"
-    :subtitle="isEditing ? `Configure the '${form.name || 'Untitled'}' entity definition` : 'Define a new entity type to extract from your documents'"
-    confirm-label="Save"
+    :title="isEditing ? m.knowledgeGraph_editEntity() : m.knowledgeGraph_newEntity()"
+    :subtitle="isEditing ? m.knowledgeGraph_configureEntitySubtitle({ name: form.name || m.knowledgeGraph_unnamed() }) : m.knowledgeGraph_defineNewEntitySubtitle()"
+    :confirm-label="m.common_save()"
     :loading="loading"
     size="lg"
     max-height="85vh"
@@ -13,21 +13,21 @@
   >
     <!-- Entity Info Section -->
     <kg-dialog-section
-      title="Entity Information"
-      description="Give this entity a name and describe what it represents in your documents."
+      :title="m.knowledgeGraph_entityInformation()"
+      :description="m.knowledgeGraph_entityInfoDesc()"
       icon="o_category"
       icon-color="primary"
     >
       <div class="column q-gap-16">
-        <kg-field-row :cols="1" label="Entity Name">
-          <km-input v-model="form.name" outlined dense placeholder="e.g. Product, Person, Error Code" />
+        <kg-field-row :cols="1" :label="m.knowledgeGraph_entityNameLabel()">
+          <km-input v-model="form.name" outlined dense :placeholder="m.knowledgeGraph_entityNamePlaceholder()" />
         </kg-field-row>
-        <kg-field-row :cols="1" label="Description">
+        <kg-field-row :cols="1" :label="m.common_description()">
           <km-input
             v-model="form.description"
             outlined
             dense
-            placeholder="Describe what this entity represents..."
+            :placeholder="m.knowledgeGraph_entityDescPlaceholder()"
             type="textarea"
             autogrow
             :input-style="{ minHeight: '72px', maxHeight: '140px' }"
@@ -91,29 +91,29 @@ const validationErrors = computed(() => {
   const normalizedEntityName = form.name.trim().toLowerCase()
 
   if (!form.name.trim()) {
-    errors.push('Entity name is required')
+    errors.push(m.knowledgeGraph_entityNameRequired())
   } else if ((props.existingEntityNames || []).some((name) => name.trim().toLowerCase() === normalizedEntityName)) {
-    errors.push('Entity name must be unique')
+    errors.push(m.knowledgeGraph_entityNameMustBeUnique())
   }
 
   if (form.columns.length === 0) {
-    errors.push('At least one column is required')
+    errors.push(m.knowledgeGraph_atLeastOneColumn())
   } else {
     const hasInvalidColumn = form.columns.some((col) => !col.name.trim() || !col.type)
     if (hasInvalidColumn) {
-      errors.push('All columns must have a name and type')
+      errors.push(m.knowledgeGraph_allColumnsMustHaveType())
     }
 
     const normalizedColumnNames = form.columns
       .map((col) => col.name.trim().toLowerCase())
       .filter(Boolean)
     if (normalizedColumnNames.length !== new Set(normalizedColumnNames).size) {
-      errors.push('Column names must be unique within an entity')
+      errors.push(m.knowledgeGraph_columnNamesMustBeUnique())
     }
 
     const identifierCount = form.columns.filter((col) => col.is_identifier).length
     if (identifierCount !== 1) {
-      errors.push('Exactly one column must be marked as identifier')
+      errors.push(m.knowledgeGraph_exactlyOneIdentifier())
     }
   }
   return errors

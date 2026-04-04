@@ -10,8 +10,8 @@
           unelevated
           toggle-color="primary"
           :options="[
-            { label: 'TOC', value: 'toc' },
-            { label: `Chunks (${document?.chunks_count || chunks.length})`, value: 'chunks' },
+            { label: m.dataExplorer_tocTab(), value: 'toc' },
+            { label: m.dataExplorer_chunksTab({ count: document?.chunks_count || chunks.length }), value: 'chunks' },
           ]"
           class="nav-tabs-toggle"
         />
@@ -19,7 +19,7 @@
 
       <!-- Search -->
       <div class="nav-search">
-        <km-input v-model="treeFilter" placeholder="Filter..." icon-before="search" clearable dense />
+        <km-input v-model="treeFilter" :placeholder="m.common_filter()" icon-before="search" clearable dense />
       </div>
 
       <!-- TOC / Chunks List -->
@@ -30,7 +30,7 @@
           </div>
           <template v-else-if="hasToc">
             <div class="nav-list-actions">
-              <km-btn flat size="sm" color="primary" :label="isAllExpanded ? 'Collapse all' : 'Expand all'" @click="toggleExpandCollapseAll" />
+              <km-btn flat size="sm" color="primary" :label="isAllExpanded ? m.dataExplorer_collapseAll() : m.dataExplorer_expandAll()" @click="toggleExpandCollapseAll" />
             </div>
             <q-tree
               v-model:expanded="expandedKeys"
@@ -60,7 +60,7 @@
           </template>
           <div v-else class="nav-empty">
             <q-icon name="folder_off" size="28px" color="grey-5" />
-            <span class="text-grey-6 km-description">No table of contents</span>
+            <span class="text-grey-6 km-description">{{ m.dataExplorer_noToc() }}</span>
           </div>
         </template>
 
@@ -70,7 +70,7 @@
           </div>
           <div v-else-if="filteredChunks.length === 0" class="nav-empty">
             <q-icon name="layers" size="28px" color="grey-5" />
-            <span class="text-grey-6 km-description">{{ chunks.length === 0 ? 'No chunks' : 'No matches' }}</span>
+            <span class="text-grey-6 km-description">{{ chunks.length === 0 ? m.dataExplorer_noChunks() : m.dataExplorer_noMatches() }}</span>
           </div>
           <div v-else class="chunks-nav-list">
             <div
@@ -83,7 +83,7 @@
             >
               <span class="chunk-nav-index">{{ idx + 1 }}</span>
               <q-icon :name="getIconForChunk(ch)" size="16px" class="chunk-nav-icon" />
-              <span class="chunk-nav-title">{{ ch.title || ch.name || 'Chunk' }}</span>
+              <span class="chunk-nav-title">{{ ch.title || ch.name || m.dataExplorer_chunkDefault() }}</span>
               <q-badge v-if="ch.page" color="grey-4" text-color="grey-8" class="chunk-nav-badge">{{ ch.page }}</q-badge>
             </div>
           </div>
@@ -99,7 +99,7 @@
           <div class="doc-header-left">
             <div class="doc-header-info">
               <div class="doc-header-title-row">
-                <div class="doc-header-title km-heading-5">{{ document?.title || document?.name || 'Document' }}</div>
+                <div class="doc-header-title km-heading-5">{{ document?.title || document?.name || m.common_document() }}</div>
                 <km-btn
                   v-if="document?.external_link"
                   flat
@@ -123,7 +123,7 @@
               class="metadata-toggle-btn"
               @click="metadataPanelOpen = !metadataPanelOpen"
             >
-              <q-tooltip>Document Info</q-tooltip>
+              <q-tooltip>{{ m.dataExplorer_documentInfo() }}</q-tooltip>
             </q-btn>
           </div>
         </div>
@@ -143,9 +143,9 @@
           >
             <div class="section-header section-header--chunk" @click="onChunkHeaderClick(chunk)">
               <span class="chunk-index-badge">{{ index + 1 }}</span>
-              <span class="section-title">{{ chunk.title || chunk.name || 'Chunk Content' }}</span>
+              <span class="section-title">{{ chunk.title || chunk.name || m.dataExplorer_chunkContent() }}</span>
               <q-space />
-              <q-badge v-if="chunk.page" color="secondary" text-color="white" class="chunk-page-badge">Page {{ chunk.page }}</q-badge>
+              <q-badge v-if="chunk.page" color="secondary" text-color="white" class="chunk-page-badge">{{ m.dataExplorer_page() }} {{ chunk.page }}</q-badge>
             </div>
             <div class="section-body section-body--chunk">
               <div class="chunk-content-wrapper">
@@ -159,8 +159,8 @@
         <div v-else-if="!loading" class="doc-section doc-section--empty">
           <div class="empty-placeholder">
             <q-icon name="layers" size="40px" color="grey-4" />
-            <div class="km-heading-7 text-grey-6 q-mt-md">No chunks available</div>
-            <div class="km-description text-grey-5">This document has no content chunks</div>
+            <div class="km-heading-7 text-grey-6 q-mt-md">{{ m.dataExplorer_noChunksAvailable() }}</div>
+            <div class="km-description text-grey-5">{{ m.dataExplorer_noChunksDesc() }}</div>
           </div>
         </div>
 
@@ -168,7 +168,7 @@
         <div v-else class="doc-section doc-section--empty">
           <div class="empty-placeholder">
             <q-spinner size="40px" color="primary" />
-            <div class="km-heading-7 text-grey-6 q-mt-md">Loading chunks...</div>
+            <div class="km-heading-7 text-grey-6 q-mt-md">{{ m.dataExplorer_loadingChunks() }}</div>
           </div>
         </div>
       </div>
@@ -474,11 +474,11 @@ const treeNodes = computed<TreeNode[]>(() => {
   if (orphanChunks.length) {
     nodes.push({
       id: 'group-uncategorized',
-      label: 'Uncategorized',
+      label: m.dataExplorer_uncategorized(),
       type: 'group',
       children: orphanChunks
         .sort((a, b) => (a.page || 0) - (b.page || 0))
-        .map((ch) => ({ id: `chunk-${ch.id}`, label: ch.title || ch.name || 'Chunk', type: 'chunk', chunk: ch })),
+        .map((ch) => ({ id: `chunk-${ch.id}`, label: ch.title || ch.name || m.dataExplorer_chunkDefault(), type: 'chunk', chunk: ch })),
     })
   }
 

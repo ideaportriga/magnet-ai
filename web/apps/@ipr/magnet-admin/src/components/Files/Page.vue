@@ -7,7 +7,7 @@
       .row.q-gap-16.q-mb-16(v-if="stats")
         .col
           .border.border-radius-12.bg-white.ba-border.q-pa-16
-            .text-caption.text-grey-7 Total files
+            .text-caption.text-grey-7 {{ m.files_totalFiles() }}
             .text-h6 {{ stats.total_files }}
             .text-caption.text-grey-7 {{ formatBytes(stats.total_size) }}
         .col(v-for="item in stats.by_entity_type", :key="item.entity_type")
@@ -24,7 +24,7 @@
               q-icon(name="fas fa-hard-drive", size="16px", color="grey-7")
               .text-caption.text-grey-7 {{ item.backend_key }}
               q-space
-              .text-body2 {{ item.count }} files
+              .text-body2 {{ m.files_filesCount({ count: String(item.count) }) }}
               .text-caption.text-grey-7.q-ml-8 {{ formatBytes(item.total_size) }}
 
       //- Files table
@@ -34,7 +34,7 @@
           q-select.q-mr-12(
             v-model="filterEntityType",
             :options="entityTypeOptions",
-            label="Entity type",
+            :label="m.files_entityType()",
             clearable,
             dense,
             outlined,
@@ -45,7 +45,7 @@
           q-select(
             v-model="filterBackend",
             :options="backendOptions",
-            label="Backend",
+            :label="m.files_backend()",
             clearable,
             dense,
             outlined,
@@ -56,7 +56,7 @@
           q-space
           km-btn(
             icon="refresh",
-            label="Refresh",
+            :label="m.common_refresh()",
             @click="onRefresh",
             iconColor="icon",
             hoverColor="primary",
@@ -88,7 +88,7 @@
                   iconColor="icon",
                   hoverColor="primary",
                   hoverBg="primary-bg",
-                  tooltip="Download",
+                  :tooltip="m.common_download()",
                   @click.stop="downloadFile(row)"
                 )
                 km-btn(
@@ -100,7 +100,7 @@
                   iconColor="icon",
                   hoverColor="negative",
                   hoverBg="negative-bg",
-                  tooltip="Delete",
+                  :tooltip="m.common_delete()",
                   @click.stop="confirmDelete(row)"
                 )
 
@@ -108,14 +108,14 @@
   q-dialog(v-model="showDeleteDialog")
     q-card(style="min-width: 350px")
       q-card-section
-        .text-h6 Delete file
+        .text-h6 {{ m.files_deleteFile() }}
       q-card-section.q-pt-none
-        | Are you sure you want to delete&nbsp;
+        | {{ m.files_deleteFileConfirm() }}&nbsp;
         strong {{ fileToDelete?.filename }}
         | ?
       q-card-actions(align="right")
-        q-btn(flat, label="Cancel", @click="showDeleteDialog = false")
-        q-btn(flat, label="Delete", color="negative", @click="deleteFile")
+        q-btn(flat, :label="m.common_cancel()", @click="showDeleteDialog = false")
+        q-btn(flat, :label="m.common_delete()", color="negative", @click="deleteFile")
 </template>
 
 <script setup lang="ts">
@@ -169,14 +169,14 @@ const extraParams = computed(() => {
 
 // Table columns
 const columns = [
-  textColumn<StoredFile>('filename', 'Filename'),
-  textColumn<StoredFile>('size', 'Size', { align: 'right' }),
-  textColumn<StoredFile>('entity_type', 'Entity type'),
+  textColumn<StoredFile>('filename', m.files_filename()),
+  textColumn<StoredFile>('size', m.files_size(), { align: 'right' }),
+  textColumn<StoredFile>('entity_type', m.files_entityType()),
   dateColumn<StoredFile>('created_at', m.common_created()),
   {
     id: 'expires_at',
     accessorKey: 'expires_at',
-    header: 'Expires',
+    header: m.files_expires(),
     enableSorting: false,
     meta: { align: 'left' as const },
   },
@@ -236,7 +236,7 @@ async function downloadFile(row: StoredFile) {
     a.click()
     URL.revokeObjectURL(objectUrl)
   } catch (e: any) {
-    notifyError(`Download failed: ${e.message || e}`)
+    notifyError(m.files_downloadFailed({ error: e.message || String(e) }))
   }
 }
 
@@ -275,10 +275,10 @@ function formatTTL(isoStr: string) {
   if (!isoStr) return ''
   const diff = DateTime.fromISO(isoStr).diffNow(['hours', 'minutes'])
   const h = Math.floor(diff.hours)
-  const m = Math.floor(diff.minutes % 60)
-  if (h < 0 || (h === 0 && m < 0)) return 'expired'
-  if (h === 0) return `${m}m`
-  return `${h}h ${m}m`
+  const mins = Math.floor(diff.minutes % 60)
+  if (h < 0 || (h === 0 && mins < 0)) return m.files_expired()
+  if (h === 0) return `${mins}m`
+  return `${h}h ${mins}m`
 }
 
 function isExpiringSoon(isoStr: string) {

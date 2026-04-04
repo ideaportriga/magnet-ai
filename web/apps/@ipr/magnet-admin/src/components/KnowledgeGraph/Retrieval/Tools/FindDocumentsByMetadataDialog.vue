@@ -2,7 +2,7 @@
   <kg-dialog-base
     :model-value="modelValue"
     :title="localTool?.label"
-    confirm-label="Apply"
+    :confirm-label="m.common_apply()"
     size="md"
     @update:model-value="$emit('update:modelValue', $event)"
     @cancel="$emit('update:modelValue', false)"
@@ -11,14 +11,14 @@
     <!-- Tool Description -->
     <kg-prompt-section
       v-model="localTool.description"
-      title="Tool Description"
-      description="Explain when the agent should use this tool. This description will be used to generate a prompt for the agent."
+      :title="m.retrieval_toolDescription()"
+      :description="m.retrieval_toolDescriptionHint()"
     />
 
     <!-- Search Settings Section -->
     <kg-dialog-section
-      title="Search Control"
-      description="Select the control mode for metadata filtering. This determines whether the agent, the caller, or both specify filter criteria."
+      :title="m.retrieval_searchControl()"
+      :description="m.retrieval_searchControlDesc()"
       icon="tune"
       icon-color="teal-7"
     >
@@ -34,7 +34,7 @@
 
         <!-- Merge Strategy - only shown for 'collaborative' mode -->
         <div v-if="localTool.searchControl === 'collaborative'" class="merge-strategy-section">
-          <div class="km-input-label q-pb-sm">Conflict resolution (Agent vs External)</div>
+          <div class="km-input-label q-pb-sm">{{ m.retrieval_conflictResolution() }}</div>
           <km-select v-model="localTool.filterMergeStrategy" :options="mergeStrategyOptions" emit-value map-options />
         </div>
       </div>
@@ -60,16 +60,16 @@ const emit = defineEmits<{
 const localTool = ref<any>(null)
 
 const searchControlOptions: ControlOption[] = [
-  { label: 'Agent Controls', value: 'agent' },
-  { label: 'Collaborative', value: 'collaborative' },
-  { label: 'External Control', value: 'external' },
+  { label: m.retrieval_agentControls(), value: 'agent' },
+  { label: m.retrieval_collaborative(), value: 'collaborative' },
+  { label: m.retrieval_externalControl(), value: 'external' },
 ]
 
 const mergeStrategyOptions = [
-  { label: 'Merge filters (AND)', value: 'merge_and' },
-  { label: 'Merge filters (OR)', value: 'merge_or' },
-  { label: 'Agent takes priority', value: 'agent_priority' },
-  { label: 'External takes priority', value: 'external_priority' },
+  { label: m.retrieval_mergeAnd(), value: 'merge_and' },
+  { label: m.retrieval_mergeOr(), value: 'merge_or' },
+  { label: m.retrieval_agentPriority(), value: 'agent_priority' },
+  { label: m.retrieval_externalPriority(), value: 'external_priority' },
 ]
 
 const controlModeDescription = computed(() => {

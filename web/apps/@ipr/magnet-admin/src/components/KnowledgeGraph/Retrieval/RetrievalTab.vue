@@ -3,9 +3,9 @@
     <!-- Header with Prompt Controls -->
     <div class="row items-center q-mb-md">
       <div class="col">
-        <div class="km-heading-7">Retrieval Agent Configuration</div>
+        <div class="km-heading-7">{{ m.retrieval_agentConfiguration() }}</div>
         <div class="km-description text-secondary-text">
-          Configure the ReAct instructions, tools, generation parameters, and guided examples to tune retrieval agent behavior
+          {{ m.retrieval_agentConfigurationDesc() }}
         </div>
       </div>
       <div class="col-auto">
@@ -31,19 +31,19 @@
 
     <q-form class="column q-gap-32" @submit.prevent="saveToCurrentVariant">
       <!-- Agent Prompt Cards -->
-      <km-section title="Prompt Configuration" sub-title="Customize ReAct prompt sections to adjust agent behavior">
+      <km-section :title="m.retrieval_promptConfiguration()" :sub-title="m.retrieval_promptConfigurationDesc()">
         <div class="column q-gutter-y-sm">
           <kg-expandable-prompt
             v-model="persona"
-            title="Agent Identity"
-            description="Define the agent's role and capabilities"
+            :title="m.retrieval_agentIdentity()"
+            :description="m.retrieval_agentIdentityDesc()"
             placeholder="You are an advanced ReAct agent..."
             @update:model-value="markAsChanged"
           />
           <kg-expandable-prompt
             v-model="instructions"
-            title="ReAct Instructions"
-            description="Operational rules and workflows"
+            :title="m.retrieval_reactInstructions()"
+            :description="m.retrieval_reactInstructionsDesc()"
             placeholder="## ReAct Instructions..."
             @update:model-value="markAsChanged"
           />
@@ -51,7 +51,7 @@
       </km-section>
 
       <!-- Document Filtering Tools -->
-      <km-section title="Document Filtering Tools" sub-title="Pre-filter documents before chunk retrieval" class="retrieval-section">
+      <km-section :title="m.retrieval_filteringTools()" :sub-title="m.retrieval_filteringToolsDesc()" class="retrieval-section">
         <div class="column q-gap-8">
           <tool-section
             v-for="tool in filterTools"
@@ -62,7 +62,7 @@
             variant="search"
             :label="tool.label"
             :description="tool.description"
-            :badge="tool.isStub ? 'Coming Soon' : ''"
+            :badge="tool.isStub ? m.common_comingSoon() : ''"
             :disabled="!tool.enabled || tool.isStub"
             :show-toggle="true"
             :enabled="tool.enabled"
@@ -76,8 +76,8 @@
               <!-- Other filter tools show search method, score, limit -->
               <template v-else>
                 <tool-stat icon="search" :label="getSearchMethodLabel(tool.searchMethod)" />
-                <tool-stat icon="tune" :label="`Min score ${((tool.scoreThreshold || 0) * 100).toFixed(0)}%`" />
-                <tool-stat icon="format_list_numbered" :label="`Limit ${tool.limit}`" />
+                <tool-stat icon="tune" :label="m.retrieval_minScore({ value: ((tool.scoreThreshold || 0) * 100).toFixed(0) })" />
+                <tool-stat icon="format_list_numbered" :label="m.retrieval_limit({ value: tool.limit })" />
               </template>
             </template>
           </tool-section>
@@ -85,7 +85,7 @@
       </km-section>
 
       <!-- Chunk Retrieval Tools -->
-      <km-section title="Chunk Retrieval Tools" sub-title="Search for specific information within the knowledge graph">
+      <km-section :title="m.retrieval_chunkRetrievalTools()" :sub-title="m.retrieval_chunkRetrievalToolsDesc()">
         <div class="column q-gap-8">
           <tool-section
             v-for="tool in retrievalTools"
@@ -103,15 +103,15 @@
           >
             <template #stats>
               <tool-stat icon="search" :label="getSearchMethodLabel(tool.searchMethod)" />
-              <tool-stat icon="tune" :label="`Min score ${((tool.scoreThreshold || 0) * 100).toFixed(0)}%`" />
-              <tool-stat icon="format_list_numbered" :label="`Limit ${tool.limit}`" />
+              <tool-stat icon="tune" :label="m.retrieval_minScore({ value: ((tool.scoreThreshold || 0) * 100).toFixed(0) })" />
+              <tool-stat icon="format_list_numbered" :label="m.retrieval_limit({ value: tool.limit })" />
             </template>
           </tool-section>
         </div>
       </km-section>
 
       <!-- Loop Termination (Exit Tool) -->
-      <km-section title="Loop Termination" sub-title="Configure when the agent should exit the agent's loop and deliver the final answer">
+      <km-section :title="m.retrieval_loopTermination()" :sub-title="m.retrieval_loopTerminationDesc()">
         <tool-section
           v-if="exitTool"
           icon="logout"
@@ -124,7 +124,7 @@
         >
           <template #stats>
             <tool-stat :icon="getStrategyIcon(exitTool.strategy)" :label="getStrategyLabel(exitTool.strategy)" />
-            <tool-stat icon="repeat" :label="`Max ${exitTool.maxIterations} iterations`" />
+            <tool-stat icon="repeat" :label="m.retrieval_maxIterationsValue({ value: exitTool.maxIterations })" />
             <tool-stat icon="description" :label="getOutputFormatLabel(exitTool.outputFormat)" />
             <tool-stat icon="output" :label="getAnswerModeLabel(exitTool.answerMode)" />
           </template>
@@ -132,21 +132,21 @@
       </km-section>
 
       <!-- Generation Parameters -->
-      <km-section title="Generation Settings" sub-title="Configure the language model and sampling parameters for response generation">
+      <km-section :title="m.retrieval_generationSettings()" :sub-title="m.retrieval_generationSettingsDesc()">
         <div class="row q-col-gutter-x-xl">
           <!-- Model Selection -->
           <div class="col-6">
             <div class="row items-center q-gutter-xs q-mb-xs">
-              <span class="km-input-label">Language Model</span>
+              <span class="km-input-label">{{ m.retrieval_languageModel() }}</span>
               <q-icon v-if="!model" name="o_info" color="grey-6" size="xs">
-                <q-tooltip class="text-body2">Select an LLM to generate responses</q-tooltip>
+                <q-tooltip class="text-body2">{{ m.retrieval_selectLlmTooltip() }}</q-tooltip>
               </q-icon>
             </div>
             <kg-dropdown-field
               v-model="model"
               :options="availableModels"
-              placeholder="Select language model"
-              no-options-label="No language models available"
+              :placeholder="m.retrieval_selectLanguageModel()"
+              :no-options-label="m.retrieval_noLanguageModels()"
               option-value="value"
               option-label="label"
               :option-meta="formatModelPrice"
@@ -157,10 +157,10 @@
             <!-- Reasoning Effort -->
             <div class="q-mt-md">
               <div class="row items-center q-gutter-xs q-mb-xs">
-                <span class="km-input-label text-grey-6">Reasoning Effort</span>
-                <q-badge color="orange-1" text-color="orange-9" label="Coming Soon" class="text-weight-medium" />
+                <span class="km-input-label text-grey-6">{{ m.retrieval_reasoningEffort() }}</span>
+                <q-badge color="orange-1" text-color="orange-9" :label="m.common_comingSoon()" class="text-weight-medium" />
               </div>
-              <kg-dropdown-field model-value="" :options="reasoningEffortOptions" placeholder="Select reasoning effort" :disable="true" />
+              <kg-dropdown-field model-value="" :options="reasoningEffortOptions" :placeholder="m.retrieval_selectReasoningEffort()" :disable="true" />
             </div>
           </div>
 
@@ -169,7 +169,7 @@
             <div class="column q-col-gutter-lg">
               <div class="col-12 col-md-6">
                 <div class="row items-center justify-between q-mb-6">
-                  <div class="km-input-label">Temperature</div>
+                  <div class="km-input-label">{{ m.evaluation_temperature() }}</div>
                   <div class="param-value">{{ temperature.toFixed(2) }}</div>
                 </div>
                 <q-slider
@@ -185,7 +185,7 @@
               </div>
               <div class="col-12 col-md-6">
                 <div class="row items-center justify-between q-mb-6">
-                  <div class="km-input-label">Top P (Nucleus Sampling)</div>
+                  <div class="km-input-label">{{ m.retrieval_topPNucleus() }}</div>
                   <div class="param-value">{{ topP.toFixed(2) }}</div>
                 </div>
                 <q-slider
@@ -205,7 +205,7 @@
       </km-section>
 
       <!-- Guided Examples -->
-      <km-section title="Guided Examples" sub-title="Capture concrete examples to guide retrieval agent behavior in different scenarios">
+      <km-section :title="m.retrieval_guidedExamples()" :sub-title="m.retrieval_guidedExamplesDesc()">
         <guided-examples-table :examples="examples" @save="saveExample" @remove="removeExample" />
       </km-section>
     </q-form>
@@ -216,18 +216,18 @@
     <!-- Unsaved Changes Variant Switch Warning -->
     <km-popup-confirm
       :visible="showVariantWarning"
-      confirm-button-label="Save & Switch"
-      confirm-button-label2="Discard & Switch"
+      :confirm-button-label="m.retrieval_saveAndSwitch()"
+      :confirm-button-label2="m.retrieval_discardAndSwitch()"
       confirm-button-type2="secondary"
-      cancel-button-label="Cancel"
+      :cancel-button-label="m.common_cancel()"
       notification-icon="fas fa-triangle-exclamation"
       :loading="saving"
       @confirm="saveAndSwitchVariant"
       @confirm2="discardAndSwitchVariant"
       @cancel="cancelVariantSwitch"
     >
-      <div class="row item-center justify-center km-heading-7 q-mb-md">Unsaved Changes</div>
-      <div class="row text-center justify-center">You have unsaved changes. Switching variants will discard them. What would you like to do?</div>
+      <div class="row item-center justify-center km-heading-7 q-mb-md">{{ m.retrieval_unsavedChanges() }}</div>
+      <div class="row text-center justify-center">{{ m.retrieval_unsavedChangesDesc() }}</div>
     </km-popup-confirm>
   </div>
 </template>
@@ -323,26 +323,26 @@ const getSearchMethodLabel = (value?: string) => {
 
 const getOutputFormatLabel = (value?: string) => {
   const map: Record<string, string> = {
-    markdown: 'Markdown',
-    plain: 'Plain Text',
+    markdown: m.retrieval_outputMarkdown(),
+    plain: m.retrieval_outputPlainText(),
   }
-  return value ? map[value] || value : 'Markdown'
+  return value ? map[value] || value : m.retrieval_outputMarkdown()
 }
 
 const getAnswerModeLabel = (value?: string) => {
   const map: Record<string, string> = {
-    answer_only: 'Answer Only',
-    sources_only: 'Sources Only',
-    answer_with_sources: 'Answer + Sources',
+    answer_only: m.retrieval_answerOnly(),
+    sources_only: m.retrieval_sourcesOnly(),
+    answer_with_sources: m.retrieval_answerWithSources(),
   }
-  return value ? map[value] || value : 'Answer + Sources'
+  return value ? map[value] || value : m.retrieval_answerWithSources()
 }
 
 const getStrategyLabel = (value?: string) => {
-  if (value === 'confidence') return 'Confidence-based'
-  if (value === 'exhaustive') return 'Exhaustive'
-  if (value === 'efficient') return 'Efficient'
-  return value || 'Confidence-based'
+  if (value === 'confidence') return m.retrieval_confidenceBased()
+  if (value === 'exhaustive') return m.retrieval_exhaustive()
+  if (value === 'efficient') return m.retrieval_efficient()
+  return value || m.retrieval_confidenceBased()
 }
 
 const getStrategyIcon = (value?: string) => {
@@ -419,8 +419,8 @@ const availableVariants = computed(() => {
     for (const v of promptTemplate.value.variants) {
       variants.push({
         name: v.variant,
-        label: v.display_name || (v.variant === BASE_VARIANT_NAME ? 'Base Variant' : v.variant),
-        description: v.description || (v.variant === BASE_VARIANT_NAME ? 'Default configuration' : 'Custom variant'),
+        label: v.display_name || (v.variant === BASE_VARIANT_NAME ? m.knowledgeGraph_baseVariantLabel() : v.variant),
+        description: v.description || (v.variant === BASE_VARIANT_NAME ? m.knowledgeGraph_defaultConfiguration() : m.knowledgeGraph_customVariant()),
       })
     }
   }
@@ -597,13 +597,13 @@ function loadPromptTemplate() {
       validationErrors.value = [
         {
           type: 'not_found',
-          message: `Prompt template "${PROMPT_SYSTEM_NAME}" not found. Using default configuration.`,
+          message: m.knowledgeGraph_defaultConfiguration(),
         },
       ]
     }
   } catch (error) {
 
-    notifyError('Failed to load prompt template')
+    notifyError(m.knowledgeGraph_failedToLoadPromptTemplate())
   } finally {
     loading.value = false
     resetChangeTracking(false)
@@ -663,7 +663,7 @@ async function saveToCurrentVariant() {
     if (!variantResult.success || !variantResult.data) {
       validationErrors.value = variantResult.errors
 
-      notifyError('Failed to generate prompt. Check validation errors.')
+      notifyError(m.knowledgeGraph_failedToGeneratePrompt())
       return
     }
 
@@ -678,12 +678,12 @@ async function saveToCurrentVariant() {
       },
     })
 
-    notifySuccess('Settings saved successfully')
+    notifySuccess(m.knowledgeGraph_settingsSavedSuccessfully())
 
     resetChangeTracking()
   } catch (error) {
 
-    notifyError('Failed to save settings')
+    notifyError(m.knowledgeGraph_failedToSaveSettingsMsg())
   } finally {
     saving.value = false
   }
@@ -697,7 +697,7 @@ async function saveAsNewVariant(payload: { name: string; displayName: string; de
 
     if (!variantResult.success || !variantResult.data) {
       validationErrors.value = variantResult.errors
-      notifyError('Failed to generate prompt. Check validation errors.')
+      notifyError(m.knowledgeGraph_failedToGeneratePrompt())
       return
     }
 
@@ -713,12 +713,12 @@ async function saveAsNewVariant(payload: { name: string; displayName: string; de
       },
     })
 
-    notifySuccess(`Created new variant "${currentVariant.value}"`)
+    notifySuccess(m.knowledgeGraph_createdNewVariant({ name: currentVariant.value }))
 
     resetChangeTracking()
   } catch (error) {
 
-    notifyError('Failed to create variant')
+    notifyError(m.knowledgeGraph_failedToCreateVariant())
   } finally {
     saving.value = false
   }
@@ -726,7 +726,7 @@ async function saveAsNewVariant(payload: { name: string; displayName: string; de
 
 async function saveVariant(variant: PromptTemplateVariant, isNew = false) {
   if (!promptTemplate.value) {
-    notifyError('No prompt template loaded. Please load or create a template first.')
+    notifyError(m.knowledgeGraph_noPromptTemplateLoaded())
     return
   }
 
@@ -746,7 +746,7 @@ async function saveVariant(variant: PromptTemplateVariant, isNew = false) {
   if (result) {
     promptTemplate.value.variants = variants
   } else {
-    notifyError('Failed to update prompt template')
+    notifyError(m.knowledgeGraph_failedToUpdatePromptTemplate())
   }
 
   await queryClient.invalidateQueries({ queryKey: ['promptTemplates'] })
@@ -803,7 +803,7 @@ function doSwitchVariant(variantName: string) {
 
 function openPromptVariant() {
   if (!promptTemplate.value?.id) {
-    notifyError('Prompt template not loaded')
+    notifyError(m.knowledgeGraph_promptTemplateNotLoaded())
     return
   }
   const route = router.resolve({

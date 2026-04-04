@@ -3,11 +3,11 @@
     <template #header>
       <div class="header-content">
         <div class="header-title">
-          <div class="km-heading-7">Test Retrieval</div>
-          <div class="km-description text-secondary-text">Ask questions about your knowledge base</div>
+          <div class="km-heading-7">{{ m.knowledgeGraph_testRetrieval() }}</div>
+          <div class="km-description text-secondary-text">{{ m.knowledgeGraph_askQuestionsAboutKB() }}</div>
         </div>
         <div class="header-actions">
-          <km-btn v-if="messages.length > 0" flat icon="fas fa-rotate-right" icon-size="14px" size="sm" label="Clear" @click="clearChat" />
+          <km-btn v-if="messages.length > 0" flat icon="fas fa-rotate-right" icon-size="14px" size="sm" :label="m.panel_clearChat()" @click="clearChat" />
           <q-btn flat round dense icon="close" size="sm" @click="$emit('close')" />
         </div>
       </div>
@@ -18,8 +18,8 @@
       <!-- Empty State -->
       <div v-if="messages.length === 0 && !processing" class="empty-state">
         <q-icon name="fas fa-comments" size="48px" color="grey-4" />
-        <div class="km-heading-6 q-mt-md text-secondary-text">Start a conversation</div>
-        <div class="km-description text-grey-6 q-mt-xs">Ask questions to test your retrieval configuration</div>
+        <div class="km-heading-6 q-mt-md text-secondary-text">{{ m.knowledgeGraph_startConversation() }}</div>
+        <div class="km-description text-grey-6 q-mt-xs">{{ m.knowledgeGraph_askQuestionsToTest() }}</div>
       </div>
 
       <!-- Messages List -->
@@ -45,7 +45,7 @@
                 <div v-if="msg.workflow && msg.workflow.length > 0" class="workflow-section">
                   <div class="workflow-toggle" @click="msg.workflowExpanded = !msg.workflowExpanded">
                     <q-icon name="fas fa-diagram-project" size="14px" color="teal-7" />
-                    <span class="km-field text-teal-7">Execution Flow</span>
+                    <span class="km-field text-teal-7">{{ m.knowledgeGraph_executionFlow() }}</span>
                     <q-icon :name="msg.workflowExpanded ? 'fas fa-chevron-up' : 'fas fa-chevron-down'" size="12px" color="teal-7" />
                   </div>
 
@@ -80,14 +80,14 @@
                           <q-slide-transition>
                             <div v-show="step.expanded">
                               <div v-if="Object.keys(step.arguments || {}).length > 0" class="workflow-step-args">
-                                <div class="workflow-args-label">Arguments</div>
+                                <div class="workflow-args-label">{{ m.knowledgeGraph_argumentsLabel() }}</div>
                                 <div v-for="(value, key) in step.arguments" :key="key" class="workflow-arg">
                                   <span class="workflow-arg-key">{{ key }}:</span>
                                   <span class="text-grey-9" style="font-size: 12px">{{ formatArgValue(value) }}</span>
                                 </div>
                               </div>
                               <div v-if="step.call_summary.reasoning" class="workflow-step-args">
-                                <div class="workflow-args-label">Reasoning</div>
+                                <div class="workflow-args-label">{{ m.knowledgeGraph_reasoningLabel() }}</div>
                                 <div class="text-grey-9" style="font-size: 12px">{{ step.call_summary?.reasoning }}</div>
                               </div>
                             </div>
@@ -113,7 +113,7 @@
                 <!-- Empty content state (no text response) -->
                 <div v-else class="empty-response">
                   <div class="empty-response-text">
-                    <span class="km-description text-grey-6">No text response generated</span>
+                    <span class="km-description text-grey-6">{{ m.knowledgeGraph_noTextResponse() }}</span>
                   </div>
                 </div>
 
@@ -162,7 +162,7 @@
           <div class="message-content-wrapper">
             <div class="message-bubble assistant-bubble processing-bubble">
               <q-spinner-dots size="24px" color="primary" />
-              <span class="km-description text-secondary-text q-ml-sm">Thinking...</span>
+              <span class="km-description text-secondary-text q-ml-sm">{{ m.knowledgeGraph_thinking() }}</span>
             </div>
           </div>
         </div>
@@ -175,7 +175,7 @@
         <km-input
           ref="inputRef"
           v-model="userInput"
-          placeholder="Ask a question..."
+          :placeholder="m.knowledgeGraph_askQuestion()"
           autogrow
           border-radius="8px"
           class="message-input"
@@ -441,7 +441,7 @@ const sendMessage = async () => {
       const assistantMessage: Message = {
         id: generateId(),
         role: 'assistant',
-        content: 'Retrieval failed. Please check server logs.',
+        content: m.knowledgeGraph_retrievalFailed(),
         timestamp: new Date(),
       }
       messages.value.push(assistantMessage)
@@ -450,7 +450,7 @@ const sendMessage = async () => {
     const assistantMessage: Message = {
       id: generateId(),
       role: 'assistant',
-      content: 'An error occurred while contacting the retrieval service.',
+      content: m.knowledgeGraph_retrievalError(),
       timestamp: new Date(),
     }
     messages.value.push(assistantMessage)

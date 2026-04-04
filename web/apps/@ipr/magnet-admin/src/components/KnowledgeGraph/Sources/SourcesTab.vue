@@ -2,8 +2,8 @@
   <div class="q-px-md">
     <div class="row items-start q-col-gutter-md q-mb-md">
       <div class="col">
-        <div class="km-heading-7">Data Sources</div>
-        <div class="km-description text-secondary-text">Manage document sources for this knowledge graph</div>
+        <div class="km-heading-7">{{ m.knowledgeGraph_dataSources() }}</div>
+        <div class="km-description text-secondary-text">{{ m.knowledgeGraph_dataSourcesDesc() }}</div>
       </div>
     </div>
 
@@ -14,21 +14,21 @@
     <div v-else-if="displayRows.length === 0" class="q-mt-md">
       <div class="text-center q-pa-lg">
         <q-icon name="folder_open" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">No sources added yet</div>
-        <div class="km-description text-grey-6">Start by uploading a file(s) or connecting to external data sources</div>
-        <q-btn no-caps unelevated color="primary" label="Add First Source" class="q-mt-lg" @click="showSourceTypeDialog = true" />
+        <div class="km-heading-7 text-grey-7 q-mt-md">{{ m.knowledgeGraph_noSourcesAdded() }}</div>
+        <div class="km-description text-grey-6">{{ m.knowledgeGraph_addFirstSourceHint() }}</div>
+        <q-btn no-caps unelevated color="primary" :label="m.knowledgeGraph_addFirstSource()" class="q-mt-lg" @click="showSourceTypeDialog = true" />
       </div>
     </div>
 
     <div v-else>
       <kg-table-toolbar>
         <template #leading>
-          <km-btn label="Sync All" size="sm" :disable="syncAllInProgress" @click="showSyncAllConfirmDialog = true" />
+          <km-btn :label="m.knowledgeGraph_syncAll()" size="sm" :disable="syncAllInProgress" @click="showSyncAllConfirmDialog = true" />
         </template>
 
         <template #trailing>
-          <km-btn flat icon="o_add_circle" label="New Source" size="sm" @click="showSourceTypeDialog = true" />
-          <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="loading" @click="fetchSources(true)" />
+          <km-btn flat icon="o_add_circle" :label="m.knowledgeGraph_newSource()" size="sm" @click="showSourceTypeDialog = true" />
+          <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" :disable="loading" @click="fetchSources(true)" />
         </template>
       </kg-table-toolbar>
 
@@ -49,7 +49,7 @@
               <div class="column items-start justify-center q-gap-6">
                 <kg-status-badge :status="effectiveStatus(slotScope.row)" />
                 <div class="kg-sync-meta row items-center no-wrap q-gutter-x-xs q-ml-4">
-                  <span class="kg-sync-meta-label">Last sync:</span>
+                  <span class="kg-sync-meta-label">{{ m.knowledgeGraph_lastSync() }}</span>
                   <span class="kg-sync-meta-value">
                     {{ formatRelative(slotScope.row?.last_sync_at) }}
                     <q-tooltip anchor="top middle" self="bottom middle">
@@ -72,7 +72,7 @@
                 {{ formatScheduleSummary(slotScope.row.schedule) }}
               </div>
             </div>
-            <div v-else class="text-grey-5 italic text-caption">Not scheduled</div>
+            <div v-else class="text-grey-5 italic text-caption">{{ m.knowledgeGraph_notScheduled() }}</div>
           </q-td>
         </template>
         <template #body-cell-menu="slotScope">
@@ -89,7 +89,7 @@
                     <q-item-section thumbnail>
                       <q-icon name="sync" color="primary" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Sync now</q-item-section>
+                    <q-item-section>{{ m.knowledgeGraph_syncNow() }}</q-item-section>
                   </q-item>
 
                   <q-separator />
@@ -98,14 +98,14 @@
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Delete data</q-item-section>
+                    <q-item-section>{{ m.knowledgeGraph_deleteData() }}</q-item-section>
                   </q-item>
 
                   <q-item v-ripple="false" clickable @click="confirmDelete(slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Delete source & data</q-item-section>
+                    <q-item-section>{{ m.knowledgeGraph_deleteSourceAndData() }}</q-item-section>
                   </q-item>
                 </q-list>
               </q-menu>
@@ -137,45 +137,43 @@
     <!-- Delete Source Dialog -->
     <kg-confirm-dialog
       v-model="showDeleteDialog"
-      title="Delete source"
+      :title="m.knowledgeGraph_deleteSourceTitle()"
       icon="delete_outline"
-      :description="`Are you sure you want to delete '${selectedRow?.name}'?`"
-      confirm-label="Delete"
+      :description="m.knowledgeGraph_deleteSourceDesc({ name: selectedRow?.name || '' })"
+      :confirm-label="m.common_delete()"
       destructive
       :loading="deleteInProgress"
       @confirm="performDelete"
     >
-      <template #warning>This will remove the source, its documents, and all chunks. This action cannot be undone.</template>
+      <template #warning>{{ m.knowledgeGraph_deleteSourceWarning() }}</template>
     </kg-confirm-dialog>
 
     <!-- Purge Source Data Dialog -->
     <kg-confirm-dialog
       v-model="showPurgeDialog"
-      title="Purge all data"
+      :title="m.knowledgeGraph_purgeAllData()"
       icon="delete_sweep"
       icon-variant="warning"
-      :description="`Are you sure you want to purge all data from '${selectedRow?.name}'?`"
-      confirm-label="Purge"
+      :description="m.knowledgeGraph_purgeSourceDesc({ name: selectedRow?.name || '' })"
+      :confirm-label="m.knowledgeGraph_purge()"
       destructive
       :loading="purgeInProgress"
       @confirm="performPurge"
     >
-      <template #warning>
-        This will delete all documents and chunks associated with this source. The source itself will be kept. This action cannot be undone.
-      </template>
+      <template #warning>{{ m.knowledgeGraph_purgeWarning() }}</template>
     </kg-confirm-dialog>
 
     <!-- Sync All Confirmation Dialog -->
     <kg-confirm-dialog
       v-model="showSyncAllConfirmDialog"
-      title="Sync all sources"
+      :title="m.knowledgeGraph_syncAllTitle()"
       icon="sync"
       icon-variant="info"
-      description="Are you sure you want to sync all sources? This will trigger a sync for every syncable source in this knowledge graph."
-      confirm-label="Sync All"
+      :description="m.knowledgeGraph_syncAllDesc()"
+      :confirm-label="m.knowledgeGraph_syncAll()"
       @confirm="onConfirmSyncAll"
     >
-      <template #warning>Syncing may take a while depending on the number of sources and documents.</template>
+      <template #warning>{{ m.knowledgeGraph_syncAllWarning() }}</template>
     </kg-confirm-dialog>
   </div>
 </template>
@@ -234,7 +232,7 @@ const displayRows = computed(() => {
     // Inject a temporary row for immediate feedback
     const tempRow: SourceRow = {
       id: 'temp-upload-source',
-      name: 'Manual Upload',
+      name: m.knowledgeGraph_manualUpload(),
       type: 'upload',
       status: 'syncing', // will trigger spinner
       created_at: new Date().toISOString(),
@@ -249,14 +247,14 @@ const displayRows = computed(() => {
 const columns: QTableColumn<SourceRow>[] = [
   {
     name: 'name',
-    label: 'Name',
+    label: m.knowledgeGraph_colName(),
     field: 'name',
     align: 'left',
     sortable: true,
   },
   {
     name: 'type',
-    label: 'Type',
+    label: m.knowledgeGraph_colType(),
     field: 'type',
     format: getSourceTypeName,
     align: 'left',
@@ -264,14 +262,14 @@ const columns: QTableColumn<SourceRow>[] = [
   },
   {
     name: 'documents_count',
-    label: 'Documents',
+    label: m.knowledgeGraph_colDocuments(),
     field: 'documents_count',
     align: 'left',
     sortable: true,
   },
   {
     name: 'created_at',
-    label: 'Added',
+    label: m.knowledgeGraph_colAdded(),
     field: 'created_at',
     format: formatAdded,
     align: 'left',
@@ -279,7 +277,7 @@ const columns: QTableColumn<SourceRow>[] = [
   },
   {
     name: 'last_sync_at',
-    label: 'Sync Status',
+    label: m.knowledgeGraph_colSyncStatus(),
     field: 'last_sync_at',
     format: formatAdded,
     align: 'left',
@@ -287,7 +285,7 @@ const columns: QTableColumn<SourceRow>[] = [
   },
   {
     name: 'schedule',
-    label: 'Sync Schedule',
+    label: m.knowledgeGraph_colSyncSchedule(),
     field: 'schedule',
     align: 'left',
     sortable: false,
@@ -414,20 +412,20 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
 
     if (response.ok) {
       if (showNotification) {
-        notifyInfo(`Sync started for ${source.name}. Click Refresh to see progress.`)
+        notifyInfo(m.knowledgeGraph_syncStarted({ name: source.name }))
       }
       // Don't auto-refresh - user clicks Refresh button to see updated status
       return true
     } else {
       if (showNotification) {
-        notifyError(`Failed to start sync for ${source.name}`)
+        notifyError(m.knowledgeGraph_syncFailed({ name: source.name }))
       }
       return false
     }
   } catch (error) {
 
     if (showNotification) {
-      notifyError('Error starting sync')
+      notifyError(m.knowledgeGraph_syncError())
     }
     return false
   } finally {
@@ -436,7 +434,7 @@ const syncSource = async (source: SourceRow, showNotification = true): Promise<b
 }
 
 function formatFull(dateStr?: string) {
-  if (!dateStr) return 'Never'
+  if (!dateStr) return m.knowledgeGraph_neverSynced()
   try {
     const date = new Date(dateStr)
     return date.toLocaleString()
@@ -458,14 +456,14 @@ function onConfirmSyncAll() {
 
 const handleSyncAll = async () => {
   if (!rows.value?.length) {
-    notifyInfo('No sources to sync')
+    notifyInfo(m.knowledgeGraph_noSources())
     return
   }
   syncAllInProgress.value = true
   try {
     const syncable = rows.value.filter((r) => isSyncable(r.type))
     if (syncable.length === 0) {
-      notifyInfo('No syncable sources found')
+      notifyInfo(m.knowledgeGraph_noSyncableSources())
       return
     }
     let anySuccess = false
@@ -481,11 +479,11 @@ const handleSyncAll = async () => {
     }
     // Show single notification for Sync All
     if (anySuccess && !anyFailure) {
-      notifyInfo('Sync started for all sources. Click Refresh to see progress.')
+      notifyInfo(m.knowledgeGraph_syncAllStarted())
     } else if (anySuccess && anyFailure) {
-      notifyWarning('Sync started with some errors')
+      notifyWarning(m.knowledgeGraph_syncAllPartial())
     } else {
-      notifyError('Failed to start sync')
+      notifyError(m.knowledgeGraph_syncAllFailed())
     }
   } finally {
     syncAllInProgress.value = false
@@ -516,16 +514,16 @@ const performDelete = async () => {
     })
 
     if (response.ok) {
-      notifySuccess('Source and related content deleted')
+      notifySuccess(m.knowledgeGraph_sourceDeleted())
       showDeleteDialog.value = false
       fetchSources(true)
       emit('refresh')
     } else {
-      notifyError('Failed to delete source')
+      notifyError(m.knowledgeGraph_deleteFailed())
     }
   } catch (error) {
 
-    notifyError('Error deleting source')
+    notifyError(m.knowledgeGraph_deleteError())
   } finally {
     deleteInProgress.value = false
     deletingIds.value.delete(selectedRow.value.id)
@@ -551,16 +549,16 @@ const performPurge = async () => {
     })
 
     if (response.ok) {
-      notifySuccess('Documents and chunks purged')
+      notifySuccess(m.knowledgeGraph_dataPurged())
       showPurgeDialog.value = false
       fetchSources(true)
       emit('refresh')
     } else {
-      notifyError('Failed to purge source data')
+      notifyError(m.knowledgeGraph_purgeFailed())
     }
   } catch (error) {
 
-    notifyError('Error purging source data')
+    notifyError(m.knowledgeGraph_purgeError())
   } finally {
     purgeInProgress.value = false
   }

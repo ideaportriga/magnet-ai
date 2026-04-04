@@ -2,8 +2,8 @@
   <kg-dialog-source-base
     :show-dialog="dialogOpen"
     :source="props.source || null"
-    :title="isEditMode ? 'Edit Confluence Connection' : 'Connect to Confluence'"
-    :confirm-label="isEditMode ? 'Save Changes' : 'Connect'"
+    :title="isEditMode ? m.knowledgeGraph_conf_editTitle() : m.knowledgeGraph_conf_connectTitle()"
+    :confirm-label="isEditMode ? m.knowledgeGraph_saveChanges() : m.common_connect()"
     :loading="loading"
     :disable-confirm="loading || !isFormValid"
     :error="error"
@@ -15,8 +15,8 @@
     @changed="clearError"
   >
     <kg-dialog-section
-      title="Provider"
-      description="Select the Knowledge Source provider that holds your Confluence credentials."
+      :title="m.knowledgeGraph_conf_sectionProviderTitle()"
+      :description="m.knowledgeGraph_conf_sectionProviderDesc()"
       icon="key"
     >
       <q-select
@@ -26,52 +26,52 @@
         option-value="id"
         emit-value
         map-options
-        placeholder="Select a Confluence provider"
+        :placeholder="m.knowledgeGraph_conf_providerPlaceholder()"
         outlined
         dense
         :loading="loadingProviders"
-        :no-options-label="loadingProviders ? 'Loading providers...' : 'No Confluence providers found'"
+        :no-options-label="loadingProviders ? m.knowledgeGraph_conf_loadingProviders() : m.knowledgeGraph_conf_noProvidersFound()"
         @update:model-value="clearError"
       />
       <div v-if="!loadingProviders && providerOptions.length === 0" class="text-caption text-negative q-mt-xs">
-        No Confluence Knowledge Source providers found. Create one in Knowledge Providers first.
+        {{ m.knowledgeGraph_conf_noProvidersFoundMsg() }}
       </div>
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Space Key"
-      description="The Confluence space key to synchronize, e.g. 'ENG' or 'KB'."
+      :title="m.knowledgeGraph_conf_sectionSpaceKeyTitle()"
+      :description="m.knowledgeGraph_conf_sectionSpaceKeyDesc()"
       icon="folder"
     >
       <km-input
         v-model="spaceKey"
         height="36px"
-        placeholder="ENG"
+        :placeholder="m.knowledgeGraph_conf_spaceKeyPlaceholder()"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Include Root Page Prefix"
-      description="When enabled, each page title is prefixed with its root ancestor page title."
+      :title="m.knowledgeGraph_conf_sectionRootPrefixTitle()"
+      :description="m.knowledgeGraph_conf_sectionRootPrefixDesc()"
       icon="account_tree"
     >
       <q-toggle
         v-model="includeRootPrefix"
-        label="Prepend root ancestor title"
+        :label="m.knowledgeGraph_conf_prependRootAncestorLabel()"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
 
     <kg-dialog-section
-      title="Metadata Fields"
-      description="Comma-separated list of metadata field keys to store on each document (for filtering/retrieval). E.g. title, version_when, created_date"
+      :title="m.knowledgeGraph_conf_sectionMetadataTitle()"
+      :description="m.knowledgeGraph_conf_sectionMetadataDesc()"
       icon="label"
     >
       <km-input
         v-model="metadataFields"
         height="36px"
-        placeholder="title, version_when, created_date"
+        :placeholder="m.knowledgeGraph_conf_metadataPlaceholder()"
         @update:model-value="clearError"
       />
     </kg-dialog-section>
@@ -221,7 +221,7 @@ async function applySchedule(sourceId: string, schedule: ScheduleFormState) {
 
   if (response.ok) return
 
-  let msg = 'Failed to update sync schedule'
+  let msg = m.knowledgeGraph_failedToUpdateSyncSchedule()
   try {
     const err = await response.json()
     msg = err?.detail || err?.error || msg
@@ -273,17 +273,17 @@ const addSource = async (sourceName: string, schedule: ScheduleFormState) => {
         try {
           await applySchedule(result.id, schedule)
         } catch (e: any) {
-          notifyError(e?.message || 'Source created, but schedule could not be saved')
+          notifyError(e?.message || m.knowledgeGraph_sourceCreatedScheduleFailed())
         }
       }
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to connect to Confluence'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_conf_failedToConnect()
     }
   } catch (err: any) {
 
-    error.value = err.message || 'Failed to connect to Confluence. Please try again.'
+    error.value = err.message || m.knowledgeGraph_conf_failedToConnectRetry()
   } finally {
     loading.value = false
   }
@@ -316,11 +316,11 @@ const updateSource = async (sourceName: string, schedule: ScheduleFormState) => 
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to save Confluence source'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_conf_failedToSave()
     }
   } catch (err: any) {
 
-    error.value = err.message || 'Failed to save Confluence source. Please try again.'
+    error.value = err.message || m.knowledgeGraph_conf_failedToSaveRetry()
   } finally {
     loading.value = false
   }

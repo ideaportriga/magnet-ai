@@ -1,8 +1,8 @@
 <template>
   <kg-dialog-base
     :model-value="props.showDialog"
-    :title="isEditMode ? 'Edit Smart Extraction Field' : 'Add Smart Extraction Field'"
-    :confirm-label="isEditMode ? 'Save Changes' : 'Add Field'"
+    :title="isEditMode ? m.knowledgeGraph_editSmartField() : m.knowledgeGraph_addSmartField()"
+    :confirm-label="isEditMode ? m.knowledgeGraph_saveChanges() : m.knowledgeGraph_addField_action()"
     :loading="loading"
     size="lg"
     @update:model-value="emit('update:showDialog', $event)"
@@ -11,19 +11,19 @@
   >
     <div class="column q-gap-16">
       <!-- Field Name Section -->
-      <kg-dialog-section title="Field Identity" description="Define the field identifier used for smart extraction" icon="badge">
+      <kg-dialog-section :title="m.knowledgeGraph_fieldIdentity()" :description="m.knowledgeGraph_fieldIdentitySmartDesc()" icon="badge">
         <kg-field-row gap="16px">
-          <kg-field-row label="Field Name">
+          <kg-field-row :label="m.knowledgeGraph_fieldName()">
             <km-input ref="fieldNameInputRef" v-model="fieldName" height="36px" :rules="fieldNameRules" :disabled="isEditMode" />
           </kg-field-row>
-          <kg-field-row label="Extraction Hint" hint="Define how AI should extract this field">
+          <kg-field-row :label="m.knowledgeGraph_extractionHint()" :hint="m.knowledgeGraph_extractionHintDesc()">
             <km-input
               ref="extractionHintInputRef"
               v-model="extractionHint"
               autogrow
               rows="3"
               type="textarea"
-              placeholder="Guide the AI on how to extract this field..."
+              :placeholder="m.knowledgeGraph_extractionHintPlaceholder()"
             />
           </kg-field-row>
         </kg-field-row>
@@ -31,30 +31,30 @@
 
       <!-- Type & Constraints Section -->
       <kg-dialog-section
-        title="Type &amp; Constraints"
-        description="Define the value type, cardinality, restrictions and extraction requirements"
+        :title="m.knowledgeGraph_typeConstraints()"
+        :description="m.knowledgeGraph_typeConstraintsDesc()"
         icon="rule"
       >
         <kg-field-row :cols="4" gap="12px" class="q-mb-md constraints-row">
-          <kg-field-row label="Value Type">
-            <kg-dropdown-field v-model="valueTypeModel" :options="valueTypeOptions" placeholder="Select type" dense />
+          <kg-field-row :label="m.knowledgeGraph_valueType()">
+            <kg-dropdown-field v-model="valueTypeModel" :options="valueTypeOptions" :placeholder="m.knowledgeGraph_selectType_smart()" dense />
           </kg-field-row>
-          <kg-field-row label="Multiple Values">
-            <kg-toggle-field v-model="isMultiple" :title="isMultiple ? 'Multiple values' : 'Allow'" />
+          <kg-field-row :label="m.knowledgeGraph_multipleValues()">
+            <kg-toggle-field v-model="isMultiple" :title="isMultiple ? m.knowledgeGraph_multipleValues() : m.knowledgeGraph_allowMultiple()" />
           </kg-field-row>
-          <kg-field-row label="Value Restrictions">
-            <kg-toggle-field v-model="restrictToAllowedValues" :title="restrictToAllowedValues ? 'Values predefined' : 'Predefine values'" />
+          <kg-field-row :label="m.knowledgeGraph_valueRestrictions()">
+            <kg-toggle-field v-model="restrictToAllowedValues" :title="restrictToAllowedValues ? m.knowledgeGraph_valuesPredefined() : m.knowledgeGraph_predefineValues()" />
           </kg-field-row>
-          <kg-field-row label="Required">
-            <kg-toggle-field v-model="isRequired" :title="isRequired ? 'Required field' : 'Mark as required'" />
+          <kg-field-row :label="m.knowledgeGraph_requiredLabel()">
+            <kg-toggle-field v-model="isRequired" :title="isRequired ? m.knowledgeGraph_requiredField() : m.knowledgeGraph_markAsRequired()" />
           </kg-field-row>
         </kg-field-row>
 
         <!-- Restricted Values -->
         <kg-field-row
           v-if="restrictToAllowedValues"
-          label="Predefined Options"
-          :error="predefinedOptionsError ? 'At least one predefined option is required' : undefined"
+          :label="m.knowledgeGraph_predefinedOptions()"
+          :error="predefinedOptionsError ? m.knowledgeGraph_atLeastOnePredefined() : undefined"
         >
           <div class="value-options-container">
             <div class="value-options-list">
@@ -67,11 +67,11 @@
                 <km-input
                   v-model="newAllowedValue"
                   height="32px"
-                  placeholder="Enter option and press Enter"
+                  :placeholder="m.knowledgeGraph_enterOptionPress()"
                   class="col"
                   @keyup.enter="addAllowedValue"
                 />
-                <km-btn flat label="Add" @click="addAllowedValue" />
+                <km-btn flat :label="m.common_add()" @click="addAllowedValue" />
               </div>
             </div>
           </div>
@@ -138,11 +138,11 @@ const isEditMode = computed(() => !!props.field?.id)
 const predefinedOptionsError = computed(() => showPredefinedOptionsError.value && restrictToAllowedValues.value && allowedValues.value.length === 0)
 
 const fieldNameRules = [
-  (val: string) => !!(val && val.trim()) || 'Field name is required',
+  (val: string) => !!(val && val.trim()) || m.knowledgeGraph_fieldNameRequired(),
   (val: string) => {
     if (isEditMode.value) return true
     const existing = props.existingFieldNames || []
-    return !existing.includes(val) || 'Field name already exists'
+    return !existing.includes(val) || m.knowledgeGraph_fieldNameExists()
   },
 ]
 

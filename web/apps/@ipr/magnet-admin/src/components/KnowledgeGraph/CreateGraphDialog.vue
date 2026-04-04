@@ -1,24 +1,24 @@
 <template>
   <km-popup-confirm
     :visible="showDialog"
-    title="Create Knowledge Graph"
-    confirm-button-label="Create"
-    cancel-button-label="Cancel"
+    :title="m.knowledgeGraph_createKnowledgeGraph()"
+    :confirm-button-label="m.knowledgeGraph_createGraph()"
+    :cancel-button-label="m.common_cancel()"
     :loading="loading"
     :disable-confirm="!graphName"
     @confirm="createGraph"
     @cancel="$emit('cancel')"
   >
     <div class="km-field text-secondary-text q-pb-xs q-pl-8 q-mb-md">
-      Graph Name
-      <km-input v-model="graphName" height="36px" placeholder="Enter graph name" border-radius="8px" @keyup.enter="createGraph" />
-      <div class="km-description text-secondary-text q-py-8">A unique name for your knowledge graph</div>
+      {{ m.knowledgeGraph_graphNameLabel() }}
+      <km-input v-model="graphName" height="36px" :placeholder="m.knowledgeGraph_graphNamePlaceholder()" border-radius="8px" @keyup.enter="createGraph" />
+      <div class="km-description text-secondary-text q-py-8">{{ m.knowledgeGraph_graphNameHint() }}</div>
     </div>
 
     <div class="km-field text-secondary-text q-pb-xs q-pl-8">
-      Description (Optional)
-      <q-input v-model="description" outlined dense type="textarea" placeholder="Describe the purpose of this knowledge graph" rows="3" />
-      <div class="km-description text-secondary-text q-py-8">Brief description of what documents this graph will contain</div>
+      {{ m.knowledgeGraph_descriptionOptional() }}
+      <q-input v-model="description" outlined dense type="textarea" :placeholder="m.knowledgeGraph_graphDescPlaceholder()" rows="3" />
+      <div class="km-description text-secondary-text q-py-8">{{ m.knowledgeGraph_graphDescHint() }}</div>
     </div>
 
     <div v-if="error" class="q-mt-md text-negative">{{ error }}</div>
@@ -48,7 +48,7 @@ const error = ref('')
 
 const createGraph = async () => {
   if (!graphName.value.trim()) {
-    error.value = 'Graph name is required'
+    error.value = m.knowledgeGraph_graphNameRequired()
     return
   }
 
@@ -80,11 +80,11 @@ const createGraph = async () => {
       emit('created', result)
     } else {
       const errorData = await response.json()
-      error.value = errorData.detail || errorData.error || 'Failed to create graph'
+      error.value = errorData.detail || errorData.error || m.knowledgeGraph_failedToCreate()
     }
   } catch (err) {
 
-    error.value = 'Failed to create graph. Please try again.'
+    error.value = m.knowledgeGraph_failedToCreateRetry()
   } finally {
     loading.value = false
   }

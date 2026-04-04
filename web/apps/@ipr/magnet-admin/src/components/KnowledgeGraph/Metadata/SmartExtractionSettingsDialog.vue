@@ -1,9 +1,9 @@
 <template>
   <kg-dialog-base
     :model-value="props.showDialog"
-    title="Smart Extraction Settings"
-    subtitle="Configure how AI extracts metadata from your documents"
-    confirm-label="Save Settings"
+    :title="m.knowledgeGraph_smartExtractionSettings()"
+    :subtitle="m.knowledgeGraph_smartExtractionSettingsDesc()"
+    :confirm-label="m.knowledgeGraph_saveSettings()"
     :loading="loading"
     size="md"
     @update:model-value="emit('update:showDialog', $event)"
@@ -13,19 +13,19 @@
     <div class="column q-gap-16">
       <!-- Extraction Settings -->
       <kg-dialog-section
-        title="Extraction Settings"
-        description="Configure extraction mode and the prompt used to generate JSON metadata."
+        :title="m.knowledgeGraph_extractionSettings()"
+        :description="m.knowledgeGraph_extractionSettingsDesc()"
         icon="auto_awesome"
       >
         <div class="column q-gap-16">
-          <kg-field-row label="Extraction Mode" hint="Choose when AI should extract metadata.">
+          <kg-field-row :label="m.knowledgeGraph_extractionMode()" :hint="m.knowledgeGraph_extractionModeHint()">
             <kg-tile-select v-model="approach" :options="approachOptions" :cols="2" />
           </kg-field-row>
 
-          <kg-field-row label="Extraction Prompt" hint="Select a prompt template that returns JSON with metadata fields.">
+          <kg-field-row :label="m.knowledgeGraph_extractionPrompt()" :hint="m.knowledgeGraph_extractionPromptHint()">
             <kg-dropdown-field
               v-model="promptTemplateSystemName"
-              placeholder="Select a prompt template"
+              :placeholder="m.knowledgeGraph_selectPromptTemplate()"
               :options="promptTemplateOptions"
               :loading="loadingPromptTemplates"
               option-value="system_name"
@@ -39,23 +39,23 @@
 
       <!-- Segmentation Settings -->
       <kg-dialog-section
-        title="Segmentation Settings"
+        :title="m.knowledgeGraph_segmentationSettings()"
         :description="
           approach === 'document'
-            ? 'Split large documents into overlapping segments before extraction.'
-            : 'Chunk-based extraction uses already segmented chunks (segmentation settings are ignored).'
+            ? m.knowledgeGraph_segmentationDesc()
+            : m.knowledgeGraph_chunkSegmentationDesc()
         "
         icon="content_cut"
       >
         <template v-if="approach === 'document'">
           <div class="row q-col-gutter-lg">
             <div class="col-12 col-md-5">
-              <kg-field-row label="Segment size (characters)">
+              <kg-field-row :label="m.knowledgeGraph_segmentSizeChars()">
                 <km-input v-model.number="segmentSize" type="number" min="100" height="36px" />
               </kg-field-row>
             </div>
             <div class="col-12 col-md-7">
-              <kg-field-row label="Segment overlap">
+              <kg-field-row :label="m.knowledgeGraph_segmentOverlap()">
                 <div class="row items-center q-gap-md">
                   <q-slider
                     v-model="segmentOverlap"
@@ -74,7 +74,7 @@
         </template>
         <template v-else>
           <kg-warning-banner variant="neutral">
-            Segmentation is not needed for chunk-based extraction. Each chunk is already small enough to be processed directly by the AI.
+            {{ m.knowledgeGraph_chunkSegmentationNote() }}
           </kg-warning-banner>
         </template>
       </kg-dialog-section>
@@ -98,14 +98,14 @@ export interface SmartExtractionSettings {
 
 const approachOptions: TileOption[] = [
   {
-    label: 'Document Based',
+    label: m.knowledgeGraph_documentBased(),
     value: 'document',
-    description: 'Extract metadata from the entire document in parallel to chunking. Recommended for most use cases.',
+    description: m.knowledgeGraph_documentBasedDesc(),
   },
   {
-    label: 'Chunk Based',
+    label: m.knowledgeGraph_chunkBased(),
     value: 'chunks',
-    description: 'Extract metadata from each ingested chunk. Works slower, but metadata is linked with the chunk.',
+    description: m.knowledgeGraph_chunkBasedDesc(),
   },
 ]
 

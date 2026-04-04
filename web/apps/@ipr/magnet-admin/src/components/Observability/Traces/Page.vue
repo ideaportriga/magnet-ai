@@ -45,11 +45,11 @@ const filterObject = ref<Record<string, unknown>>({})
 const filterConfig = ref(traceFilters())
 
 const columns = [
-  textColumn<ObservabilityTrace>('type', 'Type'),
-  textColumn<ObservabilityTrace>('name', 'Name'),
-  componentColumn<ObservabilityTrace>('status', 'Status', StatusField, { accessorKey: 'status', sortable: true }),
-  dateColumn<ObservabilityTrace>('start_time', 'Start Time'),
-  textColumn<ObservabilityTrace>('latency', 'Duration', {
+  textColumn<ObservabilityTrace>('type', m.common_type()),
+  textColumn<ObservabilityTrace>('name', m.common_name()),
+  componentColumn<ObservabilityTrace>('status', m.common_status(), StatusField, { accessorKey: 'status', sortable: true }),
+  dateColumn<ObservabilityTrace>('start_time', m.common_startTime()),
+  textColumn<ObservabilityTrace>('latency', m.common_duration(), {
     align: 'right',
     format: (val) => {
       if (!val) return '-'

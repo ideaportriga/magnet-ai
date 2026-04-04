@@ -2,9 +2,9 @@
   <div class="q-px-md">
     <div class="row items-start q-col-gutter-md q-mb-md">
       <div class="col">
-        <div class="km-heading-7">Entity Extraction</div>
+        <div class="km-heading-7">{{ m.knowledgeGraph_entityExtraction() }}</div>
         <div class="km-description text-secondary-text">
-          Define entity schemas, configure the extraction prompt, and run AI-powered extraction against this knowledge graph
+          {{ m.knowledgeGraph_entityExtractionDescription() }}
         </div>
       </div>
     </div>
@@ -14,9 +14,9 @@
     <div v-if="entities.length === 0" class="q-mt-md">
       <div class="text-center q-pa-lg">
         <q-icon name="o_category" size="64px" color="grey-5" />
-        <div class="km-heading-7 text-grey-7 q-mt-md">No entities defined yet</div>
-        <div class="km-description text-grey-6">Create at least one entity definition so the prompt knows what to extract.</div>
-        <q-btn no-caps unelevated color="primary" label="Create First Entity" class="q-mt-lg" :disable="saving" @click="openCreateDialog" />
+        <div class="km-heading-7 text-grey-7 q-mt-md">{{ m.knowledgeGraph_noEntitiesYet() }}</div>
+        <div class="km-description text-grey-6">{{ m.knowledgeGraph_createFirstEntityHint() }}</div>
+        <q-btn no-caps unelevated color="primary" :label="m.knowledgeGraph_createFirstEntity()" class="q-mt-lg" :disable="saving" @click="openCreateDialog" />
       </div>
     </div>
 
@@ -25,15 +25,15 @@
         <template #leading>
           <km-btn
             v-if="isExtractionActive || extractionStarting"
-            label="Cancel"
+            :label="m.common_cancel()"
             size="sm"
             flat
             color="negative"
             :disable="cancelling || extractionStarting"
             @click="showCancelConfirmDialog = true"
           />
-          <km-btn v-else label="Run Extraction" size="sm" :disable="!canRunExtraction || saving" @click="showRunConfirmDialog = true">
-            <q-tooltip v-if="!canRunExtraction && !saving">Configure a prompt template in extraction settings first</q-tooltip>
+          <km-btn v-else :label="m.knowledgeGraph_runExtraction()" size="sm" :disable="!canRunExtraction || saving" @click="showRunConfirmDialog = true">
+            <q-tooltip v-if="!canRunExtraction && !saving">{{ m.knowledgeGraph_configurePromptFirst() }}</q-tooltip>
           </km-btn>
         </template>
 
@@ -51,7 +51,7 @@
             />
             <span v-if="hasProgress" class="text-caption text-grey-7">{{ progressPercentText }}</span>
             <span class="text-caption text-grey-6">
-              {{ extractionStatus.status === 'cancelling' ? 'Cancelling...' : 'Running...' }}
+              {{ extractionStatus.status === 'cancelling' ? m.knowledgeGraph_extractionCancelling() : m.knowledgeGraph_extractionRunning() }}
             </span>
           </template>
 
@@ -62,9 +62,9 @@
         </template>
 
         <template #trailing>
-          <km-btn flat icon="o_add_circle" label="New Entity" size="sm" :disable="saving" @click="openCreateDialog" />
-          <km-btn flat icon="settings" label="Settings" size="sm" :disable="saving" @click="showExtractionDialog = true" />
-          <km-btn flat icon="refresh" label="Refresh" size="sm" :disable="saving" @click="emit('refresh')" />
+          <km-btn flat icon="o_add_circle" :label="m.knowledgeGraph_newEntity()" size="sm" :disable="saving" @click="openCreateDialog" />
+          <km-btn flat icon="settings" :label="m.common_settings()" size="sm" :disable="saving" @click="showExtractionDialog = true" />
+          <km-btn flat icon="refresh" :label="m.common_refresh()" size="sm" :disable="saving" @click="emit('refresh')" />
         </template>
       </kg-table-toolbar>
 
@@ -115,14 +115,14 @@
                     <q-item-section thumbnail>
                       <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Edit</q-item-section>
+                    <q-item-section>{{ m.common_edit() }}</q-item-section>
                   </q-item>
                   <q-separator />
                   <q-item v-ripple="false" clickable :disable="saving" @click="confirmDelete(slotScope.row)">
                     <q-item-section thumbnail>
                       <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
                     </q-item-section>
-                    <q-item-section>Delete</q-item-section>
+                    <q-item-section>{{ m.common_delete() }}</q-item-section>
                   </q-item>
                 </q-list>
               </q-menu>
@@ -153,44 +153,44 @@
 
     <kg-confirm-dialog
       v-model="showDeleteDialog"
-      title="Delete entity"
+      :title="m.knowledgeGraph_deleteEntityTitle()"
       icon="delete_outline"
-      :description="`Are you sure you want to delete '${selectedEntity?.name}'?`"
-      confirm-label="Delete"
+      :description="m.knowledgeGraph_deleteEntityConfirm({ name: selectedEntity?.name ?? '' })"
+      :confirm-label="m.common_delete()"
       destructive
       :loading="saving"
       @confirm="performDelete"
     >
       <template #warning>
-        This removes the entity definition from the extraction schema. Existing extracted rows are not deleted automatically.
+        {{ m.knowledgeGraph_deleteEntityWarning() }}
       </template>
     </kg-confirm-dialog>
 
     <kg-confirm-dialog
       v-model="showRunConfirmDialog"
-      title="Run entity extraction"
+      :title="m.knowledgeGraph_runExtractionTitle()"
       icon="o_play_arrow"
       icon-variant="info"
-      description="Are you sure you want to run entity extraction? This will process all documents in the knowledge graph."
-      confirm-label="Run Extraction"
+      :description="m.knowledgeGraph_runExtractionConfirm()"
+      :confirm-label="m.knowledgeGraph_runExtraction()"
       @confirm="onConfirmRunExtraction"
     >
-      <template #warning>Running extraction may take a while depending on the number of documents.</template>
+      <template #warning>{{ m.knowledgeGraph_runExtractionWarning() }}</template>
     </kg-confirm-dialog>
 
     <kg-confirm-dialog
       v-model="showCancelConfirmDialog"
-      title="Cancel extraction"
+      :title="m.knowledgeGraph_cancelExtractionTitle()"
       icon="o_cancel"
       icon-variant="warning"
       warning-variant="warning"
-      description="Are you sure you want to cancel the running extraction?"
-      confirm-label="Cancel Extraction"
+      :description="m.knowledgeGraph_cancelExtractionConfirm()"
+      :confirm-label="m.knowledgeGraph_cancelExtraction()"
       destructive
       :loading="cancelling"
       @confirm="onConfirmCancelExtraction"
     >
-      <template #warning>Entities already extracted will be kept, but the remaining documents will not be processed.</template>
+      <template #warning>{{ m.knowledgeGraph_cancelExtractionWarning() }}</template>
     </kg-confirm-dialog>
   </div>
 </template>
@@ -246,14 +246,14 @@ const baseSettings = ref<KnowledgeGraphDetails['settings']>({})
 const columns: QTableColumn<EntityDefinition>[] = [
   {
     name: 'name',
-    label: 'Entity',
+    label: m.knowledgeGraph_entityLabel(),
     field: 'name',
     align: 'left',
     sortable: true,
   },
   {
     name: 'description',
-    label: 'Description',
+    label: m.common_description(),
     field: 'description',
     align: 'left',
     sortable: false,
@@ -261,21 +261,21 @@ const columns: QTableColumn<EntityDefinition>[] = [
   },
   {
     name: 'columns_count',
-    label: 'Columns',
+    label: m.knowledgeGraph_columns(),
     field: (row) => row.columns.length,
     align: 'left',
     sortable: true,
   },
   {
     name: 'identifier',
-    label: 'Identifier',
+    label: m.knowledgeGraph_identifier(),
     field: (row) => row.columns.find((column) => column.is_identifier)?.name || '',
     align: 'left',
     sortable: false,
   },
   {
     name: 'enabled',
-    label: 'Active',
+    label: m.common_active(),
     field: 'enabled',
     align: 'center',
   },
@@ -432,7 +432,7 @@ async function persistEntityExtractionSettings(
   try {
     const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) {
-      notifyError('Knowledge graph API is not configured')
+      notifyError(m.knowledgeGraph_apiNotConfigured())
       return false
     }
 
@@ -464,7 +464,7 @@ async function persistEntityExtractionSettings(
     return true
   } catch (error) {
 
-    notifyError('Failed to save entity extraction settings')
+    notifyError(m.knowledgeGraph_failedToSaveEntitySettings())
     return false
   } finally {
     saving.value = false
@@ -485,7 +485,7 @@ async function onDialogSave(entity: EntityDefinition) {
   const success = await persistEntityExtractionSettings(
     nextEntities,
     extractionSettings.value,
-    entityIndex >= 0 ? 'Entity updated' : 'Entity created'
+    entityIndex >= 0 ? m.knowledgeGraph_entityUpdated() : m.knowledgeGraph_entityCreated()
   )
   if (!success) {
     return
@@ -496,7 +496,7 @@ async function onDialogSave(entity: EntityDefinition) {
 }
 
 async function onExtractionSettingsSave(nextSettings: EntityExtractionRunSettings) {
-  const success = await persistEntityExtractionSettings(entities.value, nextSettings, 'Entity extraction settings updated')
+  const success = await persistEntityExtractionSettings(entities.value, nextSettings, m.knowledgeGraph_extractionSettingsUpdated())
   if (!success) {
     return
   }
@@ -514,7 +514,7 @@ async function performDelete() {
   if (!selectedEntity.value) return
 
   const remainingEntities = entities.value.filter((entity) => entity.id !== selectedEntity.value?.id)
-  const success = await persistEntityExtractionSettings(remainingEntities, extractionSettings.value, 'Entity deleted')
+  const success = await persistEntityExtractionSettings(remainingEntities, extractionSettings.value, m.knowledgeGraph_entityDeleted())
   if (!success) {
     return
   }
@@ -528,7 +528,7 @@ async function toggleEntityEnabled(entity: EntityDefinition, enabled: boolean) {
   const target = nextEntities.find((e) => e.id === entity.id)
   if (!target) return
   target.enabled = enabled
-  await persistEntityExtractionSettings(nextEntities, extractionSettings.value, enabled ? 'Entity enabled' : 'Entity disabled')
+  await persistEntityExtractionSettings(nextEntities, extractionSettings.value, enabled ? m.knowledgeGraph_entityEnabled() : m.knowledgeGraph_entityDisabled())
 }
 
 const extractionStarting = ref(false)
@@ -554,7 +554,7 @@ async function runExtraction() {
   try {
     const endpoint = appStore.config?.api?.aiBridge?.urlAdmin
     if (!endpoint) {
-      notifyError('Knowledge graph API is not configured')
+      notifyError(m.knowledgeGraph_apiNotConfigured())
       return
     }
 
@@ -585,7 +585,7 @@ async function runExtraction() {
     emit('refresh')
   } catch (error) {
 
-    notifyError('Error starting entity extraction')
+    notifyError(m.knowledgeGraph_errorStartingExtraction())
     extractionStarting.value = false
     emit('refresh')
   }
@@ -610,7 +610,7 @@ async function cancelExtraction() {
     emit('refresh')
   } catch (error) {
 
-    notifyError('Failed to cancel extraction')
+    notifyError(m.knowledgeGraph_failedToCancelExtraction())
   } finally {
     cancelling.value = false
   }
@@ -627,11 +627,11 @@ watch(
   (newStatus, oldStatus) => {
     if (oldStatus === 'running' || oldStatus === 'cancelling') {
       if (newStatus === 'completed') {
-        notifySuccess('Entity extraction completed')
+        notifySuccess(m.knowledgeGraph_extractionCompleted())
       } else if (newStatus === 'cancelled') {
-        notifyWarning('Entity extraction cancelled')
+        notifyWarning(m.knowledgeGraph_extractionCancelled())
       } else if (newStatus === 'error') {
-        notifyError('Entity extraction failed')
+        notifyError(m.knowledgeGraph_extractionFailed())
       }
     }
   }
