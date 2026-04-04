@@ -393,6 +393,20 @@ class AbstractDataSource(ABC):
                     logger.warning(
                         "Empty text for document %s, skipping processing", doc_id
                     )
+                    # Still persist document-level metadata (title, link, etc.)
+                    # so the document is not left without a title.
+                    try:
+                        await self.document_service.update_document(
+                            db_session,
+                            graph_id=document["graph_id"],
+                            document_id=doc_id,
+                            fields={
+                                "title": document_title,
+                                "external_link": external_link,
+                            },
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Failed to persist document metadata: %s", exc)
                     await self._update_document_status(
                         db_session,
                         docs_table=docs_table,

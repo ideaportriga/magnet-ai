@@ -4,7 +4,7 @@ from .models import (
     ContentReaderName,
     LoadedContent,
 )
-from .readers import DefaultPdfReader, DefaultSharePointPageReader
+from .readers import DefaultPdfReader, DefaultSharePointPageReader, SourceMetadataReader
 from .readers.kreuzberg_reader import KreuzbergReader, mime_type_from_filename
 from .readers.liteparse_reader import LiteParseReader
 
@@ -48,6 +48,11 @@ def load_content_from_bytes(
                 )
             )
             return {"raw_text": raw_text, "text": text, "metadata": metadata}
+        case ContentReaderName.SOURCE_METADATA:
+            options = config.reader.get("options", {}) if config.reader else {}
+            reader = SourceMetadataReader(reader_options=options)
+            text, metadata = reader.extract_from_context(context or {})
+            return {"raw_text": text, "text": text, "metadata": metadata}
         case _:
             raise ValueError(f"Unsupported reader: {reader_name!r}")
 

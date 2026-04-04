@@ -36,6 +36,7 @@ class ContentReaderName(StrEnum):
     LITEPARSE = "liteparse"
     SHAREPOINT_PAGE = "sharepoint_page"
     FLUID_TOPICS_STRUCTURED_DOCUMENTS = "fluid_topics_structured_documents"
+    SOURCE_METADATA = "source_metadata"
 
 
 class ChunkerStrategy(StrEnum):
@@ -138,6 +139,7 @@ class ContentReaderContext(TypedDict, total=False):
     site_url: str
     server_relative_url: str
     filename: str
+    source_metadata: dict[str, Any]
 
 
 @dataclass(frozen=True)

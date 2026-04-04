@@ -11,7 +11,7 @@ from core.db.session import async_session_maker
 
 from ...content_config_services import get_content_config
 from ...metadata_services import accumulate_discovered_metadata_fields
-from ...models import SyncCounters, SyncPipelineConfig
+from ...models import ContentReaderName, SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
 from .sharepoint_models import (
     SHAREPOINT_SYSTEM_FOLDERS,
@@ -237,6 +237,15 @@ class SharePointSyncPipeline(
                     source_metadata: dict[str, Any] = {}
                     file_bytes: bytes | None = None
 
+                    # Check whether the matched reader reads from metadata
+                    # rather than file content so we can skip the download.
+                    is_source_metadata_reader = (
+                        content_config.reader.get("name")
+                        == ContentReaderName.SOURCE_METADATA
+                        if content_config.reader
+                        else False
+                    )
+
                     # For .aspx pages, get HTML content from CanvasContent1 instead of downloading file bytes
                     is_aspx_page = filename.lower().endswith(".aspx")
 
@@ -259,7 +268,12 @@ class SharePointSyncPipeline(
                                 ),
                             )
 
-                        if is_aspx_page:
+                        if is_source_metadata_reader:
+                            # Content will be derived from source_metadata inside
+                            # store_document; no file download needed.  Use a
+                            # placeholder so the document is not skipped below.
+                            file_bytes = b" "
+                        elif is_aspx_page:
                             # For pages, get HTML content from CanvasContent1 property
                             from .sharepoint_utils import fetch_sharepoint_page_content
 

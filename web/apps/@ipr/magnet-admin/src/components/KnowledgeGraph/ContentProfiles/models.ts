@@ -35,6 +35,8 @@ export const KREUZBERG_READER = 'kreuzberg'
 export const KREUZBERG_READER_LABEL = 'Kreuzberg'
 export const LITEPARSE_READER = 'liteparse'
 export const LITEPARSE_READER_LABEL = 'LiteParse'
+export const SOURCE_METADATA_READER = 'source_metadata'
+export const SOURCE_METADATA_READER_LABEL = 'Metadata Reader'
 
 export const readerOptions = [
   { label: 'Plain Text Reader', value: 'plain_text' },
@@ -45,6 +47,10 @@ export const readerOptions = [
   {
     label: FLUID_TOPICS_STRUCTURED_READER_LABEL,
     value: FLUID_TOPICS_STRUCTURED_READER,
+  },
+  {
+    label: SOURCE_METADATA_READER_LABEL,
+    value: SOURCE_METADATA_READER,
   },
 ]
 
@@ -178,21 +184,25 @@ export const chunkingStrategyOptions = [
   {
     label: 'None',
     value: 'none',
-    description: 'No chunking; entire content is treated as a single chunk. If content is larger than chunk max size, it will be truncated.',
+    description:
+      'No chunking is applied — the entire document content is treated as a single chunk. If the content exceeds the configured maximum chunk size, it will be truncated. Best suited for short documents or when downstream processing handles its own splitting.',
   },
   {
     label: "LangChain's RecursiveCharacterTextSplitter",
     value: 'recursive_character_text_splitting',
-    description: 'Deterministic splitter, recursively applies separators until chunk size is reached.',
+    description:
+      'A fast, deterministic splitter that recursively applies a prioritized list of separators (e.g. paragraphs, sentences, words) to divide content into chunks that fit within the maximum size. Configurable separators and chunk overlap allow fine-tuning for different document structures. Well suited for most text-based content.',
   },
   {
     label: 'LLM-Based Chunking',
     value: 'llm',
-    description: 'Uses LLM to infer semantically coherent chunk boundaries. Best for complex, unstructured text.',
+    description:
+      'Leverages a large language model to identify semantically coherent chunk boundaries, producing chunks that align with the natural structure and meaning of the text. Requires a prompt template to guide the LLM. Best for complex or unstructured content where deterministic splitting may break important context. Note: this strategy may incur significant costs and longer processing times, especially on large documents.',
   },
   {
     label: "Kreuzberg's Markdown Splitter",
     value: 'kreuzberg',
-    description: 'Markdown-aware deterministic splitter powered by Kreuzberg.',
+    description:
+      'A Markdown-aware deterministic splitter powered by the Kreuzberg library. Respects Markdown heading hierarchy and structural elements (code blocks, lists, tables) to produce chunks that preserve document structure. Ideal for Markdown-formatted content or documents converted to Markdown by the Kreuzberg reader.',
   },
 ]
