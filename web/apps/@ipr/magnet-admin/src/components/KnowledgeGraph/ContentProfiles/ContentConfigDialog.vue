@@ -15,56 +15,33 @@
       <q-card-section class="dialog-body">
         <q-form @submit="save">
           <div class="q-mb-lg">
-            <div class="row q-col-gutter-lg">
-              <!-- Name -->
-              <div class="col-6">
-                <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Profile Name</div>
-                <div class="km-description text-secondary-text q-mt-xs q-mb-md">Set profile name for this content configuration.</div>
-                <km-input ref="nameRef" v-model="form.name" :rules="nameRules" :readonly="isLockedNativeProfile || isReadonlyProfile" required />
-              </div>
-
-              <!-- Content Reader -->
-              <div class="col-6">
-                <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Reader</div>
-                <div class="km-description text-secondary-text q-mt-xs q-mb-md">Select tool used to read the content.</div>
-                <km-select
-                  v-model="form.reader.name"
-                  :options="isLockedNativeProfile || isReadonlyProfile ? readerOptions : selectableReaderOptions"
-                  :disable="isLockedNativeProfile || isReadonlyProfile"
-                  emit-value
-                  map-options
-                />
-                <div v-if="isSourceMetadataReader" class="q-mt-md">
-                  <div class="km-input-label q-pb-xs">Metadata Field Name</div>
-                  <km-input
-                    ref="metadataFieldNameRef"
-                    v-model="form.reader.options.field_name"
-                    placeholder="e.g., transcription"
-                    :rules="[required()]"
-                    required
-                    :readonly="isReadonlyProfile"
-                  />
-                  <div class="km-description text-secondary-text q-mt-xs">Name of the field in source metadata to use as content.</div>
-                </div>
-              </div>
-            </div>
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Profile Name</div>
+            <div class="km-description text-secondary-text q-mt-xs q-mb-md">Set profile name for this content configuration.</div>
+            <km-input ref="nameRef" v-model="form.name" :rules="nameRules" :readonly="isLockedNativeProfile || isReadonlyProfile" required />
           </div>
 
+          <!-- Content Source -->
           <div class="q-mb-lg">
-            <!-- Content Matching -->
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Matching</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-sm">
-              Choose which content this profile should apply to by editing the highlighted parts below.
-            </div>
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Matching & Reading</div>
+            <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure which content this profile applies to and how it is read.</div>
             <div class="content-matching-sentence q-mt-md">
               <template v-if="isReadonlyProfile">
                 <span>This built-in profile is automatically used only when no other content profile matches.</span>
+                <span>Content is read using</span>
+                <kg-inline-field>
+                  <span>{{ selectedReaderLabel }}</span>
+                </kg-inline-field>
               </template>
               <template v-else-if="isLockedNativeProfile">
-                <span>This profile automatically applies to all Fluid Topics sources.</span>
+                <span>This profile automatically applies to all Fluid Topics sources using</span>
+                <kg-inline-field>
+                  <span>{{ selectedReaderLabel }}</span>
+                </kg-inline-field>
               </template>
               <template v-else>
-                <span>Apply this profile matching</span>
+                <span>Read</span>
+                <source-tree-dropdown v-model="sourceIdsModel" :sources="sources || []" />
+                <span>matching</span>
                 <kg-inline-field tooltip="Glob pattern (e.g. *.pdf). Separate multiple patterns with commas. Leave empty to match all.">
                   <input
                     v-model="form.glob_pattern"
@@ -74,266 +51,185 @@
                     :style="{ width: patternInputWidth }"
                   >
                 </kg-inline-field>
-                <span>pattern from</span>
-                <source-tree-dropdown v-model="sourceIdsModel" :sources="sources || []" />
+                <span>pattern using</span>
+                <kg-inline-field interactive>
+                  <span>{{ selectedReaderLabel }}</span>
+                  <q-icon name="arrow_drop_down" size="16px" />
+                  <q-menu anchor="bottom left" self="top left" :offset="[0, 4]">
+                    <q-list dense style="min-width: 200px">
+                      <q-item
+                        v-for="option in selectableReaderOptions"
+                        :key="option.value"
+                        v-close-popup
+                        clickable
+                        :active="form.reader.name === option.value"
+                        @click="form.reader.name = option.value"
+                      >
+                        <q-item-section>{{ option.label }}</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </kg-inline-field>
+                <template v-if="isSourceMetadataReader">
+                  <span>from field</span>
+                  <kg-inline-field tooltip="Name of the metadata field to use as content (e.g., transcription)">
+                    <input
+                      ref="metadataFieldNameRef"
+                      v-model="form.reader.options.field_name"
+                      class="kg-inline-field__input"
+                      placeholder="field name"
+                      spellcheck="false"
+                      :style="{ width: metadataFieldInputWidth }"
+                    >
+                  </kg-inline-field>
+                </template>
               </template>
             </div>
           </div>
 
+          <!-- Content Chunking -->
           <div class="q-mb-lg">
-            <!-- Chunking Strategy -->
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Strategy</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
-              {{
-                isReadonlyProfile
-                  ? 'This built-in fallback always uses the Plain Text Reader and keeps the content as a single chunk up to the maximum size.'
-                  : isLockedNativeProfile
-                    ? 'Structured Fluid Topics content is already chunked upstream, so this reader always uses the built-in pre-chunked flow.'
-                    : 'Select the strategy used to split content into chunks.'
-              }}
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Chunking</div>
+            <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure how content is split into chunks.</div>
+            <div class="content-matching-sentence q-mt-md">
+              <template v-if="isReadonlyProfile">
+                <span>This built-in fallback keeps the content as a single chunk up to the maximum size.</span>
+              </template>
+              <template v-else-if="isLockedNativeProfile">
+                <span>Structured Fluid Topics content is already chunked upstream, so this reader always uses the built-in pre-chunked flow.</span>
+              </template>
+              <template v-else>
+                <span>Split content into chunks using</span>
+                <kg-inline-field interactive>
+                  <span>{{ selectedStrategyLabel }}</span>
+                  <q-icon name="arrow_drop_down" size="16px" />
+                  <q-menu anchor="bottom left" self="top left" :offset="[0, 4]">
+                    <q-list dense style="min-width: 280px">
+                      <q-item
+                        v-for="option in chunkingStrategyOptions"
+                        :key="option.value"
+                        v-close-popup
+                        clickable
+                        :active="form.chunker.strategy === option.value"
+                        @click="form.chunker.strategy = option.value"
+                      >
+                        <q-item-section>{{ option.label }}</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </kg-inline-field>
+                <span>strategy.</span>
+              </template>
+              <span v-if="!isReadonlyProfile && !isLockedNativeProfile" class="chunking-strategy-description">
+                {{ selectedChunkingStrategyDescription }}
+              </span>
             </div>
-            <div class="row q-col-gutter-lg items-center">
-              <div class="col-4">
-                <km-select
-                  v-model="form.chunker.strategy"
-                  :options="chunkingStrategyOptions"
-                  emit-value
-                  map-options
-                  :disable="isLockedNativeProfile || isReadonlyProfile"
-                />
-              </div>
-              <div class="col-8">
-                <div class="km-description">{{ selectedChunkingStrategyDescription }}</div>
-              </div>
-            </div>
-            <div
-              v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy"
-              class="km-description q-mt-lg row items-center q-gap-8 q-pa-md rounded-borders bg-yellow-1 text-yellow-10"
-              style="border: 1px solid var(--q-warning)"
-            >
-              <q-icon name="warning" color="yellow-8" size="26px" />
-              <div class="col">LLM-based chunking may incur significant costs and can run for a long time, especially on large documents.</div>
-            </div>
-          </div>
 
-          <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy">
-            <div class="q-mb-lg">
-              <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Prompt</div>
-              <div class="km-description text-secondary-text q-mt-xs q-mb-md">Select a prompt template to use for chunking.</div>
-              <div class="row q-gap-8">
-                <div class="col-grow">
+            <!-- Max Size + Chunk Overlap / Prompt Template -->
+            <div class="row q-col-gutter-md q-mt-xs">
+              <div class="col">
+                <div class="km-input-label q-pb-xs">Chunk Max Size (characters)</div>
+                <km-input v-model.number="form.chunker.options.chunk_max_size" :readonly="isReadonlyProfile" type="number" min="100" required />
+              </div>
+              <div v-if="!isLockedNativeProfile && !isReadonlyProfile && (isRecursiveStrategy || isKreuzbergStrategy)" class="col">
+                <div class="km-input-label q-pb-xs">Chunk Overlap (%)</div>
+                <div class="row items-center q-pr-sm" style="height: 36px">
+                  <q-slider
+                    v-model="form.chunker.options.recursive_chunk_overlap"
+                    :min="0"
+                    :max="0.9"
+                    :step="0.02"
+                    label
+                    :label-value="`${Math.round((form.chunker.options.recursive_chunk_overlap || 0) * 100)}%`"
+                  />
+                </div>
+              </div>
+              <div v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy" class="col-grow" style="min-width: 0">
+                <div class="km-input-label q-pb-xs">Prompt Template</div>
+                <div class="row q-gap-8 no-wrap">
                   <km-select
-                    ref="promptTemplateRef"
                     v-model="form.chunker.options.prompt_template_system_name"
                     placeholder="Select a prompt template"
                     class="col-grow"
                     :options="templateOptions"
                     :loading="loadingTemplates"
-                    :rules="[required()]"
-                    required
-                    has-dropdown-search
                     emit-value
                     map-options
                     option-value="system_name"
                     option-label="name"
                   />
+                  <q-btn
+                    v-if="form.chunker.options.prompt_template_system_name"
+                    flat
+                    dense
+                    icon="fa fa-external-link"
+                    color="secondary-text"
+                    size="sm"
+                    @click="openPromptTemplateInNewTab"
+                  />
                 </div>
-                <km-btn
-                  flat
-                  icon="fa fa-external-link"
-                  color="secondary-text"
-                  :disable="!form.chunker.options.prompt_template_system_name"
-                  label-class="km-button-text"
-                  icon-size="16px"
-                  @click="openPromptTemplateInNewTab"
-                />
               </div>
             </div>
-          </template>
 
-          <template v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy">
-            <div class="q-mb-lg">
-              <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Handling Content Size</div>
-              <div class="km-description text-secondary-text q-mt-xs q-mb-md">
-                LLMs have limited context window, so content must be divided into smaller segments before executing LLM-based chunking. The
-                <b>Segment Overlap</b>
-                parameter controls content repetition between consecutive segments. The
-                <b>Last Segment Allowed Expansion</b>
-                parameter allows the final segment to be expanded beyond the normal segment size to reduce small trailing remainders.
-              </div>
-
-              <div class="row q-col-gutter-lg q-mb-lg">
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Segment Size (characters)</div>
-                  <km-input v-model.number="form.chunker.options.llm_batch_size" type="number" min="100" />
-                </div>
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Segment Overlap (%)</div>
-                  <div class="row items-center" style="height: 36px">
-                    <q-slider
-                      v-model="form.chunker.options.llm_batch_overlap"
-                      :min="0"
-                      :max="0.9"
-                      :step="0.02"
-                      label
-                      :label-value="`${Math.round((form.chunker.options.llm_batch_overlap || 0) * 100)}%`"
+            <!-- Recursive: Splitters -->
+            <div v-if="!isLockedNativeProfile && !isReadonlyProfile && isRecursiveStrategy" class="q-mt-md">
+              <div class="km-input-label q-pb-xs">Chunk Splitters</div>
+              <div class="splitters-container q-py-xs" style="border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px">
+                <div class="row items-center q-gutter-xs">
+                  <q-chip
+                    v-for="(splitter, index) in form.chunker.options.splitters"
+                    :key="index"
+                    removable
+                    color="primary-light"
+                    text-color="primary"
+                    square
+                    size="12px"
+                    @remove="removeSplitter(index)"
+                  >
+                    {{ formatSplitterDisplay(splitter) }}
+                  </q-chip>
+                  <template v-if="showNewSplitterInput">
+                    <km-input
+                      ref="newSplitterInput"
+                      v-model="newSplitter"
+                      placeholder="Add (Enter)"
+                      dense
+                      style="width: 160px"
+                      @keyup.enter="addSplitter"
+                      @keyup.esc.stop.prevent="cancelAddSplitter"
+                      @blur="cancelAddSplitter"
                     />
-                  </div>
-                </div>
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Last Segment Allowed Expansion (%)</div>
-                  <div class="row items-center q-pr-sm" style="height: 36px">
-                    <q-slider
-                      v-model="form.chunker.options.llm_last_segment_increase"
-                      :min="0"
-                      :max="1"
-                      :step="0.02"
-                      label
-                      :label-value="`${Math.round((form.chunker.options.llm_last_segment_increase || 0) * 100)}%`"
+                  </template>
+                  <template v-else>
+                    <q-btn
+                      dense
+                      flat
+                      color="primary-light"
+                      text-color="primary"
+                      icon="add"
+                      class="q-ml-sm q-my-none q-pa-none"
+                      style="height: 24px; width: 28px; border-radius: 4px"
+                      @click="showAddInput"
                     />
-                  </div>
+                  </template>
                 </div>
               </div>
-            </div>
-          </template>
-
-          <template v-if="!isLockedNativeProfile && !isReadonlyProfile && (isRecursiveStrategy || isKreuzbergStrategy)">
-            <div class="q-mb-lg">
-              <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunking Settings</div>
-              <div v-if="isRecursiveStrategy" class="km-description text-secondary-text q-mt-xs q-mb-md">
-                Adjust how content is divided into chunks when using the recursive character text splitting strategy.
-                <b>Splitters</b>
-                control where content is split into smaller parts; each splitter is tried in order of priority, until content fits into the chunk max
-                size.
-                <b>Chunk Overlap</b>
-                allows a portion of content to be repeated between consecutive chunks to provide better context continuity.
-              </div>
-              <div v-else class="km-description text-secondary-text q-mt-xs q-mb-md">
-                Adjust how content is divided into chunks when using the Kreuzberg Markdown-aware splitting strategy.
-                <b>Chunk Overlap</b>
-                allows a portion of content to be repeated between consecutive chunks to provide better context continuity.
-              </div>
-
-              <div class="row q-col-gutter-lg">
-                <div v-if="isRecursiveStrategy" class="col-8">
-                  <div class="km-input-label q-pb-xs">Splitters</div>
-                  <div class="splitters-container q-py-xs" style="border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px">
-                    <div class="row items-center q-gutter-xs">
-                      <q-chip
-                        v-for="(splitter, index) in form.chunker.options.splitters"
-                        :key="index"
-                        removable
-                        color="primary-light"
-                        text-color="primary"
-                        square
-                        size="12px"
-                        @remove="removeSplitter(index)"
-                      >
-                        {{ formatSplitterDisplay(splitter) }}
-                      </q-chip>
-                      <template v-if="showNewSplitterInput">
-                        <km-input
-                          ref="newSplitterInput"
-                          v-model="newSplitter"
-                          placeholder="Add (Enter)"
-                          dense
-                          style="width: 160px"
-                          @keyup.enter="addSplitter"
-                          @keyup.esc.stop.prevent="cancelAddSplitter"
-                          @blur="cancelAddSplitter"
-                        />
-                      </template>
-                      <template v-else>
-                        <q-btn
-                          dense
-                          flat
-                          color="primary-light"
-                          text-color="primary"
-                          icon="add"
-                          class="q-ml-sm q-my-none q-pa-none"
-                          style="height: 24px; width: 28px; border-radius: 4px"
-                          @click="showAddInput"
-                        />
-                      </template>
-                    </div>
-                  </div>
-                  <div class="km-description text-secondary-text">
-                    Enter separators in order of priority. Use keywords:
-                    <i>space</i>
-                    ,
-                    <i>tab</i>
-                    ,
-                    <i>newline</i>
-                    ,
-                    <i>empty</i>
-                    or escape sequences (\n, \t, ...).
-                  </div>
-                </div>
-                <div :class="isRecursiveStrategy ? 'col-4' : 'col-12'">
-                  <div class="km-input-label q-pb-xs">Chunk Overlap (%)</div>
-                  <div class="row items-center q-pr-sm" style="height: 36px">
-                    <q-slider
-                      v-model="form.chunker.options.recursive_chunk_overlap"
-                      :min="0"
-                      :max="0.9"
-                      :step="0.02"
-                      label
-                      :label-value="`${Math.round((form.chunker.options.recursive_chunk_overlap || 0) * 100)}%`"
-                    />
-                  </div>
-                  <div class="km-description text-secondary-text q-mt-xs">Percentage of chunk max size.</div>
-                </div>
+              <div class="km-description text-secondary-text">
+                Enter separators in order of priority. Use keywords:
+                <i>space</i>
+                ,
+                <i>tab</i>
+                ,
+                <i>newline</i>
+                ,
+                <i>empty</i>
+                or escape sequences (\n, \t, ...).
               </div>
             </div>
-          </template>
 
-          <!-- Document Level Settings -->
-          <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Document Level Settings</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
-              These settings apply to the produced document as a whole. Use it to configure document-level information.
-            </div>
-            <div>
-              <div class="km-input-label q-pb-xs">Document Title</div>
-              <km-input v-model="form.chunker.options.document_title_pattern" :readonly="isReadonlyProfile" placeholder="e.g., {title} — {filename}">
-                <template #append>
-                  <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
-                  <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
-                    <div class="km-description">
-                      <div class="q-mb-xs text-weight-bold">Available variables:</div>
-                      <ul class="q-ml-md q-mb-none" style="padding-left: 16px">
-                        <li>
-                          <b>{filename}</b>
-                          : Source file name
-                        </li>
-                        <li>
-                          <b>{title}</b>
-                          : Original document title (if available)
-                        </li>
-                        <li>
-                          <b>{date}</b>
-                          : Document date
-                        </li>
-                        <li>
-                          <b>{source}</b>
-                          : Data source name
-                        </li>
-                      </ul>
-                    </div>
-                  </q-tooltip>
-                </template>
-              </km-input>
-            </div>
-          </div>
-
-          <!-- Chunk Level Settings -->
-          <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunk Level Settings</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
-              These settings apply to each chunk produced by the chunker. Use it to configure chunk-level information.
-            </div>
-            <div class="row q-col-gutter-lg q-mb-md">
-              <div class="col-6">
+            <!-- Chunk Title + Content Type -->
+            <div class="row q-col-gutter-md q-mt-xs">
+              <div class="col-grow">
                 <div class="km-input-label q-pb-xs">Chunk Title</div>
                 <km-input
                   v-model="form.chunker.options.chunk_title_pattern"
@@ -376,8 +272,8 @@
                   </template>
                 </km-input>
               </div>
-              <div class="col-3">
-                <div class="km-input-label q-pb-xs">Content Type</div>
+              <div class="col-auto" style="min-width: 265px">
+                <div class="km-input-label q-pb-xs">Chunk Content Type</div>
                 <km-select
                   v-model="form.chunker.options.chunk_content_type"
                   :options="chunkContentTypeOptions"
@@ -386,10 +282,89 @@
                   map-options
                 />
               </div>
-              <div class="col-3">
-                <div class="km-input-label q-pb-xs">Max Size (chars)</div>
-                <km-input v-model.number="form.chunker.options.chunk_max_size" :readonly="isReadonlyProfile" type="number" min="100" required />
+            </div>
+
+            <!-- LLM: Handling Content Size -->
+            <div v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy" class="q-mt-lg">
+              <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Handling Content Size</div>
+              <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+                LLMs have limited context window, so content must be divided into smaller segments before executing LLM-based chunking. The
+                <b>Segment Overlap</b>
+                parameter controls content repetition between consecutive segments. The
+                <b>Last Segment Allowed Expansion</b>
+                parameter allows the final segment to be expanded beyond the normal segment size to reduce small trailing remainders.
               </div>
+              <div class="row q-col-gutter-lg">
+                <div class="col-4">
+                  <div class="km-input-label q-pb-sm">Segment Size (characters)</div>
+                  <km-input v-model.number="form.chunker.options.llm_batch_size" type="number" min="100" />
+                </div>
+                <div class="col-4">
+                  <div class="km-input-label q-pb-sm">Segment Overlap (%)</div>
+                  <div class="row items-center" style="height: 36px">
+                    <q-slider
+                      v-model="form.chunker.options.llm_batch_overlap"
+                      :min="0"
+                      :max="0.9"
+                      :step="0.02"
+                      label
+                      :label-value="`${Math.round((form.chunker.options.llm_batch_overlap || 0) * 100)}%`"
+                    />
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="km-input-label q-pb-sm">Last Segment Allowed Expansion (%)</div>
+                  <div class="row items-center q-pr-sm" style="height: 36px">
+                    <q-slider
+                      v-model="form.chunker.options.llm_last_segment_increase"
+                      :min="0"
+                      :max="1"
+                      :step="0.02"
+                      label
+                      :label-value="`${Math.round((form.chunker.options.llm_last_segment_increase || 0) * 100)}%`"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Document Level Settings -->
+          <div class="q-mb-lg">
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Document Level Settings</div>
+            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
+              These settings apply to the produced document as a whole. Use it to configure document-level information.
+            </div>
+            <div>
+              <div class="km-input-label q-pb-xs">Document Title</div>
+              <km-input v-model="form.chunker.options.document_title_pattern" :readonly="isReadonlyProfile" placeholder="e.g., {title} — {filename}">
+                <template #append>
+                  <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
+                  <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
+                    <div class="km-description">
+                      <div class="q-mb-xs text-weight-bold">Available variables:</div>
+                      <ul class="q-ml-md q-mb-none" style="padding-left: 16px">
+                        <li>
+                          <b>{filename}</b>
+                          : Source file name
+                        </li>
+                        <li>
+                          <b>{title}</b>
+                          : Original document title (if available)
+                        </li>
+                        <li>
+                          <b>{date}</b>
+                          : Document date
+                        </li>
+                        <li>
+                          <b>{source}</b>
+                          : Data source name
+                        </li>
+                      </ul>
+                    </div>
+                  </q-tooltip>
+                </template>
+              </km-input>
             </div>
           </div>
         </q-form>
@@ -605,6 +580,14 @@ const patternInputWidth = computed(() => {
   return `${value.length + 1}ch`
 })
 
+const metadataFieldInputWidth = computed(() => {
+  const value = form.value.reader.options?.field_name || ''
+  if (!value) {
+    return '10ch'
+  }
+  return `${value.length + 1}ch`
+})
+
 const getDefaultForm = () => ({
   name: '',
   enabled: true,
@@ -640,7 +623,6 @@ const getDefaultForm = () => ({
 const form = ref(getDefaultForm())
 const initialFormState = ref(getDefaultForm())
 const nameRef = ref()
-const promptTemplateRef = ref()
 const metadataFieldNameRef = ref()
 const newSplitter = ref('')
 const showNewSplitterInput = ref(false)
@@ -652,6 +634,14 @@ const dismissLabel = computed(() => (isReadonlyProfile.value ? 'Close' : 'Cancel
 const isLockedNativeProfile = computed(() => isEditing.value && isLockedFluidTopicsNativeProfile(props.config ?? form.value))
 const isSharePointPageReader = computed(() => form.value.reader.name === SHAREPOINT_PAGE_READER)
 const isSourceMetadataReader = computed(() => form.value.reader.name === SOURCE_METADATA_READER)
+const selectedReaderLabel = computed(() => {
+  const option = readerOptions.find((o) => o.value === form.value.reader.name)
+  return option?.label ?? form.value.reader.name
+})
+const selectedStrategyLabel = computed(() => {
+  const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
+  return option?.label ?? form.value.chunker.strategy
+})
 const isLLMStrategy = computed(() => form.value.chunker.strategy === 'llm')
 const isRecursiveStrategy = computed(() => form.value.chunker.strategy === 'recursive_character_text_splitting')
 const isKreuzbergStrategy = computed(() => form.value.chunker.strategy === 'kreuzberg')
@@ -836,19 +826,15 @@ const save = async () => {
   }
 
   // Validate metadata field name when source metadata reader is selected
-  if (isSourceMetadataReader.value) {
-    const isFieldNameValid = (metadataFieldNameRef.value as any)?.validate?.() !== false
-    if (!isFieldNameValid) {
-      isValid &&= false
-    }
+  if (isSourceMetadataReader.value && !form.value.reader.options?.field_name?.trim()) {
+    isValid = false
+    $q.notify({ type: 'negative', message: 'Metadata field name is required.' })
   }
 
   // Validate prompts when LLM strategy is selected
-  if (isLLMStrategy.value) {
-    const isPromptValid = (promptTemplateRef.value as any)?.validate?.() !== false
-    if (!isPromptValid) {
-      isValid &&= false
-    }
+  if (isLLMStrategy.value && !form.value.chunker.options.prompt_template_system_name) {
+    isValid = false
+    $q.notify({ type: 'negative', message: 'Prompt template is required for LLM-based chunking.' })
   }
 
   if (!isValid) {
@@ -922,6 +908,16 @@ watch(
   font-size: 10px;
   font-weight: 500;
   color: var(--q-error-text) !important;
+}
+
+.chunking-strategy-description {
+  width: 100%;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(var(--q-primary-rgb, 25, 118, 210), 0.2);
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.8;
 }
 
 .content-matching-sentence {

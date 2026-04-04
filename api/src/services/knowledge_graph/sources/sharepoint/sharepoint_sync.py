@@ -237,14 +237,13 @@ class SharePointSyncPipeline(
                     source_metadata: dict[str, Any] = {}
                     file_bytes: bytes | None = None
 
-                    # Determine reader name to decide whether file download is needed
-                    reader_name = (
-                        content_config.reader.get("name", "")
-                        if content_config.reader
-                        else ""
-                    )
+                    # Check whether the matched reader reads from metadata
+                    # rather than file content so we can skip the download.
                     is_source_metadata_reader = (
-                        reader_name == ContentReaderName.SOURCE_METADATA
+                        content_config.reader.get("name")
+                        == ContentReaderName.SOURCE_METADATA
+                        if content_config.reader
+                        else False
                     )
 
                     # For .aspx pages, get HTML content from CanvasContent1 instead of downloading file bytes
@@ -270,20 +269,10 @@ class SharePointSyncPipeline(
                             )
 
                         if is_source_metadata_reader:
-                            # Source metadata reader: content comes from metadata,
-                            # no file download needed. Use the metadata field value
-                            # as content bytes for hashing / change detection.
-                            field_name = (
-                                content_config.reader.get("options", {}).get(
-                                    "field_name", ""
-                                )
-                                if content_config.reader
-                                else ""
-                            )
-                            field_value = str(source_metadata.get(field_name, ""))
-                            # Always produce bytes (even if empty) so the document
-                            # is still created with its title / metadata.
-                            file_bytes = field_value.encode("utf-8")
+                            # Content will be derived from source_metadata inside
+                            # store_document; no file download needed.  Use a
+                            # placeholder so the document is not skipped below.
+                            file_bytes = b" "
                         elif is_aspx_page:
                             # For pages, get HTML content from CanvasContent1 property
                             from .sharepoint_utils import fetch_sharepoint_page_content
@@ -310,9 +299,7 @@ class SharePointSyncPipeline(
                                 server_relative_url=file_ref.server_relative_url,
                             )
 
-                    if file_bytes is None or (
-                        not file_bytes and not is_source_metadata_reader
-                    ):
+                    if not file_bytes:
                         await ctx.inc("skipped")
                         continue
 

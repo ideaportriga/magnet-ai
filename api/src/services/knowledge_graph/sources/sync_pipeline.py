@@ -22,6 +22,7 @@ from ..content_load_services import (
 from ..models import (
     ContentConfig,
     ContentReaderContext,
+    ContentReaderName,
     LoadedContent,
     StoreDocumentResult,
     SyncCounters,
@@ -333,6 +334,22 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
                 "source_document_id": source_document_id,
             },
         )
+
+        # For source_metadata reader, derive content from the configured
+        # metadata field so hashing and content loading use the actual
+        # ingested text rather than raw file bytes.  This makes the reader
+        # work generically for every source type that supplies source_metadata.
+        if (
+            content_config
+            and content_config.reader
+            and content_config.reader.get("name") == ContentReaderName.SOURCE_METADATA
+        ):
+            field_name = (content_config.reader.get("options") or {}).get(
+                "field_name", ""
+            )
+            metadata = source_metadata or {}
+            field_value = str(metadata.get(field_name, ""))
+            content = field_value.encode("utf-8")
 
         if isinstance(content, str):
             content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
