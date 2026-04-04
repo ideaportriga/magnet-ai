@@ -12,6 +12,7 @@ The ID is:
 
 from __future__ import annotations
 
+import re
 import uuid
 
 import structlog
@@ -21,6 +22,10 @@ from litestar.types import Message, Receive, Scope, Send
 
 REQUEST_ID_HEADER = "X-Request-ID"
 
+# Only allow safe characters in request IDs to prevent log injection.
+# Accepts UUIDs, alphanumeric strings, hyphens, and underscores (max 128 chars).
+_SAFE_REQUEST_ID_RE = re.compile(r"^[a-zA-Z0-9\-_]{1,128}$")
+
 
 class RequestIdMiddleware(AbstractMiddleware):
     scopes = {ScopeType.HTTP}
@@ -28,9 +33,13 @@ class RequestIdMiddleware(AbstractMiddleware):
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         # Prefer client-supplied request ID for gateway traceability
         headers = dict(scope.get("headers", []))
-        request_id = headers.get(
-            REQUEST_ID_HEADER.lower().encode(), b""
-        ).decode() or str(uuid.uuid4())
+        raw_id = headers.get(REQUEST_ID_HEADER.lower().encode(), b"").decode()
+
+        # Validate client-supplied ID to prevent log injection
+        if raw_id and _SAFE_REQUEST_ID_RE.match(raw_id):
+            request_id = raw_id
+        else:
+            request_id = str(uuid.uuid4())
 
         # Make available to handlers via scope["state"]
         state: dict = scope.setdefault("state", {})

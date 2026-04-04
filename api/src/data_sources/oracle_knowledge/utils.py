@@ -1,6 +1,7 @@
 import httpx
 
 from core.config.base import get_knowledge_source_settings
+from core.exceptions import DataSourceError
 from data_sources.oracle_knowledge.types import OracleKnowledgeConfig
 
 
@@ -17,7 +18,7 @@ def get_oracle_knowledge_config(oracle_knowledge_url) -> OracleKnowledgeConfig:
         )
         return config
     except Exception as err:
-        raise ValueError("Oracle Knowledge connection is misconfigured") from err
+        raise DataSourceError("Oracle Knowledge connection is misconfigured") from err
 
 
 def create_oracle_knowledge_client(oracle_knowledge_url):

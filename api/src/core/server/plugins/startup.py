@@ -162,6 +162,26 @@ class StartupPlugin(InitPluginProtocol):
         except Exception as e:
             logger.warning("Failed to register kg_sync_recovery job: %s", e)
 
+        # Periodic cleanup of expired/revoked refresh tokens
+        try:
+            from apscheduler.triggers.interval import IntervalTrigger
+            from services.users.refresh_token_service import cleanup_expired_tokens
+
+            token_cleanup_job_id = "refresh_token_cleanup"
+            if scheduler.get_job(token_cleanup_job_id):
+                scheduler.remove_job(token_cleanup_job_id)
+
+            scheduler.add_job(
+                cleanup_expired_tokens,
+                trigger=IntervalTrigger(hours=6),
+                id=token_cleanup_job_id,
+                name="Cleanup expired/revoked refresh tokens",
+                replace_existing=True,
+            )
+            logger.info("Registered refresh_token_cleanup job (every 6h)")
+        except Exception as e:
+            logger.warning("Failed to register refresh_token_cleanup job: %s", e)
+
         # NOTE: Storage GC job (Phase 9) requires db_session injection.
         # APScheduler 3.x does not support async functions with DI.
         # GC will be triggered via a dedicated admin endpoint or manual CLI call.

@@ -3,6 +3,7 @@ import re
 
 from simple_salesforce import Salesforce
 
+from core.exceptions import ValidationError
 from data_sources.data_source import DataSource
 
 
@@ -51,7 +52,7 @@ class SalesforceDataSource(DataSource[dict]):
         pattern = re.compile(r"^[a-zA-Z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*__kav$")
 
         if not pattern.match(object_api_name):
-            raise ValueError(f"Invalid object API name: {object_api_name}")
+            raise ValidationError(f"Invalid object API name: {object_api_name}")
 
     def __get_columns_to_select(self, output_config: list[str]) -> set[str]:
         result: list[str] = []
@@ -68,4 +69,4 @@ class SalesforceDataSource(DataSource[dict]):
 
         for name in columns_to_select:
             if not pattern.match(name):
-                raise ValueError(f"Invalid column name: {name}")
+                raise ValidationError(f"Invalid column name: {name}")

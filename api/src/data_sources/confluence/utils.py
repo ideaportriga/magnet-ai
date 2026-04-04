@@ -1,5 +1,6 @@
 from atlassian import Confluence
 
+from core.exceptions import DataSourceError
 from data_sources.common.utils import get_required_env_var
 from data_sources.confluence.types import ConfluenceConfig
 
@@ -12,7 +13,7 @@ def get_confluence_config() -> ConfluenceConfig:
         )
         return confluence_config
     except Exception as err:
-        raise ValueError("Confluence connection is misconfigured") from err
+        raise DataSourceError("Confluence connection is misconfigured") from err
 
 
 def create_confluence_instance(url: str):

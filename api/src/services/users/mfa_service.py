@@ -18,6 +18,7 @@ import pyotp
 import qrcode
 
 from core.db.models.user.user import User
+from core.exceptions import AuthError
 from services.users.password import hash_password, verify_password
 
 logger = getLogger(__name__)
@@ -106,10 +107,10 @@ async def confirm_mfa_setup(
         List of plaintext backup codes (shown once, never retrievable).
 
     Raises:
-        ValueError: If TOTP code is invalid.
+        AuthError: If TOTP code is invalid.
     """
     if not verify_totp_code(secret, totp_code):
-        raise ValueError("Invalid TOTP code")
+        raise AuthError("Invalid TOTP code")
 
     # Generate and hash backup codes
     plaintext_codes = generate_backup_codes()

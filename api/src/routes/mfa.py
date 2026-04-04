@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from core.config.app import alchemy
 from middlewares.auth import Auth
 from services.users import auth_service, mfa_service, refresh_token_service
+from utils.cookies import set_auth_cookies
 
 logger = getLogger(__name__)
 
@@ -95,15 +96,13 @@ class MfaController(Controller):
             service = UsersService(session=session)
             user = await service.get(auth.user.id)
 
-            try:
-                backup_codes = await mfa_service.confirm_mfa_setup(
-                    session=session,
-                    user=user,
-                    secret=data.secret,
-                    totp_code=data.totp_code,
-                )
-            except ValueError as e:
-                raise NotAuthorizedException(str(e)) from e
+            # AuthError propagates to global exception handler → 401
+            backup_codes = await mfa_service.confirm_mfa_setup(
+                session=session,
+                user=user,
+                secret=data.secret,
+                totp_code=data.totp_code,
+            )
 
             await session.commit()
 
@@ -173,22 +172,7 @@ class MfaController(Controller):
                 "user_id": str(user.id),
             },
         )
-        response.set_cookie(
-            key="token",
-            value=access_token,
-            httponly=True,
-            secure=True,
-            samesite="none",
-            path="/",
-        )
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_plaintext,
-            httponly=True,
-            secure=True,
-            samesite="none",
-            path="/",
-        )
+        set_auth_cookies(response, access_token, refresh_plaintext)
         # Clear the MFA challenge cookie
         response.delete_cookie(key="mfa_challenge", path="/api/auth/mfa")
         return response
@@ -202,36 +186,24 @@ class MfaController(Controller):
         if not auth.user.is_two_factor_enabled:
             return {"message": "MFA is not enabled"}
 
-        # Verify password if user has one
-        if data.password:
-            from services.users.password import verify_password
+        async with alchemy.get_session() as session:
+            from core.domain.users.service import UsersService
 
-            async with alchemy.get_session() as session:
-                from core.domain.users.service import UsersService
+            service = UsersService(session=session)
+            user = await service.get(auth.user.id)
+            await session.refresh(user, attribute_names=["hashed_password"])
 
-                service = UsersService(session=session)
-                user = await service.get(auth.user.id)
-                await session.refresh(user, attribute_names=["hashed_password"])
-
-                if user.hashed_password and not verify_password(
-                    data.password, user.hashed_password
-                ):
-                    raise NotAuthorizedException("Invalid password")
-
-                await mfa_service.disable_mfa(session=session, user=user)
-                await session.commit()
-        else:
-            async with alchemy.get_session() as session:
-                from core.domain.users.service import UsersService
-
-                service = UsersService(session=session)
-                user = await service.get(auth.user.id)
-                await session.refresh(user, attribute_names=["hashed_password"])
-
-                if user.hashed_password:
+            if user.hashed_password:
+                # Password-based users must confirm their password
+                if not data.password:
                     raise NotAuthorizedException("Password required to disable MFA")
 
-                await mfa_service.disable_mfa(session=session, user=user)
-                await session.commit()
+                from services.users.password import verify_password
+
+                if not verify_password(data.password, user.hashed_password):
+                    raise NotAuthorizedException("Invalid password")
+
+            await mfa_service.disable_mfa(session=session, user=user)
+            await session.commit()
 
         return {"message": "MFA disabled"}

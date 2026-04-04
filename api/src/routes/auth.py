@@ -57,7 +57,9 @@ class AuthController(Controller):
             try:
                 roles = [r.slug for r in (user.roles or [])]
             except Exception:
-                pass
+                logger.warning(
+                    "Failed to load roles for user %s", user.id, exc_info=True
+                )
 
             # oauth_accounts are lazy="noload" — load them explicitly
             oauth_accounts = []
@@ -79,7 +81,9 @@ class AuthController(Controller):
                             }
                         )
             except Exception:
-                pass
+                logger.warning(
+                    "Failed to load OAuth accounts for user %s", user.id, exc_info=True
+                )
 
             return {
                 "id": str(user.id),

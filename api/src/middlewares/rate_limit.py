@@ -27,6 +27,10 @@ _RATE_LIMITS: Final[dict[str, tuple[int, int]]] = {
 # {(ip, path_prefix): list[timestamps]}
 _REQUESTS: dict[tuple[str, str], list[float]] = defaultdict(list)
 
+# Periodic cleanup: max number of keys before a full sweep removes stale entries
+_MAX_KEYS_BEFORE_SWEEP: Final[int] = 10_000
+_MAX_WINDOW: Final[int] = max(window for _, window in _RATE_LIMITS.values())
+
 
 def _get_client_ip(connection: ASGIConnection) -> str:
     """Extract client IP, respecting X-Forwarded-For behind reverse proxy."""
@@ -35,6 +39,14 @@ def _get_client_ip(connection: ASGIConnection) -> str:
         return forwarded.split(",")[0].strip()
     client = connection.scope.get("client")
     return client[0] if client else "unknown"
+
+
+def _sweep_stale_entries(now: float) -> None:
+    """Remove keys whose timestamps have all expired (prevents memory leak)."""
+    cutoff = now - _MAX_WINDOW
+    stale_keys = [k for k, ts in _REQUESTS.items() if not ts or ts[-1] <= cutoff]
+    for k in stale_keys:
+        del _REQUESTS[k]
 
 
 def check_rate_limit(connection: ASGIConnection) -> None:
@@ -51,7 +63,11 @@ def check_rate_limit(connection: ASGIConnection) -> None:
     key = (ip, prefix)
     now = time.monotonic()
 
-    # Prune expired entries
+    # Periodic sweep to reclaim memory from IPs that stopped making requests
+    if len(_REQUESTS) > _MAX_KEYS_BEFORE_SWEEP:
+        _sweep_stale_entries(now)
+
+    # Prune expired entries for this key
     timestamps = _REQUESTS[key]
     cutoff = now - window
     _REQUESTS[key] = timestamps = [t for t in timestamps if t > cutoff]

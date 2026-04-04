@@ -21,6 +21,7 @@ from core.config.base import get_auth_settings
 from core.db.models.user.user import User
 from core.db.models.user.user_oauth_account import UserOAuthAccount
 from core.domain.users.service import UsersService
+from core.exceptions import AuthError, ValidationError
 from services.users.service import _assign_default_role
 
 logger = getLogger(__name__)
@@ -33,26 +34,26 @@ def get_oauth_client(provider: str) -> BaseOAuth2:
     """Get the httpx-oauth client for a given provider.
 
     Raises:
-        ValueError: If provider is not configured or unknown.
+        ValidationError: If provider is not configured or unknown.
     """
     settings = get_auth_settings()
 
     if provider == "google":
         if not settings.GOOGLE_OAUTH2_CLIENT_ID:
-            raise ValueError("Google OAuth2 is not configured")
+            raise ValidationError("Google OAuth2 is not configured")
         return GoogleOAuth2(
             client_id=settings.GOOGLE_OAUTH2_CLIENT_ID,
             client_secret=settings.GOOGLE_OAUTH2_CLIENT_SECRET,
         )
     elif provider == "github":
         if not settings.GITHUB_OAUTH2_CLIENT_ID:
-            raise ValueError("GitHub OAuth2 is not configured")
+            raise ValidationError("GitHub OAuth2 is not configured")
         return GitHubOAuth2(
             client_id=settings.GITHUB_OAUTH2_CLIENT_ID,
             client_secret=settings.GITHUB_OAUTH2_CLIENT_SECRET,
         )
     else:
-        raise ValueError(f"Unknown OAuth provider: {provider}")
+        raise ValidationError(f"Unknown OAuth provider: {provider}")
 
 
 def get_redirect_url(provider: str) -> str:
@@ -128,10 +129,10 @@ async def handle_oauth_callback(
         The authenticated User.
 
     Raises:
-        ValueError: If state is invalid or user info cannot be retrieved.
+        AuthError: If state is invalid or user info cannot be retrieved.
     """
     if not validate_state_token(state, provider):
-        raise ValueError("Invalid or expired OAuth state token")
+        raise AuthError("Invalid or expired OAuth state token")
 
     client = get_oauth_client(provider)
     redirect_url = get_redirect_url(provider)
@@ -149,7 +150,7 @@ async def handle_oauth_callback(
     )
 
     if not account_email:
-        raise ValueError("OAuth provider did not return an email address")
+        raise AuthError("OAuth provider did not return an email address")
 
     now = datetime.now(UTC)
 
@@ -250,7 +251,7 @@ async def _get_user_info(
                         break
             return str(data["id"]), email, data.get("name") or data.get("login")
 
-    raise ValueError(f"Unsupported provider for user info: {provider}")
+    raise ValidationError(f"Unsupported provider for user info: {provider}")
 
 
 def _get_scopes(provider: str) -> list[str]:

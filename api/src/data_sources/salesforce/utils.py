@@ -1,5 +1,6 @@
 from simple_salesforce import Salesforce
 
+from core.exceptions import DataSourceError
 from data_sources.common.utils import get_required_env_var
 from data_sources.salesforce.types import SalesforceConfig
 
@@ -13,7 +14,7 @@ def get_salesforce_config() -> SalesforceConfig:
         )
         return salesforce_config
     except Exception as err:
-        raise ValueError("Salesforce connection is misconfigured") from err
+        raise DataSourceError("Salesforce connection is misconfigured") from err
 
 
 def create_salesforce_instance() -> Salesforce:

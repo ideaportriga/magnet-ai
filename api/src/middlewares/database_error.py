@@ -44,9 +44,8 @@ class DatabaseErrorLoggingMiddleware(AbstractMiddleware):
                 if hasattr(exc, "statement") and getattr(exc, "statement", None):
                     logger.error("Failed SQL statement: %s", getattr(exc, "statement"))
 
-                # If this has params, log them (be careful with sensitive data)
-                if hasattr(exc, "params") and getattr(exc, "params", None):
-                    logger.error("SQL parameters: %s", getattr(exc, "params"))
+                # SQL params intentionally NOT logged — they may contain
+                # passwords, tokens, or other sensitive data.
 
                 # Re-raise the exception so it can be handled by exception handlers
                 raise

@@ -72,7 +72,7 @@ def create_auth_middleware(
                 if message["type"] == "http.response.start":
                     if auth.tokens_refreshed:
                         settings = get_auth_settings()
-                        token_max_age = 3600  # 1 hour
+                        token_max_age = settings.ACCESS_TOKEN_EXPIRATION_MINUTES * 60
                         refresh_max_age = settings.REFRESH_TOKEN_EXPIRATION_DAYS * 86400
                         headers = MutableScopeHeaders.from_message(message=message)
                         headers.add(

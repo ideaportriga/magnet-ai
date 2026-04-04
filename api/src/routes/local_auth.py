@@ -17,10 +17,10 @@ from litestar.exceptions import NotAuthorizedException, NotFoundException
 from pydantic import BaseModel, Field
 
 from core.config.app import alchemy
-from core.config.base import get_auth_settings
 from middlewares.auth import Auth
 from services.users import auth_service
 from services.users import refresh_token_service
+from utils.cookies import set_auth_cookies
 
 logger = getLogger(__name__)
 
@@ -89,16 +89,13 @@ class LocalAuthController(Controller):
     @post("/signup", exclude_from_auth=True, summary="Register a new local user")
     async def signup(self, data: SignupRequest) -> SignupResponse:
         async with alchemy.get_session() as session:
-            try:
-                user = await auth_service.signup(
-                    session=session,
-                    email=data.email,
-                    password=data.password,
-                    name=data.name,
-                )
-                await session.commit()
-            except ValueError as e:
-                raise NotAuthorizedException(str(e)) from e
+            user = await auth_service.signup(
+                session=session,
+                email=data.email,
+                password=data.password,
+                name=data.name,
+            )
+            await session.commit()
 
             return SignupResponse(
                 user_id=str(user.id),
@@ -111,14 +108,12 @@ class LocalAuthController(Controller):
 
         async with alchemy.get_session() as session:
             # First authenticate (verify credentials)
-            try:
-                user = await auth_service.authenticate(
-                    session=session,
-                    email=data.email,
-                    password=data.password,
-                )
-            except ValueError as e:
-                raise NotAuthorizedException(str(e)) from e
+            # AuthError is handled by global exception handler → 401
+            user = await auth_service.authenticate(
+                session=session,
+                email=data.email,
+                password=data.password,
+            )
 
             # Check if MFA is enabled
             if user.is_two_factor_enabled:
@@ -178,30 +173,7 @@ class LocalAuthController(Controller):
                     email=user.email,
                 ),
             )
-
-            settings = get_auth_settings()
-            refresh_max_age = settings.REFRESH_TOKEN_EXPIRATION_DAYS * 86400
-
-            # Set refresh token as HttpOnly cookie
-            response.set_cookie(
-                key="refresh_token",
-                value=refresh_plaintext,
-                httponly=True,
-                secure=True,
-                samesite="none",
-                path="/",
-                max_age=refresh_max_age,
-            )
-            # Also set access token as cookie for consistency with OIDC flow
-            response.set_cookie(
-                key="token",
-                value=access_token,
-                httponly=True,
-                secure=True,
-                samesite="none",
-                path="/",
-                max_age=3600,  # 1 hour
-            )
+            set_auth_cookies(response, access_token, refresh_plaintext)
 
             return response
 
@@ -214,18 +186,16 @@ class LocalAuthController(Controller):
         device_info = request.headers.get("user-agent")
 
         async with alchemy.get_session() as session:
-            try:
-                (
-                    new_refresh_plaintext,
-                    _,
-                    user_id,
-                ) = await refresh_token_service.validate_and_rotate(
-                    session=session,
-                    plaintext_token=old_refresh_token,
-                    device_info=device_info,
-                )
-            except ValueError as e:
-                raise NotAuthorizedException(str(e)) from e
+            # AuthError propagates to global exception handler → 401
+            (
+                new_refresh_plaintext,
+                _,
+                user_id,
+            ) = await refresh_token_service.validate_and_rotate(
+                session=session,
+                plaintext_token=old_refresh_token,
+                device_info=device_info,
+            )
 
             # Load user for access token creation
             from services.users.service import get_user_by_id
@@ -238,30 +208,10 @@ class LocalAuthController(Controller):
 
             await session.commit()
 
-            settings = get_auth_settings()
-            refresh_max_age = settings.REFRESH_TOKEN_EXPIRATION_DAYS * 86400
-
             response = Response(
                 RefreshResponse(access_token=access_token),
             )
-            response.set_cookie(
-                key="refresh_token",
-                value=new_refresh_plaintext,
-                httponly=True,
-                secure=True,
-                samesite="none",
-                path="/",
-                max_age=refresh_max_age,
-            )
-            response.set_cookie(
-                key="token",
-                value=access_token,
-                httponly=True,
-                secure=True,
-                samesite="none",
-                path="/",
-                max_age=3600,  # 1 hour
-            )
+            set_auth_cookies(response, access_token, new_refresh_plaintext)
             return response
 
     @get("/sessions", summary="List active sessions")

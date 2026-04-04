@@ -21,6 +21,7 @@ from sqlalchemy import select, update
 
 from core.config.base import get_auth_settings
 from core.db.models.user.refresh_token import RefreshToken
+from core.exceptions import AuthError
 
 logger = getLogger(__name__)
 
@@ -92,7 +93,7 @@ async def validate_and_rotate(
         Tuple of (new_plaintext_token, new_RefreshToken, user_id).
 
     Raises:
-        ValueError: If token is invalid, expired, or reuse detected.
+        AuthError: If token is invalid, expired, or reuse detected.
     """
     token_hash = hash_token(plaintext_token)
 
@@ -105,11 +106,11 @@ async def validate_and_rotate(
         result = await session.execute(stmt)
     except Exception:
         # Row locked by concurrent request — treat as contention
-        raise ValueError("Token validation in progress, please retry")
+        raise AuthError("Token validation in progress, please retry")
     db_token = result.scalar_one_or_none()
 
     if db_token is None:
-        raise ValueError("Invalid refresh token")
+        raise AuthError("Invalid refresh token")
 
     now = datetime.now(UTC)
 
@@ -121,11 +122,11 @@ async def validate_and_rotate(
             db_token.user_id,
         )
         await _revoke_family(session, db_token.family_id)
-        raise ValueError("Refresh token reuse detected — all sessions revoked")
+        raise AuthError("Refresh token reuse detected — all sessions revoked")
 
     # Expired
     if db_token.expires_at < now:
-        raise ValueError("Refresh token expired")
+        raise AuthError("Refresh token expired")
 
     # Revoke current token
     db_token.revoked_at = now
@@ -216,6 +217,37 @@ async def revoke_session_by_id(session: Any, token_id: UUID, user_id: UUID) -> b
         return False
     await _revoke_family(session, db_token.family_id)
     return True
+
+
+async def cleanup_expired_tokens() -> int:
+    """Remove expired and revoked refresh tokens older than 30 days.
+
+    Intended to be called periodically by the scheduler to prevent
+    unbounded growth of the refresh_tokens table.
+
+    Returns:
+        Number of rows deleted.
+    """
+    from core.config.app import alchemy
+
+    cutoff = datetime.now(UTC) - timedelta(days=30)
+
+    async with alchemy.get_session() as session:
+        from sqlalchemy import delete
+
+        stmt = delete(RefreshToken).where(
+            (RefreshToken.expires_at < cutoff)
+            | (
+                RefreshToken.revoked_at.is_not(None)
+                & (RefreshToken.revoked_at < cutoff)
+            )
+        )
+        result = await session.execute(stmt)
+        await session.commit()
+        deleted = result.rowcount
+        if deleted:
+            logger.info("Cleaned up %d expired/revoked refresh tokens", deleted)
+        return deleted
 
 
 async def _revoke_family(session: Any, family_id: UUID) -> None:

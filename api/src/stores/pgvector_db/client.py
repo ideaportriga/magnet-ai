@@ -16,6 +16,8 @@ from asyncpg import Connection
 from pgvector.asyncpg import register_vector
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from core.exceptions import VectorDBError
+
 logger = logging.getLogger(__name__)
 
 
@@ -103,11 +105,11 @@ class PgVectorClient:
             async with self._acquire() as connection:
                 return await connection.fetch(query, *args)
         except asyncio.CancelledError:
-            logger.debug("Query execution was cancelled")
+            raise
+        except VectorDBError:
             raise
         except Exception as e:
-            logger.error("Error executing query: %s", e)
-            raise
+            raise VectorDBError(f"PGVector query failed: {e}") from e
 
     async def execute_command(self, command: str, *args) -> Any:
         """Execute a command (INSERT, UPDATE, DELETE) and return the result."""
@@ -115,11 +117,11 @@ class PgVectorClient:
             async with self._acquire() as connection:
                 return await connection.execute(command, *args)
         except asyncio.CancelledError:
-            logger.debug("Command execution was cancelled")
+            raise
+        except VectorDBError:
             raise
         except Exception as e:
-            logger.error("Error executing command: %s", e)
-            raise
+            raise VectorDBError(f"PGVector command failed: {e}") from e
 
     async def fetchrow(self, query: str, *args) -> Any:
         """Fetch a single row."""
@@ -127,11 +129,11 @@ class PgVectorClient:
             async with self._acquire() as connection:
                 return await connection.fetchrow(query, *args)
         except asyncio.CancelledError:
-            logger.debug("Fetchrow was cancelled")
+            raise
+        except VectorDBError:
             raise
         except Exception as e:
-            logger.error("Error fetching row: %s", e)
-            raise
+            raise VectorDBError(f"PGVector fetchrow failed: {e}") from e
 
     async def fetchval(self, query: str, *args) -> Any:
         """Fetch a single value."""
@@ -139,11 +141,11 @@ class PgVectorClient:
             async with self._acquire() as connection:
                 return await connection.fetchval(query, *args)
         except asyncio.CancelledError:
-            logger.debug("Fetchval was cancelled")
+            raise
+        except VectorDBError:
             raise
         except Exception as e:
-            logger.error("Error fetching value: %s", e)
-            raise
+            raise VectorDBError(f"PGVector fetchval failed: {e}") from e
 
     async def check_pgvector_extension(self) -> bool:
         """Check if pgvector extension is installed."""

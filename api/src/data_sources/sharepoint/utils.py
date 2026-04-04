@@ -4,6 +4,7 @@ from office365.runtime.auth.authentication_context import AuthenticationContext
 from office365.sharepoint.client_context import ClientContext
 
 from core.config.base import get_knowledge_source_settings
+from core.exceptions import DataSourceError
 from data_sources.sharepoint.types import SharepointConfig, SharepointConfigWithCert
 
 logger = getLogger(__name__)
@@ -28,7 +29,7 @@ def get_sharepoint_config() -> SharepointConfig | SharepointConfigWithCert:
         )
         return sharepoint_config
     except Exception as err:
-        raise ValueError("Sharepoint connection is misconfigured") from err
+        raise DataSourceError("Sharepoint connection is misconfigured") from err
 
 
 def get_sharepoint_context(
@@ -109,7 +110,7 @@ def create_sharepoint_client_with_config(
             private_key=private_key.replace("\\n", "\n"),
         )
     else:
-        raise ValueError(
+        raise DataSourceError(
             "Either client_secret or (tenant, thumbprint, private_key) must be provided"
         )
 

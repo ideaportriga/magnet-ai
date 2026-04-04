@@ -60,3 +60,7 @@ class SchedulerError(ApplicationError):
 
 class KnowledgeGraphError(ApplicationError):
     """Knowledge-graph pipeline error."""
+
+
+class DataSourceError(ExternalServiceError):
+    """Data source connector failed (Confluence, SharePoint, Salesforce, …)."""

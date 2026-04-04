@@ -17,6 +17,7 @@ from litestar.security.jwt import Token
 from core.config.base import get_auth_settings
 from core.db.models.user.user import User
 from core.domain.users.service import UsersService
+from core.exceptions import AuthError, ConflictError
 from services.users.password import hash_password, verify_password
 from services.users.refresh_token_service import create_refresh_token
 
@@ -76,13 +77,13 @@ async def signup(
         The created User.
 
     Raises:
-        ValueError: If email already exists.
+        ConflictError: If email already exists.
     """
     service = UsersService(session=session)
 
     existing = await service.get_one_or_none(email=email)
     if existing is not None:
-        raise ValueError("Email already registered")
+        raise ConflictError("Email already registered")
 
     hashed = hash_password(password)
 
@@ -121,25 +122,25 @@ async def authenticate(
         The authenticated User.
 
     Raises:
-        ValueError: If credentials are invalid or account inactive.
+        AuthError: If credentials are invalid or account inactive.
     """
     service = UsersService(session=session)
 
     user = await service.get_one_or_none(email=email)
     if user is None:
-        raise ValueError("Invalid email or password")
+        raise AuthError("Invalid email or password")
 
     # Load deferred password field
     await session.refresh(user, attribute_names=["hashed_password"])
 
     if not user.hashed_password:
-        raise ValueError("Invalid email or password")
+        raise AuthError("Invalid email or password")
 
     if not verify_password(password, user.hashed_password):
-        raise ValueError("Invalid email or password")
+        raise AuthError("Invalid email or password")
 
     if not user.is_active:
-        raise ValueError("Account is inactive")
+        raise AuthError("Account is inactive")
 
     # Update last_login_at
     user.last_login_at = datetime.now(UTC)

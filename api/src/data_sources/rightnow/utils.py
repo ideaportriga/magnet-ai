@@ -1,5 +1,6 @@
 import httpx
 
+from core.exceptions import DataSourceError
 from data_sources.common.utils import get_required_env_var
 from data_sources.rightnow.types import RightNowConfig
 
@@ -12,7 +13,7 @@ def get_rightnow_config() -> RightNowConfig:
         )
         return config
     except Exception as err:
-        raise ValueError("RightNow connection is misconfigured") from err
+        raise DataSourceError("RightNow connection is misconfigured") from err
 
 
 def get_rightnow_basic_auth() -> httpx.BasicAuth:

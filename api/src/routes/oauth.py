@@ -10,12 +10,12 @@ from __future__ import annotations
 from logging import getLogger
 
 from litestar import Controller, Response, get
-from litestar.exceptions import NotAuthorizedException
 from litestar.params import Parameter
 from pydantic import BaseModel
 
 from core.config.app import alchemy
 from services.users import auth_service, oauth_service, refresh_token_service
+from utils.cookies import set_auth_cookies
 
 logger = getLogger(__name__)
 
@@ -35,12 +35,8 @@ class OAuthController(Controller):
         summary="Get OAuth authorization URL",
     )
     async def authorize(self, provider: str) -> AuthorizationUrlResponse:
-        try:
-            authorization_url, state = await oauth_service.get_authorization_url(
-                provider
-            )
-        except ValueError as e:
-            raise NotAuthorizedException(str(e)) from e
+        # ValidationError propagates to global exception handler → 422
+        authorization_url, state = await oauth_service.get_authorization_url(provider)
 
         return AuthorizationUrlResponse(
             authorization_url=authorization_url,
@@ -59,15 +55,13 @@ class OAuthController(Controller):
         oauth_state: str = Parameter(query="state"),
     ) -> Response:
         async with alchemy.get_session() as session:
-            try:
-                user = await oauth_service.handle_oauth_callback(
-                    session=session,
-                    provider=provider,
-                    code=code,
-                    state=oauth_state,
-                )
-            except ValueError as e:
-                raise NotAuthorizedException(str(e)) from e
+            # AuthError propagates to global exception handler → 401
+            user = await oauth_service.handle_oauth_callback(
+                session=session,
+                provider=provider,
+                code=code,
+                state=oauth_state,
+            )
 
             # Create internal JWT tokens
             access_token = auth_service.create_access_token(user, auth_method="oauth")
@@ -86,20 +80,5 @@ class OAuthController(Controller):
                 "user_id": str(user.id),
             },
         )
-        response.set_cookie(
-            key="token",
-            value=access_token,
-            httponly=True,
-            secure=True,
-            samesite="none",
-            path="/",
-        )
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_plaintext,
-            httponly=True,
-            secure=True,
-            samesite="none",
-            path="/",
-        )
+        set_auth_cookies(response, access_token, refresh_plaintext)
         return response
