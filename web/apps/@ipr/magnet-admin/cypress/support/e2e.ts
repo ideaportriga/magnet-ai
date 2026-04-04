@@ -55,6 +55,21 @@ Cypress.on('uncaught:exception', (err) => {
 beforeEach(() => {
   frontendErrors.length = 0
   cy.task('resetBackendErrors', null, { log: false })
+
+  // Mock auth/me endpoint to prevent the app from hanging when AUTH_ENABLED=false
+  cy.intercept('GET', '**/auth/me', {
+    statusCode: 200,
+    body: {
+      id: 'e2e-test-user',
+      email: 'e2e@test.com',
+      name: 'E2E Test User',
+      preferred_username: 'e2e@test.com',
+      is_active: true,
+      is_superuser: true,
+      is_verified: true,
+      roles: ['admin'],
+    },
+  }).as('authMe')
 })
 
 afterEach(function () {

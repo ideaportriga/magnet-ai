@@ -75,13 +75,24 @@ obstore = ">=0.3.0,<1.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.9.10"
-pytest = "7.4.2"
-pytest-mock = "3.11.1"
-pytest-cov = "4.1.0"
-# mypy = "1.10.0"
-# pylint = "2.17.7"
-# black = "23.9.1"
-# isort = "5.10.1"
+# Test framework
+pytest = "^8.3"
+pytest-mock = "^3.14"
+pytest-cov = "^6.0"
+pytest-timeout = "^2.3"
+pytest-xdist = "^3.5"
+pytest-json-report = "^1.5"
+pytest-asyncio = "^0.25"
+# Test data
+factory-boy = "^3.3"
+pytest-factoryboy = "^2.7"
+# Test DB
+testcontainers = {extras = ["postgres"], version = "^4.8"}
+# HTTP client for tests
+httpx = "^0.28"
+# Fuzz testing
+schemathesis = "^3.38"
+hypothesis = "^6.120"
 
 [tool.ruff]
 target-version = "py311"
@@ -105,9 +116,19 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
-pythonpath = [
-  "src"
+pythonpath = ["src"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+timeout = 30
+markers = [
+    "unit: Unit tests - fast, no IO, no DB",
+    "integration: Integration tests - needs test database",
+    "e2e: End-to-end API tests - full app + DB",
+    "fuzz: Schemathesis API fuzz tests",
+    "load: Load/stress tests (Locust)",
+    "slow: Tests that take >5 seconds",
 ]
-testpaths = [
-    "tests"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]

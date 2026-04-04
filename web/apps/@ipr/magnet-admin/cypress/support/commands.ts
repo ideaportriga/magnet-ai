@@ -18,6 +18,7 @@ declare global {
       g(selector: string): Chainable<JQuery<HTMLElement>>
       km_type(): Chainable<JQuery<HTMLElement>>
       km_select(selector: string, value: string | string[]): Chainable<JQuery<HTMLElement>>
+      dismissErrors(): void
     }
   }
 }
@@ -54,6 +55,18 @@ Cypress.Commands.add('km_select', (selector, value) => {
         }
       }
     })
+  })
+})
+
+// Dismiss any error dialogs that may appear on page load (e.g., auth errors in test env)
+Cypress.Commands.add('dismissErrors', () => {
+  cy.get('body').then(($body) => {
+    // Look for error dialog OK buttons and click them
+    const okButtons = $body.find('button').filter((_, el) => el.textContent?.trim() === 'OK')
+    if (okButtons.length > 0) {
+      cy.wrap(okButtons.first()).click({ force: true })
+      cy.wait(500)
+    }
   })
 })
 

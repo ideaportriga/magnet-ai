@@ -289,3 +289,62 @@ migration-collection-dry-limit:
 	fi
 	@echo "🧪 Dry-run migration for collection with limit: $(collection) (limit: $(limit))"
 	PYTHONPATH=src poetry run python mongo_to_sqlalchemy_migration.py --collection $(collection) --limit $(limit) --dry-run
+
+# ── Test Commands ──────────────────────────────────────────────────────
+.PHONY: test test-unit test-integration test-e2e test-fuzz test-all load-smoke load-standard load-stress load-soak report
+
+REPORTS_DIR := reports
+
+$(REPORTS_DIR):
+	@mkdir -p $(REPORTS_DIR)
+
+test-unit: $(REPORTS_DIR)
+	PYTHONPATH=src poetry run pytest -m unit \
+		--json-report --json-report-file=$(REPORTS_DIR)/unit.json \
+		--cov=src --cov-report=json:$(REPORTS_DIR)/coverage-unit.json \
+		-x -q
+
+test-integration: $(REPORTS_DIR)
+	PYTHONPATH=src poetry run pytest -m integration \
+		--json-report --json-report-file=$(REPORTS_DIR)/integration.json \
+		--cov=src --cov-report=json:$(REPORTS_DIR)/coverage-integration.json \
+		-x -q
+
+test-e2e: $(REPORTS_DIR)
+	PYTHONPATH=src poetry run pytest -m e2e \
+		--json-report --json-report-file=$(REPORTS_DIR)/e2e.json \
+		--cov=src --cov-report=json:$(REPORTS_DIR)/coverage-e2e.json \
+		-x -q
+
+test-fuzz: $(REPORTS_DIR)
+	PYTHONPATH=src poetry run pytest -m fuzz \
+		--json-report --json-report-file=$(REPORTS_DIR)/fuzz.json \
+		-x -q --timeout=300
+
+load-smoke: $(REPORTS_DIR)
+	poetry run locust -f tests/load/locustfile.py --headless \
+		-u 10 -r 2 --run-time 30s --json 2>&1 | tee $(REPORTS_DIR)/load-smoke.json
+
+load-standard: $(REPORTS_DIR)
+	poetry run locust -f tests/load/locustfile.py --headless \
+		-u 50 -r 5 --run-time 120s --json 2>&1 | tee $(REPORTS_DIR)/load-standard.json
+
+load-stress: $(REPORTS_DIR)
+	poetry run locust -f tests/load/locustfile.py --headless \
+		-u 200 -r 10 --run-time 300s --json 2>&1 | tee $(REPORTS_DIR)/load-stress.json
+
+load-soak: $(REPORTS_DIR)
+	poetry run locust -f tests/load/locustfile.py --headless \
+		-u 30 -r 3 --run-time 1800s --json 2>&1 | tee $(REPORTS_DIR)/load-soak.json
+
+test-all: test-unit test-integration test-e2e test-fuzz
+	@echo "All test suites completed. Reports in ./$(REPORTS_DIR)/"
+
+test: $(REPORTS_DIR)
+	PYTHONPATH=src poetry run pytest -m "not load and not fuzz" \
+		--json-report --json-report-file=$(REPORTS_DIR)/all.json \
+		--cov=src --cov-report=json:$(REPORTS_DIR)/coverage.json \
+		--cov-report=term-missing -q
+
+report:
+	PYTHONPATH=src poetry run python scripts/aggregate_reports.py

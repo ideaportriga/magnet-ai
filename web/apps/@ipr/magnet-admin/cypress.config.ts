@@ -24,8 +24,8 @@ function sanitizeName(name: string): string {
 
 function httpGet(url: string): Promise<unknown[]> {
   return new Promise((resolve) => {
-    http
-      .get(url, (res) => {
+    const req = http
+      .get(url, { timeout: 2000 }, (res) => {
         let data = ''
         res.on('data', (chunk: string) => (data += chunk))
         res.on('end', () => {
@@ -38,13 +38,15 @@ function httpGet(url: string): Promise<unknown[]> {
         })
       })
       .on('error', () => resolve([]))
+      .on('timeout', () => { req.destroy(); resolve([]) })
   })
 }
 
 function httpPost(url: string): Promise<void> {
   return new Promise((resolve) => {
-    const req = http.request(url, { method: 'POST' }, () => resolve())
+    const req = http.request(url, { method: 'POST', timeout: 2000 }, () => resolve())
     req.on('error', () => resolve())
+    req.on('timeout', () => { req.destroy(); resolve() })
     req.end()
   })
 }
@@ -230,9 +232,9 @@ const nxPreset = nxE2EPreset(__filename, {
 export default defineConfig({
   e2e: {
     ...nxPreset,
-    // App is served at /admin/ — cy.visit('') lands on https://localhost:7000/admin/
-    // cy.visit('#/route') → https://localhost:7000/admin/#/route
-    baseUrl: 'https://localhost:7000/admin/',
+    // App is served at /admin/ — cy.visit('') lands on https://localhost:7001/admin/
+    // cy.visit('#/route') → https://localhost:7001/admin/#/route
+    baseUrl: 'https://localhost:7001/admin/',
     pageLoadTimeout: 90000,
     screenshotsFolder: path.join(REPORTS_DIR, 'screenshots'),
     // On macOS, Vite binds to ::1 (IPv6) while Electron resolves localhost to 127.0.0.1.
@@ -259,11 +261,14 @@ export default defineConfig({
 
       on('task', {
         resetBackendErrors() {
-          return httpPost(`${BACKEND_URL}/api/test/errors/reset`).then(() => null)
+          return httpPost(`${BACKEND_URL}/api/test/errors/reset`)
+            .then(() => null)
+            .catch(() => null)
         },
 
         getBackendErrors() {
           return httpGet(`${BACKEND_URL}/api/test/errors`)
+            .catch(() => [])
         },
 
         saveTestReport(payload: ReportPayload) {
