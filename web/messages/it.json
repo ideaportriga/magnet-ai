@@ -2229,5 +2229,15 @@
   "knowledgeGraph_failedToSaveEntitySettings": "Failed to save entity extraction settings",
   "knowledgeGraph_errorStartingExtraction": "Error starting entity extraction",
   "knowledgeGraph_failedToCancelExtraction": "Failed to cancel extraction",
-  "knowledgeGraph_failedToLoadPromptTemplates": "Failed to load prompt templates"
+  "knowledgeGraph_failedToLoadPromptTemplates": "Failed to load prompt templates",
+  "aiApps_dragToReorder": "Drag to reorder",
+  "aiApps_activateTab": "Activate tab",
+  "aiApps_deactivateTab": "Deactivate tab",
+  "aiApps_deleteTab": "Delete tab",
+  "aiApps_deleteTabNotice": "This tab will be deleted",
+  "conversation_viewTrace": "View Trace",
+  "entity_prompttemplates": "Prompt Templates",
+  "entity_ragtools": "RAG Tools",
+  "common_to": "a",
+  "common_features": "Funzionalità"
 }

@@ -230,13 +230,13 @@ export default {
     const filterConfig = {
       type: {
         key: 'type',
-        label: 'Type',
+        label: m.common_type(),
         multiple: true,
         options: categoryOptions,
       },
       features: {
         key: 'features',
-        label: 'Features',
+        label: m.common_features(),
         multiple: true,
         options: featureOptions,
         customLogic: (selected) => ({ $or: selected.map((feature) => ({ [feature]: true })) }),
@@ -245,22 +245,22 @@ export default {
 
     const columns = [
       selectionColumn(),
-      textColumn('display_name', 'Display name'),
-      textColumn('ai_model', 'Name'),
-      componentColumn('type', 'Type', markRaw(TypeChip), {
+      textColumn('display_name', m.common_displayName()),
+      textColumn('ai_model', m.common_name()),
+      componentColumn('type', m.common_type(), markRaw(TypeChip), {
         accessorKey: 'type',
         sortable: true,
       }),
-      componentColumn('features', 'Features', markRaw(Features), {
+      componentColumn('features', m.common_features(), markRaw(Features), {
         props: (row) => ({ name: 'features' }),
       }),
-      componentColumn('is_default', 'Default', markRaw(Check), {
+      componentColumn('is_default', m.common_default(), markRaw(Check), {
         accessorKey: 'is_default',
         sortable: true,
         align: 'center',
         props: (row) => ({ name: 'is_default' }),
       }),
-      componentColumn('is_active', 'Active', markRaw(Check), {
+      componentColumn('is_active', m.common_active(), markRaw(Check), {
         accessorKey: 'is_active',
         sortable: true,
         align: 'center',
@@ -293,6 +293,7 @@ export default {
     })
 
     return {
+      m,
       providerDraft,
       table,
       globalFilter,

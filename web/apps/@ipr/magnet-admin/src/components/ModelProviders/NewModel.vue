@@ -103,6 +103,7 @@ export default {
     const { mutateAsync: createModelMutation } = queries.model.useCreate()
 
     return {
+      m,
       providerDraft,
       config,
       createModelMutation,

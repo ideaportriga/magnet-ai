@@ -48,7 +48,7 @@ const { mutateAsync: removeApiKey } = apiKeysQ.useRemove()
 
 const columns = [
   textColumn<ApiKey>('name', m.common_name()),
-  textColumn<ApiKey>('value_masked', 'Key', {
+  textColumn<ApiKey>('value_masked', m.common_key(), {
     format: (val) => val ? `................${val}` : '-',
   }),
   dateColumn<ApiKey>('created_at', m.common_created()),

@@ -1,29 +1,9 @@
-// Route labels are English strings used as i18n keys.
-// Components should use m[`entity_${route.meta.entityType}`]() for translated labels.
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { m } from '@/paraglide/messages'
 import { usePopupStore } from '@/stores/popupStore'
 import { useEditBufferStore } from '@/stores/editBufferStore'
 import { useKnowledgeGraphPageStore } from '@/stores/entityDetailStores'
 import { ROUTE_ENTITY_TO_BUFFER_TYPE } from '@/constants/entityMapping'
-
-// Entity label map for workspace tabs
-const entityLabelMap = {
-  provider: 'Model Provider',
-  model: 'Model',
-  agents: 'Agent',
-  ai_apps: 'AI App',
-  promptTemplates: 'Prompt Template',
-  rag_tools: 'RAG Tool',
-  retrieval: 'Retrieval Tool',
-  collections: 'Knowledge Source',
-  evaluation_sets: 'Test Set',
-  evaluation_jobs: 'Evaluation',
-  assistant_tools: 'Assistant Tool',
-  api_servers: 'API Server',
-  mcp_servers: 'MCP Server',
-  knowledge_graph: 'Knowledge Graph',
-  observability_traces: 'Trace',
-}
 
 const routes = [
   {
@@ -31,7 +11,7 @@ const routes = [
     name: 'main',
     component: () => import('@/components/AIApps/Page.vue'),
     meta: {
-      pageLabel: 'AI App',
+      pageLabel: () => m.entity_aiApp(),
     },
   },
   {
@@ -39,7 +19,7 @@ const routes = [
     name: 'AIAppTabsDetail',
     component: () => import('@/components/AIAppTabs/details.vue'),
     meta: {
-      pageLabel: 'AI App',
+      pageLabel: () => m.entity_aiApp(),
       chroma: true,
       entity: 'ai_apps',
       headerComponent: 'ai-apps-header',
@@ -50,7 +30,7 @@ const routes = [
     name: 'AIApp',
     component: () => import('@/components/AIApps/Page.vue'),
     meta: {
-      pageLabel: 'AI App',
+      pageLabel: () => m.entity_aiApp(),
       chroma: true,
       entity: 'ai_apps',
     },
@@ -60,7 +40,7 @@ const routes = [
     name: 'AIAppDetail',
     component: () => import('@/components/AIApps/details.vue'),
     meta: {
-      pageLabel: 'AI App',
+      pageLabel: () => m.entity_aiApp(),
       chroma: true,
       entity: 'ai_apps',
       headerComponent: 'ai-apps-header',
@@ -71,7 +51,7 @@ const routes = [
     name: 'AI App',
     component: () => import('@/components/AIApps/Page.vue'),
     meta: {
-      pageLabel: 'AI App',
+      pageLabel: () => m.entity_aiApp(),
       chroma: true,
       entity: 'ai_apps',
     },
@@ -81,7 +61,7 @@ const routes = [
     name: 'PromptTemplates',
     component: () => import('@/components/Prompts/Page.vue'),
     meta: {
-      pageLabel: 'Prompt Templates',
+      pageLabel: () => m.entity_promptTemplates(),
     },
   },
   {
@@ -89,7 +69,7 @@ const routes = [
     name: 'PromptTemplatesItem',
     component: () => import('@/components/Prompts/details.vue'),
     meta: {
-      pageLabel: 'Prompt Templates',
+      pageLabel: () => m.entity_promptTemplates(),
       chroma: true,
       entity: 'promptTemplates',
       headerComponent: 'prompts-header',
@@ -101,7 +81,7 @@ const routes = [
     name: 'CollectionItems',
     component: () => import('@/components/CollectionItems/Page.vue'),
     meta: {
-      pageLabel: 'Knowledge sources',
+      pageLabel: () => m.entity_knowledgeSources(),
       chroma: true,
       entity: 'documents',
       headerComponent: 'collections-header',
@@ -112,7 +92,7 @@ const routes = [
     name: 'Collections',
     component: () => import('@/components/Collections/Page.vue'),
     meta: {
-      pageLabel: 'Knowledge sources',
+      pageLabel: () => m.entity_knowledgeSources(),
       //chroma: true,
       entity: 'collections',
     },
@@ -122,7 +102,7 @@ const routes = [
     name: 'CollectionDetail',
     component: () => import('@/components/Collections/details.vue'),
     meta: {
-      pageLabel: 'Knowledge sources',
+      pageLabel: () => m.entity_knowledgeSources(),
       chroma: true,
       entity: 'collections',
       headerComponent: 'collections-header',
@@ -133,7 +113,7 @@ const routes = [
     name: 'Configuration',
     component: () => import('@/components/Configuration/Page.vue'),
     meta: {
-      pageLabel: 'RAG Tools',
+      pageLabel: () => m.entity_ragTools(),
     },
   },
   {
@@ -141,7 +121,7 @@ const routes = [
     name: 'ConfigurationItems',
     component: () => import('@/components/Configuration/details.vue'),
     meta: {
-      pageLabel: 'RAG Tools',
+      pageLabel: () => m.entity_ragTools(),
       chroma: true,
       entity: 'rag_tools',
       headerComponent: 'configuration-header',
@@ -152,7 +132,7 @@ const routes = [
     name: 'Retrieval',
     component: () => import('@/components/Retrieval/Page.vue'),
     meta: {
-      pageLabel: 'Retrieval Tools',
+      pageLabel: () => m.entity_retrievalTools(),
     },
   },
   {
@@ -160,7 +140,7 @@ const routes = [
     name: 'RetrievalItems',
     component: () => import('@/components/Retrieval/details.vue'),
     meta: {
-      pageLabel: 'Retrieval Tools',
+      pageLabel: () => m.entity_retrievalTools(),
       chroma: true,
       entity: 'retrieval',
       headerComponent: 'retrieval-header',
@@ -171,7 +151,7 @@ const routes = [
     name: 'DeepResearchConfigs',
     component: () => import('@/components/DeepResearch/Configs/Page.vue'),
     meta: {
-      pageLabel: 'Deep Research Configs',
+      pageLabel: () => m.entity_deepResearchConfigs(),
     },
   },
   {
@@ -179,7 +159,7 @@ const routes = [
     name: 'DeepResearchRuns',
     component: () => import('@/components/DeepResearch/Runs/Page.vue'),
     meta: {
-      pageLabel: 'Deep Research Runs',
+      pageLabel: () => m.entity_deepResearchRuns(),
     },
   },
   {
@@ -187,7 +167,7 @@ const routes = [
     name: 'DeepResearchDetails',
     component: () => import('@/components/DeepResearch/Configs/Details.vue'),
     meta: {
-      pageLabel: 'Deep Research Config',
+      pageLabel: () => m.entity_deepResearchConfig(),
       headerComponent: 'deep-research-configs-header',
     },
   },
@@ -196,7 +176,7 @@ const routes = [
     name: 'DeepResearchRunDetails',
     component: () => import('@/components/DeepResearch/Runs/Details.vue'),
     meta: {
-      pageLabel: 'Deep Research Run',
+      pageLabel: () => m.entity_deepResearchRun(),
     },
   },
   {
@@ -204,7 +184,7 @@ const routes = [
     name: 'ModelProviders',
     component: () => import('@/components/ModelProviders/Page.vue'),
     meta: {
-      pageLabel: 'Model Providers',
+      pageLabel: () => m.entity_modelProviders(),
     },
   },
   {
@@ -212,7 +192,7 @@ const routes = [
     name: 'ModelProvidersDetails',
     component: () => import('@/components/ModelProviders/Details.vue'),
     meta: {
-      pageLabel: 'Model Providers',
+      pageLabel: () => m.entity_modelProviders(),
       chroma: true,
       entity: 'provider',
       headerComponent: 'model-providers-header',
@@ -223,7 +203,7 @@ const routes = [
     name: 'Model',
     component: () => import('@/components/ModelConfig/Page.vue'),
     meta: {
-      pageLabel: 'Models',
+      pageLabel: () => m.entity_models(),
     },
   },
   {
@@ -231,7 +211,7 @@ const routes = [
     name: 'ModelItems',
     component: () => import('@/components/ModelConfig/details.vue'),
     meta: {
-      pageLabel: 'Models',
+      pageLabel: () => m.entity_models(),
       chroma: true,
       entity: 'model',
       headerComponent: 'model-config-header',
@@ -242,7 +222,7 @@ const routes = [
     name: 'ObservabilityTraces',
     component: () => import('@/components/Observability/Traces/Page.vue'),
     meta: {
-      pageLabel: 'Traces',
+      pageLabel: () => m.entity_traces(),
       chroma: true,
       entity: 'observability_traces',
     },
@@ -252,7 +232,7 @@ const routes = [
     name: 'ObservabilityTracesDetail',
     component: () => import('@/components/Observability/Traces/details.vue'),
     meta: {
-      pageLabel: 'Traces',
+      pageLabel: () => m.entity_traces(),
       chroma: true,
       detail: true,
       entity: 'observability_traces',
@@ -264,7 +244,7 @@ const routes = [
     name: 'EvaluationSets',
     component: () => import('@/components/EvaluationSets/Page.vue'),
     meta: {
-      pageLabel: 'Test Sets',
+      pageLabel: () => m.entity_testSets(),
       //chroma: true,
       entity: 'evaluation_sets',
     },
@@ -274,7 +254,7 @@ const routes = [
     name: 'EvaluationSetDetails',
     component: () => import('@/components/EvaluationSets/details.vue'),
     meta: {
-      pageLabel: 'Test Sets',
+      pageLabel: () => m.entity_testSets(),
       chroma: true,
       entity: 'evaluation_sets',
       headerComponent: 'evaluation-sets-header',
@@ -285,7 +265,7 @@ const routes = [
     name: 'EvaluationEvaluationJobs',
     component: () => import('@/components/EvaluationJobs/Page.vue'),
     meta: {
-      pageLabel: 'Evaluations',
+      pageLabel: () => m.entity_evaluations(),
       chroma: true,
       entity: 'evaluation_jobs',
     },
@@ -295,7 +275,7 @@ const routes = [
     name: 'Evaluation',
     component: () => import('@/components/EvaluationJobs/details.vue'),
     meta: {
-      pageLabel: 'Evaluations',
+      pageLabel: () => m.entity_evaluations(),
       chroma: true,
       entity: 'evaluation_jobs',
     },
@@ -305,7 +285,7 @@ const routes = [
     name: 'EvaluationCompare',
     component: () => import('@/components/EvaluationJobs/detailsCompare.vue'),
     meta: {
-      pageLabel: 'Evaluations',
+      pageLabel: () => m.entity_evaluations(),
       chroma: true,
       entity: 'evaluation_jobs',
     },
@@ -315,7 +295,7 @@ const routes = [
     name: 'Assistant',
     component: () => import('@/components/AssistantTools/Page.vue'),
     meta: {
-      pageLabel: 'Assistant Tools',
+      pageLabel: () => m.entity_assistantTools(),
     },
   },
   {
@@ -323,7 +303,7 @@ const routes = [
     name: 'AssistantItems',
     component: () => import('@/components/AssistantTools/details.vue'),
     meta: {
-      pageLabel: 'Assistant Tools',
+      pageLabel: () => m.entity_assistantTools(),
       chroma: true,
       entity: 'assistant_tools',
       headerComponent: 'assistant-tools-header',
@@ -338,7 +318,7 @@ const routes = [
     name: 'Usage',
     component: () => import('@/components/Dashboard/Page.vue'),
     meta: {
-      pageLabel: 'Usage',
+      pageLabel: () => m.entity_usage(),
     },
   },
   // Agents listing
@@ -347,7 +327,7 @@ const routes = [
     name: 'Agents',
     component: () => import('@/components/Agents/Page.vue'),
     meta: {
-      pageLabel: 'Agents',
+      pageLabel: () => m.entity_agents(),
       chroma: true,
       entity: 'agents',
     },
@@ -358,7 +338,7 @@ const routes = [
     name: 'AgentDetail',
     component: () => import('@/components/Agents/details.vue'),
     meta: {
-      pageLabel: 'Agent',
+      pageLabel: () => m.entity_agent(),
       chroma: true,
       entity: 'agents',
       headerComponent: 'agents-header',
@@ -370,7 +350,7 @@ const routes = [
         name: 'AgentTopicDetail',
         component: () => import('@/components/Agents/topicDetails.vue'),
         meta: {
-          pageLabel: 'Agent',
+          pageLabel: () => m.entity_agent(),
           chroma: true,
           entity: 'agents',
           headerComponent: 'agents-header',
@@ -381,7 +361,7 @@ const routes = [
         name: 'AgentTopicActionDetail',
         component: () => import('@/components/Agents/actionDetails.vue'),
         meta: {
-          pageLabel: 'Agent',
+          pageLabel: () => m.entity_agent(),
           chroma: true,
           entity: 'agents',
           headerComponent: 'agents-header',
@@ -394,7 +374,7 @@ const routes = [
     name: 'Jobs',
     component: () => import('@/components/Jobs/Page.vue'),
     meta: {
-      pageLabel: 'Jobs',
+      pageLabel: () => m.entity_jobs(),
       chroma: true,
       entity: 'jobs',
     },
@@ -404,7 +384,7 @@ const routes = [
     name: 'Files',
     component: () => import('@/components/Files/Page.vue'),
     meta: {
-      pageLabel: 'File Storage',
+      pageLabel: () => m.entity_fileStorage(),
     },
   },
   {
@@ -412,7 +392,7 @@ const routes = [
     name: 'Conversation',
     component: () => import('@/components/Conversation/Page.vue'),
     meta: {
-      pageLabel: 'Conversation',
+      pageLabel: () => m.entity_conversation(),
       headerComponent: 'conversation-header',
     },
   },
@@ -421,7 +401,7 @@ const routes = [
     name: 'Mcp',
     component: () => import('@/components/Mcp/Page.vue'),
     meta: {
-      pageLabel: 'MCP Servers',
+      pageLabel: () => m.entity_mcpServers(),
     },
   },
   {
@@ -429,7 +409,7 @@ const routes = [
     name: 'McpDetail',
     component: () => import('@/components/Mcp/Details.vue'),
     meta: {
-      pageLabel: 'MCP Servers',
+      pageLabel: () => m.entity_mcpServers(),
       chroma: true,
       entity: 'mcp_servers',
       headerComponent: 'mcp-header',
@@ -440,7 +420,7 @@ const routes = [
     name: 'McpToolsDetail',
     component: () => import('@/components/Mcp/Tools.vue'),
     meta: {
-      pageLabel: 'MCP Servers',
+      pageLabel: () => m.entity_mcpServers(),
       chroma: true,
       entity: 'mcp_servers',
       headerComponent: 'mcp-header',
@@ -451,7 +431,7 @@ const routes = [
     name: 'ApiKeys',
     component: () => import('@/components/ApiKeys/Page.vue'),
     meta: {
-      pageLabel: 'API Keys',
+      pageLabel: () => m.entity_apiKeys(),
     },
   },
   {
@@ -459,7 +439,7 @@ const routes = [
     name: 'ApiServers',
     component: () => import('@/components/ApiServers/Page.vue'),
     meta: {
-      pageLabel: 'API Servers',
+      pageLabel: () => m.entity_apiServers(),
       chroma: true,
       entity: 'api_servers',
     },
@@ -469,7 +449,7 @@ const routes = [
     name: 'ApiServersDetail',
     component: () => import('@/components/ApiServers/Details.vue'),
     meta: {
-      pageLabel: 'API Server',
+      pageLabel: () => m.entity_apiServer(),
       chroma: true,
       entity: 'api_servers',
       headerComponent: 'api-servers-header',
@@ -480,7 +460,7 @@ const routes = [
     name: 'ApiToolsDetails',
     component: () => import('@/components/ApiTools/details.vue'),
     meta: {
-      pageLabel: 'API Server',
+      pageLabel: () => m.entity_apiServer(),
       chroma: true,
       entity: 'api_servers',
       headerComponent: 'api-servers-header',
@@ -491,7 +471,7 @@ const routes = [
     name: 'KnowledgeProviders',
     component: () => import('@/components/KnowledgeProviders/Page.vue'),
     meta: {
-      pageLabel: 'Knowledge Source Providers',
+      pageLabel: () => m.entity_knowledgeSourceProviders(),
     },
   },
   {
@@ -499,7 +479,7 @@ const routes = [
     name: 'KnowledgeProvidersDetails',
     component: () => import('@/components/KnowledgeProviders/Details.vue'),
     meta: {
-      pageLabel: 'Knowledge Source Providers',
+      pageLabel: () => m.entity_knowledgeSourceProviders(),
       chroma: true,
       entity: 'provider',
       headerComponent: 'knowledge-providers-header',
@@ -510,7 +490,7 @@ const routes = [
     name: 'KnowledgeGraph',
     component: () => import('@/components/KnowledgeGraph/Page.vue'),
     meta: {
-      pageLabel: 'Knowledge Graph',
+      pageLabel: () => m.entity_knowledgeGraph(),
     },
   },
   {
@@ -518,7 +498,7 @@ const routes = [
     name: 'KnowledgeGraphDetail',
     component: () => import('@/components/KnowledgeGraph/Details.vue'),
     meta: {
-      pageLabel: 'Knowledge Graph',
+      pageLabel: () => m.entity_knowledgeGraph(),
       chroma: true,
       entity: 'knowledge_graph',
       headerComponent: 'knowledge-graph-header',
@@ -529,7 +509,7 @@ const routes = [
     name: 'KnowledgeGraphDocumentDetail',
     component: () => import('@/components/KnowledgeGraph/DataExplorer/DocumentDetails.vue'),
     meta: {
-      pageLabel: 'Knowledge Graph',
+      pageLabel: () => m.entity_knowledgeGraph(),
       chroma: true,
       entity: 'knowledge_graph',
       detail: true,
@@ -545,7 +525,7 @@ const routes = [
     name: 'Settings',
     component: () => import('@/components/Settings/Page.vue'),
     meta: {
-      pageLabel: 'Settings',
+      pageLabel: () => m.entity_settings(),
     },
   },
   {
@@ -553,7 +533,7 @@ const routes = [
     name: 'PromptQueue',
     component: () => import('@/components/PromptQueue/Page.vue'),
     meta: {
-      pageLabel: 'Prompt Queue',
+      pageLabel: () => m.entity_promptQueue(),
     },
   },
   {
@@ -561,7 +541,7 @@ const routes = [
     name: 'PromptQueueDetails',
     component: () => import('@/components/PromptQueue/Details.vue'),
     meta: {
-      pageLabel: 'Prompt Queue',
+      pageLabel: () => m.entity_promptQueue(),
       headerComponent: 'prompt-queue-header',
     },
   },
@@ -570,7 +550,7 @@ const routes = [
     name: 'NoteTakerConfigs',
     component: () => import('@/components/NoteTaker/Page.vue'),
     meta: {
-      pageLabel: 'Note Taker',
+      pageLabel: () => m.entity_noteTaker(),
     },
   },
   {
@@ -578,7 +558,7 @@ const routes = [
     name: 'NoteTakerSettings',
     component: () => import('@/components/NoteTaker/details.vue'),
     meta: {
-      pageLabel: 'Note Taker',
+      pageLabel: () => m.entity_noteTaker(),
       chroma: true,
       entity: 'note_taker',
       headerComponent: 'note-taker-header',
@@ -589,7 +569,7 @@ const routes = [
     name: 'profile',
     component: () => import('@/components/Profile/ProfilePage.vue'),
     meta: {
-      pageLabel: 'Profile',
+      pageLabel: () => m.entity_profile(),
     },
   },
 ]
@@ -654,10 +634,6 @@ router.afterEach(async (to) => {
     return
   }
 
-  const query = to.query ?? {}
-
-  // Query params are now read directly from route where needed
-
   // Open workspace tab for detail pages (routes with :id param and entity meta)
   if (to.params.id && to.meta.entity && to.meta.headerComponent) {
     try {
@@ -665,7 +641,6 @@ router.afterEach(async (to) => {
       const workspace = useWorkspaceStore()
       const entityType = to.meta.entity
       const entityId = to.params.id
-      const typeLabel = entityLabelMap[entityType] || entityType
 
       // Try to get entity name from TanStack Query cache or entity-specific store
       let entityName = ''
@@ -694,8 +669,9 @@ router.afterEach(async (to) => {
   }
 
   // Update browser tab title
-  const pageLabel = to.meta?.pageLabel || 'Magnet AI'
-  document.title = to.params.id ? `${pageLabel} — Magnet AI` : `${pageLabel} — Magnet AI`
+  const rawLabel = to.meta?.pageLabel
+  const pageLabel = typeof rawLabel === 'function' ? rawLabel() : (rawLabel || 'Magnet AI')
+  document.title = `${pageLabel} — Magnet AI`
 
 })
 

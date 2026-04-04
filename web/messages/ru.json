@@ -2229,5 +2229,15 @@
   "knowledgeGraph_failedToSaveEntitySettings": "Не удалось сохранить настройки извлечения сущностей",
   "knowledgeGraph_errorStartingExtraction": "Ошибка при запуске извлечения сущностей",
   "knowledgeGraph_failedToCancelExtraction": "Не удалось отменить извлечение",
-  "knowledgeGraph_failedToLoadPromptTemplates": "Не удалось загрузить шаблоны промптов"
+  "knowledgeGraph_failedToLoadPromptTemplates": "Не удалось загрузить шаблоны промптов",
+  "aiApps_dragToReorder": "Перетащите для изменения порядка",
+  "aiApps_activateTab": "Активировать вкладку",
+  "aiApps_deactivateTab": "Деактивировать вкладку",
+  "aiApps_deleteTab": "Удалить вкладку",
+  "aiApps_deleteTabNotice": "Эта вкладка будет удалена",
+  "conversation_viewTrace": "Просмотр трассировки",
+  "entity_prompttemplates": "Шаблоны промптов",
+  "entity_ragtools": "RAG-инструменты",
+  "common_to": "к",
+  "common_features": "Функции"
 }

@@ -171,11 +171,11 @@ const columns = [
       }
     },
   }),
-  textColumn('created_at', 'Created', {
+  textColumn('created_at', m.common_created(), {
     sortable: true,
     format: (val: unknown) => val ? date.formatDate(new Date(val as string), 'YYYY-MM-DD HH:mm:ss') : '-',
   }),
-  textColumn('updated_at', 'Last Updated', {
+  textColumn('updated_at', m.common_lastUpdated(), {
     sortable: true,
     format: (val: unknown) => val ? date.formatDate(new Date(val as string), 'YYYY-MM-DD HH:mm:ss') : '-',
   }),

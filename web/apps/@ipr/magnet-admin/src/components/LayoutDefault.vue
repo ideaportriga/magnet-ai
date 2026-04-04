@@ -24,7 +24,7 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
         span.km-body.km-breadcrumb-item(
           :class='showBackButton ? "text-primary km-breadcrumb-link" : "text-secondary-text"',
           @click='showBackButton && navigate(parentRoute)'
-        ) {{ route.meta?.pageLabel }}
+        ) {{ typeof route.meta?.pageLabel === 'function' ? route.meta.pageLabel() : route.meta?.pageLabel }}
         q-icon.text-secondary-text.km-breadcrumb-sep(v-if='showBackButton', name='chevron_right', size='18px')
       component(v-if='route.meta?.headerComponent', :is='route.meta.headerComponent')
       .col

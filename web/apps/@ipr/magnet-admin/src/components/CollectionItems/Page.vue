@@ -38,14 +38,14 @@ const route = useRoute()
 const selectedId = ref<string | null>(null)
 
 const columns = [
-  textColumn<Document>('title' as keyof Document, 'Title', {
+  textColumn<Document>('title' as keyof Document, m.common_title(), {
     format: (val) => {
       if (val && typeof val === 'object') return (val as Record<string, unknown>)?.title as string ?? '-'
       return val ? String(val) : '-'
     },
   }),
-  dateColumn<Document>('created_at', 'Created'),
-  dateColumn<Document>('updated_at', 'Modified'),
+  dateColumn<Document>('created_at', m.common_created()),
+  dateColumn<Document>('updated_at', m.common_lastUpdated()),
 ]
 
 const extraParams = computed(() => ({

@@ -40,10 +40,10 @@ const configs = computed(() => {
 })
 
 const columns = [
-  textColumn('name', 'Name'),
-  chipCopyColumn('System name'),
-  dateColumn('created_at', 'Created'),
-  dateColumn('updated_at', 'Last updated'),
+  textColumn('name', m.common_name()),
+  chipCopyColumn(m.common_systemName()),
+  dateColumn('created_at', m.common_created()),
+  dateColumn('updated_at', m.common_lastUpdated()),
 ]
 
 const { table, globalFilter } = useLocalDataTable(configs, columns)

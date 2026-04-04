@@ -449,6 +449,7 @@ export default {
     }
 
     return {
+      m,
       editBuffer,
       selectedModel,
       bufferKey,

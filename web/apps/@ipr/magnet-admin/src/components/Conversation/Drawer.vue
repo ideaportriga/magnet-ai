@@ -114,6 +114,7 @@ export default {
     const loading = ref(false)
     const item = ref(null)
     return {
+      m,
       tab: ref('details'),
       tabs: ref([
         { name: 'details', label: m.conversation_conversationDetails() },

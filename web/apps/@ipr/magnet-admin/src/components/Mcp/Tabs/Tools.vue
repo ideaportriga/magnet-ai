@@ -36,7 +36,7 @@ const { mutateAsync: syncMcpServer } = queries.mcp_servers.useSync()
 const data = computed(() => draft.value?.tools ?? [])
 
 const columns = [
-  nameDescriptionColumn('Name'),
+  nameDescriptionColumn(m.common_name()),
 ]
 
 const { table, globalFilter } = useLocalDataTable(data, columns)
