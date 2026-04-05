@@ -5,8 +5,9 @@ import FluidTopicsDialog from './FluidTopicsDialog.vue'
 import SalesforceDialog from './SalesforceDialog.vue'
 import SharePointDialog from './SharePointDialog.vue'
 import UploadDialog from './UploadDialog.vue'
+import WebDialog from './WebDialog.vue'
 
-export type SourceTypeKey = 'upload' | 'sharepoint' | 'fluid_topics' | 'salesforce' | 'confluence' | 'api_ingest'
+export type SourceTypeKey = 'upload' | 'web' | 'sharepoint' | 'fluid_topics' | 'salesforce' | 'confluence' | 'api_ingest'
 
 export interface SourceTypeConfig {
   key: SourceTypeKey
@@ -22,6 +23,12 @@ export const sourceRegistry: Record<SourceTypeKey, SourceTypeConfig> = {
     label: 'Manual Upload',
     syncable: false,
     dialogComponent: UploadDialog,
+  },
+  web: {
+    key: 'web',
+    label: 'Web',
+    syncable: true,
+    dialogComponent: WebDialog,
   },
   sharepoint: {
     key: 'sharepoint',

@@ -216,7 +216,7 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
     label: 'Name',
     field: 'name',
     align: 'left' as const,
-    style: 'max-width: 160px',
+    style: 'min-width: 200px; max-width: 280px',
   },
   {
     name: 'content_matching',
@@ -224,7 +224,7 @@ const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
     field: (row) => getContentMatchingSentence(row, sources.value),
     align: 'left' as const,
     sortable: false,
-    style: 'min-width: 200px; max-width: 360px',
+    style: 'min-width: 180px; max-width: 300px',
   },
   {
     name: 'content_reader',

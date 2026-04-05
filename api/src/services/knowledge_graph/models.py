@@ -25,6 +25,7 @@ class SourceType(StrEnum):
     ORACLE_KNOWLEDGE = "oracle_knowledge"
     HUBSPOT = "hubspot"
     FLUID_TOPICS = "fluid_topics"
+    WEB = "web"
 
 
 class ContentReaderName(StrEnum):

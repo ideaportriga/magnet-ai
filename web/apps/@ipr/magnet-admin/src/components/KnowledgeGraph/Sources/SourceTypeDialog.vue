@@ -13,8 +13,6 @@
         </div>
       </q-card-section>
 
-      <!-- <q-separator /> -->
-
       <q-card-section class="q-pb-xl q-px-xl">
         <div class="source-grid">
           <source-type-avatar
@@ -24,7 +22,8 @@
             background-color="grey-3"
             @select="selectSourceType('upload')"
           />
-          <source-type-avatar name="SharePoint" :image="sharepointImage" background-color="blue-1" @select="selectSourceType('sharepoint')" />
+          <source-type-avatar name="Web" icon="fas fa-globe" icon-color="black" background-color="grey-3" @select="selectSourceType('web')" />
+          <source-type-avatar name="SharePoint" :image="sharepointImage" background-color="teal-1" @select="selectSourceType('sharepoint')" />
           <source-type-avatar name="Fluid Topics" :image="fluidTopicsImage" background-color="red-1" @select="selectSourceType('fluid_topics')" />
           <source-type-avatar name="Salesforce" :image="salesforceImage" background-color="blue-1" @select="selectSourceType('salesforce')" />
           <source-type-avatar name="Confluence" :image="confluenceImage" background-color="blue-1" @select="selectSourceType('confluence')" />
@@ -41,7 +40,7 @@ import salesforceImage from '@/assets/brands/salesforce.png'
 import sharepointImage from '@/assets/brands/sharepoint.svg'
 import { computed } from 'vue'
 import SourceTypeAvatar from './SourceTypeAvatar.vue'
-
+import type { SourceTypeKey } from './SourceTypes/registry'
 
 const props = defineProps<{
   showDialog: boolean
@@ -49,7 +48,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:showDialog', value: boolean): void
-  (e: 'select', sourceType: 'upload' | 'sharepoint' | 'fluid_topics' | 'salesforce' | 'confluence'): void
+  (e: 'select', sourceType: SourceTypeKey): void
   (e: 'cancel'): void
 }>()
 
@@ -58,7 +57,7 @@ const dialogOpen = computed({
   set: (value) => emit('update:showDialog', value),
 })
 
-const selectSourceType = (sourceType: 'upload' | 'sharepoint' | 'fluid_topics' | 'salesforce' | 'confluence') => {
+const selectSourceType = (sourceType: SourceTypeKey) => {
   emit('select', sourceType)
   dialogOpen.value = false
 }
@@ -79,7 +78,7 @@ const onCancel = () => {
 
 .source-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 24px;
   justify-items: center;
 }
