@@ -20,7 +20,7 @@ from core.config.app import alchemy
 from middlewares.auth import Auth
 from services.users import auth_service
 from services.users import refresh_token_service
-from utils.cookies import set_auth_cookies
+from utils.cookies import clear_auth_cookies, set_auth_cookies
 
 logger = getLogger(__name__)
 
@@ -291,3 +291,18 @@ class LocalAuthController(Controller):
         # For now, placeholder that validates the structure
         logger.info("Password reset attempted with token")
         return {"message": "Password reset functionality will be available soon."}
+
+    @post("/logout", exclude_from_auth=True, summary="Logout and revoke refresh token")
+    async def logout(self, request: Request) -> Response[dict]:
+        """Revoke the current refresh token family and clear auth cookies."""
+        refresh_token = request.cookies.get("refresh_token")
+
+        if refresh_token:
+            token_hash = refresh_token_service.hash_token(refresh_token)
+            async with alchemy.get_session() as session:
+                await refresh_token_service.revoke_token_family(session, token_hash)
+                await session.commit()
+
+        response = Response({"message": "Logged out"})
+        clear_auth_cookies(response)
+        return response

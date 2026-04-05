@@ -149,7 +149,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { getEntityApis } from '@/api'
 import { categoryOptions, featureOptions } from '../../config/model/model.js'
 import { useEntityDetail } from '@/composables/useEntityDetail'
-import { useLocalDataTable } from '@/composables/useLocalDataTable'
+import { useDataTable } from '@/composables/useDataTable'
 import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelpers'
 import TypeChip from '@/config/model/component/TypeChip.vue'
 import Features from '@/config/model/component/Features.vue'
@@ -221,7 +221,6 @@ export default {
   setup() {
     const queries = useEntityQueries()
     const { draft: providerDraft } = useEntityDetail('provider')
-    const { data: listData } = queries.model.useList()
     const { mutateAsync: deleteItem } = queries.model.useRemove()
     const { mutateAsync: createEntity } = queries.model.useCreate()
 
@@ -268,29 +267,24 @@ export default {
       }),
     ]
 
-    // Filtered data based on provider and filter bar
-    const filteredData = computed(() => {
-      const items = listData.value?.items ?? []
-      let rows = items.filter((item) => item.provider_system_name === providerDraft.value?.system_name)
+    // Server-side paging, sorting and search filtered by provider
+    const providerExtraParams = computed(() => ({
+      provider: providerDraft.value?.system_name ?? '',
+    }))
 
-      // Apply type filter
-      if (filterObject.value.typeIn && filterObject.value.typeIn.length > 0) {
-        rows = rows.filter((item) => filterObject.value.typeIn.includes(item.type))
-      }
-
-      // Apply features filter
-      if (filterObject.value.featuresIn && filterObject.value.featuresIn.length > 0) {
-        rows = rows.filter((item) => {
-          return filterObject.value.featuresIn.some((feature) => item[feature] === true)
-        })
-      }
-
-      return rows
-    })
-
-    const { table, globalFilter, selectedRows, clearSelection } = useLocalDataTable(filteredData, columns, {
+    const { table, globalFilter, rowSelection } = useDataTable('model', columns, {
+      defaultSort: [{ id: 'updated_at', desc: true }],
+      extraParams: providerExtraParams,
       enableRowSelection: true,
     })
+
+    const selectedRows = computed(() =>
+      table.getSelectedRowModel().rows.map((r) => r.original),
+    )
+
+    function clearSelection() {
+      rowSelection.value = {}
+    }
 
     return {
       m,

@@ -80,7 +80,7 @@ layouts-details-layout(v-if='draft', :contentContainerStyle='{ maxWidth: "1200px
 </template>
 
 <script>
-import { ref, computed, provide } from 'vue'
+import { ref, computed, provide, watch } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { beforeRouteEnter } from '@/guards'
 import { useEntityDetail } from '@/composables/useEntityDetail'
@@ -98,8 +98,12 @@ export default {
     // Provide selected model + setter so ModelDrawer can access it
     provide('selectedModel', selectedModel)
 
-    // Replace useChroma('model') — load all models for the models sub-tab
-    const { data: modelsData } = queries.model.useList({ page_size: 500 })
+    // Load models for this provider (server-side filter)
+    const providerModelsParams = computed(() => ({
+      pageSize: 500,
+      provider: draft.value?.system_name ?? '',
+    }))
+    const { data: modelsData } = queries.model.useList(providerModelsParams)
     const allModels = computed(() => modelsData.value?.items ?? [])
 
     const { mutateAsync: createEntity } = queries.provider.useCreate()
@@ -131,10 +135,7 @@ export default {
       return this.draft
     },
     availableModels() {
-      if (!this.provider?.system_name) {
-        return []
-      }
-      return this.allModels.filter((item) => item.provider_system_name === this.provider.system_name)
+      return this.allModels
     },
     validSelectedModel() {
       // Check if selectedModel exists in availableModels for current provider

@@ -31,6 +31,8 @@ export interface UseDataTableOptions {
   dataFilter?: (items: T[]) => T[]
   /** Debounce delay in ms for server-side search (default: 300) */
   searchDebounce?: number
+  /** Enable row selection checkboxes */
+  enableRowSelection?: boolean
 }
 
 function applyUpdater<T>(updater: Updater<T>, current: T): T {
@@ -55,6 +57,7 @@ export function useDataTable<T extends BaseEntity>(
     extraParams,
     dataFilter,
     searchDebounce = 300,
+    enableRowSelection = false,
   } = options ?? {}
 
   // Table state
@@ -139,6 +142,7 @@ export function useDataTable<T extends BaseEntity>(
     manualPagination,
     manualSorting,
     manualFiltering,
+    enableRowSelection,
 
     get pageCount() {
       return pageCount.value

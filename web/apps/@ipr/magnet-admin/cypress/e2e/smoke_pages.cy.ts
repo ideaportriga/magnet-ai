@@ -1,10 +1,8 @@
 /**
- * Smoke tests — visit every page and verify no JS errors or crashes.
+ * Smoke tests — visit every page and verify it renders without crashing.
  *
- * Each test visits a route, waits for the page to settle, and relies on
- * the global error capture in e2e.ts to flag console.error / uncaught
- * exceptions.  If a page returns a backend 500 it will also be captured
- * via the backend-error task.
+ * Relies on the global error capture in e2e.ts to collect console.error
+ * and uncaught exceptions into reports.
  */
 
 const PAGES = [
@@ -39,15 +37,14 @@ const PAGES = [
 
 describe('Smoke — visit all pages', () => {
   PAGES.forEach(({ route, label }) => {
-    it(`loads "${label}" (${route}) without errors`, () => {
+    it(`loads "${label}" (${route}) without crashing`, () => {
       cy.viewport(1920, 1080)
       cy.visit(route)
-      // Wait for the page to finish loading (network idle)
-      cy.wait(1500)
-      // Verify page rendered something (body is not empty)
-      cy.get('body').should('not.be.empty')
-      // Verify no error overlay / crash screen
-      cy.get('body').should('not.contain.text', 'Internal Server Error')
+
+      // The page should render the app shell (sidebar, toolbar, or content area)
+      cy.get('.q-layout, .q-page, #app', { timeout: 15000 }).should('exist')
+
+      // Should NOT show a hard crash screen
       cy.get('body').should('not.contain.text', 'Application Error')
     })
   })

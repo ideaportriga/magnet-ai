@@ -42,7 +42,6 @@ from .admin.observability import observability_router
 from .admin.rag import RagController
 from .admin.scheduler import SchedulerController
 from .admin.settings import SettingsController
-from .admin.transfer import TransferController
 from .admin.utils import UtilsController
 from .auth import AuthController
 from .local_auth import LocalAuthController
@@ -162,7 +161,6 @@ def get_route_handlers(
         SchedulerController,  # Admin / Scheduler
         SettingsController,  # Admin / Settings
         TracesController,  # Admin / Traces
-        TransferController,  # Admin / Transfer
         UsersController,  # Admin / Users
         UtilsController,  # Admin / Utils
         KnowledgeGraphController,  # Admin / Knowledge Graph

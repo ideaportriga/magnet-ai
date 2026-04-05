@@ -285,6 +285,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       const data = await response.json()
       // Dashboard options stored locally — no longer dispatched to Vuex
       this.dashboardOptions = data
@@ -302,7 +303,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
-      if (response.ok) {
+      if (!response.error && response.ok) {
         await response.json().then((data) => {
           this.top = data
         })
@@ -329,6 +330,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       const data = await response.json()
       if (data.items) {
         this.detailedList = data.items
@@ -353,7 +355,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
-      if (response.ok) {
+      if (!response.error && response.ok) {
         await response.json().then((data) => {
           this.observability = data
         })

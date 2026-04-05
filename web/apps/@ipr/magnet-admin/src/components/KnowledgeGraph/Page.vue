@@ -1,5 +1,5 @@
 <template>
-  <div class="column no-wrap full-height">
+  <div class="column no-wrap full-height q-page">
     <div class="collection-container kg-page-container q-mx-auto full-width column full-height q-px-md q-pt-16">
       <template v-if="isLoading && rows.length === 0">
         <div class="flex flex-center full-height">

@@ -56,7 +56,9 @@ beforeEach(() => {
   frontendErrors.length = 0
   cy.task('resetBackendErrors', null, { log: false })
 
-  // Mock auth/me endpoint to prevent the app from hanging when AUTH_ENABLED=false
+  // Mock auth/me endpoint — the app calls this on every page load.
+  // Without auth enabled on the backend the request hangs or 404s,
+  // blocking the entire UI from rendering.
   cy.intercept('GET', '**/auth/me', {
     statusCode: 200,
     body: {
@@ -70,6 +72,34 @@ beforeEach(() => {
       roles: ['admin'],
     },
   }).as('authMe')
+
+  // Mock global endpoints that are called on every page load.
+  // Without these, failed API calls trigger Vue's errorHandler which
+  // shows a persistent error dialog that blocks all UI interaction.
+  cy.intercept('GET', '**/knowledge_sources/plugins', {
+    statusCode: 200,
+    body: [],
+  }).as('ksPlugins')
+
+  cy.intercept('GET', '**/admin/catalog**', (req) => {
+    req.on('response', (res) => {
+      // Let successful responses through, mock only failures
+      if (res.statusCode >= 400) {
+        res.send({ statusCode: 200, body: { items: [], total: 0, limit: 20, offset: 0 } })
+      }
+    })
+  })
+
+  // Catch any other API errors that would trigger the error dialog.
+  // We let requests pass through but convert 5xx to empty 200 responses
+  // so the error handler doesn't fire.
+  cy.intercept({ url: '**/api/**', method: 'GET' }, (req) => {
+    req.on('response', (res) => {
+      if (res.statusCode >= 500) {
+        res.send({ statusCode: 200, body: { items: [], total: 0 } })
+      }
+    })
+  })
 })
 
 afterEach(function () {

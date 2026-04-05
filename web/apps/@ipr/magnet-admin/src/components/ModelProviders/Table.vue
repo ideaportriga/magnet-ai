@@ -39,13 +39,10 @@ const columns = [
 
 const { table, isLoading, isFetching, globalFilter } = useDataTable<Provider>('provider', columns, {
   defaultSort: [{ id: 'updated_at', desc: true }],
-  manualPagination: false,
-  manualSorting: false,
-  manualFiltering: false,
-  dataFilter: (items) =>
-    items.filter(
-      (p) => (p.category === 'llm' || !p.category) && !EXCLUDED_PROVIDER_TYPES.includes(p.type as string),
-    ),
+  extraParams: {
+    category: 'llm',
+    excludeType: EXCLUDED_PROVIDER_TYPES.join(','),
+  },
 })
 
 const openDetails = async (row: Provider) => {

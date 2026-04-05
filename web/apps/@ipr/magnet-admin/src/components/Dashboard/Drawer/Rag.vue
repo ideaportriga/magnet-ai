@@ -260,6 +260,7 @@ export default {
         service: `observability/monitoring/analytics/${this.selectedRow._id}`,
         body: JSON.stringify(body),
       })
+      if (response.error || !response.ok) return
       const data = await response.json()
       this.$emit('refresh')
     },

@@ -85,7 +85,7 @@ export default {
         name: '',
         description: '',
         system_name: '',
-        caregory: 'generic',
+        category: 'generic',
         active_variant: 'variant_1',
         variants: [
           {

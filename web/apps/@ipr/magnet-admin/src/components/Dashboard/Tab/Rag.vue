@@ -498,6 +498,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       const data = await response.json()
       // Dashboard options stored locally — no longer dispatched to Vuex
       this.dashboardOptions = data
@@ -515,6 +516,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       this.rags = await response.json()
     },
     async getObservability() {
@@ -530,6 +532,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       const data = await response.json()
       this.observability = data
     },

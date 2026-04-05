@@ -554,6 +554,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       this.rags = await response.json()
     },
     async getObservability() {
@@ -569,6 +570,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       this.observability = await response.json()
     },
     async getDetailedList(input) {
@@ -592,6 +594,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       const data = await response.json()
       if (data.items) {
         this.detailedList = data.items
@@ -626,6 +629,7 @@ export default {
         },
       })
 
+      if (response.error || !response.ok) return
       // Create temporary link to download the file
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
@@ -650,6 +654,7 @@ export default {
           'Content-Type': 'application/json',
         },
       })
+      if (response.error || !response.ok) return
       const data = await response.json()
       if (data) {
         // Dashboard options stored locally — no longer dispatched to Vuex

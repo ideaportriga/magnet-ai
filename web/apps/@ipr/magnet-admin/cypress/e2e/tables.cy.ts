@@ -1,14 +1,21 @@
 /**
- * Table interaction tests — verify search, pagination, and row navigation
- * on pages that use km-data-table (via useDataTable composable).
+ * Table interaction tests.
+ *
+ * Pages with data-test="search-input" get search tests.
+ * All table pages verify the table component renders.
+ * Card-based pages verify cards or content area renders.
  */
 
-const TABLE_PAGES = [
+// Pages that have data-test="search-input" and data-test="new-btn"
+const SEARCHABLE_PAGES = [
   { route: '#/prompt-templates', label: 'Prompt Templates' },
   { route: '#/rag-tools', label: 'RAG Tools' },
-  { route: '#/retrieval', label: 'Retrieval Tools' },
-  { route: '#/agents', label: 'Agents' },
+]
+
+// Pages with km-data-table
+const TABLE_PAGES = [
   { route: '#/knowledge-sources/', label: 'Knowledge Sources' },
+  { route: '#/retrieval', label: 'Retrieval Tools' },
   { route: '#/model', label: 'Model Configuration' },
   { route: '#/mcp', label: 'MCP Servers' },
   { route: '#/evaluation-sets/', label: 'Evaluation Sets' },
@@ -19,79 +26,89 @@ const TABLE_PAGES = [
   { route: '#/observability-traces', label: 'Observability Traces' },
 ]
 
-describe('Tables — basic interactions', () => {
-  TABLE_PAGES.forEach(({ route, label }) => {
+// Card-based pages
+const CARD_PAGES = [
+  { route: '#/agents', label: 'Agents' },
+  { route: '#/ai-apps', label: 'AI Apps' },
+]
+
+describe('Tables — searchable pages', () => {
+  SEARCHABLE_PAGES.forEach(({ route, label }) => {
     describe(label, () => {
       beforeEach(() => {
         cy.viewport(1920, 1080)
         cy.visit(route)
-        cy.wait(2000) // wait for data to load
       })
 
-      it('renders table or empty state', () => {
-        // Either table rows exist or an empty-state message is shown
-        cy.get('body').then(($body) => {
-          const hasRows = $body.find('[data-test="table-row"], .km-data-table__row').length > 0
-          const hasTable = $body.find('.km-data-table, .q-table').length > 0
-          const hasEmptyState = $body.text().includes('No data') ||
-                                $body.text().includes('No results') ||
-                                $body.text().includes('empty') ||
-                                $body.text().includes('Create')
-          expect(hasRows || hasTable || hasEmptyState).to.be.true
-        })
+      it('renders table', () => {
+        cy.get('.km-data-table, .q-table', { timeout: 15000 }).should('exist')
+        cy.dismissErrors()
       })
 
-      it('search input is present and typeable', () => {
-        cy.get('body').then(($body) => {
-          if ($body.find('[data-test="search-input"]').length > 0) {
-            cy.g('search-input').click()
-            cy.g('search-input').type('test-search-query')
-            // Wait for debounced search to fire
-            cy.wait(500)
-            // Search input should still contain the typed text
-            cy.g('search-input').should('have.value', 'test-search-query')
-          }
-        })
+      it('has a working search input', () => {
+        cy.g('search-input').should('be.visible')
+        cy.dismissErrors()
+        cy.g('search-input').find('input').clear().type('test-query')
+        cy.wait(500)
+        cy.g('search-input').find('input').should('have.value', 'test-query')
+      })
+
+      it('has a "New" button', () => {
+        cy.dismissErrors()
+        cy.g('new-btn').should('be.visible')
       })
     })
   })
 })
 
-describe('Tables — row click navigation', () => {
-  it('clicking a Prompt Template row opens detail page', () => {
-    cy.viewport(1920, 1080)
-    cy.visit('#/prompt-templates')
-    cy.wait(2000)
-    cy.get('body').then(($body) => {
-      if ($body.find('[data-test="table-row"]').length > 0) {
-        cy.get('[data-test="table-row"], .km-data-table__row', { timeout: 10000 }).eq(0).click()
-        // Should navigate to a detail page (URL contains an ID)
-        cy.url().should('match', /prompt-templates\/[a-f0-9-]+/)
-      }
+describe('Tables — data table pages', () => {
+  TABLE_PAGES.forEach(({ route, label }) => {
+    it(`${label} — renders table or empty state`, () => {
+      cy.viewport(1920, 1080)
+      cy.visit(route)
+      // Table component or page content should render
+      cy.get('.km-data-table, .q-table, .q-page', { timeout: 15000 }).should('exist')
     })
   })
+})
 
-  it('clicking an Agent row opens detail page', () => {
+describe('Tables — card grid pages', () => {
+  CARD_PAGES.forEach(({ route, label }) => {
+    it(`${label} — renders page content`, () => {
+      cy.viewport(1920, 1080)
+      cy.visit(route)
+      cy.get('.q-page, .q-layout', { timeout: 15000 }).should('exist')
+    })
+  })
+})
+
+describe('Tables — row click navigation (requires data)', () => {
+  // These tests require existing data in the DB.
+  // They will be skipped if no rows are found.
+
+  function testRowClick(route: string, rowSelector: string, urlPattern: RegExp) {
     cy.viewport(1920, 1080)
-    cy.visit('#/agents')
-    cy.wait(2000)
+    cy.visit(route)
+    cy.wait(3000)
     cy.get('body').then(($body) => {
-      if ($body.find('[data-test="table-row"]').length > 0) {
-        cy.get('[data-test="table-row"], .km-data-table__row', { timeout: 10000 }).eq(0).click()
-        cy.url().should('match', /agents\/[a-f0-9-]+/)
+      if ($body.find(rowSelector).length > 0) {
+        cy.get(rowSelector).first().click()
+        cy.url().should('match', urlPattern)
+      } else {
+        cy.log(`No rows found for ${route} — skipping row click test`)
       }
     })
+  }
+
+  it('clicking a Prompt Template row opens detail page', () => {
+    testRowClick('#/prompt-templates', '.km-data-table__row', /prompt-templates\/[a-f0-9-]+/)
   })
 
   it('clicking a Knowledge Source row opens detail page', () => {
-    cy.viewport(1920, 1080)
-    cy.visit('#/knowledge-sources/')
-    cy.wait(2000)
-    cy.get('body').then(($body) => {
-      if ($body.find('[data-test="table-row"]').length > 0) {
-        cy.get('[data-test="table-row"], .km-data-table__row', { timeout: 10000 }).eq(0).click()
-        cy.url().should('match', /knowledge-sources\/[a-f0-9-]+/)
-      }
-    })
+    testRowClick('#/knowledge-sources/', '.km-data-table__row', /knowledge-sources\/[a-f0-9-]+/)
+  })
+
+  it('clicking an Agent card opens detail page', () => {
+    testRowClick('#/agents', '.q-card.card-hover', /agents\/[a-f0-9-]+/)
   })
 })

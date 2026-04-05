@@ -397,7 +397,7 @@ export default {
     const editBuffer = useEditBufferStore()
     const selectedModel = inject('selectedModel')
     const queries = useEntityQueries()
-    const { data: listData } = queries.model.useList()
+    const { data: listData } = queries.model.useList({ pageSize: 500 })
     const { mutateAsync: updateEntity } = queries.model.useUpdate()
     const { mutateAsync: createEntity } = queries.model.useCreate()
     const items = computed(() => listData.value?.items ?? [])

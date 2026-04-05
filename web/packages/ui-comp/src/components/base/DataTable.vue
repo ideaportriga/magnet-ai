@@ -51,6 +51,7 @@
             :key="row.id"
             class="km-data-table__row cursor-pointer"
             :class="{ 'bg-control-hover-bg': activeRowId && getRowKey(row) === activeRowId }"
+            data-test="table-row"
             @click="emit('row-click', row.original)"
           >
             <td

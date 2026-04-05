@@ -88,8 +88,8 @@ export function createAuthClient(baseUrl: string): AuthClient {
     },
 
     async logout() {
-      // Try local auth logout (clears refresh token cookie)
-      await f(apiUrl('/api/auth/sessions'), { method: 'DELETE' }).catch(() => { /* ignore */ })
+      // Local auth logout — revoke refresh token family + clear cookies
+      await f(apiUrl('/api/auth/logout'), { method: 'POST' }).catch(() => { /* ignore */ })
       // Also try OIDC logout (clears OIDC cookies)
       await f(apiUrl('/auth/logout'), { method: 'POST' }).catch(() => { /* ignore */ })
     },

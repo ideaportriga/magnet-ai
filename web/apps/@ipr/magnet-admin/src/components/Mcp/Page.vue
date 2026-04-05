@@ -1,5 +1,5 @@
 <template lang="pug">
-.column.no-wrap.full-height
+.column.no-wrap.full-height.q-page
   .collection-container.q-mx-auto.full-width.column.full-height.q-px-md.q-pt-16
     template(v-if='isLoading')
       .flex.flex-center.full-height

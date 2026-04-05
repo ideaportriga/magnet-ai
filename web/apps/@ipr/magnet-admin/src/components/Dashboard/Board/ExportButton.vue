@@ -12,6 +12,9 @@ q-btn-dropdown.km-export-dropdown(flat, color='secondary-text', :label='m.common
 import { m } from '@/paraglide/messages'
 export default {
   emits: ['exportToCsv', 'exportToJson'],
+  setup() {
+    return { m }
+  },
 }
 </script>
 <style lang="stylus">

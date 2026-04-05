@@ -10,6 +10,7 @@ from litestar.status_codes import HTTP_200_OK
 from pydantic import BaseModel, Field
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
+from core.db.models.provider import Provider
 from core.domain.providers.service import (
     ProvidersService,
 )
@@ -112,11 +113,34 @@ class ProvidersController(Controller):
         self,
         providers_service: ProvidersService,
         filters: Annotated[list[filters.FilterTypes], Dependency(skip_validation=True)],
+        category: Annotated[
+            str | None, Parameter(query="category", required=False)
+        ] = None,
+        exclude_type: Annotated[
+            str | None, Parameter(query="excludeType", required=False)
+        ] = None,
     ) -> service.OffsetPagination[ProviderResponse]:
         """List Providers with pagination and filtering."""
-        results, total = await providers_service.list_and_count(*filters)
+        from advanced_alchemy.filters import NotInCollectionFilter
+
+        active_filters = list(filters)
+        if category is not None:
+            if category == "llm":
+                # "llm" includes providers with NULL category (legacy records)
+                from sqlalchemy import or_
+
+                active_filters.append(
+                    or_(Provider.category == "llm", Provider.category.is_(None))
+                )
+            else:
+                active_filters.append(Provider.category == category)
+        if exclude_type is not None:
+            active_filters.append(
+                NotInCollectionFilter(field_name="type", values=exclude_type.split(","))
+            )
+        results, total = await providers_service.list_and_count(*active_filters)
         return providers_service.to_schema(
-            results, total, filters=filters, schema_type=ProviderResponse
+            results, total, filters=active_filters, schema_type=ProviderResponse
         )
 
     @post()

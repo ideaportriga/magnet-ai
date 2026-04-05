@@ -138,13 +138,20 @@ class AIModelsController(Controller):
         ai_models_service: AIModelsService,
         filters: Annotated[list[filters.FilterTypes], Dependency(skip_validation=True)],
         type: Annotated[str | None, Parameter(query="type", required=False)] = None,
+        provider: Annotated[
+            str | None, Parameter(query="provider", required=False)
+        ] = None,
     ) -> service.OffsetPagination[AIModel]:
         """List AI models with pagination and filtering."""
+        from advanced_alchemy.filters import CollectionFilter
+
         active_filters = list(filters)
         if type is not None:
-            from advanced_alchemy.filters import CollectionFilter
-
             active_filters.append(CollectionFilter(field_name="type", values=[type]))
+        if provider is not None:
+            active_filters.append(
+                CollectionFilter(field_name="provider_system_name", values=[provider])
+            )
         results, total = await ai_models_service.list_and_count(*active_filters)
         return ai_models_service.to_schema(
             results, total, filters=active_filters, schema_type=AIModel
