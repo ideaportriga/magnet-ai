@@ -36,11 +36,10 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
           .global-search-shortcut
             span {{ isMac ? '⌘K' : 'Ctrl+K' }}
       global-search(v-model='showSearch')
-      //- Right-side header actions: Locale + Fullscreen + Help + Profile
+      //- Right-side header actions: Fullscreen + Help + Profile
       .col-auto.row.items-center.no-wrap.q-gap-4.q-mr-md
-        km-locale-switcher
         km-btn(flat, :icon='isFullscreen ? "fas fa-compress" : "fas fa-expand"', iconSize='16px', iconColor='icon', hoverColor='primary', hoverBg='primary-bg', size='sm', :tooltip='isFullscreen ? "Exit fullscreen" : "Fullscreen"', @click='toggleFullscreen')
-        km-btn(flat, icon='fa-regular fa-circle-question', iconSize='16px', iconColor='icon', :label='m.common_help()', hoverColor='primary', hoverBg='primary-bg', size='sm', labelClass='km-title', @click='openHelp')
+        km-btn(flat, icon='fa-regular fa-circle-question', iconSize='16px', iconColor='icon', hoverColor='primary', hoverBg='primary-bg', size='sm', @click='openHelp')
         .relative-position
           km-btn(flat, icon='fas fa-user-circle', iconSize='16px', iconColor='icon', :label='userDisplayName', hoverColor='primary', hoverBg='primary-bg', size='sm', labelClass='km-title')
           q-menu(anchor='bottom right', self='top right', :offset='[0, 4]')
@@ -49,6 +48,27 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
                 q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
                   q-icon(name='fas fa-user', size='14px', color='icon')
                 q-item-section {{ m.user_profile() }}
+              q-separator
+              q-item.km-nav-popup-item(clickable)
+                q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
+                  q-icon(name='fas fa-globe', size='14px', color='icon')
+                q-item-section {{ currentLocaleLabel }}
+                q-item-section(side)
+                  q-icon(name='chevron_right', size='14px', color='icon')
+                q-menu(anchor='top end', self='top start', :offset='[4, 0]')
+                  q-list(dense, padding, style='min-width: 130px')
+                    q-item(
+                      v-for='opt in localeOptions',
+                      :key='opt.value',
+                      clickable,
+                      v-close-popup,
+                      dense,
+                      @click='setLocale(opt.value)',
+                      :active='opt.value === locale',
+                      active-class='locale-active'
+                    )
+                      q-item-section {{ opt.label }}
+              q-separator
               q-item.km-nav-popup-item(clickable, v-close-popup, @click='logout')
                 q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
                   q-icon(name='fas fa-sign-out-alt', size='14px', color='icon')
@@ -84,6 +104,7 @@ km-popup-confirm(
 
 <script>
 import { useState, useAuth } from '@shared'
+import { useLocale } from '@shared/i18n'
 import { m } from '@/paraglide/messages'
 import { useSharedAuthStore } from '@shared/stores/authStore'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
@@ -121,6 +142,18 @@ export default {
     const hasOpenTabs = computed(() => workspace.tabs.length > 0)
     const showSearch = ref(false)
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+
+    const { locale, setLocale, locales } = useLocale()
+    const localeFullLabels = { en: 'English', ru: 'Русский', lv: 'Latviešu', es: 'Español', fr: 'Français', de: 'Deutsch', it: 'Italiano' }
+    const localeLabels = { en: 'EN', ru: 'RU', lv: 'LV', es: 'ES', fr: 'FR', de: 'DE', it: 'IT' }
+    const localeOrder = ['en', 'lv', 'es', 'fr', 'de', 'ru', 'it']
+    const localeOptions = computed(() =>
+      localeOrder
+        .filter((loc) => locales.includes(loc))
+        .concat(locales.filter((loc) => !localeOrder.includes(loc)))
+        .map((loc) => ({ value: loc, label: localeFullLabels[loc] || loc }))
+    )
+    const currentLocaleLabel = computed(() => localeLabels[locale.value] || locale.value)
 
     const isFullscreen = ref(!!document.fullscreenElement)
     const toggleFullscreen = () => {
@@ -171,6 +204,10 @@ export default {
       isMac,
       isFullscreen,
       toggleFullscreen,
+      locale,
+      setLocale,
+      localeOptions,
+      currentLocaleLabel,
     }
   },
   computed: {
@@ -346,6 +383,11 @@ export default {
 .km-sidebar-header {
   overflow: hidden;
   transition: width 0.2s ease;
+}
+
+.locale-active {
+  color: var(--q-primary) !important;
+  font-weight: 500;
 }
 
 .km-sidebar-toggle {
