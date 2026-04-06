@@ -4,16 +4,31 @@ Pydantic schemas for Collections validation.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
     BaseSimpleUpdateSchema,
 )
+
+
+def _coerce_json_str(v: Any) -> Any:
+    """Parse a JSON string into a Python object.
+
+    JSONB columns sometimes arrive as strings when read via SQLAlchemy
+    with ``from_attributes=True`` (asyncpg codec mismatch).
+    """
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return v
 
 
 # Base mixin for common Collection fields
@@ -61,6 +76,11 @@ class CollectionFieldsMixin(BaseModel):
         None, description="Job ID associated with the collection"
     )
 
+    @field_validator("source", "chunking", "indexing", "metadata_config", mode="before")
+    @classmethod
+    def _parse_jsonb_strings(cls, v: Any) -> Any:
+        return _coerce_json_str(v)
+
 
 # Mixin for update operations with all fields optional
 class CollectionUpdateFieldsMixin(BaseModel):
@@ -105,6 +125,11 @@ class CollectionUpdateFieldsMixin(BaseModel):
     job_id: Optional[str] = Field(
         None, description="Job ID associated with the collection"
     )
+
+    @field_validator("source", "chunking", "indexing", "metadata_config", mode="before")
+    @classmethod
+    def _parse_jsonb_strings(cls, v: Any) -> Any:
+        return _coerce_json_str(v)
 
 
 # Pydantic schemas for Collections

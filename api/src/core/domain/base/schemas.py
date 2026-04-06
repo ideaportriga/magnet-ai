@@ -56,16 +56,30 @@ class BaseSchema(BaseModel):
         Some historical records have JSONB columns saved as JSON string literals
         (e.g. '"[{...}]"' instead of '[{...}]'). This validator transparently
         fixes them at read time so that to_schema() never crashes on legacy data.
+
+        Also handles the ``from_attributes=True`` path where *data* is a
+        SQLAlchemy model instance rather than a dict.
         """
-        if not isinstance(data, dict):
+        if isinstance(data, dict):
+            items = data
+        elif hasattr(data, "__dict__") and not isinstance(data, BaseModel):
+            # from_attributes=True (e.g. SQLAlchemy model) — extract only
+            # the fields declared on this Pydantic schema to avoid triggering
+            # lazy-loaded relationships.
+            items = {}
+            for key in cls.model_fields:
+                value = getattr(data, key, None)
+                items[key] = value
+        else:
             return data
-        for key, value in data.items():
+
+        for key, value in items.items():
             if isinstance(value, str) and value and value[0] in ("{", "["):
                 try:
-                    data[key] = json.loads(value)
+                    items[key] = json.loads(value)
                 except (json.JSONDecodeError, ValueError):
                     pass
-        return data
+        return items
 
 
 # Simple schemas

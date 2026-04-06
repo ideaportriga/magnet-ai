@@ -212,6 +212,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { sourceTypeOptions, sourceTypeChildren } from '@/config/collections/collections'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
+import { useCollectionDetailStore } from '@/stores/entityDetailStores'
 import FileUrlUpload from '@/components/Collections/FileUrlUpload.vue'
 
 export default defineComponent({
@@ -310,6 +311,7 @@ export default defineComponent({
       sourceTypeChildren,
       tempEntity,
       existingDraft,
+      collectionDetailStore: useCollectionDetailStore(),
       appStore: useAppStore(),
       // New reactive property for sync confirmation display
     }
@@ -434,7 +436,8 @@ export default defineComponent({
     // Clear knowledge store to prevent stale data (e.g. uploaded_files) from
     // a previously viewed knowledge source leaking into the new creation form.
     if (!this.copy) {
-      this.tempEntity = { name: '', system_name: '', description: '' }
+      this.tempEntity = null
+      this.collectionDetailStore.setEntity(null)
     }
 
     // Set provider_system_name from providerSystemName prop if provided
@@ -556,7 +559,7 @@ export default defineComponent({
       const transformedSource = this.transformSourceFields(source)
 
       // Merge temp-uploaded files (file_id refs) from store into source payload
-      const tempUploadedFiles = this.tempEntity || this.existingDraft?.source?.uploaded_files || []
+      const tempUploadedFiles = this.collectionDetailStore.entity?.source?.uploaded_files || []
       if (tempUploadedFiles.length) {
         transformedSource.uploaded_files = [
           ...(transformedSource.uploaded_files || []),
@@ -793,7 +796,8 @@ export default defineComponent({
       this.metadata = '{}'
       this.stepper = 0
 
-      this.tempEntity = { name: '', system_name: '', description: '' }
+      this.tempEntity = null
+      this.collectionDetailStore.setEntity(null)
 
       this.customFields = {}
 

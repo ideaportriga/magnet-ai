@@ -26,6 +26,18 @@ from validation.rag_tools import RetrieveConfig
 logger = logging.getLogger(__name__)
 
 
+def _ensure_parsed(val: Any, default: Any) -> Any:
+    """Parse double-encoded JSONB values (string instead of dict/list)."""
+    if not val:
+        return default
+    if isinstance(val, str):
+        try:
+            return json.loads(val)
+        except (json.JSONDecodeError, ValueError):
+            return default
+    return val
+
+
 class PgVectorStore(DocumentStore):
     """Document store implementation using PostgreSQL with pgvector extension."""
 
@@ -353,10 +365,10 @@ class PgVectorStore(DocumentStore):
                 "provider_system_name": row["provider_system_name"],
                 "type": row["type"],
                 "ai_model": row["ai_model"],
-                "source": row["source"] or {},
-                "chunking": row["chunking"] or {},
-                "indexing": row["indexing"] or {},
-                "metadata_config": row["metadata_config"] or [],
+                "source": _ensure_parsed(row["source"], {}),
+                "chunking": _ensure_parsed(row["chunking"], {}),
+                "indexing": _ensure_parsed(row["indexing"], {}),
+                "metadata_config": _ensure_parsed(row["metadata_config"], []),
                 "last_synced": row["last_synced"].isoformat()
                 if row["last_synced"]
                 else None,
@@ -506,10 +518,10 @@ class PgVectorStore(DocumentStore):
             "provider_system_name": row["provider_system_name"],
             "type": row["type"],
             "ai_model": row["ai_model"],
-            "source": row["source"] or {},
-            "chunking": row["chunking"] or {},
-            "indexing": row["indexing"] or {},
-            "metadata_config": row["metadata_config"] or [],
+            "source": _ensure_parsed(row["source"], {}),
+            "chunking": _ensure_parsed(row["chunking"], {}),
+            "indexing": _ensure_parsed(row["indexing"], {}),
+            "metadata_config": _ensure_parsed(row["metadata_config"], []),
             "last_synced": row["last_synced"].isoformat()
             if row["last_synced"]
             else None,

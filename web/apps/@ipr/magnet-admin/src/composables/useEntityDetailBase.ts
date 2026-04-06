@@ -66,16 +66,24 @@ export function useEntityDetailBase<T extends BaseEntity>(
   const idParam = options?.idParam ?? 'id'
   const readOnlyFields = options?.readOnlyFields ?? ENTITY_READ_ONLY_FIELDS
 
+  // Only read route ID when the current route's entity matches the requested entityKey.
+  // Prevents fetching the wrong entity when a component using useEntityDetail('collections')
+  // is rendered on a different entity's page (e.g. CreateNew dialog on knowledge-providers detail).
+  const resolveId = () =>
+    (route.meta?.entity as string | undefined) === entityKey
+      ? (route.params[idParam] as string | undefined)
+      : undefined
+
   // Stable ref: does NOT reactively track the global route object.
   // Keep-alive caches multiple component instances; if we used computed(() => route.params.id),
   // ALL cached instances would recompute when ANY tab is switched, firing N backend requests.
-  const id = ref<string | undefined>(route.params[idParam] as string | undefined)
+  const id = ref<string | undefined>(resolveId())
 
   onMounted(() => {
-    id.value = route.params[idParam] as string | undefined
+    id.value = resolveId()
   })
   onActivated(() => {
-    id.value = route.params[idParam] as string | undefined
+    id.value = resolveId()
   })
 
   const bufferKey = computed(() => `${entityKey}:${id.value}`)

@@ -90,12 +90,13 @@ div
 </template>
 
 <script setup>
-import { ref, computed, watch, useTemplateRef, inject } from 'vue'
+import { ref, computed, watch, useTemplateRef } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useQuasar } from 'quasar'
 import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useCollectionDetailStore } from '@/stores/entityDetailStores'
+import { useAppStore } from '@/stores/appStore'
 
 const props = defineProps({
   modelValue: {
@@ -117,7 +118,7 @@ const q = useQuasar()
 const { draft, updateField } = useEntityDetail('collections')
 // Fallback to Pinia store for CreateNew context (no route ID, so draft is undefined)
 const collectionStore = useCollectionDetailStore()
-const appConfig = inject('appConfig', {})
+const appStore = useAppStore()
 const fileInputRef = useTemplateRef('fileInput')
 
 const urlInput = ref('')
@@ -135,7 +136,7 @@ const urlModel = computed({
 // Use editBuffer draft when available (detail page), fall back to Pinia store (CreateNew)
 const collectionId = computed(() => draft.value?.id || collectionStore.entity?.id || '')
 const uploadedFiles = computed(() => draft.value?.source?.uploaded_files || collectionStore.entity?.source?.uploaded_files || [])
-const endpoint = computed(() => appConfig?.api?.aiBridge?.urlAdmin)
+const endpoint = computed(() => appStore.adminEndpoint)
 const allowedExtSet = computed(() => new Set(acceptedExtensions.split(',')))
 
 const urlError = computed(() => {
@@ -181,6 +182,10 @@ function setUploadedFiles(newFiles) {
   if (draft.value) {
     updateField('source.uploaded_files', newFiles)
   } else {
+    if (!collectionStore.entity) {
+      // Bootstrap a stub entity so updateNestedProperty can write to it (create-new context)
+      collectionStore.setEntity({ source: { uploaded_files: [] } })
+    }
     collectionStore.updateNestedProperty({ path: 'source.uploaded_files', value: newFiles })
   }
 }

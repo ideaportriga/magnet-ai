@@ -6,11 +6,13 @@ from uuid import UUID
 from advanced_alchemy.extensions.litestar import filters, providers, service
 from litestar import Controller, delete, get, patch, post
 from litestar.params import Dependency, Parameter
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.constants import DEFAULT_PAGINATION_SIZE
 from core.domain.collections.service import (
     CollectionsService,
 )
+from storage import StorageService
 
 from .schemas import Collection, CollectionCreate, CollectionUpdate
 
@@ -56,11 +58,37 @@ class CollectionsController(Controller):
         collections_service: CollectionsService,
         data: CollectionCreate,
         audit_username: str | None,
+        storage_service: StorageService | None = None,
+        db_session: AsyncSession | None = None,
     ) -> Collection:
         """Create a new Collection, or update if one with the same system_name exists."""
         data.created_by = audit_username
         data.updated_by = audit_username
-        obj = await collections_service.upsert(data, match_fields=["system_name"])
+        obj = await collections_service.upsert(
+            data, match_fields=["system_name"], auto_commit=True
+        )
+
+        # Claim any temp-uploaded files and reassign them to this collection
+        if storage_service and db_session and data.source:
+            uploaded_files = data.source.get("uploaded_files", [])
+            file_ids = [
+                uf["file_id"]
+                for uf in uploaded_files
+                if isinstance(uf, dict) and "file_id" in uf
+            ]
+            if file_ids:
+                entity_id = obj.id
+                for fid in file_ids:
+                    try:
+                        stored = await storage_service.get(db_session, UUID(str(fid)))
+                        if stored and stored.entity_type == "ks_source_temp":
+                            stored.entity_type = "ks_source"
+                            stored.entity_id = entity_id
+                            db_session.add(stored)
+                    except Exception:
+                        pass
+                await db_session.commit()
+
         return collections_service.to_schema(obj, schema_type=Collection)
 
     @get("/code/{code:str}")

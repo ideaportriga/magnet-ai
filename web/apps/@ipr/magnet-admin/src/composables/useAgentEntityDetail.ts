@@ -13,10 +13,10 @@ export interface AgentEntity extends VariantEntity {
  * - updateHighLevelNestedProperty (agent-level, not variant-level)
  * - updateNestedListItemBySystemName (complex variant mutation)
  */
-export function useAgentEntityDetail(options?: UseVariantEntityDetailOptions) {
-  const activeTopic = ref<Record<string, unknown> | null>(null)
-  const conversationId = ref<string | null>(null)
+const activeTopic = ref<Record<string, unknown> | null>(null)
+const conversationId = ref<string | null>(null)
 
+export function useAgentEntityDetail(options?: UseVariantEntityDetailOptions) {
   const base = useVariantEntityDetail<AgentEntity>('agents', {
     ...options,
     onBufferInit(data) {
