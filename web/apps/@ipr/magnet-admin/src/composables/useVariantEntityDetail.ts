@@ -64,9 +64,10 @@ export function useVariantEntityDetail<T extends VariantEntity>(
     const idx = variantsList.findIndex((v) => v.variant === selectedVariant.value)
     if (idx === -1) return
     const updatedVariant = cloneDeep(variantsList[idx])
+    const variantValue = (updatedVariant.value ?? updatedVariant) as Record<string, unknown>
 
     const keys = path.split('.')
-    let target: Record<string, unknown> = updatedVariant
+    let target: Record<string, unknown> = variantValue
     for (let i = 0; i < keys.length - 1; i++) {
       if (!(keys[i] in target) || target[keys[i]] === null || typeof target[keys[i]] !== 'object') {
         target[keys[i]] = {}
