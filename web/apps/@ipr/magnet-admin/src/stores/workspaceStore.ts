@@ -83,6 +83,10 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     }
   }
 
+  function clearActiveTab() {
+    activeTabId.value = null
+  }
+
   function markDirty(tabId: string, dirty: boolean) {
     const tab = tabs.value.find((t) => t.id === tabId)
     if (tab) tab.dirty = dirty
@@ -158,6 +162,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     openTab,
     closeTab,
     setActiveTab,
+    clearActiveTab,
     markDirty,
     updateTabLabel,
     pinTab,

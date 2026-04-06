@@ -70,16 +70,30 @@ km-popup-confirm(
 
 <script setup lang="ts">
 import { m } from '@/paraglide/messages'
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useWorkspaceStore, type WorkspaceTab } from '@/stores/workspaceStore'
 import { useEditBufferStore } from '@/stores/editBufferStore'
 import { storeToRefs } from 'pinia'
 
 const router = useRouter()
+const route = useRoute()
 const workspace = useWorkspaceStore()
 const editBuffer = useEditBufferStore()
 const { tabs, activeTabId } = storeToRefs(workspace)
+
+// Clear active tab highlight when navigating away from a detail page
+watch(
+  () => route.fullPath,
+  () => {
+    const active = tabs.value.find((t) => t.id === activeTabId.value)
+    if (!active) return
+    const tabRoute = getRouteForTab(active)
+    if (!tabRoute || !route.path.startsWith(tabRoute)) {
+      workspace.clearActiveTab()
+    }
+  },
+)
 
 // Entity type → sidebar icon mapping
 const entityIconMap: Record<string, string> = {
