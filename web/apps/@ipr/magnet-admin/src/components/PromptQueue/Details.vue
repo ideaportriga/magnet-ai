@@ -58,7 +58,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                         map-options,
                         hasDropdownSearch,
                         height='30px',
-                        placeholder='Select prompt template'
+                        :placeholder='m.promptQueue_selectPromptTemplate()'
                       )
                       .km-field.text-secondary-text.q-pb-xs.q-mt-sm
                         .row.items-center
@@ -79,7 +79,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                               :label='`{${key}}`',
                               :model-value='getPromptInputValue(stepIdx, promptIdx, key)',
                               @update:model-value='(v) => updatePromptInputValue(stepIdx, promptIdx, key, v)',
-                              placeholder='e.g. input.task or result.data'
+                              :placeholder='m.promptQueue_exampleInputTaskPath()'
                             )
                       template(v-else)
                         .km-field.text-secondary-text.q-pb-xs(v-if='getPromptPlaceholderKeys(stepIdx, promptIdx).length') Input (JSON)
@@ -87,14 +87,14 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                           :model-value='getPromptInputText(stepIdx, promptIdx)',
                           type='textarea',
                           rows='3',
-                          placeholder='{"task": "input.task", "context": "result.data"} or input.task',
+                          :placeholder='m.promptQueue_exampleMappingOrPath()',
                           @update:model-value='(v) => setPromptInputDraft(stepIdx, promptIdx, v)',
                           @blur='commitPromptInput(stepIdx, promptIdx)'
                         )
                         .km-description.text-secondary-text Variable name → value or path (input.task, result.data). Plain string for single placeholder.
                       .km-field.text-secondary-text.q-pb-xs.q-mt-sm Output key
                       km-input(
-                        placeholder='e.g. data',
+                        :placeholder='m.promptQueue_exampleData()',
                         :model-value='prompt.output_key ?? ""',
                         @update:model-value='(v) => updatePromptOutputKey(stepIdx, promptIdx, v)'
                       )
@@ -120,7 +120,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                       map-options,
                       hasDropdownSearch,
                       height='30px',
-                      placeholder='Select API server'
+                      :placeholder='m.promptQueue_selectApiServer()'
                     )
                     .km-field.text-secondary-text.q-pb-xs.q-mt-sm API Tool
                     km-select(
@@ -133,20 +133,20 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                       map-options,
                       hasDropdownSearch,
                       height='30px',
-                      placeholder='Select API tool'
+                      :placeholder='m.promptQueue_selectApiTool()'
                     )
                     .km-field.text-secondary-text.q-pb-xs.q-mt-sm Body (JSON)
                     km-input(
                       :model-value='getStepApiToolCallBody(stepIdx)',
                       type='textarea',
                       rows='4',
-                      placeholder='{"key": "input.task"}',
+                      :placeholder='m.promptQueue_exampleKeyMapping()',
                       @update:model-value='(v) => setStepApiToolCallBodyDraft(stepIdx, v)',
                       @blur='commitStepApiToolCallBody(stepIdx)'
                     )
                     .km-field.text-secondary-text.q-pb-xs.q-mt-sm Output key
                     km-input(
-                      placeholder='e.g. api_result',
+                      :placeholder='m.promptQueue_exampleApiResult()',
                       :model-value='getStepApiToolCall(stepIdx)?.output_key ?? ""',
                       @update:model-value='(v) => updateStepApiToolCall(stepIdx, "output_key", v)'
                     )
@@ -172,7 +172,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
             km-input(
               :model-value='newParamName',
               @update:model-value='newParamName = $event',
-              placeholder='e.g. task, query',
+              :placeholder='m.promptQueue_exampleTaskQuery()',
               style='max-width: 200px',
               @keydown.enter.prevent='addExpectedInputParam'
             )
@@ -196,7 +196,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
             km-input(
               :model-value='newTestInputName',
               @update:model-value='newTestInputName = $event',
-              placeholder='Test name',
+              :placeholder='m.promptQueue_testName()',
               style='max-width: 200px',
               @keydown.enter.prevent='addTestInput'
             )
@@ -212,7 +212,7 @@ layouts-details-layout.q-mx-auto(v-else, v-model:name='name', v-model:descriptio
                   km-input(
                     :model-value='getTestInputValue(tiIdx, param)',
                     @update:model-value='(v) => setTestInputValue(tiIdx, param, v)',
-                    placeholder='Value',
+                    :placeholder='m.common_value()',
                     style='max-width: 300px'
                   )
           .q-mt-sm(v-if='!testInputsList.length')

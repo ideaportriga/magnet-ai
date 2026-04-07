@@ -16,7 +16,7 @@ q-separator.q-my-sm
         q-item-section(v-if='option?.active_variant', avatar)
           q-chip.q-mr-sm(:label='m.common_activate()', color='primary-light', text-color='primary', flat, size='sm')
   .col.q-mx-sm
-    km-input-flat.km-description.full-width(placeholder='Description', :modelValue='variant_description', @change='updateVariantDescription')
+    km-input-flat.km-description.full-width(:placeholder='m.common_description()', :modelValue='variant_description', @change='updateVariantDescription')
   .col-auto.q-mr-sm
     km-btn.width-100(
       v-if='!isActive',

@@ -33,7 +33,7 @@ div
       height='36px',
       minHeight='80px',
       border-radius='8px',
-      placeholder='e.g. Primeks, Magnet, LIAA, Reckitt',
+      :placeholder='m.noteTaker_exampleKeyterms()',
       v-model='keyterms'
     )
     .km-description.text-secondary-text.q-pt-xs.q-pl-8 Comma separated

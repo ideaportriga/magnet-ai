@@ -78,7 +78,7 @@ div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Space ID
         km-input.full-width(
           v-model='confluenceSpaceKey',
-          placeholder='e.g. 10387460',
+          :placeholder='m.noteTaker_exampleLinearTeamId()',
           height='30px'
         )
 
@@ -86,7 +86,7 @@ div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Parent Page ID (optional)
         km-input.full-width(
           v-model='confluenceParentId',
-          placeholder='e.g. 123456',
+          :placeholder='m.noteTaker_exampleLinearProjectId()',
           height='30px'
         )
 
@@ -94,7 +94,7 @@ div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 Title Template
         km-input.full-width(
           v-model='confluenceTitleTemplate',
-          placeholder='Meeting notes: {meeting_title} ({date})',
+          :placeholder='m.noteTaker_meetingNotesTemplate()',
           height='30px'
         )
         .km-description.text-secondary-text.q-pt-xs.q-pl-8 Available placeholders: {meeting_title}, {date}, {job_id}, {meeting_id}.

@@ -3,7 +3,7 @@
   km-select(
     height='auto',
     minHeight='36px',
-    placeholder='Test Set',
+    :placeholder='m.entity_testSet()',
     :options='setItems',
     :modelValue='selectedTestSet',
     @update:modelValue='$emit("update:selectedTestSet", $event)',

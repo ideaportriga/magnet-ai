@@ -13,6 +13,7 @@ interface SearchAnswer {
   prompt: string
   results: any[]
   answer?: any
+  loading?: boolean
 }
 
 const useSearch = defineStore('search', {
@@ -52,6 +53,8 @@ const useSearch = defineStore('search', {
       const credentials = mainStore.config?.credentials
       const ragToolCodeDefault = this.ragToolCodeDefault || 'RAG_TOOL_TEST'
 
+      // Add pending answer immediately so the user's question is visible right away
+      this.answers = [{ prompt, results: [], loading: true }, ...this.answers]
       this.answersLoading = true
 
       const response = await fetchData({
@@ -72,16 +75,21 @@ const useSearch = defineStore('search', {
       this.answersLoading = false
 
       if (response?.error) {
+        this.answers = this.answers.filter((a) => !(a.loading && a.prompt === prompt))
         mainStore.setErrorMessage({
           technicalError: response?.error,
           text: `Error calling search service`,
         })
       } else {
         const answer = await response.json()
-        this.setAnswers({
-          prompt,
-          ...answer,
-        })
+        const updated = [...this.answers]
+        const pendingIndex = updated.findIndex((a) => a.loading && a.prompt === prompt)
+        if (pendingIndex !== -1) {
+          updated[pendingIndex] = { prompt, ...answer, loading: false }
+        } else {
+          updated.unshift({ prompt, ...answer, loading: false })
+        }
+        this.answers = updated
       }
     },
     async getAnswerRetrievalExecute(retrievalToolCode = null) {

@@ -63,7 +63,7 @@ km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
         .km-title Vector Configuration
         div
           .km-field.text-secondary-text.q-pb-xs.q-pl-8 Vector Size
-          km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
+          km-input(height='32px', type='number', :placeholder='m.placeholder_exampleVectorSize()', :model-value='vectorSize', @update:model-value='vectorSize = $event')
           .km-description.text-secondary-text.q-pl-8.q-pt-xs Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
 
     .column.q-gap-16.q-pa-16(v-if='tab == "pricing"')
@@ -172,7 +172,7 @@ km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
       .km-title Endpoint
       div
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 API Path
-        km-input(:model-value='apiPath', @update:model-value='apiPath = $event', placeholder='/v2')
+        km-input(:model-value='apiPath', @update:model-value='apiPath = $event', :placeholder='m.placeholder_exampleApiPath()')
         .km-description.text-secondary-text.q-pl-8.q-pt-xs
           | Path appended to the provider endpoint for this model. Must start with /.
           template(v-if="type === 're-ranking'")
@@ -226,7 +226,7 @@ km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
           minHeight='32px',
           multiple,
           use-chips,
-          placeholder='Select fallback models',
+          :placeholder='m.modelProviders_selectFallbackModels()',
           :options='availableFallbackModels',
           :model-value='fallbackModels',
           @update:model-value='fallbackModels = $event',

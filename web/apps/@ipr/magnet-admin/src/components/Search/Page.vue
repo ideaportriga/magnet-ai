@@ -8,13 +8,13 @@
             .km-heading-5 {{ uiSettings?.header_configuration?.header }}
           .row.justify-center.q-pb-12.q-gap-2.items-center.full-width(v-if='uiSettings?.header_configuration?.sub_header')
             .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
-        search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, @searchRagExecute='handleSearchRagExecute')
+        search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, @searchRagExecute='handleSearchRagExecute', :t='{ placeholder: m.placeholder_typeQuestionHere() }')
         template(v-if='isShowHints')
           .row.items-center
-            .col.km-heading-3 You can ask like this...
+            .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
             .col-auto
               km-btn(flat, color='primary', @click='showHints = false')
-                .km-button-text Don't show hints
+                .km-button-text {{ m.common_dontShowHints() }}
           template(v-for='(item, index) in sampleQuestion', :key='index')
             km-btn(flat, @click='refine(item)')
               .wrapped-text {{ item }}

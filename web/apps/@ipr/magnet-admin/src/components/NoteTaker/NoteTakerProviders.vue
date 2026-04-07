@@ -62,7 +62,7 @@
         km-input(
           v-if='showDialog',
           height='30px',
-          placeholder='My Teams Bot',
+          :placeholder='m.noteTaker_myTeamsBot()',
           v-model='form.name',
           :rules='[required()]',
           @input='onNameInput'
@@ -71,7 +71,7 @@
         .km-field.text-secondary-text.q-pb-xs System Name
         km-input(
           height='30px',
-          placeholder='MY_TEAMS_BOT',
+          :placeholder='m.noteTaker_myTeamsBotSystemName()',
           v-model='form.system_name',
           :rules='[required()]',
           :disable='!!editingProvider'
@@ -82,7 +82,7 @@
         km-input(
           v-if='showDialog',
           height='30px',
-          placeholder='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+          :placeholder='m.placeholder_uuidFormat()',
           v-model='form.client_id'
         )
       .col
@@ -91,7 +91,7 @@
           v-if='showDialog',
           height='30px',
           type='password',
-          :placeholder='editingProvider ? "Leave blank to keep existing secret" : "Azure Bot client secret"',
+          :placeholder='editingProvider ? m.noteTaker_leaveBlankToKeepSecret() : m.noteTaker_azureBotClientSecret()',
           v-model='form.client_secret'
         )
       .col
@@ -99,7 +99,7 @@
         km-input(
           v-if='showDialog',
           height='30px',
-          placeholder='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+          :placeholder='m.placeholder_uuidFormat()',
           v-model='form.tenant_id'
         )
       .col
@@ -107,7 +107,7 @@
         km-input(
           v-if='showDialog',
           height='30px',
-          placeholder='e.g. Recordings',
+          :placeholder='m.noteTaker_exampleRecordings()',
           v-model='form.auth_handler_id'
         )
         .km-description.text-secondary-text.q-pt-2 Name of the OAuth Connection in Azure Bot Service settings.

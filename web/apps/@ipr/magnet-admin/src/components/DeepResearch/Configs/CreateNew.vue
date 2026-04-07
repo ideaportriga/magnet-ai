@@ -15,7 +15,7 @@ km-popup-confirm(
         km-input(
           v-if='showNewDialog',
           height='30px',
-          placeholder='Research',
+          :placeholder='m.deepResearch_research()',
           v-model='name',
           ref='nameRef',
           :rules='[required()]'
@@ -37,6 +37,7 @@ km-popup-confirm(
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { m } from '@/paraglide/messages'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { required } from '@/utils/validationRules'
 import { useDeepResearchStore } from '@/stores/deepResearchStore'

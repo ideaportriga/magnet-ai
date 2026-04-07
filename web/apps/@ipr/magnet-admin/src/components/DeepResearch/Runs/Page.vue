@@ -49,7 +49,7 @@
       emit-value,
       map-options,
       height='30px',
-      placeholder='Select a config'
+      :placeholder='m.deepResearch_selectConfig()'
       :rules='[val => !!val || "Config is required"]'
     )
     .km-description.text-secondary-text.q-pt-2 Select the research configuration to use
@@ -62,7 +62,7 @@
       outlined,
       rows='8',
       :rules='[validateJSON]'
-      placeholder='{"query": "Research question here"}'
+      :placeholder='m.deepResearch_exampleQuery()'
     )
     .km-description.text-secondary-text.q-pt-2 Provide the input data for the research run
 
@@ -71,7 +71,7 @@
     km-input(
       v-model='runClientId',
       height='30px',
-      placeholder='Optional client identifier'
+      :placeholder='m.deepResearch_optionalClientIdentifier()'
     )
 
           q-card-actions(align='right')

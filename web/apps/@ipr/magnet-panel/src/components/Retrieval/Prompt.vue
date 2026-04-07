@@ -4,7 +4,7 @@
     km-input.full-width(
       ref='input',
       autogrow,
-      placeholder='Type your question here',
+      :placeholder='m.placeholder_typeQuestionHere()',
       :model-value='prompt',
       @input='prompt = $event',
       @keydown.enter='submit',
@@ -21,6 +21,7 @@
 <script>
 import { useSearch } from '@/pinia'
 import { storeToRefs } from 'pinia'
+import { m } from '@/paraglide/messages'
 
 export default {
   expose: ['refine'],
@@ -45,6 +46,7 @@ export default {
     const { searchPrompt: prompt } = storeToRefs(searchStore)
 
     return {
+      m,
       prompt,
       searchStore,
     }

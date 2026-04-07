@@ -28,16 +28,16 @@
       q-separator.q-mb-lg
       km-notification-text(:notification='m.hint_teamsCredentialsAgent()')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
-      km-input(v-model='ms_teams_client_id', placeholder='Enter MS Teams Client ID')
+      km-input(v-model='ms_teams_client_id', :placeholder='m.agents_enterMsTeamsClientId()')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Tenant ID
-      km-input(v-model='ms_teams_tenant_id', placeholder='Enter MS Teams Tenant ID')
+      km-input(v-model='ms_teams_tenant_id', :placeholder='m.agents_enterMsTeamsTenantId()')
       //- .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Secret value
       km-encrypted-input.q-mt-md(
         :value='ms_teams_secret_value',
         @update:value='ms_teams_secret_value = $event',
         :encrypted-value='has_ms_teams_secret_value',
         :label='m.agents_secretValue()',
-        placeholder='Enter MS Teams Secret Value',
+        :placeholder='m.agents_enterMsTeamsSecretValue()',
         fake-encrypted-value='******'
       )
       km-notification-text.q-mt-lg
@@ -52,13 +52,13 @@
       q-separator.q-mb-lg
       km-notification-text(:notification='m.hint_slackCredentialsAgent()')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Client ID
-      km-input(v-model='slack_client_id', placeholder='Enter Slack Client ID')
+      km-input(v-model='slack_client_id', :placeholder='m.agents_enterSlackClientId()')
       km-encrypted-input.q-mt-md(
         :value='slack_token',
         @update:value='slack_token = $event',
         :encrypted-value='has_slack_encryptes.token',
         :label='m.agents_token()',
-        placeholder='Enter Slack Token',
+        :placeholder='m.agents_enterSlackToken()',
         fake-encrypted-value='******'
       )
       km-encrypted-input.q-mt-md(
@@ -66,7 +66,7 @@
         @update:value='slack_client_secret = $event',
         :encrypted-value='has_slack_encryptes.client_secret',
         :label='m.agents_clientSecret()',
-        placeholder='Enter Slack Client Secret',
+        :placeholder='m.agents_enterSlackClientSecret()',
         fake-encrypted-value='******'
       )
       km-encrypted-input.q-mt-md(
@@ -74,11 +74,11 @@
         @update:value='slack_signing_secret = $event',
         :encrypted-value='has_slack_encryptes.signing_secret',
         :label='m.agents_signingSecret()',
-        placeholder='Enter Slack Signing Secret',
+        :placeholder='m.agents_enterSlackSigningSecret()',
         fake-encrypted-value='******'
       )
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Agent Scopes
-      km-input(v-model='slack_scopes', placeholder='Enter Slack Agent Scopes (comma separated)')
+      km-input(v-model='slack_scopes', :placeholder='m.agents_enterSlackScopes()')
       km-btn.q-mt-md(
         :label='m.agents_connectToSlack()',
         color='white',
@@ -94,13 +94,13 @@
       q-separator.q-mb-lg
       km-notification-text(:notification='m.hint_whatsAppCredentialsAgent()')
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mt-16 Phone Number ID
-      km-input(v-model='whatsapp_phone_number_id', placeholder='Enter WhatsApp Phone Number ID')
+      km-input(v-model='whatsapp_phone_number_id', :placeholder='m.agents_enterWhatsappPhoneNumberId()')
       km-encrypted-input.q-mt-md(
         :value='whatsapp_token',
         @update:value='whatsapp_token = $event',
         :encrypted-value='has_whatsapp_encrypted.token',
         :label='m.agents_token()',
-        placeholder='Enter WhatsApp Token',
+        :placeholder='m.agents_enterWhatsappToken()',
         fake-encrypted-value='******'
       )
       km-encrypted-input.q-mt-md(
@@ -108,7 +108,7 @@
         @update:value='whatsapp_app_secret = $event',
         :encrypted-value='has_whatsapp_encrypted.app_secret',
         :label='m.agents_appSecret()',
-        placeholder='Enter WhatsApp App Secret',
+        :placeholder='m.agents_enterWhatsappAppSecret()',
         fake-encrypted-value='******'
       )
       km-notification-text.q-mt-lg

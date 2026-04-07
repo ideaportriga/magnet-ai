@@ -18,10 +18,11 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
       .row.stretch
         .row.stretch.no-wrap
           .search-answer-text.stretch.km-title.q-my-4.text-pre-wrap {{ answer.prompt }}
-        template(v-if='$theme === "default"')
-          km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', tooltip='Refine')
-        template(v-else)
-          km-btn.self-start(svgIcon='edit', iconColor='primary', iconSize='12px', size='xs', flat, @click='refine(answer.prompt)', tooltip='Refine')
+        template(v-if='!answer.loading')
+          template(v-if='$theme === "default"')
+            km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', tooltip='Refine')
+          template(v-else)
+            km-btn.self-start(svgIcon='edit', iconColor='primary', iconSize='12px', size='xs', flat, @click='refine(answer.prompt)', tooltip='Refine')
 
   //- ANSWER
   .col-auto.q-pt-md
@@ -33,7 +34,10 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
           .bg-primary.flex.flex-center.round(:style='{ width: "28px", height: "28px" }')
             km-icon(name='ai', width='14', height='14')
       .col.overflow-hidden
-        .column.border-radius-12.q-pt-8.q-pb-8
+        template(v-if='answer.loading')
+          .q-py-8
+            q-spinner-dots(size='32px', color='primary')
+        .column.border-radius-12.q-pt-8.q-pb-8(v-else)
           .row.width-100
             .search-answer-text.stretch.km-paragraph
               km-markdown(:source='mainAnswer.text')

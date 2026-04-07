@@ -5,7 +5,7 @@ div
       km-select(
         height='auto',
         minHeight='30px',
-        placeholder='Provider',
+        :placeholder='m.common_provider()',
         :options='providerItems',
         v-model='provider',
         ref='providerRef',
@@ -15,25 +15,25 @@ div
       )
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Name
       .full-width
-        km-input(height='30px', placeholder='E.g. gpt-4o-mini', v-model='model', ref='modelRef')
+        km-input(height='30px', :placeholder='m.placeholder_exampleModelId()', v-model='model', ref='modelRef')
 
   q-separator.q-my-lg(v-if='type === "prompts"')
   km-section(v-if='type === "prompts"', title='Structured data support', subTitle='Model specific features')
     .col-6.km-field.text-secondary-text.q-pb-xs.q-pl-8
       .row.items-center
-        q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='json_mode', ref='json_modeRef')
+        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='json_mode', ref='json_modeRef')
         .km-field.text-secondary-text JSON mode
     .col-6.km-field.text-secondary-text.q-pb-xs.q-pl-8
       .row.items-center
-        q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='json_schema', ref='json_schemaRef')
+        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='json_schema', ref='json_schemaRef')
         .km-field.text-secondary-text JSON schema
     .col-6.km-field.text-secondary-text.q-pb-xs.q-pl-8
       .row.items-center
-        q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='tool_calling', ref='json_schemaRef')
+        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='tool_calling', ref='json_schemaRef')
         .km-field.text-secondary-text Tool calling
     .col-6.km-field.text-secondary-text.q-pb-xs.q-pl-8
       .row.items-center
-        q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='reasoning', ref='json_schemaRef')
+        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='reasoning', ref='json_schemaRef')
         .km-field.text-secondary-text Reasoning
   q-separator.q-my-lg
   km-section(title='Additional information', subTitle='Useful information about the model')
@@ -43,7 +43,7 @@ div
           km-input(
             ref='resourcesRef',
             rows='10',
-            placeholder='Type your text here',
+            :placeholder='m.placeholder_typeYourTextHere()',
             :model-value='resources',
             @input='resources = $event',
             border-radius='8px',
@@ -68,6 +68,7 @@ export default {
     const providerItems = computed(() => providerData.value?.items ?? [])
 
     return {
+      m,
       draft,
       updateField,
       providerItems,

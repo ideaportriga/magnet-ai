@@ -1,10 +1,10 @@
 <template lang="pug">
 .col
   .row.items-center
-    km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :modelValue='name', @change='$emit("update:name", $event)')
+    km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :modelValue='name', @change='$emit("update:name", $event)')
   .row.items-center
     km-input-flat.km-description.full-width.text-black(
-      placeholder='Description',
+      :placeholder='m.common_description()',
       :modelValue='description',
       @change='$emit("update:description", $event)'
     )
@@ -12,7 +12,7 @@
     q-icon.col-auto(name='o_info', color='text-secondary')
       q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
     km-input-flat.col.km-description.text-black.full-width(
-      placeholder='Enter system name',
+      :placeholder='m.placeholder_enterSystemNameReadable()',
       :modelValue='systemName',
       @change='$emit("update:systemName", $event)',
       @focus='showInfo = true',
@@ -24,6 +24,7 @@
 <script setup>
 /* eslint-disable */
 import { ref } from 'vue'
+import { m } from '@/paraglide/messages'
 
 const props = defineProps({
   name: {

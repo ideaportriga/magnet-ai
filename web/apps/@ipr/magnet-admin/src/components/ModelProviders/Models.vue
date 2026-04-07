@@ -77,7 +77,7 @@ q-dialog(v-model='showImportDialog', persistent)
 
       //- Search filter
       km-input.q-mb-md(
-        placeholder='Filter models...',
+        :placeholder='m.modelProviders_filterModels()',
         iconBefore='search',
         v-model='importSearchString',
         @input='importSearchString = $event',

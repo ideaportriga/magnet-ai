@@ -12,7 +12,7 @@ q-separator.q-my-sm
 
             //- q-item-label.km-label {{opt}} 
   .col.q-mx-sm
-    km-input-flat.km-description.full-width(placeholder='Description', :modelValue='variant_description', @change='variant_description = $event')
+    km-input-flat.km-description.full-width(:placeholder='m.common_description()', :modelValue='variant_description', @change='variant_description = $event')
   .col-auto.q-mr-sm
     km-btn.width-100(
       v-if='!isActive',

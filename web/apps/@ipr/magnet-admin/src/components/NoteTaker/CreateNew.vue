@@ -15,7 +15,7 @@ km-popup-confirm(
         km-input(
           v-if='showNewDialog',
           height='30px',
-          placeholder='Note Taker Settings',
+          :placeholder='m.dialog_newNoteTakerSettings()',
           v-model='name',
           ref='nameRef',
           :rules='[required()]'

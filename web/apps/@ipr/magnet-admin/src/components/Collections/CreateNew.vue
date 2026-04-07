@@ -170,7 +170,7 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
               //- Custom cron input
               .q-mt-md.q-pl-8(v-if='form.interval === "custom"')
                 .km-field.text-secondary-text.q-pb-xs {{ m.collections_cronExpression() }}
-                km-input(height='30px', v-model='form.customCron', placeholder='*/10 * * * *')
+                km-input(height='30px', v-model='form.customCron', :placeholder='m.common_cronExpression()')
                 .km-tiny.text-secondary-text.q-mt-xs {{ m.collections_cronFormatHint() }}
               .row.q-mt-md.items-center
                 km-checkbox(size='40px', v-model='form.enabled')

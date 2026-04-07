@@ -12,7 +12,7 @@
         :model-value='getSecretDisplayValue(itemKey, value)',
         @update:model-value='updateSecret(itemKey, itemKey, $event)',
         :readonly='!editMode',
-        :placeholder='!isNew ? "Enter new value" : ""'
+        :placeholder='!isNew ? m.common_enterNewValue() : ""'
       )
       .controls.full-height.row.items-center
         km-btn(icon='fa fa-pen', flat, iconSize='12px', @click='editMode = !editMode', size='xs', v-if='!editMode')

@@ -30,7 +30,7 @@
     km-input.full-width(
       type='textarea',
       autogrow,
-      placeholder='e.g. project names, one per line',
+      :placeholder='m.noteTaker_exampleProjectNames()',
       v-model='keyterms'
     )
     .km-description.text-secondary-text.q-pt-2 Optional keyterms to improve the transcription accuracy (one per line).

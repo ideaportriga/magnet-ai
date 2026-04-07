@@ -27,7 +27,7 @@ km-popup-confirm(
           data-test='select-type',
           height='auto',
           minHeight='36px',
-          placeholder='Select Source Type',
+          :placeholder='m.modelProviders_selectSourceType()',
           :options='typeOptions',
           v-model='newRow.type',
           ref='typeRef',
@@ -39,7 +39,7 @@ km-popup-confirm(
     .col
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_endpoint() }}
       .full-width
-        km-input(data-test='endpoint-input', height='30px', v-model='newRow.endpoint', placeholder='https://api.example.com')
+        km-input(data-test='endpoint-input', height='30px', v-model='newRow.endpoint', :placeholder='m.placeholder_exampleApiEndpoint()')
       .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_endpointWarning() }}
 </template>
 

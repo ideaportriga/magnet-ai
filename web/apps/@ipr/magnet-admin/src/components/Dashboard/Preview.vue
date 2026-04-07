@@ -21,7 +21,7 @@
                     optionValue='value',
                     :permanentPlaceholder='filter.label',
                     :multiple='filter.multiple',
-                    placeholder='All'
+                    :placeholder='m.common_all()'
                   )
                   q-icon.q-my-auto.cursor-pointer(
                     v-if='filter.hidden',
@@ -32,7 +32,7 @@
 
               km-select-flat(
                 v-if='hiddenFilters.length',
-                placeholder='Add Filter',
+                :placeholder='m.common_addFilter()',
                 @update:modelValue='updateVisibleFilters',
                 :options='hiddenFilters',
                 modelValue=''
@@ -111,6 +111,7 @@ const filter = {
 export default {
   setup() {
     return {
+      m,
       activeFilters: ref({}),
       selected: ref(null),
       options: ref([

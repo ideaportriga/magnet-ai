@@ -14,13 +14,13 @@
         optionValue='value',
         :permanentPlaceholder='filter.label',
         :multiple='filter.multiple',
-        placeholder='All'
+        :placeholder='m.common_all()'
       )
       q-icon.q-my-auto.cursor-pointer(v-if='filter.hidden', color='secondary', name='fa fa-times', @click.stop.prevent='hideFilter(filter.key)')
 
   km-select-flat(
     v-if='hiddenFilters.length',
-    placeholder='Add Filter',
+    :placeholder='m.common_addFilter()',
     @update:modelValue='updateVisibleFilters',
     :options='hiddenFilters',
     modelValue=''
@@ -41,6 +41,9 @@ export default {
     },
   },
   emits: ['updateVisibleFilters', 'updateActiveFilters'],
+  setup() {
+    return { m }
+  },
   computed: {
     showClearAll() {
       return Object.values(this.activeFilters).filter((v) => !!v).length

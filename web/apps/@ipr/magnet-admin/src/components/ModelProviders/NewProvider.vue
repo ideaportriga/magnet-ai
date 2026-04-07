@@ -28,7 +28,7 @@ km-popup-confirm(
           data-test='select-type',
           height='auto',
           minHeight='36px',
-          placeholder='Select API Type',
+          :placeholder='m.modelProviders_selectApiType()',
           :options='typeOptions',
           v-model='newRow.type',
           ref='typeRef',
@@ -46,7 +46,7 @@ km-popup-confirm(
           data-test='endpoint-input',
           height='30px',
           v-model='newRow.endpoint',
-          placeholder='https://api.example.com',
+          :placeholder='m.placeholder_exampleApiEndpoint()',
           :rules='[validateEndpoint]'
         )
       .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ endpointHint }}

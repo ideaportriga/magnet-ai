@@ -32,7 +32,7 @@ km-popup-confirm(
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_ragTool() }}
       km-select(
         height='30px',
-        placeholder='RAG Tool',
+        :placeholder='m.entity_ragTool()',
         :options='ragToolsOptions',
         v-model='ragToolCode',
         hasDropdownSearch,
@@ -44,7 +44,7 @@ km-popup-confirm(
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_retrievalTool() }}
       km-select(
         height='30px',
-        placeholder='Retrieval Tool',
+        :placeholder='m.entity_retrievalTool()',
         :options='retrievalToolsOptions',
         v-model='retrievalToolCode',
         hasDropdownSearch,
@@ -60,7 +60,7 @@ km-popup-confirm(
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_agent() }}
       km-select(
         height='30px',
-        placeholder='Agent',
+        :placeholder='m.entity_agent()',
         :options='agentsOptions',
         v-model='agentsCode',
         hasDropdownSearch,

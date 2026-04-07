@@ -10,19 +10,19 @@ km-popup-confirm(
 )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
     .full-width
-      km-input(height='30px', placeholder='E.g. gpt-4o-mini', v-model='model', ref='modelRef', :rules='config?.model?.rules || []')
+      km-input(height='30px', :placeholder='m.placeholder_exampleModelId()', v-model='model', ref='modelRef', :rules='config?.model?.rules || []')
       .km-description.text-secondary-text The exact model name/deployment name used by the provider (case-sensitive)
 
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
     .full-width
-      km-input(height='30px', placeholder='E.g. GPT-4O-MINI', v-model='system_name', ref='system_nameRef', :rules='config?.system_name?.rules || []')
+      km-input(height='30px', :placeholder='m.placeholder_exampleModelSystemName()', v-model='system_name', ref='system_nameRef', :rules='config?.system_name?.rules || []')
       .km-description.text-secondary-text System name serves as a unique ID (auto-generated)
 
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Display name
     .full-width
       km-input(
         height='30px',
-        placeholder='E.g. GPT 4o mini',
+        :placeholder='m.placeholder_exampleModelName()',
         v-model='display_name',
         ref='display_nameRef',
         :rules='config?.display_name?.rules || []'
@@ -34,7 +34,7 @@ km-popup-confirm(
       km-select(
         height='auto',
         minHeight='30px',
-        placeholder='Type',
+        :placeholder='m.common_type()',
         v-model='newRow.type',
         ref='typeRef',
         :options='categoryOptions',
@@ -64,7 +64,7 @@ km-popup-confirm(
       km-input(
         height='30px',
         type='number',
-        placeholder='E.g. 1536',
+        :placeholder='m.placeholder_exampleVectorSize()',
         v-model='vectorSize',
         ref='vectorSizeRef'
       )

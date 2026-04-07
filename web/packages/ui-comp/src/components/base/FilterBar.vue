@@ -20,7 +20,7 @@
 
   km-select-flat(
     v-if='hiddenFilters.length',
-    placeholder='Add Filter',
+    :placeholder='filterPlaceholder',
     @update:modelValue='updateVisibleFilters',
     :options='hiddenFilters',
     modelValue=''
@@ -52,6 +52,10 @@ export default {
     config: {
       type: Object,
       required: true,
+    },
+    filterPlaceholder: {
+      type: String,
+      default: 'Add Filter',
     },
     filterObject: {
       type: Object,

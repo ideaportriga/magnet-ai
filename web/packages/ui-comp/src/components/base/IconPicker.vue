@@ -4,7 +4,7 @@ q-dialog(:model-value='modal', @hide='$emit("update:modal", false)')
     .col-auto
       //- Search
       //- icon-before="search"
-      km-input.full-width(icon-before='search', @input='handleSearchInput', :model-value='search', autofocus, placeholder='search icons', clearable)
+      km-input.full-width(icon-before='search', @input='handleSearchInput', :model-value='search', autofocus, :placeholder='searchPlaceholder', clearable)
 
     //- Body
 
@@ -40,6 +40,10 @@ export default {
   props: {
     modelValue: String,
     modal: Boolean,
+    searchPlaceholder: {
+      type: String,
+      default: 'search icons',
+    },
   },
   emits: ['update:modelValue', 'update:modal'],
   setup() {

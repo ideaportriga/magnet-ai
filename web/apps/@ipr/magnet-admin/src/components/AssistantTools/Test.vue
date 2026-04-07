@@ -13,7 +13,7 @@
   km-input.full-width(
     ref='input',
     autogrow,
-    placeholder='Type text to test your prompt',
+    :placeholder='m.common_typeTextToTest()',
     :model-value='inputText',
     @input='inputText = $event',
     @keydown.enter='submit',

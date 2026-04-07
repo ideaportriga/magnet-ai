@@ -22,15 +22,11 @@
             km-btn.hint(bg='transparent', color='primary', @click='refine(item)')
               .wrapped-text {{ item }}
     //answers
-    template(v-if='answers.length || loading')
+    template(v-if='answers.length')
       q-scroll-area.full-height.col(ref='scroll')
         .column.q-gap-16.q-mt-md
-          template(v-if='loading')
-            .row.justify-center.border-radius-12.bg-white.q-pa-16.q-gap-16
-              q-spinner-dots(size='62px', color='primary')
-          .column.q-gap-16
-            template(v-for='(answer, index) in answers', :key='index')
-              search-answer(:answer='answer', @refine='refine', :uiSettings='uiSettings', :isLastMessage='index == 0')
+          template(v-for='(answer, index) in answers', :key='index')
+            search-answer(:answer='answer', @refine='refine', :uiSettings='uiSettings', :isLastMessage='index == 0')
 </template>
 
 <script>

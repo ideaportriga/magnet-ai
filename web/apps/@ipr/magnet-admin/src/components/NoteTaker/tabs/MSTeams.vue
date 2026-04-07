@@ -15,7 +15,7 @@ div
           height='auto',
           minHeight='36px',
           clearable,
-          placeholder='Select a Teams Note Taker provider'
+          :placeholder='m.noteTaker_selectTeamsProvider()'
         )
       .col-auto(v-if='providerSystemName')
         km-btn(icon='open_in_new', flat, dense, @click='navigateToProvider')
@@ -47,7 +47,7 @@ div
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Super User AAD Object ID
     km-input.full-width(
       v-model='superuserId',
-      placeholder='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+      :placeholder='m.placeholder_uuidFormat()',
       height='30px',
       clearable
     )
@@ -78,7 +78,7 @@ km-popup-confirm(
       km-input(
         v-if='showCreateProvider',
         height='30px',
-        placeholder='My Teams Bot',
+        :placeholder='m.noteTaker_myTeamsBot()',
         v-model='newProvider.name',
         :rules='[required()]'
       )
@@ -87,7 +87,7 @@ km-popup-confirm(
       km-input(
         v-if='showCreateProvider',
         height='30px',
-        placeholder='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        :placeholder='m.placeholder_uuidFormat()',
         v-model='newProvider.client_id'
       )
     .col
@@ -96,7 +96,7 @@ km-popup-confirm(
         v-if='showCreateProvider',
         height='30px',
         type='password',
-        placeholder='Azure Bot client secret',
+        :placeholder='m.noteTaker_azureBotClientSecret()',
         v-model='newProvider.client_secret'
       )
     .col
@@ -104,7 +104,7 @@ km-popup-confirm(
       km-input(
         v-if='showCreateProvider',
         height='30px',
-        placeholder='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
+        :placeholder='m.placeholder_uuidFormat()',
         v-model='newProvider.tenant_id'
       )
     .col
@@ -112,7 +112,7 @@ km-popup-confirm(
       km-input(
         v-if='showCreateProvider',
         height='30px',
-        placeholder='e.g. Recordings',
+        :placeholder='m.noteTaker_exampleRecordings()',
         v-model='newProvider.auth_handler_id'
       )
       .km-description.text-secondary-text.q-pt-xs.q-pl-8 Name of the OAuth Connection configured in Azure Bot Service settings.

@@ -19,7 +19,7 @@ km-popup-confirm(
   km-select(
     height='auto',
     minHeight='36px',
-    placeholder='Select knowledge sources',
+    :placeholder='m.common_selectKnowledgeSources()',
     multiple,
     :options='collections',
     v-model='collectionSystemNames',

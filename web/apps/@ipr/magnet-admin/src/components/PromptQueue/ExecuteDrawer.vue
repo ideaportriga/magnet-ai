@@ -17,7 +17,7 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
         emit-value,
         map-options,
         clearable,
-        placeholder='Select saved test input',
+        :placeholder='m.promptQueue_selectSavedTestInput()',
         style='max-width: 100%'
       )
     .q-gutter-sm.q-mb-sm
@@ -27,7 +27,7 @@ transition(appear, enter-active-class='animated fadeIn', leave-active-class='ani
           km-input(
             :model-value='executeInput[param]',
             @update:model-value='executeInput[param] = $event',
-            placeholder='Enter value',
+            :placeholder='m.promptQueue_enterValue()',
             style='max-width: 400px'
           )
     .row.q-gutter-sm.items-center.q-mb-sm

@@ -12,7 +12,7 @@ q-dialog(:model-value='showNewDialog', @cancel='onCancel', @hide='onCancel')
         km-notification-text.q-mb-lg(:notification='m.hint_createApiKey()')
         .km-field.text-secondary-text.q-pl-8.q-mb-xs {{ m.common_name() }}
         .full-width
-          km-input(placeholder='My Test API Key', v-model='name', ref='nameRef')
+          km-input(:placeholder='m.apiKeys_myTestApiKey()', v-model='name', ref='nameRef')
         .row.q-mt-lg
           .col-auto
             km-btn(flat, :label='m.common_cancel()', color='primary', @click='onCancel')
@@ -28,7 +28,7 @@ q-dialog(:model-value='showNewDialog', @cancel='onCancel', @hide='onCancel')
         .row.q-gap-8.no-wrap.items-center
           .km-field.text-secondary-text.q-pl-8(style='white-space: nowrap') {{ name || 'Key' }}
           .full-width
-            km-input(placeholder='My Test API Key', v-model='key', ref='keyRef', readonly)
+            km-input(:placeholder='m.apiKeys_myTestApiKey()', v-model='key', ref='keyRef', readonly)
           km-btn(:label='m.common_copy()', @click='copyKey', dense, flat, icon='fa fa-copy', iconSize='16px')
         .row.q-mt-lg
           q-space

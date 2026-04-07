@@ -15,7 +15,7 @@ layouts-details-layout(noHeader)
                   .row.q-gap-16
                     .col
                       .km-input-label {{ m.common_name() }}
-                      km-input(:modelValue='editName', @input='editName = $event', placeholder='Your name')
+                      km-input(:modelValue='editName', @input='editName = $event', :placeholder='m.profile_yourName()')
                     .col
                       .km-input-label {{ m.auth_email() }}
                       km-input(:modelValue='displayEmail', readonly)

@@ -15,7 +15,7 @@ km-drawer-layout(storageKey="drawer-configuration", noScroll)
           .km-heading-2.text-center.q-pb-16 {{ uiSettings?.header_configuration?.sub_header }}
       retrieval-metadata-filter.q-mt-md(v-if='allowMetadataFilter', v-model='metadataFilter', :sources='collectionSystemNames', :collections='collectionItems')
       q-separator.q-mt-md(v-if='allowMetadataFilter')
-      search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, rag, :searchString='searchString', @searchRag='handleSearchRag')
+      search-prompt.q-mt-md(@onLoad='scrollTop', ref='prompt', hideCollectionPicker, rag, :searchString='searchString', @searchRag='handleSearchRag', :t='{ placeholder: m.placeholder_typeQuestionHere() }')
       template(v-if='isShowHints')
         .row.items-center
           .col.km-heading-3 {{ m.common_youCanAskLikeThis() }}
@@ -25,13 +25,10 @@ km-drawer-layout(storageKey="drawer-configuration", noScroll)
         template(v-for='(item, index) in sampleQuestion', :key='index')
           km-btn(flat, @click='refine(item)')
             .wrapped-text {{ item }}
-      template(v-if='answers.length || loading')
+      template(v-if='answers.length')
         q-scroll-area.full-height.col(ref='scroll')
           .column.q-gap-16
-            template(v-if='loading')
-              .row.justify-center.ba-border.border-radius-12.bg-white.q-pa-16.q-gap-16
-                q-spinner-dots(size='62px', color='primary')
-            template(v-for='answer in answers')
+            template(v-for='(answer, index) in answers', :key='index')
               configuration-answer(:answer='answer', @refine='refine', @selectAnswer='setDetailInfo')
     q-separator.q-mb-xs
     .col-auto.q-px-16

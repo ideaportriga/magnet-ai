@@ -4,7 +4,7 @@ div
     .km-field.text-secondary-text.q-pb-md.q-pl-8 Operation type
       km-select(
         height='30px',
-        placeholder='Type',
+        :placeholder='m.common_type()',
         :options='typeOptions',
         v-model='type',
         hasDropdownSearch,
@@ -19,7 +19,7 @@ div
       km-select(
         height='auto',
         minHeight='36px',
-        placeholder='Select RAG',
+        :placeholder='m.assistantTools_selectRag()',
         :options='ragItems',
         v-model='rag',
         hasDropdownSearch,
@@ -33,14 +33,14 @@ div
   q-separator.q-my-lg
   km-section(:title='m.section_descriptionsForLlm()', :subTitle='m.subtitle_llmDescriptions()')
     .km-field.text-secondary-text.q-pb-md.q-pl-8 Name
-      km-input(v-model='nameForLLM', placeholder='Max chunk size')
+      km-input(v-model='nameForLLM', :placeholder='m.assistantTools_maxChunkSize()')
       .km-description.text-secondary-text Tool name for the LLM
 
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 Description
       km-input(
         ref='input',
         rows='10',
-        placeholder='Type your text here',
+        :placeholder='m.placeholder_typeYourTextHere()',
         border-radius='8px',
         height='36px',
         type='textarea',

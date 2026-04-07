@@ -15,7 +15,7 @@ km-popup-confirm(
       km-select(
         height='auto',
         minHeight='30px',
-        placeholder='Provider',
+        :placeholder='m.common_provider()',
         :options='providerOptions',
         v-model='selectedProviderId',
         ref='providerRef',
@@ -26,18 +26,18 @@ km-popup-confirm(
       )
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Provider model name
       .full-width
-        km-input(height='30px', placeholder='E.g. gpt-4o-mini', v-model='model', ref='modelRef', :rules='config.model.rules')
+        km-input(height='30px', :placeholder='m.placeholder_exampleModelId()', v-model='model', ref='modelRef', :rules='config.model.rules')
         .km-description.text-secondary-text Name used by the provider to identify the model
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md System name
       .full-width
-        km-input(height='30px', placeholder='E.g. GPT-4O-MINI', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+        km-input(height='30px', :placeholder='m.placeholder_exampleModelSystemName()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
         .km-description.text-secondary-text System name serves as a unique ID
 
     .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Display name
       .full-width
         km-input(
           height='30px',
-          placeholder='E.g. GPT 4o mini',
+          :placeholder='m.placeholder_exampleModelName()',
           v-model='newRow.display_name',
           ref='display_nameRef',
           :rules='config.display_name.rules'
@@ -48,12 +48,12 @@ km-popup-confirm(
     div(v-if='type === "prompts"')
       .km-title.q-mb-md Structured outputs
       .row.items-center
-        q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='newRow.json_mode', ref='json_modeRef', :rules='config.json_mode.rules')
+        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='newRow.json_mode', ref='json_modeRef', :rules='config.json_mode.rules')
         .km-field.text-secondary-text Supports JSON mode
       .row.items-center
         q-toggle(
           height='30px',
-          placeholder='E.g. GPT 4o mini',
+          :placeholder='m.placeholder_exampleModelName()',
           v-model='newRow.json_schema',
           ref='json_schemaRef',
           :rules='config.json_schema.rules'
@@ -63,19 +63,19 @@ km-popup-confirm(
       q-separator.q-my-md
       .km-title.q-mb-md Tool calling
       .row.items-center
-        q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='newRow.tool_calling', ref='json_modeRef', :rules='config.json_mode.rules')
+        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='newRow.tool_calling', ref='json_modeRef', :rules='config.json_mode.rules')
         .km-field.text-secondary-text Tool calling
       q-separator.q-my-md
       .km-title.q-mb-md Reasoning
       .row.items-center
-        q-toggle(height='30px', placeholder='E.g. GPT 4o mini', v-model='newRow.reasoning', ref='json_modeRef', :rules='config.json_mode.rules')
+        q-toggle(height='30px', :placeholder='m.placeholder_exampleModelName()', v-model='newRow.reasoning', ref='json_modeRef', :rules='config.json_mode.rules')
         .km-field.text-secondary-text Reasoning
 
     div(v-if='type === "embeddings"')
       .km-title.q-mb-md Vector Configuration
       .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md Vector Size
         .full-width
-          km-input(height='30px', placeholder='E.g. 1536', v-model.number='vectorSize', ref='vectorSizeRef', type='number')
+          km-input(height='30px', :placeholder='m.placeholder_exampleVectorSize()', v-model.number='vectorSize', ref='vectorSizeRef', type='number')
           .km-description.text-secondary-text Dimension of the embedding vector (default: 1536). Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
 </template>
 <script>
@@ -117,6 +117,7 @@ export default {
     const requiredFields = computed(() => entityConfig.requiredFields || [])
 
     return {
+      m,
       createEntity,
       config,
       requiredFields,

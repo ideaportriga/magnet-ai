@@ -4,7 +4,7 @@ layouts-details-layout(v-if='draft', :contentContainerStyle='{ maxWidth: "1200px
   template(#header)
     .col
       .row.items-center
-        km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :model-value='name', @change='name = $event')
+        km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :model-value='name', @change='name = $event')
       .row.items-center.q-pl-6
         q-icon.col-auto(name='o_info', color='text-secondary')
           q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.hint_systemNameUniqueId() }}

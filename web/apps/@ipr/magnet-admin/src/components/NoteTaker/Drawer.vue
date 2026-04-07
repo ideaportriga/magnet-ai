@@ -55,7 +55,7 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
                 .row.items-center.no-wrap.q-gap-4
                   km-input.col(
                     v-model='sourceUrl',
-                    placeholder='Paste recording URL or attach a file',
+                    :placeholder='m.noteTaker_pasteRecordingUrl()',
                     height='32px', clearable
                   )
                   q-btn.col-auto(
@@ -76,7 +76,7 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
               .row.items-center.q-gap-8
                 km-input.col(
                   v-model='newParticipant',
-                  placeholder='Full name',
+                  :placeholder='m.noteTaker_fullName()',
                   height='32px',
                   @keyup.enter='addParticipant'
                 )
@@ -146,15 +146,15 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
                   .row.items-center.q-gap-8(v-for='label in speakerLabels', :key='label')
                     q-chip.col-auto(dense, size='sm', square, color='blue-grey-1') {{ label }}
                     .col
-                      km-input(v-model='speakerMapping[label]', :placeholder='"Name for " + label', height='32px')
+                      km-input(v-model='speakerMapping[label]', :placeholder='m.noteTaker_nameForLabel({ label })', height='32px')
 
             q-card.q-mb-md(flat, bordered)
               q-card-section
                 .km-heading-8.q-mb-sm Additional context
                 .km-description.text-secondary-text.q-mb-xs Key terms (comma-separated)
-                km-input.q-mb-sm(v-model='extraKeytermsInput', placeholder='product names, acronyms, etc.', height='32px')
+                km-input.q-mb-sm(v-model='extraKeytermsInput', :placeholder='m.noteTaker_productNamesAcronyms()', height='32px')
                 .km-description.text-secondary-text.q-mb-xs Meeting notes (optional)
-                km-input(v-model='meetingNotesInput', placeholder='Action items, decisions, corrections...', height='60px')
+                km-input(v-model='meetingNotesInput', :placeholder='m.noteTaker_actionItemsDecisions()', height='60px')
 
           //- Completed: results
           template(v-else-if='currentJob.status === "completed" && currentJob.result')

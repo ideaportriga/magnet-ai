@@ -7,7 +7,7 @@ div
     .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_promptTemplate() }}
     km-select(
       height='30px',
-      placeholder='Standart Q&A Prompt',
+      :placeholder='m.agents_standardQaPrompt()',
       :options='promptTemplatesOptions',
       v-model='topicSelectionPromptTemplate',
       hasDropdownSearch,

@@ -12,7 +12,7 @@
             :model-value='endpointValue',
             @update:model-value='tempEndpoint = $event',
             :readonly='!isEditingEndpoint',
-            placeholder='https://api.example.com'
+            :placeholder='m.placeholder_exampleApiEndpoint()'
           )
           .controls.full-height.row.items-center
             km-btn(v-if='!isEditingEndpoint', icon='fa fa-pen', flat, iconSize='12px', @click='startEditingEndpoint', size='xs')

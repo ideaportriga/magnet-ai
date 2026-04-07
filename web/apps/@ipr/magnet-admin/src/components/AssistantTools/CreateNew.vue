@@ -12,7 +12,7 @@ km-popup-confirm(
     .full-width
       km-select(
         height='30px',
-        placeholder='API Provider',
+        :placeholder='m.label_apiProvider()',
         :options='[{ value: "siebel_test", label: "API Provider Siebel Test" }]',
         hasDropdownSearch,
         option-value='value',

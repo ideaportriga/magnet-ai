@@ -11,8 +11,8 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
         .row.stretch.q-ma-auto.no-wrap
           .search-answer-text.stretch.km-title.q-my-4.text-pre-wrap {{ answer.prompt }}
 
-        km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='m.panel_refine()')
-  .col-auto
+        km-btn.self-start(v-if='!answer.loading', icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='m.panel_refine()')
+  .col-auto(v-if='!answer.loading')
     .row.q-gap-16.no-wrap
       .q-pt-xs
         q-icon(:name='"fas fa-user"', size='20px', color='semi-transparent-primary', style='visibility: hidden')
@@ -26,7 +26,10 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
       .q-pt-xs
         km-icon(:name='"magnet"', width='20', height='22')
       .col.overflow-hidden
-        .column.border-radius-12.q-pt-8.q-pb-8
+        template(v-if='answer.loading')
+          .q-py-8
+            q-spinner-dots(size='32px', color='primary')
+        .column.border-radius-12.q-pt-8.q-pb-8(v-else)
           .row.width-100
             .search-answer-text.stretch.km-paragraph
               km-markdown(:source='mainAnswer.text')

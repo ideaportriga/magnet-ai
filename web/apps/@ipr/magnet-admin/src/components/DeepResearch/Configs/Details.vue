@@ -6,14 +6,14 @@
     .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
       .col
         .row.items-center
-          km-input-flat.km-heading-4.full-width.text-black(placeholder='Name', :model-value='name', @change='name = $event')
+          km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :model-value='name', @change='name = $event')
         .row.items-center
-          km-input-flat.km-description.full-width.text-black(placeholder='Description', :model-value='description', @change='description = $event')
+          km-input-flat.km-description.full-width.text-black(:placeholder='m.common_description()', :model-value='description', @change='description = $event')
         .row.items-center.q-pl-6
           q-icon.col-auto(name='o_info', color='text-secondary')
             q-tooltip.bg-white.block-shadow.text-black.km-description(self='top middle', :offset='[-50, -50]') System name serves as unique record id
           km-input-flat.col.km-description.full-width(
-            placeholder='Enter system name',
+            :placeholder='m.placeholder_enterSystemNameReadable()',
             :model-value='system_name',
             @change='system_name = $event',
             @focus='showInfo = true',
@@ -77,7 +77,7 @@
               type='textarea',
               outlined,
               rows='8',
-              placeholder='{"query": "Research question here"}'
+              :placeholder='m.deepResearch_exampleQuery()'
             )
             .km-description.text-secondary-text.q-pt-2 Provide the input data for the research run
           .km-field.q-mb-md
@@ -85,7 +85,7 @@
             km-input(
               v-model='runClientId',
               height='30px',
-              placeholder='Optional client identifier'
+              :placeholder='m.deepResearch_optionalClientIdentifier()'
             )
         q-card-actions(align='right')
           km-btn(flat, :label='m.common_cancel()', @click='showRunDialog = false')
@@ -264,7 +264,7 @@
             outlined,
             :rules='[validateJSON]',
             @blur='updatePayloadTemplate',
-            placeholder='Optional: {"run_id": "run_id", "result": "result.summary"}'
+            :placeholder='m.deepResearch_exampleOutputMapping()'
           )
           .km-description.text-secondary-text.q-pt-2 Optional JSON template with path references (e.g., "run_id", "input.query", "result.summary")
 </template>

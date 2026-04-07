@@ -15,7 +15,7 @@ km-popup-confirm(
         km-input(
           v-if='showNewDialog',
           height='30px',
-          placeholder='My Queue',
+          :placeholder='m.promptQueue_myQueue()',
           v-model='name',
           ref='nameRef',
           :rules='[required()]'

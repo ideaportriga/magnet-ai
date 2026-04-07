@@ -30,7 +30,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
         template(v-if='form.jobType === "sync_collection"')
           .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md System name
           .full-width
-            km-input(height='30px', v-model='form.system_name', placeholder='Enter system name', :disabled='isFormDefault')
+            km-input(height='30px', v-model='form.system_name', :placeholder='m.jobs_enterSystemName()', :disabled='isFormDefault')
 
         template(v-if='form.jobType === "post_processing_conversations"')
           .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-pt-md Agents
@@ -39,7 +39,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
             data-test='agents-select',
             height='auto',
             minHeight='36px',
-            placeholder='Select agents',
+            :placeholder='m.jobs_selectAgents()',
             multiple,
             :options='agents',
             v-model='form.agents',
@@ -83,7 +83,7 @@ q-dialog(:model-value='showNewDialog', @cancel='$emit("cancel")')
       .row.q-mt-md.q-pl-8(v-if='form.interval === "custom" && form.executionType === "recurring"')
         .col
           .km-field.text-secondary-text.q-pb-xs Cron expression
-          km-input(height='30px', v-model='form.customCron', placeholder='*/10 * * * *')
+          km-input(height='30px', v-model='form.customCron', :placeholder='m.common_cronExpression()')
           .km-tiny.text-secondary-text.q-mt-xs Format: minute hour day month day_of_week (e.g., */10 * * * * for every 10 minutes)
       .row.q-mt-md.items-center
         km-checkbox(size='40px', v-model='form.enabled', disable)
