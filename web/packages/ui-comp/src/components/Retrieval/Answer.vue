@@ -11,7 +11,7 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
         .row.stretch.q-ma-auto.no-wrap
           .search-answer-text.stretch.km-title.q-my-4.text-pre-wrap {{ answer.prompt }}
 
-        km-btn.self-start(icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='t.refine')
+        km-btn.self-start(v-if='!answer.loading', icon='fas fa-pen', iconColor='icon', iconSize='16px', size='sm', flat, @click='refine(answer.prompt)', :tooltip='t.refine')
 
   //- ANSWER
   .col-auto.q-pt-md
@@ -19,7 +19,10 @@ search-feedback-confirm(v-model:modal='showFeedbackConfirm')
       .q-pt-xs
         km-icon(:name='"magnet"', width='20', height='22')
       .column.q-py-8.full-width.q-gap-8
-        template(v-if='mainAnswer.hasAnswers')
+        template(v-if='answer.loading')
+          .q-py-8
+            q-spinner-dots(size='32px', color='primary')
+        template(v-else-if='mainAnswer.hasAnswers')
           template(v-for='(source, index) in mainAnswerSources')
             .row.q-gap-12.items-center
               .col-auto.self-start

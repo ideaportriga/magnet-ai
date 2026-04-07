@@ -23,13 +23,10 @@ km-drawer-layout(storageKey="drawer-retrieval", noScroll)
         template(v-for='(item, index) in sampleQuestion', :key='index')
           km-btn(flat, @click='refine(item)')
             .wrapped-text {{ item }}
-      template(v-if='answers.length || loading')
+      template(v-if='answers.length')
         q-scroll-area.full-height.col(ref='scroll')
           .column.q-gap-16
-            template(v-if='loading')
-              .row.justify-center.ba-border.border-radius-12.bg-white.q-pa-16.q-gap-16
-                q-spinner-dots(size='62px', color='primary')
-            template(v-for='answer in answers')
+            template(v-for='(answer, index) in answers', :key='index')
               retrieval-answer(:answer='answer', @refine='refine', @selectAnswer='setDetailInfo')
     q-separator.q-mb-xs
     .col-auto.q-px-16

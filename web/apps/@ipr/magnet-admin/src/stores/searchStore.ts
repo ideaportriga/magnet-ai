@@ -150,6 +150,9 @@ export const useSearchStore = defineStore('search', () => {
     const retrieval = { ...retrievalVariant, ...rag }
     delete retrieval.variants
 
+    // Add pending answer immediately so user sees their question right away
+    const pendingAnswer = { prompt, collection: Array.isArray(col) ? [...col] : [], results: [], loading: true }
+    answers.value = [pendingAnswer, ...answers.value]
     answersLoading.value = true
     try {
       const client = getApiClient()
@@ -158,12 +161,16 @@ export const useSearchStore = defineStore('search', () => {
         user_message: prompt,
         metadata_filter: mFilter,
       })
-      setAnswers({
-        prompt,
-        collection: Array.isArray(col) ? [...col] : [],
-        ...answer,
-      })
+      const updated = [...answers.value]
+      const idx = updated.findIndex((a) => a.loading && a.prompt === prompt)
+      if (idx !== -1) {
+        updated[idx] = { prompt, collection: Array.isArray(col) ? [...col] : [], ...answer, loading: false }
+      } else {
+        updated.unshift({ prompt, collection: Array.isArray(col) ? [...col] : [], ...answer, loading: false })
+      }
+      answers.value = updated
     } catch (error) {
+      answers.value = answers.value.filter((a) => !(a.loading && a.prompt === prompt))
       appStore.setErrorMessage({
         technicalError: error instanceof Error ? error.message : String(error),
         text: 'Error calling get answer retrieval service',

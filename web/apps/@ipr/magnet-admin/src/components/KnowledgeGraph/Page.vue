@@ -21,6 +21,7 @@
             <km-data-table
               :table="table"
               :loading="isLoading"
+              :fetching="isFetching"
               fill-height
               row-key="id"
               @row-click="openDetails"
@@ -69,7 +70,11 @@ const columns = [
   dateColumn<KnowledgeGraph>('created_at', m.common_created()),
 ]
 
-const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<KnowledgeGraph>('knowledge_graph', columns)
+const { table, rows, isLoading, isFetching, globalFilter } = useDataTable<KnowledgeGraph>('knowledge_graph', columns, {
+  manualPagination: false,
+  manualSorting: false,
+  manualFiltering: false,
+})
 
 const openDetails = (row: KnowledgeGraph) => {
   router.push(`/knowledge-graph/${row.id}`)
