@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.3](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.2...v0.7.0-dev.3) (2026-04-04)
+
+### ✨ Features
+
+* **knowledge-graph:** implemented metadata field content reader ([#111](https://github.com/ideaportriga/magnet-ai/issues/111)) ([25abf32](https://github.com/ideaportriga/magnet-ai/commit/25abf32fcd4c4bb1c512a3bd0078ff93dbf29138))
+
 ## [0.7.0-dev.2](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.1...v0.7.0-dev.2) (2026-04-01)
 
 ### ✨ Features
