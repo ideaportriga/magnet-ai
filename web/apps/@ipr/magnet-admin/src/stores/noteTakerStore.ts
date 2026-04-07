@@ -172,6 +172,8 @@ export const useNoteTakerStore = defineStore('noteTaker', () => {
   const settingsRecords = ref<NoteTakerSettingsRecord[]>([])
   const activeSettingsKey = ref<string | null>(null)
   const loading = ref(false)
+  const activeListTab = ref('configurations')
+  const activePreviewJobId = ref<string | null>(null)
   const previewJobs = ref<PreviewJob[]>([])
   const previewJobsLoading = ref(false)
   const runtimeStatus = ref<Record<string, { runtime_loaded: boolean; has_credentials: boolean }>>({})
@@ -583,6 +585,8 @@ export const useNoteTakerStore = defineStore('noteTaker', () => {
     settings,
     settingsRecords,
     activeSettingsKey,
+    activeListTab,
+    activePreviewJobId,
     loading,
     previewJobs,
     previewJobsLoading,

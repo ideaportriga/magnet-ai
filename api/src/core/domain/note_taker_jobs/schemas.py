@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class NoteTakerJobSchema(BaseModel):
@@ -19,6 +20,16 @@ class NoteTakerJobSchema(BaseModel):
     result: Optional[dict[str, Any]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+    @field_validator("participants", mode="before")
+    @classmethod
+    def _parse_participants(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return []
+        return v
 
 
 class NoteTakerJobCreate(BaseModel):

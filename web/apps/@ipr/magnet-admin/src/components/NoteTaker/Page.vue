@@ -52,7 +52,11 @@ import NoteTakerProviders from './NoteTakerProviders.vue'
 const ntStore = useNoteTakerStore()
 const router = useRouter()
 
-const tab = ref('configurations')
+// Persist active tab in the store so it survives keep-alive cache eviction
+const tab = computed({
+  get: () => ntStore.activeListTab,
+  set: (val: string) => { ntStore.activeListTab = val },
+})
 const showNewDialog = ref(false)
 
 const BotStatusChip = markRaw({

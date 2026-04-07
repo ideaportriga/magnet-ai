@@ -220,7 +220,7 @@ km-drawer-layout(storageKey="drawer-note-taker", noScroll)
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onActivated, onDeactivated, onUnmounted } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useNoteTakerStore } from '@/stores/noteTakerStore'
 import type { PreviewJob } from '@/stores/noteTakerStore'
@@ -237,8 +237,11 @@ const newParticipant = ref('')
 const participants = ref<string[]>([])
 const running = ref(false)
 
-// ── Current job state ──
-const currentJobId = ref<string | null>(null)
+// ── Current job state (persisted in store so it survives navigation) ──
+const currentJobId = computed({
+  get: () => ntStore.activePreviewJobId,
+  set: (val: string | null) => { ntStore.activePreviewJobId = val },
+})
 const speakerMapping = ref<Record<string, string>>({})
 const extraKeytermsInput = ref('')
 const meetingNotesInput = ref('')
@@ -390,5 +393,16 @@ watch(currentJob, (job) => {
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')
 const resultIcon = (key: string) => ({ summary: 'summarize', chapters: 'format_list_numbered', insights: 'lightbulb' }[key] || 'article')
 
+// Resume polling when component is re-activated (keep-alive)
+onActivated(() => {
+  if (currentJobId.value && currentJob.value && ['pending', 'running', 'rerunning'].includes(currentJob.value.status)) {
+    startPolling()
+  }
+})
+
+// Pause polling when navigating away (keep-alive deactivation)
+onDeactivated(() => stopPolling())
+
+// Clean up fully when destroyed
 onUnmounted(() => stopPolling())
 </script>
