@@ -38,10 +38,39 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
       global-search(v-model='showSearch')
       //- Right-side header actions: Fullscreen + Help + Profile
       .col-auto.row.items-center.no-wrap.q-gap-4.q-mr-md
-        km-btn(flat, :icon='isFullscreen ? "fas fa-compress" : "fas fa-expand"', iconSize='16px', iconColor='icon', hoverColor='primary', hoverBg='primary-bg', size='sm', :tooltip='isFullscreen ? "Exit fullscreen" : "Fullscreen"', @click='toggleFullscreen')
-        km-btn(flat, icon='fa-regular fa-circle-question', iconSize='16px', iconColor='icon', hoverColor='primary', hoverBg='primary-bg', size='sm', @click='openHelp')
+        km-btn(
+          flat,
+          :icon='isFullscreen ? "fas fa-compress" : "fas fa-expand"',
+          iconSize='16px',
+          iconColor='icon',
+          hoverColor='primary',
+          hoverBg='primary-bg',
+          size='sm',
+          :tooltip='isFullscreen ? "Exit fullscreen" : "Fullscreen"',
+          @click='toggleFullscreen'
+        )
+        km-btn(
+          flat,
+          icon='fa-regular fa-circle-question',
+          iconSize='16px',
+          iconColor='icon',
+          hoverColor='primary',
+          hoverBg='primary-bg',
+          size='sm',
+          @click='openHelp'
+        )
         .relative-position
-          km-btn(flat, icon='fas fa-user-circle', iconSize='16px', iconColor='icon', :label='userDisplayName', hoverColor='primary', hoverBg='primary-bg', size='sm', labelClass='km-title')
+          km-btn(
+            flat,
+            icon='fas fa-user-circle',
+            iconSize='16px',
+            iconColor='icon',
+            :label='userDisplayName',
+            hoverColor='primary',
+            hoverBg='primary-bg',
+            size='sm',
+            labelClass='km-title'
+          )
           q-menu(anchor='bottom right', self='top right', :offset='[0, 4]')
             q-list(dense, style='min-width: 180px')
               q-item.km-nav-popup-item(clickable, v-close-popup, @click='navigate("/profile")')
@@ -73,13 +102,7 @@ q-layout.bg-light.full-height.overflow-hidden(view='hHh lpR fFf')
                 q-item-section(avatar, style='min-width: 28px; padding-right: 4px')
                   q-icon(name='fas fa-sign-out-alt', size='14px', color='icon')
                 q-item-section {{ m.auth_logout() }}
-  q-drawer.text-white(
-    v-model='drawerVisible',
-    :width='sidebarWidth',
-    :breakpoint='0',
-    bordered,
-    :behavior='"desktop"'
-  )
+  q-drawer.text-white(v-model='drawerVisible', :width='sidebarWidth', :breakpoint='0', bordered, :behavior='"desktop"')
     toolbar
   q-page-container
     workspace-tab-bar
@@ -144,9 +167,22 @@ export default {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
 
     const { locale, setLocale, locales } = useLocale()
-    const localeFullLabels = { en: 'English', ru: 'Русский', lv: 'Latviešu', es: 'Español', fr: 'Français', de: 'Deutsch', it: 'Italiano' }
-    const localeLabels = { en: 'EN', ru: 'RU', lv: 'LV', es: 'ES', fr: 'FR', de: 'DE', it: 'IT' }
-    const localeOrder = ['en', 'lv', 'es', 'fr', 'de', 'ru', 'it']
+    const localeFullLabels = {
+      en: 'English',
+      ru: 'Русский',
+      lv: 'Latviešu',
+      es: 'Español',
+      fr: 'Français',
+      de: 'Deutsch',
+      it: 'Italiano',
+      fi: 'Suomi',
+      nl: 'Nederlands',
+      no: 'Norsk',
+      sv: 'Svenska',
+      uk: 'Українська',
+    }
+    const localeLabels = { en: 'EN', ru: 'RU', lv: 'LV', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', fi: 'FI', nl: 'NL', no: 'NO', sv: 'SV', uk: 'UK' }
+    const localeOrder = ['en', 'fi', 'nl', 'no', 'sv', 'lv', 'es', 'fr', 'de', 'ru', 'it', 'uk']
     const localeOptions = computed(() =>
       localeOrder
         .filter((loc) => locales.includes(loc))
