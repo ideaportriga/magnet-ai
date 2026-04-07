@@ -1,7 +1,9 @@
 """Local authentication endpoints — signup, login, refresh, sessions, password reset.
 
-These endpoints are for email+password authentication (local JWT).
-OIDC endpoints remain in routes/auth.py.
+DEPRECATED: These endpoints are superseded by /api/v2/auth/* (routes/auth_v2.py).
+Kept for backward compatibility during migration. New code should use v2 endpoints.
+
+OIDC endpoints remain in routes/auth.py (also deprecated).
 """
 
 from __future__ import annotations
@@ -147,7 +149,7 @@ class LocalAuthController(Controller):
                     value=mfa_jwt,
                     httponly=True,
                     secure=True,
-                    samesite="none",
+                    samesite="lax",
                     path="/api/auth/mfa",
                     max_age=300,  # 5 minutes
                 )
@@ -278,19 +280,17 @@ class LocalAuthController(Controller):
 
     @post("/forgot-password", exclude_from_auth=True, summary="Request password reset")
     async def forgot_password(self, data: ForgotPasswordRequest) -> dict:
-        # Always return success to prevent email enumeration
-        # In production, this would send an email with a reset link
-        logger.info("Password reset requested")
+        """Deprecated: use POST /api/v2/auth/password/forgot instead."""
+        logger.info("Password reset requested (legacy endpoint)")
         return {"message": "If the email exists, a reset link has been sent."}
 
     @post(
         "/reset-password", exclude_from_auth=True, summary="Reset password with token"
     )
     async def reset_password(self, data: ResetPasswordRequest) -> dict:
-        # TODO: implement token validation and password reset in Phase 3 completion
-        # For now, placeholder that validates the structure
-        logger.info("Password reset attempted with token")
-        return {"message": "Password reset functionality will be available soon."}
+        """Deprecated: use POST /api/v2/auth/password/reset instead."""
+        logger.info("Password reset attempted via legacy endpoint")
+        return {"message": "Use /api/v2/auth/password/reset for password reset."}
 
     @post("/logout", exclude_from_auth=True, summary="Logout and revoke refresh token")
     async def logout(self, request: Request) -> Response[dict]:

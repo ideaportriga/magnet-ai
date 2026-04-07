@@ -71,10 +71,13 @@ async function handleSubmit() {
   // Always show success to prevent email enumeration
   inProgress.value = true
   sent.value = false
-  // Fire and forget — don't reveal if email exists
-  setTimeout(() => {
+  try {
+    await props.authClient.forgotPassword(email.value)
+  } catch {
+    // Swallow errors — never reveal whether the email exists
+  } finally {
     sent.value = true
     inProgress.value = false
-  }, 500)
+  }
 }
 </script>

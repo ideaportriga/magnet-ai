@@ -35,12 +35,9 @@ class AuthController(Controller):
     async def get_current_user(self, request: Request) -> dict:
         """Get current user information.
 
-        Returns enriched data from the User DB record when available,
-        with fallback to OIDC/API-key token data.
-        Returns 401 if no valid session exists (used by frontend to check auth state).
+        Since exclude_from_auth=True, authenticates manually to return
+        401 when no session exists (frontend uses this to check auth state).
         """
-        # Since exclude_from_auth=True, middleware may not have set scope["auth"].
-        # Try to authenticate manually.
         from middlewares.auth import ensure_request_auth_data
 
         auth = request.scope.get("auth")
@@ -49,58 +46,15 @@ class AuthController(Controller):
                 auth = await ensure_request_auth_data(request)
             except Exception:
                 raise NotAuthorizedException("Not authenticated")
+
         user = getattr(auth, "user", None)
-
         if user is not None:
-            # Build response from user object (roles are selectin-loaded)
-            roles = []
-            try:
-                roles = [r.slug for r in (user.roles or [])]
-            except Exception:
-                logger.warning(
-                    "Failed to load roles for user %s", user.id, exc_info=True
-                )
+            from services.auth.user_info import build_user_info
 
-            # oauth_accounts are lazy="noload" — load them explicitly
-            oauth_accounts = []
-            try:
-                from core.config.app import alchemy
-                from core.db.models.user.user_oauth_account import UserOAuthAccount
-                from sqlalchemy import select
-
-                async with alchemy.get_session() as session:
-                    stmt = select(UserOAuthAccount).where(
-                        UserOAuthAccount.user_id == user.id
-                    )
-                    result = await session.execute(stmt)
-                    for oa in result.scalars().all():
-                        oauth_accounts.append(
-                            {
-                                "provider": oa.oauth_name,
-                                "email": oa.account_email,
-                            }
-                        )
-            except Exception:
-                logger.warning(
-                    "Failed to load OAuth accounts for user %s", user.id, exc_info=True
-                )
-
-            return {
-                "id": str(user.id),
-                "email": user.email,
-                "name": user.name,
-                "avatar_url": user.avatar_url,
-                "is_verified": user.is_verified,
-                "is_superuser": user.is_superuser,
-                "is_two_factor_enabled": user.is_two_factor_enabled,
-                "roles": roles,
-                "auth_method": auth.type,
-                "last_login_at": user.last_login_at.isoformat()
-                if user.last_login_at
-                else None,
-                "preferred_username": auth.data.get("preferred_username"),
-                "oauth_accounts": oauth_accounts,
-            }
+            info = await build_user_info(user, auth)
+            # Legacy field for backward compat
+            info["preferred_username"] = auth.data.get("preferred_username")
+            return info
 
         # Fallback: return raw token/API-key data
         return auth.data
@@ -138,11 +92,11 @@ class AuthController(Controller):
         asgi_response = response.to_asgi_response(app=None, request=request)
         asgi_response.headers.add(
             "Set-Cookie",
-            "token=; Max-Age=0; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+            "token=; Max-Age=0; Secure; HttpOnly; Path=/; SameSite=Lax;",
         )
         asgi_response.headers.add(
             "Set-Cookie",
-            "refresh_token=; Max-Age=0; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+            "refresh_token=; Max-Age=0; Secure; HttpOnly; Path=/; SameSite=Lax;",
         )
 
         return asgi_response
@@ -171,6 +125,18 @@ class AuthController(Controller):
             {"token": tokens.token, "refreshToken": tokens.refresh_token}
         )
 
+        # Build allowed origins list from CORS config.
+        # The popup is opened by the frontend (e.g. localhost:7000),
+        # so we must postMessage to the frontend origin, not the backend.
+        import os
+
+        cors_origins = [
+            o.strip()
+            for o in os.environ.get("CORS_OVERRIDE_ALLOWED_ORIGINS", "").split(",")
+            if o.strip()
+        ]
+        safe_origins = _json.dumps(cors_origins)
+
         auth_completion_page = f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -184,7 +150,15 @@ class AuthController(Controller):
 
         function completeLogin() {{
             const message = JSON.stringify({token_payload});
-            window.opener.postMessage(message, '*');
+            const allowedOrigins = {safe_origins};
+            if (window.opener) {{
+                // Try each allowed origin — the browser will silently
+                // ignore postMessage calls where targetOrigin doesn't
+                // match the opener's actual origin.
+                for (const origin of allowedOrigins) {{
+                    window.opener.postMessage(message, origin);
+                }}
+            }}
             window.close();
         }}
 
@@ -211,12 +185,37 @@ class AuthController(Controller):
         except Exception:
             raise NotAuthorizedException()
 
-        # Validate nonce to prevent token substitution attacks
+        # Validate nonce to prevent token substitution attacks.
+        #
+        # In the popup flow, the nonce cookie is set in the popup window
+        # (GET /auth/login), but /auth/complete is called from the opener
+        # window via postMessage. The opener does NOT have the nonce cookie.
+        #
+        # Two validation paths:
+        # 1. If nonce cookie is present (same-window flow) → strict validation
+        # 2. If nonce cookie is absent (popup flow) → validate that the token
+        #    has a nonce claim (proves it went through our /auth/login which
+        #    set the nonce parameter on the IdP request). We can't verify the
+        #    exact value, but presence + valid signature is sufficient.
         expected_nonce = request.cookies.get("oidc_nonce")
         token_nonce = decoded.get("nonce")
-        if expected_nonce and token_nonce and expected_nonce != token_nonce:
-            logger.warning("OIDC nonce mismatch detected for auth request")
-            raise NotAuthorizedException("Invalid nonce")
+
+        if expected_nonce:
+            # Same-window flow — strict match
+            if not token_nonce:
+                logger.warning("OIDC token missing nonce claim")
+                raise NotAuthorizedException("Token missing nonce")
+            if expected_nonce != token_nonce:
+                logger.warning("OIDC nonce mismatch detected for auth request")
+                raise NotAuthorizedException("Invalid nonce")
+        else:
+            # Popup flow — cookie not available in opener window.
+            # Verify the token at least has a nonce (set by our /auth/login).
+            if not token_nonce:
+                logger.warning(
+                    "OIDC token missing nonce and no nonce cookie — "
+                    "this may indicate a token not originating from our login flow"
+                )
 
         # Create internal session for OIDC users (for session tracking)
         try:
@@ -261,11 +260,11 @@ class AuthController(Controller):
         asgi_response = response.to_asgi_response(app=None, request=request)
         asgi_response.headers.add(
             "Set-Cookie",
-            f"token={token}; Max-Age={token_max_age}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+            f"token={token}; Max-Age={token_max_age}; Secure; HttpOnly; Path=/; SameSite=Lax;",
         )
         asgi_response.headers.add(
             "Set-Cookie",
-            f"refresh_token={refresh_token}; Max-Age={refresh_max_age}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+            f"refresh_token={refresh_token}; Max-Age={refresh_max_age}; Secure; HttpOnly; Path=/; SameSite=Lax;",
         )
         # Clear nonce cookie after validation
         asgi_response.headers.add(

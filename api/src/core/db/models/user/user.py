@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from advanced_alchemy.base import UUIDv7AuditBase
-from advanced_alchemy.types import DateTimeUTC, JsonB
+from advanced_alchemy.types import DateTimeUTC, EncryptedText, JsonB
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -90,12 +90,12 @@ class User(UUIDv7AuditBase):
     )
 
     totp_secret: Mapped[Optional[str]] = mapped_column(
-        String(255),
+        EncryptedText,
         nullable=True,
         default=None,
         deferred=True,
         deferred_group="security_sensitive",
-        comment="TOTP secret key (encrypted at app layer)",
+        comment="TOTP secret key (encrypted via SECRET_ENCRYPTION_KEY)",
     )
 
     backup_codes: Mapped[Optional[list]] = mapped_column(

@@ -67,6 +67,23 @@ export default defineConfig({
     cors: {
       origin: ['http://localhost:7002', 'https://test-ai-bridge.ambitiousisland-a233b755.westeurope.azurecontainerapps.io', 'http://localhost:7001', 'https://localhost:7001'],
     },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/auth': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/health': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   preview: {
     port: 7003,

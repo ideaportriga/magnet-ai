@@ -1,12 +1,12 @@
 """Authentication middleware.
 
-Supports three authentication methods (checked in order):
-1. API Key (x-api-key header)
-2. Local JWT (cookie or Authorization header) — signed with SECRET_KEY (HS256)
-3. OIDC token (cookie) — signed by external IdP with RS256
+Supports authentication methods (checked in order):
+1. API Key (x-api-key header) — M2M access
+2. Internal JWT (cookie or Authorization header) — HS256, signed with SECRET_KEY
+3. Legacy OIDC token (cookie) — RS256, signed by external IdP (backward compat)
 
-Local JWT tokens are created by our /api/auth/login endpoint.
-OIDC tokens come from Microsoft Entra ID or Oracle OIDC.
+All new auth flows create internal HS256 JWTs via the session service.
+The OIDC path is kept for backward compatibility during migration.
 """
 
 from __future__ import annotations
@@ -77,11 +77,11 @@ def create_auth_middleware(
                         headers = MutableScopeHeaders.from_message(message=message)
                         headers.add(
                             "Set-Cookie",
-                            f"token={auth.tokens_refreshed.token}; Max-Age={token_max_age}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+                            f"token={auth.tokens_refreshed.token}; Max-Age={token_max_age}; Secure; HttpOnly; Path=/; SameSite=Lax;",
                         )
                         headers.add(
                             "Set-Cookie",
-                            f"refresh_token={auth.tokens_refreshed.refresh_token}; Max-Age={refresh_max_age}; Secure; HttpOnly; Path=/; SameSite=None; Partitioned;",
+                            f"refresh_token={auth.tokens_refreshed.refresh_token}; Max-Age={refresh_max_age}; Secure; HttpOnly; Path=/; SameSite=Lax;",
                         )
 
                 await send(message)
@@ -223,14 +223,23 @@ def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> A
     if api_user_id:
         user_id += f":{api_user_id}"
 
+    # Load scopes from API key config if available
+    scopes = None
+    try:
+        api_key_config = get_api_key_config(api_key)
+        scopes = getattr(api_key_config, "scopes", None)
+    except (KeyError, AttributeError):
+        pass
+
     return Auth(
         type="api_key",
         data={
             "api_client_code": api_client_code,
             "user_id": user_id,
-            # All API keys have admin access
-            "roles": {"admin"},
+            # API keys get 'user' role by default — use scope guards for fine-grained control
+            "roles": {"user"},
             "preferred_username": api_client_code,
+            "scopes": scopes,
         },
         user_id=user_id,
     )

@@ -10,7 +10,7 @@ from uuid import UUID
 
 from advanced_alchemy.base import UUIDv7AuditBase
 from advanced_alchemy.mixins import UniqueMixin
-from advanced_alchemy.types import DateTimeUTC
+from advanced_alchemy.types import DateTimeUTC, JsonB
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -68,6 +68,13 @@ class APIKey(UUIDv7AuditBase, UniqueMixin):
         default=None,
         index=True,
         comment="Optional FK to user who owns this API key",
+    )
+
+    scopes: Mapped[Optional[list]] = mapped_column(
+        JsonB,
+        nullable=True,
+        default=None,
+        comment="List of permission scopes (e.g. ['read:projects', 'write:datasets']). NULL = legacy key with 'user' role access.",
     )
 
     def __repr__(self) -> str:

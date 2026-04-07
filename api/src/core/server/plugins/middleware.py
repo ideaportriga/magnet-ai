@@ -50,6 +50,14 @@ class MiddlewarePlugin(InitPluginProtocol):
             except ImportError:
                 pass
 
+            # CSRF protection for cookie-authenticated state-changing requests
+            try:
+                from middlewares.csrf import CSRFMiddleware
+
+                middlewares.append(CSRFMiddleware)
+            except ImportError:
+                pass
+
         # Combine with existing middleware
         existing_middleware = list(app_config.middleware or [])
         app_config.middleware = existing_middleware + middlewares

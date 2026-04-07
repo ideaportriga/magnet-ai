@@ -1,5 +1,8 @@
 """MFA (Multi-Factor Authentication) endpoints.
 
+DEPRECATED: These endpoints are superseded by /api/v2/auth/mfa/* (routes/auth_v2.py).
+Kept for backward compatibility during migration. New code should use v2 MFA endpoints.
+
 Flow:
 1. GET  /api/auth/mfa/setup         → QR code + secret
 2. POST /api/auth/mfa/setup/confirm → verify TOTP code, save, return backup codes

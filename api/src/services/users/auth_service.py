@@ -1,20 +1,16 @@
 """
-Local authentication service — signup, login, JWT token creation.
+Local authentication service — signup, login, credential verification.
 
-Uses Litestar's built-in Token class for JWT encoding/decoding (HS256).
-OIDC tokens from Microsoft/Oracle are still validated via python-jose (RS256).
+For token creation, use services.auth.session_service.create_access_token()
+and services.auth.session_service.create_session().
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from logging import getLogger
 from typing import Any
-from uuid import uuid4
 
-from litestar.security.jwt import Token
-
-from core.config.base import get_auth_settings
 from core.db.models.user.user import User
 from core.domain.users.service import UsersService
 from core.exceptions import AuthError, ConflictError
@@ -24,39 +20,15 @@ from services.users.refresh_token_service import create_refresh_token
 logger = getLogger(__name__)
 
 
+# Re-export for backward compatibility — canonical version is in session_service
 def create_access_token(
     user: User,
     auth_method: str = "password",
 ) -> str:
-    """Create a signed JWT access token for a local user.
+    """Create a signed JWT access token. Delegates to session_service."""
+    from services.auth.session_service import create_access_token as _create
 
-    Args:
-        user: The authenticated User.
-        auth_method: How the user authenticated ("password", "refresh", "oidc").
-
-    Returns:
-        Encoded JWT string.
-    """
-    settings = get_auth_settings()
-    role_slugs = [r.slug for r in (user.roles or [])]
-
-    token = Token(
-        sub=user.email,
-        exp=datetime.now(UTC)
-        + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRATION_MINUTES),
-        jti=str(uuid4()),
-        extras={
-            "user_id": str(user.id),
-            "is_superuser": user.is_superuser,
-            "is_verified": user.is_verified,
-            "auth_method": auth_method,
-            "roles": role_slugs,
-        },
-    )
-    return token.encode(
-        secret=settings.SECRET_KEY,
-        algorithm=settings.JWT_ENCRYPTION_ALGORITHM,
-    )
+    return _create(user, auth_method=auth_method)
 
 
 async def signup(

@@ -1,5 +1,8 @@
 """OAuth2 social login endpoints — Google, GitHub.
 
+DEPRECATED: These endpoints are superseded by /api/v2/auth/sso/* (routes/auth_v2.py).
+Kept for backward compatibility during migration. New code should use v2 SSO endpoints.
+
 Flow:
 1. GET /api/auth/oauth/{provider} → returns authorization URL + state
 2. GET /api/auth/oauth/{provider}/callback → exchanges code for tokens, logs in user

@@ -225,6 +225,16 @@ function handleOidcPopup(provider: string) {
 async function onPopupMessage(event: MessageEvent) {
   window.removeEventListener('message', onPopupMessage)
 
+  // Validate that the message came from our popup window.
+  // We can't strictly check origin because the popup may land on the
+  // backend origin (e.g. localhost:8000) after IdP callback, while the
+  // opener is on the frontend origin (e.g. localhost:7001).
+  // Instead, verify the message source is our popup window.
+  if (event.source !== popupWindow) {
+    cleanup()
+    return
+  }
+
   try {
     const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
     const ok = await props.authClient.completeOidc(data)
@@ -249,14 +259,22 @@ function cleanup() {
   window.removeEventListener('message', onPopupMessage)
 }
 
-// --- OAuth redirect flow (Google/GitHub — new backend /api/auth/oauth) ---
+// --- OAuth/SSO redirect flow ---
+// For v2: server-side redirect via /api/v2/auth/sso/{provider}
+// For v1 compat: API call to get authorization URL then redirect
 
 async function handleOAuthRedirect(provider: string) {
   oauthInProgress.value = provider
   errorMessage.value = ''
   try {
-    const { authorization_url } = await props.authClient.getOAuthUrl(provider)
-    window.location.href = authorization_url
+    // Check if authClient has getSsoUrl (v2 client) — use direct redirect
+    const client = props.authClient as any
+    if (typeof client.getSsoUrl === 'function') {
+      window.location.href = client.getSsoUrl(provider)
+    } else {
+      const { authorization_url } = await props.authClient.getOAuthUrl(provider)
+      window.location.href = authorization_url
+    }
   } catch (e: any) {
     errorMessage.value = e.message || t.value.oauthFailed
     oauthInProgress.value = null

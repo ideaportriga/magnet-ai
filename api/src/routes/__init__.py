@@ -44,6 +44,7 @@ from .admin.scheduler import SchedulerController
 from .admin.settings import SettingsController
 from .admin.utils import UtilsController
 from .auth import AuthController
+from .auth_v2 import AuthV2Controller
 from .local_auth import LocalAuthController
 from .mfa import MfaController
 from .oauth import OAuthController
@@ -226,19 +227,26 @@ def get_route_handlers(
         route_handlers=route_handlers_public,
     )
 
-    # New auth endpoints under /api (local auth, MFA, OAuth social)
-    route_handlers_api_auth: list[ControllerRouterHandler] = [
+    # Legacy auth endpoints under /api (kept for backward compatibility)
+    route_handlers_api_auth_legacy: list[ControllerRouterHandler] = [
         LocalAuthController,
         MfaController,
         OAuthController,
     ]
+
+    # New unified v2 auth endpoints under /api/v2
+    router_api_v2 = Router(
+        path="/v2",
+        route_handlers=[AuthV2Controller],
+    )
 
     router_api = Router(
         path="/api",
         route_handlers=[
             router_api_admin,
             router_api_user,
-            *route_handlers_api_auth,
+            router_api_v2,
+            *route_handlers_api_auth_legacy,
         ],
     )
 
