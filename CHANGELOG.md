@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.4](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.3...v0.7.0-dev.4) (2026-04-07)
+
+### ✨ Features
+
+* **knowledge-graph:** implemented very basic web source for the ([74e7a4e](https://github.com/ideaportriga/magnet-ai/commit/74e7a4eb70c09d590877bca44e18e57026921665))
+
 ## [0.7.0-dev.3](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.2...v0.7.0-dev.3) (2026-04-04)
 
 ### ✨ Features
