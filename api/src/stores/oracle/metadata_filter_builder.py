@@ -83,9 +83,15 @@ class OracleMetadataFilterBuilder:
                 raise ValueError(f"Value for $in must be a list for field '{field}'")
             if not val:  # Handle empty list for $in
                 return "1 == 0"  # Always false
-            sub_clauses = [
-                f"@.{json_path} == {self._format_value(item)}" for item in val
-            ]
+            sub_clauses = []
+            for item in val:
+                if item is None:
+                    sub_clauses.append(f"!(exists(@.{json_path}))")
+                else:
+                    # [*] iterates array elements; for scalars it auto-wraps (lax mode)
+                    sub_clauses.append(
+                        f"@.{json_path}[*] == {self._format_value(item)}"
+                    )
             return f"({' || '.join(sub_clauses)})"
 
         if op == "$nin":
@@ -93,12 +99,34 @@ class OracleMetadataFilterBuilder:
                 raise ValueError(f"Value for $nin must be a list for field '{field}'")
             if not val:  # Handle empty list for $nin
                 return "1 == 1"  # Always true
-            sub_clauses = [
-                f"@.{json_path} != {self._format_value(item)}" for item in val
-            ]
+            sub_clauses = []
+            for item in val:
+                if item is None:
+                    sub_clauses.append(f"exists(@.{json_path})")
+                else:
+                    sub_clauses.append(
+                        f"!(@.{json_path}[*] == {self._format_value(item)})"
+                    )
             return f"({' && '.join(sub_clauses)})"
 
-        # Handle simple comparison operators
+        # Handle null for comparison operators
+        if val is None:
+            if op == "$eq":
+                return f"!(exists(@.{json_path}))"
+            elif op == "$ne":
+                return f"exists(@.{json_path})"
+            else:
+                return "1 == 0"
+
+        # $eq / $ne use [*] to support array metadata fields
+        if op in ("$eq", "$ne"):
+            formatted_value = self._format_value(val)
+            if op == "$eq":
+                return f"@.{json_path}[*] == {formatted_value}"
+            else:
+                return f"!(@.{json_path}[*] == {formatted_value})"
+
+        # Handle remaining comparison operators ($gt, $gte, $lt, $lte)
         try:
             sql_operator = self.OPERATOR_MAP[op]
             formatted_value = self._format_value(val)
