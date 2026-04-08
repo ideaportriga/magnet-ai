@@ -40,6 +40,26 @@
         </km-section>
 
         <q-separator class="q-my-lg" />
+
+        <km-section title="Logging" sub-title="Configure tracing detail level for sync operations">
+          <div class="column q-gap-16">
+            <div class="col">
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <span class="km-input-label">Tracing level</span>
+              </div>
+              <kg-dropdown-field
+                v-model="tracingLevel"
+                :options="tracingLevelOptions"
+                placeholder="Select tracing level"
+                option-value="value"
+                option-label="label"
+              />
+              <div class="km-description text-secondary-text q-mt-xs">{{ tracingLevelDescription }}</div>
+            </div>
+          </div>
+        </km-section>
+
+        <q-separator class="q-my-lg" />
       </q-form>
     </div>
   </div>
@@ -66,7 +86,22 @@ const store = useStore()
 const $q = useQuasar()
 
 const embeddingModel = ref<string>('')
+const tracingLevel = ref<string>('totals_only')
 const saving = ref(false)
+
+const tracingLevelOptions = [
+  { value: 'off', label: 'Off' },
+  { value: 'totals_only', label: 'Totals only' },
+  { value: 'full', label: 'Full' },
+]
+
+const tracingLevelDescriptions: Record<string, string> = {
+  off: 'No tracing at all — spans are completely skipped',
+  totals_only: 'Individual step spans are not stored but contribute to cost and usage totals (default)',
+  full: 'All individual step spans are stored for detailed inspection',
+}
+
+const tracingLevelDescription = computed(() => tracingLevelDescriptions[tracingLevel.value] ?? '')
 
 const embeddingModelOptions = computed(() => {
   return (store.getters['chroma/model']?.items || []).filter((el: any) => el.type === 'embeddings')
@@ -81,14 +116,19 @@ const originalValues = ref<Record<string, any>>({})
 
 const initializeForm = () => {
   embeddingModel.value = props.graphDetails.settings?.indexing?.embedding_model ?? ''
+  tracingLevel.value = props.graphDetails.settings?.logging?.tracing_level ?? 'totals_only'
 
   originalValues.value = {
     embeddingModel: embeddingModel.value,
+    tracingLevel: tracingLevel.value,
   }
 }
 
 const hasChanges = computed(() => {
-  return embeddingModel.value !== originalValues.value.embeddingModel
+  return (
+    embeddingModel.value !== originalValues.value.embeddingModel ||
+    tracingLevel.value !== originalValues.value.tracingLevel
+  )
 })
 
 const resetForm = () => {
@@ -102,11 +142,13 @@ const saveSettings = async () => {
 
     const currentSettings = props.graphDetails?.settings && typeof props.graphDetails.settings === 'object' ? props.graphDetails.settings : {}
     const currentIndexing = currentSettings?.indexing && typeof currentSettings.indexing === 'object' ? currentSettings.indexing : {}
+    const currentLogging = currentSettings?.logging && typeof currentSettings.logging === 'object' ? currentSettings.logging : {}
 
     const payload = {
       settings: {
         ...currentSettings,
         indexing: { ...currentIndexing, embedding_model: embeddingModel.value || null },
+        logging: { ...currentLogging, tracing_level: tracingLevel.value },
       },
     }
     const res = await fetchData({
@@ -124,7 +166,7 @@ const saveSettings = async () => {
     }
 
     // Immediately clear local "unsaved" state; parent refresh will reconcile server values.
-    originalValues.value = { embeddingModel: embeddingModel.value }
+    originalValues.value = { embeddingModel: embeddingModel.value, tracingLevel: tracingLevel.value }
     emit('refresh')
   } catch (error) {
     console.error('Error saving settings:', error)

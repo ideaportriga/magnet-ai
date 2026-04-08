@@ -10,6 +10,19 @@ from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from utils.datetime_utils import utc_now
 
 
+class KnowledgeGraphTracingLevel(StrEnum):
+    """Controls how detailed the tracing is during knowledge graph sync operations.
+
+    - OFF: No tracing at all - spans are completely ignored
+    - TOTALS_ONLY: Individual step spans are not exported but contribute to totals (default)
+    - FULL: All individual step spans are exported
+    """
+
+    OFF = "off"
+    TOTALS_ONLY = "totals_only"
+    FULL = "full"
+
+
 class SourceType(StrEnum):
     """Source types for knowledge graph documents."""
 
@@ -47,6 +60,7 @@ class ChunkerStrategy(StrEnum):
     LLM = "llm"
     RECURSIVE = "recursive_character_text_splitting"
     KREUZBERG = "kreuzberg"
+    HTML_LLM = "html_llm"
 
 
 class ChunkContentType(StrEnum):

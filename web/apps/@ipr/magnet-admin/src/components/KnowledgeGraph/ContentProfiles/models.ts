@@ -205,4 +205,10 @@ export const chunkingStrategyOptions = [
     description:
       'A Markdown-aware deterministic splitter powered by the Kreuzberg library. Respects Markdown heading hierarchy and structural elements (code blocks, lists, tables) to produce chunks that preserve document structure. Ideal for Markdown-formatted content or documents converted to Markdown by the Kreuzberg reader.',
   },
+  {
+    label: 'HTML LLM-Based Chunking',
+    value: 'html_llm',
+    description:
+      'Uses an LLM to analyze simplified HTML structure and identify main content block containers. Each identified block becomes a separate chunk, preserving semantic document structure. Requires a prompt template. Best for web pages and HTML documents where structure-aware chunking is important.',
+  },
 ]

@@ -13,8 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.models.knowledge_graph import KnowledgeGraphSource, docs_table_name
 from core.db.session import async_session_maker
 from core.domain.knowledge_graph.services import KnowledgeGraphDocumentService
-from services.observability import observability_context, observe
-from services.observability.models import SpanExportMethod
+from services.observability import observe
 
 from ..content_load_services import (
     load_content_from_bytes_async,
@@ -186,10 +185,6 @@ class SyncPipeline(Generic[ListTaskT, ContentTaskT, ProcessTaskT], ABC):
             self.config.content_fetch_queue_max,
             self.config.document_processing_queue_max,
             self.config.semaphores,
-        )
-
-        observability_context.update_current_config(
-            span_export_method=SpanExportMethod.IGNORE_BUT_USE_FOR_TOTALS
         )
 
         listing_queue: asyncio.Queue[Any] = asyncio.Queue(

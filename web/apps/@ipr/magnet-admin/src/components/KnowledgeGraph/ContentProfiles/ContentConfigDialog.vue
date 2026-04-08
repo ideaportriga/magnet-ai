@@ -144,7 +144,7 @@
                   />
                 </div>
               </div>
-              <div v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy" class="col-grow" style="min-width: 0">
+              <div v-if="!isLockedNativeProfile && !isReadonlyProfile && (isLLMStrategy || isHtmlLlmStrategy)" class="col-grow" style="min-width: 0">
                 <div class="km-input-label q-pb-xs">Prompt Template</div>
                 <div class="row q-gap-8 no-wrap">
                   <km-select
@@ -284,8 +284,8 @@
               </div>
             </div>
 
-            <!-- LLM: Handling Content Size -->
-            <div v-if="!isLockedNativeProfile && !isReadonlyProfile && isLLMStrategy" class="q-mt-lg">
+            <!-- LLM / HTML LLM: Handling Content Size -->
+            <div v-if="!isLockedNativeProfile && !isReadonlyProfile && (isLLMStrategy || isHtmlLlmStrategy)" class="q-mt-lg">
               <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Handling Content Size</div>
               <div class="km-description text-secondary-text q-mt-xs q-mb-md">
                 LLMs have limited context window, so content must be divided into smaller segments before executing LLM-based chunking. The
@@ -643,6 +643,7 @@ const selectedStrategyLabel = computed(() => {
   return option?.label ?? form.value.chunker.strategy
 })
 const isLLMStrategy = computed(() => form.value.chunker.strategy === 'llm')
+const isHtmlLlmStrategy = computed(() => form.value.chunker.strategy === 'html_llm')
 const isRecursiveStrategy = computed(() => form.value.chunker.strategy === 'recursive_character_text_splitting')
 const isKreuzbergStrategy = computed(() => form.value.chunker.strategy === 'kreuzberg')
 const isDirty = computed(() => JSON.stringify(form.value) !== JSON.stringify(initialFormState.value))
@@ -832,7 +833,7 @@ const save = async () => {
   }
 
   // Validate prompts when LLM strategy is selected
-  if (isLLMStrategy.value && !form.value.chunker.options.prompt_template_system_name) {
+  if ((isLLMStrategy.value || isHtmlLlmStrategy.value) && !form.value.chunker.options.prompt_template_system_name) {
     isValid = false
     $q.notify({ type: 'negative', message: 'Prompt template is required for LLM-based chunking.' })
   }

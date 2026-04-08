@@ -1,5 +1,6 @@
 from .chunkers import (
     DeterministicRecursiveChunker,
+    HtmlLlmChunker,
     KreuzbergChunker,
     LLMChunker,
     NoneChunker,
@@ -21,6 +22,8 @@ async def split_content(
             chunker = DeterministicRecursiveChunker(config)
         case ChunkerStrategy.KREUZBERG:
             chunker = KreuzbergChunker(config)
+        case ChunkerStrategy.HTML_LLM:
+            chunker = HtmlLlmChunker(config)
         case _:
             raise ValueError(f"Unsupported strategy: {strategy!r}")
 

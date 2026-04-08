@@ -9,8 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config.app import alchemy
 from core.db.models.knowledge_graph import KnowledgeGraph, KnowledgeGraphSource
+from services.knowledge_graph.models import KnowledgeGraphTracingLevel
 from services.observability import observability_context, observe
-from services.observability.models import FeatureType
+from services.observability.models import FeatureType, SpanExportMethod
 from utils.datetime_utils import utc_now_isoformat
 
 
@@ -64,6 +65,18 @@ async def _sync_source_impl(
     observability_context.update_current_trace(
         name=graph.name, type=FeatureType.KNOWLEDGE_GRAPH.value
     )
+
+    logging_cfg = (graph.settings or {}).get("logging") or {}
+    tracing_level = (
+        logging_cfg.get("tracing_level") or KnowledgeGraphTracingLevel.TOTALS_ONLY
+    )
+    if tracing_level == KnowledgeGraphTracingLevel.OFF:
+        span_export_method: SpanExportMethod | None = SpanExportMethod.IGNORE
+    elif tracing_level == KnowledgeGraphTracingLevel.FULL:
+        span_export_method = None
+    else:
+        span_export_method = SpanExportMethod.IGNORE_BUT_USE_FOR_TOTALS
+    observability_context.update_current_config(span_export_method=span_export_method)
 
     source.status = "syncing"
     await db_session.commit()

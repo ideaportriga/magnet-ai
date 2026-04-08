@@ -24,6 +24,7 @@ from core.domain.knowledge_graph.schemas import (
 from services.knowledge_graph import (
     get_default_content_configs,
     get_default_entity_extraction_settings,
+    get_default_logging_settings,
     get_default_metadata_settings,
     get_default_retrieval_settings,
 )
@@ -164,6 +165,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         retrieval_settings = get_default_retrieval_settings()
         metadata_settings = get_default_metadata_settings()
         entity_extraction_settings = get_default_entity_extraction_settings()
+        logging_settings = get_default_logging_settings()
         settings: dict[str, Any] | None = {
             "chunking": {
                 "content_settings": [cfg.model_dump() for cfg in default_configs],
@@ -171,6 +173,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             **retrieval_settings,
             **metadata_settings,
             **entity_extraction_settings,
+            **logging_settings,
         }
 
         # Set default embedding model if it exists

@@ -8,6 +8,7 @@ from .content_load_services import (
     load_content_from_bytes_async,
 )
 from .entity_settings import get_default_entity_extraction_settings
+from .logging_settings import get_default_logging_settings
 from .metadata_settings import get_default_metadata_settings
 from .models import ContentConfig, SourceType
 from .retrieval_settings import get_default_retrieval_settings
@@ -21,6 +22,7 @@ __all__ = [
     "load_content_from_bytes_async",
     "get_default_content_configs",
     "get_default_entity_extraction_settings",
+    "get_default_logging_settings",
     "get_default_metadata_settings",
     "get_default_retrieval_settings",
     "get_graph_embedding_model",

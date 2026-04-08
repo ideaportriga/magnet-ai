@@ -32,6 +32,7 @@ class WebContentFetchTask:
     url: str
     title: str
     text_content: str
+    raw_html: str | None = None
 
 
 @dataclass(frozen=True)

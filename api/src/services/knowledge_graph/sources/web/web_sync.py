@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 from core.db.session import async_session_maker
 
 from ...content_config_services import get_content_config
-from ...models import SyncCounters, SyncPipelineConfig
+from ...models import ChunkerStrategy, SyncCounters, SyncPipelineConfig
 from ..sync_pipeline import SyncPipeline, SyncPipelineContext
 from .web_models import (
     WebContentFetchTask,
@@ -237,6 +237,7 @@ class WebSyncPipeline(
                                 url=task.url,
                                 title=title,
                                 text_content=text_content,
+                                raw_html=html,
                             )
                         )
                     else:
@@ -361,7 +362,17 @@ class WebSyncPipeline(
 
                     extracted_text = task.text_content
                     raw_text = task.text_content
-                    if result.loaded_content:
+
+                    # For HTML LLM chunker, pass raw HTML so the chunker
+                    # can analyze document structure.
+                    chunker_strategy = (
+                        content_config.chunker.get("strategy", "")
+                        if content_config and content_config.chunker
+                        else ""
+                    )
+                    if chunker_strategy == ChunkerStrategy.HTML_LLM and task.raw_html:
+                        extracted_text = task.raw_html
+                    elif result.loaded_content:
                         extracted_text = result.loaded_content.get(
                             "text", task.text_content
                         )
