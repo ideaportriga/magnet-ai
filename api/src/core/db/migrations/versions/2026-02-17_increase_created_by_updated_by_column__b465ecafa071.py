@@ -250,24 +250,6 @@ def schema_upgrades() -> None:
         existing_nullable=True,
     )
     op.alter_column(
-        "note_taker_settings",
-        "created_by",
-        existing_type=sa.VARCHAR(length=36),
-        type_=sa.String(length=255),
-        comment="User who created the entity",
-        existing_comment="ID of the user who created the entity",
-        existing_nullable=True,
-    )
-    op.alter_column(
-        "note_taker_settings",
-        "updated_by",
-        existing_type=sa.VARCHAR(length=36),
-        type_=sa.String(length=255),
-        comment="User who last updated the entity",
-        existing_comment="ID of the user who last updated the entity",
-        existing_nullable=True,
-    )
-    op.alter_column(
         "prompts",
         "created_by",
         existing_type=sa.VARCHAR(length=36),
@@ -410,24 +392,6 @@ def schema_downgrades() -> None:
     )
     op.alter_column(
         "prompts",
-        "created_by",
-        existing_type=sa.String(length=255),
-        type_=sa.VARCHAR(length=36),
-        comment="ID of the user who created the entity",
-        existing_comment="User who created the entity",
-        existing_nullable=True,
-    )
-    op.alter_column(
-        "note_taker_settings",
-        "updated_by",
-        existing_type=sa.String(length=255),
-        type_=sa.VARCHAR(length=36),
-        comment="ID of the user who last updated the entity",
-        existing_comment="User who last updated the entity",
-        existing_nullable=True,
-    )
-    op.alter_column(
-        "note_taker_settings",
         "created_by",
         existing_type=sa.String(length=255),
         type_=sa.VARCHAR(length=36),
