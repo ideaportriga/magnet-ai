@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "magnet-ai-api"
-version = "0.7.0a10"
+version = "0.7.0a11"
 description = ""
 authors = []
 readme = "README.md"

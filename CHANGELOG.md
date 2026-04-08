@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.11](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.10...v0.7.0-alpha.11) (2026-04-08)
+
+### 🐛 Bug Fixes
+
+* auth problem ([7d3b3f6](https://github.com/ideaportriga/magnet-ai/commit/7d3b3f691887ea8dfe96a32ce5edf2bfca9e7dd6))
+
 ## [0.7.0-alpha.10](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.9...v0.7.0-alpha.10) (2026-04-08)
 
 ### 🐛 Bug Fixes
