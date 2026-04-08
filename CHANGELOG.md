@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.10](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.9...v0.7.0-alpha.10) (2026-04-08)
+
+### 🐛 Bug Fixes
+
+* migration  fix ([1e252b3](https://github.com/ideaportriga/magnet-ai/commit/1e252b34f690a88ef7212188226843b42869520b))
+
 ## [0.7.0-alpha.9](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.8...v0.7.0-alpha.9) (2026-04-08)
 
 ### 🐛 Bug Fixes
