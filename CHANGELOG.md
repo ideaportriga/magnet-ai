@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.5](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.4...v0.7.0-dev.5) (2026-04-08)
+
+### 🐛 Bug Fixes
+
+* fixed metadata filtering for knowledge sources. ([4dcbdc0](https://github.com/ideaportriga/magnet-ai/commit/4dcbdc0eaf143a0f73d9bccde29825d99237748c))
+* fixed migration scripts for table note_taker_settings ([c5254db](https://github.com/ideaportriga/magnet-ai/commit/c5254dbffe025592a0546f0d6bb1e4fc5bdf70d1))
+
 ## [0.7.0-dev.4](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.3...v0.7.0-dev.4) (2026-04-07)
 
 ### ✨ Features
