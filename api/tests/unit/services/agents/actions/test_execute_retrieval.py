@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import AsyncMock
 
 from pytest_mock import MockerFixture
 
@@ -8,7 +9,7 @@ from services.flow_retrieval_test import RetrievalToolTestResult
 from validation.retrieval_tools import RetrievalToolExecute
 
 
-def test_execute_agent_action_rag(mocker: MockerFixture):
+async def test_execute_agent_action_rag(mocker: MockerFixture):
     results = [
         DocumentSearchResultItem(
             id="1",
@@ -27,6 +28,7 @@ def test_execute_agent_action_rag(mocker: MockerFixture):
     ]
     mock_execute_retrieval_tool = mocker.patch(
         "services.agents.actions.action_execute_retrieval.flow_retrieval_execute",
+        new_callable=AsyncMock,
         return_value=RetrievalToolTestResult(
             results=results,
         ),
@@ -36,13 +38,11 @@ def test_execute_agent_action_rag(mocker: MockerFixture):
     query = "test_query"
     arguments = {"query": query}
 
-    response = action_execute_retrieval(tool_system_name, arguments)
+    response = await action_execute_retrieval(tool_system_name, arguments)
 
     mock_execute_retrieval_tool.assert_called_once_with(
         RetrievalToolExecute(system_name=tool_system_name, user_message=query),
     )
-
-    print("response: ", response)
 
     assert response.content.splitlines() == [
         "Title: Chunk title #1",

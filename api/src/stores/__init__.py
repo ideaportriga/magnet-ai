@@ -32,10 +32,6 @@ def get_db_client():
         from stores.pgvector_db import pgvector_client
 
         return pgvector_client
-    if db_type == "MONGODB":
-        from stores.mongo_db import mongo_db_client
-
-        return mongo_db_client
     raise ValueError(f"Unsupported VECTOR_DB_TYPE: {db_type}")
 
 
@@ -68,8 +64,4 @@ def get_db_store() -> DocumentStore:
         from stores.pgvector_db import pgvector_store
 
         return pgvector_store
-    if db_type == "MONGODB":
-        from stores.mongo_db import mongo_db_store
-
-        return mongo_db_store
     raise ValueError(f"Unsupported VECTOR_DB_TYPE: {db_type}")

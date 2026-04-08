@@ -1,12 +1,15 @@
+from unittest.mock import AsyncMock
+
 from pytest_mock import MockerFixture
 
 from services.agents.actions.action_execute_rag import action_execute_rag
 from services.rag_tools.models import RagToolTestResult
 
 
-def test_execute_agent_action_rag(mocker: MockerFixture):
+async def test_execute_agent_action_rag(mocker: MockerFixture):
     mock_execute_rag_tool = mocker.patch(
         "services.agents.actions.action_execute_rag.execute_rag_tool",
+        new_callable=AsyncMock,
         return_value=RagToolTestResult(
             answer="RAG answer",
             results=[
@@ -19,10 +22,12 @@ def test_execute_agent_action_rag(mocker: MockerFixture):
     tool_system_name = "rag_tool_test"
     arguments = {"query": "test_query"}
 
-    response = action_execute_rag(tool_system_name, arguments)
+    response = await action_execute_rag(tool_system_name, arguments)
 
     mock_execute_rag_tool.assert_called_once_with(
-        system_name_or_config="rag_tool_test", user_message="test_query"
+        system_name_or_config="rag_tool_test",
+        user_message="test_query",
+        metadata_filter=None,
     )
 
     assert response.content == "RAG answer"

@@ -13,11 +13,14 @@ from tools.rag.utils import (
 
 @pytest.fixture
 def mock_document_store(mocker):
-    mocked_store = mocker.patch("tools.rag.utils.store", spec_set=DocumentStore)
+    from unittest.mock import MagicMock
+
+    mocked_store = MagicMock(spec=DocumentStore)
+    mocker.patch("tools.rag.utils.get_db_store", return_value=mocked_store)
     return mocked_store
 
 
-def test_get_extended_chunks_query():
+async def test_get_extended_chunks_query():
     collection_id_1 = "65d754785baec301dcce36da"
     collection_id_2 = "65d754785baec301dcce36db"
     collection_id_3_non_chunked = "65d754785baec301dcce36dc"
@@ -83,7 +86,7 @@ def test_get_extended_chunks_query():
         ),
     ]
 
-    result = get_extended_chunks_query(
+    result = await get_extended_chunks_query(
         search_result=search_result,
         context_window=context_window,
     )
@@ -107,7 +110,7 @@ def test_get_extended_chunks_query():
         (-1),
     ],
 )
-def test_get_chat_completion_input_documents_no_context_window(
+async def test_get_chat_completion_input_documents_no_context_window(
     mock_document_store,
     context_window,
 ):
@@ -163,7 +166,7 @@ def test_get_chat_completion_input_documents_no_context_window(
         ),
     ]
 
-    result = get_chat_completion_input_documents(
+    result = await get_chat_completion_input_documents(
         search_result=search_result,
         context_window=context_window,
     )
@@ -195,7 +198,7 @@ def test_get_chat_completion_input_documents_no_context_window(
     ]
 
 
-def test_get_chat_completion_input_documents(mocker, mock_document_store):
+async def test_get_chat_completion_input_documents(mocker, mock_document_store):
     collection_id_1 = "collection_1"
     collection_id_2 = "collection_2"
     collection_id_3_non_chunked = "65d754785baec301dcce36dc"
@@ -343,11 +346,13 @@ def test_get_chat_completion_input_documents(mocker, mock_document_store):
         ],
     }
 
-    mock_document_store.document_collections_query_chunks_context.return_value = (
-        mocked_chunks_by_collections
+    from unittest.mock import AsyncMock
+
+    mock_document_store.document_collections_query_chunks_context = AsyncMock(
+        return_value=mocked_chunks_by_collections
     )
 
-    result = get_chat_completion_input_documents(
+    result = await get_chat_completion_input_documents(
         search_result=search_result,
         context_window=context_window,
     )

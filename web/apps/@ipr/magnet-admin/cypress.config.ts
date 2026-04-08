@@ -242,6 +242,9 @@ export default defineConfig({
     hosts: { 'localhost': '::1' },
 
     setupNodeEvents(on, config) {
+      // Accept self-signed certs from Vite dev server
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+
       // Pass the CA cert to Node.js so https requests in tasks trust it
       if (fs.existsSync(VITE_SSL_CERT)) {
         process.env.NODE_EXTRA_CA_CERTS = VITE_SSL_CERT
@@ -251,11 +254,18 @@ export default defineConfig({
       nxPreset.setupNodeEvents?.(on, config)
 
       // Fix for macOS: Vite binds to ::1 (IPv6) but Electron resolves localhost to 127.0.0.1 (IPv4).
-      // Force Electron to use IPv6 for localhost and ignore the self-signed SSL cert.
-      on('before:browser:launch', (_browser, launchOptions) => {
-        launchOptions.args = launchOptions.args ?? []
-        launchOptions.args.push('--ignore-certificate-errors')
-        launchOptions.args.push('--host-resolver-rules=MAP localhost [::1]')
+      // Force Chromium-based browsers to ignore the self-signed SSL cert.
+      on('before:browser:launch', (browser, launchOptions) => {
+        if (browser.family === 'chromium') {
+          launchOptions.args = launchOptions.args ?? []
+          launchOptions.args.push('--ignore-certificate-errors')
+          launchOptions.args.push('--host-resolver-rules=MAP localhost [::1]')
+        }
+        if (browser.name === 'electron') {
+          launchOptions.preferences = launchOptions.preferences ?? {}
+          launchOptions.preferences.webPreferences = launchOptions.preferences.webPreferences ?? {}
+          launchOptions.preferences.webPreferences.webSecurity = false
+        }
         return launchOptions
       })
 

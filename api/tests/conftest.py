@@ -194,16 +194,11 @@ async def test_app(engine):
 
     _clear_settings_caches()
 
-    # Ensure src/ is first in path (before tests/services/ which shadows src/services/)
+    # Ensure src/ is first in path so imports resolve from src/
     if _src_dir not in sys.path or sys.path.index(_src_dir) > 0:
         if _src_dir in sys.path:
             sys.path.remove(_src_dir)
         sys.path.insert(0, _src_dir)
-
-    # Force reimport of 'services' package from src/ not tests/
-    for mod_name in list(sys.modules):
-        if mod_name == "services" or mod_name.startswith("services."):
-            del sys.modules[mod_name]
 
     from routes import get_route_handlers
 

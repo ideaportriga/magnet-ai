@@ -12,18 +12,19 @@ class TestGetDefaultContentConfigs:
     def test_returns_all_expected_configs(self):
         configs = get_default_content_configs()
         names = [c.name for c in configs]
-        assert "PDF" in names
+        assert "PDF (LLM Splitting)" in names
+        assert "PDF (Deterministic Splitting)" in names
         assert "Word" in names
         assert "PowerPoint" in names
         assert "Excel" in names
         assert "HTML" in names
         assert "Images" in names
         assert "Email" in names
-        assert "Default" in names
+        assert "Plain Text" in names
 
     def test_default_is_last(self):
         configs = get_default_content_configs()
-        assert configs[-1].name == "Default"
+        assert configs[-1].name == "Plain Text"
 
     def test_images_config_has_ocr_option(self):
         configs = get_default_content_configs()
@@ -43,7 +44,7 @@ class TestPdfReaderNameFeatureFlag:
             "services.knowledge_graph.content_config_services.USE_KREUZBERG", True
         ):
             configs = get_default_content_configs()
-            pdf = next(c for c in configs if c.name == "PDF")
+            pdf = next(c for c in configs if c.name == "PDF (LLM Splitting)")
             assert pdf.reader["name"] == ContentReaderName.KREUZBERG
 
     def test_pdf_uses_legacy_reader_when_flag_false(self):
@@ -51,5 +52,5 @@ class TestPdfReaderNameFeatureFlag:
             "services.knowledge_graph.content_config_services.USE_KREUZBERG", False
         ):
             configs = get_default_content_configs()
-            pdf = next(c for c in configs if c.name == "PDF")
+            pdf = next(c for c in configs if c.name == "PDF (LLM Splitting)")
             assert pdf.reader["name"] == ContentReaderName.PDF

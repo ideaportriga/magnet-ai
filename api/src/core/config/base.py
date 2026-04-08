@@ -502,16 +502,6 @@ class VectorDatabaseSettings:
     )
     """Oracle MongoDB connection string."""
 
-    # MongoDB configuration
-    MONGO_DB_CONNECTION_STRING: str = field(
-        default_factory=get_env("MONGO_DB_CONNECTION_STRING", "")
-    )
-    """MongoDB connection string."""
-    MONGO_DB_DB_NAME: str = field(
-        default_factory=get_env("MONGO_DB_DB_NAME", "magnet-dev")
-    )
-    """MongoDB database name."""
-
     # QDrant configuration
     DB_VECTOR_TYPE: str = field(default_factory=get_env("DB_VECTOR_TYPE", ""))
     """Vector database type."""
@@ -521,6 +511,8 @@ class VectorDatabaseSettings:
     """QDrant database API key."""
     QDRANT_DB_PORT: int = field(default_factory=get_env("QDRANT_DB_PORT", 6333))
     """QDrant database port."""
+    QDRANT_DB_PREFIX: str = field(default_factory=get_env("QDRANT_DB_PREFIX", "magnet"))
+    """QDrant collection name prefix."""
 
     def apply_database_defaults(self, db_settings: DatabaseSettings) -> None:
         """

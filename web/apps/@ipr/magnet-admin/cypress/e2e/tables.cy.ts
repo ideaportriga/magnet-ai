@@ -48,7 +48,7 @@ describe('Tables — searchable pages', () => {
       it('has a working search input', () => {
         cy.g('search-input').should('be.visible')
         cy.dismissErrors()
-        cy.g('search-input').find('input').clear().type('test-query')
+        cy.g('search-input').find('input').should('not.be.disabled').clear().type('test-query')
         cy.wait(500)
         cy.g('search-input').find('input').should('have.value', 'test-query')
       })

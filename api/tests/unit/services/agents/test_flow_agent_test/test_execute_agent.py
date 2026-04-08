@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 from pytest_mock import MockerFixture
 
@@ -24,7 +26,7 @@ from services.agents.models import (
     AgentVariantValue,
     ConversationIntent,
 )
-from services.agents.services import _execute_agent
+from services.agents.services import execute_agent
 from utils.datetime_utils import utc_now
 
 # pytest.skip(allow_module_level=True, reason="TODO - Skip/mock @observe decorator")
@@ -38,19 +40,25 @@ from utils.datetime_utils import utc_now
         (ConversationIntent.OFF_TOPIC),
     ],
 )
-def test_no_topic(mocker: MockerFixture, intent):
+async def test_no_topic(mocker: MockerFixture, intent):
     """Tests that when intent is not ConversationIntent.TOPIC:
     - Topic execution is skipped
     - Assistant message is generated based on intent and conversation messages
     """
-    mock_execute_topic = mocker.patch("services.agents.services.execute_topic")
+    mock_execute_topic = mocker.patch(
+        "services.agents.services.execute_topic", new_callable=AsyncMock
+    )
     assistant_message = "Generated assistant message"
     reason = "Generated reason"
     messages: list[AgentConversationMessage] = [
-        AgentConversationMessageUser(id="1", content="User's message"),
+        AgentConversationMessageUser(
+            id="00000000-0000-0000-0000-000000000001", content="User's message"
+        ),
     ]
 
-    mock_classify = mocker.patch("services.agents.services.classify_conversation")
+    mock_classify = mocker.patch(
+        "services.agents.services.classify_conversation", new_callable=AsyncMock
+    )
     mock_classify.return_value = AgentConversationClassification(
         intent=intent,
         assistant_message=assistant_message,
@@ -65,7 +73,7 @@ def test_no_topic(mocker: MockerFixture, intent):
         ),
     )
 
-    result = _execute_agent(config_override=agent_config, messages=messages)
+    result = await execute_agent(config_override=agent_config, messages=messages)
 
     mock_execute_topic.assert_not_called()
 
@@ -80,7 +88,7 @@ def test_no_topic(mocker: MockerFixture, intent):
     assert classification_step.details.reason == reason
 
 
-def test_topic(mocker: MockerFixture):
+async def test_topic(mocker: MockerFixture):
     """Tests that when intent is ConversationIntent.TOPIC:
     - Topic execution is called with correct parameters
     - Result contains topic execution data
@@ -121,11 +129,15 @@ def test_topic(mocker: MockerFixture):
     )
 
     messages: list[AgentConversationMessage] = [
-        AgentConversationMessageUser(id="1", content="User's message"),
+        AgentConversationMessageUser(
+            id="00000000-0000-0000-0000-000000000001", content="User's message"
+        ),
     ]
 
     reason = "Topic related reason"
-    mock_classify = mocker.patch("services.agents.services.classify_conversation")
+    mock_classify = mocker.patch(
+        "services.agents.services.classify_conversation", new_callable=AsyncMock
+    )
     mock_classify.return_value = AgentConversationClassification(
         intent=ConversationIntent.TOPIC,
         topic=topic_system_name,
@@ -133,7 +145,9 @@ def test_topic(mocker: MockerFixture):
     )
 
     mocked_execute_topic_steps = [classification_step, topic_completion_step]
-    mock_execute_topic = mocker.patch("services.agents.services.execute_topic")
+    mock_execute_topic = mocker.patch(
+        "services.agents.services.execute_topic", new_callable=AsyncMock
+    )
     mock_execute_topic.return_value = AgentConversationExecuteTopicResult(
         content=assistant_message,
         steps=mocked_execute_topic_steps,
@@ -147,7 +161,7 @@ def test_topic(mocker: MockerFixture):
         ),
     )
 
-    result = _execute_agent(config_override=agent_config, messages=messages)
+    result = await execute_agent(config_override=agent_config, messages=messages)
 
     mock_execute_topic.assert_called_once()
 
@@ -164,7 +178,7 @@ def test_topic(mocker: MockerFixture):
     assert result.run.steps == mocked_execute_topic_steps
 
 
-def test_action_call_request_confirmation_fails_if_no_requests():
+async def test_action_call_request_confirmation_fails_if_no_requests():
     topic_system_name = "test_topic"
     prompt_template_topic_processing = "topic_processing"
 
@@ -185,9 +199,11 @@ def test_action_call_request_confirmation_fails_if_no_requests():
     )
 
     messages: list[AgentConversationMessage] = [
-        AgentConversationMessageUser(id="1", content="User's message"),
+        AgentConversationMessageUser(
+            id="00000000-0000-0000-0000-000000000001", content="User's message"
+        ),
         AgentConversationMessageAssistant(
-            id="2",
+            id="00000000-0000-0000-0000-000000000002",
             topic=topic_system_name,
             run=AgentConversationRun(
                 steps=[
@@ -206,7 +222,7 @@ def test_action_call_request_confirmation_fails_if_no_requests():
             ),
         ),
         AgentConversationMessageUser(
-            id="3",
+            id="00000000-0000-0000-0000-000000000003",
             action_call_confirmations=[
                 AgentActionCallConfirmation(
                     request_id="call_id",
@@ -216,13 +232,16 @@ def test_action_call_request_confirmation_fails_if_no_requests():
         ),
     ]
 
-    with pytest.raises(AssertionError) as exc_info:
-        _execute_agent(config_override=agent_config, messages=messages)
+    from services.agents.exceptions import AgentConfigurationError
 
-    assert "No action call requests found in the latest step" in str(exc_info.value)
+    with pytest.raises(
+        AgentConfigurationError,
+        match="No action call requests found in the latest step",
+    ):
+        await execute_agent(config_override=agent_config, messages=messages)
 
 
-def test_action_call_request_confirmation_executes_topic(mocker: MockerFixture):
+async def test_action_call_request_confirmation_executes_topic(mocker: MockerFixture):
     topic_system_name = "test_topic"
     action_call_request_id = "call_1"
     prompt_template_topic_processing = "topic_processing"
@@ -264,9 +283,11 @@ def test_action_call_request_confirmation_executes_topic(mocker: MockerFixture):
     ]
 
     messages: list[AgentConversationMessage] = [
-        AgentConversationMessageUser(id="1", content="User's message"),
+        AgentConversationMessageUser(
+            id="00000000-0000-0000-0000-000000000001", content="User's message"
+        ),
         AgentConversationMessageAssistant(
-            id="2",
+            id="00000000-0000-0000-0000-000000000002",
             topic=topic_system_name,
             run=AgentConversationRun(
                 steps=[
@@ -285,7 +306,7 @@ def test_action_call_request_confirmation_executes_topic(mocker: MockerFixture):
             ),
         ),
         AgentConversationMessageUser(
-            id="3",
+            id="00000000-0000-0000-0000-000000000003",
             action_call_confirmations=action_call_confirmations,
         ),
     ]
@@ -310,16 +331,19 @@ def test_action_call_request_confirmation_executes_topic(mocker: MockerFixture):
 
     mock_create_action_call_steps = mocker.patch(
         "services.agents.services.create_action_call_steps",
+        new_callable=AsyncMock,
     )
     mock_create_action_call_steps.return_value = [action_step]
 
-    mock_execute_topic = mocker.patch("services.agents.services.execute_topic")
+    mock_execute_topic = mocker.patch(
+        "services.agents.services.execute_topic", new_callable=AsyncMock
+    )
     mock_execute_topic.return_value = AgentConversationExecuteTopicResult(
         content="Assistant message",
         steps=[],
     )
 
-    _execute_agent(config_override=agent_config, messages=messages)
+    await execute_agent(config_override=agent_config, messages=messages)
 
     mock_create_action_call_steps.assert_called_once_with(
         action_call_requests=action_call_requests,

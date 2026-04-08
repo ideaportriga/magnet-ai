@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import json
 import logging
@@ -28,7 +26,7 @@ class PromptSettingSchema(BaseModel):
 
 
 class NoteTakerSettingsSchema(BaseModel):
-    model_config = ConfigDict(extra="allow")  # TODO: remove it
+    model_config = ConfigDict(extra="ignore")
 
     subscription_recordings_ready: bool = False
     # pipeline_id stores the stt_model_system_name (e.g. "ELEVENLABS2_SCRIBE_V1").

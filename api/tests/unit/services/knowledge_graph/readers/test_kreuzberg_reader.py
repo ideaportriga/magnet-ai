@@ -121,7 +121,7 @@ class TestKreuzbergReader:
     async def test_extract_raises_without_mime_or_filename(self):
         """Should raise ValueError when MIME cannot be determined."""
         with patch(
-            "services.knowledge_graph.readers.kreuzberg_reader.detect_mime_type",
+            "kreuzberg.detect_mime_type",
             side_effect=Exception("cannot detect"),
         ):
             reader = KreuzbergReader()

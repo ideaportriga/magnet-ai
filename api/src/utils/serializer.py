@@ -7,7 +7,7 @@ from typing import Any
 logger = getLogger(__name__)
 
 
-class DefaultMongoDbSerializer(JSONEncoder):
+class DefaultJsonSerializer(JSONEncoder):
     def default(self, obj: Any):
         try:
             if isinstance(obj, Decimal):

@@ -40,7 +40,7 @@ describe('CRUD — Prompt Templates', () => {
     cy.dismissErrors()
 
     // km-input wraps the actual <input> inside a <span data-test="search-input">
-    cy.g('search-input').find('input').clear().type(testPrefix)
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type(testPrefix)
     cy.wait(500) // debounce
 
     cy.get('.km-data-table__row', { timeout: 10000 }).should('have.length.gte', 1)
@@ -51,7 +51,7 @@ describe('CRUD — Prompt Templates', () => {
     cy.g('search-input').should('be.visible')
     cy.dismissErrors()
 
-    cy.g('search-input').find('input').clear().type(testPrefix)
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type(testPrefix)
     cy.wait(500)
 
     cy.get('.km-data-table__row', { timeout: 10000 }).first().click()
@@ -63,7 +63,7 @@ describe('CRUD — Prompt Templates', () => {
     cy.g('search-input').should('be.visible')
     cy.dismissErrors()
 
-    cy.g('search-input').find('input').clear().type(testPrefix)
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type(testPrefix)
     cy.wait(500)
 
     cy.get('.km-data-table__row', { timeout: 10000 }).first().click()

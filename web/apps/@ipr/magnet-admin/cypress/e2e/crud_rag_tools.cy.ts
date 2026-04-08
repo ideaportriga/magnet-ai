@@ -29,7 +29,7 @@ describe('CRUD — RAG Tools', () => {
     cy.g('search-input').should('be.visible')
     cy.dismissErrors()
 
-    cy.g('search-input').find('input').clear().type(testPrefix)
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type(testPrefix)
     cy.wait(500)
 
     // Table should update

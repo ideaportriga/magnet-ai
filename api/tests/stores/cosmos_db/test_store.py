@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from unittest.mock import MagicMock, call
+from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 from bson import ObjectId
@@ -10,16 +10,34 @@ from models import ChunksByCollection
 from stores.cosmos_db.store import CosmosDbStore
 
 
+class _AsyncCursorMock:
+    """Helper to mock an async MongoDB cursor (``async for``)."""
+
+    def __init__(self, data):
+        self._data = iter(data)
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._data)
+        except StopIteration:
+            raise StopAsyncIteration
+
+
 @pytest.fixture
 def mock_cosmos_db_client_database():
-    return MagicMock()
+    mock = MagicMock()
+    mock.create_collection = AsyncMock()
+    mock.command = AsyncMock()
+    return mock
 
 
 @pytest.fixture
 def mock_cosmos_db_client(mock_cosmos_db_client_database):
     mock = MagicMock()
-    mock.database.return_value = mock_cosmos_db_client_database
-
+    mock.database = mock_cosmos_db_client_database
     return mock
 
 
@@ -28,11 +46,17 @@ def cosmos_db_store(mock_cosmos_db_client, mocker: MockerFixture) -> CosmosDbSto
     return CosmosDbStore(client=mock_cosmos_db_client)
 
 
-def get_mongo_cursor_mock(mock_cursor_data):
-    mock_cursor = MagicMock()
-    mock_cursor.__iter__.return_value = iter(mock_cursor_data)
-
-    return mock_cursor
+def get_async_collection_mock(**overrides):
+    """Build a MagicMock collection whose async methods are AsyncMocks."""
+    mock_collection = MagicMock()
+    mock_collection.find_one = AsyncMock()
+    mock_collection.insert_one = AsyncMock()
+    mock_collection.update_one = AsyncMock()
+    mock_collection.delete_one = AsyncMock()
+    mock_collection.drop = AsyncMock()
+    for key, value in overrides.items():
+        setattr(mock_collection, key, value)
+    return mock_collection
 
 
 def get_collection_side_effect(data: dict) -> Callable:
@@ -47,32 +71,33 @@ def get_collection_side_effect(data: dict) -> Callable:
     return side_effect
 
 
-def test_list_collections(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
+async def test_list_collections(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
     collections_data = [{"_id": "1"}, {"_id": "2"}]
 
     mock_collection = MagicMock()
+    mock_collection.find.return_value = _AsyncCursorMock(collections_data)
     mock_cosmos_db_client.get_collection.return_value = mock_collection
-    mock_collection.find.return_value = get_mongo_cursor_mock(collections_data)
 
-    result = cosmos_db_store.list_collections()
+    result = await cosmos_db_store.list_collections()
 
-    assert result == collections_data
+    # list_collections pops _id and adds id
+    assert result == [{"id": "1"}, {"id": "2"}]
 
     mock_cosmos_db_client.get_collection.assert_called_once_with("collections")
 
 
-def test_create_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
-    mock_collection_collections = MagicMock()
-    mock_collection_collections.insert_one.return_value = InsertOneResult(
+async def test_create_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
+    mock_collection = get_async_collection_mock()
+    mock_collection.insert_one.return_value = InsertOneResult(
         inserted_id="1", acknowledged=True
     )
-    mock_cosmos_db_client.get_collection.return_value = mock_collection_collections
+    mock_cosmos_db_client.get_collection.return_value = mock_collection
 
-    result = cosmos_db_store.create_collection({"name": "Collection #1"})
+    result = await cosmos_db_store.create_collection({"name": "Collection #1"})
 
     assert result == "1"
 
-    mock_collection_collections.insert_one.assert_called_once()
+    mock_collection.insert_one.assert_called_once()
     mock_cosmos_db_client.database.create_collection.assert_called_once_with(
         "documents_1"
     )
@@ -95,47 +120,52 @@ def test_create_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
     )
 
 
-def test_get_collection_metadata(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
+async def test_get_collection_metadata(
+    cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
+):
     collection_id = "65d754785baec301dcce36db"
     collection_object_id = ObjectId(collection_id)
     collection_metadata = {"_id": collection_object_id, "name": "Collection #1"}
-    mock_collection = MagicMock()
+
+    mock_collection = get_async_collection_mock()
     mock_collection.find_one.return_value = collection_metadata
     mock_cosmos_db_client.get_collection.return_value = mock_collection
 
-    result = cosmos_db_store.get_collection_metadata(collection_id)
+    result = await cosmos_db_store.get_collection_metadata(collection_id)
 
     assert result == {"id": collection_id, "name": "Collection #1"}
 
     mock_collection.find_one.assert_called_once_with({"_id": collection_object_id})
 
 
-def test_get_collection_metadata_not_existent(
+async def test_get_collection_metadata_not_existent(
     cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
 ):
     collection_id = "65d754785baec301dcce36db"
-    mock_collection = MagicMock()
+
+    mock_collection = get_async_collection_mock()
     mock_collection.find_one.return_value = None
     mock_cosmos_db_client.get_collection.return_value = mock_collection
 
     with pytest.raises(LookupError, match="Collection does not exist"):
-        cosmos_db_store.get_collection_metadata(collection_id)
+        await cosmos_db_store.get_collection_metadata(collection_id)
 
     mock_collection.find_one.assert_called_once_with({"_id": ObjectId(collection_id)})
 
 
-def test_update_collection_metadata(
+async def test_update_collection_metadata(
     cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
 ):
     collection_id = "65d754785baec301dcce36db"
     collection_object_id = ObjectId(collection_id)
-    mock_collection = MagicMock()
+
+    mock_collection = get_async_collection_mock()
     mock_collection.update_one.return_value = UpdateResult(
         raw_result={"n": 1}, acknowledged=True
     )
     mock_cosmos_db_client.get_collection.return_value = mock_collection
 
-    result = cosmos_db_store.update_collection_metadata(
+    result = await cosmos_db_store.update_collection_metadata(
         collection_id, {"name": "Updated name"}
     )
 
@@ -146,19 +176,20 @@ def test_update_collection_metadata(
     )
 
 
-def test_update_collection_metadata_not_existent(
+async def test_update_collection_metadata_not_existent(
     cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
 ):
     collection_id = "65d754785baec301dcce36db"
     collection_object_id = ObjectId(collection_id)
-    mock_collection = MagicMock()
+
+    mock_collection = get_async_collection_mock()
     mock_collection.update_one.return_value = UpdateResult(
         raw_result={"n": 0}, acknowledged=True
     )
     mock_cosmos_db_client.get_collection.return_value = mock_collection
 
     with pytest.raises(LookupError, match="Nothing was updated"):
-        cosmos_db_store.update_collection_metadata(
+        await cosmos_db_store.update_collection_metadata(
             collection_id, {"name": "Updated name"}
         )
 
@@ -167,11 +198,12 @@ def test_update_collection_metadata_not_existent(
     )
 
 
-def test_delete_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
+async def test_delete_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
     collection_id = "65d754785baec301dcce36db"
     collection_object_id = ObjectId(collection_id)
-    mock_collection_collections = MagicMock()
-    mock_collection_documents = MagicMock()
+
+    mock_collection_collections = get_async_collection_mock()
+    mock_collection_documents = get_async_collection_mock()
 
     mock_collection_collections.delete_one.return_value = DeleteResult(
         raw_result={"n": 1}, acknowledged=True
@@ -183,7 +215,7 @@ def test_delete_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
         },
     )
 
-    result = cosmos_db_store.delete_collection(collection_id)
+    result = await cosmos_db_store.delete_collection(collection_id)
 
     assert result is None
 
@@ -193,18 +225,19 @@ def test_delete_collection(cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
     mock_collection_documents.drop.assert_called_once()
 
 
-def test_document_collection_similarity_search_collection_non_existent(
+async def test_document_collection_similarity_search_collection_non_existent(
     cosmos_db_store: CosmosDbStore, mock_cosmos_db_client
 ):
     collection_id = "65d754785baec301dcce36db"
     query = "Hi"
     num_results = 3
-    mock_collection = MagicMock()
+
+    mock_collection = get_async_collection_mock()
     mock_collection.find_one.return_value = None
     mock_cosmos_db_client.get_collection.return_value = mock_collection
 
     with pytest.raises(LookupError, match="Collection does not exist"):
-        cosmos_db_store.document_collection_similarity_search(
+        await cosmos_db_store.document_collection_similarity_search(
             collection_id=collection_id,
             query=query,
             num_results=num_results,
@@ -213,75 +246,7 @@ def test_document_collection_similarity_search_collection_non_existent(
     mock_collection.aggregate.assert_not_called()
 
 
-# Takes long because @observe could be mocked. Implementations need refactoring.
-# def test_document_collection_similarity_search(mocker: MockerFixture, cosmos_db_store: CosmosDbStore, mock_cosmos_db_client):
-#     collection_id = "65d754785baec301dcce36db"
-#     collection_object_id = ObjectId(collection_id)
-#     query = "Hi"
-#     num_results = 3
-
-#     collection_metadata = {"_id": collection_object_id, "name": "Collection #1", "todo_MODELs": "1"}
-#     mock_collection_collections = MagicMock()
-#     mock_collection_collections.find_one.return_value = collection_metadata
-
-#     mock_collection_documents = MagicMock()
-#     mock_collection_documents.aggregate.return_value = get_mongo_cursor_mock(
-#         [
-#             {"_id": ObjectId("65d6139128defdcf0816c101"), "content": "Content 1", "metadata": {"name": "Name 1"}, "similarityScore": "0.83"},
-#             {"_id": ObjectId("65d6139128defdcf0816c102"), "content": "Content 2", "metadata": {"name": "Name 2"}, "similarityScore": "0.82"},
-#             {"_id": ObjectId("65d6139128defdcf0816c103"), "content": "Content 3", "metadata": {"name": "Name 3"}, "similarityScore": "0.81"},
-#         ]
-#     )
-
-#     mock_cosmos_db_client.get_collection.side_effect = get_collection_side_effect(
-#         {
-#             "collections": mock_collection_collections,
-#             "documents_65d754785baec301dcce36db": mock_collection_documents,
-#         }
-#     )
-#     mocker.patch("stores.cosmos_db.store.observability_context")
-
-#     mocker.patch(
-#         "stores.cosmos_db.store.get_embeddings",
-#         return_value=[1.0, 2.0, 3.0],
-#     )
-
-#     result = cosmos_db_store.document_collection_similarity_search(
-#         collection_id=collection_id,
-#         query=query,
-#         num_results=num_results,
-#     )
-
-#     mock_collection_documents.aggregate.assert_called_once_with(
-#         [
-#             {
-#                 "$search": {
-#                     "cosmosSearch": {
-#                         "vector": [1.0, 2.0, 3.0],
-#                         "path": "embedding",
-#                         "k": num_results,
-#                     },
-#                     "returnStoredSource": True,
-#                 }
-#             },
-#             {
-#                 "$project": {
-#                     "similarityScore": {"$toString": {"$meta": "searchScore"}},
-#                     "content": "$$ROOT.content",
-#                     "metadata": "$$ROOT.metadata",
-#                 }
-#             },
-#         ]
-#     )
-
-#     assert len(result) == 3
-
-#     assert result[0] == DocumentSearchResultItem(content="Content 1", metadata={"name": "Name 1"}, score=Decimal("0.83"), collection_id=collection_id)
-#     assert result[1] == DocumentSearchResultItem(content="Content 2", metadata={"name": "Name 2"}, score=Decimal("0.82"), collection_id=collection_id)
-#     assert result[2] == DocumentSearchResultItem(content="Content 3", metadata={"name": "Name 3"}, score=Decimal("0.81"), collection_id=collection_id)
-
-
-def test_document_collections_query_chunks_context(
+async def test_document_collections_query_chunks_context(
     mocker: MockerFixture, cosmos_db_store: CosmosDbStore
 ):
     collection_id_1 = "65d754785baec301dcce36db"
@@ -299,6 +264,7 @@ def test_document_collections_query_chunks_context(
     mocker.patch.object(
         cosmos_db_store,
         "list_documents",
+        new_callable=AsyncMock,
         side_effect=[
             [
                 {"id": "1_1"},
@@ -319,8 +285,8 @@ def test_document_collections_query_chunks_context(
         ],
     )
 
-    result = cosmos_db_store.document_collections_query_chunks_context(
-        chunks_by_collection_id_by_source_id
+    result = await cosmos_db_store.document_collections_query_chunks_context(
+        query=chunks_by_collection_id_by_source_id
     )
 
     list_documents_expected_calls = [

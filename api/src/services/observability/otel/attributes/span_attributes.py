@@ -23,7 +23,7 @@ from services.observability.models import (
     UsageInputDetails,
     UsageOutputDetails,
 )
-from utils.serializer import DefaultMongoDbSerializer
+from utils.serializer import DefaultJsonSerializer
 
 from .utils import clean_attributes, expand_fields
 
@@ -135,12 +135,10 @@ def _span_magnet_ai_otel_attrs(fields: SpanFields):
         expand_fields("magnet_ai.extra_data", fields.extra_data, json_dump=True)
     )
     attributes["magnet_ai.input"] = (
-        json.dumps(fields.input, cls=DefaultMongoDbSerializer) if fields.input else None
+        json.dumps(fields.input, cls=DefaultJsonSerializer) if fields.input else None
     )
     attributes["magnet_ai.output"] = (
-        json.dumps(fields.output, cls=DefaultMongoDbSerializer)
-        if fields.output
-        else None
+        json.dumps(fields.output, cls=DefaultJsonSerializer) if fields.output else None
     )
     attributes.update(
         expand_fields(

@@ -17,9 +17,11 @@ from utils.datetime_utils import utc_now
 
 def test_no_topic_processing():
     messages = [
-        AgentConversationMessageUser(id="1", content="Hi!"),
+        AgentConversationMessageUser(
+            id="00000000-0000-0000-0000-000000000001", content="Hi!"
+        ),
         AgentConversationMessageAssistant(
-            id="2",
+            id="00000000-0000-0000-0000-000000000002",
             content="Hello, how can I help you?",
             run=AgentConversationRun(
                 steps=[
@@ -48,9 +50,12 @@ def test_no_topic_processing():
 
 def test_topic_processing_no_action_calls():
     messages = [
-        AgentConversationMessageUser(id="1", content="Hello, I want to unsubsribe."),
+        AgentConversationMessageUser(
+            id="00000000-0000-0000-0000-000000000001",
+            content="Hello, I want to unsubsribe.",
+        ),
         AgentConversationMessageAssistant(
-            id="2",
+            id="00000000-0000-0000-0000-000000000002",
             content="Test assistant message",
             run=AgentConversationRun(
                 steps=[
@@ -91,10 +96,13 @@ def test_topic_processing_no_action_calls():
 def test_assistant_message_without_run():
     messages = [
         AgentConversationMessageAssistant(
-            id="1",
+            id="00000000-0000-0000-0000-000000000001",
             content="Hello, how can I assist you today?",
         ),
-        AgentConversationMessageUser(id="1", content="Hello, I want to unsubsribe."),
+        AgentConversationMessageUser(
+            id="00000000-0000-0000-0000-000000000001",
+            content="Hello, I want to unsubsribe.",
+        ),
     ]
 
     result = generate_completion_messages(messages=messages)

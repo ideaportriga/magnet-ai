@@ -22,11 +22,9 @@ describe('Prompt templates', () => {
   it('RAG Tool - preview', () => {
     cy.viewport(1920, 1080)
     cy.visit('#/rag-tools')
-    cy.g('search-input').click()
-    cy.g('search-input').type('R_TEST')
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type('R_TEST')
     cy.g('table-row').eq(0).click()
-    cy.g('search-input').click()
-    cy.g('search-input').type('test')
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type('test')
 
     cy.intercept('POST', 'http://localhost:8000/rag_tools/test').as('apiCall')
 
@@ -38,8 +36,7 @@ describe('Prompt templates', () => {
   it('RAG Tool - delete', () => {
     cy.viewport(1920, 1080)
     cy.visit('#/rag-tools')
-    cy.g('search-input').click()
-    cy.g('search-input').type('e2e-test')
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type('e2e-test')
     cy.g('table-row').eq(0).click()
     cy.g('show-more-btn').click()
     cy.g('delete-btn').click()

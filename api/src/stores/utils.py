@@ -15,7 +15,7 @@ def validate_id(id: str):
         if not re.fullmatch(r"[0-9A-F]{32}", id):
             raise errors.InvalidId(f"Invalid hexadecimal string: {id}")
         return id
-    if db_type == "COSMOS" or db_type == "MONGODB":
+    if db_type == "COSMOS":
         return ObjectId(id)
     if db_type == "PGVECTOR":
         try:

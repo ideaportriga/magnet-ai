@@ -105,10 +105,6 @@ def _initialize_default_store(registry: VectorStoreRegistry) -> None:
         from stores.cosmos_db import cosmos_db_store
 
         registry.register("default", cosmos_db_store)
-    elif db_type == "MONGODB":
-        from stores.mongo_db import mongo_db_store
-
-        registry.register("default", mongo_db_store)
     elif db_type == "ORACLE":
         from stores.oracle import oracle_db_store
 

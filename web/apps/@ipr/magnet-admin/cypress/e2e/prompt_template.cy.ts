@@ -15,8 +15,7 @@ describe('Prompt templates', () => {
   it('Prompt template - preview', () => {
     cy.viewport(1920, 1080)
     cy.visit('#/prompt-templates')
-    cy.g('search-input').click()
-    cy.g('search-input').type('R_F_SYSTEM')
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type('R_F_SYSTEM')
     cy.g('table-row').eq(0).click()
     cy.g('preview-input').click()
     cy.g('preview-input').type('test')
@@ -30,8 +29,7 @@ describe('Prompt templates', () => {
   it('Prompt template - delete', () => {
     cy.viewport(1920, 1080)
     cy.visit('#/prompt-templates')
-    cy.g('search-input').click()
-    cy.g('search-input').type('e2e-test-')
+    cy.g('search-input').find('input').should('not.be.disabled').clear().type('e2e-test-')
     cy.g('table-row').eq(0).click()
     cy.g('show-more-btn').click()
     cy.g('delete-btn').click()

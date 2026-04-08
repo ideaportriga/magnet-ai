@@ -33,6 +33,7 @@ class TestLoadContentFromBytes:
             "services.knowledge_graph.content_load_services.DefaultPdfReader"
         ) as MockReader:
             MockReader.return_value.extract_text_from_bytes.return_value = (
+                "raw pdf content",
                 "pdf content",
                 3,
             )
