@@ -29,7 +29,6 @@ def _get_allowed_origins() -> set[str]:
     """Build set of allowed origins from configuration."""
     import os
 
-
     settings = get_auth_settings()
     origins = set()
 
