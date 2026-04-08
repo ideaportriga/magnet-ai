@@ -93,11 +93,11 @@ def data_upgrades() -> None:
         else encryption_key
     )
 
+    from sqlalchemy import text
+
     # Read all rows with non-null totp_secret
     result = connection.execute(
-        _op.inline_literal(
-            "SELECT id, totp_secret FROM user_account WHERE totp_secret IS NOT NULL"
-        )
+        text("SELECT id, totp_secret FROM user_account WHERE totp_secret IS NOT NULL")
     )
 
     rows = result.fetchall()
@@ -126,9 +126,8 @@ def data_upgrades() -> None:
         if secret:
             encrypted = fernet.encrypt(secret.encode("utf-8")).decode("utf-8")
             connection.execute(
-                _op.inline_literal(
-                    f"UPDATE user_account SET totp_secret = '{encrypted}' WHERE id = '{user_id}'"
-                )
+                text("UPDATE user_account SET totp_secret = :secret WHERE id = :id"),
+                {"secret": encrypted, "id": user_id},
             )
             encrypted_count += 1
 
