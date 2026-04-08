@@ -259,42 +259,32 @@ class AuthV2Controller(Controller):
         # Set state and nonce cookies
         asgi_response.headers.add(
             "Set-Cookie",
-            f"sso_state={state}; Max-Age=600; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=Lax;",
+            f"sso_state={state}; Max-Age=600; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=None;",
         )
         asgi_response.headers.add(
             "Set-Cookie",
-            f"sso_nonce={nonce}; Max-Age=600; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=Lax;",
+            f"sso_nonce={nonce}; Max-Age=600; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=None;",
         )
         return asgi_response
 
-    @get(
-        "/sso/{provider:str}/callback",
-        exclude_from_auth=True,
-        summary="SSO callback — complete authentication",
-    )
-    async def sso_callback(
+    async def _handle_sso_callback(
         self,
         provider: str,
         request: Request,
-        code: str | None = None,
-        oauth_state: str | None = Parameter(default=None, query="state"),
+        code: str | None,
+        oauth_state: str | None,
     ) -> ASGIResponse:
-        """Handle the IdP callback, resolve identity, create internal session.
-
-        After success: redirect to SPA with auth cookies set.
-        """
+        """Shared logic for GET and POST SSO callbacks."""
         try:
             strategy = get_provider(provider)
         except KeyError:
             raise ClientException(f"Unknown provider: {provider}")
 
-        # Validate state: cookie must match query param, JWT must be valid
         settings = get_auth_settings()
         expected_state = request.cookies.get("sso_state")
         if not expected_state or not oauth_state:
             raise NotAuthorizedException("Missing SSO state")
 
-        # Decode and verify the state JWT (signature + expiration)
         try:
             state_token = Token.decode(
                 encoded_token=oauth_state,
@@ -304,31 +294,25 @@ class AuthV2Controller(Controller):
         except Exception:
             raise NotAuthorizedException("Invalid or expired SSO state token")
 
-        # Verify provider matches to prevent cross-provider replay
         if (state_token.extras or {}).get("provider") != provider:
             raise NotAuthorizedException("State token provider mismatch")
 
-        # Compare cookie with query param to detect tampering
         if expected_state != oauth_state:
             raise NotAuthorizedException("SSO state mismatch")
 
-        # Validate nonce
         expected_nonce = request.cookies.get("sso_nonce")
         if not expected_nonce:
             raise NotAuthorizedException("Missing nonce cookie")
 
-        # Handle callback via strategy
-        request_data = {"code": code}
         try:
             identity = await strategy.handle_callback(
-                request_data=request_data,
+                request_data={"code": code},
                 expected_nonce=expected_nonce,
             )
         except ValueError as e:
             logger.warning("SSO callback failed for %s: %s", provider, e)
             raise NotAuthorizedException(f"SSO authentication failed: {e}") from e
 
-        # Resolve identity to internal user + create session
         device_info = request.headers.get("user-agent")
         async with alchemy.get_session() as session:
             user = await resolve_identity(session, identity)
@@ -340,8 +324,6 @@ class AuthV2Controller(Controller):
             )
             await session.commit()
 
-        # Redirect to SPA with auth cookies
-        # TODO: make SPA redirect URL configurable
         redirect_url = f"{settings.OAUTH2_REDIRECT_BASE_URL}/panel"
         response = Redirect(redirect_url)
         asgi_response = response.to_asgi_response(app=None, request=request)
@@ -349,7 +331,6 @@ class AuthV2Controller(Controller):
         set_auth_cookies_asgi(
             asgi_response, internal_session.access_token, internal_session.refresh_token
         )
-        # Clear state/nonce cookies
         asgi_response.headers.add(
             "Set-Cookie",
             "sso_state=; Max-Age=0; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=Lax;",
@@ -359,6 +340,43 @@ class AuthV2Controller(Controller):
             "sso_nonce=; Max-Age=0; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=Lax;",
         )
         return asgi_response
+
+    @get(
+        "/sso/{provider:str}/callback",
+        exclude_from_auth=True,
+        summary="SSO callback — complete authentication (query params)",
+    )
+    async def sso_callback(
+        self,
+        provider: str,
+        request: Request,
+        code: str | None = None,
+        oauth_state: str | None = Parameter(default=None, query="state"),
+    ) -> ASGIResponse:
+        """Handle the IdP callback for providers using response_mode=query (GET)."""
+        return await self._handle_sso_callback(provider, request, code, oauth_state)
+
+    @post(
+        "/sso/{provider:str}/callback",
+        exclude_from_auth=True,
+        opt={"exclude_from_csrf": True},
+        summary="SSO callback — complete authentication (form_post)",
+    )
+    async def sso_callback_post(
+        self,
+        provider: str,
+        request: Request,
+    ) -> ASGIResponse:
+        """Handle the IdP callback for providers using response_mode=form_post (POST).
+
+        Microsoft Entra ID uses form_post — the browser POSTs code and state
+        from an auto-submitted form. This endpoint is excluded from CSRF because
+        the POST originates from the IdP, not from our frontend.
+        """
+        form = await request.form()
+        code = form.get("code")
+        oauth_state = form.get("state")
+        return await self._handle_sso_callback(provider, request, code, oauth_state)
 
     # ── Token Refresh ──────────────────────────────────────────────────
 
