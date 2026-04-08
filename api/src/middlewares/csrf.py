@@ -27,6 +27,9 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 def _get_allowed_origins() -> set[str]:
     """Build set of allowed origins from configuration."""
+    import os
+
+
     settings = get_auth_settings()
     origins = set()
 
@@ -41,6 +44,14 @@ def _get_allowed_origins() -> set[str]:
     if redirect_uri:
         parsed = urlparse(redirect_uri)
         origins.add(f"{parsed.scheme}://{parsed.netloc}")
+
+    # Include CORS allowed origins so cookie-auth requests from the
+    # frontend dev server are not blocked by CSRF validation.
+    cors_raw = os.environ.get("CORS_OVERRIDE_ALLOWED_ORIGINS", "")
+    for origin in cors_raw.split(","):
+        origin = origin.strip()
+        if origin:
+            origins.add(origin)
 
     return origins
 
