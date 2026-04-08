@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.9](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.8...v0.7.0-alpha.9) (2026-04-08)
+
+### 🐛 Bug Fixes
+
+* crfs ([f194c1f](https://github.com/ideaportriga/magnet-ai/commit/f194c1f2db2b8eb8eaf953bece92829620691c2a))
+* CSRF align with cors ([18d61a9](https://github.com/ideaportriga/magnet-ai/commit/18d61a99c69fec795c4c77975691400f2cc6de21))
+* test fixes ([7b354f6](https://github.com/ideaportriga/magnet-ai/commit/7b354f6cb4f4ae86c2dd5e0fa09ba2215880880c))
+
 ## [0.7.0-alpha.8](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.7...v0.7.0-alpha.8) (2026-04-08)
 
 ### ✨ Features
