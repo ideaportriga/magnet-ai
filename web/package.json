@@ -24,7 +24,7 @@
     "@quasar/vite-plugin": "^1.10.0",
     "@swc-node/register": "~1.9.1",
     "@swc/core": "~1.5.7",
-    "@swc/helpers": "~0.5.11",
+    "@swc/helpers": "~0.5.19",
     "@tsconfig/node22": "^22.0.5",
     "@types/jest": "^30.0.0",
     "@types/jsdom": "^27.0.0",
