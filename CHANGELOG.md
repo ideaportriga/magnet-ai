@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.8](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.7...v0.7.0-alpha.8) (2026-04-08)
+
+### ✨ Features
+
+* authentification version 2 ([535cba5](https://github.com/ideaportriga/magnet-ai/commit/535cba5810fcee4e3787b7b0cd604cd0302b0483))
+* multi-lang support ([60b6ef9](https://github.com/ideaportriga/magnet-ai/commit/60b6ef9f86a4c8c0ae854621310d21012ed10a65))
+* new lang support ([eb2abe4](https://github.com/ideaportriga/magnet-ai/commit/eb2abe4717e101946506ab447aae3e286eda9466))
+* server side filtering and refetch indication ([e4f38b0](https://github.com/ideaportriga/magnet-ai/commit/e4f38b09a4da9911b041c05d2ad4668ee2e13d42))
+* server side queries ([4da204b](https://github.com/ideaportriga/magnet-ai/commit/4da204b2be3c56b8eefba8802734ee365d90d551))
+* test coverage ([e4b7207](https://github.com/ideaportriga/magnet-ai/commit/e4b7207a8df3078055c0f8b9585e8a17da96d602))
+
+### 🐛 Bug Fixes
+
+* add backend fixes ([d71c29c](https://github.com/ideaportriga/magnet-ai/commit/d71c29ca8a7f610b2c41951c05c4e50451866936))
+* add missing translations ([fe32925](https://github.com/ideaportriga/magnet-ai/commit/fe32925ef9b5b3fa7e959b72445a9db91e83fce0))
+* add new lang support ([a545a2c](https://github.com/ideaportriga/magnet-ai/commit/a545a2cf8904438f0c0deb689d71a7b9ded4e2f6))
+* add translations ([2ccd71c](https://github.com/ideaportriga/magnet-ai/commit/2ccd71cac9e93a1f527fb2772d2d01b826edeeb8))
+* auth reconnect ([25c5c4c](https://github.com/ideaportriga/magnet-ai/commit/25c5c4ccbe06d16038504e38826a25032f34203b))
+* collections translate ([03d70d7](https://github.com/ideaportriga/magnet-ai/commit/03d70d73114f06cc4e9d40efe7aee1efa6c0d4c9))
+* deactivate workspace tab when navigating away from detail page ([4ca0d78](https://github.com/ideaportriga/magnet-ai/commit/4ca0d78e371f70c63f6ec0e219b97d6a6def197e))
+* header ux improvment ([8769a7a](https://github.com/ideaportriga/magnet-ai/commit/8769a7a22aa60c9f2817ef2a4e3ac3e053070edd))
+* knowledge graph clien side pagination ([de72f24](https://github.com/ideaportriga/magnet-ai/commit/de72f246d9113eace68920ec5ce46fabf2a35c89))
+* minor fixes. File upload and agent drawer ([13b8d94](https://github.com/ideaportriga/magnet-ai/commit/13b8d94209adab002f761107a054b9cc9a838d6a))
+* note taker ([795b47e](https://github.com/ideaportriga/magnet-ai/commit/795b47eb5f3d37a33f0dc0caa06577502ecc8d04))
+* notify unification ([4286a5d](https://github.com/ideaportriga/magnet-ai/commit/4286a5dacbc1f90a3c1d92aecd51c32e6ca819dc))
+* performance and auth issues ([707ce0b](https://github.com/ideaportriga/magnet-ai/commit/707ce0b0a27fc8721b0817ad9b2493f1d35cc257))
+* plugins settings ([88df4d3](https://github.com/ideaportriga/magnet-ai/commit/88df4d3a4af394b283365e3b9d2af03ae163f56f))
+* providers breadcrumb ([cce5b91](https://github.com/ideaportriga/magnet-ai/commit/cce5b91047e766038219fd8c10daa792781acde7))
+* remove dead code - api tools ([028002a](https://github.com/ideaportriga/magnet-ai/commit/028002a2d6bdd183ad1056e3cc46e17322cbc375))
+* save variant field ([f3fdddd](https://github.com/ideaportriga/magnet-ai/commit/f3fddddda8908771ecedf9f142799d721271233f))
+* test and minor fixes ([dd03ad1](https://github.com/ideaportriga/magnet-ai/commit/dd03ad1e93a34510a1355b63e0cea411f7036bf4))
+* translate ([be65823](https://github.com/ideaportriga/magnet-ai/commit/be65823ef4e5c2289f6b1e19ac9a96b7769c1905))
+* translation fixes ([f5074fa](https://github.com/ideaportriga/magnet-ai/commit/f5074faf0da760e8a4d3336884bc4ac706bf1e07))
+* translation imports ([c2524a0](https://github.com/ideaportriga/magnet-ai/commit/c2524a0bbf0389ddb2c4d6688a3bbd38583e7077))
+* translations ([47192a4](https://github.com/ideaportriga/magnet-ai/commit/47192a40f01fb73653006f05963b2d6cb639112d))
+* translations ([0cb887c](https://github.com/ideaportriga/magnet-ai/commit/0cb887c2c41a13f102821427f866597360617d48))
+* translations ([9246302](https://github.com/ideaportriga/magnet-ai/commit/924630276998c4b0973b34ebfa48e417a844e76f))
+* translations ([60dfeb6](https://github.com/ideaportriga/magnet-ai/commit/60dfeb6c8b9257311e0bee2feb00f9974e394650))
+
 ## [0.7.0-alpha.7](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.6...v0.7.0-alpha.7) (2026-04-02)
 
 ### 🐛 Bug Fixes
