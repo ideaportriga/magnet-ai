@@ -1,4 +1,3 @@
-
 from stores.oracle.metadata_filter_builder import OracleMetadataFilterBuilder
 from stores.pgvector_db.metadata_filter_builder import PgVectorMetadataFilterBuilder
 from type_defs.pagination import FilterObject
