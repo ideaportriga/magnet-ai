@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.6](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.5...v0.7.0-dev.6) (2026-04-09)
+
+### ✨ Features
+
+* **deep-research:** implement chunked page processing ([d5259cf](https://github.com/ideaportriga/magnet-ai/commit/d5259cf8fd3191cee85b18373ded9ece8c34244d))
+* **deep-research:** improve error handling ([a89011a](https://github.com/ideaportriga/magnet-ai/commit/a89011a69acbd56c8a33741c52e688c7716bb998))
+* **deep-research:** improve handling forced exit ([e1b072a](https://github.com/ideaportriga/magnet-ai/commit/e1b072add52b3ecb7f79302eae78961963345f71))
+* **deep-research:** optimize db connection usage ([952f2ed](https://github.com/ideaportriga/magnet-ai/commit/952f2eddb8226d6b3f5e40c856a9171bd782078c))
+* **deep-research:** optimize resource usage by not storing page raw contents ([714ee61](https://github.com/ideaportriga/magnet-ai/commit/714ee61d65dc6be8bef52e834d2def5308881fcf))
+
 ## [0.7.0-dev.5](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.4...v0.7.0-dev.5) (2026-04-08)
 
 ### 🐛 Bug Fixes
