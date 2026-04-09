@@ -646,6 +646,7 @@ async def _execute_reasoning_step(
 
     except Exception as e:
         logger.exception(f"Reasoning step in iteration {iteration} failed")
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, str(e))
         return DeepResearchStep(
             type=StepType.REASONING,
             title=f"Iteration {iteration}: Reasoning failed",
@@ -748,6 +749,7 @@ async def _execute_search_step(
 
     except Exception as e:
         logger.exception(f"Search step failed for query: {query}")
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, str(e))
         step = DeepResearchStep(
             type=StepType.SEARCH,
             title=f"Search failed: '{query}'",
@@ -990,10 +992,17 @@ async def _process_search_result(
                         else None,
                     )
                 )
-            except Exception:
+            except Exception as chunk_exc:
                 logger.exception(
                     f"Chunk {i + 1}/{len(chunks)} failed for {url}, "
                     f"preserving {len(chunk_details_list)} successful chunks"
+                )
+                chunk_details_list.append(
+                    ChunkDetail(
+                        chunk_number=i + 1,
+                        findings="",
+                        error=str(chunk_exc),
+                    )
                 )
                 break
 
@@ -1036,6 +1045,7 @@ async def _process_search_result(
 
     except Exception as e:
         logger.exception(f"Process search result failed for {url}")
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, str(e))
         return DeepResearchStep(
             type=StepType.PROCESS_PAGE,
             title=f"Failed: {title}",
@@ -1103,6 +1113,7 @@ def _resolve_webhook_template(
     return resolve_path(template)
 
 
+@observe(name="Call webhook")
 async def _call_webhook(run: DeepResearchRun, config: DeepResearchConfig) -> None:
     """Call webhook API tool to notify completion and store call details."""
     webhook_details = WebhookCallDetails(
@@ -1302,8 +1313,9 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
 
         # Ensure final state is flushed even if last persist failed
         await _persist_run_state(run_model)
-    except Exception:
+    except Exception as e:
         logger.exception("Failed to execute deep research workflow for run %s", run_id)
+        otel_trace.get_current_span().set_status(OtelStatusCode.ERROR, str(e))
         # Safety net: if the run was not already brought to a terminal state
         # (e.g. workflow setup failed before execute_deep_research ran, or the
         # final persist above threw), mark it as FAILED so it never hangs in RUNNING.
@@ -1313,7 +1325,7 @@ async def run_deep_research_workflow(run_id: str | UUID) -> None:
         ):
             try:
                 run_model.status = DeepResearchStatus.FAILED
-                run_model.error = "Workflow execution failed unexpectedly"
+                run_model.error = f"Workflow execution failed: {e}"
                 run_model.updated_at = datetime.utcnow()
                 await _persist_run_state(run_model)
             except Exception:

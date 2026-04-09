@@ -189,6 +189,9 @@ class ChunkDetail(BaseModel):
     usage: dict[str, Any] | None = Field(
         default=None, description="Token usage for this chunk"
     )
+    error: str | None = Field(
+        default=None, description="Error message if chunk processing failed"
+    )
 
 
 class ForceReportStepDetails(BaseModel):
