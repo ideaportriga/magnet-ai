@@ -26,6 +26,7 @@ from .models import (
     DeepResearchRun,
     DeepResearchStatus,
     DeepResearchStep,
+    ForceReportStepDetails,
     ProcessPageStepDetails,
     ReasoningStepDetails,
     SearchResultsAnalysis,
@@ -38,6 +39,12 @@ from core.db.models.deep_research.run import DeepResearchRun as DeepResearchRunD
 
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_FORCE_REPORT_MESSAGE = (
+    "I have reached the maximum number of research iterations. "
+    "I will now compile all findings into the final report, "
+    "following the exact output structure from my instructions."
+)
 
 
 def _sanitize_json_data(obj: Any) -> Any:
@@ -121,11 +128,11 @@ async def execute_deep_research(
         # Main research loop - counts reasoning iterations
         iteration_num = 0
 
-        while iteration_num <= config.max_iterations:
+        while iteration_num < config.max_iterations:
             logger.info(
                 "Deep research run %s, iteration %s/%s",
                 run.run_id,
-                iteration_num,
+                iteration_num + 1,
                 config.max_iterations,
             )
 
@@ -134,7 +141,19 @@ async def execute_deep_research(
 
             # Determine if we should still allow tool calls
             # On the last iteration, don't allow tools to force final report
-            allow_tools = iteration_num < config.max_iterations
+            allow_tools = iteration_num < config.max_iterations - 1
+
+            # Record force report transition step if max iterations reached
+            if not allow_tools:
+                force_message = (
+                    config.force_report_message or DEFAULT_FORCE_REPORT_MESSAGE
+                )
+                force_step = DeepResearchStep(
+                    type=StepType.FORCE_REPORT,
+                    title="Maximum iterations reached, generating final report",
+                    details=ForceReportStepDetails(message=force_message),
+                )
+                current_iteration.steps.append(force_step)
 
             # Step 1: Agent reasoning - decide what to do next (may call tools)
             reasoning_step = await _execute_reasoning_step(
@@ -527,7 +546,7 @@ async def _execute_reasoning_step(
         template_values = {
             **run.input,  # Spread all input variables for backward compatibility (e.g., {task})
             **flattened_input,  # Also provide namespaced access (e.g., {input.task})
-            "iteration": iteration,
+            "current_iteration": iteration + 1,
             "max_iterations": config.max_iterations,
             "search_history": "\n".join(f"- {q}" for q in memory.search_queries),
             "extracted_info": "\n".join(f"- {info}" for info in memory.extracted_info),
@@ -562,6 +581,17 @@ async def _execute_reasoning_step(
         else:
             # Max iterations reached - don't pass tools or tool_choice to force final report
             logger.info("Max iterations reached, forcing final report generation")
+
+            # Inject synthetic assistant message to prime LLM into report mode.
+            # Without this, the LLM continues in research/reasoning mode and produces
+            # mid-research style output instead of a structured final report.
+            force_message = config.force_report_message or DEFAULT_FORCE_REPORT_MESSAGE
+            memory.conversation_history.append(
+                {
+                    "role": "assistant",
+                    "content": force_message,
+                }
+            )
 
         # Execute reasoning prompt template with tool calling support
         # Pass full conversation history as additional messages
@@ -605,7 +635,7 @@ async def _execute_reasoning_step(
 
         step = DeepResearchStep(
             type=StepType.REASONING,
-            title=f"Iteration {iteration}: Planning next action",
+            title=f"Iteration {iteration + 1}: Planning next action",
             details=ReasoningStepDetails(decided_action=decided_action),
             cost=result.cost if hasattr(result, "cost") else None,
             latency=result.latency if hasattr(result, "latency") else None,

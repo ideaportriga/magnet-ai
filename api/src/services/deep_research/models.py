@@ -108,6 +108,17 @@ class DeepResearchConfig(BaseModel):
         description="Enable parallel tool calls for reasoning step (OpenAI only)",
     )
 
+    # Force report transition message
+    force_report_message: str | None = Field(
+        default=None,
+        max_length=2000,
+        description=(
+            "Optional message injected as a synthetic assistant message when max iterations "
+            "is reached, to transition the LLM from research mode to report generation mode. "
+            "When null, a default English message is used."
+        ),
+    )
+
     # Content processing configuration
     content_processing: ContentProcessingConfig = Field(
         default_factory=ContentProcessingConfig,
@@ -135,6 +146,7 @@ class StepType(str, Enum):
     SEARCH = "search"
     ANALYZE_RESULTS = "analyze_results"
     PROCESS_PAGE = "process_page"
+    FORCE_REPORT = "force_report"
 
 
 class ReasoningStepDetails(BaseModel):
@@ -179,6 +191,14 @@ class ChunkDetail(BaseModel):
     )
 
 
+class ForceReportStepDetails(BaseModel):
+    """Details for a force report transition step."""
+
+    message: str = Field(
+        description="The transition message injected into conversation history"
+    )
+
+
 class ProcessPageStepDetails(BaseModel):
     """Details for a process page step."""
 
@@ -209,6 +229,7 @@ class DeepResearchStep(BaseModel):
         | SearchStepDetails
         | AnalyzeResultsStepDetails
         | ProcessPageStepDetails
+        | ForceReportStepDetails
     ) = Field(description="Step-specific details with strict typing based on step type")
 
     error: str | None = Field(default=None, description="Error message if step failed")
