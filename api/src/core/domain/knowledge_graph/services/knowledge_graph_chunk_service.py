@@ -89,6 +89,7 @@ class KnowledgeGraphChunkService:
         graph_id: UUID | str,
         document: dict[str, Any],
         chunks: list[KnowledgeGraphChunk],
+        vector_size: int | None = None,
     ) -> None:
         """Insert chunks for a document into the per-graph chunks table.
 
@@ -99,6 +100,8 @@ class KnowledgeGraphChunkService:
           dynamic per-graph chunks table.
         - If `chunk.content_embedding` is missing/empty, we store NULL (chunk will not
           be returned by similarity search which filters on non-null embeddings).
+        - When ``vector_size`` is provided, vectors are also written to the separate
+          per-graph vector table for forward compatibility.
         """
 
         if not chunks:
@@ -165,7 +168,26 @@ class KnowledgeGraphChunkService:
         if not rows:
             return
 
-        await db_session.execute(insert(chunks_tbl), rows)
+        # Use RETURNING to get generated chunk ids for the vector table insert.
+        result = await db_session.execute(
+            insert(chunks_tbl).returning(chunks_tbl.c.id), rows
+        )
+        inserted_ids: list[UUID] = [row[0] for row in result.fetchall()]
+
+        # Dual-write: also insert into the per-graph vector table when vector_size
+        # is known. The old content_embedding column above is still populated for
+        # backward compatibility with existing retrieval code.
+        if vector_size and inserted_ids:
+            from .knowledge_graph_vector_service import KnowledgeGraphVectorService
+
+            vec_svc = KnowledgeGraphVectorService()
+            await vec_svc.insert_vectors_bulk(
+                db_session,
+                graph_id=graph_id,
+                vector_size=vector_size,
+                chunk_ids=inserted_ids,
+                chunks=chunks,
+            )
 
     async def search_chunks(
         self,

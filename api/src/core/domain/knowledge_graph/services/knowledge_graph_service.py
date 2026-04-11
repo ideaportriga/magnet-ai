@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from .knowledge_graph_document_service import KnowledgeGraphDocumentService
     from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
     from .knowledge_graph_entity_service import KnowledgeGraphEntityService
+    from .knowledge_graph_vector_service import KnowledgeGraphVectorService
 
 
 class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGraph]):
@@ -152,6 +153,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         chunk_service: KnowledgeGraphChunkService | None = None,
         entity_service: KnowledgeGraphEntityService | None = None,
         edge_service: KnowledgeGraphEdgeService | None = None,
+        vector_service: KnowledgeGraphVectorService | None = None,
     ) -> KnowledgeGraphCreateResponse:
         system_name = (
             (data.system_name or data.name)
@@ -203,6 +205,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         from .knowledge_graph_document_service import KnowledgeGraphDocumentService
         from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
         from .knowledge_graph_entity_service import KnowledgeGraphEntityService
+        from .knowledge_graph_vector_service import KnowledgeGraphVectorService
 
         entity_svc = entity_service or KnowledgeGraphEntityService()
         await entity_svc.create_table(db_session, graph_id=created.id)
@@ -226,6 +229,10 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             await ch_svc.create_table(
                 db_session, graph_id=created.id, vector_size=vector_size
             )
+            vec_svc = vector_service or KnowledgeGraphVectorService()
+            await vec_svc.create_table(
+                db_session, graph_id=created.id, vector_size=vector_size
+            )
 
         return KnowledgeGraphCreateResponse(id=str(created.id))
 
@@ -237,9 +244,11 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         *,
         document_service: KnowledgeGraphDocumentService | None = None,
         chunk_service: KnowledgeGraphChunkService | None = None,
+        vector_service: KnowledgeGraphVectorService | None = None,
     ) -> KnowledgeGraphUpdateResponse:
         from .knowledge_graph_chunk_service import KnowledgeGraphChunkService
         from .knowledge_graph_document_service import KnowledgeGraphDocumentService
+        from .knowledge_graph_vector_service import KnowledgeGraphVectorService
 
         existing = await self.repository.get(graph_id)
         prev_settings = getattr(existing, "settings", None) or {}
@@ -322,6 +331,10 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             await ch_svc.create_table(
                 db_session, graph_id=graph_id, vector_size=vector_size
             )
+            vec_svc = vector_service or KnowledgeGraphVectorService()
+            await vec_svc.create_table(
+                db_session, graph_id=graph_id, vector_size=vector_size
+            )
 
         return KnowledgeGraphUpdateResponse(
             id=str(updated.id),
@@ -339,6 +352,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         chunk_service: KnowledgeGraphChunkService | None = None,
         entity_service: KnowledgeGraphEntityService | None = None,
         edge_service: KnowledgeGraphEdgeService | None = None,
+        vector_service: KnowledgeGraphVectorService | None = None,
     ) -> None:
         """Delete a graph and drop its per-graph tables."""
 
@@ -346,14 +360,18 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
         from .knowledge_graph_document_service import KnowledgeGraphDocumentService
         from .knowledge_graph_edge_service import KnowledgeGraphEdgeService
         from .knowledge_graph_entity_service import KnowledgeGraphEntityService
+        from .knowledge_graph_vector_service import KnowledgeGraphVectorService
 
-        # Drop dynamic tables (edges first, then entities, chunks, docs)
+        # Drop dynamic tables (edges first, then entities, vec tables, chunks, docs).
+        # Vec tables must be dropped before chunks because they have a FK to chunks.
         edge_svc = edge_service or KnowledgeGraphEdgeService()
         await edge_svc.drop_table(db_session, graph_id=graph_id)
         doc_svc = document_service or KnowledgeGraphDocumentService()
         ch_svc = chunk_service or KnowledgeGraphChunkService()
         entity_svc = entity_service or KnowledgeGraphEntityService()
+        vec_svc = vector_service or KnowledgeGraphVectorService()
         await entity_svc.drop_table(db_session, graph_id=graph_id)
+        await vec_svc.drop_all_vec_tables(db_session, graph_id=graph_id)
         await ch_svc.drop_table(db_session, graph_id=graph_id)
         await doc_svc.drop_table(db_session, graph_id=graph_id)
         await db_session.commit()

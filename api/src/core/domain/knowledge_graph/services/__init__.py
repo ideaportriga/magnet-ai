@@ -5,6 +5,7 @@ from .knowledge_graph_entity_service import KnowledgeGraphEntityService
 from .knowledge_graph_metadata_service import KnowledgeGraphMetadataService
 from .knowledge_graph_service import KnowledgeGraphService
 from .knowledge_graph_source_service import KnowledgeGraphSourceService
+from .knowledge_graph_vector_service import KnowledgeGraphVectorService
 
 __all__ = [
     "KnowledgeGraphService",
@@ -14,4 +15,5 @@ __all__ = [
     "KnowledgeGraphEntityService",
     "KnowledgeGraphMetadataService",
     "KnowledgeGraphSourceService",
+    "KnowledgeGraphVectorService",
 ]

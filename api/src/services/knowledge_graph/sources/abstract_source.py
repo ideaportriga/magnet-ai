@@ -14,6 +14,7 @@ from core.db.models.knowledge_graph import (
     KnowledgeGraphChunk,
     KnowledgeGraphSource,
     docs_table_name,
+    resolve_vector_size_for_embedding_model,
 )
 from core.domain.knowledge_graph.services import (
     KnowledgeGraphChunkService,
@@ -520,11 +521,23 @@ class AbstractDataSource(ABC):
                     document_id=UUID(document["id"]),
                 )
 
+            # Resolve vector size so the chunk service can dual-write to the
+            # separate vector table alongside the legacy content_embedding column.
+            vec_size: int | None = None
+            if embedding_model:
+                try:
+                    vec_size = await resolve_vector_size_for_embedding_model(
+                        embedding_model
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+
             await self.chunk_service.insert_chunks_bulk(
                 db_session,
                 graph_id=document["graph_id"],
                 document=document,
                 chunks=chunks_to_insert,
+                vector_size=vec_size,
             )
 
             await self._update_document_status(

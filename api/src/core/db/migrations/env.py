@@ -111,17 +111,17 @@ def run_migrations_offline() -> None:
                 return False
             # Ignore knowledge graph tables
             if re.match(
-                r"knowledge_graph_.*_(chunks|docs|documents|entities|edges)$", name
+                r"knowledge_graph_.*_(chunks|docs|documents|entities|edges|vec)$", name
             ):
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
             if re.match(
-                r"idx_kg_.*_(chunks|docs|documents|docume|entities|edges).*", name
+                r"idx_kg_.*_(chunks|docs|documents|docume|entities|edges|vec).*", name
             ):
                 return False
             if re.match(
-                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities|edges).*",
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities|edges|vec).*",
                 name,
             ):
                 return False
@@ -167,17 +167,17 @@ def do_run_migrations(connection: Connection) -> None:
                 return False
             # Ignore knowledge graph tables
             if re.match(
-                r"knowledge_graph_.*_(chunks|docs|documents|entities|edges)$", name
+                r"knowledge_graph_.*_(chunks|docs|documents|entities|edges|vec)$", name
             ):
                 return False
         elif type_ == "index":
             # Ignore knowledge graph indexes
             if re.match(
-                r"idx_kg_.*_(chunks|docs|documents|docume|entities|edges).*", name
+                r"idx_kg_.*_(chunks|docs|documents|docume|entities|edges|vec).*", name
             ):
                 return False
             if re.match(
-                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities|edges).*",
+                r"idx_knowledge_graph_.*_(chunks|docs|documents|docume|entities|edges|vec).*",
                 name,
             ):
                 return False

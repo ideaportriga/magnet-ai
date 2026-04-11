@@ -57,6 +57,16 @@ def edges_index_prefix(graph_id: UUID | str) -> str:
     return f"idx_kg_{graph_suffix(graph_id)}_edges"
 
 
+def vec_table_name(graph_id: UUID | str, vec_size: int) -> str:
+    """Per-graph vector table name, scoped to embedding dimension."""
+    return f"knowledge_graph_{graph_suffix(graph_id)}_{vec_size}_vec"
+
+
+def vec_index_prefix(graph_id: UUID | str, vec_size: int) -> str:
+    """Per-graph vector index prefix."""
+    return f"idx_kg_{graph_suffix(graph_id)}_{vec_size}_vec"
+
+
 def to_uuid(v: Any) -> UUID | None:
     if v is None:
         return None
