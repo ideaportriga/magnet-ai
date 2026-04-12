@@ -4,23 +4,18 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
-    Float,
     Index,
     MetaData,
-    bindparam,
     delete,
     func,
     insert,
     or_,
     select,
-    text,
-    type_coerce,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models.knowledge_graph import (
     KnowledgeGraphChunk,
-    KnowledgeGraphDocument,
     chunks_index_prefix,
     chunks_table_name,
     docs_table_name,
@@ -32,13 +27,9 @@ from core.domain.knowledge_graph.schemas import (
     KnowledgeGraphChunkListResponse,
 )
 
-from ..schemas import ChunkSearchResult
-
 
 class KnowledgeGraphChunkService:
-    async def create_table(
-        self, db_session: AsyncSession, *, graph_id: UUID, vector_size: int
-    ) -> None:
+    async def create_table(self, db_session: AsyncSession, *, graph_id: UUID) -> None:
         """Create the per-graph chunks table + indexes if missing.
 
         Note: documents table must exist first due to FK.
@@ -55,7 +46,7 @@ class KnowledgeGraphChunkService:
             md = MetaData()
             knowledge_graph_document_table(md, docs_name, vector_size=None)
             chunks_tbl = knowledge_graph_chunk_table(
-                md, chunks_name, docs_table=docs_name, vector_size=vector_size
+                md, chunks_name, docs_table=docs_name
             )
             chunks_tbl.create(sync_conn, checkfirst=True)
             Index(f"{index_prefix}_document_id", chunks_tbl.c.document_id).create(
@@ -76,7 +67,7 @@ class KnowledgeGraphChunkService:
         def _drop(sync_conn) -> None:
             md = MetaData()
             chunks_tbl = knowledge_graph_chunk_table(
-                md, chunks_name, docs_table=docs_name, vector_size=None
+                md, chunks_name, docs_table=docs_name
             )
             chunks_tbl.drop(sync_conn, checkfirst=True)
 
@@ -90,6 +81,7 @@ class KnowledgeGraphChunkService:
         document: dict[str, Any],
         chunks: list[KnowledgeGraphChunk],
         vector_size: int | None = None,
+        embedding_map: dict[int, list[tuple[str, list[float]]]] | None = None,
     ) -> None:
         """Insert chunks for a document into the per-graph chunks table.
 
@@ -98,10 +90,8 @@ class KnowledgeGraphChunkService:
           transaction (caller controls commit/rollback).
         - Chunks are `KnowledgeGraphChunk` objects; we persist their fields into the
           dynamic per-graph chunks table.
-        - If `chunk.content_embedding` is missing/empty, we store NULL (chunk will not
-          be returned by similarity search which filters on non-null embeddings).
-        - When ``vector_size`` is provided, vectors are also written to the separate
-          per-graph vector table for forward compatibility.
+        - When ``vector_size`` and ``embedding_map`` are provided, vectors are
+          written to the separate per-graph vector table.
         """
 
         if not chunks:
@@ -122,25 +112,14 @@ class KnowledgeGraphChunkService:
             md,
             chunks_tbl_name,
             docs_table=docs_tbl_name,
-            vector_size=None,
         )
 
         document_name = str(document.get("name") or "")
         rows: list[dict[str, Any]] = []
         for idx, chunk in enumerate(chunks):
-            # Some sources (e.g. Fluid Topics TOPIC chunks) do not have a page concept
-            # and will pass `page=None`. `dict.get()` returns None even when a default
-            # is provided if the key exists, so we normalize explicitly here.
             page_val = chunk.page
             page: int | None = (
                 page_val if isinstance(page_val, int) and page_val > 0 else None
-            )
-
-            embedding_val = chunk.content_embedding
-            embedding: list[float] | None = (
-                embedding_val
-                if isinstance(embedding_val, list) and len(embedding_val) > 0
-                else None
             )
 
             chunk_type_val = chunk.chunk_type
@@ -159,7 +138,6 @@ class KnowledgeGraphChunkService:
                     "content": chunk.content or "",
                     "content_format": chunk.content_format,
                     "embedded_content": chunk.embedded_content or "",
-                    "content_embedding": embedding,
                     "chunk_type": chunk_type,
                     "document_id": doc_id,
                 }
@@ -168,15 +146,11 @@ class KnowledgeGraphChunkService:
         if not rows:
             return
 
-        # Use RETURNING to get generated chunk ids for the vector table insert.
         result = await db_session.execute(
             insert(chunks_tbl).returning(chunks_tbl.c.id), rows
         )
         inserted_ids: list[UUID] = [row[0] for row in result.fetchall()]
 
-        # Dual-write: also insert into the per-graph vector table when vector_size
-        # is known. The old content_embedding column above is still populated for
-        # backward compatibility with existing retrieval code.
         if vector_size and inserted_ids:
             from .knowledge_graph_vector_service import KnowledgeGraphVectorService
 
@@ -186,98 +160,8 @@ class KnowledgeGraphChunkService:
                 graph_id=graph_id,
                 vector_size=vector_size,
                 chunk_ids=inserted_ids,
-                chunks=chunks,
+                embedding_map=embedding_map,
             )
-
-    async def search_chunks(
-        self,
-        db_session: AsyncSession,
-        *,
-        graph_id: UUID | str,
-        query_vector: list[float],
-        limit: int,
-        only_doc_ids: list[str] | None = None,
-        doc_filter_where_sql: str | None = None,
-        doc_filter_where_params: dict[str, Any] | None = None,
-    ) -> list[ChunkSearchResult]:
-        """Similarity search over per-graph chunks."""
-
-        docs_table = docs_table_name(graph_id)
-        chunks_table = chunks_table_name(graph_id)
-
-        md = MetaData()
-        docs_tbl = knowledge_graph_document_table(md, docs_table, vector_size=None)
-        chunks_tbl = knowledge_graph_chunk_table(
-            md,
-            chunks_table,
-            docs_table=docs_table,
-            vector_size=None,
-        )
-        # IMPORTANT: `findDocumentsByMetadata` compiles a raw SQL predicate that
-        # references the documents table as alias `d` (e.g. `d.metadata ...`).
-        # When reusing that predicate here, we must ensure the documents table is
-        # present in the FROM clause with the same alias, otherwise Postgres will
-        # raise "missing FROM-clause entry for table d".
-        docs_alias = docs_tbl.alias("d")
-
-        qvec = bindparam("qvec", type_=chunks_tbl.c.content_embedding.type)
-        distance_expr = chunks_tbl.c.content_embedding.op("<=>")(qvec)
-        score_expr = (1 - type_coerce(distance_expr, Float)).label("score")
-
-        stmt = (
-            select(
-                chunks_tbl.c.id.label("id"),
-                chunks_tbl.c.title.label("title"),
-                chunks_tbl.c.content.label("content"),
-                chunks_tbl.c.document_id.label("document_id"),
-                docs_alias.c.name.label("document_name"),
-                docs_alias.c.title.label("document_title"),
-                docs_alias.c.external_link.label("document_external_link"),
-                chunks_tbl.c.page.label("page"),
-                chunks_tbl.c.index.label("index"),
-                score_expr,
-            )
-            .select_from(
-                chunks_tbl.join(docs_alias, docs_alias.c.id == chunks_tbl.c.document_id)
-            )
-            .where(chunks_tbl.c.content_embedding.is_not(None))
-            .order_by(score_expr.desc())
-            .limit(int(limit))
-        )
-
-        if only_doc_ids:
-            stmt = stmt.where(
-                chunks_tbl.c.document_id.in_([UUID(str(x)) for x in only_doc_ids])
-            )
-
-        if doc_filter_where_sql:
-            stmt = stmt.where(text(str(doc_filter_where_sql)))
-
-        exec_params: dict[str, Any] = {"qvec": query_vector}
-        if isinstance(doc_filter_where_params, dict) and doc_filter_where_params:
-            exec_params.update(doc_filter_where_params)
-
-        rows = (await db_session.execute(stmt, exec_params)).mappings().all()
-        return [
-            ChunkSearchResult(
-                chunk=KnowledgeGraphChunk(
-                    id=r["id"],
-                    title=r.get("title"),
-                    content=r.get("content"),
-                    document_id=r.get("document_id"),
-                    document=KnowledgeGraphDocument(
-                        id=r.get("document_id"),
-                        name=r.get("document_name"),
-                        title=r.get("document_title"),
-                        external_link=r.get("document_external_link"),
-                    ),
-                    page=r.get("page"),
-                    index=r.get("index"),
-                ),
-                score=float(r["score"]) if r.get("score") is not None else None,
-            )
-            for r in rows
-        ]
 
     async def list_chunks(
         self,
@@ -297,7 +181,6 @@ class KnowledgeGraphChunkService:
             md,
             ch_table,
             docs_table=docs_table,
-            vector_size=None,
         )
 
         where_conditions = []
@@ -383,7 +266,6 @@ class KnowledgeGraphChunkService:
             md,
             chunks_table_name(graph_id),
             docs_table=docs_table_name(graph_id),
-            vector_size=None,
         )
 
         conditions = []

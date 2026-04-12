@@ -39,18 +39,40 @@ export const SOURCE_METADATA_READER = 'source_metadata'
 export const SOURCE_METADATA_READER_LABEL = 'Metadata Reader'
 
 export const readerOptions = [
-  { label: 'Plain Text Reader', value: 'plain_text' },
-  { label: 'PyPDF', value: 'pdf' },
-  { label: KREUZBERG_READER_LABEL, value: KREUZBERG_READER },
-  { label: LITEPARSE_READER_LABEL, value: LITEPARSE_READER },
-  { label: SHAREPOINT_PAGE_READER_LABEL, value: SHAREPOINT_PAGE_READER },
+  {
+    label: 'Plain Text Reader',
+    value: 'plain_text',
+    description: 'Reads the raw file content as plain text without any parsing or conversion. Suitable for .txt files and other simple text formats.',
+  },
+  {
+    label: 'PyPDF',
+    value: 'pdf',
+    description: 'Extracts text from PDF documents using the PyPDF library. A lightweight option for well-structured PDFs with selectable text.',
+  },
+  {
+    label: KREUZBERG_READER_LABEL,
+    value: KREUZBERG_READER,
+    description: 'Extracts text from a wide range of document formats using the Kreuzberg library, with optional OCR support for scanned documents and images.',
+  },
+  {
+    label: LITEPARSE_READER_LABEL,
+    value: LITEPARSE_READER,
+    description: 'A fast, lightweight parser that extracts text from common office and document formats including PDF, DOCX, PPTX, XLSX, and images.',
+  },
+  {
+    label: SHAREPOINT_PAGE_READER_LABEL,
+    value: SHAREPOINT_PAGE_READER,
+    description: 'Reads SharePoint page content, preserving the HTML structure of the page for downstream processing.',
+  },
   {
     label: FLUID_TOPICS_STRUCTURED_READER_LABEL,
     value: FLUID_TOPICS_STRUCTURED_READER,
+    description: 'Reads pre-structured content from Fluid Topics, preserving the upstream document and chunk boundaries.',
   },
   {
     label: SOURCE_METADATA_READER_LABEL,
     value: SOURCE_METADATA_READER,
+    description: 'Reads content from a specified metadata field of the source, such as video transcriptions or other extracted properties.',
   },
 ]
 
@@ -178,6 +200,38 @@ export const chunkContentTypeOptions = [
   { label: 'Plain Text', value: 'plain_text' },
   { label: 'Markdown', value: 'markdown' },
   { label: 'HTML', value: 'html' },
+]
+
+export const indexingModeOptions = [
+  {
+    label: 'embedding its entire content',
+    menuLabel: 'Embedding entire content',
+    value: 'whole',
+    description:
+      'The entire chunk content is embedded as a single vector. Best when chunks are already small enough for the embedding model to capture their meaning in one pass.',
+  },
+  {
+    label: 'splitting content into parts',
+    menuLabel: 'Splitting content into parts',
+    value: 'fixed_parts',
+    description:
+      'The chunk content is divided into equal-length segments before indexing, each producing its own vector. Useful for large chunks where a single embedding may lose detail.',
+  },
+]
+
+export const indexingOverflowOptions = [
+  {
+    label: 'truncate to fit',
+    menuLabel: 'Truncate to fit',
+    value: 'truncate',
+    description: 'Content that exceeds the maximum size is cut off. Only the beginning of the chunk is embedded.',
+  },
+  {
+    label: 'split into parts',
+    menuLabel: 'Split into parts',
+    value: 'split',
+    description: 'Content that exceeds the maximum size is divided into equal-length segments, each producing its own vector.',
+  },
 ]
 
 export const chunkingStrategyOptions = [

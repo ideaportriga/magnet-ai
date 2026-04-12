@@ -22,6 +22,7 @@ from core.domain.knowledge_graph.services import (
 )
 from open_ai.utils_new import get_embeddings
 
+from ..chunk_indexing import get_indexing_config, prepare_embedding_parts
 from ..content_config_services import get_graph_embedding_model
 from ..content_split_services import split_content
 from ..models import ChunkerStrategy, ContentConfig, SourceType, SyncCounters
@@ -96,36 +97,61 @@ class AbstractDataSource(ABC):
         return str(sid) if sid else None
 
     async def _add_embeddings_to_chunks(
-        self, chunks: list[KnowledgeGraphChunk], embedding_model: str | None
-    ) -> None:
-        """Populate embedding vectors for each chunk using the given embedding model.
+        self,
+        chunks: list[KnowledgeGraphChunk],
+        embedding_model: str | None,
+        config: ContentConfig | None = None,
+    ) -> dict[int, list[tuple[str, list[float]]]]:
+        """Create embedding vectors for each chunk's content.
 
-        This mutates the provided chunks list in-place by setting `content_embedding`.
+        Vectors are stored exclusively in the per-graph vector table (not on
+        the chunk row itself).  The returned dict maps every chunk list-index
+        to its ``(text, vector)`` tuples so that the caller can forward them
+        to ``insert_vectors_bulk``.
+
+        Returns:
+            A mapping of chunk list-index → list of (part_text, part_vector).
         """
+        embedding_map: dict[int, list[tuple[str, list[float]]]] = {}
+
         if not chunks or not embedding_model:
-            return
+            return embedding_map
 
-        for chunk in chunks:
-            # Skip if embedding already present and non-empty
-            existing_embedding = chunk.content_embedding
-            if existing_embedding:
-                continue
+        # Resolve indexing configuration from the content profile.
+        chunker_options: dict[str, Any] = {}
+        chunk_max_size: int = 0
+        if config and isinstance(config.chunker, dict):
+            chunker_options = config.chunker.get("options") or {}
+            chunk_max_size = int(chunker_options.get("chunk_max_size", 0))
+        indexing_cfg = get_indexing_config(chunker_options)
 
+        for idx, chunk in enumerate(chunks):
             embedded_content = chunk.embedded_content or ""
             if not isinstance(embedded_content, str) or not embedded_content.strip():
                 continue
 
+            parts = prepare_embedding_parts(
+                embedded_content, chunk_max_size, indexing_cfg
+            )
+            if not parts:
+                continue
+
             try:
-                vector = await get_embeddings(
-                    text=embedded_content, model_system_name=embedding_model
-                )
-                chunk.content_embedding = vector
+                indexing_parts: list[tuple[str, list[float]]] = []
+                for part_text in parts:
+                    part_vector = await get_embeddings(
+                        text=part_text, model_system_name=embedding_model
+                    )
+                    indexing_parts.append((part_text, part_vector))
+                embedding_map[idx] = indexing_parts
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "Failed to create embedding for chunk with model %s: %s",
                     embedding_model,
                     exc,
                 )
+
+        return embedding_map
 
     async def _require_embedding_model(
         self, db_session: AsyncSession, *, graph_id: UUID | None = None
@@ -480,7 +506,9 @@ class AbstractDataSource(ABC):
             chunks_count = len(chunks_to_insert)
 
             # Enrich chunks with embeddings
-            await self._add_embeddings_to_chunks(chunks_to_insert, embedding_model)
+            multi_part_map = await self._add_embeddings_to_chunks(
+                chunks_to_insert, embedding_model, config=config
+            )
 
             # updated document title, summary and toc
             try:
@@ -521,8 +549,7 @@ class AbstractDataSource(ABC):
                     document_id=UUID(document["id"]),
                 )
 
-            # Resolve vector size so the chunk service can dual-write to the
-            # separate vector table alongside the legacy content_embedding column.
+            # Resolve vector size for the per-graph vector table.
             vec_size: int | None = None
             if embedding_model:
                 try:
@@ -538,6 +565,7 @@ class AbstractDataSource(ABC):
                 document=document,
                 chunks=chunks_to_insert,
                 vector_size=vec_size,
+                embedding_map=multi_part_map,
             )
 
             await self._update_document_status(

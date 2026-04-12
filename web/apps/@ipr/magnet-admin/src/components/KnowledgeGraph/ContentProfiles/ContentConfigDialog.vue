@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="dialogOpen" :persistent="!isReadonlyProfile && isDirty">
-    <q-card class="q-px-lg q-py-sm" style="min-width: 800px; max-width: 800px; height: 820px; display: flex; flex-direction: column">
+    <q-card class="q-px-lg q-py-sm" style="min-width: 900px; max-width: 900px; height: 820px; display: flex; flex-direction: column">
       <q-card-section>
         <div class="row items-center">
           <div class="col">
@@ -84,6 +84,9 @@
                   </kg-inline-field>
                 </template>
               </template>
+              <span class="chunking-strategy-description">
+                {{ selectedReaderDescription }}
+              </span>
             </div>
           </div>
 
@@ -118,56 +121,68 @@
                     </q-list>
                   </q-menu>
                 </kg-inline-field>
-                <span>strategy.</span>
+                <span>strategy with a chunk max size of</span>
+                <kg-inline-field tooltip="Maximum chunk size in characters">
+                  <input
+                    :value="form.chunker.options.chunk_max_size"
+                    class="kg-inline-field__input kg-inline-field__input--no-spinners"
+                    type="number"
+                    min="100"
+                    placeholder="18000"
+                    :style="{ width: chunkMaxSizeInputWidth }"
+                    @input="onChunkMaxSizeInput"
+                  >
+                </kg-inline-field>
+                <span>characters</span>
+                <template v-if="isRecursiveStrategy || isKreuzbergStrategy">
+                  <span>and an overlap of</span>
+                  <kg-inline-field tooltip="Percentage of overlap between consecutive chunks (0–90%)">
+                    <input
+                      :value="Math.round((form.chunker.options.recursive_chunk_overlap || 0) * 100)"
+                      class="kg-inline-field__input kg-inline-field__input--no-spinners"
+                      type="number"
+                      min="0"
+                      max="90"
+                      placeholder="10"
+                      :style="{ width: chunkOverlapInputWidth }"
+                      @input="onChunkOverlapInput"
+                    >
+                  </kg-inline-field>
+                  <span>%.</span>
+                </template>
+                <template v-else>
+                  <span>.</span>
+                </template>
               </template>
               <span v-if="!isReadonlyProfile && !isLockedNativeProfile" class="chunking-strategy-description">
                 {{ selectedChunkingStrategyDescription }}
               </span>
             </div>
 
-            <!-- Max Size + Chunk Overlap / Prompt Template -->
-            <div class="row q-col-gutter-md q-mt-xs">
-              <div class="col">
-                <div class="km-input-label q-pb-xs">Chunk Max Size (characters)</div>
-                <km-input v-model.number="form.chunker.options.chunk_max_size" :readonly="isReadonlyProfile" type="number" min="100" required />
-              </div>
-              <div v-if="!isLockedNativeProfile && !isReadonlyProfile && (isRecursiveStrategy || isKreuzbergStrategy)" class="col">
-                <div class="km-input-label q-pb-xs">Chunk Overlap (%)</div>
-                <div class="row items-center q-pr-sm" style="height: 36px">
-                  <q-slider
-                    v-model="form.chunker.options.recursive_chunk_overlap"
-                    :min="0"
-                    :max="0.9"
-                    :step="0.02"
-                    label
-                    :label-value="`${Math.round((form.chunker.options.recursive_chunk_overlap || 0) * 100)}%`"
-                  />
-                </div>
-              </div>
-              <div v-if="!isLockedNativeProfile && !isReadonlyProfile && (isLLMStrategy || isHtmlLlmStrategy)" class="col-grow" style="min-width: 0">
-                <div class="km-input-label q-pb-xs">Prompt Template</div>
-                <div class="row q-gap-8 no-wrap">
-                  <km-select
-                    v-model="form.chunker.options.prompt_template_system_name"
-                    placeholder="Select a prompt template"
-                    class="col-grow"
-                    :options="templateOptions"
-                    :loading="loadingTemplates"
-                    emit-value
-                    map-options
-                    option-value="system_name"
-                    option-label="name"
-                  />
-                  <q-btn
-                    v-if="form.chunker.options.prompt_template_system_name"
-                    flat
-                    dense
-                    icon="fa fa-external-link"
-                    color="secondary-text"
-                    size="sm"
-                    @click="openPromptTemplateInNewTab"
-                  />
-                </div>
+            <!-- Prompt Template (LLM / HTML LLM) -->
+            <div v-if="!isLockedNativeProfile && !isReadonlyProfile && (isLLMStrategy || isHtmlLlmStrategy)" class="q-mt-md">
+              <div class="km-input-label q-pb-xs">Prompt Template</div>
+              <div class="row q-gap-8 no-wrap">
+                <km-select
+                  v-model="form.chunker.options.prompt_template_system_name"
+                  placeholder="Select a prompt template"
+                  class="col-grow"
+                  :options="templateOptions"
+                  :loading="loadingTemplates"
+                  emit-value
+                  map-options
+                  option-value="system_name"
+                  option-label="name"
+                />
+                <q-btn
+                  v-if="form.chunker.options.prompt_template_system_name"
+                  flat
+                  dense
+                  icon="fa fa-external-link"
+                  color="secondary-text"
+                  size="sm"
+                  @click="openPromptTemplateInNewTab"
+                />
               </div>
             </div>
 
@@ -329,6 +344,94 @@
             </div>
           </div>
 
+          <!-- Chunk Indexing -->
+          <div class="q-mb-lg">
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunk Indexing</div>
+            <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure how chunk content is indexed for vector search.</div>
+            <div class="content-matching-sentence q-mt-md">
+              <template v-if="isReadonlyProfile">
+                <span>Chunks are indexed as a whole — the entire chunk content is embedded as a single vector.</span>
+              </template>
+              <template v-else-if="isLockedNativeProfile">
+                <span>Chunks are indexed as a whole — the entire chunk content is embedded as a single vector.</span>
+              </template>
+              <template v-else>
+                <span>Index each chunk by</span>
+                <kg-inline-field interactive>
+                  <span>{{ selectedIndexingModeLabel }}</span>
+                  <q-icon name="arrow_drop_down" size="16px" />
+                  <q-menu anchor="bottom left" self="top left" :offset="[0, 4]">
+                    <q-list dense style="min-width: 280px">
+                      <q-item
+                        v-for="option in indexingModeOptions"
+                        :key="option.value"
+                        v-close-popup
+                        clickable
+                        :active="form.chunker.options.indexing_mode === option.value"
+                        @click="form.chunker.options.indexing_mode = option.value"
+                      >
+                        <q-item-section>{{ option.menuLabel }}</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </kg-inline-field>
+                <template v-if="form.chunker.options.indexing_mode === 'whole'">
+                  <span>, but if it exceeds the maximum size -</span>
+                  <kg-inline-field interactive>
+                    <span>{{ selectedOverflowStrategyLabel }}</span>
+                    <q-icon name="arrow_drop_down" size="16px" />
+                    <q-menu anchor="bottom left" self="top left" :offset="[0, 4]">
+                      <q-list dense style="min-width: 220px">
+                        <q-item
+                          v-for="option in indexingOverflowOptions"
+                          :key="option.value"
+                          v-close-popup
+                          clickable
+                          :active="form.chunker.options.indexing_overflow_strategy === option.value"
+                          @click="form.chunker.options.indexing_overflow_strategy = option.value"
+                        >
+                          <q-item-section>{{ option.menuLabel }}</q-item-section>
+                        </q-item>
+                      </q-list>
+                    </q-menu>
+                  </kg-inline-field>
+                </template>
+                <template v-if="showIndexingPartSize">
+                  <span>with a fixed size of</span>
+                  <kg-inline-field tooltip="Size of each part in characters. Must be less than chunk max size.">
+                    <input
+                      :value="form.chunker.options.indexing_part_size"
+                      class="kg-inline-field__input kg-inline-field__input--no-spinners"
+                      type="number"
+                      min="1"
+                      :max="(form.chunker.options.chunk_max_size || 1) - 1"
+                      placeholder="500"
+                      :style="{ width: indexingPartSizeInputWidth }"
+                      @input="onIndexingPartSizeInput"
+                    >
+                  </kg-inline-field>
+                  <span>characters and an overlap of</span>
+                  <kg-inline-field tooltip="Percentage of overlap between consecutive parts (0–90%)">
+                    <input
+                      :value="Math.round((form.chunker.options.indexing_part_overlap || 0) * 100)"
+                      class="kg-inline-field__input kg-inline-field__input--no-spinners"
+                      type="number"
+                      min="0"
+                      max="90"
+                      placeholder="0"
+                      :style="{ width: indexingPartOverlapInputWidth }"
+                      @input="onIndexingPartOverlapInput"
+                    >
+                  </kg-inline-field>
+                  <span>%.</span>
+                </template>
+              </template>
+              <span v-if="!isReadonlyProfile && !isLockedNativeProfile" class="chunking-strategy-description">
+                {{ combinedIndexingDescription }}
+              </span>
+            </div>
+          </div>
+
           <!-- Document Level Settings -->
           <div class="q-mb-lg">
             <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Document Level Settings</div>
@@ -391,6 +494,8 @@ import type { ContentConfigRow } from './models'
 import {
   chunkContentTypeOptions,
   chunkingStrategyOptions,
+  indexingModeOptions,
+  indexingOverflowOptions,
   FLUID_TOPICS_NATIVE_PROFILE_NAME,
   FLUID_TOPICS_SOURCE_TYPE,
   FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_KEY,
@@ -504,6 +609,10 @@ const applyReadonlyFallbackConstraints = (target: ReturnType<typeof getDefaultFo
       document_title_pattern: '',
       chunk_title_pattern: '',
       chunk_content_type: 'plain_text',
+      indexing_mode: 'whole',
+      indexing_overflow_strategy: 'truncate',
+      indexing_part_size: 500,
+      indexing_part_overlap: 0,
     },
   }
 }
@@ -588,6 +697,21 @@ const metadataFieldInputWidth = computed(() => {
   return `${value.length + 1}ch`
 })
 
+const chunkMaxSizeInputWidth = computed(() => {
+  const value = String(form.value.chunker.options.chunk_max_size || '')
+  if (!value) {
+    return '6ch'
+  }
+  return `${value.length + 1}ch`
+})
+const chunkOverlapInputWidth = computed(() => {
+  const value = String(Math.round((form.value.chunker.options.recursive_chunk_overlap || 0) * 100))
+  if (!value || value === '0') {
+    return '2ch'
+  }
+  return `${value.length + 1}ch`
+})
+
 const getDefaultForm = () => ({
   name: '',
   enabled: true,
@@ -616,6 +740,11 @@ const getDefaultForm = () => ({
       chunk_title_pattern: '',
       // Chunk content type
       chunk_content_type: 'plain_text',
+      // Chunk indexing settings
+      indexing_mode: 'whole',
+      indexing_overflow_strategy: 'truncate',
+      indexing_part_size: 500,
+      indexing_part_overlap: 0,
     },
   },
 })
@@ -638,6 +767,10 @@ const selectedReaderLabel = computed(() => {
   const option = readerOptions.find((o) => o.value === form.value.reader.name)
   return option?.label ?? form.value.reader.name
 })
+const selectedReaderDescription = computed(() => {
+  const option = readerOptions.find((o) => o.value === form.value.reader.name)
+  return option?.description || ''
+})
 const selectedStrategyLabel = computed(() => {
   const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
   return option?.label ?? form.value.chunker.strategy
@@ -658,6 +791,44 @@ const selectedChunkingStrategyDescription = computed(() => {
 
   const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
   return option?.description || ''
+})
+const selectedIndexingModeLabel = computed(() => {
+  const option = indexingModeOptions.find((o) => o.value === form.value.chunker.options.indexing_mode)
+  return option?.label ?? form.value.chunker.options.indexing_mode
+})
+const selectedOverflowStrategyLabel = computed(() => {
+  const option = indexingOverflowOptions.find((o) => o.value === form.value.chunker.options.indexing_overflow_strategy)
+  return option?.label ?? form.value.chunker.options.indexing_overflow_strategy
+})
+const combinedIndexingDescription = computed(() => {
+  const modeOption = indexingModeOptions.find((o) => o.value === form.value.chunker.options.indexing_mode)
+  const modeDesc = modeOption?.description || ''
+  if (form.value.chunker.options.indexing_mode !== 'whole') {
+    return modeDesc
+  }
+  const overflowOption = indexingOverflowOptions.find((o) => o.value === form.value.chunker.options.indexing_overflow_strategy)
+  const overflowDesc = overflowOption?.description || ''
+  return [modeDesc, overflowDesc].filter(Boolean).join(' ')
+})
+const showIndexingPartSize = computed(() => {
+  return (
+    form.value.chunker.options.indexing_mode === 'fixed_parts' ||
+    (form.value.chunker.options.indexing_mode === 'whole' && form.value.chunker.options.indexing_overflow_strategy === 'split')
+  )
+})
+const indexingPartSizeInputWidth = computed(() => {
+  const value = String(form.value.chunker.options.indexing_part_size || '')
+  if (!value) {
+    return '4ch'
+  }
+  return `${value.length + 1}ch`
+})
+const indexingPartOverlapInputWidth = computed(() => {
+  const value = String(Math.round((form.value.chunker.options.indexing_part_overlap || 0) * 100))
+  if (!value || value === '0') {
+    return '2ch'
+  }
+  return `${value.length + 1}ch`
 })
 
 const validateReservedProfileName = (value: string) => {
@@ -740,6 +911,59 @@ const cancelAddSplitter = () => {
   showNewSplitterInput.value = false
 }
 
+const onChunkMaxSizeInput = (event: Event) => {
+  const inputEl = event.target as HTMLInputElement
+  const rawValue = inputEl.value.trim()
+  if (rawValue === '') {
+    form.value.chunker.options.chunk_max_size = ''
+    return
+  }
+  const raw = Number(rawValue)
+  const clamped = Math.max(100, raw || 100)
+  form.value.chunker.options.chunk_max_size = clamped
+  inputEl.value = String(clamped)
+}
+
+const onChunkOverlapInput = (event: Event) => {
+  const inputEl = event.target as HTMLInputElement
+  const rawValue = inputEl.value.trim()
+  if (rawValue === '') {
+    form.value.chunker.options.recursive_chunk_overlap = 0
+    return
+  }
+  const raw = Number(rawValue)
+  const clamped = Math.max(0, Math.min(raw || 0, 90))
+  form.value.chunker.options.recursive_chunk_overlap = clamped / 100
+  inputEl.value = String(clamped)
+}
+
+const onIndexingPartSizeInput = (event: Event) => {
+  const inputEl = event.target as HTMLInputElement
+  const rawValue = inputEl.value.trim()
+  if (rawValue === '') {
+    form.value.chunker.options.indexing_part_size = ''
+    return
+  }
+  const raw = Number(rawValue)
+  const maxAllowed = (Number(form.value.chunker.options.chunk_max_size) || 1) - 1
+  const clamped = Math.max(1, Math.min(raw || 1, maxAllowed))
+  form.value.chunker.options.indexing_part_size = clamped
+  inputEl.value = String(clamped)
+}
+
+const onIndexingPartOverlapInput = (event: Event) => {
+  const inputEl = event.target as HTMLInputElement
+  const rawValue = inputEl.value.trim()
+  if (rawValue === '') {
+    form.value.chunker.options.indexing_part_overlap = 0
+    return
+  }
+  const raw = Number(rawValue)
+  const clamped = Math.max(0, Math.min(raw || 0, 90))
+  form.value.chunker.options.indexing_part_overlap = clamped / 100
+  inputEl.value = String(clamped)
+}
+
 const initForm = () => {
   isHydratingForm.value = true
   if (props.config) {
@@ -760,6 +984,10 @@ const initForm = () => {
       document_title_pattern: chunkerOptions.document_title_pattern || '',
       chunk_title_pattern: chunkerOptions.chunk_title_pattern || '',
       chunk_content_type: chunkerOptions.chunk_content_type || 'plain_text',
+      indexing_mode: chunkerOptions.indexing_mode || 'whole',
+      indexing_overflow_strategy: chunkerOptions.indexing_overflow_strategy || 'truncate',
+      indexing_part_size: chunkerOptions.indexing_part_size ?? 500,
+      indexing_part_overlap: chunkerOptions.indexing_part_overlap ?? 0,
     }
 
     // Backward compatibility:
@@ -933,5 +1161,15 @@ watch(
   background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
   border: 1px solid rgba(var(--q-primary-rgb, 25, 118, 210), 0.2);
   border-radius: 4px;
+}
+
+.kg-inline-field__input--no-spinners::-webkit-outer-spin-button,
+.kg-inline-field__input--no-spinners::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.kg-inline-field__input--no-spinners {
+  -moz-appearance: textfield;
 }
 </style>

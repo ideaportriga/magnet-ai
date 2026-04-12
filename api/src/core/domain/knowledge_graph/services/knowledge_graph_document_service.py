@@ -103,7 +103,6 @@ class KnowledgeGraphDocumentService:
             md,
             ch_table,
             docs_table=docs_table,
-            vector_size=None,
         )
         sources_tbl = KnowledgeGraphSource.__table__
 
@@ -176,7 +175,6 @@ class KnowledgeGraphDocumentService:
             md,
             ch_table,
             docs_table=docs_table,
-            vector_size=None,
         )
 
         chunks_count_sq = (
@@ -702,7 +700,6 @@ class KnowledgeGraphDocumentService:
             md,
             ch_table,
             docs_table=docs_table,
-            vector_size=None,
         )
 
         # Explicitly delete chunks first

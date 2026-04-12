@@ -226,9 +226,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             await doc_svc.create_table(
                 db_session, graph_id=created.id, vector_size=vector_size
             )
-            await ch_svc.create_table(
-                db_session, graph_id=created.id, vector_size=vector_size
-            )
+            await ch_svc.create_table(db_session, graph_id=created.id)
             vec_svc = vector_service or KnowledgeGraphVectorService()
             await vec_svc.create_table(
                 db_session, graph_id=created.id, vector_size=vector_size
@@ -328,9 +326,7 @@ class KnowledgeGraphService(service.SQLAlchemyAsyncRepositoryService[KnowledgeGr
             await doc_svc.create_table(
                 db_session, graph_id=graph_id, vector_size=vector_size
             )
-            await ch_svc.create_table(
-                db_session, graph_id=graph_id, vector_size=vector_size
-            )
+            await ch_svc.create_table(db_session, graph_id=graph_id)
             vec_svc = vector_service or KnowledgeGraphVectorService()
             await vec_svc.create_table(
                 db_session, graph_id=graph_id, vector_size=vector_size

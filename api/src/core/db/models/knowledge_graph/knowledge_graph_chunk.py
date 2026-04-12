@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any, Mapping
 from uuid import UUID
 
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Column,
     DateTime,
@@ -52,7 +51,6 @@ class KnowledgeGraphChunk:
     # TODO: remove this field, it was replaced by Content Profile's content type field
     content_format: str | None = None
     embedded_content: str | None = None
-    content_embedding: list[float] | None = None
 
     # Audit
     created_at: datetime | None = None
@@ -74,7 +72,6 @@ class KnowledgeGraphChunk:
             "content": self.content,
             "content_format": self.content_format,
             "embedded_content": self.embedded_content,
-            "content_embedding": self.content_embedding,
             "created_at": self.created_at.isoformat()
             if self.created_at is not None
             else None,
@@ -91,9 +88,6 @@ class KnowledgeGraphChunk:
         name_val = row.get("name")
         name = str(name_val) if name_val is not None else ""
 
-        embedding_val = row.get("content_embedding")
-        embedding = embedding_val if isinstance(embedding_val, list) else None
-
         return cls(
             id=to_uuid(row.get("id")),
             document_id=to_uuid(row.get("document_id")),
@@ -106,7 +100,6 @@ class KnowledgeGraphChunk:
             content=row.get("content"),
             content_format=row.get("content_format"),
             embedded_content=row.get("embedded_content"),
-            content_embedding=embedding,
             chunk_type=row.get("chunk_type"),
             created_at=row.get("created_at"),
             updated_at=row.get("updated_at"),
@@ -114,11 +107,10 @@ class KnowledgeGraphChunk:
 
 
 def knowledge_graph_chunk_table(
-    metadata: MetaData, chunks_table: str, *, docs_table: str, vector_size: int | None
+    metadata: MetaData, chunks_table: str, *, docs_table: str
 ) -> Table:
     """Internal SQLAlchemy Core `Table` builder for per-graph chunks table."""
 
-    vector_type = Vector(int(vector_size)) if vector_size is not None else Vector()
     return Table(
         chunks_table,
         metadata,
@@ -137,7 +129,6 @@ def knowledge_graph_chunk_table(
         Column("content", Text, nullable=True),
         Column("content_format", String(100), nullable=True),
         Column("embedded_content", Text, nullable=True),
-        Column("content_embedding", vector_type, nullable=True),
         Column("chunk_type", String(50), nullable=True),
         Column(
             "document_id",

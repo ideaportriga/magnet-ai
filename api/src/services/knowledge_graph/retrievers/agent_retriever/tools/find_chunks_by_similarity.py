@@ -19,7 +19,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.domain.knowledge_graph.services import KnowledgeGraphChunkService
+from core.db.models.knowledge_graph import resolve_vector_size_for_embedding_model
+from core.domain.knowledge_graph.services import KnowledgeGraphVectorService
 from open_ai.utils_new import get_embeddings
 from services.observability import observability_context, observe
 from services.observability.models import SpanType
@@ -88,9 +89,11 @@ async def findChunksBySimilarity(
         },
     )
     vec = await get_embeddings(q, embedding_model)
-    chunks = await KnowledgeGraphChunkService().search_chunks(
+    vector_size = await resolve_vector_size_for_embedding_model(embedding_model)
+    chunks = await KnowledgeGraphVectorService().search_vectors(
         db_session,
         graph_id=graph_id,
+        vector_size=vector_size,
         query_vector=vec,
         limit=limit,
         only_doc_ids=doc_filter_ids if doc_filter_ids else None,
