@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.7](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.6...v0.7.0-dev.7) (2026-04-13)
+
+### 🐛 Bug Fixes
+
+* **knowledge-sources:** fixed long running fluid topics syncs by adding ([2de2d4b](https://github.com/ideaportriga/magnet-ai/commit/2de2d4ba385fc480ee3cc78320790677d64c8c28))
+
 ## [0.7.0-dev.6](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.5...v0.7.0-dev.6) (2026-04-09)
 
 ### ✨ Features
