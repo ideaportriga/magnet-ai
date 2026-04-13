@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import logging
 import re
 import uuid
@@ -738,7 +739,15 @@ class HtmlLlmChunker(AbstractChunker):
                         title = heading.get_text(strip=True)
                         break
 
-            generated_id = "html_block_" + "+".join(group)
+            # TODO: make generated_id simplier, remove hashing
+            raw_generated_id = "html_block_" + "+".join(group)
+            if len(raw_generated_id) > 1000:
+                generated_id = (
+                    "html_block_"
+                    + hashlib.sha256(raw_generated_id.encode()).hexdigest()
+                )
+            else:
+                generated_id = raw_generated_id
 
             chunk = KnowledgeGraphChunk(
                 generated_id=generated_id,
