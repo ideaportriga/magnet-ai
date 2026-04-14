@@ -6,7 +6,7 @@
       .km-heading-7.logo-text.q-ml-sm {{ t.magnetAi }}
 
     //- Local auth form
-    .full-width.q-mb-md(v-if='!mfaRequired')
+    .full-width.q-mb-md(v-if='!mfaRequired && localEnabled')
       q-form.q-gutter-sm(@submit.prevent='handleLogin')
         q-input(
           v-model='email',
@@ -75,23 +75,23 @@
       a.text-caption.cursor-pointer.text-primary.q-mt-sm(tabindex='0', role='button', @click='mfaRequired = false; errorMessage = ""', @keydown.enter='mfaRequired = false; errorMessage = ""') {{ t.backToLogin }}
 
     //- OAuth/OIDC providers divider
-    template(v-if='providers.length > 0 && !mfaRequired')
-      .row.items-center.full-width.q-my-md
+    template(v-if='ssoProviders.length > 0 && !mfaRequired')
+      .row.items-center.full-width.q-my-md(v-if='localEnabled')
         q-separator.col
         .text-caption.q-mx-sm.text-grey {{ t.orContinueWith }}
         q-separator.col
 
       .column.q-gutter-sm.full-width
         q-btn.full-width(
-          v-for='provider in providers',
-          :key='provider',
+          v-for='provider in ssoProviders',
+          :key='provider.name || provider',
           outline,
           no-caps,
-          @click='handleProvider(provider)',
-          :loading='oauthInProgress === provider'
+          @click='handleProvider(provider.name || provider)',
+          :loading='oauthInProgress === (provider.name || provider)'
         )
           .row.items-center.justify-center.q-gutter-sm
-            img(v-if='providerIcon(provider)', :src='providerIcon(provider)', width='18', height='18')
+            img(v-if='providerIcon(provider.name || provider)', :src='providerIcon(provider.name || provider)', width='18', height='18')
             span {{ providerButtonLabel(provider) }}
 </template>
 
@@ -133,7 +133,7 @@ interface AuthLoginClient {
 
 const props = withDefaults(defineProps<{
   authClient: AuthLoginClient
-  providers?: string[]
+  providers?: Array<string | { name: string; type: string; displayName?: string }>
   signupEnabled?: boolean
   /** i18n labels — pass translated strings to override English defaults */
   t?: Record<string, string>
@@ -144,6 +144,13 @@ const props = withDefaults(defineProps<{
 })
 
 const t = computed(() => ({ ...DEFAULT_T, ...props.t }))
+
+const localEnabled = computed(() =>
+  props.providers.some(p => (typeof p === 'string' ? p : p.name) === 'local')
+)
+const ssoProviders = computed(() =>
+  props.providers.filter(p => (typeof p === 'string' ? p : p.name) !== 'local')
+)
 
 const emit = defineEmits<{
   success: []
@@ -159,15 +166,19 @@ const loginInProgress = ref(false)
 const oauthInProgress = ref<string | null>(null)
 const errorMessage = ref('')
 
-function providerButtonLabel(provider: string): string {
-  const labels: Record<string, string> = {
+function providerButtonLabel(provider: string | { name: string; displayName?: string }): string {
+  const name = typeof provider === 'string' ? provider : provider.name
+  const display = typeof provider === 'object' && provider.displayName
+    ? provider.displayName
+    : null
+  const fallbackLabels: Record<string, string> = {
     microsoft: 'Microsoft',
     oracle: 'Oracle',
     google: 'Google',
     github: 'GitHub',
   }
-  const label = labels[provider] || provider
-  if (oauthInProgress.value === provider) return t.value.loggingInWith.replace('{provider}', label)
+  const label = display || fallbackLabels[name] || name
+  if (oauthInProgress.value === name) return t.value.loggingInWith.replace('{provider}', label)
   return t.value.loginWith.replace('{provider}', label)
 }
 

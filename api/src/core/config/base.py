@@ -387,6 +387,19 @@ class AuthSettings:
     AUTH_ENABLED: bool = field(default_factory=get_env("AUTH_ENABLED", False))
     """Enable authentication."""
 
+    AUTH_PROVIDERS: str = field(default_factory=get_env("AUTH_PROVIDERS", ""))
+    """Comma-separated list of enabled auth providers.
+    Special values:
+    - 'local' — email/password login
+    - 'microsoft', 'google', 'github' — pre-configured SSO
+    - any other name — matched against OIDC_{NAME}_* env vars
+
+    If empty (default), built-in providers with valid credentials are enabled
+    plus 'local' is implicitly included. Generic OIDC providers discovered
+    via OIDC_{NAME}_* require explicit inclusion in AUTH_PROVIDERS.
+    Examples: 'local,microsoft', 'microsoft', 'local,microsoft,keycloak'
+    """
+
     SECRET_KEY: str = field(default_factory=get_env("SECRET_KEY", ""))
     """Secret key for signing internal JWT tokens (HS256).
     Separate from SECRET_ENCRYPTION_KEY which is used for encrypting data at rest.

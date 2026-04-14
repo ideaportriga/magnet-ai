@@ -34,7 +34,11 @@ from core.config.app import alchemy
 from core.config.base import get_auth_settings
 from middlewares.auth import Auth
 from services.auth.identity_resolution import resolve_identity
-from services.auth.provider_registry import get_provider, get_provider_names
+from services.auth.provider_registry import (
+    get_provider,
+    get_provider_info,
+    is_local_enabled,
+)
 from services.auth.session_service import create_access_token, create_session
 from services.users import auth_service, mfa_service, refresh_token_service
 from utils.cookies import clear_auth_cookies, set_auth_cookies, set_auth_cookies_asgi
@@ -109,7 +113,8 @@ class ResetPasswordRequest(BaseModel):
 
 class ProviderInfo(BaseModel):
     name: str
-    type: str  # 'oidc', 'oauth2'
+    type: str  # 'local', 'oidc', 'oauth2'
+    displayName: str = ""
 
 
 # --- Controller ---
@@ -134,18 +139,15 @@ class AuthV2Controller(Controller):
 
     @get("/providers", exclude_from_auth=True, summary="List enabled auth providers")
     async def list_providers(self) -> list[ProviderInfo]:
-        """Return the list of enabled SSO providers for the login UI."""
-        names = get_provider_names()
-        result = []
-        for name in names:
-            ptype = "oauth2" if name == "github" else "oidc"
-            result.append(ProviderInfo(name=name, type=ptype))
-        return result
+        """Return the list of enabled auth providers for the login UI."""
+        return [ProviderInfo(**p) for p in get_provider_info()]
 
     # ── Local Auth ──────────────────────────────────────────────────────
 
     @post("/login", exclude_from_auth=True, summary="Login with email and password")
     async def login(self, data: LoginRequest, request: Request) -> Response:
+        if not is_local_enabled():
+            raise ClientException("Email/password login is disabled")
         device_info = request.headers.get("user-agent")
 
         async with alchemy.get_session() as session:
@@ -208,6 +210,8 @@ class AuthV2Controller(Controller):
 
     @post("/signup", exclude_from_auth=True, summary="Register a new local user")
     async def signup(self, data: SignupRequest) -> SignupResponse:
+        if not is_local_enabled():
+            raise ClientException("Email/password signup is disabled")
         async with alchemy.get_session() as session:
             user = await auth_service.signup(
                 session=session,
@@ -542,6 +546,8 @@ class AuthV2Controller(Controller):
 
     @post("/mfa/verify", exclude_from_auth=True, summary="Verify MFA during login")
     async def mfa_verify(self, request: Request, data: MfaVerifyRequest) -> Response:
+        if not is_local_enabled():
+            raise ClientException("Email/password login is disabled")
         mfa_cookie = request.cookies.get("mfa_challenge")
         if not mfa_cookie:
             raise NotAuthorizedException("MFA challenge not found — please login first")
@@ -631,6 +637,8 @@ class AuthV2Controller(Controller):
 
     @post("/password/forgot", exclude_from_auth=True, summary="Request password reset")
     async def forgot_password(self, data: ForgotPasswordRequest) -> dict:
+        if not is_local_enabled():
+            raise ClientException("Password reset is disabled")
         # Always return success to prevent email enumeration
         logger.info("Password reset requested for %s", data.email)
 
@@ -675,6 +683,8 @@ class AuthV2Controller(Controller):
         "/password/reset", exclude_from_auth=True, summary="Reset password with token"
     )
     async def reset_password(self, data: ResetPasswordRequest) -> dict:
+        if not is_local_enabled():
+            raise ClientException("Password reset is disabled")
         import hashlib
 
         from services.users.password import hash_password_async

@@ -77,7 +77,16 @@ export default {
     const authPage = ref('login')
 
     const authClient = computed(() => auth.client.value)
-    const authProviders = computed(() => appStore.config?.auth?.providers || [])
+    const authProviders = ref([])
+
+    async function loadProviders() {
+      if (authClient.value) {
+        try {
+          const list = await authClient.value.getProviders()
+          authProviders.value = list
+        } catch { /* providers endpoint unavailable — hide SSO buttons */ }
+      }
+    }
 
     const hasAdminAccess = computed(() => {
       const userInfo = sharedAuth.userInfo
@@ -144,6 +153,7 @@ export default {
     // Check if user already has a valid session (cookie)
     if (this.authEnabled) {
       await this.getAuthData()
+      await loadProviders()
     }
 
     this.initialLoading = false

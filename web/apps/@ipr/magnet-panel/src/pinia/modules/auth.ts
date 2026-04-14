@@ -4,7 +4,7 @@ import { createAuthClient, type AuthClient, type UserInfo } from '@shared/auth'
 type AuthConfig = {
   enabled: boolean
   provider: string
-  providers?: string[]
+  providers?: Array<string | { name: string; type: string; displayName?: string }>
   signupEnabled?: boolean
   popup: {
     width: string
@@ -60,7 +60,16 @@ const useAuth = defineStore('auth', {
 
       if (this.authEnabled) {
         await this.getAuthData()
+        await this.loadProviders()
       }
+    },
+
+    async loadProviders() {
+      if (!this.client) return
+      try {
+        const list = await this.client.getProviders()
+        this.authConfig.providers = list
+      } catch { /* providers endpoint unavailable */ }
     },
 
     async getAuthData() {

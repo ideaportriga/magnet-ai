@@ -14,13 +14,6 @@ def build_config():
         "admin": {"baseUrl": "/admin/"},
     }
 
-    if config["auth"]["enabled"]:
-        config["auth"]["provider"] = os.getenv("WEB_AUTH_PROVIDER_TITLE", "Microsoft")
-        config["auth"]["popup"] = {
-            "width": int(os.getenv("WEB_AUTH_POPUP_WIDTH", "600")),
-            "height": int(os.getenv("WEB_AUTH_POPUP_HEIGHT", "400")),
-        }
-
     return config
 
 
