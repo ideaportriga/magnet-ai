@@ -158,7 +158,9 @@ def job_missed_listener(event):
     )
 
 
-def _patch_scheduler_wakeup(scheduler: AsyncIOScheduler) -> None:
+def _patch_scheduler_wakeup(
+    scheduler: AsyncIOScheduler, loop: asyncio.AbstractEventLoop
+) -> None:
     """Patch AsyncIOScheduler.wakeup so that _process_jobs runs in a thread.
 
     APScheduler 3.x calls SQLAlchemyJobStore methods (get_due_jobs, update_job,
@@ -167,12 +169,15 @@ def _patch_scheduler_wakeup(scheduler: AsyncIOScheduler) -> None:
 
     This patch replaces that with an async version that offloads the call to a
     dedicated ThreadPoolExecutor.
+
+    The patched wakeup is also thread-safe: when called from a worker thread
+    (e.g. after scheduler.add_job() in _scheduler_thread_pool), it uses
+    call_soon_threadsafe to schedule the async wakeup on the event loop.
     """
 
     async def _async_wakeup():
         scheduler._stop_timer()
         try:
-            loop = asyncio.get_running_loop()
             wait_seconds = await loop.run_in_executor(
                 _scheduler_thread_pool, scheduler._process_jobs
             )
@@ -182,7 +187,13 @@ def _patch_scheduler_wakeup(scheduler: AsyncIOScheduler) -> None:
         scheduler._start_timer(wait_seconds)
 
     def _patched_wakeup():
-        asyncio.ensure_future(_async_wakeup())
+        try:
+            # Fast path: called from the event loop thread.
+            asyncio.ensure_future(_async_wakeup())
+        except RuntimeError:
+            # Called from a worker thread (e.g. scheduler thread pool after
+            # add_job/remove_job).  Schedule on the main event loop.
+            loop.call_soon_threadsafe(lambda: asyncio.ensure_future(_async_wakeup()))
 
     scheduler.wakeup = _patched_wakeup
 
@@ -261,7 +272,7 @@ async def create_scheduler() -> AsyncIOScheduler:
     # APScheduler 3.x AsyncIOScheduler calls sync SQLAlchemy jobstore methods
     # directly from the event loop in _process_jobs(), which blocks all async I/O.
     # This patch offloads those sync DB calls to a dedicated thread.
-    _patch_scheduler_wakeup(scheduler)
+    _patch_scheduler_wakeup(scheduler, asyncio.get_running_loop())
 
     logger.info("Starting scheduler...")
     scheduler.start()
