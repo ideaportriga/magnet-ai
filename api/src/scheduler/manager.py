@@ -220,9 +220,20 @@ async def create_scheduler() -> AsyncIOScheduler:
     # Get engine options from scheduler settings
     engine_options = scheduler_settings.get_engine_options()
 
-    # Add database-specific connect_args
+    # Add database-specific connect_args with TCP keepalive to detect dead
+    # connections quickly.  Without keepalive, a silently-dropped TCP connection
+    # causes synchronous pre-ping / query calls to hang for the OS TCP
+    # retransmit timeout (~15 min on Linux), which blocks the scheduler thread.
     if "postgresql" in sync_connection_string:
-        engine_options["connect_args"] = {"application_name": "magnetui_scheduler"}
+        engine_options["connect_args"] = {
+            "application_name": "magnetui_scheduler",
+            "connect_timeout": 10,
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 3,
+            "options": "-c statement_timeout=30000",
+        }
 
     logger.info(
         f"Configuring scheduler jobstore with pool_size={scheduler_settings.SCHEDULER_POOL_SIZE}, "

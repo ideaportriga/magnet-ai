@@ -96,8 +96,8 @@ class FileUploadSyncPipeline(
     async def _content_fetch_worker(
         self, ctx: FileUploadPipelineContext, worker_id: int
     ) -> None:
-        async with async_session_maker() as session:
-            async for task in ctx.iter_content_fetch_tasks():
+        async for task in ctx.iter_content_fetch_tasks():
+            async with async_session_maker() as session:
                 filename = str(task.filename or "").strip()
                 if not filename:
                     await ctx.inc("skipped")
@@ -165,8 +165,8 @@ class FileUploadSyncPipeline(
     async def _document_processing_worker(
         self, ctx: FileUploadPipelineContext, worker_id: int
     ) -> None:
-        async with async_session_maker() as session:
-            async for task in ctx.iter_document_processing_tasks():
+        async for task in ctx.iter_document_processing_tasks():
+            async with async_session_maker() as session:
                 doc_name = str(task.document.get("name") or "").strip()
                 try:
                     await self._source.process_document(

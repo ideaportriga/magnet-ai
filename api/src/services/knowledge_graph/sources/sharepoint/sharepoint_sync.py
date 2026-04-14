@@ -210,8 +210,8 @@ class SharePointSyncPipeline(
 
         sp_ctx = await create_sharepoint_context(self._sharepoint_config)
 
-        async with async_session_maker() as session:
-            async for task in ctx.iter_content_fetch_tasks():
+        async for task in ctx.iter_content_fetch_tasks():
+            async with async_session_maker() as session:
                 filename = ""
                 try:
                     file_ref = task.file
@@ -441,8 +441,8 @@ class SharePointSyncPipeline(
             extra=self._log_extra(worker_id=worker_id),
         )
 
-        async with async_session_maker() as session:
-            async for task in ctx.iter_document_processing_tasks():
+        async for task in ctx.iter_document_processing_tasks():
+            async with async_session_maker() as session:
                 doc_name = str(task.document.get("name") or "").strip()
                 try:
                     await self._source.process_document(

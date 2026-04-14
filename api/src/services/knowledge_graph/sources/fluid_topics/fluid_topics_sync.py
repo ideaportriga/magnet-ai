@@ -366,8 +366,8 @@ class FluidTopicsSyncPipeline(
                     out[key] = v
             return out
 
-        async with async_session_maker() as session:
-            async for task in ctx.iter_content_fetch_tasks():
+        async for task in ctx.iter_content_fetch_tasks():
+            async with async_session_maker() as session:
                 try:
                     if isinstance(task, FluidTopicsMapFetchTask):
                         map_id = task.id
@@ -724,8 +724,8 @@ class FluidTopicsSyncPipeline(
             extra=self._log_extra(worker_id=worker_id),
         )
 
-        async with async_session_maker() as session:
-            async for task in ctx.iter_document_processing_tasks():
+        async for task in ctx.iter_document_processing_tasks():
+            async with async_session_maker() as session:
                 doc_name = str(task.document.get("name") or "").strip()
                 filename_fallback_title = (
                     PurePath(doc_name).stem if doc_name else doc_name

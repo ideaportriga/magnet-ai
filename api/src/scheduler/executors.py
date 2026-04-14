@@ -129,12 +129,25 @@ async def execute_sync_collection(**kwargs):
 
         collection_id = await get_ids_by_system_names(system_name, "collections")
         if not collection_id:
-            # Collection was deleted — remove the job so it doesn't keep retrying
-            from scheduler.manager import get_global_scheduler
+            # Collection was deleted — remove the job so it doesn't keep retrying.
+            # Offloaded to thread pool to avoid blocking the event loop on sync
+            # jobstore operations (APScheduler 3.x SQLAlchemyJobStore is sync).
+            from scheduler.manager import (
+                _scheduler_thread_pool,
+                get_global_scheduler,
+            )
 
             scheduler = get_global_scheduler()
-            if scheduler and scheduler.get_job(job_id):
-                scheduler.remove_job(job_id)
+            loop = asyncio.get_running_loop()
+            job_exists = await loop.run_in_executor(
+                _scheduler_thread_pool,
+                lambda: scheduler.get_job(job_id) if scheduler else None,
+            )
+            if job_exists:
+                await loop.run_in_executor(
+                    _scheduler_thread_pool,
+                    lambda: scheduler.remove_job(job_id),
+                )
                 logger.warning(
                     f"Removed recurring job {job_id}: collection '{system_name}' no longer exists"
                 )
