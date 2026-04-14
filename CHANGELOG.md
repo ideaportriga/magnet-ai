@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.9](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.8...v0.7.0-dev.9) (2026-04-14)
+
+### 🐛 Bug Fixes
+
+* fixed regression after previous atempt to fix app freezes ([9906b0c](https://github.com/ideaportriga/magnet-ai/commit/9906b0c2f8ff988015b5a764ace339e102cc353c))
+
 ## [0.7.0-dev.8](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.7...v0.7.0-dev.8) (2026-04-14)
 
 ### 🐛 Bug Fixes
