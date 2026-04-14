@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.12](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.11...v0.7.0-alpha.12) (2026-04-14)
+
+### 🐛 Bug Fixes
+
+* remove old authentification code ([43003cd](https://github.com/ideaportriga/magnet-ai/commit/43003cd5f0f63eb6e1f10af84e7aa582bb6461c1))
+
 ## [0.7.0-alpha.11](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.10...v0.7.0-alpha.11) (2026-04-08)
 
 ### 🐛 Bug Fixes
