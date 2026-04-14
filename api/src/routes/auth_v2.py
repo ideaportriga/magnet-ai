@@ -32,7 +32,7 @@ from pydantic import BaseModel, Field
 
 from core.config.app import alchemy
 from core.config.base import get_auth_settings
-from middlewares.auth import Auth
+from middlewares.auth import Auth, ensure_request_auth_data
 from services.auth.identity_resolution import resolve_identity
 from services.auth.provider_registry import (
     get_provider,
@@ -241,8 +241,13 @@ class AuthV2Controller(Controller):
 
         # Capture return_to so we can redirect back after SSO callback
         return_to = request.query_params.get("return_to", "/admin")
-        # Sanitize: only allow relative paths starting with /
-        if not return_to.startswith("/"):
+        # Sanitize: only allow safe relative paths (no protocol-relative, no CRLF)
+        if (
+            not return_to.startswith("/")
+            or return_to.startswith("//")
+            or "\r" in return_to
+            or "\n" in return_to
+        ):
             return_to = "/admin"
 
         # Generate state (signed JWT for CSRF) and nonce
@@ -343,11 +348,11 @@ class AuthV2Controller(Controller):
         )
         asgi_response.headers.add(
             "Set-Cookie",
-            "sso_state=; Max-Age=0; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=Lax;",
+            "sso_state=; Max-Age=0; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=None;",
         )
         asgi_response.headers.add(
             "Set-Cookie",
-            "sso_nonce=; Max-Age=0; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=Lax;",
+            "sso_nonce=; Max-Age=0; Secure; HttpOnly; Path=/api/v2/auth/sso; SameSite=None;",
         )
         return asgi_response
 
@@ -424,9 +429,16 @@ class AuthV2Controller(Controller):
 
     # ── Current User ───────────────────────────────────────────────────
 
-    @get("/me", summary="Get current user info")
+    @get("/me", exclude_from_auth=True, summary="Get current user info")
     async def me(self, request: Request) -> dict:
-        auth: Auth = request.scope.get("auth")
+        auth: Auth | None = request.scope.get("auth")
+        if auth is None:
+            try:
+                auth = await ensure_request_auth_data(request, log_missing_auth=False)
+            except NotAuthorizedException:
+                raise NotAuthorizedException("Not authenticated")
+            request.scope["auth"] = auth
+            request.scope["user_id"] = auth.user_id
         if not auth:
             raise NotAuthorizedException("Not authenticated")
 

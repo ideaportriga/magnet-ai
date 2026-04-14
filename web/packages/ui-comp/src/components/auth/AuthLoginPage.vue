@@ -6,7 +6,7 @@
       .km-heading-7.logo-text.q-ml-sm {{ t.magnetAi }}
 
     //- Local auth form
-    .full-width.q-mb-md(v-if='!mfaRequired && localEnabled')
+    .full-width.q-mb-md(v-if='localEnabled && !mfaRequired')
       q-form.q-gutter-sm(@submit.prevent='handleLogin')
         q-input(
           v-model='email',
@@ -53,7 +53,7 @@
         a.text-caption.cursor-pointer.text-primary(v-if='signupEnabled', tabindex='0', role='button', @click='$emit("navigate", "signup")', @keydown.enter='$emit("navigate", "signup")') {{ t.signup }}
 
     //- MFA challenge
-    .full-width.q-mb-md(v-else)
+    .full-width.q-mb-md(v-if='mfaRequired')
       .text-subtitle2.q-mb-sm {{ t.enterMfaCode }}
       q-form(@submit.prevent='handleMfa')
         q-input(

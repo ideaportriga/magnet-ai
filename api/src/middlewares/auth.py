@@ -151,7 +151,9 @@ def ensure_request_auth_data_api_key(api_key: str, api_user_id: str | None) -> A
     )
 
 
-async def ensure_request_auth_data(connection: ASGIConnection) -> Auth:
+async def ensure_request_auth_data(
+    connection: ASGIConnection, *, log_missing_auth: bool = True
+) -> Auth:
     # 1. API Key (highest priority — M2M access)
     api_key = connection.headers.get(API_KEY_HEADER_NAME)
     api_user_id = connection.headers.get(API_USER_ID_HEADER_NAME)
@@ -177,5 +179,6 @@ async def ensure_request_auth_data(connection: ASGIConnection) -> Auth:
         if local_auth is not None:
             return local_auth
 
-    logger.warning("No valid auth data provided")
+    if log_missing_auth:
+        logger.warning("No valid auth data provided")
     raise NotAuthorizedException()

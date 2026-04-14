@@ -130,10 +130,12 @@ class OIDCStrategy:
         # Exchange code for tokens
         token_data = await self._exchange_code(code, endpoints["token_endpoint"])
 
-        # Prefer id_token for identity (standard OIDC). Fall back to access_token.
-        id_token = token_data.get("id_token") or token_data.get("access_token")
+        # Only use id_token for identity — access_token is not an identity assertion
+        id_token = token_data.get("id_token")
         if not id_token:
-            raise ValueError("No id_token or access_token in token response")
+            raise ValueError(
+                "No id_token in token response — provider may not support OIDC"
+            )
 
         # Validate and decode the token
         jwks = await _fetch_jwks(endpoints["jwks_uri"])

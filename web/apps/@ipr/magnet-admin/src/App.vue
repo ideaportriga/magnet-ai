@@ -112,6 +112,7 @@ export default {
       initialLoading,
       authPage,
       authClient,
+      loadProviders,
       hasAdminAccess,
       userDisplayName,
       handleLogout,
@@ -153,7 +154,7 @@ export default {
     // Check if user already has a valid session (cookie)
     if (this.authEnabled) {
       await this.getAuthData()
-      await loadProviders()
+      await this.loadProviders()
     }
 
     this.initialLoading = false
