@@ -4,9 +4,6 @@ auth-login-page(
   :auth-client='auth.client',
   :providers='providers',
   :signup-enabled='signupEnabled',
-  :oidc-base-url='auth.baseUrl',
-  :popup-width='auth.authConfig.popup?.width',
-  :popup-height='auth.authConfig.popup?.height',
   @success='onSuccess',
   @navigate='onNavigate'
 )

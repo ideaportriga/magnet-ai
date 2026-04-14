@@ -14,7 +14,7 @@ export function createAuthFetch(
 
   async function doRefresh(): Promise<boolean> {
     try {
-      const res = await fetch(`${baseUrl}/api/auth/refresh`, {
+      const res = await fetch(`${baseUrl}/api/v2/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
       })

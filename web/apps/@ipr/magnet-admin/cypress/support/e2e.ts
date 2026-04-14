@@ -59,7 +59,7 @@ beforeEach(() => {
   // Mock auth/me endpoint — the app calls this on every page load.
   // Without auth enabled on the backend the request hangs or 404s,
   // blocking the entire UI from rendering.
-  cy.intercept('GET', '**/auth/me', {
+  cy.intercept('GET', '**/api/v2/auth/me', {
     statusCode: 200,
     body: {
       id: 'e2e-test-user',
@@ -91,7 +91,7 @@ beforeEach(() => {
   })
 
   // Mock auth/refresh to prevent token refresh loops that trigger login redirect
-  cy.intercept('POST', '**/auth/refresh', {
+  cy.intercept('POST', '**/api/v2/auth/refresh', {
     statusCode: 200,
     body: { access_token: 'e2e-fake-token', token_type: 'bearer' },
   }).as('authRefresh')

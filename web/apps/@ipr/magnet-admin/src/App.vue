@@ -5,29 +5,24 @@
     .flex.flex-center.full-height
       q-spinner(size='30px', color='primary')
   template(v-else-if='authRequired')
-      template(v-if='authClient')
-        auth-signup-page(
-          v-if='authPage === "signup"',
-          :auth-client='authClient',
-          @navigate='authPage = $event'
-        )
-        auth-forgot-password(
-          v-else-if='authPage === "forgot-password"',
-          :auth-client='authClient',
-          @navigate='authPage = $event'
-        )
-        auth-login-page(
-          v-else,
-          :auth-client='authClient',
-          :providers='authProviders',
-          :signup-enabled='signupEnabled',
-          :oidc-base-url='oidcBaseUrl',
-          :popup-width='popupWidth',
-          :popup-height='popupHeight',
-          @success='onAuthCompleted',
-          @navigate='authPage = $event'
-        )
-      oauth-login(v-else, @auth-completed='onAuthCompleted')
+      auth-signup-page(
+        v-if='authPage === "signup"',
+        :auth-client='authClient',
+        @navigate='authPage = $event'
+      )
+      auth-forgot-password(
+        v-else-if='authPage === "forgot-password"',
+        :auth-client='authClient',
+        @navigate='authPage = $event'
+      )
+      auth-login-page(
+        v-else,
+        :auth-client='authClient',
+        :providers='authProviders',
+        :signup-enabled='signupEnabled',
+        @success='onAuthCompleted',
+        @navigate='authPage = $event'
+      )
   template(v-else-if='!hasAdminAccess')
     .flex.flex-center.full-height
       .column.items-center.q-pa-xl(style='max-width: 480px')
@@ -99,9 +94,6 @@ export default {
       await auth.logout()
     }
     const signupEnabled = computed(() => appStore.config?.auth?.signupEnabled || false)
-    const oidcBaseUrl = computed(() => appStore.config?.api?.aiBridge?.baseUrl || '')
-    const popupWidth = computed(() => appStore.config?.auth?.popup?.width || '600')
-    const popupHeight = computed(() => appStore.config?.auth?.popup?.height || '400')
 
     const { locale } = useLocale()
 
@@ -116,9 +108,6 @@ export default {
       handleLogout,
       authProviders,
       signupEnabled,
-      oidcBaseUrl,
-      popupWidth,
-      popupHeight,
       loading,
       appContext,
       appStore,
@@ -154,24 +143,7 @@ export default {
 
     // Check if user already has a valid session (cookie)
     if (this.authEnabled) {
-      // Try authClient first (available when baseUrl is set)
       await this.getAuthData()
-
-      // Fallback for OIDC mode (empty baseUrl → authClient is null):
-      // call /auth/me directly to restore session from HttpOnly cookies.
-      if (!this.authenticated && !this.authClient) {
-        try {
-          const baseUrl = this.appStore?.config?.api?.aiBridge?.baseUrl ?? ''
-          const resp = await fetch(`${baseUrl}/auth/me`, { credentials: 'include' })
-          if (resp.ok) {
-            const userInfo = await resp.json()
-            this.sharedAuth.setAuthenticated(true)
-            this.sharedAuth.setUserInfo(userInfo)
-          }
-        } catch {
-          // No valid session
-        }
-      }
     }
 
     this.initialLoading = false

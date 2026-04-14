@@ -43,11 +43,7 @@ from .admin.rag import RagController
 from .admin.scheduler import SchedulerController
 from .admin.settings import SettingsController
 from .admin.utils import UtilsController
-from .auth import AuthController
 from .auth_v2 import AuthV2Controller
-from .local_auth import LocalAuthController
-from .mfa import MfaController
-from .oauth import OAuthController
 from .static import serve_static_file
 from .user.agent_conversations import AgentConversationsController
 from .user.agents import UserAgentsController
@@ -205,10 +201,6 @@ def get_route_handlers(
         serve_static_file,
     ]
 
-    # OIDC endpoints (existing flow, under / not /api)
-    if auth_enabled:
-        route_handlers_public.append(AuthController)
-
     router_api_admin = Router(
         path="/admin",
         route_handlers=route_handlers_admin,
@@ -227,14 +219,7 @@ def get_route_handlers(
         route_handlers=route_handlers_public,
     )
 
-    # Legacy auth endpoints under /api (kept for backward compatibility)
-    route_handlers_api_auth_legacy: list[ControllerRouterHandler] = [
-        LocalAuthController,
-        MfaController,
-        OAuthController,
-    ]
-
-    # New unified v2 auth endpoints under /api/v2
+    # Unified auth endpoints under /api/v2
     router_api_v2 = Router(
         path="/v2",
         route_handlers=[AuthV2Controller],
@@ -246,7 +231,6 @@ def get_route_handlers(
             router_api_admin,
             router_api_user,
             router_api_v2,
-            *route_handlers_api_auth_legacy,
         ],
     )
 

@@ -118,8 +118,7 @@ class ProviderInfo(BaseModel):
 class AuthV2Controller(Controller):
     """Unified auth endpoints (v2).
 
-    All new auth flows should use these endpoints.
-    Legacy /auth/* and /api/auth/* remain for backward compatibility.
+    Single auth namespace for all flows.
     """
 
     path = "/auth"
@@ -236,13 +235,19 @@ class AuthV2Controller(Controller):
         except KeyError:
             raise ClientException(f"Unknown provider: {provider}")
 
+        # Capture return_to so we can redirect back after SSO callback
+        return_to = request.query_params.get("return_to", "/admin")
+        # Sanitize: only allow relative paths starting with /
+        if not return_to.startswith("/"):
+            return_to = "/admin"
+
         # Generate state (signed JWT for CSRF) and nonce
         settings = get_auth_settings()
         nonce = secrets.token_urlsafe(32)
         state_token = Token(
             sub=provider,
             exp=datetime.now(UTC) + timedelta(minutes=10),
-            extras={"provider": provider},
+            extras={"provider": provider, "return_to": return_to},
         )
         state = state_token.encode(
             secret=settings.SECRET_KEY,
@@ -324,7 +329,8 @@ class AuthV2Controller(Controller):
             )
             await session.commit()
 
-        redirect_url = f"{settings.OAUTH2_REDIRECT_BASE_URL}/panel"
+        return_to = (state_token.extras or {}).get("return_to", "/admin")
+        redirect_url = f"{settings.OAUTH2_REDIRECT_BASE_URL}{return_to}"
         response = Redirect(redirect_url)
         asgi_response = response.to_asgi_response(app=None, request=request)
 

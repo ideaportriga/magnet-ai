@@ -16,14 +16,11 @@ export default function useAuth() {
 
   // Reactive auth client — recreated when baseUrl changes
   const client = computed(() => {
-    const url = apiBaseUrl.value
-    if (!url) return null
+    const url = apiBaseUrl.value || ''
     return createAuthClient(url)
   })
 
   async function getAuthData() {
-    if (!client.value) return
-
     authCheckInProgress.value = true
     const userInfo = await client.value.me()
 
@@ -36,8 +33,6 @@ export default function useAuth() {
   }
 
   async function loginLocal(email, password) {
-    if (!client.value) throw new Error('Auth client not initialized')
-
     const result = await client.value.loginLocal(email, password)
     if (result.mfa_required) {
       return { mfaRequired: true }
@@ -48,17 +43,13 @@ export default function useAuth() {
   }
 
   async function verifyMfa(code) {
-    if (!client.value) throw new Error('Auth client not initialized')
-
     await client.value.verifyMfa(code)
     authStore.setAuthenticated(true)
     await getAuthData()
   }
 
   async function logout() {
-    if (client.value) {
-      await client.value.logout()
-    }
+    await client.value.logout()
     authStore.setAuthenticated(false)
     authStore.clearUserInfo()
   }

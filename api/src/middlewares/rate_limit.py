@@ -18,10 +18,10 @@ logger = getLogger(__name__)
 
 # {path_prefix: (max_requests, window_seconds)}
 _RATE_LIMITS: Final[dict[str, tuple[int, int]]] = {
-    "/auth/login": (10, 60),  # 10 attempts per minute
-    "/auth/signup": (5, 3600),  # 5 per hour
-    "/auth/forgot-password": (5, 300),  # 5 per 5 minutes
-    "/auth/mfa/verify": (10, 300),  # 10 per 5 minutes
+    "/api/v2/auth/login": (10, 60),  # 10 attempts per minute
+    "/api/v2/auth/signup": (5, 3600),  # 5 per hour
+    "/api/v2/auth/password/forgot": (5, 300),  # 5 per 5 minutes
+    "/api/v2/auth/mfa/verify": (10, 300),  # 10 per 5 minutes
 }
 
 # {(ip, path_prefix): list[timestamps]}
@@ -54,7 +54,7 @@ def check_rate_limit(connection: ASGIConnection) -> None:
     path = connection.scope.get("path", "")
 
     for prefix, (max_requests, window) in _RATE_LIMITS.items():
-        if path.startswith((prefix, f"/api{prefix}")):
+        if path.startswith(prefix):
             break
     else:
         return  # No rate limit for this path

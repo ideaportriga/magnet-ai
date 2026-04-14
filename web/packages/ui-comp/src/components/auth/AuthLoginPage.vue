@@ -123,21 +123,23 @@ export default {}
 </script>
 
 <script setup lang="ts">
-import { ref, onUnmounted, computed } from 'vue'
-import type { AuthClient } from '@shared/auth'
+import { ref, computed } from 'vue'
+
+interface AuthLoginClient {
+  loginLocal(email: string, password: string): Promise<{ mfa_required?: boolean }>
+  verifyMfa(code: string): Promise<unknown>
+  getSsoUrl(provider: string, returnTo?: string): string
+}
 
 const props = withDefaults(defineProps<{
-  authClient: AuthClient
+  authClient: AuthLoginClient
   providers?: string[]
   signupEnabled?: boolean
-  /** Base URL for OIDC popup flow (e.g. "http://localhost:8000"). Used for Microsoft/Oracle. */
-  oidcBaseUrl?: string
-  /** Popup dimensions for OIDC providers */
-  popupWidth?: string
-  popupHeight?: string
   /** i18n labels — pass translated strings to override English defaults */
   t?: Record<string, string>
 }>(), {
+  providers: () => [],
+  signupEnabled: false,
   t: () => ({ ...DEFAULT_T }),
 })
 
@@ -156,17 +158,6 @@ const mfaRequired = ref(false)
 const loginInProgress = ref(false)
 const oauthInProgress = ref<string | null>(null)
 const errorMessage = ref('')
-
-// OIDC popup providers use the existing popup flow (Microsoft, Oracle)
-const OIDC_POPUP_PROVIDERS = new Set(['microsoft', 'oracle'])
-
-let popupWindow: Window | null = null
-let popupCheckInterval: ReturnType<typeof setInterval> | null = null
-
-onUnmounted(() => {
-  window.removeEventListener('message', onPopupMessage)
-  if (popupCheckInterval) clearInterval(popupCheckInterval)
-})
 
 function providerButtonLabel(provider: string): string {
   const labels: Record<string, string> = {
@@ -190,91 +181,17 @@ function providerIcon(provider: string): string | null {
 }
 
 function handleProvider(provider: string) {
-  if (OIDC_POPUP_PROVIDERS.has(provider) && props.oidcBaseUrl) {
-    handleOidcPopup(provider)
-  } else {
-    handleOAuthRedirect(provider)
-  }
+  handleSsoRedirect(provider)
 }
 
-// --- OIDC popup flow (Microsoft/Oracle — existing backend /auth/login) ---
+// --- SSO redirect flow ---
 
-function handleOidcPopup(provider: string) {
-  if (oauthInProgress.value) return
+function handleSsoRedirect(provider: string) {
   oauthInProgress.value = provider
   errorMessage.value = ''
 
-  const width = props.popupWidth || '600'
-  const height = props.popupHeight || '400'
-
-  popupWindow = window.open(
-    `${props.oidcBaseUrl}/auth/login`,
-    'popupLoginWithOAuthProvider',
-    `width=${width},height=${height}`,
-  )
-
-  window.addEventListener('message', onPopupMessage)
-
-  popupCheckInterval = setInterval(() => {
-    if (popupWindow?.closed) {
-      cleanup()
-    }
-  }, 500)
-}
-
-async function onPopupMessage(event: MessageEvent) {
-  window.removeEventListener('message', onPopupMessage)
-
-  // Validate that the message came from our popup window.
-  // We can't strictly check origin because the popup may land on the
-  // backend origin (e.g. localhost:8000) after IdP callback, while the
-  // opener is on the frontend origin (e.g. localhost:7001).
-  // Instead, verify the message source is our popup window.
-  if (event.source !== popupWindow) {
-    cleanup()
-    return
-  }
-
   try {
-    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
-    const ok = await props.authClient.completeOidc(data)
-    if (ok) {
-      emit('success')
-    } else {
-      errorMessage.value = t.value.authFailed
-    }
-  } catch {
-    errorMessage.value = t.value.authFailed
-  } finally {
-    cleanup()
-  }
-}
-
-function cleanup() {
-  oauthInProgress.value = null
-  if (popupCheckInterval) {
-    clearInterval(popupCheckInterval)
-    popupCheckInterval = null
-  }
-  window.removeEventListener('message', onPopupMessage)
-}
-
-// --- OAuth/SSO redirect flow ---
-// For v2: server-side redirect via /api/v2/auth/sso/{provider}
-// For v1 compat: API call to get authorization URL then redirect
-
-async function handleOAuthRedirect(provider: string) {
-  oauthInProgress.value = provider
-  errorMessage.value = ''
-  try {
-    // Check if authClient has getSsoUrl (v2 client) — use direct redirect
-    const client = props.authClient as any
-    if (typeof client.getSsoUrl === 'function') {
-      window.location.href = client.getSsoUrl(provider)
-    } else {
-      const { authorization_url } = await props.authClient.getOAuthUrl(provider)
-      window.location.href = authorization_url
-    }
+    window.location.href = props.authClient.getSsoUrl(provider, window.location.pathname)
   } catch (e: any) {
     errorMessage.value = e.message || t.value.oauthFailed
     oauthInProgress.value = null

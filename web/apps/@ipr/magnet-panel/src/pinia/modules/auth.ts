@@ -56,7 +56,7 @@ const useAuth = defineStore('auth', {
     async init(config: any) {
       this.baseUrl = config.api.aiBridge.baseUrl
       this.authConfig = config.auth
-      this.client = createAuthClient(this.baseUrl!)
+      this.client = createAuthClient(this.baseUrl || '')
 
       if (this.authEnabled) {
         await this.getAuthData()
@@ -97,16 +97,6 @@ const useAuth = defineStore('auth', {
     async signup(email: string, password: string, name?: string) {
       if (!this.client) return
       return await this.client.signup(email, password, name)
-    },
-
-    async completeAuth(body: any) {
-      if (!this.client) return false
-      const ok = await this.client.completeOidc(body)
-      if (ok) {
-        await this.getAuthData()
-        return true
-      }
-      return false
     },
 
     async logout() {

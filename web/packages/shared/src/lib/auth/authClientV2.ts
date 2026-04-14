@@ -1,14 +1,12 @@
 /**
  * Unified v2 auth API client — all endpoints under /api/v2/auth/*
  *
- * This client replaces the mixed legacy client that called both
- * /auth/* and /api/auth/* endpoints.
+ * This client is the single auth client for web apps.
  *
  * SSO login is handled via server-side redirect (no popup).
  */
 
 import type {
-  AuthorizationUrlInfo,
   LoginResult,
   MfaSetupInfo,
   SessionInfo,
@@ -38,10 +36,7 @@ export interface AuthClientV2 {
   disableMfa(password?: string): Promise<void>
   getProviders(): Promise<ProviderInfo[]>
   /** Returns the SSO redirect URL. Navigate to it to start SSO login. */
-  getSsoUrl(provider: string): string
-  // Legacy compat — delegates to loginLocal or is a no-op
-  completeOidc(body: unknown): Promise<boolean>
-  getOAuthUrl(provider: string): Promise<AuthorizationUrlInfo>
+  getSsoUrl(provider: string, returnTo?: string): string
 }
 
 async function jsonOrNull(response: Response) {
@@ -183,27 +178,11 @@ export function createAuthClientV2(baseUrl: string): AuthClientV2 {
       return res.json()
     },
 
-    getSsoUrl(provider) {
+    getSsoUrl(provider, returnTo?: string) {
       // Server-side redirect — just navigate to this URL
-      return `${baseUrl}/api/v2/auth/sso/${provider}`
-    },
-
-    // Legacy compat — v2 uses server-side redirect, but legacy popup
-    // flow calls completeOidc with OIDC tokens. Forward to legacy endpoint.
-    async completeOidc(body) {
-      const res = await f(`${baseUrl}/auth/complete`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
-      return res.ok
-    },
-
-    // Legacy compat — return SSO redirect URL for providers
-    async getOAuthUrl(provider) {
-      return {
-        authorization_url: `${baseUrl}/api/v2/auth/sso/${provider}`,
-        state: '',
-      }
+      const url = `${baseUrl}/api/v2/auth/sso/${provider}`
+      if (returnTo) return `${url}?return_to=${encodeURIComponent(returnTo)}`
+      return url
     },
   }
 }

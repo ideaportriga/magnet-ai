@@ -1,7 +1,7 @@
 """
 Helper to build user info response from internal User object.
 
-Used by /auth/me and /api/v2/auth/me to avoid code duplication.
+Used by /api/v2/auth/me to avoid code duplication.
 """
 
 from __future__ import annotations
