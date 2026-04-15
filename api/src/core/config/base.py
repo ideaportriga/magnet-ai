@@ -300,6 +300,14 @@ class SchedulerSettings:
     the asyncio event loop — APScheduler 3.x calls jobstore methods synchronously,
     and pool_pre_ping adds a blocking SELECT 1 on every connection checkout.
     Stale connections are handled by pool_recycle instead."""
+    SCHEDULER_DEFAULT_JOB_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_DEFAULT_JOB_TIMEOUT", 1800)
+    )
+    """Default timeout in seconds for scheduled jobs (default: 1800 = 30 minutes)."""
+    SCHEDULER_SYNC_JOB_TIMEOUT: int = field(
+        default_factory=get_env("SCHEDULER_SYNC_JOB_TIMEOUT", 0)
+    )
+    """Timeout in seconds for knowledge source sync jobs (default: 0 = no timeout)."""
 
     def get_scheduler_database_url(self, db_settings: DatabaseSettings) -> str:
         """Get synchronous database URL for APScheduler jobstore."""

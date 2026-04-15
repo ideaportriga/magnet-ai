@@ -39,28 +39,51 @@ def get_interval_days(interval):
 # Decorator to set status to PROCESSING before execution and apply timeout.
 # Note: ERROR status is NOT set here — it is handled by APScheduler's job_error_listener
 # to avoid race conditions with double status updates.
-def with_progress_status(func):
-    @wraps(func)
-    async def wrapper(**kwargs):
-        job_id = kwargs.get("job_id")
+#
+# Usage:
+#   @with_progress_status            — uses SCHEDULER_DEFAULT_JOB_TIMEOUT from settings
+#   @with_progress_status(timeout="sync")  — uses SCHEDULER_SYNC_JOB_TIMEOUT from settings
+def with_progress_status(func=None, *, timeout=None):
+    def decorator(fn):
+        @wraps(fn)
+        async def wrapper(**kwargs):
+            job_id = kwargs.get("job_id")
 
-        try:
-            if job_id:
-                await update_job_status(job_id, JobStatus.PROCESSING)
-            return await asyncio.wait_for(
-                func(**kwargs),
-                timeout=DEFAULT_JOB_TIMEOUT_SECONDS,
-            )
-        except asyncio.TimeoutError:
-            logger.error(f"Job {job_id} timed out after {DEFAULT_JOB_TIMEOUT_SECONDS}s")
-            # Re-raise so APScheduler's job_error_listener handles the ERROR status
-            raise
-        except Exception:
-            # Re-raise the original exception — APScheduler's job_error_listener
-            # will handle setting the ERROR/WAITING status in the database.
-            raise
+            from core.config.base import get_scheduler_settings
 
-    return wrapper
+            settings = get_scheduler_settings()
+            if timeout == "sync":
+                effective_timeout = settings.SCHEDULER_SYNC_JOB_TIMEOUT
+            elif timeout is not None:
+                effective_timeout = timeout
+            else:
+                effective_timeout = settings.SCHEDULER_DEFAULT_JOB_TIMEOUT
+
+            try:
+                if job_id:
+                    await update_job_status(job_id, JobStatus.PROCESSING)
+                if effective_timeout:
+                    return await asyncio.wait_for(
+                        fn(**kwargs),
+                        timeout=effective_timeout,
+                    )
+                else:
+                    return await fn(**kwargs)
+            except asyncio.TimeoutError:
+                logger.error(f"Job {job_id} timed out after {effective_timeout}s")
+                # Re-raise so APScheduler's job_error_listener handles the ERROR status
+                raise
+            except Exception:
+                # Re-raise the original exception — APScheduler's job_error_listener
+                # will handle setting the ERROR/WAITING status in the database.
+                raise
+
+        return wrapper
+
+    # Support both @with_progress_status and @with_progress_status(timeout=...)
+    if func is not None:
+        return decorator(func)
+    return decorator
 
 
 @with_progress_status
@@ -98,7 +121,7 @@ async def execute_custom_function(**kwargs):
         raise
 
 
-@with_progress_status
+@with_progress_status(timeout="sync")
 @observe(name="Sync knowledge source", channel="Job")
 async def execute_sync_collection(**kwargs):
     """Execute a sync collection job with the given parameters."""
@@ -373,7 +396,7 @@ async def execute_evaluation(**kwargs):
         raise
 
 
-@with_progress_status
+@with_progress_status(timeout="sync")
 @observe(name="Sync knowledge graph", channel="Job")
 async def execute_sync_knowledge_graph_source(**kwargs):
     """Execute a knowledge graph source sync job."""
