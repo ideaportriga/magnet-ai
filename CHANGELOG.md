@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.10](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.9...v0.7.0-dev.10) (2026-04-15)
+
+### 🐛 Bug Fixes
+
+* **jobs:** knowledge sources and knowledge graphs sync job now has ([808e585](https://github.com/ideaportriga/magnet-ai/commit/808e58538826e2de534964b167dc56deee212126))
+
 ## [0.7.0-dev.9](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.8...v0.7.0-dev.9) (2026-04-14)
 
 ### 🐛 Bug Fixes
