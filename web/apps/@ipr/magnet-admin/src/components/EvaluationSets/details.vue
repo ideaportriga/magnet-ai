@@ -100,7 +100,7 @@ import { m } from '@/paraglide/messages'
 const route = useRoute()
 const router = useRouter()
 const q = useQuasar()
-const { draft, isDirty, updateField, save, remove, revert } = useEntityDetail('evaluation_sets')
+const { draft, isDirty, isLoading, updateField, save, remove, revert } = useEntityDetail('evaluation_sets')
 const evalSetRecordStore = useEvaluationSetRecordStore()
 
 const tab = ref('records')
@@ -131,7 +131,7 @@ const system_name = computed({
   set(value) { updateField('system_name', value) },
 })
 const evaluationSetCode = computed(() => draft.value?.system_name)
-const loading = computed(() => !draft.value?.id)
+const loading = computed(() => isLoading.value || !draft.value?.id)
 
 const created_at = computed(() => draft.value?.created_at ? formatDate(draft.value.created_at) : '')
 const modified_at = computed(() => draft.value?.updated_at ? formatDate(draft.value.updated_at) : '')

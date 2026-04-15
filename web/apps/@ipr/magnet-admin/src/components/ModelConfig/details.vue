@@ -147,7 +147,7 @@ export default {
       return this.activeRetrievalDB?.type
     },
     loading() {
-      return !this.draft?.id
+      return this.isLoading || !this.draft?.id
     },
     created_at() {
       if (!this.activeRetrievalDB?.created_at) return ''

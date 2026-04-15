@@ -69,7 +69,7 @@ import { m } from '@/paraglide/messages'
 // Composables
 const route = useRoute()
 const router = useRouter()
-const { draft, updateField } = useEntityDetail('ai_apps')
+const { draft, isLoading, updateField } = useEntityDetail('ai_apps')
 const searchStore = useSearchStore()
 const selected = ref([])
 
@@ -119,7 +119,7 @@ const searchedTabs = computed({
 
 const activeAIAppId = computed(() => route.params?.id)
 
-const loading = computed(() => !draft.value?.id)
+const loading = computed(() => isLoading.value || !draft.value?.id)
 
 // Methods
 const navigate = (path = '') => {

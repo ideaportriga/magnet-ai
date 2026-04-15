@@ -109,6 +109,7 @@ export default {
     return {
       m,
       draft,
+      isLoading,
       isDirty,
       updateField,
       saveEntity,
@@ -161,7 +162,7 @@ export default {
       },
     },
     loading() {
-      return !this.draft?.system_name
+      return this.isLoading || !this.draft?.system_name
     },
     entity() {
       return this.draft

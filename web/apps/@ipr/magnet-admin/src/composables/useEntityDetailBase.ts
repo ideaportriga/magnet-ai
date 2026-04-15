@@ -84,6 +84,16 @@ export function useEntityDetailBase<T extends BaseEntity>(
   })
   onActivated(() => {
     id.value = resolveId()
+
+    // Re-initialize editBuffer if it was removed while the component was cached by keep-alive
+    // (e.g., user closed a workspace tab then navigated back to the same entity).
+    // The data watcher won't fire if TanStack Query's data ref hasn't changed,
+    // so we must manually check and re-init the buffer here.
+    const key = bufferKey.value
+    if (id.value && data.value && !editBuffer.hasBuffer(key)) {
+      editBuffer.initBuffer(key, entityKey as string, id.value, data.value as Record<string, unknown>)
+      options?.onBufferInit?.(data.value as Record<string, unknown>)
+    }
   })
 
   const bufferKey = computed(() => `${entityKey}:${id.value}`)

@@ -35,10 +35,11 @@ export default {
     const { data: selectedRow } = queries.agents.useDetail(id)
     const { options: items } = useCatalogOptions('agents')
     const removeMutation = queries.agents.useRemove()
-    const { draft, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
+    const { draft, isLoading, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
       m,
       draft,
+      isLoading,
       activeVariant,
       updateNestedListItemBySystemName,
       tab: ref('prompts'),
@@ -121,7 +122,7 @@ export default {
       return this.items?.map((item) => item.name)
     },
     loading() {
-      return !this.draft?.id
+      return this.isLoading || !this.draft?.id
     },
   },
 

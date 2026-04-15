@@ -82,12 +82,13 @@ export default {
   emits: ['update:closeDrawer'],
   setup() {
     const queries = useEntityQueries()
-    const { draft, isDirty, updateField, save, revert, remove } = useEntityDetail('assistant_tools')
+    const { draft, isLoading, isDirty, updateField, save, revert, remove } = useEntityDetail('assistant_tools')
     const { data: listData } = queries.assistant_tools.useList()
     const items = computed(() => listData.value?.items ?? [])
 
     return {
       m,
+      isLoading,
       tab: ref('general'),
       tabs: ref([{ name: 'general', label: m.common_general() }]),
       showNewDialog: ref(false),
@@ -151,7 +152,7 @@ export default {
       return this.items?.map((item) => item.name)
     },
     loading() {
-      return !this.draft?.id
+      return this.isLoading || !this.draft?.id
     },
     created_at() {
       if (!this.activeAssistantToolDB?.created_at) return ''

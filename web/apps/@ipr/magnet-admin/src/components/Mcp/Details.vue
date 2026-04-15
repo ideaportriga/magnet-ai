@@ -1,6 +1,6 @@
 <template lang="pug">
-km-inner-loading(:showing='!draft')
-layouts-details-layout(v-if='draft')
+km-inner-loading(:showing='loading')
+layouts-details-layout(v-if='!loading')
   template(#header)
     .col
       .row.items-center
@@ -83,8 +83,10 @@ import { m } from '@/paraglide/messages'
 const route = useRoute()
 const router = useRouter()
 
-const { draft, isDirty, updateField, save, revert, remove } = useEntityDetail('mcp_servers')
+const { draft, isLoading, isDirty, updateField, save, revert, remove } = useEntityDetail('mcp_servers')
 const queries = useEntityQueries()
+
+const loading = computed(() => isLoading.value || !draft.value)
 
 const showInfo = ref(false)
 const saving = ref(false)

@@ -1,6 +1,6 @@
 <template lang="pug">
-km-inner-loading(:showing='!draft')
-layouts-details-layout(v-if='draft', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
+km-inner-loading(:showing='loading')
+layouts-details-layout(v-if='!loading', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
   template(#header)
     .col
       .row.items-center
@@ -90,7 +90,7 @@ export default {
   beforeRouteEnter,
   setup() {
     const queries = useEntityQueries()
-    const { draft, isDirty, updateField, revert, save, remove } = useEntityDetail('provider')
+    const { draft, isLoading, isDirty, updateField, revert, save, remove } = useEntityDetail('provider')
 
     // Local ref for the currently selected model (replaces useModelConfigDetailStore)
     const selectedModel = ref(null)
@@ -108,9 +108,12 @@ export default {
 
     const { mutateAsync: createEntity } = queries.provider.useCreate()
 
+    const loading = computed(() => isLoading.value || !draft.value)
+
     return {
       m,
       draft,
+      loading,
       isDirty,
       updateField,
       revert,

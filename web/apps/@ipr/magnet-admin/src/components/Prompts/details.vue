@@ -165,7 +165,7 @@ export default {
       return this.$route.params.id
     },
     loading() {
-      return !this.draft?.id
+      return this.isLoading || !this.draft?.id
     },
     entity() {
       return this.draft

@@ -1,6 +1,6 @@
 <template lang="pug">
-km-inner-loading(:showing='!draft')
-layouts-details-layout(v-if='draft', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
+km-inner-loading(:showing='loading')
+layouts-details-layout(v-if='!loading', :contentContainerStyle='{ maxWidth: "1200px", margin: "0 auto" }')
   template(#header)
     .col
       .row.items-center
@@ -81,11 +81,14 @@ import { m } from '@/paraglide/messages'
 export default {
   beforeRouteEnter,
   setup() {
-    const { draft, isDirty, updateField, revert, save, remove } = useEntityDetail('provider')
+    const { draft, isLoading, isDirty, updateField, revert, save, remove } = useEntityDetail('provider')
+
+    const loading = computed(() => isLoading.value || !draft.value)
 
     return {
       m,
       draft,
+      loading,
       isDirty,
       updateField,
       revert,

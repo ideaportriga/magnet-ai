@@ -1,6 +1,6 @@
 <template lang="pug">
-km-inner-loading(:showing='!api_server')
-layouts-details-layout(v-if='api_server')
+km-inner-loading(:showing='loading')
+layouts-details-layout(v-if='!loading')
   template(#header)
     .col
       .row.items-center
@@ -86,6 +86,8 @@ const route = useRoute()
 const router = useRouter()
 
 const { draft, data: api_server, isDirty, isLoading, updateField, save, remove, revert } = useEntityDetail('api_servers')
+
+const loading = computed(() => isLoading.value || !api_server.value)
 
 const showInfo = ref(false)
 const saving = ref(false)

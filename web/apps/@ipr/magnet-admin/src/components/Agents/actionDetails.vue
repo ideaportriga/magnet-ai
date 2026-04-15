@@ -61,10 +61,11 @@ export default {
     onActivated(() => { id.value = route.params.id })
     const { options: visibleRows } = useCatalogOptions('agents')
     const { data: selectedRow } = queries.agents.useDetail(id)
-    const { draft, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
+    const { draft, isLoading, activeVariant, updateNestedListItemBySystemName } = useAgentEntityDetail()
     return {
       m,
       draft,
+      isLoading,
       activeVariant,
       updateNestedListItemBySystemName,
       tab: ref('general-settings'),
@@ -157,7 +158,7 @@ export default {
       return this.items?.map((item) => item.name)
     },
     loading() {
-      return !this.draft?.id
+      return this.isLoading || !this.draft?.id
     },
   },
 
