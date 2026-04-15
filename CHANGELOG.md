@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.15](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.14...v0.7.0-alpha.15) (2026-04-15)
+
+### 🐛 Bug Fixes
+
+* keep-alive feature fix (loading state and draft state fixes) ([63b470e](https://github.com/ideaportriga/magnet-ai/commit/63b470ef009c2383aa0c2a8c63f5d3be1286e04b))
+
 ## [0.7.0-alpha.14](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.13...v0.7.0-alpha.14) (2026-04-14)
 
 ### 🐛 Bug Fixes
