@@ -12,6 +12,17 @@
     "metadata_info": null
   },
   {
+    "name": "azure_open_ai",
+    "description": "Auto-generated provider for azure_open_ai",
+    "system_name": "AZURE_OPEN_AI",
+    "category": null,
+    "type": "openai",
+    "endpoint": "https://CHANGEME.openai.azure.com/openai/v1",
+    "connection_config": {},
+    "secrets_encrypted": null,
+    "metadata_info": null
+  },
+  {
     "name": "File",
     "description": null,
     "system_name": "File",
