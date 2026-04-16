@@ -17,33 +17,173 @@ param containerImage string
 @description('PostgreSQL connection string (asyncpg format)')
 param databaseConnectionString string
 
+@description('Key Vault URI (https://<name>.vault.azure.net/) — used to resolve secret-encryption-key')
+param keyVaultUri string
+
+@description('Resource ID of the user-assigned managed identity the Container App uses to read Key Vault secrets')
+param appIdentityId string
+
+@description('Enable authentication (Entra ID)')
+param authEnabled bool = false
+
+@description('Microsoft Entra ID Application (client) ID')
+param entraClientId string = ''
+
 @secure()
-@description('Fernet encryption key')
-param secretEncryptionKey string
+@description('Microsoft Entra ID client secret')
+param entraClientSecret string = ''
+
+@description('Microsoft Entra ID tenant ID')
+param entraTenantId string = ''
+
+@description('IP range to restrict ingress access (CIDR notation, e.g. 1.2.3.0/24). Empty = no restriction.')
+param allowedIpRange string = ''
 
 var appName = 'ca-magnet-ai-${environment}'
 var redirectUri = 'https://${appName}.${envDefaultDomain}/auth/callback'
 
+var baseSecrets = [
+  {
+    name: 'database-url'
+    value: databaseConnectionString
+  }
+  {
+    name: 'pgvector-connection-string'
+    value: databaseConnectionString
+  }
+  {
+    name: 'secret-encryption-key'
+    keyVaultUrl: '${keyVaultUri}secrets/secret-encryption-key'
+    identity: appIdentityId
+  }
+]
+
+var entraSecrets = authEnabled ? [
+  {
+    name: 'entra-client-id'
+    value: entraClientId
+  }
+  {
+    name: 'entra-client-secret'
+    value: entraClientSecret
+  }
+] : []
+
+var baseEnv = [
+  {
+    name: 'AUTH_ENABLED'
+    value: authEnabled ? 'true' : 'false'
+  }
+  {
+    name: 'AUTH_ENABLED_FOR_SCHEMA'
+    value: authEnabled ? 'true' : 'false'
+  }
+  {
+    name: 'ENV'
+    value: environment
+  }
+  {
+    name: 'DATABASE_URL'
+    secretRef: 'database-url'
+  }
+  {
+    name: 'PGVECTOR_CONNECTION_STRING'
+    secretRef: 'pgvector-connection-string'
+  }
+  {
+    name: 'SECRET_ENCRYPTION_KEY'
+    secretRef: 'secret-encryption-key'
+  }
+  {
+    name: 'MICROSOFT_ENTRA_ID_REDIRECT_URI'
+    value: redirectUri
+  }
+  {
+    name: 'RUN_MIGRATIONS'
+    value: 'true'
+  }
+  {
+    name: 'WEB_INCLUDED'
+    value: 'true'
+  }
+  {
+    name: 'HELP_BASE_URL'
+    value: '/help'
+  }
+  {
+    name: 'DATABASE_POOL_SIZE'
+    value: '5'
+  }
+  {
+    name: 'DATABASE_MAX_POOL_OVERFLOW'
+    value: '3'
+  }
+  {
+    name: 'DATABASE_POOL_TIMEOUT'
+    value: '60'
+  }
+  {
+    name: 'DATABASE_POOL_RECYCLE'
+    value: '3600'
+  }
+  {
+    name: 'DATABASE_PRE_POOL_PING'
+    value: 'true'
+  }
+  {
+    name: 'PGVECTOR_POOL_SIZE'
+    value: '5'
+  }
+  {
+    name: 'SCHEDULER_POOL_SIZE'
+    value: '2'
+  }
+  {
+    name: 'SCHEDULER_MAX_POOL_OVERFLOW'
+    value: '0'
+  }
+  {
+    name: 'SCHEDULER_POOL_TIMEOUT'
+    value: '300'
+  }
+  {
+    name: 'SCHEDULER_POOL_RECYCLE'
+    value: '3600'
+  }
+  {
+    name: 'SCHEDULER_POOL_PRE_PING'
+    value: 'true'
+  }
+]
+
+var entraEnv = authEnabled ? [
+  {
+    name: 'MICROSOFT_ENTRA_ID_CLIENT_ID'
+    secretRef: 'entra-client-id'
+  }
+  {
+    name: 'MICROSOFT_ENTRA_ID_CLIENT_SECRET'
+    secretRef: 'entra-client-secret'
+  }
+  {
+    name: 'MICROSOFT_ENTRA_ID_TENANT_ID'
+    value: entraTenantId
+  }
+] : []
+
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: appName
   location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${appIdentityId}': {}
+    }
+  }
   properties: {
     managedEnvironmentId: environmentId
     configuration: {
-      secrets: [
-        {
-          name: 'database-url'
-          value: databaseConnectionString
-        }
-        {
-          name: 'pgvector-connection-string'
-          value: databaseConnectionString
-        }
-        {
-          name: 'secret-encryption-key'
-          value: secretEncryptionKey
-        }
-      ]
+      secrets: concat(baseSecrets, entraSecrets)
       activeRevisionsMode: 'Single'
       ingress: {
         external: true
@@ -56,6 +196,18 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           }
         ]
         allowInsecure: false
+        ipSecurityRestrictions: allowedIpRange != '' ? [
+          {
+            name: 'AllowSpecificRange'
+            action: 'Allow'
+            ipAddressRange: allowedIpRange
+          }
+          {
+            name: 'DenyAll'
+            action: 'Deny'
+            ipAddressRange: '0.0.0.0/0'
+          }
+        ] : []
       }
     }
     template: {
@@ -63,92 +215,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           image: containerImage
           name: appName
-          env: [
-            {
-              name: 'AUTH_ENABLED'
-              value: 'false'
-            }
-            {
-              name: 'AUTH_ENABLED_FOR_SCHEMA'
-              value: 'false'
-            }
-            {
-              name: 'ENV'
-              value: environment
-            }
-            {
-              name: 'DATABASE_URL'
-              secretRef: 'database-url'
-            }
-            {
-              name: 'PGVECTOR_CONNECTION_STRING'
-              secretRef: 'pgvector-connection-string'
-            }
-            {
-              name: 'SECRET_ENCRYPTION_KEY'
-              secretRef: 'secret-encryption-key'
-            }
-            {
-              name: 'MICROSOFT_ENTRA_ID_REDIRECT_URI'
-              value: redirectUri
-            }
-            {
-              name: 'RUN_MIGRATIONS'
-              value: 'true'
-            }
-            {
-              name: 'WEB_INCLUDED'
-              value: 'true'
-            }
-            {
-              name: 'HELP_BASE_URL'
-              value: '/help'
-            }
-            {
-              name: 'DATABASE_POOL_SIZE'
-              value: '5'
-            }
-            {
-              name: 'DATABASE_MAX_POOL_OVERFLOW'
-              value: '3'
-            }
-            {
-              name: 'DATABASE_POOL_TIMEOUT'
-              value: '60'
-            }
-            {
-              name: 'DATABASE_POOL_RECYCLE'
-              value: '3600'
-            }
-            {
-              name: 'DATABASE_PRE_POOL_PING'
-              value: 'true'
-            }
-            {
-              name: 'PGVECTOR_POOL_SIZE'
-              value: '5'
-            }
-            {
-              name: 'SCHEDULER_POOL_SIZE'
-              value: '2'
-            }
-            {
-              name: 'SCHEDULER_MAX_POOL_OVERFLOW'
-              value: '0'
-            }
-            {
-              name: 'SCHEDULER_POOL_TIMEOUT'
-              value: '300'
-            }
-            {
-              name: 'SCHEDULER_POOL_RECYCLE'
-              value: '3600'
-            }
-            {
-              name: 'SCHEDULER_POOL_PRE_PING'
-              value: 'true'
-            }
-          ]
+          env: concat(baseEnv, entraEnv)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'

@@ -129,6 +129,11 @@ async def get_tokens(additional_data: dict) -> Tokens:
             timeout=10,
             auth=auth or httpx.USE_CLIENT_DEFAULT,
         )
+        if response.is_error:
+            logger.error(
+                "Token endpoint error",
+                extra={"status": response.status_code, "body": response.text},
+            )
         response.raise_for_status()
         response_data = response.json()
 
