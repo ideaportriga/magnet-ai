@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.11](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.10...v0.7.0-dev.11) (2026-04-17)
+
+### ✨ Features
+
+* **infra:** add azure networking setup ([b0fdc0c](https://github.com/ideaportriga/magnet-ai/commit/b0fdc0cea6c8bd311779073011a6c7a9f3ce76df))
+* **infra:** add option to run fixtures on deployment ([dc00ecf](https://github.com/ideaportriga/magnet-ai/commit/dc00ecf1ee64af4064d46924682e6bd0fe8cee77))
+* **infra:** adjust container app ingress restriction setup ([cd7d7ab](https://github.com/ideaportriga/magnet-ai/commit/cd7d7ab0eb50ac783260e9a334588fb6bd52d14a))
+* **infra:** use azure provider for models in seed data ([eb2f02e](https://github.com/ideaportriga/magnet-ai/commit/eb2f02eafb6eb9093516b3ce115546f56ec6d6fd))
+
 ## [0.7.0-dev.10](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.9...v0.7.0-dev.10) (2026-04-15)
 
 ### 🐛 Bug Fixes
