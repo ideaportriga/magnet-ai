@@ -413,5 +413,30 @@
                 "observability_level": "full"
             }
         ]
+    },
+    {
+      "active_variant": "variant_2",
+      "variants": [
+        {
+          "text": "User message contains a RAG generated answer to the question. You goal is to analyse this answer and determine the following attributes:\n\n1. language \nDetect the language of the user message according to ISO 639-3 system. Important: output only the name of language in English.  \n\n2. is_answered\nType is boolean, and value is true when the user message clearly contains a meaningful answer. Answers like \"I cannot help\" or \"I apologize, but I can only assist with questions related to the provided knowledge base\"  are considered false.\n\n3. category\nSelect the most semantically closest category user message belongs to from the following list: {{{CATEGORIES}}}.\nIf no list is provided, output \"N/a\"\n\nFinally, output a JSON object with language, is_answered,  category",
+          "topP": 1,
+          "variant": "variant_2",
+          "retrieve": {
+            "collection_system_names": []
+          },
+          "description": "",
+          "sample_text": "To create a new RAG Tool, follow these steps:\n\n1. **Navigate to RAG Tools Screen**: Go to the RAG Tools screen from the main navigation.\n\n2. **Click New**: In the top right corner of the list, click on \"New\".\n\n3. **Fill in RAG Tool Fields**:\n   - **Name**: Enter the name of the RAG Tool.\n   - **Description**: Provide a description for the RAG Tool.\n   - **System Name**: Enter a system name, which is used to identify the RAG Tool. It is recommended not to change this after creation.\n   - **Knowledge Sources**: Select one or multiple Knowledge Sources that the RAG will access and use to ground its answers.\n\n4. **Save**: Once all details are filled in, click \"Save\".",
+          "temperature": 0.5,
+          "response_format": {
+            "type": "text"
+          },
+          "sample_test_set": null,
+          "system_name_for_model": "AZURE_OPEN_AI_GPT-4.1-MINI"
+        }
+      ],
+      "name": "Default RAG Post Processing",
+      "description": "Default Prompt Template for RAG Tool call post processing",
+      "system_name": "DEFAULT_RAG_POST_PROCESSING",
+      "category": "rag"
     }
 ]

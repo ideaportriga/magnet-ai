@@ -20,7 +20,7 @@ param entraClientSecret string = ''
 @description('Microsoft Entra ID tenant ID')
 param entraTenantId string = ''
 
-@description('Allow public access to PostgreSQL, AI Services and Key Vault for dev/debugging')
+@description('Allow public access to PostgreSQL and AI Services for dev/debugging')
 param allowDevAccess bool = false
 
 @description('Developer IP address to allow when allowDevAccess is true (e.g. 1.2.3.4)')
@@ -37,9 +37,16 @@ param postgresServerName string = ''
 @maxLength(64)
 param aiServicesAccountName string = ''
 
-@description('Key Vault name. Must be globally unique in Azure. 3-24 chars, alphanumeric + hyphens, start with a letter. Leave empty to auto-generate: kv-<env>-<suffix>.')
-@maxLength(24)
-param keyVaultName string = ''
+@secure()
+@description('PostgreSQL admin password. 8+ chars, must contain uppercase, lowercase, digit, and special char. Provide the same value on redeploy to avoid regeneration.')
+param postgresAdminPassword string
+
+@secure()
+@description('Fernet encryption key (44-char base64url string ending with =). Provide the same value on redeploy to avoid regeneration.')
+param secretEncryptionKey string
+
+@description('Load default data (providers, models, agents, etc.) on first deployment. Set to true only for initial setup, then set back to false.')
+param loadDefaultData bool = false
 
 // ---------------------------------------------------------------------------
 // Deterministic per-RG suffix for globally-unique resource names.
@@ -50,7 +57,6 @@ param keyVaultName string = ''
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var resolvedPostgresServerName = empty(postgresServerName) ? 'psql-magnet-ai-${environment}-${uniqueSuffix}' : postgresServerName
 var resolvedAiServicesName     = empty(aiServicesAccountName) ? 'ai-magnet-ai-${environment}-${uniqueSuffix}' : aiServicesAccountName
-var resolvedKeyVaultName       = empty(keyVaultName) ? 'kv-${environment}-${uniqueSuffix}' : keyVaultName
 
 // ---------------------------------------------------------------------------
 // Modules
@@ -82,40 +88,6 @@ module logAnalytics 'modules/log-analytics.bicep' = {
   }
 }
 
-module keyVault 'modules/key-vault.bicep' = {
-  name: 'key-vault'
-
-  params: {
-    location: location
-    vaultName: resolvedKeyVaultName
-    privateEndpointSubnetId: vnet.outputs.privateEndpointsSubnetId
-    privateDnsZoneId: privateDnsZones.outputs.keyVaultDnsZoneId
-    allowDevAccess: allowDevAccess
-    devIpAddress: devIpAddress
-  }
-}
-
-module secretsBootstrap 'modules/secrets-bootstrap.bicep' = {
-  name: 'secrets-bootstrap'
-
-  params: {
-    location: location
-    environment: environment
-    vaultName: keyVault.outputs.vaultName
-    scriptSubnetId: vnet.outputs.deploymentScriptsSubnetId
-  }
-}
-
-module appIdentity 'modules/app-identity.bicep' = {
-  name: 'app-identity'
-
-  params: {
-    location: location
-    environment: environment
-    vaultName: keyVault.outputs.vaultName
-  }
-}
-
 module aiFoundry 'modules/ai-foundry.bicep' = {
   name: 'ai-foundry'
 
@@ -131,22 +103,13 @@ module aiFoundry 'modules/ai-foundry.bicep' = {
   }
 }
 
-// Read the freshly-bootstrapped postgres-admin-password out of KV via getSecret()
-// so it stays @secure() end-to-end and never crosses a non-secure boundary.
-resource kv 'Microsoft.KeyVault/vaults@2024-11-01' existing = {
-  name: keyVault.outputs.vaultName
-}
-
 module postgresql 'modules/postgresql.bicep' = {
   name: 'postgresql'
-  dependsOn: [
-    secretsBootstrap
-  ]
 
   params: {
     location: location
     serverName: resolvedPostgresServerName
-    adminPassword: kv.getSecret('postgres-admin-password')
+    adminPassword: postgresAdminPassword
     privateEndpointSubnetId: vnet.outputs.privateEndpointsSubnetId
     privateDnsZoneId: privateDnsZones.outputs.postgresDnsZoneId
     allowDevAccess: allowDevAccess
@@ -168,9 +131,6 @@ module containerAppEnv 'modules/container-app-env.bicep' = {
 
 module containerApp 'modules/container-app.bicep' = {
   name: 'container-app'
-  dependsOn: [
-    secretsBootstrap
-  ]
 
   params: {
     environment: environment
@@ -179,18 +139,20 @@ module containerApp 'modules/container-app.bicep' = {
     envDefaultDomain: containerAppEnv.outputs.defaultDomain
     containerImage: 'ghcr.io/ideaportriga/magnet-ai:${containerImageTag}'
     databaseConnectionString: postgresql.outputs.connectionString
-    keyVaultUri: keyVault.outputs.vaultUri
-    appIdentityId: appIdentity.outputs.appIdentityId
+    secretEncryptionKey: secretEncryptionKey
     authEnabled: authEnabled
     entraClientId: entraClientId
     entraClientSecret: entraClientSecret
     entraTenantId: entraTenantId
     allowedIpRange: allowedIpRange
+    loadDefaultData: loadDefaultData
+    aiServicesEndpoint: aiFoundry.outputs.endpoint
+    aiServicesKey: aiFoundry.outputs.aiServicesKey
   }
 }
 
 // ---------------------------------------------------------------------------
-// Outputs (no secrets — use az CLI to fetch keys / KV secrets post-deploy)
+// Outputs
 // ---------------------------------------------------------------------------
 
 @description('Full HTTPS URL of the backend container app')
@@ -204,9 +166,6 @@ output aiServicesName string = aiFoundry.outputs.aiServicesName
 
 @description('PostgreSQL server FQDN')
 output postgresServerFqdn string = postgresql.outputs.serverFqdn
-
-@description('Key Vault name (holds postgres-admin-password and secret-encryption-key)')
-output keyVaultName string = keyVault.outputs.vaultName
 
 @description('Resource group name')
 output resourceGroupName string = resourceGroup().name

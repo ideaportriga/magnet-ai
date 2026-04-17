@@ -39,20 +39,6 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' = {
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }
-      {
-        name: 'deployment-scripts'
-        properties: {
-          addressPrefix: '10.0.3.0/24'
-          delegations: [
-            {
-              name: 'Microsoft.ContainerInstance.containerGroups'
-              properties: {
-                serviceName: 'Microsoft.ContainerInstance/containerGroups'
-              }
-            }
-          ]
-        }
-      }
     ]
   }
 }
@@ -66,5 +52,3 @@ output containerAppsSubnetId string = vnet.properties.subnets[0].id
 @description('Private Endpoints subnet resource ID')
 output privateEndpointsSubnetId string = vnet.properties.subnets[1].id
 
-@description('Deployment scripts subnet resource ID (ACI-delegated, for deploymentScripts VNet integration)')
-output deploymentScriptsSubnetId string = vnet.properties.subnets[2].id

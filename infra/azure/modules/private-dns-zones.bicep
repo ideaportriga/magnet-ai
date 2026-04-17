@@ -21,11 +21,6 @@ resource aiServicesZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
   location: 'global'
 }
 
-resource keyVaultZone 'Microsoft.Network/privateDnsZones@2024-06-01' = {
-  name: 'privatelink.vaultcore.azure.net'
-  location: 'global'
-}
-
 resource postgresLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
   parent: postgresZone
   name: 'postgres-vnet-link'
@@ -74,18 +69,6 @@ resource aiServicesLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2
   }
 }
 
-resource keyVaultLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2024-06-01' = {
-  parent: keyVaultZone
-  name: 'keyvault-vnet-link'
-  location: 'global'
-  properties: {
-    virtualNetwork: {
-      id: vnetId
-    }
-    registrationEnabled: false
-  }
-}
-
 @description('Private DNS zone ID for PostgreSQL')
 output postgresDnsZoneId string = postgresZone.id
 
@@ -98,5 +81,3 @@ output openAiDnsZoneId string = openAiZone.id
 @description('Private DNS zone ID for AI Services')
 output aiServicesDnsZoneId string = aiServicesZone.id
 
-@description('Private DNS zone ID for Key Vault')
-output keyVaultDnsZoneId string = keyVaultZone.id

@@ -17,11 +17,9 @@ param containerImage string
 @description('PostgreSQL connection string (asyncpg format)')
 param databaseConnectionString string
 
-@description('Key Vault URI (https://<name>.vault.azure.net/) — used to resolve secret-encryption-key')
-param keyVaultUri string
-
-@description('Resource ID of the user-assigned managed identity the Container App uses to read Key Vault secrets')
-param appIdentityId string
+@secure()
+@description('Fernet encryption key')
+param secretEncryptionKey string
 
 @description('Enable authentication (Entra ID)')
 param authEnabled bool = false
@@ -39,6 +37,16 @@ param entraTenantId string = ''
 @description('IP range to restrict ingress access (CIDR notation, e.g. 1.2.3.0/24). Empty = no restriction.')
 param allowedIpRange string = ''
 
+@description('Load default data into the database on startup')
+param loadDefaultData bool = false
+
+@description('Azure OpenAI endpoint URL for provider configuration')
+param aiServicesEndpoint string = ''
+
+@secure()
+@description('Azure OpenAI API key for provider configuration')
+param aiServicesKey string = ''
+
 var appName = 'ca-magnet-ai-${environment}'
 var redirectUri = 'https://${appName}.${envDefaultDomain}/auth/callback'
 
@@ -53,8 +61,11 @@ var baseSecrets = [
   }
   {
     name: 'secret-encryption-key'
-    keyVaultUrl: '${keyVaultUri}secrets/secret-encryption-key'
-    identity: appIdentityId
+    value: secretEncryptionKey
+  }
+  {
+    name: 'azure-openai-api-key'
+    value: aiServicesKey
   }
 ]
 
@@ -101,6 +112,18 @@ var baseEnv = [
   {
     name: 'RUN_MIGRATIONS'
     value: 'true'
+  }
+  {
+    name: 'RUN_FIXTURES'
+    value: loadDefaultData ? 'true' : 'false'
+  }
+  {
+    name: 'AZURE_OPENAI_ENDPOINT'
+    value: '${aiServicesEndpoint}openai/v1/'
+  }
+  {
+    name: 'AZURE_OPENAI_API_KEY'
+    secretRef: 'azure-openai-api-key'
   }
   {
     name: 'WEB_INCLUDED'
@@ -174,12 +197,6 @@ var entraEnv = authEnabled ? [
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: appName
   location: location
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${appIdentityId}': {}
-    }
-  }
   properties: {
     managedEnvironmentId: environmentId
     configuration: {

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "17787201918257868478"
+      "templateHash": "3642486485881711905"
     }
   },
   "parameters": {
@@ -55,7 +55,7 @@
       "type": "bool",
       "defaultValue": false,
       "metadata": {
-        "description": "Allow public access to PostgreSQL, AI Services and Key Vault for dev/debugging"
+        "description": "Allow public access to PostgreSQL and AI Services for dev/debugging"
       }
     },
     "devIpAddress": {
@@ -88,12 +88,23 @@
         "description": "AI Services (Cognitive Services) account name. Must be globally unique in Azure. 2-64 chars, alphanumeric + hyphens. Leave empty to auto-generate: ai-magnet-ai-<env>-<suffix>."
       }
     },
-    "keyVaultName": {
-      "type": "string",
-      "defaultValue": "",
-      "maxLength": 24,
+    "postgresAdminPassword": {
+      "type": "securestring",
       "metadata": {
-        "description": "Key Vault name. Must be globally unique in Azure. 3-24 chars, alphanumeric + hyphens, start with a letter. Leave empty to auto-generate: kv-<env>-<suffix>."
+        "description": "PostgreSQL admin password. 8+ chars, must contain uppercase, lowercase, digit, and special char. Provide the same value on redeploy to avoid regeneration."
+      }
+    },
+    "secretEncryptionKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Fernet encryption key (44-char base64url string ending with =). Provide the same value on redeploy to avoid regeneration."
+      }
+    },
+    "loadDefaultData": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Load default data (providers, models, agents, etc.) on first deployment. Set to true only for initial setup, then set back to false."
       }
     }
   },
@@ -101,8 +112,7 @@
     "location": "[resourceGroup().location]",
     "uniqueSuffix": "[uniqueString(resourceGroup().id)]",
     "resolvedPostgresServerName": "[if(empty(parameters('postgresServerName')), format('psql-magnet-ai-{0}-{1}', parameters('environment'), variables('uniqueSuffix')), parameters('postgresServerName'))]",
-    "resolvedAiServicesName": "[if(empty(parameters('aiServicesAccountName')), format('ai-magnet-ai-{0}-{1}', parameters('environment'), variables('uniqueSuffix')), parameters('aiServicesAccountName'))]",
-    "resolvedKeyVaultName": "[if(empty(parameters('keyVaultName')), format('kv-{0}-{1}', parameters('environment'), variables('uniqueSuffix')), parameters('keyVaultName'))]"
+    "resolvedAiServicesName": "[if(empty(parameters('aiServicesAccountName')), format('ai-magnet-ai-{0}-{1}', parameters('environment'), variables('uniqueSuffix')), parameters('aiServicesAccountName'))]"
   },
   "resources": [
     {
@@ -129,7 +139,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "2615527021871534770"
+              "templateHash": "9789034836620590884"
             }
           },
           "parameters": {
@@ -182,20 +192,6 @@
                       "addressPrefix": "10.0.2.0/24",
                       "privateEndpointNetworkPolicies": "Disabled"
                     }
-                  },
-                  {
-                    "name": "deployment-scripts",
-                    "properties": {
-                      "addressPrefix": "10.0.3.0/24",
-                      "delegations": [
-                        {
-                          "name": "Microsoft.ContainerInstance.containerGroups",
-                          "properties": {
-                            "serviceName": "Microsoft.ContainerInstance/containerGroups"
-                          }
-                        }
-                      ]
-                    }
                   }
                 ]
               }
@@ -222,13 +218,6 @@
                 "description": "Private Endpoints subnet resource ID"
               },
               "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '2024-01-01').subnets[1].id]"
-            },
-            "deploymentScriptsSubnetId": {
-              "type": "string",
-              "metadata": {
-                "description": "Deployment scripts subnet resource ID (ACI-delegated, for deploymentScripts VNet integration)"
-              },
-              "value": "[reference(resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '2024-01-01').subnets[2].id]"
             }
           }
         }
@@ -255,7 +244,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "6661876435447640703"
+              "templateHash": "3402766687136436645"
             }
           },
           "parameters": {
@@ -289,12 +278,6 @@
               "type": "Microsoft.Network/privateDnsZones",
               "apiVersion": "2024-06-01",
               "name": "privatelink.services.ai.azure.com",
-              "location": "global"
-            },
-            {
-              "type": "Microsoft.Network/privateDnsZones",
-              "apiVersion": "2024-06-01",
-              "name": "privatelink.vaultcore.azure.net",
               "location": "global"
             },
             {
@@ -356,21 +339,6 @@
               "dependsOn": [
                 "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.services.ai.azure.com')]"
               ]
-            },
-            {
-              "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
-              "apiVersion": "2024-06-01",
-              "name": "[format('{0}/{1}', 'privatelink.vaultcore.azure.net', 'keyvault-vnet-link')]",
-              "location": "global",
-              "properties": {
-                "virtualNetwork": {
-                  "id": "[parameters('vnetId')]"
-                },
-                "registrationEnabled": false
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]"
-              ]
             }
           ],
           "outputs": {
@@ -401,13 +369,6 @@
                 "description": "Private DNS zone ID for AI Services"
               },
               "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.services.ai.azure.com')]"
-            },
-            "keyVaultDnsZoneId": {
-              "type": "string",
-              "metadata": {
-                "description": "Private DNS zone ID for Key Vault"
-              },
-              "value": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.vaultcore.azure.net')]"
             }
           }
         }
@@ -503,441 +464,6 @@
     {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "key-vault",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "location": {
-            "value": "[variables('location')]"
-          },
-          "vaultName": {
-            "value": "[variables('resolvedKeyVaultName')]"
-          },
-          "privateEndpointSubnetId": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.privateEndpointsSubnetId.value]"
-          },
-          "privateDnsZoneId": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'private-dns-zones'), '2025-04-01').outputs.keyVaultDnsZoneId.value]"
-          },
-          "allowDevAccess": {
-            "value": "[parameters('allowDevAccess')]"
-          },
-          "devIpAddress": {
-            "value": "[parameters('devIpAddress')]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "7434851397590535214"
-            }
-          },
-          "parameters": {
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for all resources"
-              }
-            },
-            "vaultName": {
-              "type": "string",
-              "minLength": 3,
-              "maxLength": 24,
-              "metadata": {
-                "description": "Key Vault name. Must be globally unique. 3-24 chars, alphanumeric + hyphens, must start with a letter."
-              }
-            },
-            "tenantId": {
-              "type": "string",
-              "defaultValue": "[subscription().tenantId]",
-              "metadata": {
-                "description": "Tenant ID that the vault authenticates against"
-              }
-            },
-            "privateEndpointSubnetId": {
-              "type": "string",
-              "metadata": {
-                "description": "Subnet resource ID for the private endpoint"
-              }
-            },
-            "privateDnsZoneId": {
-              "type": "string",
-              "metadata": {
-                "description": "Private DNS zone resource ID for privatelink.vaultcore.azure.net"
-              }
-            },
-            "allowDevAccess": {
-              "type": "bool",
-              "defaultValue": false,
-              "metadata": {
-                "description": "Allow a single developer IP through the vault firewall for debugging (temporarily re-enables the public endpoint when true)"
-              }
-            },
-            "devIpAddress": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "Developer IP address to allow when allowDevAccess is true"
-              }
-            }
-          },
-          "resources": [
-            {
-              "type": "Microsoft.KeyVault/vaults",
-              "apiVersion": "2024-11-01",
-              "name": "[parameters('vaultName')]",
-              "location": "[parameters('location')]",
-              "properties": {
-                "tenantId": "[parameters('tenantId')]",
-                "sku": {
-                  "family": "A",
-                  "name": "standard"
-                },
-                "enableRbacAuthorization": true,
-                "enableSoftDelete": true,
-                "softDeleteRetentionInDays": 7,
-                "enablePurgeProtection": true,
-                "publicNetworkAccess": "[if(parameters('allowDevAccess'), 'Enabled', 'Disabled')]",
-                "networkAcls": {
-                  "defaultAction": "Deny",
-                  "bypass": "AzureServices",
-                  "ipRules": "[if(and(parameters('allowDevAccess'), not(equals(parameters('devIpAddress'), ''))), createArray(createObject('value', parameters('devIpAddress'))), createArray())]"
-                }
-              }
-            },
-            {
-              "type": "Microsoft.Network/privateEndpoints",
-              "apiVersion": "2024-01-01",
-              "name": "[format('pe-kv-{0}', parameters('vaultName'))]",
-              "location": "[parameters('location')]",
-              "properties": {
-                "subnet": {
-                  "id": "[parameters('privateEndpointSubnetId')]"
-                },
-                "privateLinkServiceConnections": [
-                  {
-                    "name": "[format('pe-kv-{0}', parameters('vaultName'))]",
-                    "properties": {
-                      "privateLinkServiceId": "[resourceId('Microsoft.KeyVault/vaults', parameters('vaultName'))]",
-                      "groupIds": [
-                        "vault"
-                      ]
-                    }
-                  }
-                ]
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.KeyVault/vaults', parameters('vaultName'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
-              "apiVersion": "2024-01-01",
-              "name": "[format('{0}/{1}', format('pe-kv-{0}', parameters('vaultName')), 'default')]",
-              "properties": {
-                "privateDnsZoneConfigs": [
-                  {
-                    "name": "keyvault",
-                    "properties": {
-                      "privateDnsZoneId": "[parameters('privateDnsZoneId')]"
-                    }
-                  }
-                ]
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Network/privateEndpoints', format('pe-kv-{0}', parameters('vaultName')))]"
-              ]
-            }
-          ],
-          "outputs": {
-            "vaultId": {
-              "type": "string",
-              "metadata": {
-                "description": "Key Vault resource ID"
-              },
-              "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('vaultName'))]"
-            },
-            "vaultName": {
-              "type": "string",
-              "metadata": {
-                "description": "Key Vault name"
-              },
-              "value": "[parameters('vaultName')]"
-            },
-            "vaultUri": {
-              "type": "string",
-              "metadata": {
-                "description": "Key Vault URI (https://<name>.vault.azure.net/)"
-              },
-              "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('vaultName')), '2024-11-01').vaultUri]"
-            }
-          }
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'private-dns-zones')]",
-        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
-      ]
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
-      "name": "secrets-bootstrap",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "location": {
-            "value": "[variables('location')]"
-          },
-          "environment": {
-            "value": "[parameters('environment')]"
-          },
-          "vaultName": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'key-vault'), '2025-04-01').outputs.vaultName.value]"
-          },
-          "scriptSubnetId": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.deploymentScriptsSubnetId.value]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "3022813288659314953"
-            }
-          },
-          "parameters": {
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for all resources"
-              }
-            },
-            "environment": {
-              "type": "string",
-              "metadata": {
-                "description": "Environment name (used for naming the bootstrap UAMI)"
-              }
-            },
-            "vaultName": {
-              "type": "string",
-              "metadata": {
-                "description": "Key Vault name (scope for role assignment + target for secret writes)"
-              }
-            },
-            "scriptSubnetId": {
-              "type": "string",
-              "metadata": {
-                "description": "Subnet resource ID for the deployment script ACI (must be delegated to Microsoft.ContainerInstance/containerGroups). Required when the Key Vault is private-endpoint-only."
-              }
-            },
-            "forceUpdateTag": {
-              "type": "string",
-              "defaultValue": "[utcNow()]",
-              "metadata": {
-                "description": "Force re-run of the bootstrap script by changing this value. Default uses utcNow() only on new deployments."
-              }
-            }
-          },
-          "variables": {
-            "kvSecretsOfficerRoleId": "b86a8fe4-44ce-4948-aee5-eccb2c155cd7"
-          },
-          "resources": [
-            {
-              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-              "apiVersion": "2023-01-31",
-              "name": "[format('id-magnet-ai-{0}-secrets-bootstrap', parameters('environment'))]",
-              "location": "[parameters('location')]"
-            },
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.KeyVault/vaults', parameters('vaultName'))]",
-              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('vaultName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-secrets-bootstrap', parameters('environment'))), variables('kvSecretsOfficerRoleId'))]",
-              "properties": {
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('kvSecretsOfficerRoleId'))]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-secrets-bootstrap', parameters('environment'))), '2023-01-31').principalId]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-secrets-bootstrap', parameters('environment')))]"
-              ]
-            },
-            {
-              "type": "Microsoft.Resources/deploymentScripts",
-              "apiVersion": "2023-08-01",
-              "name": "[format('ds-magnet-ai-{0}-secrets-bootstrap', parameters('environment'))]",
-              "location": "[parameters('location')]",
-              "kind": "AzureCLI",
-              "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-secrets-bootstrap', parameters('environment'))))]": {}
-                }
-              },
-              "properties": {
-                "azCliVersion": "2.60.0",
-                "retentionInterval": "PT1H",
-                "cleanupPreference": "OnSuccess",
-                "timeout": "PT15M",
-                "forceUpdateTag": "[parameters('forceUpdateTag')]",
-                "containerSettings": {
-                  "subnetIds": [
-                    {
-                      "id": "[parameters('scriptSubnetId')]"
-                    }
-                  ]
-                },
-                "environmentVariables": [
-                  {
-                    "name": "KV_NAME",
-                    "value": "[parameters('vaultName')]"
-                  }
-                ],
-                "scriptContent": "set -eu\n\n# Wait for RBAC propagation to the freshly created UAMI\nfor i in 1 2 3 4 5 6; do\n  if az keyvault secret list --vault-name \"$KV_NAME\" --query \"[].name\" -o tsv >/dev/null 2>&1; then\n    break\n  fi\n  echo \"Waiting for RBAC propagation (attempt $i)...\"\n  sleep 10\ndone\n\nsecret_exists() {\n  local name=\"$1\"\n  local found\n  found=$(az keyvault secret list --vault-name \"$KV_NAME\" --query \"[?name=='$name'].name\" -o tsv 2>/dev/null || true)\n  [ -n \"$found\" ]\n}\n\n# postgres-admin-password — Azure PG Flexible Server complexity:\n# 8-128 chars, 3 of 4 {upper, lower, digit, non-alphanumeric}, not \"postgres\".\nif secret_exists postgres-admin-password; then\n  echo \"postgres-admin-password already exists, skipping\"\nelse\n  RAND=$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 28)\n  PWD=\"Pg1!${RAND}\"\n  az keyvault secret set --vault-name \"$KV_NAME\" --name postgres-admin-password --value \"$PWD\" --output none\n  echo \"Generated postgres-admin-password\"\nfi\n\n# secret-encryption-key — Fernet key: 32 random bytes, url-safe-base64 encoded (44 chars, ends in =)\nif secret_exists secret-encryption-key; then\n  echo \"secret-encryption-key already exists, skipping\"\nelse\n  FERNET=$(openssl rand 32 | base64 | tr '+/' '-_' | tr -d '\\n=')\n  FERNET=\"${FERNET}=\"\n  az keyvault secret set --vault-name \"$KV_NAME\" --name secret-encryption-key --value \"$FERNET\" --output none\n  echo \"Generated secret-encryption-key\"\nfi\n\necho '{\"bootstrapped\": true}' > \"$AZ_SCRIPTS_OUTPUT_PATH\"\n"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-secrets-bootstrap', parameters('environment')))]",
-                "[extensionResourceId(resourceId('Microsoft.KeyVault/vaults', parameters('vaultName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.KeyVault/vaults', parameters('vaultName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-secrets-bootstrap', parameters('environment'))), variables('kvSecretsOfficerRoleId')))]"
-              ]
-            }
-          ],
-          "outputs": {
-            "bootstrapIdentityId": {
-              "type": "string",
-              "metadata": {
-                "description": "Resource ID of the UAMI the bootstrap script runs as"
-              },
-              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-secrets-bootstrap', parameters('environment')))]"
-            }
-          }
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'key-vault')]",
-        "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
-      ]
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
-      "name": "app-identity",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "location": {
-            "value": "[variables('location')]"
-          },
-          "environment": {
-            "value": "[parameters('environment')]"
-          },
-          "vaultName": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'key-vault'), '2025-04-01').outputs.vaultName.value]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.41.2.15936",
-              "templateHash": "7864370725256943344"
-            }
-          },
-          "parameters": {
-            "location": {
-              "type": "string",
-              "metadata": {
-                "description": "Azure region for all resources"
-              }
-            },
-            "environment": {
-              "type": "string",
-              "metadata": {
-                "description": "Environment name (used for naming the app UAMI)"
-              }
-            },
-            "vaultName": {
-              "type": "string",
-              "metadata": {
-                "description": "Key Vault name to grant Secrets User on"
-              }
-            }
-          },
-          "variables": {
-            "kvSecretsUserRoleId": "4633458b-17de-408a-b874-0445c86b69e6"
-          },
-          "resources": [
-            {
-              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-              "apiVersion": "2023-01-31",
-              "name": "[format('id-magnet-ai-{0}-app', parameters('environment'))]",
-              "location": "[parameters('location')]"
-            },
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[resourceId('Microsoft.KeyVault/vaults', parameters('vaultName'))]",
-              "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('vaultName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-app', parameters('environment'))), variables('kvSecretsUserRoleId'))]",
-              "properties": {
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('kvSecretsUserRoleId'))]",
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-app', parameters('environment'))), '2023-01-31').principalId]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-app', parameters('environment')))]"
-              ]
-            }
-          ],
-          "outputs": {
-            "appIdentityId": {
-              "type": "string",
-              "metadata": {
-                "description": "Resource ID of the app UAMI"
-              },
-              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-app', parameters('environment')))]"
-            },
-            "appIdentityPrincipalId": {
-              "type": "string",
-              "metadata": {
-                "description": "Principal ID of the app UAMI"
-              },
-              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-app', parameters('environment'))), '2023-01-31').principalId]"
-            },
-            "appIdentityClientId": {
-              "type": "string",
-              "metadata": {
-                "description": "Client ID of the app UAMI"
-              },
-              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-magnet-ai-{0}-app', parameters('environment'))), '2023-01-31').clientId]"
-            }
-          }
-        }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'key-vault')]"
-      ]
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2025-04-01",
       "name": "ai-foundry",
       "properties": {
         "expressionEvaluationOptions": {
@@ -977,7 +503,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "2768048507780318762"
+              "templateHash": "9549257718945156240"
             }
           },
           "parameters": {
@@ -1203,6 +729,13 @@
                 "description": "AI Services account name (use with: az cognitiveservices account keys list --name <name> --resource-group <rg>)"
               },
               "value": "[parameters('aiServicesName')]"
+            },
+            "aiServicesKey": {
+              "type": "string",
+              "metadata": {
+                "description": "AI Services primary key"
+              },
+              "value": "[listKeys(resourceId('Microsoft.CognitiveServices/accounts', parameters('aiServicesName')), '2025-04-01-preview').key1]"
             }
           }
         }
@@ -1229,12 +762,7 @@
             "value": "[variables('resolvedPostgresServerName')]"
           },
           "adminPassword": {
-            "reference": {
-              "keyVault": {
-                "id": "[resourceId('Microsoft.KeyVault/vaults', reference(resourceId('Microsoft.Resources/deployments', 'key-vault'), '2025-04-01').outputs.vaultName.value)]"
-              },
-              "secretName": "postgres-admin-password"
-            }
+            "value": "[parameters('postgresAdminPassword')]"
           },
           "privateEndpointSubnetId": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'vnet'), '2025-04-01').outputs.privateEndpointsSubnetId.value]"
@@ -1447,9 +975,7 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'key-vault')]",
         "[resourceId('Microsoft.Resources/deployments', 'private-dns-zones')]",
-        "[resourceId('Microsoft.Resources/deployments', 'secrets-bootstrap')]",
         "[resourceId('Microsoft.Resources/deployments', 'vnet')]"
       ]
     },
@@ -1607,11 +1133,8 @@
           "databaseConnectionString": {
             "value": "[reference(resourceId('Microsoft.Resources/deployments', 'postgresql'), '2025-04-01').outputs.connectionString.value]"
           },
-          "keyVaultUri": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'key-vault'), '2025-04-01').outputs.vaultUri.value]"
-          },
-          "appIdentityId": {
-            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'app-identity'), '2025-04-01').outputs.appIdentityId.value]"
+          "secretEncryptionKey": {
+            "value": "[parameters('secretEncryptionKey')]"
           },
           "authEnabled": {
             "value": "[parameters('authEnabled')]"
@@ -1627,6 +1150,15 @@
           },
           "allowedIpRange": {
             "value": "[parameters('allowedIpRange')]"
+          },
+          "loadDefaultData": {
+            "value": "[parameters('loadDefaultData')]"
+          },
+          "aiServicesEndpoint": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.endpoint.value]"
+          },
+          "aiServicesKey": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ai-foundry'), '2025-04-01').outputs.aiServicesKey.value]"
           }
         },
         "template": {
@@ -1636,7 +1168,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "13190546716010459878"
+              "templateHash": "12637649679206830497"
             }
           },
           "parameters": {
@@ -1676,16 +1208,10 @@
                 "description": "PostgreSQL connection string (asyncpg format)"
               }
             },
-            "keyVaultUri": {
-              "type": "string",
+            "secretEncryptionKey": {
+              "type": "securestring",
               "metadata": {
-                "description": "Key Vault URI (https://<name>.vault.azure.net/) — used to resolve secret-encryption-key"
-              }
-            },
-            "appIdentityId": {
-              "type": "string",
-              "metadata": {
-                "description": "Resource ID of the user-assigned managed identity the Container App uses to read Key Vault secrets"
+                "description": "Fernet encryption key"
               }
             },
             "authEnabled": {
@@ -1722,6 +1248,27 @@
               "metadata": {
                 "description": "IP range to restrict ingress access (CIDR notation, e.g. 1.2.3.0/24). Empty = no restriction."
               }
+            },
+            "loadDefaultData": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Load default data into the database on startup"
+              }
+            },
+            "aiServicesEndpoint": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Azure OpenAI endpoint URL for provider configuration"
+              }
+            },
+            "aiServicesKey": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Azure OpenAI API key for provider configuration"
+              }
             }
           },
           "variables": {
@@ -1738,8 +1285,11 @@
               },
               {
                 "name": "secret-encryption-key",
-                "keyVaultUrl": "[format('{0}secrets/secret-encryption-key', parameters('keyVaultUri'))]",
-                "identity": "[parameters('appIdentityId')]"
+                "value": "[parameters('secretEncryptionKey')]"
+              },
+              {
+                "name": "azure-openai-api-key",
+                "value": "[parameters('aiServicesKey')]"
               }
             ],
             "entraSecrets": "[if(parameters('authEnabled'), createArray(createObject('name', 'entra-client-id', 'value', parameters('entraClientId')), createObject('name', 'entra-client-secret', 'value', parameters('entraClientSecret'))), createArray())]",
@@ -1775,6 +1325,18 @@
               {
                 "name": "RUN_MIGRATIONS",
                 "value": "true"
+              },
+              {
+                "name": "RUN_FIXTURES",
+                "value": "[if(parameters('loadDefaultData'), 'true', 'false')]"
+              },
+              {
+                "name": "AZURE_OPENAI_ENDPOINT",
+                "value": "[format('{0}openai/v1/', parameters('aiServicesEndpoint'))]"
+              },
+              {
+                "name": "AZURE_OPENAI_API_KEY",
+                "secretRef": "azure-openai-api-key"
               },
               {
                 "name": "WEB_INCLUDED",
@@ -1837,12 +1399,6 @@
               "apiVersion": "2024-03-01",
               "name": "[variables('appName')]",
               "location": "[parameters('location')]",
-              "identity": {
-                "type": "UserAssigned",
-                "userAssignedIdentities": {
-                  "[format('{0}', parameters('appIdentityId'))]": {}
-                }
-              },
               "properties": {
                 "managedEnvironmentId": "[parameters('environmentId')]",
                 "configuration": {
@@ -1934,11 +1490,9 @@
         }
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Resources/deployments', 'app-identity')]",
+        "[resourceId('Microsoft.Resources/deployments', 'ai-foundry')]",
         "[resourceId('Microsoft.Resources/deployments', 'container-app-env')]",
-        "[resourceId('Microsoft.Resources/deployments', 'key-vault')]",
-        "[resourceId('Microsoft.Resources/deployments', 'postgresql')]",
-        "[resourceId('Microsoft.Resources/deployments', 'secrets-bootstrap')]"
+        "[resourceId('Microsoft.Resources/deployments', 'postgresql')]"
       ]
     }
   ],
@@ -1970,13 +1524,6 @@
         "description": "PostgreSQL server FQDN"
       },
       "value": "[reference(resourceId('Microsoft.Resources/deployments', 'postgresql'), '2025-04-01').outputs.serverFqdn.value]"
-    },
-    "keyVaultName": {
-      "type": "string",
-      "metadata": {
-        "description": "Key Vault name (holds postgres-admin-password and secret-encryption-key)"
-      },
-      "value": "[reference(resourceId('Microsoft.Resources/deployments', 'key-vault'), '2025-04-01').outputs.vaultName.value]"
     },
     "resourceGroupName": {
       "type": "string",

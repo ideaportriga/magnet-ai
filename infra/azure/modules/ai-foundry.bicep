@@ -171,3 +171,6 @@ output endpoint string = aiServices.properties.endpoint
 
 @description('AI Services account name (use with: az cognitiveservices account keys list --name <name> --resource-group <rg>)')
 output aiServicesName string = aiServices.name
+
+@description('AI Services primary key')
+output aiServicesKey string = aiServices.listKeys().key1

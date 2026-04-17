@@ -80,6 +80,7 @@ COPY --from=api-builder /app/.venv ./.venv
 COPY api/src ./src
 COPY api/scripts ./scripts
 COPY api/static ./static
+COPY api/manage_fixtures.py ./manage_fixtures.py
 
 ENV PYTHONPATH=/app/src
 ENV PORT=8000
