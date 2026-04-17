@@ -34,8 +34,8 @@ param entraClientSecret string = ''
 @description('Microsoft Entra ID tenant ID')
 param entraTenantId string = ''
 
-@description('IP range to restrict ingress access (CIDR notation, e.g. 1.2.3.0/24). Empty = no restriction.')
-param allowedIpRange string = ''
+@description('CIDR range allowed through Container App ingress (e.g. 1.2.3.0/24). Empty = no restriction. Strongly recommended while authEnabled=false so the unauthenticated app is not publicly reachable — see azure_auth.md to enable Entra ID auth.')
+param ingressAllowedIpRange string = ''
 
 @description('Load default data into the database on startup')
 param loadDefaultData bool = false
@@ -213,16 +213,11 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           }
         ]
         allowInsecure: false
-        ipSecurityRestrictions: allowedIpRange != '' ? [
+        ipSecurityRestrictions: ingressAllowedIpRange != '' ? [
           {
             name: 'AllowSpecificRange'
             action: 'Allow'
-            ipAddressRange: allowedIpRange
-          }
-          {
-            name: 'DenyAll'
-            action: 'Deny'
-            ipAddressRange: '0.0.0.0/0'
+            ipAddressRange: ingressAllowedIpRange
           }
         ] : []
       }

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "3642486485881711905"
+      "templateHash": "13177346812322310902"
     }
   },
   "parameters": {
@@ -65,11 +65,11 @@
         "description": "Developer IP address to allow when allowDevAccess is true (e.g. 1.2.3.4)"
       }
     },
-    "allowedIpRange": {
+    "ingressAllowedIpRange": {
       "type": "string",
       "defaultValue": "",
       "metadata": {
-        "description": "IP range to restrict container app ingress (CIDR notation, e.g. 1.2.3.0/24). Empty = no restriction."
+        "description": "CIDR range allowed through Container App ingress (e.g. 1.2.3.0/24). Empty = no restriction. Strongly recommended while authEnabled=false so the unauthenticated app is not publicly reachable — see azure_auth.md to enable Entra ID auth."
       }
     },
     "postgresServerName": {
@@ -1148,8 +1148,8 @@
           "entraTenantId": {
             "value": "[parameters('entraTenantId')]"
           },
-          "allowedIpRange": {
-            "value": "[parameters('allowedIpRange')]"
+          "ingressAllowedIpRange": {
+            "value": "[parameters('ingressAllowedIpRange')]"
           },
           "loadDefaultData": {
             "value": "[parameters('loadDefaultData')]"
@@ -1168,7 +1168,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "12637649679206830497"
+              "templateHash": "11153963398015016282"
             }
           },
           "parameters": {
@@ -1242,11 +1242,11 @@
                 "description": "Microsoft Entra ID tenant ID"
               }
             },
-            "allowedIpRange": {
+            "ingressAllowedIpRange": {
               "type": "string",
               "defaultValue": "",
               "metadata": {
-                "description": "IP range to restrict ingress access (CIDR notation, e.g. 1.2.3.0/24). Empty = no restriction."
+                "description": "CIDR range allowed through Container App ingress (e.g. 1.2.3.0/24). Empty = no restriction. Strongly recommended while authEnabled=false so the unauthenticated app is not publicly reachable — see azure_auth.md to enable Entra ID auth."
               }
             },
             "loadDefaultData": {
@@ -1415,7 +1415,7 @@
                       }
                     ],
                     "allowInsecure": false,
-                    "ipSecurityRestrictions": "[if(not(equals(parameters('allowedIpRange'), '')), createArray(createObject('name', 'AllowSpecificRange', 'action', 'Allow', 'ipAddressRange', parameters('allowedIpRange')), createObject('name', 'DenyAll', 'action', 'Deny', 'ipAddressRange', '0.0.0.0/0')), createArray())]"
+                    "ipSecurityRestrictions": "[if(not(equals(parameters('ingressAllowedIpRange'), '')), createArray(createObject('name', 'AllowSpecificRange', 'action', 'Allow', 'ipAddressRange', parameters('ingressAllowedIpRange'))), createArray())]"
                   }
                 },
                 "template": {

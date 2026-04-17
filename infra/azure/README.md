@@ -2,60 +2,53 @@
 
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fideaportriga%2Fmagnet-ai%2Fmain%2Finfra%2Fazure%2Fazuredeploy.json)
 
-The template is resource-group scoped — create (or select) a resource group first, then deploy into it. **No user-supplied secrets are required:** the Postgres admin password and the Fernet encryption key are generated on the first deploy and stored in a Key Vault inside your resource group; every subsequent deploy reuses those same values.
+The template is resource-group scoped — create (or select) a resource group first, then deploy into it.
 
-## Parameters
+## Authentication
 
-All parameters are optional.
+**This template deploys the application with authentication disabled by default.** The Container App is publicly reachable on its `*.azurecontainerapps.io` URL until you enable Microsoft Entra ID auth.
+
+Two things to do:
+
+1. **On the initial deploy, set `ingressAllowedIpRange`** to your public IP (e.g. `1.2.3.4/32`) so the unauthenticated app is only reachable from that address. Without this the app is open to the internet.
+2. **Follow [`azure_auth.md`](azure_auth.md)** to create an Entra ID app registration, wire up the `MICROSOFT_ENTRA_ID_*` values on the Container App, and flip `AUTH_ENABLED` to `true`. Entra app registration is a tenant-scoped Entra resource, not an Azure resource group resource, so it isn't created by this template — it must be set up separately.
+
+Once auth is on, the IP restriction is optional (you can keep it as defense in depth, or remove it by redeploying with `ingressAllowedIpRange=""`).
+
+## Required parameters
+
+These two have no defaults and must be supplied on every deploy. **Pass the same values on every redeploy** — changing them will rotate the Postgres password (breaking existing connections) and invalidate the Fernet key (making previously-encrypted secrets in the database unreadable).
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `postgresAdminPassword` | securestring | PostgreSQL admin password. 8+ chars, must contain uppercase, lowercase, digit, and special char (Azure Flexible Server complexity rules). |
+| `secretEncryptionKey` | securestring | Fernet encryption key used by the app to encrypt stored credentials. Must be a 44-char url-safe base64 string ending in `=` (generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`). |
+
+## Optional parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `environment` | `dev` | Environment name (dev, staging, prod) — used in resource naming |
 | `containerImageTag` | `latest` | Tag for the main magnet-ai image (`ghcr.io/ideaportriga/magnet-ai`) |
-| `authEnabled` | `false` | Enable Entra ID auth on the magnet-ai app. Default is `false` so the first deploy succeeds without a pre-existing Entra app registration — flip to `true` and supply the three `entra*` params to turn auth on. |
+| `authEnabled` | `false` | Enable Entra ID auth on the magnet-ai app. Default is `false` so the first deploy succeeds without a pre-existing Entra app registration — flip to `true` and supply the three `entra*` params to turn auth on (see [`azure_auth.md`](azure_auth.md)). |
 | `entraClientId` / `entraClientSecret` / `entraTenantId` | `''` | Entra ID app registration details (required when `authEnabled=true`) |
-| `allowDevAccess` | `false` | Open Postgres, AI Foundry and Key Vault public access for a single dev IP (see below) |
+| `allowDevAccess` | `false` | Open Postgres and AI Foundry public access for a single dev IP (see below) |
 | `devIpAddress` | `''` | IP to whitelist when `allowDevAccess=true` |
-| `allowedIpRange` | `''` | CIDR range allowed through container-app ingress (empty = no restriction) |
+| `ingressAllowedIpRange` | `''` | CIDR range allowed through Container App ingress (empty = no restriction). Strongly recommended while `authEnabled=false`. |
+| `loadDefaultData` | `false` | Load default providers/models/agents on first deploy. Set back to `false` after the initial seed. |
 | `postgresServerName` | *(auto)* | Postgres server name. **Must be globally unique in Azure.** 3-63 chars, lowercase letters/digits/hyphens, start with a letter. Leave empty to auto-generate `psql-magnet-ai-<env>-<suffix>`. |
 | `aiServicesAccountName` | *(auto)* | AI Services account name. **Must be globally unique in Azure.** 2-64 chars, alphanumeric + hyphens. Leave empty to auto-generate `ai-magnet-ai-<env>-<suffix>`. |
-| `keyVaultName` | *(auto)* | Key Vault name. **Must be globally unique in Azure.** 3-24 chars, alphanumeric + hyphens, start with a letter. Leave empty to auto-generate `kv-<env>-<suffix>`. |
 
 `<suffix>` is a deterministic 13-character string derived from the resource group ID (SHA-256-based, not random), so auto-generated names are stable across redeployments into the same RG and differ between RGs / subscriptions.
-
-## Secrets and Key Vault
-
-On the **first** deployment, an ARM deployment script generates:
-
-- `postgres-admin-password` — a strong random password that satisfies Azure PostgreSQL Flexible Server complexity rules
-- `secret-encryption-key` — a 32-byte Fernet key (url-safe base64, 44 chars) used by the app to encrypt stored credentials
-
-Both are written to the Key Vault. The Container App reads `secret-encryption-key` via a Key Vault reference using a user-assigned managed identity, and the Postgres admin password is passed securely via Bicep's `.getSecret()` at deploy time.
-
-On every **subsequent** deployment, the script detects the existing secrets and leaves them untouched — so existing Fernet-encrypted data in the database remains decryptable.
-
-To retrieve the generated values:
-
-```bash
-# Key Vault name is in the deployment outputs
-az deployment group show -g rg-magnet-ai-dev -n main --query properties.outputs.keyVaultName.value -o tsv
-
-# Read a secret
-az keyvault secret show --vault-name <keyVaultName> --name postgres-admin-password --query value -o tsv
-az keyvault secret show --vault-name <keyVaultName> --name secret-encryption-key     --query value -o tsv
-```
-
-**Tear-down note:** the Key Vault has soft-delete + purge-protection enabled, so it cannot be permanently deleted for 7 days after the resource group is removed. To reuse the same Key Vault name within that window you have to purge the soft-deleted vault first (`az keyvault purge --name <kvName>`) — or let the auto-generated suffix pick a new name.
 
 ## Resources created
 
 Networking:
-- Virtual Network `vnet-magnet-ai-{env}` (10.0.0.0/16) with three subnets:
+- Virtual Network `vnet-magnet-ai-{env}` (10.0.0.0/16) with two subnets:
   - `container-apps` (10.0.0.0/23) — delegated to `Microsoft.App/environments`
   - `private-endpoints` (10.0.2.0/24)
-  - `deployment-scripts` (10.0.3.0/24) — delegated to `Microsoft.ContainerInstance/containerGroups` so the bootstrap deployment script can reach the private Key Vault
-- Private DNS zones (linked to the VNet): `privatelink.postgres.database.azure.com`, `privatelink.cognitiveservices.azure.com`, `privatelink.openai.azure.com`, `privatelink.services.ai.azure.com`, `privatelink.vaultcore.azure.net`
-- Private endpoints for PostgreSQL, the AI Services account, and the Key Vault
+- Private DNS zones (linked to the VNet): `privatelink.postgres.database.azure.com`, `privatelink.cognitiveservices.azure.com`, `privatelink.openai.azure.com`, `privatelink.services.ai.azure.com`
+- Private endpoints for PostgreSQL and the AI Services account
 
 Observability:
 - Log Analytics Workspace `log-magnet-ai-{env}`
@@ -68,12 +61,7 @@ Data:
 
 Compute:
 - Container App Environment `cae-magnet-ai-{env}` (VNet-integrated via the `container-apps` subnet)
-- Container App `ca-magnet-ai-{env}` — main magnet-ai backend (`ghcr.io/ideaportriga/magnet-ai`), with a user-assigned managed identity (`id-magnet-ai-{env}-app`) that has `Key Vault Secrets User` on the vault.
-
-Secrets:
-- Key Vault `{keyVaultName}` (RBAC, soft-delete + purge-protection enabled, **private-endpoint only** — public access disabled unless `allowDevAccess=true`)
-- User-assigned managed identity `id-magnet-ai-{env}-secrets-bootstrap` with `Key Vault Secrets Officer` on the vault
-- Deployment script `ds-magnet-ai-{env}-secrets-bootstrap` (VNet-integrated via the `deployment-scripts` subnet) that generates `postgres-admin-password` and `secret-encryption-key` on first deploy, and is a no-op on subsequent deploys
+- Container App `ca-magnet-ai-{env}` — main magnet-ai backend (`ghcr.io/ideaportriga/magnet-ai`)
 
 ## CLI
 
@@ -84,25 +72,26 @@ az group create --name rg-magnet-ai-dev --location swedencentral
 
 az deployment group create \
   --resource-group rg-magnet-ai-dev \
-  --template-file infra/azure/main.bicep
+  --template-file infra/azure/main.bicep \
+  --parameters \
+    postgresAdminPassword="<strong-password>" \
+    secretEncryptionKey="<fernet-key>" \
+    ingressAllowedIpRange="$(curl -s ifconfig.me)/32"
 ```
 
-To restrict Container App ingress to your current public IP at deploy time:
+Setting `ingressAllowedIpRange` on the initial deploy is the recommended default while auth is not yet enabled — it restricts the unauthenticated app to your current public IP.
+
+To enable dev access to Postgres and the Foundry account from your workstation (temporarily opens their public endpoints to a single IP):
 
 ```bash
 az deployment group create \
   --resource-group rg-magnet-ai-dev \
   --template-file infra/azure/main.bicep \
-  --parameters allowedIpRange="$(curl -s ifconfig.me)/32"
-```
-
-To enable dev access to Postgres, the Foundry account and the Key Vault from your workstation (temporarily opens their public endpoints to a single IP):
-
-```bash
-az deployment group create \
-  --resource-group rg-magnet-ai-dev \
-  --template-file infra/azure/main.bicep \
-  --parameters allowDevAccess=true devIpAddress="$(curl -s ifconfig.me)"
+  --parameters \
+    postgresAdminPassword="<strong-password>" \
+    secretEncryptionKey="<fernet-key>" \
+    allowDevAccess=true \
+    devIpAddress="$(curl -s ifconfig.me)"
 ```
 
 ### Retrieve outputs
@@ -114,7 +103,7 @@ az deployment group show \
   --query properties.outputs
 ```
 
-Outputs: `containerAppUrl`, `aiServicesEndpoint`, `aiServicesName`, `postgresServerFqdn`, `keyVaultName`, `resourceGroupName`.
+Outputs: `containerAppUrl`, `aiServicesEndpoint`, `aiServicesName`, `postgresServerFqdn`, `resourceGroupName`.
 
 The template does **not** output AI Services keys. Fetch them post-deploy:
 

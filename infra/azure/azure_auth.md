@@ -2,6 +2,8 @@
 
 Instructions for the Azure administrator to enable authentication on the **magnet-ai** Container App (`ca-magnet-ai-{env}`).
 
+> **Context:** the Bicep/ARM template in this folder deploys the Container App with authentication disabled by default (see the *Authentication* section in [`README.md`](README.md)). Until the steps below are completed and `AUTH_ENABLED=true`, the app is publicly reachable with no sign-in required — set `ingressAllowedIpRange` at deploy time to restrict ingress to a known public IP while this setup is in progress.
+
 ---
 
 ## 1. Create an App Registration

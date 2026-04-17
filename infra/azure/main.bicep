@@ -26,8 +26,8 @@ param allowDevAccess bool = false
 @description('Developer IP address to allow when allowDevAccess is true (e.g. 1.2.3.4)')
 param devIpAddress string = ''
 
-@description('IP range to restrict container app ingress (CIDR notation, e.g. 1.2.3.0/24). Empty = no restriction.')
-param allowedIpRange string = ''
+@description('CIDR range allowed through Container App ingress (e.g. 1.2.3.0/24). Empty = no restriction. Strongly recommended while authEnabled=false so the unauthenticated app is not publicly reachable — see azure_auth.md to enable Entra ID auth.')
+param ingressAllowedIpRange string = ''
 
 @description('PostgreSQL server name. Must be globally unique in Azure. 3-63 chars, lowercase letters/digits/hyphens, start with a letter. Leave empty to auto-generate: psql-magnet-ai-<env>-<suffix>.')
 @maxLength(63)
@@ -144,7 +144,7 @@ module containerApp 'modules/container-app.bicep' = {
     entraClientId: entraClientId
     entraClientSecret: entraClientSecret
     entraTenantId: entraTenantId
-    allowedIpRange: allowedIpRange
+    ingressAllowedIpRange: ingressAllowedIpRange
     loadDefaultData: loadDefaultData
     aiServicesEndpoint: aiFoundry.outputs.endpoint
     aiServicesKey: aiFoundry.outputs.aiServicesKey
