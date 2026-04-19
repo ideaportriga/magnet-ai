@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.12](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.11...v0.7.0-dev.12) (2026-04-19)
+
+### 🐛 Bug Fixes
+
+* changed pgvector registration time and place ([#115](https://github.com/ideaportriga/magnet-ai/issues/115)) ([c3b74e3](https://github.com/ideaportriga/magnet-ai/commit/c3b74e3f3e451d3e3539f651f2ffdc7d8a3c958e))
+
 ## [0.7.0-dev.11](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.10...v0.7.0-dev.11) (2026-04-17)
 
 ### ✨ Features
