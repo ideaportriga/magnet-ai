@@ -3,6 +3,7 @@
 import logging
 import re
 from typing import Any
+from urllib.parse import quote as urlquote
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,10 @@ def format_connection_string(
     Returns:
         Formatted connection string
     """
-    base_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+    base_url = (
+        f"postgresql://{urlquote(user, safe='')}:{urlquote(password, safe='')}"
+        f"@{host}:{port}/{database}"
+    )
 
     if kwargs:
         params = "&".join(f"{k}={v}" for k, v in kwargs.items())

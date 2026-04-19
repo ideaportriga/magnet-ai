@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, cast
+from urllib.parse import quote as urlquote
 
 from litestar.data_extractors import RequestExtractorField
 from litestar.serialization import decode_json, encode_json
@@ -151,13 +152,17 @@ class DatabaseSettings:
             db_name = self.NAME or "db.sqlite3"
             return f"{driver}:///{db_name}"
 
-        # Build URL for other database types
+        # Build URL for other database types. User and password are
+        # percent-encoded so reserved characters like '@' or ':' in the
+        # password don't corrupt the URL structure.
         auth_part = ""
         if self.USER:
+            encoded_user = urlquote(self.USER, safe="")
             if self.PASSWORD:
-                auth_part = f"{self.USER}:{self.PASSWORD}@"
+                encoded_password = urlquote(self.PASSWORD, safe="")
+                auth_part = f"{encoded_user}:{encoded_password}@"
             else:
-                auth_part = f"{self.USER}@"
+                auth_part = f"{encoded_user}@"
 
         port_part = f":{self.PORT}" if self.PORT else ""
         db_part = f"/{self.NAME}" if self.NAME else ""

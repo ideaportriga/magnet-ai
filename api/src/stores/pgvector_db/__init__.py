@@ -1,5 +1,7 @@
 """PgVector database store implementation."""
 
+from urllib.parse import quote as urlquote
+
 from core.config.base import get_vector_database_settings, get_general_settings
 from .client import PgVectorClient
 from .store import PgVectorStore
@@ -22,7 +24,10 @@ if db_type == "PGVECTOR":
         database = db_settings.PGVECTOR_DATABASE
         user = db_settings.PGVECTOR_USER
         password = db_settings.PGVECTOR_PASSWORD
-        connection_string = f"postgresql://{user}:{password}@{host}:{port}/{database}"
+        connection_string = (
+            f"postgresql://{urlquote(user, safe='')}:{urlquote(password, safe='')}"
+            f"@{host}:{port}/{database}"
+        )
     else:
         # Clean up SQLAlchemy-style URLs for asyncpg compatibility
         connection_string = clean_connection_string_for_asyncpg(connection_string)
