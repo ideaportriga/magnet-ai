@@ -83,6 +83,13 @@ DEFAULT_STRIP_ATTRIBUTES: list[str] = [
 
 DEFAULT_TEXT_TRUNCATE_LENGTH = 100
 
+# Accept both plain and markdown-bold forms:
+# "TITLE: value", "**TITLE:** value", "**TITLE**: value"
+_TITLE_LINE_RE = re.compile(
+    r"^\*{0,2}\s*TITLE\s*\*{0,2}\s*:\*{0,2}\s*(.*)$", re.IGNORECASE
+)
+_IDS_LINE_RE = re.compile(r"^\*{0,2}\s*IDS\s*\*{0,2}\s*:\*{0,2}\s*(.*)$", re.IGNORECASE)
+
 
 class HtmlLlmChunker(AbstractChunker):
     """Chunker that uses LLM to identify main content blocks in HTML.
@@ -259,6 +266,9 @@ class HtmlLlmChunker(AbstractChunker):
     ) -> list[tuple[str, list[str]]]:
         """Parse TITLE/IDS line pairs from LLM response.
 
+        Accepts both plain and markdown-bold wrapped keys, e.g.
+        "TITLE: foo", "**TITLE:** foo", "**TITLE**: foo".
+
         Returns list of (title, [kg-id, ...]) tuples.
         """
         blocks: list[tuple[str, list[str]]] = []
@@ -266,10 +276,17 @@ class HtmlLlmChunker(AbstractChunker):
 
         for line in response_text.splitlines():
             line = line.strip()
-            if line.upper().startswith("TITLE:"):
-                current_title = line[len("TITLE:") :].strip()
-            elif line.upper().startswith("IDS:"):
-                ids_part = line[len("IDS:") :].strip()
+            if not line:
+                continue
+
+            title_match = _TITLE_LINE_RE.match(line)
+            if title_match:
+                current_title = title_match.group(1).strip().rstrip("*").strip()
+                continue
+
+            ids_match = _IDS_LINE_RE.match(line)
+            if ids_match:
+                ids_part = ids_match.group(1).strip().rstrip("*").strip()
                 if not ids_part:
                     continue
                 ids = [uid.strip() for uid in ids_part.split(",") if uid.strip()]
