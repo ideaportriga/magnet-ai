@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.13](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.12...v0.7.0-dev.13) (2026-04-19)
+
+### 🐛 Bug Fixes
+
+* fixed database password handling, when special characters are used ([607550e](https://github.com/ideaportriga/magnet-ai/commit/607550ed912bdd4c8c75eb261d71760287f36b58))
+
 ## [0.7.0-dev.12](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.11...v0.7.0-dev.12) (2026-04-19)
 
 ### 🐛 Bug Fixes
