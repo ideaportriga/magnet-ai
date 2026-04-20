@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.16](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.15...v0.7.0-alpha.16) (2026-04-20)
+
+### 🐛 Bug Fixes
+
+* advanced-alchemy ([56f8382](https://github.com/ideaportriga/magnet-ai/commit/56f8382421190a33e8a2f35e3be35ba30e4670c7))
+* minor fixes and e2e tests ([4fb2424](https://github.com/ideaportriga/magnet-ai/commit/4fb24247935c2588989996b5c272baaf98dbf7c1))
+
 ## [0.7.0-alpha.15](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.14...v0.7.0-alpha.15) (2026-04-15)
 
 ### 🐛 Bug Fixes
