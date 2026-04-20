@@ -77,6 +77,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { validSystemName } from '@/utils/validationRules'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { m } from '@/paraglide/messages'
+import { notify } from '@shared/utils/notify'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -181,26 +182,14 @@ export default {
     async confirmDelete() {
       await this.remove()
       this.$emit('update:closeDrawer', null)
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: 'Assistant Tool has been deleted.',
-        timeout: 1000,
-      })
+      notify.success('Assistant Tool has been deleted.')
       this.navigate('/assistant-tools')
     },
     async handleSave() {
       // Validate system_name before saving
       const systemNameValidation = validSystemName()(this.currentAssistantTool?.system_name)
       if (systemNameValidation !== true) {
-        this.$q.notify({
-          color: 'red-9', textColor: 'white',
-          icon: 'error',
-          group: 'error',
-          message: systemNameValidation,
-          timeout: 3000,
-        })
+        notify.error(systemNameValidation)
         return
       }
 
@@ -208,24 +197,12 @@ export default {
       try {
         const result = await this.save()
         if (result.success) {
-          this.$q.notify({
-            color: 'green-9', textColor: 'white',
-            icon: 'check_circle',
-            group: 'success',
-            message: 'Saved successfully',
-            timeout: 2000,
-          })
+          notify.success('Saved successfully')
         } else if (result.error) {
           throw result.error
         }
       } catch (error) {
-        this.$q.notify({
-          color: 'red-9', textColor: 'white',
-          icon: 'error',
-          group: 'error',
-          message: error.message || 'Failed to save',
-          timeout: 3000,
-        })
+        notify.error(error.message || 'Failed to save')
       } finally {
         this.saving = false
       }

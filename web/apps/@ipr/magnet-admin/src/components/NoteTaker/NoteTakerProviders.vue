@@ -8,43 +8,38 @@
     .col-auto
       km-btn(:label='m.common_newProvider()', icon='add', @click='openCreate')
 
-  //- ── Table ──────────────────────────────────────────────────────────
-  q-table(
-    :rows='visibleRows',
-    :columns='columns',
+  //- §E.1.2 — migrated from q-table to km-data-table (TanStack).
+  //- Search is driven by useLocalDataTable's globalFilter — the input
+  //- debounces into the searchString ref and flows through.
+  km-data-table(
+    :table='table',
     row-key='id',
-    flat,
-    dense,
     :loading='loading',
     hide-pagination,
-    :rows-per-page-options='[0]'
+    :no-records-label='m.retrieval_noExamplesYet ? m.retrieval_noExamplesYet() : "No records found"'
   )
-    template(#body-cell-system_name='props')
-      q-td(:props='props')
-        .row.items-center.q-gap-4.no-wrap
-          span.text-mono.km-description {{ props.row.system_name }}
-          q-btn(flat, dense, round, size='xs', icon='content_copy', @click.stop='copy(props.row.system_name)')
-            q-tooltip Copy system name
+    template(#cell-system_name='{ row }')
+      .row.items-center.q-gap-4.no-wrap
+        span.text-mono.km-description {{ row.system_name }}
+        q-btn(flat, dense, round, size='xs', icon='content_copy', @click.stop='copy(row.system_name)')
+          q-tooltip Copy system name
 
-    template(#body-cell-webhook='props')
-      q-td(:props='props')
-        .row.items-center.q-gap-4.no-wrap(v-if='props.row.system_name')
-          span.text-mono.km-description.text-grey-7(style='font-size: 11px') {{ webhookUrl(props.row.system_name) }}
-          q-btn(flat, dense, round, size='xs', icon='content_copy', @click.stop='copy(webhookUrl(props.row.system_name))')
-            q-tooltip Copy webhook URL
-        span.text-grey-4(v-else) —
+    template(#cell-oauth='{ row }')
+      span {{ row.connection_config?.auth_handler_id || '—' }}
 
-    template(#body-cell-oauth='props')
-      q-td(:props='props')
-        span {{ props.row.connection_config?.auth_handler_id || '—' }}
+    template(#cell-webhook='{ row }')
+      .row.items-center.q-gap-4.no-wrap(v-if='row.system_name')
+        span.text-mono.km-description.text-grey-7(style='font-size: 11px') {{ webhookUrl(row.system_name) }}
+        q-btn(flat, dense, round, size='xs', icon='content_copy', @click.stop='copy(webhookUrl(row.system_name))')
+          q-tooltip Copy webhook URL
+      span.text-grey-4(v-else) —
 
-    template(#body-cell-actions='props')
-      q-td(:props='props', auto-width)
-        .row.items-center.no-wrap
-          km-btn(flat, dense, icon='edit', size='sm', @click.stop='openEdit(props.row)')
-            q-tooltip Edit
-          km-btn(flat, dense, icon='delete', size='sm', color='negative', @click.stop='confirmDelete(props.row)')
-            q-tooltip Delete
+    template(#cell-actions='{ row }')
+      .row.items-center.no-wrap
+        km-btn(flat, dense, icon='edit', size='sm', @click.stop='openEdit(row)')
+          q-tooltip Edit
+        km-btn(flat, dense, icon='delete', size='sm', color='negative', @click.stop='confirmDelete(row)')
+          q-tooltip Delete
 
   //- ── Create / Edit dialog ───────────────────────────────────────────
   km-popup-confirm(
@@ -130,12 +125,14 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { m } from '@/paraglide/messages'
 import { useAppStore } from '@/stores/appStore'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
 import { useNotify } from '@/composables/useNotify'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 
 const appStore = useAppStore()
 const { notifySuccess, notifyError, notifyCopied } = useNotify()
@@ -165,18 +162,8 @@ const form = reactive({
 // ── Providers data ───────────────────────────────────────────────────
 const allProviders = computed(() => providerListData.value?.items || [])
 const providers = computed(() =>
-  allProviders.value.filter((p: any) => p.type === 'teams_note_taker')
+  allProviders.value.filter((p: any) => p.type === 'teams_note_taker'),
 )
-
-const visibleRows = computed(() => {
-  const q = searchString.value.toLowerCase()
-  if (!q) return providers.value
-  return providers.value.filter(
-    (p: any) =>
-      p.name?.toLowerCase().includes(q) ||
-      p.system_name?.toLowerCase().includes(q)
-  )
-})
 
 // ── Webhook URL ──────────────────────────────────────────────────────
 const apiBase = computed(() => {
@@ -193,14 +180,33 @@ const webhookUrl = (systemName: string) => {
   return `${base}/api/user/agents/teams/note-taker/${systemName}/messages`
 }
 
-// ── Table columns ────────────────────────────────────────────────────
-const columns = [
-  { name: 'name',        label: 'Name',            field: 'name',        align: 'left' as const, sortable: true },
-  { name: 'system_name', label: 'System Name',      field: 'system_name', align: 'left' as const, sortable: true },
-  { name: 'oauth',       label: 'OAuth Connection', field: 'connection_config', align: 'left' as const },
-  { name: 'webhook',     label: 'Webhook URL',      field: 'system_name', align: 'left' as const },
-  { name: 'actions',     label: '',                 field: 'id',          align: 'right' as const },
+// ── Table columns (TanStack) ─────────────────────────────────────────
+interface ProviderRow {
+  id: string
+  name?: string
+  system_name?: string
+  connection_config?: { auth_handler_id?: string } | null
+  [k: string]: unknown
+}
+
+const columns: ColumnDef<ProviderRow, unknown>[] = [
+  { id: 'name', accessorKey: 'name', header: 'Name', enableSorting: true, meta: { align: 'left' } },
+  { id: 'system_name', accessorKey: 'system_name', header: 'System Name', enableSorting: true, meta: { align: 'left' } },
+  { id: 'oauth', header: 'OAuth Connection', enableSorting: false, meta: { align: 'left' } },
+  { id: 'webhook', header: 'Webhook URL', enableSorting: false, meta: { align: 'left' } },
+  { id: 'actions', header: '', enableSorting: false, meta: { align: 'right', width: '100px' } },
 ]
+
+const { table, globalFilter } = useLocalDataTable<ProviderRow>(
+  providers as unknown as import('vue').Ref<ProviderRow[]>,
+  columns,
+  { defaultPageSize: 1000 },
+)
+
+// Propagate the search input into TanStack's globalFilter (matches across
+// all sortable fields). Keeps the existing search semantic without a
+// separate `visibleRows` computed.
+watch(searchString, (val) => { globalFilter.value = val }, { immediate: true })
 
 // ── Name → system_name auto-fill ─────────────────────────────────────
 const onNameInput = (val: string) => {

@@ -11,6 +11,22 @@ def sanitize_regex_input(input_str: str) -> str:
     return re.escape(input_str)
 
 
+# Field names are interpolated into raw SQL / JSON-path expressions by
+# metadata filter builders (pgvector, oracle). Accept only identifier-like
+# tokens — letters, digits, underscore, dot/hyphen for nested paths — so a
+# payload like `foo' OR 1=1 --` can never leave this boundary.
+# See BACKEND_FIXES_ROADMAP.md §A.4.
+_FIELD_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_\-.]*$")
+
+
+def _validate_filter_field_name(name: str) -> None:
+    if not isinstance(name, str) or not _FIELD_NAME_RE.match(name):
+        raise ValueError(
+            f"Invalid filter field name: {name!r}. "
+            "Only identifiers matching [A-Za-z_][A-Za-z0-9_\\-.]* are allowed."
+        )
+
+
 class FilterCondition(BaseModel):
     eq: str | int | float | bool | datetime | None = Field(None, alias="$eq")
     ne: str | int | float | bool | datetime | None = Field(None, alias="$ne")
@@ -103,6 +119,7 @@ class FilterObject(RootModel[dict[str, Any]]):
                     raise ValueError(f"Value for {key} should be a list")
                 new_values[key] = [FilterObject.model_validate(item) for item in value]
             else:
+                _validate_filter_field_name(key)
                 new_values[key] = FilterCondition.model_validate(value)
         return new_values
 
@@ -111,8 +128,13 @@ FilterCondition.model_rebuild()
 FilterObject.model_rebuild()
 
 
+MAX_PAGE_SIZE = 1000
+"""Upper bound for any paginated request limit. Shared between public API
+(enforced via Pydantic validation) and internal services."""
+
+
 class PaginationBase(BaseModel):
-    limit: int
+    limit: int = Field(..., ge=1, le=MAX_PAGE_SIZE)
     sort: str = Field("id", description="Field for sorting")
     order: int = Field(1, description="1 = ASC, -1 = DESC")
     filters: FilterObject | None = Field(

@@ -30,8 +30,11 @@ import router from '@/router'
 const urlParams = new URLSearchParams(window.location.hash)
 const theme = urlParams.get('km_panel_theme') || 'default'
 
-// Import and merge all components
-const components = import.meta.glob('@/components/**', { eager: true })
+// §C.5 — app components are lazy. getComponentList detects lazy factories
+// and wraps each with defineAsyncComponent, so Vite produces per-component
+// async chunks instead of stuffing everything into the initial bundle.
+// Keep the glob pattern matching legal `.vue` files (same as before).
+const components = import.meta.glob('@/components/**/*.vue')
 
 const componentList = getComponentList(components)
 let appInstance = {}

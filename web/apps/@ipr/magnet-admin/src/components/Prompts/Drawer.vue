@@ -207,6 +207,7 @@ import { fetchData } from '@shared'
 import { useScribe } from '@/composables/useScribe'
 import { useAudioUpload } from '@/composables/useAudioUpload'
 import MarkdownIt from 'markdown-it'
+import { notify } from '@shared/utils/notify'
 
 export default defineComponent({
   props: ['open'],
@@ -429,7 +430,7 @@ export default defineComponent({
     },
     copy() {
       copyToClipboard(this.text || '')
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.prompts_outputCopied(), timeout: 1000 })
+      notify.success(m.prompts_outputCopied())
     },
     clearText() {
       this.text = undefined

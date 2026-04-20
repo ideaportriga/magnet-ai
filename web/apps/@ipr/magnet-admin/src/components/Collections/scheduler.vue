@@ -328,7 +328,7 @@ function navigate(path = '') {
 }
 
 async function openDetails(row) {
-  window.open(router.resolve({ path: `/observability-traces/${row.id}` }).href, '_blank')
+  router.push(`/observability-traces/${row.id}`)
 }
 
 function openJob() {

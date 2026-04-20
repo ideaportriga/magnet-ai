@@ -31,6 +31,53 @@ _router_lock = asyncio.Lock()
 PROVIDER_TYPE_TO_LITELLM = PROVIDER_TYPE_TO_LITELLM_PREFIX
 
 
+def _env_int(name: str, default: int) -> int:
+    """Parse an integer env var, falling back to *default* on bad input.
+
+    LiteLLM's Router initialiser type-checks these values at construction
+    time, so silently coercing invalid env input back to a sensible default
+    avoids a startup crash from a typo in ops config.
+    """
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning("Invalid %s=%r, falling back to default %d", name, raw, default)
+        return default
+
+
+def _default_router_settings(model_list: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build LiteLLM Router settings with circuit-breaker defaults (see §C.2).
+
+    LiteLLM already ships a per-deployment circuit breaker; we just weren't
+    configuring it. These defaults turn it on and can be overridden via env:
+
+    * ``num_retries`` — same-deployment retries before Router falls over to
+      the fallback chain. 2 catches transient 5xx/timeouts without
+      amplifying a sick deployment.
+    * ``cooldown_time`` — seconds a deployment is marked unavailable after
+      crossing ``allowed_fails``. 60s matches the LiteLLM default.
+    * ``allowed_fails`` — consecutive failures before cooldown kicks in.
+    * ``timeout`` — per-request upper bound.
+    * ``retry_after`` — backoff between same-deployment retries. LiteLLM
+      itself adds jitter on top of this; keep small to stay under p99.
+    * ``enable_pre_call_checks`` — required for RPM/TPM enforcement that
+      per-model routing_config.rpm/tpm relies on.
+    """
+    return {
+        "model_list": model_list,
+        "routing_strategy": "simple-shuffle",
+        "num_retries": _env_int("LITELLM_NUM_RETRIES", 2),
+        "retry_after": _env_int("LITELLM_RETRY_AFTER_SECONDS", 1),
+        "allowed_fails": _env_int("LITELLM_ALLOWED_FAILS", 3),
+        "cooldown_time": _env_int("LITELLM_COOLDOWN_SECONDS", 60),
+        "timeout": _env_int("LITELLM_TIMEOUT_SECONDS", 120),
+        "enable_pre_call_checks": True,
+    }
+
+
 def _get_first_non_empty(connection: dict[str, Any], keys: list[str]) -> str | None:
     """Return first non-empty string value from connection by key aliases."""
 
@@ -295,18 +342,7 @@ async def get_router() -> Router:
             _router = Router(model_list=[])
             return _router
 
-        # Configure router settings
-        # NOTE: num_retries / timeout here are Router-level defaults.
-        # Per-model values from routing_config are passed as kwargs to
-        # router.acompletion() and override these defaults.
-        router_settings = {
-            "model_list": model_list,
-            "routing_strategy": "simple-shuffle",  # Default strategy
-            "num_retries": 0,  # Default: no retries, fallback immediately
-            "timeout": 120,
-            "retry_after": 0,  # No artificial delay between retries
-            "enable_pre_call_checks": True,
-        }
+        router_settings = _default_router_settings(model_list)
 
         # Add fallbacks if configured
         # LiteLLM expects fallbacks as a list of single-key dicts:
@@ -348,14 +384,7 @@ async def refresh_router() -> None:
             logger.warning("No models configured for LiteLLM Router after refresh")
             _router = Router(model_list=[])
         else:
-            router_settings = {
-                "model_list": model_list,
-                "routing_strategy": "simple-shuffle",
-                "num_retries": 0,
-                "timeout": 120,
-                "retry_after": 0,
-                "enable_pre_call_checks": True,
-            }
+            router_settings = _default_router_settings(model_list)
 
             if fallback_map:
                 router_settings["fallbacks"] = [

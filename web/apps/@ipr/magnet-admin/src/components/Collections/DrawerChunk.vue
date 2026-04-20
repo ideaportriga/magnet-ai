@@ -18,8 +18,8 @@
           km-btn(icon='fas fa-external-link-alt', :label='m.collectionItems_viewDocument()', iconSize='16px', flat, @click='openDocument')
     .col
       q-scroll-area.fit
-          .row.justify-between.q-pt-8.q-pl-8.q-pr-24
-            .col-12.q-py-8
+        .column.q-pt-8.q-pl-8.q-pr-24
+          .col-12.q-py-8
             .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_title() }}
             km-input(:model-value='selectedRow?.metadata?.title ?? "-"', :readonly='true', autogrow)
           .col-12.q-py-8

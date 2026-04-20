@@ -17,7 +17,9 @@
 
   //- LIST
   .col.overflow-auto.q-pr-sm
-    template(v-for='item in displayPrompts')
+    //- §C.6: :key restores per-row DOM reuse; without it every update
+    //- rebuilt the whole list.
+    template(v-for='item in displayPrompts', :key='item.id')
       .rounded-borders.cursor-pointer.q-py-sm.prompt-card.bb-border(
         @click.stop='$emit("update:selected", item.id)',
         :class='{ "bg-table-active text-black": selected === item.id }'

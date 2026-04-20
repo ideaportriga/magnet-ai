@@ -1,5 +1,7 @@
 """OpenAPI configuration plugin."""
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _package_version
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -11,6 +13,24 @@ from litestar.openapi.plugins import (
 )
 from litestar.openapi.spec import Components, SecurityScheme
 from litestar.plugins import InitPluginProtocol
+
+
+def _resolve_api_version() -> str:
+    """Read the package version from the installed distribution metadata.
+
+    Keeps the OpenAPI spec in sync with pyproject.toml without a hardcode
+    (see BACKEND_FIXES_ROADMAP.md §D.4). Falls back to "0.0.0" only when
+    running outside an installed context (shouldn't happen in prod).
+    """
+    for dist in ("magnet-ai-api", "magnet_ai_api", "magnet-ai"):
+        try:
+            return _package_version(dist)
+        except PackageNotFoundError:
+            continue
+    return "0.0.0"
+
+
+API_VERSION = _resolve_api_version()
 
 if TYPE_CHECKING:
     from litestar.config.app import AppConfig
@@ -108,7 +128,7 @@ class OpenAPIPlugin(InitPluginProtocol):
 
             openapi_config = OpenAPIConfig(
                 title="Magnet AI API",
-                version="0.1",  # TODO - retrieve from env variable
+                version=API_VERSION,
                 security=[{"ApiKeyAuth": []}],
                 tags=get_tags(),
                 components=Components(
@@ -143,7 +163,7 @@ class OpenAPIPlugin(InitPluginProtocol):
             # Fallback if tags module is not available
             openapi_config = OpenAPIConfig(
                 title="Magnet AI API",
-                version="0.1",
+                version=API_VERSION,
                 security=[{"ApiKeyAuth": []}],
                 components=Components(
                     security_schemes={

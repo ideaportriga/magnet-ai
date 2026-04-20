@@ -1,11 +1,13 @@
 <template lang="pug">
 .workspace-tab-bar(v-if='tabs.length > 0', ref='tabBarRef')
+  .workspace-scroll-btn.workspace-scroll-btn--left(v-if='showScrollLeft', @click='scrollLeftBy')
+    q-icon(name='chevron_left', size='16px')
   .workspace-tabs(ref='tabsContainerRef')
     .workspace-tab(
       v-for='(tab, index) in tabs',
       :key='tab.id',
       :class='tabClass(tab)',
-      :draggable='!tab.pinned || true',
+      :draggable='!tab.pinned',
       @click='activateTab(tab)',
       @mousedown.middle.prevent='requestClose(tab)',
       @contextmenu.prevent='onContextMenu($event, tab)',
@@ -27,11 +29,15 @@
         size='12px',
         @click.stop='requestClose(tab)'
       )
-  .workspace-scroll-btn(v-if='showScrollRight', @click='scrollRight')
+  .workspace-scroll-btn.workspace-scroll-btn--right(v-if='showScrollRight', @click='scrollRightBy')
     q-icon(name='chevron_right', size='16px')
 
-  //- Context menu
-  q-menu(v-model='contextMenuVisible', :target='contextMenuTarget', context-menu, no-parent-event)
+  //- Context menu. Mount only while open (`v-if`) so Quasar's
+  //- `pickAnchorEl` never sees a null `:target` on the initial mount —
+  //- it used to throw "Anchor: target 'null' not found" at app startup,
+  //- which cascaded into Quasar's event-listener state and silently
+  //- suppressed subsequent clicks on the tab bar.
+  q-menu(v-if='contextMenuVisible', v-model='contextMenuVisible', :target='contextMenuTarget', context-menu, no-parent-event)
     q-list(dense, style='min-width: 180px')
       q-item(clickable, v-close-popup, @click='requestClose(contextMenuTab)')
         q-item-section
@@ -70,7 +76,7 @@ km-popup-confirm(
 
 <script setup lang="ts">
 import { m } from '@/paraglide/messages'
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch, watchEffect } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useWorkspaceStore, type WorkspaceTab } from '@/stores/workspaceStore'
 import { useEditBufferStore } from '@/stores/editBufferStore'
@@ -162,10 +168,22 @@ const contextMenuTab = ref<WorkspaceTab | null>(null)
 const tabBarRef = ref<HTMLElement | null>(null)
 const tabsContainerRef = ref<HTMLElement | null>(null)
 const showScrollRight = ref(false)
+const showScrollLeft = ref(false)
 
 // Drag state
 const dragIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
+
+/** Clear *all* drag state — DOM classes + refs. Called from local `dragend`,
+ *  from the global safety handler below, and from `onBeforeUnmount`. Without
+ *  this, a cancelled/lost drag can leave the browser in a state where the
+ *  next mousedown on any tab is still interpreted as drag-continuation and
+ *  clicks silently never fire. */
+function resetDragState() {
+  dragIndex.value = null
+  dragOverIndex.value = null
+  document.querySelectorAll('.workspace-tab.dragging').forEach((el) => el.classList.remove('dragging'))
+}
 
 const tabClass = (tab: WorkspaceTab) => ({
   active: tab.id === activeTabId.value,
@@ -179,33 +197,66 @@ function checkScroll() {
   const el = tabBarRef.value
   if (!el) return
   showScrollRight.value = el.scrollWidth > el.clientWidth + el.scrollLeft + 10
+  showScrollLeft.value = el.scrollLeft > 10
 }
 
-function scrollRight() {
+function scrollRightBy() {
   tabBarRef.value?.scrollBy({ left: 200, behavior: 'smooth' })
 }
 
-// Scroll active tab into view
+function scrollLeftBy() {
+  tabBarRef.value?.scrollBy({ left: -200, behavior: 'smooth' })
+}
+
+// Scroll the active tab into view. Called from `activateTab` AND from a
+// watcher on `activeTabId` so route-driven navigation (sidebar click,
+// back/forward, deep-link) also centers the active tab when there are
+// many tabs and the current one is scrolled off-screen.
 function scrollActiveIntoView() {
   nextTick(() => {
-    const activeEl = tabBarRef.value?.querySelector('.workspace-tab.active') as HTMLElement
+    const activeEl = tabBarRef.value?.querySelector('.workspace-tab.active') as HTMLElement | null
     activeEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
   })
 }
 
-let resizeObserver: ResizeObserver | null = null
-onMounted(() => {
+// §B.3 — watchEffect ties listener + ResizeObserver lifecycle to the ref itself,
+// so if tabBarRef changes (HMR, keep-alive rerender) we clean up before re-binding.
+watchEffect((onCleanup) => {
+  const el = tabBarRef.value
+  if (!el) return
   checkScroll()
-  if (tabBarRef.value) {
-    tabBarRef.value.addEventListener('scroll', checkScroll)
-    resizeObserver = new ResizeObserver(checkScroll)
-    resizeObserver.observe(tabBarRef.value)
-  }
+  el.addEventListener('scroll', checkScroll)
+  const ro = new ResizeObserver(checkScroll)
+  ro.observe(el)
+  onCleanup(() => {
+    el.removeEventListener('scroll', checkScroll)
+    ro.disconnect()
+  })
 })
 
+// Auto-scroll the active tab into view on every activeTabId change —
+// not only when the user clicks a tab. Covers route-driven updates
+// (sidebar, back/forward, programmatic router.push).
+watch(activeTabId, () => {
+  scrollActiveIntoView()
+})
+
+// Global drag safety net. The per-element `dragend` handler can fail to
+// fire if a drag is cancelled outside the window, dropped on an element
+// with its own preventDefault-ing handlers, or interrupted by a route
+// change that unmounts the tab. When that happens, Chromium keeps its
+// internal "drag in progress" flag set and the next mousedown on any
+// draggable tab is absorbed as drag-continuation — the click never fires,
+// giving the "tabs stopped working" symptom. Listening for `dragend` /
+// `drop` on the window guarantees we always reset our state.
+onMounted(() => {
+  window.addEventListener('dragend', resetDragState)
+  window.addEventListener('drop', resetDragState)
+})
 onBeforeUnmount(() => {
-  tabBarRef.value?.removeEventListener('scroll', checkScroll)
-  resizeObserver?.disconnect()
+  window.removeEventListener('dragend', resetDragState)
+  window.removeEventListener('drop', resetDragState)
+  resetDragState()
 })
 
 // Tab actions
@@ -250,7 +301,14 @@ const doCloseTab = (tab: WorkspaceTab) => {
   nextTick(checkScroll)
 }
 
-// Context menu
+// Context menu. Every right-click sets a fresh target before opening, so
+// we never show the menu against a stale ref — no null-target needed on
+// close. (We tried nulling `contextMenuTarget` on close before; that made
+// q-menu throw "Anchor: target 'null' not found" on every menu dismiss,
+// which left Quasar's event listeners in a partial state that silently
+// swallowed subsequent clicks on the tab bar — the "tabs stop working"
+// bug reported by users. Leaving the previous target in place is safe
+// because the next open always overwrites it.)
 const onContextMenu = (event: MouseEvent, tab: WorkspaceTab) => {
   contextMenuTab.value = tab
   contextMenuTarget.value = event.target as EventTarget
@@ -331,10 +389,7 @@ const onDragEnd = () => {
       workspace.moveTab(dragIndex.value, dragOverIndex.value)
     }
   }
-  dragIndex.value = null
-  dragOverIndex.value = null
-  // Clean up dragging class
-  document.querySelectorAll('.workspace-tab.dragging').forEach((el) => el.classList.remove('dragging'))
+  resetDragState()
 }
 
 function getRouteForTab(tab: WorkspaceTab): string | null {

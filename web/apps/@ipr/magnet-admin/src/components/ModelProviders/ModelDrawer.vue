@@ -16,7 +16,13 @@ km-drawer-layout(storageKey="drawer-model-providers-model", noScroll)
         template(v-for='t in tabs')
           q-tab(:name='t.name', :label='t.label')
         .fit
-  .col.overflow-auto
+  //- DrawerLayout's default slot is already wrapped in
+  //- `.col.km-drawer-content.overflow-auto` (noScroll branch), so the
+  //- content here must be a plain block. A nested `.col.overflow-auto`
+  //- creates double-flex-grow inside a flex column — the inner `.col`
+  //- grows to fit content, overriding the outer scroll container, and
+  //- the footer with "Test Model" gets pushed below the viewport.
+  div
     .column.q-gap-16.q-pa-16(v-if='tab == "parameters"')
       .km-title General settings
       div
@@ -391,6 +397,7 @@ import { getEntityApis } from '@/api'
 import { categoryOptions } from '../../config/model/model.js'
 import { useEditBufferStore } from '@/stores/editBufferStore'
 import { cloneDeep } from 'lodash'
+import { notify } from '@shared/utils/notify'
 
 export default {
   setup() {
@@ -864,9 +871,9 @@ export default {
           await this.createEntity(data)
         }
         this.commitDraft()
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Model has been saved.', timeout: 1000 })
+        notify.success('Model has been saved.')
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Error saving model.', timeout: 2000 })
+        notify.error('Error saving model.')
       } finally {
         this.loading = false
       }
@@ -874,7 +881,7 @@ export default {
     async testModel() {
       const modelId = this.modelConfig?.id
       if (!modelId) {
-        this.$q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: 'Please save the model first before testing.', timeout: 2000 })
+        notify.warning('Please save the model first before testing.')
         return
       }
 

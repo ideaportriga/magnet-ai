@@ -1,67 +1,81 @@
 <template>
-  <div>
-    <q-table
-      v-model:pagination="pagination"
-      flat
-      table-header-class="bg-primary-light"
-      :rows="documents"
-      :columns="documentsColumns"
+  <div class="km-table-scroll">
+    <!--
+      §E.2.3 — migrated from q-table to km-data-table (TanStack Table).
+      Documents are received via prop and paginated client-side, so
+      useLocalDataTable is a perfect fit. Custom cells replace the
+      former q-table body-cell-NAME slots.
+    -->
+    <km-data-table
+      :table="table"
       row-key="id"
-      :rows-per-page-options="[10]"
       @row-click="handleDocumentClick"
     >
-      <template #body-cell-menu="slotScope">
-        <q-td :props="slotScope" class="sticky-col">
-          <div class="flex items-center justify-end no-wrap q-gutter-x-xs">
-            <km-btn
-              flat
-              color="secondary-text"
-              label-class="km-button-text"
-              icon-size="16px"
-              icon="fa fa-external-link"
-              :disable="!slotScope.row.external_link"
-              @click.stop="emit('open-external-link', slotScope.row.external_link)"
-            />
-            <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
-              <q-menu anchor="bottom right" self="top right" auto-close>
-                <q-list dense>
-                  <q-item clickable @click="emit('delete-document', slotScope.row)">
-                    <q-item-section thumbnail>
-                      <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                    </q-item-section>
-                    <q-item-section>{{ m.common_delete() }}</q-item-section>
-                  </q-item>
-                </q-list>
-              </q-menu>
-            </q-btn>
+      <template #cell-name="{ row }">
+        <div class="row items-center no-wrap q-gutter-x-sm">
+          <kg-file-type-badge :type="row.type" />
+          <div class="text-body2 text-weight-medium ellipsis" style="max-width: 300px">
+            {{ row.title }}
+            <q-tooltip>{{ row.title }}</q-tooltip>
           </div>
-        </q-td>
+        </div>
       </template>
-      <template #body-cell-name="slotScope">
-        <q-td :props="slotScope">
-          <div class="row items-center no-wrap q-gutter-x-sm">
-            <kg-file-type-badge :type="slotScope.row.type" />
-            <div class="text-body2 text-weight-medium ellipsis" style="max-width: 300px">
-              {{ slotScope.row.title }}
-              <q-tooltip>{{ slotScope.row.title }}</q-tooltip>
-            </div>
-          </div>
-        </q-td>
+
+      <template #cell-chunks_count="{ row }">
+        {{ row.chunks_count || 0 }}
       </template>
-      <template #body-cell-status="slotScope">
-        <q-td :props="slotScope">
-          <kg-status-badge :status="slotScope.row.status" :message="slotScope.row.status_message" />
-        </q-td>
+
+      <template #cell-processing_time="{ row }">
+        {{ formatDuration(row.processing_time && row.processing_time * 1000) }}
       </template>
-    </q-table>
+
+      <template #cell-updated_at="{ row }">
+        {{ formatRelative(row.updated_at) }}
+      </template>
+
+      <template #cell-created_at="{ row }">
+        {{ formatRelative(row.created_at) }}
+      </template>
+
+      <template #cell-status="{ row }">
+        <kg-status-badge :status="row.status" :message="row.status_message" />
+      </template>
+
+      <template #cell-menu="{ row }">
+        <div class="flex items-center justify-end no-wrap q-gutter-x-xs">
+          <km-btn
+            flat
+            color="secondary-text"
+            label-class="km-button-text"
+            icon-size="16px"
+            icon="fa fa-external-link"
+            :disable="!row.external_link"
+            @click.stop="emit('open-external-link', row.external_link)"
+          />
+          <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(row.id)" @click.stop>
+            <q-menu anchor="bottom right" self="top right" auto-close>
+              <q-list dense>
+                <q-item clickable @click="emit('delete-document', row)">
+                  <q-item-section thumbnail>
+                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                  </q-item-section>
+                  <q-item-section>{{ m.common_delete() }}</q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
+          </q-btn>
+        </div>
+      </template>
+    </km-data-table>
   </div>
 </template>
 
 <script setup lang="ts">
 import { formatDuration, formatRelative } from '@shared/utils'
 import { m } from '@/paraglide/messages'
-import type { QTableColumn } from 'quasar'
-import { ref } from 'vue'
+import type { ColumnDef } from '@tanstack/vue-table'
+import { toRef } from 'vue'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { KgFileTypeBadge, KgStatusBadge } from '../common'
 import type { Document } from './models'
 
@@ -76,104 +90,95 @@ const emit = defineEmits<{
   'open-external-link': [url?: string]
 }>()
 
-const pagination = ref({ rowsPerPage: 10, page: 1 })
-const documentsColumns: QTableColumn<Document>[] = [
+// §E.2.3 — TanStack columns. Complex rendering (badges, formatters,
+// tooltips) happens in named cell slots above; the column meta only
+// captures alignment + header label + sort behaviour.
+const documentsColumns: ColumnDef<Document, unknown>[] = [
   {
-    name: 'name',
-    label: m.common_document(),
-    field: 'name',
-    align: 'left',
-    sortable: true,
+    id: 'name',
+    accessorKey: 'title',
+    header: m.common_document(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'source_name',
-    label: m.common_source(),
-    field: 'source_name',
-    align: 'left',
-    sortable: true,
+    id: 'source_name',
+    accessorKey: 'source_name',
+    header: m.common_source(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'content_profile',
-    label: m.common_profile(),
-    field: 'content_profile',
-    align: 'left',
-    sortable: true,
+    id: 'content_profile',
+    accessorKey: 'content_profile',
+    header: m.common_profile(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'chunks_count',
-    label: m.common_chunks(),
-    field: 'chunks_count',
-    format: (val) => val || 0,
-    align: 'right',
-    sortable: true,
+    id: 'chunks_count',
+    accessorKey: 'chunks_count',
+    header: m.common_chunks(),
+    enableSorting: true,
+    meta: { align: 'right' },
   },
   {
-    name: 'status',
-    label: m.common_status(),
-    field: 'status',
-    align: 'left',
-    sortable: true,
+    id: 'status',
+    accessorKey: 'status',
+    header: m.common_status(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'processing_time',
-    label: m.common_processingTime(),
-    field: 'processing_time',
-    format: (val) => formatDuration(val && val * 1000),
-    align: 'right',
-    sortable: true,
+    id: 'processing_time',
+    accessorKey: 'processing_time',
+    header: m.common_processingTime(),
+    enableSorting: true,
+    meta: { align: 'right' },
   },
   {
-    name: 'updated_at',
-    label: m.common_updated(),
-    field: 'updated_at',
-    format: formatRelative,
-    align: 'left',
-    sortable: true,
+    id: 'updated_at',
+    accessorKey: 'updated_at',
+    header: m.common_updated(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'created_at',
-    label: m.common_created(),
-    field: 'created_at',
-    format: formatRelative,
-    align: 'left',
-    sortable: true,
+    id: 'created_at',
+    accessorKey: 'created_at',
+    header: m.common_created(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'menu',
-    label: '',
-    field: 'id',
-    style: 'width: 80px',
-    headerStyle: 'width: 80px',
+    id: 'menu',
+    header: '',
+    enableSorting: false,
+    meta: { align: 'right', width: '80px' },
   },
 ]
 
-const handleDocumentClick = (_event: Event, row: Document) => {
+const { table } = useLocalDataTable<Document>(
+  toRef(props, 'documents'),
+  documentsColumns,
+  { defaultPageSize: 10 },
+)
+
+function handleDocumentClick(row: Document) {
   emit('document-click', row)
 }
 </script>
 
 <style scoped>
-:deep(.q-table thead th) {
-  font-size: var(--km-body-sm-size, 14px);
-  font-weight: 600;
-}
-
-:deep(.q-table tbody td) {
-  height: 40px;
-  padding: 2px 16px;
-}
-
 :deep(.sticky-col) {
   position: sticky;
   right: 0;
   z-index: 1;
   background: var(--q-white);
 }
-
 :deep(tr:hover .sticky-col) {
   background: var(--q-white);
 }
-
 :deep(thead th:last-child) {
   position: sticky;
   right: 0;

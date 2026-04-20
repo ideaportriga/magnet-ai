@@ -65,6 +65,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { agentTopicActionsPopupColumns, agentTopicActionsAPIToolsPopupColumns } from '@/config/agents/topics'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -181,13 +182,7 @@ export default {
         },
       })
 
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: m.agents_actionAdded(),
-        timeout: 1000,
-      })
+      notify.success(m.agents_actionAdded())
 
       this.$emit('cancel')
     },

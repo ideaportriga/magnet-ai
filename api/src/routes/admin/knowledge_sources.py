@@ -805,8 +805,10 @@ class KnowledgeSourceFileUploadController(Controller):
                     f"File exceeds maximum size of {self.MAX_UPLOAD_SIZE_MB} MB"
                 )
 
-        # Validate MIME type via magic bytes
+        # Validate MIME type via magic bytes + extension/content match (§C.1)
         from kreuzberg import detect_mime_type
+
+        from storage.mime_validation import validate_upload_mime
 
         detected_mime = detect_mime_type(file_bytes)
         if detected_mime == "application/octet-stream":
@@ -815,6 +817,7 @@ class KnowledgeSourceFileUploadController(Controller):
                 filename=safe_filename,
                 extension=ext,
             )
+        validate_upload_mime(safe_filename, detected_mime)
 
         # Update source config with uploaded file reference
         source = config.get("source", {})

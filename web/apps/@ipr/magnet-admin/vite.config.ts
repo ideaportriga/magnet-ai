@@ -45,6 +45,20 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    // §C.1 — split heavy vendor libs into named async chunks. Without this the
+    // main bundle bundled Vue, Quasar, TanStack and codemirror together (~800KB),
+    // and every route hit had to parse the whole thing. Named chunks let the
+    // browser cache each library independently across deploys.
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vue: ['vue', 'vue-router', 'pinia'],
+          quasar: ['quasar', '@quasar/extras'],
+          query: ['@tanstack/vue-query', '@tanstack/vue-table'],
+          editor: ['vue-codemirror'],
+        },
+      },
+    },
   },
   test: {
     watch: false,
@@ -79,6 +93,13 @@ export default defineConfig({
         secure: false,
       },
       '/health': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // DEBUG_MODE-only test utility endpoints (cleanup, promote, errors)
+      // mounted at the app root (not under /api). Needed by Cypress.
+      '/test': {
         target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,

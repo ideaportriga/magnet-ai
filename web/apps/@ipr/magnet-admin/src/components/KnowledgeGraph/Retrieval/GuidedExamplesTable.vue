@@ -4,78 +4,73 @@
       <km-btn :label="m.retrieval_addExample()" size="sm" flat @click="openDialog(null)" />
     </div>
 
-    <q-table
-      :rows="examples"
-      :columns="columns"
+    <!--
+      §E.1.1 — migrated from <q-table> to <km-data-table> (TanStack Table).
+      Named cell slots (#cell-<colId>) replace q-table's body-cell-<name>
+      templates. Empty state and menu/action cells use the same shape.
+    -->
+    <km-data-table
+      :table="table"
       row-key="id"
-      flat
-      bordered
       hide-pagination
-      table-header-class="bg-primary-light"
-      @row-click="onRowClick"
+      :no-records-label="m.retrieval_noExamplesYet()"
+      @row-click="openDialog"
     >
-      <template #body-cell-index="slotProps">
-        <q-td :props="slotProps">
-          {{ slotProps.rowIndex + 1 }}
-        </q-td>
+      <template #cell-index="{ row }">
+        {{ indexOf(row) + 1 }}
       </template>
 
-      <template #body-cell-title="slotProps">
-        <q-td :props="slotProps">
-          <span>{{ slotProps.row.title || '—' }}</span>
-        </q-td>
+      <template #cell-title="{ row }">
+        <span>{{ row.title || '—' }}</span>
       </template>
 
-      <template #body-cell-input="slotProps">
-        <q-td :props="slotProps">
-          <span class="truncate-text">{{ slotProps.row.input || '—' }}</span>
-        </q-td>
+      <template #cell-input="{ row }">
+        <span class="truncate-text">{{ row.input || '—' }}</span>
       </template>
 
-      <template #body-cell-menu="slotProps">
-        <q-td :props="slotProps">
-          <q-btn dense flat color="dark" icon="more_vert" @click.stop>
-            <q-menu anchor="bottom right" self="top right" auto-close>
-              <q-list dense>
-                <q-item clickable @click="openDialog(slotProps.row)">
-                  <q-item-section thumbnail>
-                    <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
-                  </q-item-section>
-                  <q-item-section>{{ m.common_edit() }}</q-item-section>
-                </q-item>
-                <q-separator />
-                <q-item clickable @click="$emit('remove', slotProps.row.id)">
-                  <q-item-section thumbnail>
-                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                  </q-item-section>
-                  <q-item-section>{{ m.common_delete() }}</q-item-section>
-                </q-item>
-              </q-list>
-            </q-menu>
-          </q-btn>
-        </q-td>
+      <template #cell-menu="{ row }">
+        <q-btn dense flat color="dark" icon="more_vert" @click.stop>
+          <q-menu anchor="bottom right" self="top right" auto-close>
+            <q-list dense>
+              <q-item clickable @click="openDialog(row)">
+                <q-item-section thumbnail>
+                  <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
+                </q-item-section>
+                <q-item-section>{{ m.common_edit() }}</q-item-section>
+              </q-item>
+              <q-separator />
+              <q-item clickable @click="emit('remove', row.id)">
+                <q-item-section thumbnail>
+                  <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                </q-item-section>
+                <q-item-section>{{ m.common_delete() }}</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
       </template>
 
-      <template #no-data>
+      <template #empty-state>
         <div>
           <q-icon name="lightbulb" size="24px" color="grey-5" class="q-mr-sm" />
           <span class="text-grey-6">{{ m.retrieval_noExamplesYet() }}</span>
         </div>
       </template>
-    </q-table>
+    </km-data-table>
 
     <guided-example-dialog :show-dialog="showDialog" :example="editingExample" @update:show-dialog="showDialog = $event" @save="handleSave" />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { QTableColumn } from 'quasar'
+import { computed, ref, toRefs } from 'vue'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { m } from '@/paraglide/messages'
-import { ref } from 'vue'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import GuidedExampleDialog from './GuidedExampleDialog.vue'
 import type { RetrievalExample } from './models'
 
-defineProps<{
+const props = defineProps<{
   examples: RetrievalExample[]
 }>()
 
@@ -84,46 +79,36 @@ const emit = defineEmits<{
   (e: 'remove', id: string): void
 }>()
 
+const { examples } = toRefs(props)
+
 const showDialog = ref(false)
 const editingExample = ref<RetrievalExample | null>(null)
 
-const columns: QTableColumn[] = [
-  {
-    name: 'index',
-    label: '#',
-    field: 'id',
-    align: 'center',
-    style: 'width: 50px',
-  },
-  {
-    name: 'title',
-    label: m.retrieval_exampleLabel(),
-    field: 'title',
-    align: 'left',
-    style: 'width: 180px',
-  },
-  {
-    name: 'input',
-    label: m.retrieval_userMessage(),
-    field: 'input',
-    align: 'left',
-  },
-  {
-    name: 'menu',
-    label: '',
-    field: 'id',
-    align: 'right',
-    style: 'width: 60px',
-  },
+// Columns — cell rendering delegated to named slots in template above.
+const columns: ColumnDef<RetrievalExample, unknown>[] = [
+  { id: 'index', header: '#', enableSorting: false, meta: { align: 'center', width: '50px' } },
+  { id: 'title', header: m.retrieval_exampleLabel(), accessorKey: 'title', meta: { align: 'left', width: '180px' } },
+  { id: 'input', header: m.retrieval_userMessage(), accessorKey: 'input', meta: { align: 'left' } },
+  { id: 'menu', header: '', enableSorting: false, meta: { align: 'right', width: '60px' } },
 ]
+
+const { table } = useLocalDataTable<RetrievalExample>(examples, columns, {
+  defaultPageSize: 1000, // effectively disables pagination to match hide-pagination
+})
+
+// Used by the index cell to render a 1-based row number that survives sorting.
+const rowIndex = computed(() => {
+  const map = new Map<string, number>()
+  table.getRowModel().rows.forEach((r, i) => map.set((r.original as RetrievalExample).id, i))
+  return map
+})
+function indexOf(row: RetrievalExample): number {
+  return rowIndex.value.get(row.id) ?? 0
+}
 
 const openDialog = (example: RetrievalExample | null) => {
   editingExample.value = example
   showDialog.value = true
-}
-
-const onRowClick = (_evt: Event, row: RetrievalExample) => {
-  openDialog(row)
 }
 
 const handleSave = (example: RetrievalExample) => {
@@ -140,17 +125,5 @@ const handleSave = (example: RetrievalExample) => {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 200px;
-}
-
-:deep(.q-table__card .q-table thead tr, .q-table__card thead tr) {
-  background-color: var(--q-light);
-}
-
-:deep(.q-table__card .q-table thead th, .q-table__card thead th) {
-  padding: 16px 12px;
-  color: var(--q-black);
-  border-bottom: none;
-  font-size: 0.8rem;
-  font-weight: 600;
 }
 </style>

@@ -87,6 +87,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { getEntityApis } from '@/api'
 import { categoryOptions } from '../../config/model/model.js'
 import { useEntityDetail } from '@/composables/useEntityDetail'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 
 export default {
   props: {
@@ -100,7 +101,7 @@ export default {
     const { config, requiredFields } = useEntityConfig('model')
     const queries = useEntityQueries()
     const { draft: providerDraft } = useEntityDetail('provider')
-    const { mutateAsync: createModelMutation } = queries.model.useCreate()
+    const createModelMutation = useSafeMutation(queries.model.useCreate())
 
     return {
       m,
@@ -304,7 +305,8 @@ export default {
         delete payload.configs
       }
 
-      await this.createModelMutation(payload)
+      const { success } = await this.createModelMutation.run(payload)
+      if (!success) return
       this.$emit('cancel')
     },
   },

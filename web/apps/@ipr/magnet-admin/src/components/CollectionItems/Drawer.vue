@@ -30,7 +30,7 @@ km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
         .col-auto
           q-btn(
             flat,
-            ripple='false',
+            :ripple='false',
             round,
             color='secondary',
             :icon='indexedContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
@@ -44,7 +44,7 @@ km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
         .col-auto
           q-btn(
             flat,
-            ripple='false',
+            :ripple='false',
             round,
             color='secondary',
             :icon='retrievalContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
@@ -58,7 +58,7 @@ km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
         .col-auto
           q-btn(
             flat,
-            ripple='false',
+            :ripple='false',
             round,
             color='secondary',
             :icon='retrievalContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',
@@ -74,7 +74,7 @@ km-drawer-layout(v-if='!!selectedRow', storageKey="drawer-collection-items")
         .col-auto
           q-btn(
             flat,
-            ripple='false',
+            :ripple='false',
             round,
             color='secondary',
             :icon='unmodifiedContentExpanded ? "fas fa-compress-alt" : "fas fa-expand-alt"',

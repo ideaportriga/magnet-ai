@@ -19,6 +19,10 @@ from sqlalchemy.exc import (
     SQLAlchemyError,
 )
 
+from advanced_alchemy.exceptions import (
+    NotFoundError as AlchemyNotFoundError,
+)
+
 from core.exceptions import (
     ApplicationError,
     AuthError,
@@ -78,6 +82,13 @@ class ExceptionHandlersPlugin(InitPluginProtocol):
                 ApplicationError: self._application_error_handler,
                 # Legacy / framework
                 RecordNotFoundError: self._not_found_handler,
+                # advanced_alchemy raises its own NotFoundError from
+                # repository `.get()` when the row is missing. Without
+                # this mapping it falls through to the generic
+                # Exception handler and returns 500 instead of 404 —
+                # the symptom reported on GET /evaluation_sets/:id for
+                # missing ids.
+                AlchemyNotFoundError: self._not_found_handler,
                 LookupError: self._lookup_error_handler,
                 SQLAlchemyError: self._sqlalchemy_error_handler,
                 IntegrityError: self._sqlalchemy_error_handler,

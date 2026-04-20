@@ -85,11 +85,13 @@ class GeneralSettings:
         default_factory=get_env("CORS_OVERRIDE_ALLOWED_ORIGINS", "")
     )
 
-    """Key used for encrypting secrets. Must be set via env in production.
-    The insecure default is kept for local development only — production
-    startup validation in config/config.py will reject it."""
+    """Key used for encrypting secrets at rest.
+    No in-code default — startup validation in config/config.py enforces that
+    SECRET_ENCRYPTION_KEY is set in every environment (see
+    BACKEND_FIXES_ROADMAP.md §A.3). An empty value here will surface immediately
+    in utils/secrets.py, rather than silently encrypting with a known key."""
     SECRET_ENCRYPTION_KEY: str = field(
-        default_factory=get_env("SECRET_ENCRYPTION_KEY", "my-secret-key-tsmh5r")
+        default_factory=get_env("SECRET_ENCRYPTION_KEY", "")
     )
 
 
@@ -107,12 +109,15 @@ class DatabaseSettings:
     POOL_DISABLED: bool = field(
         default_factory=get_env("DATABASE_POOL_DISABLED", False)
     )
-    """Max overflow for SQLAlchemy connection pool"""
+    """Max overflow for SQLAlchemy connection pool.
+    Bumped from 15 → 30 alongside POOL_SIZE — the old ceiling (10+15=25) was
+    the bottleneck under even modest burst traffic once the scheduler jobs
+    started issuing their own queries. See BACKEND_FIXES_ROADMAP.md §C.5."""
     POOL_MAX_OVERFLOW: int = field(
-        default_factory=get_env("DATABASE_MAX_POOL_OVERFLOW", 15)
+        default_factory=get_env("DATABASE_MAX_POOL_OVERFLOW", 30)
     )
     """Pool size for SQLAlchemy connection pool"""
-    POOL_SIZE: int = field(default_factory=get_env("DATABASE_POOL_SIZE", 10))
+    POOL_SIZE: int = field(default_factory=get_env("DATABASE_POOL_SIZE", 20))
     """Time in seconds for timing connections out of the connection pool."""
     POOL_TIMEOUT: int = field(default_factory=get_env("DATABASE_POOL_TIMEOUT", 30))
     """Amount of time to wait before recycling connections."""
@@ -244,18 +249,23 @@ class DatabaseSettings:
 
 @dataclass
 class SchedulerSettings:
-    """Scheduler pool settings"""
+    """Scheduler pool settings.
 
-    SCHEDULER_POOL_SIZE: int = field(default_factory=get_env("SCHEDULER_POOL_SIZE", 10))
+    Defaults sized for APScheduler 3.x: 1-2 concurrent connections is enough
+    for the jobstore + any active executor. Previous 10+20 was ~30 sockets
+    idle most of the time. See BACKEND_FIXES_ROADMAP.md §B.4.
+    """
+
+    SCHEDULER_POOL_SIZE: int = field(default_factory=get_env("SCHEDULER_POOL_SIZE", 2))
     """Scheduler connection pool size."""
     SCHEDULER_MAX_POOL_OVERFLOW: int = field(
-        default_factory=get_env("SCHEDULER_MAX_POOL_OVERFLOW", 20)
+        default_factory=get_env("SCHEDULER_MAX_POOL_OVERFLOW", 3)
     )
     """Scheduler connection pool max overflow."""
     SCHEDULER_POOL_TIMEOUT: int = field(
-        default_factory=get_env("SCHEDULER_POOL_TIMEOUT", 30)
+        default_factory=get_env("SCHEDULER_POOL_TIMEOUT", 10)
     )
-    """Scheduler connection pool timeout."""
+    """Scheduler connection pool timeout (seconds)."""
     SCHEDULER_POOL_RECYCLE: int = field(
         default_factory=get_env("SCHEDULER_POOL_RECYCLE", 3600)
     )
@@ -648,31 +658,15 @@ class Settings:
     )
 
     @classmethod
-    def from_env(cls, dotenv_filename: str = ".env") -> Settings:
-        from litestar.cli._utils import console
+    def from_env(cls) -> Settings:
+        """Build Settings from os.environ.
 
-        # Try to find .env file in the project root directory
-        # Look for .env file starting from current directory and going up to project root
-        current_dir = Path(os.getcwd())
-        env_file = None
-
-        # Look for .env file in current directory and parent directories
-        for path in [current_dir] + list(current_dir.parents):
-            potential_env_file = path / dotenv_filename
-            if potential_env_file.is_file():
-                env_file = potential_env_file
-                break
-
-        if env_file and env_file.is_file():
-            from dotenv import load_dotenv
-
-            console.print(
-                f"[yellow]Loading environment configuration from {env_file}[/]"
-            )
-
-            load_dotenv(env_file, override=True)
-
-        # Create settings instance
+        Intentionally does NOT read any .env file here — that's the job of
+        `config.config.load_env()`, which runs once from `app.py` at import
+        time and populates `os.environ` deterministically from the project
+        root. See BACKEND_FIXES_ROADMAP.md §A.3 and the "Unified .env loader"
+        change.
+        """
         settings = Settings()
 
         # Apply database defaults to vector database settings if PostgreSQL is used
@@ -733,6 +727,5 @@ def get_knowledge_source_settings() -> KnowledgeSourceSettings:
 
 def get_env_vars_with_prefix(prefix: str) -> dict[str, str]:
     """Get all environment variables with a specific prefix."""
-    import os
 
     return {key: value for key, value in os.environ.items() if key.startswith(prefix)}

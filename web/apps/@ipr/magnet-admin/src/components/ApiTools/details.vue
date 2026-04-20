@@ -73,6 +73,7 @@ import { useRoute } from 'vue-router'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import _ from 'lodash'
 import { m } from '@/paraglide/messages'
+import { notify } from '@shared/utils/notify'
 export default {
   setup() {
     const route = useRoute()
@@ -172,12 +173,12 @@ export default {
       try {
         const result = await this.saveServer()
         if (result.success) {
-          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_savedSuccessfully(), timeout: 2000 })
+          notify.success(m.notify_savedSuccessfully())
         } else {
           throw result.error || new Error('Failed to save')
         }
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.notify_failedToSave(), timeout: 2000 })
+        notify.error(m.notify_failedToSave())
       } finally {
         this.saving = false
       }
@@ -192,11 +193,11 @@ export default {
         this.updateField('tools', tools.filter((_, i) => i !== toolIndex))
         const result = await this.saveServer()
         if (!result.success) throw result.error || new Error('Failed to save')
-         this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_deletedSuccessfully({ entity: m.entity_apiTool() }), timeout: 1000 })
+         notify.success(m.notify_deletedSuccessfully({ entity: m.entity_apiTool() }))
         this.$router?.push(`/api-servers/${this.$route.params.id}`)
       } catch (error) {
         const errorMessage = error?.message || m.notify_failedToDelete()
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: errorMessage, timeout: 3000 })
+        notify.error(errorMessage)
       } finally {
         this.saving = false
       }

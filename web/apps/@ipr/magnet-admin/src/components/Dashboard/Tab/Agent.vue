@@ -528,7 +528,7 @@ export default {
     },
     navigateToConversation(row) {
       if (row?.conversation_id) {
-        window.open(this.$router.resolve({ path: `/conversation/${row.conversation_id}` }).href, '_blank')
+        this.$router.push(`/conversation/${row.conversation_id}`)
       }
     },
     updateVisibleFilters(key, value) {

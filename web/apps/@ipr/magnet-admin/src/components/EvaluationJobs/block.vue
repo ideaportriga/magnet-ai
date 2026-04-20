@@ -235,38 +235,17 @@ export default {
       }
     },
     deleteEvaluationSet() {
-      this.$q.notify({
+      notify.confirm({
         message: m.evaluation_deleteNamedConfirm({ name: this.selectedRow?.name || '' }),
-        color: 'red-9', textColor: 'white',
-        icon: 'error',
-        group: 'error',
-        timeout: 0,
-        actions: [
-          {
-            label: m.common_cancel(),
-            color: 'yellow',
-            handler: () => {
-              /* ... */
-            },
-          },
-          {
-            label: m.common_delete(),
-            color: 'white',
-            handler: () => {
-              this.loadingDelelete = true
-              this.removeEvaluationJob(this.selectedRow?.id)
-              this.$emit('update:closeDrawer', null)
-              this.$q.notify({
-                color: 'green-9', textColor: 'white',
-                icon: 'check_circle',
-                group: 'success',
-                message: m.notify_entityDeleted({ entity: m.entity_ragTool() }),
-                timeout: 1000,
-              })
-              this.navigate('/evaluation_set-tools')
-            },
-          },
-        ],
+        confirmLabel: m.common_delete(),
+        cancelLabel: m.common_cancel(),
+        onConfirm: () => {
+          this.loadingDelelete = true
+          this.removeEvaluationJob(this.selectedRow?.id)
+          this.$emit('update:closeDrawer', null)
+          notify.success(m.notify_entityDeleted({ entity: m.entity_ragTool() }))
+          this.navigate('/evaluation_set-tools')
+        },
       })
     },
   },

@@ -95,6 +95,13 @@ import { fetchData } from '@shared'
 export default {
   props: ['message', 'conversation'],
   emits: ['close', 'update:message'],
+  // Expose the paraglide messages object to the template. Options API
+  // does not auto-expose top-level imports; without this, every
+  // `m.foo()` in the template dereferences `undefined` and throws
+  // "Cannot read properties of undefined".
+  setup() {
+    return { m }
+  },
   data() {
     return {
       tab: 'details',

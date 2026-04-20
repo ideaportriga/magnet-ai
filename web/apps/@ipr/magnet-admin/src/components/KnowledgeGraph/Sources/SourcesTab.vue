@@ -32,87 +32,90 @@
         </template>
       </kg-table-toolbar>
 
-      <q-table
-        v-model:pagination="pagination"
-        flat
-        table-header-class="bg-primary-light"
-        :rows="displayRows"
-        :columns="columns"
+      <!-- §E.2.5 — km-data-table migration. Status/schedule/menu cells use
+           named slots; primitive cells (name, documents_count, created_at)
+           fall through to FlexRender on the column's default cell. -->
+      <km-data-table
+        :table="table"
         row-key="id"
-        :rows-per-page-options="[10]"
+        :loading="loading"
+        hide-pagination
         @row-click="onRowClick"
       >
-        <template #body-cell-last_sync_at="slotScope">
-          <q-td :props="slotScope">
-            <div class="kg-sync-cell row items-center no-wrap">
-              <!-- Status column (fixed width for alignment) -->
-              <div class="column items-start justify-center q-gap-6">
-                <kg-status-badge :status="effectiveStatus(slotScope.row)" />
-                <div class="kg-sync-meta row items-center no-wrap q-gutter-x-xs q-ml-4">
-                  <span class="kg-sync-meta-label">{{ m.knowledgeGraph_lastSync() }}</span>
-                  <span class="kg-sync-meta-value">
-                    {{ formatRelative(slotScope.row?.last_sync_at) }}
-                    <q-tooltip anchor="top middle" self="bottom middle">
-                      {{ formatFull(slotScope.row?.last_sync_at) }}
-                    </q-tooltip>
-                  </span>
-                </div>
+        <template #cell-type="{ row }">
+          {{ getSourceTypeName(row.type) }}
+        </template>
+
+        <template #cell-created_at="{ row }">
+          {{ formatAdded(row.created_at) }}
+        </template>
+
+        <template #cell-last_sync_at="{ row }">
+          <div class="kg-sync-cell row items-center no-wrap">
+            <div class="column items-start justify-center q-gap-6">
+              <kg-status-badge :status="effectiveStatus(row)" />
+              <div class="kg-sync-meta row items-center no-wrap q-gutter-x-xs q-ml-4">
+                <span class="kg-sync-meta-label">{{ m.knowledgeGraph_lastSync() }}</span>
+                <span class="kg-sync-meta-value">
+                  {{ formatRelative(row?.last_sync_at) }}
+                  <q-tooltip anchor="top middle" self="bottom middle">
+                    {{ formatFull(row?.last_sync_at) }}
+                  </q-tooltip>
+                </span>
               </div>
             </div>
-          </q-td>
+          </div>
         </template>
-        <template #body-cell-schedule="slotScope">
-          <q-td :props="slotScope">
-            <div v-if="hasSchedule(slotScope.row)" class="column items-start justify-center q-gap-6">
-              <div class="row items-center no-wrap q-gutter-x-xs">
-                <q-icon name="schedule" color="primary" size="16px" />
-                <span class="kg-sync-schedule-interval">{{ slotScope.row.schedule?.interval }}</span>
-              </div>
-              <div class="kg-sync-schedule-time">
-                {{ formatScheduleSummary(slotScope.row.schedule) }}
-              </div>
+
+        <template #cell-schedule="{ row }">
+          <div v-if="hasSchedule(row)" class="column items-start justify-center q-gap-6">
+            <div class="row items-center no-wrap q-gutter-x-xs">
+              <q-icon name="schedule" color="primary" size="16px" />
+              <span class="kg-sync-schedule-interval">{{ row.schedule?.interval }}</span>
             </div>
-            <div v-else class="text-grey-5 italic text-caption">{{ m.knowledgeGraph_notScheduled() }}</div>
-          </q-td>
+            <div class="kg-sync-schedule-time">
+              {{ formatScheduleSummary(row.schedule) }}
+            </div>
+          </div>
+          <div v-else class="text-grey-5 italic text-caption">{{ m.knowledgeGraph_notScheduled() }}</div>
         </template>
-        <template #body-cell-menu="slotScope">
-          <q-td :props="slotScope" class="text-right">
-            <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(slotScope.row.id)" @click.stop>
-              <q-menu class="kg-source-menu" anchor="bottom right" self="top right" auto-close>
-                <q-list dense>
-                  <q-item
-                    v-ripple="false"
-                    :disable="!isSyncable(slotScope.row.type) || syncingIds.has(slotScope.row.id)"
-                    clickable
-                    @click="handleSync(slotScope.row)"
-                  >
-                    <q-item-section thumbnail>
-                      <q-icon name="sync" color="primary" size="20px" class="q-ml-sm" />
-                    </q-item-section>
-                    <q-item-section>{{ m.knowledgeGraph_syncNow() }}</q-item-section>
-                  </q-item>
 
-                  <q-separator />
+        <template #cell-menu="{ row }">
+          <q-btn dense flat color="dark" icon="more_vert" :disable="deletingIds.has(row.id)" @click.stop>
+            <q-menu class="kg-source-menu" anchor="bottom right" self="top right" auto-close>
+              <q-list dense>
+                <q-item
+                  v-ripple="false"
+                  :disable="!isSyncable(row.type) || syncingIds.has(row.id)"
+                  clickable
+                  @click="handleSync(row)"
+                >
+                  <q-item-section thumbnail>
+                    <q-icon name="sync" color="primary" size="20px" class="q-ml-sm" />
+                  </q-item-section>
+                  <q-item-section>{{ m.knowledgeGraph_syncNow() }}</q-item-section>
+                </q-item>
 
-                  <q-item v-ripple="false" clickable @click="confirmPurge(slotScope.row)">
-                    <q-item-section thumbnail>
-                      <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                    </q-item-section>
-                    <q-item-section>{{ m.knowledgeGraph_deleteData() }}</q-item-section>
-                  </q-item>
+                <q-separator />
 
-                  <q-item v-ripple="false" clickable @click="confirmDelete(slotScope.row)">
-                    <q-item-section thumbnail>
-                      <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                    </q-item-section>
-                    <q-item-section>{{ m.knowledgeGraph_deleteSourceAndData() }}</q-item-section>
-                  </q-item>
-                </q-list>
-              </q-menu>
-            </q-btn>
-          </q-td>
+                <q-item v-ripple="false" clickable @click="confirmPurge(row)">
+                  <q-item-section thumbnail>
+                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                  </q-item-section>
+                  <q-item-section>{{ m.knowledgeGraph_deleteData() }}</q-item-section>
+                </q-item>
+
+                <q-item v-ripple="false" clickable @click="confirmDelete(row)">
+                  <q-item-section thumbnail>
+                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                  </q-item-section>
+                  <q-item-section>{{ m.knowledgeGraph_deleteSourceAndData() }}</q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
+          </q-btn>
         </template>
-      </q-table>
+      </km-data-table>
     </div>
 
     <!-- Source Type Selection Dialog -->
@@ -182,10 +185,12 @@
 import { fetchData } from '@shared'
 import { m } from '@/paraglide/messages'
 import { formatRelative } from '@shared/utils'
-import { QTableColumn, useQuasar } from 'quasar'
+import { useQuasar } from 'quasar'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { computed, inject, onMounted, ref, type Ref } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 import { useNotify } from '@/composables/useNotify'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { KgConfirmDialog, KgStatusBadge, KgTableToolbar } from '../common'
 import type { KnowledgeGraphDetails } from '../types'
 import { fetchKnowledgeGraphSources } from './api'
@@ -213,7 +218,6 @@ const sourceDialogOpen = ref(false)
 
 const rows = ref<SourceRow[]>([])
 const selectedRow = ref<SourceRow | null>(null)
-const pagination = ref({ rowsPerPage: 10, page: 1 })
 const deletingIds = ref<Set<string>>(new Set())
 const syncingIds = ref<Set<string>>(new Set())
 const syncAllInProgress = ref(false)
@@ -244,58 +248,61 @@ const displayRows = computed(() => {
   return rows.value
 })
 
-const columns: QTableColumn<SourceRow>[] = [
+// §E.2.5 — TanStack columns. Cell rendering delegated to named slots above
+// for non-trivial ones; primitive columns use accessorKey.
+const columns: ColumnDef<SourceRow, unknown>[] = [
   {
-    name: 'name',
-    label: m.knowledgeGraph_colName(),
-    field: 'name',
-    align: 'left',
-    sortable: true,
+    id: 'name',
+    accessorKey: 'name',
+    header: m.knowledgeGraph_colName(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'type',
-    label: m.knowledgeGraph_colType(),
-    field: 'type',
-    format: getSourceTypeName,
-    align: 'left',
-    sortable: true,
+    id: 'type',
+    accessorKey: 'type',
+    header: m.knowledgeGraph_colType(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'documents_count',
-    label: m.knowledgeGraph_colDocuments(),
-    field: 'documents_count',
-    align: 'left',
-    sortable: true,
+    id: 'documents_count',
+    accessorKey: 'documents_count',
+    header: m.knowledgeGraph_colDocuments(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'created_at',
-    label: m.knowledgeGraph_colAdded(),
-    field: 'created_at',
-    format: formatAdded,
-    align: 'left',
-    sortable: true,
+    id: 'created_at',
+    accessorKey: 'created_at',
+    header: m.knowledgeGraph_colAdded(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'last_sync_at',
-    label: m.knowledgeGraph_colSyncStatus(),
-    field: 'last_sync_at',
-    format: formatAdded,
-    align: 'left',
-    sortable: true,
+    id: 'last_sync_at',
+    accessorKey: 'last_sync_at',
+    header: m.knowledgeGraph_colSyncStatus(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'schedule',
-    label: m.knowledgeGraph_colSyncSchedule(),
-    field: 'schedule',
-    align: 'left',
-    sortable: false,
+    id: 'schedule',
+    header: m.knowledgeGraph_colSyncSchedule(),
+    enableSorting: false,
+    meta: { align: 'left' },
   },
   {
-    name: 'menu',
-    label: '',
-    field: 'id',
+    id: 'menu',
+    header: '',
+    enableSorting: false,
+    meta: { align: 'right', width: '60px' },
   },
 ]
+
+const { table } = useLocalDataTable<SourceRow>(displayRows, columns, {
+  defaultPageSize: 100,
+})
 
 const fetchSources = async (force = false) => {
   loading.value = true
@@ -564,7 +571,7 @@ const performPurge = async () => {
   }
 }
 
-const onRowClick = (evt: Event, row: SourceRow) => {
+const onRowClick = (row: SourceRow) => {
   selectedRow.value = row
   activeSourceType.value = (row.type as SourceTypeKey) || null
   sourceDialogOpen.value = true

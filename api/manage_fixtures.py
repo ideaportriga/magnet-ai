@@ -11,6 +11,13 @@ import click
 # Add src to Python path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+# Load .env files (project root + api/.env) so DB_NAME / DB_HOST / etc.
+# resolve correctly when invoked via `npm run fixtures:load` (which uses
+# `poetry run` without sourcing the env files).
+from src.config.config import load_env  # noqa: E402
+
+load_env()
+
 from src.core.fixtures.loader import fixtures_group  # noqa: E402
 
 

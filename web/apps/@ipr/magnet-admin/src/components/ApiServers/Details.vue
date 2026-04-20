@@ -4,11 +4,12 @@ layouts-details-layout(v-if='!loading')
   template(#header)
     .col
       .row.items-center
-        km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :model-value='name', @change='name = $event')
+        km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :model-value='name', @change='name = $event')
       .row.items-center.q-pl-6
         q-icon.col-auto(name='o_info', color='text-secondary')
           q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
         km-input-flat.col.km-description.text-black.full-width(
+          data-test='system-name-input',
           :placeholder='m.placeholder_enterSystemNameReadable()',
           :model-value='system_name',
           @change='system_name = $event',
@@ -32,14 +33,14 @@ layouts-details-layout(v-if='!loading')
           div
             .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
-    q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
+    km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
+    q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
-        q-item(clickable, @click='showNewDialog = true', dense)
+        q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
           q-item-section
             .km-heading-3 {{ m.common_clone() }}
-        q-item(clickable, @click='showDeleteDialog = true', dense)
+        q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
           q-item-section
             .km-heading-3 {{ m.common_delete() }}
     km-popup-confirm(

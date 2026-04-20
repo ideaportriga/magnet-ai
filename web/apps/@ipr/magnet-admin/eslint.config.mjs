@@ -29,6 +29,18 @@ export default [
       'vue/require-prop-types': 'off',
       'vue/require-default-prop': 'off',
       'vue/prop-name-casing': 'off',
+      // §E.4 — forbid <q-table>. The app has fully migrated to
+      // <km-data-table> (TanStack Table). See
+      // FRONTEND_FIXES_ROADMAP.md Phase E and, as a reference migration,
+      // GuidedExamplesTable.vue / NoteTakerProviders.vue.
+      'vue/no-restricted-syntax': [
+        'error',
+        {
+          selector: "VElement[rawName='q-table']",
+          message:
+            'Use <km-data-table> with useDataTable / useLocalDataTable instead of raw <q-table>.',
+        },
+      ],
     },
   },
 ]

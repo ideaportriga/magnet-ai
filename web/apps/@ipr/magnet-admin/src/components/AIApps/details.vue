@@ -7,9 +7,10 @@ km-inner-loading(:showing='loading')
         .row.items-center.q-gap-12.no-wrap.full-width.q-mt-lg.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16
           .col
             .row.items-center
-              km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :modelValue='name', @change='name = $event')
+              km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :modelValue='name', @change='name = $event')
             .row.items-center
               km-input-flat.km-description.full-width.text-black(
+                data-test='description-input',
                 :placeholder='m.common_description()',
                 :modelValue='description',
                 @change='description = $event'
@@ -18,6 +19,7 @@ km-inner-loading(:showing='loading')
               q-icon.col-auto(name='o_info', color='text-secondary')
                 q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.tooltip_systemNameUniqueId() }}
               km-input-flat.col.km-description.text-black.full-width.text-black(
+                data-test='system-name-input',
                 :placeholder='m.placeholder_enterSystemNameReadable()',
                 :modelValue='system_name',
                 @change='system_name = $event',
@@ -41,14 +43,14 @@ km-inner-loading(:showing='loading')
                   div
                     .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
                     .text-secondary-text.km-description {{ updated_by }}
-            km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-            km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
-            q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
+            km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+            km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='save', :loading='saving', :disable='saving || !isDirty')
+            q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
               q-menu(anchor='bottom right', self='top right')
-                q-item(clickable, @click='showNewDialog = true', dense)
+                q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
                   q-item-section
                     .km-heading-3 {{ m.common_clone() }}
-                q-item(clickable, @click='showDeleteDialog = true', dense)
+                q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
                   q-item-section
                     .km-heading-3 {{ m.common_delete() }}
             km-popup-confirm(
@@ -99,6 +101,7 @@ import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 import { storeToRefs } from 'pinia'
 import { m } from '@/paraglide/messages'
+import { notify } from '@shared/utils/notify'
 
 export default {
   components: {
@@ -231,9 +234,9 @@ export default {
         }
         // Refresh the iframe
         window.postMessage({ type: 'reload_iframe' })
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Saved successfully', timeout: 2000 })
+        notify.success('Saved successfully')
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || 'Failed to save', timeout: 3000 })
+        notify.error(error.message || 'Failed to save')
       } finally {
         this.saving = false
       }
@@ -241,7 +244,7 @@ export default {
     async confirmDelete() {
       await this.removeEntity()
       this.$emit('update:closeDrawer', null)
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'AI App has been deleted.', timeout: 1000 })
+      notify.success('AI App has been deleted.')
       this.navigate('/ai-apps')
     },
     formatDate(date) {

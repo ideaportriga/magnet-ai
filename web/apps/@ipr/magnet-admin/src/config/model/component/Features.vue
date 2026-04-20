@@ -4,7 +4,7 @@
 </template>
 <script>
 import { defineComponent, computed } from 'vue'
-import { featureOptions } from '../model.js'
+import { featureOptions } from '../featureOptions.js'
 
 export default defineComponent({
   props: {

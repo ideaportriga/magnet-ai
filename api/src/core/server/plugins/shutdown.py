@@ -31,6 +31,9 @@ class ShutdownPlugin(InitPluginProtocol):
         """Application shutdown handler."""
         logger.info("Shutting down application...")
 
+        # Cancel background monitors started in startup plugin
+        await self._cancel_event_loop_monitor(app)
+
         # Shutdown scheduler
         await self._shutdown_scheduler(app)
 
@@ -40,6 +43,10 @@ class ShutdownPlugin(InitPluginProtocol):
         timeout = float(os.environ.get("GRACEFUL_SHUTDOWN_TIMEOUT_SECONDS", "30"))
         await shutdown_background_tasks(shutdown_timeout=timeout)
 
+        # Flush OTEL traces so spans reach the collector before the engine
+        # (and the shared sync span-exporter engine) is torn down. §C.7.
+        await self._flush_otel_traces()
+
         # Close shared HTTP client
         await self._close_http_client()
 
@@ -48,6 +55,36 @@ class ShutdownPlugin(InitPluginProtocol):
 
         # Dispose the main ORM engine (returns all connections to the OS)
         await self._close_main_engine()
+
+    @staticmethod
+    async def _cancel_event_loop_monitor(app: Litestar) -> None:
+        import asyncio
+
+        task = getattr(app.state, "event_loop_monitor_task", None)
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    @staticmethod
+    async def _flush_otel_traces() -> None:
+        """Force-flush OpenTelemetry tracer provider so pending spans are exported
+        before we dispose the shared sync engine that some exporters write through.
+        See BACKEND_FIXES_ROADMAP.md §C.7.
+        """
+        try:
+            from opentelemetry import trace
+
+            provider = trace.get_tracer_provider()
+            flush = getattr(provider, "force_flush", None)
+            if callable(flush):
+                flush(timeout_millis=5000)
+                logger.info("OTEL tracer provider flushed")
+        except Exception as e:
+            logger.warning("OTEL flush failed: %s", e)
 
     async def _shutdown_scheduler(self, app: Litestar) -> None:
         """Shutdown the scheduler."""

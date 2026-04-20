@@ -37,6 +37,7 @@ class KnowledgeGraphSource(UUIDv7AuditBase):
         GUID(),
         ForeignKey("jobs.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
         comment="Foreign key to jobs (recurring sync schedule for this source)",
     )
 

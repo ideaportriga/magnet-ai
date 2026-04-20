@@ -68,68 +68,67 @@
         </template>
       </kg-table-toolbar>
 
-      <q-table
-        v-model:pagination="pagination"
-        flat
-        table-header-class="bg-primary-light"
-        :rows="entities"
-        :columns="columns"
+      <!-- §E.2.1 — migrated from q-table to km-data-table.
+           Cell slots replace q-table's body-cell-NAME templates.
+           row-class callback drives the disabled-row styling. -->
+      <km-data-table
+        :table="table"
         row-key="id"
         :loading="saving"
-        :rows-per-page-options="[10]"
-        :row-class="(row: EntityDefinition) => (row.enabled === false ? 'entity-row--disabled' : '')"
+        hide-pagination
+        :row-class="disabledRowClass"
         @row-click="onRowClick"
       >
-        <template #body-cell-name="slotScope">
-          <q-td :props="slotScope">
-            <div class="entity-name-cell">
-              <span class="entity-name-text">{{ slotScope.row.name }}</span>
-            </div>
-          </q-td>
+        <template #cell-name="{ row }">
+          <div class="entity-name-cell">
+            <span class="entity-name-text">{{ row.name }}</span>
+          </div>
         </template>
 
-        <template #body-cell-columns_count="slotScope">
-          <q-td :props="slotScope">
-            {{ slotScope.row.columns.length }}
-          </q-td>
+        <template #cell-description="{ row }">
+          <span class="km-cell-ellipsis" style="max-width: 300px">{{ row.description }}</span>
         </template>
 
-        <template #body-cell-enabled="slotScope">
-          <q-td :props="slotScope">
-            <q-toggle
-              :model-value="slotScope.row.enabled"
-              dense
-              :disable="saving"
-              @update:model-value="toggleEntityEnabled(slotScope.row, $event)"
-              @click.stop
-            />
-          </q-td>
+        <template #cell-columns_count="{ row }">
+          {{ row.columns.length }}
         </template>
 
-        <template #body-cell-menu="slotScope">
-          <q-td :props="slotScope" class="text-right">
-            <q-btn dense flat color="dark" icon="more_vert" :disable="saving" @click.stop>
-              <q-menu class="entity-row-menu" anchor="bottom right" self="top right" auto-close>
-                <q-list dense>
-                  <q-item v-ripple="false" clickable :disable="saving" @click="editEntity(slotScope.row)">
-                    <q-item-section thumbnail>
-                      <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
-                    </q-item-section>
-                    <q-item-section>{{ m.common_edit() }}</q-item-section>
-                  </q-item>
-                  <q-separator />
-                  <q-item v-ripple="false" clickable :disable="saving" @click="confirmDelete(slotScope.row)">
-                    <q-item-section thumbnail>
-                      <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                    </q-item-section>
-                    <q-item-section>{{ m.common_delete() }}</q-item-section>
-                  </q-item>
-                </q-list>
-              </q-menu>
-            </q-btn>
-          </q-td>
+        <template #cell-identifier="{ row }">
+          {{ identifierFor(row) }}
         </template>
-      </q-table>
+
+        <template #cell-enabled="{ row }">
+          <q-toggle
+            :model-value="row.enabled"
+            dense
+            :disable="saving"
+            @update:model-value="toggleEntityEnabled(row, $event)"
+            @click.stop
+          />
+        </template>
+
+        <template #cell-menu="{ row }">
+          <q-btn dense flat color="dark" icon="more_vert" :disable="saving" @click.stop>
+            <q-menu class="entity-row-menu" anchor="bottom right" self="top right" auto-close>
+              <q-list dense>
+                <q-item v-ripple="false" clickable :disable="saving" @click="editEntity(row)">
+                  <q-item-section thumbnail>
+                    <q-icon name="edit" color="primary" size="20px" class="q-ml-sm" />
+                  </q-item-section>
+                  <q-item-section>{{ m.common_edit() }}</q-item-section>
+                </q-item>
+                <q-separator />
+                <q-item v-ripple="false" clickable :disable="saving" @click="confirmDelete(row)">
+                  <q-item-section thumbnail>
+                    <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                  </q-item-section>
+                  <q-item-section>{{ m.common_delete() }}</q-item-section>
+                </q-item>
+              </q-list>
+            </q-menu>
+          </q-btn>
+        </template>
+      </km-data-table>
     </div>
 
     <entity-dialog
@@ -198,10 +197,11 @@
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import { m } from '@/paraglide/messages'
-import type { QTableColumn } from 'quasar'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { computed, ref, watch } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 import { useNotify } from '@/composables/useNotify'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { KgConfirmDialog, KgTableToolbar } from '../common'
 import type { KnowledgeGraphDetails } from '../types'
 import EntityDialog from './EntityDialog.vue'
@@ -237,54 +237,71 @@ const selectedEntity = ref<EntityDefinition | null>(null)
 const dialogOpen = ref(false)
 const showDeleteDialog = ref(false)
 const showExtractionDialog = ref(false)
-const pagination = ref({ rowsPerPage: 10, page: 1 })
 const saving = ref(false)
 const loadingPromptTemplates = ref(false)
 const promptTemplateOptions = ref<any[]>([])
 const baseSettings = ref<KnowledgeGraphDetails['settings']>({})
 
-const columns: QTableColumn<EntityDefinition>[] = [
+// §E.2.1 — TanStack columns. Cell rendering delegated to named slots above;
+// we keep accessorFn for the two derived columns so client-side sorting works.
+const columns: ColumnDef<EntityDefinition, unknown>[] = [
   {
-    name: 'name',
-    label: m.knowledgeGraph_entityLabel(),
-    field: 'name',
-    align: 'left',
-    sortable: true,
+    id: 'name',
+    accessorKey: 'name',
+    header: m.knowledgeGraph_entityLabel(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'description',
-    label: m.common_description(),
-    field: 'description',
-    align: 'left',
-    sortable: false,
-    style: 'max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis',
+    id: 'description',
+    accessorKey: 'description',
+    header: m.common_description(),
+    enableSorting: false,
+    meta: { align: 'left', width: '300px' },
   },
   {
-    name: 'columns_count',
-    label: m.knowledgeGraph_columns(),
-    field: (row) => row.columns.length,
-    align: 'left',
-    sortable: true,
+    id: 'columns_count',
+    accessorFn: (row: EntityDefinition) => row.columns.length,
+    header: m.knowledgeGraph_columns(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'identifier',
-    label: m.knowledgeGraph_identifier(),
-    field: (row) => row.columns.find((column) => column.is_identifier)?.name || '',
-    align: 'left',
-    sortable: false,
+    id: 'identifier',
+    accessorFn: (row: EntityDefinition) =>
+      row.columns.find((column) => column.is_identifier)?.name || '',
+    header: m.knowledgeGraph_identifier(),
+    enableSorting: false,
+    meta: { align: 'left' },
   },
   {
-    name: 'enabled',
-    label: m.common_active(),
-    field: 'enabled',
-    align: 'center',
+    id: 'enabled',
+    accessorKey: 'enabled',
+    header: m.common_active(),
+    enableSorting: false,
+    meta: { align: 'center', width: '80px' },
   },
   {
-    name: 'menu',
-    label: '',
-    field: 'id',
+    id: 'menu',
+    header: '',
+    enableSorting: false,
+    meta: { align: 'right', width: '60px' },
   },
 ]
+
+const { table } = useLocalDataTable<EntityDefinition>(entities, columns, {
+  defaultPageSize: 100,
+})
+
+function identifierFor(row: EntityDefinition): string {
+  return row.columns.find((c) => c.is_identifier)?.name || ''
+}
+
+// §E.2.1 — row-level class callback: keeps the "disabled entity is greyed out"
+// visual without needing a q-table-specific row-class API.
+function disabledRowClass(row: EntityDefinition): string {
+  return row.enabled === false ? 'entity-row--disabled' : ''
+}
 
 const canRunExtraction = computed(() => {
   return !!String(extractionSettings.value.prompt_template_system_name || '').trim() && entities.value.length > 0 && !loadingPromptTemplates.value
@@ -400,7 +417,7 @@ function editEntity(entity: EntityDefinition) {
   dialogOpen.value = true
 }
 
-function onRowClick(_event: Event, row: EntityDefinition) {
+function onRowClick(row: EntityDefinition) {
   editEntity(row)
 }
 

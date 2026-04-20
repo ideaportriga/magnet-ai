@@ -21,6 +21,7 @@ km-popup-confirm(
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
       km-input(
+        data-test='system-name-input',
         height='30px',
         :placeholder='m.placeholder_examplePromptTemplateDemo()',
         v-model='system_name',
@@ -53,6 +54,7 @@ import { cloneDeep } from 'lodash' // Import lodash for deep cloning
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { categoryOptions } from '@/config/prompts/prompts'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -131,7 +133,7 @@ export default {
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) => (this.newRow?.variants[0].retrieve?.collection_system_names || []).includes(el?.id))
+        return (this.collections || []).filter((el) => (this.newRow?.variants[0].retrieve?.collection_system_names || []).includes(el?.id))
       },
       set(value) {
         value = (value || []).map((el) => {
@@ -179,14 +181,12 @@ export default {
 
       this.$router.push(`/prompt-templates/${result.id}`)
     },
-    validation(row, notify = true) {
+    validation(row, showNotify = true) {
       const { name, description, system_name, category } = row
 
       if (!name || !description || !system_name || !category) {
-        // Handle validation error
-
-        if (notify) {
-          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: m.validation_required(), timeout: 1000 })
+        if (showNotify) {
+          notify.error(m.validation_required())
         }
         return false
       }

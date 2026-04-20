@@ -83,6 +83,7 @@ import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { copyToClipboard } from 'quasar'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -225,12 +226,7 @@ export default {
       if (message.role === 'assistant') {
         copyToClipboard(message.content)
         this.agentTabStore.reportCopyUsage({ conversation_id: this.conversationId, message_id: message.id })
-        this.$q.notify({
-          message: m.common_copiedToClipboard(),
-          color: 'primary',
-          icon: 'fas fa-copy',
-          timeout: 1000,
-        })
+        notify.copied(m.common_copiedToClipboard())
       }
     },
     async getLastConversation() {

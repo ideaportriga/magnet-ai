@@ -7,5 +7,6 @@ export function useNotify() {
     notifyWarning: notify.warning,
     notifyInfo: notify.info,
     notifyCopied: notify.copied,
+    notifyConfirm: notify.confirm,
   }
 }

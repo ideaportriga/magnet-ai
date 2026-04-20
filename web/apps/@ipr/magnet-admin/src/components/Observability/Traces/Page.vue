@@ -30,10 +30,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { m } from '@/paraglide/messages'
 import { useRouter } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
+import { useDebouncedWatch } from '@/composables/useDebouncedWatch'
 import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
 import StatusField from '@/config/observability/traces/components/StatusField.vue'
 import { traceFilters } from '@/config/observability/traces'
@@ -68,7 +69,8 @@ const { table, isLoading, isFetching, refetch } = useDataTable<ObservabilityTrac
   extraParams: filterObject,
 })
 
-watch(filterObject, () => refetch(), { deep: true })
+// §C.3 — debounce to collapse multi-field filter edits into one refetch.
+useDebouncedWatch(filterObject, () => refetch(), 250)
 
 onMounted(async () => {
   try {

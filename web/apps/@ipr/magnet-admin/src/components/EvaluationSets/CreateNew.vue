@@ -65,6 +65,7 @@ import { cloneDeep } from 'lodash'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 import { typeOptions } from '@/config/evaluation_sets/evaluation_sets'
 
 export default {
@@ -83,7 +84,10 @@ export default {
     const router = useRouter()
     const queries = useEntityQueries()
     const { draft } = useEntityDetail('evaluation_sets')
-    const { mutateAsync: createEntity } = queries.evaluation_sets.useCreate()
+    // §B.8 — useSafeMutation ensures `loading.value` is reset on failure
+    // and surfaces a notifyError toast; previously a 500 left the form
+    // frozen in loading state with no feedback.
+    const createEntity = useSafeMutation(queries.evaluation_sets.useCreate())
 
     const entityConfig = useEntityConfig('evaluation_sets')
     const config = computed(() => entityConfig.config || {})
@@ -145,9 +149,10 @@ export default {
       if (!validateFields()) return
       createNew.value = false
       loading.value = true
-      const { id: inserted_id } = await createEntity(newRow)
+      const { success, data } = await createEntity.run(newRow)
       loading.value = false
-      router.push(`/evaluation-sets/${inserted_id}`)
+      if (!success || !data) return
+      router.push(`/evaluation-sets/${data.id}`)
     }
 
     return {

@@ -146,6 +146,7 @@ km-drawer-layout(storageKey="drawer-agents-preview", :defaultWidth="500", :maxWi
             .col-auto.q-mt-md.q-px-16
               form(@submit.prevent='sendUserMessage')
                 km-input(
+                  data-test='preview-input',
                   ref='input',
                   rows='8',
                   :placeholder='m.agents_typeYourQuestion()',
@@ -170,7 +171,7 @@ km-drawer-layout(storageKey="drawer-agents-preview", :defaultWidth="500", :maxWi
                     km-btn(flat, simple, iconSize='16px', icon='fas fa-rotate-right', @click='clearChat')
                   .col
                   .col-auto
-                    q-btn(type='submit', color='primary', :disable='cantSendUserMessage', unelevated, padding='6px 7px', style='maxheight: 28px')
+                    q-btn(data-test='preview-btn', type='submit', color='primary', :disable='cantSendUserMessage', unelevated, padding='6px 7px', style='maxheight: 28px')
                       template(v-slot:default)
                         q-icon(name='fas fa-paper-plane', size='16px')
 </template>
@@ -184,6 +185,7 @@ import { fetchData } from '@shared'
 import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { useAppStore } from '@/stores/appStore'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -513,13 +515,7 @@ export default {
     },
     copyMessage(message) {
       copyToClipboard(message.content)
-      this.$q.notify({
-        message: m.common_copiedToClipboard(),
-        color: 'dark',
-        icon: 'content_copy',
-        group: 'copied',
-        timeout: 1000,
-      })
+      notify.copied(m.common_copiedToClipboard())
     },
   },
 }

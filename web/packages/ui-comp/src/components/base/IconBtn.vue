@@ -1,5 +1,14 @@
 <template lang="pug">
-.km-control.km-button-icon.center-flex.rounded-borders(:class='{ "no-pointer-events": disabled }')
+//- Accessibility: icon-only button needs a text alternative. Callers
+//- can override with the `ariaLabel` prop; default falls back to the
+//- icon name so screen-readers get at least something meaningful.
+.km-control.km-button-icon.center-flex.rounded-borders(
+  role='button',
+  :tabindex='disabled ? -1 : 0',
+  :aria-label='ariaLabel || icon',
+  :aria-disabled='disabled ? "true" : "false"',
+  :class='{ "no-pointer-events": disabled }'
+)
   q-icon(:name='icon', :size='iconSize', :class='`text-${color}`')
 </template>
 
@@ -30,6 +39,10 @@ export default {
     iconSize: {
       type: String,
       default: '24px',
+    },
+    ariaLabel: {
+      type: String,
+      default: '',
     },
   },
 }

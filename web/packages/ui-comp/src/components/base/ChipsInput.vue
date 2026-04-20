@@ -81,9 +81,19 @@ export default {
     },
   },
   mounted() {
-    const selectElement = this.$refs.input.$el
-    // Add a click event listener to the chips
+    // Remember the element so beforeUnmount can detach; without that the
+    // listener leaked on every drawer/dialog reopen because Vue reuses the
+    // method reference but the DOM node is new.
+    const selectElement = this.$refs.input?.$el
+    if (!selectElement) return
+    this._chipsInputEl = selectElement
     selectElement.addEventListener('click', this.handleChipClick)
+  },
+  beforeUnmount() {
+    if (this._chipsInputEl) {
+      this._chipsInputEl.removeEventListener('click', this.handleChipClick)
+      this._chipsInputEl = null
+    }
   },
   methods: {
     onUpdate($event) {

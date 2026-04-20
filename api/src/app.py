@@ -4,9 +4,17 @@ import asyncio
 import os
 from logging import getLogger
 
-from litestar import Litestar
+# Load + validate environment BEFORE anything imports get_general_settings(),
+# otherwise get_env() snapshots an empty SECRET_ENCRYPTION_KEY into the
+# lru_cache and later Fernet decryption of providers.secrets_encrypted
+# fails with InvalidToken. See BACKEND_FIXES_ROADMAP.md §A.3.
+from config.config import load_env as _load_env
 
-from core.server.plugin_registry import (
+_load_env()
+
+from litestar import Litestar  # noqa: E402
+
+from core.server.plugin_registry import (  # noqa: E402
     alchemy,
     cors_plugin,
     dependencies_plugin,
@@ -19,8 +27,8 @@ from core.server.plugin_registry import (
     startup_plugin,
     structlog,
 )
-from routes import get_route_handlers
-from core.config.base import (
+from routes import get_route_handlers  # noqa: E402
+from core.config.base import (  # noqa: E402
     get_auth_settings,
     get_vector_database_settings,
     get_general_settings,
@@ -42,11 +50,6 @@ AUTH_ENABLED = auth_settings.AUTH_ENABLED
 VECTOR_DB_TYPE = db_connection_settings.VECTOR_DB_TYPE
 DEBUG_MODE = log_settings.DEBUG_MODE
 
-# Enable asyncio debug mode in development to detect blocking calls (>100ms)
-if DEBUG_MODE:
-    asyncio.get_event_loop().slow_callback_duration = 0.1  # 100ms
-    logger.info("asyncio slow_callback_duration set to 100ms (DEBUG_MODE=true)")
-
 
 def create_app() -> Litestar:
     """Create the Litestar application with plugins."""
@@ -59,7 +62,7 @@ def create_app() -> Litestar:
 
     app = Litestar(
         route_handlers=route_handlers,
-        debug=False,
+        debug=DEBUG_MODE,
         request_max_body_size=max_upload_mb * 1024 * 1024,
         plugins=[
             # Core plugins
@@ -87,6 +90,15 @@ def create_app() -> Litestar:
 # Create the app instance
 app = create_app()
 
-# Enable event loop debug if requested
+# Enable asyncio debug mode once the loop exists so slow_callback_duration and
+# set_debug aren't applied to a loop that will be replaced by the ASGI runner.
 if DEBUG_MODE:
-    asyncio.get_event_loop().set_debug(True)
+    try:
+        loop = asyncio.get_event_loop()
+        loop.slow_callback_duration = 0.1  # 100ms — surface blocking calls
+        loop.set_debug(True)
+        logger.info("asyncio debug enabled (slow_callback_duration=100ms)")
+    except RuntimeError:
+        # No current loop (e.g. import-time in some deploy targets) — ASGI
+        # runner will create its own; debug settings will be applied via env.
+        logger.debug("No running event loop at import time; asyncio debug skipped")

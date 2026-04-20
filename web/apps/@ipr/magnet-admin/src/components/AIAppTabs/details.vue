@@ -188,8 +188,9 @@ const navigate = (path = '') => {
   }
 }
 
+// In-app navigation now that workspaces handle multi-detail flows.
 const openNewTab = () => {
-  window.open(router.resolve({ path: `/${path.value}` }).href, '_blank')
+  router.push(`/${path.value}`)
 }
 </script>
 

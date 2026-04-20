@@ -145,10 +145,10 @@ const confluenceAvailableTools = computed(() => {
 
 const navigateToApiServer = (systemName: string) => {
   const server = apiServers.value.find((s: any) => s.system_name === systemName)
-  if (server) window.open(router.resolve({ path: `/api-servers/${server.id}` }).href, '_blank')
+  if (server) router.push(`/api-servers/${server.id}`)
 }
 const navigateToTool = (serverSystemName: string, toolName: string) => {
   const server = apiServers.value.find((s: any) => s.system_name === serverSystemName)
-  if (server) window.open(router.resolve({ path: `/api-servers/${server.id}/tools/${toolName}` }).href, '_blank')
+  if (server) router.push(`/api-servers/${server.id}/tools/${toolName}`)
 }
 </script>

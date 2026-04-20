@@ -14,42 +14,50 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from core.config.base import get_settings
-from core.db.models.agent import Agent  # noqa: F401
-from core.db.models.agent_conversation import AgentConversation  # noqa: F401
-from core.db.models.ai_app import AIApp  # noqa: F401
-from core.db.models.ai_model import AIModel  # noqa: F401
-from core.db.models.api_server import APIServer  # noqa: F401
-from core.db.models.api_tool import APITool  # noqa: F401
+# Load .env (project root + api/.env) BEFORE importing get_settings so
+# DB_NAME / DB_HOST / etc. resolve correctly. Without this, running
+# alembic via `npm run db:upgrade` / `poetry run alembic ...` silently
+# falls back to the default `test_magnet_ai` DB.
+from config.config import load_env
+
+load_env()
+
+from core.config.base import get_settings  # noqa: E402
+from core.db.models.agent import Agent  # noqa: F401, E402
+from core.db.models.agent_conversation import AgentConversation  # noqa: F401, E402
+from core.db.models.ai_app import AIApp  # noqa: F401, E402
+from core.db.models.ai_model import AIModel  # noqa: F401, E402
+from core.db.models.api_server import APIServer  # noqa: F401, E402
+from core.db.models.api_tool import APITool  # noqa: F401, E402
 
 # Import specific models to register them with metadata
-from core.db.models.base import UUIDAuditEntityBase  # noqa: F401
-from core.db.models.collection import Collection  # noqa: F401
-from core.db.models.deep_research import (  # noqa: F401
+from core.db.models.base import UUIDAuditEntityBase  # noqa: F401, E402
+from core.db.models.collection import Collection  # noqa: F401, E402
+from core.db.models.deep_research import (  # noqa: F401, E402
     DeepResearchConfig,
     DeepResearchRun,
 )
-from core.db.models.evaluation import Evaluation  # noqa: F401
-from core.db.models.evaluation_set import EvaluationSet  # noqa: F401
-from core.db.models.knowledge_graph import (  # noqa: F401
+from core.db.models.evaluation import Evaluation  # noqa: F401, E402
+from core.db.models.evaluation_set import EvaluationSet  # noqa: F401, E402
+from core.db.models.knowledge_graph import (  # noqa: F401, E402
     KnowledgeGraph,
     KnowledgeGraphMetadataDiscovery,
     KnowledgeGraphSource,
 )
-from core.db.models.mcp_server import MCPServer  # noqa: F401
-from core.db.models.mcp_server.mcp_server import EncryptedJsonB  # noqa: F401
-from core.db.models.metric import Metric  # noqa: F401
-from core.db.models.prompt import Prompt  # noqa: F401
-from core.db.models.provider import Provider  # noqa: F401
-from core.db.models.rag_tool.rag_tool import RagTool  # noqa: F401
-from core.db.models.retrieval_tool import RetrievalTool  # noqa: F401
-from core.db.models.slack import SlackInstallation, SlackOAuthState  # noqa: F401
-from core.db.models.teams import TeamsMeeting  # noqa: F401
-from core.db.models.teams.note_taker_job import NoteTakerJob  # noqa: F401
-from core.db.models.teams.note_taker_settings import NoteTakerSettings  # noqa: F401
-from core.db.models.trace import Trace  # noqa: F401
-from core.db.models.transcription.transcription import Transcription  # noqa: F401
-from core.db.models.user import (  # noqa: F401
+from core.db.models.mcp_server import MCPServer  # noqa: F401, E402
+from core.db.models.mcp_server.mcp_server import EncryptedJsonB  # noqa: F401, E402
+from core.db.models.metric import Metric  # noqa: F401, E402
+from core.db.models.prompt import Prompt  # noqa: F401, E402
+from core.db.models.provider import Provider  # noqa: F401, E402
+from core.db.models.rag_tool.rag_tool import RagTool  # noqa: F401, E402
+from core.db.models.retrieval_tool import RetrievalTool  # noqa: F401, E402
+from core.db.models.slack import SlackInstallation, SlackOAuthState  # noqa: F401, E402
+from core.db.models.teams import TeamsMeeting  # noqa: F401, E402
+from core.db.models.teams.note_taker_job import NoteTakerJob  # noqa: F401, E402
+from core.db.models.teams.note_taker_settings import NoteTakerSettings  # noqa: F401, E402
+from core.db.models.trace import Trace  # noqa: F401, E402
+from core.db.models.transcription.transcription import Transcription  # noqa: F401, E402
+from core.db.models.user import (  # noqa: F401, E402
     EmailVerificationToken,
     Group,
     PasswordResetToken,
@@ -60,7 +68,7 @@ from core.db.models.user import (  # noqa: F401
     UserOAuthAccount,
     UserRole,
 )
-from storage.models import StoredFile  # noqa: F401
+from storage.models import StoredFile  # noqa: F401, E402
 
 # Add the src directory to the Python path
 # src_path = Path(__file__).parent.parent.parent

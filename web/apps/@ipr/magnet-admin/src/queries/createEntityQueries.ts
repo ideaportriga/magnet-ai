@@ -12,6 +12,22 @@ import { entityKeys } from './queryKeys'
 
 type EntityKeyName = keyof typeof entityKeys
 
+// §C.2 — per-entity staleTime overrides. Live dashboards (traces, metrics,
+// jobs) need fresh data every few seconds; stable catalogs (agents,
+// providers, models) can cache for minutes. Anything not listed here gets
+// the QueryClient default (60s, see plugins/vueQuery.ts).
+const STALE_TIME_BY_ENTITY: Partial<Record<EntityKeyName, number>> = {
+  traces: 5_000,
+  metrics: 5_000,
+  jobs: 10_000,
+  conversations: 15_000,
+  agents: 60_000,
+  providers: 300_000,
+  ai_models: 300_000,
+  prompts: 300_000,
+  collections: 60_000,
+} as Partial<Record<EntityKeyName, number>>
+
 export interface EntityQueries<T extends BaseEntity> {
   useList: (
     params?: MaybeRef<PaginationParams & Record<string, unknown>>,
@@ -50,12 +66,15 @@ export function createEntityQueries<T extends BaseEntity>(
     _globalOptions.onMutationError?.(error, entityKeyName, operation)
   }
 
+  const entityStaleTime = STALE_TIME_BY_ENTITY[entityKeyName]
+
   return {
     useList(params, options) {
       return useQuery<ListResponse<T>>({
         queryKey: computed(() => keys.list(unref(params) ?? {})),
         queryFn: () => api.list(unref(params) ?? undefined),
         placeholderData: keepPreviousData,
+        ...(entityStaleTime !== undefined ? { staleTime: entityStaleTime } : {}),
         ...options,
       })
     },
@@ -66,6 +85,7 @@ export function createEntityQueries<T extends BaseEntity>(
         queryKey: computed(() => keys.detail(resolvedId.value ?? '')),
         queryFn: () => api.getById(resolvedId.value!),
         enabled: computed(() => !!resolvedId.value),
+        ...(entityStaleTime !== undefined ? { staleTime: entityStaleTime } : {}),
         ...options,
       })
     },

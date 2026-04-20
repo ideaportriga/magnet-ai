@@ -62,41 +62,37 @@
               .km-description.text-secondary-text {{ m.settings_importListEmpty() }}
             .row(v-if='selectedHasExisting').q-mb-md.bg-warning-low.q-pa-sm.border-radius-6
               .km-description.text-primary {{ m.settings_existingWillBeOverwritten() }}
-            q-table.full-width(
-              :rows='filteredImportRows',
-              :columns='columns',
+            //- §E.3.1 — km-data-table. Multi-selection still tracked by the
+            //- external `selected` ref (preserves per-filter select-all
+            //- semantics); the checkbox column reads/writes that ref.
+            km-data-table(
+              :table='importTable',
               row-key='row_key',
-              selection='multiple',
-              v-model:selected='selected',
               :loading='loadingPreview || populating',
-              :pagination='{ rowsPerPage: 10 }',
-              flat
+              hide-pagination
             )
-              template(v-slot:header-selection)
+              template(#cell-_select='{ row }')
                 q-checkbox(
                   dense,
-                  :model-value='allSeedRowsSelected',
-                  :indeterminate='someSeedRowsSelected',
-                  @update:model-value='toggleSelectAllSeedRows'
+                  size='sm',
+                  :model-value='selectedKeySet.has(row.row_key)',
+                  @update:model-value='toggleImportRow(row, $event)',
+                  @click.stop
                 )
-              template(v-slot:body-cell-source='props')
-                q-td(:props='props')
-                  q-chip(size='sm', color='primary-light', text-color='primary') {{ props.row.source === 'seed' ? m.settings_sourceSeed() : m.settings_sourceJson() }}
-              template(v-slot:body-cell-exists='props')
-                q-td(:props='props')
-                  q-chip(size='sm', color='primary-light', text-color='primary', v-if='props.row.exists === null') {{ m.settings_unknown() }}
-                  q-chip(size='sm', :color='props.row.exists ? "orange-2" : "green-2"', :text-color='props.row.exists ? "orange-8" : "green-8"', v-else)
-                    | {{ props.row.exists ? m.settings_alreadyLoaded() : m.settings_missing() }}
-              template(v-slot:body-cell-overwrite='props')
-                q-td(:props='props')
-                  .km-description.text-primary(v-if='props.row.overwrite') {{ m.settings_willBeOverwritten() }}
-              template(v-slot:body-cell-progress='props')
-                q-td(:props='props')
-                  .row.items-center.q-gap-8
-                    q-spinner(size='14px', color='primary', v-if='props.row.progress === "loading"')
-                    q-chip(size='sm', color='green-2', text-color='green-8', v-if='props.row.progress === "success"') {{ m.settings_progressLoaded() }}
-                    q-chip(size='sm', color='red-2', text-color='red-8', v-if='props.row.progress === "error"') {{ m.settings_progressError() }}
-                    .km-description.text-secondary-text(v-if='props.row.progressMessage') {{ props.row.progressMessage }}
+              template(#cell-source='{ row }')
+                q-chip(size='sm', color='primary-light', text-color='primary') {{ row.source === 'seed' ? m.settings_sourceSeed() : m.settings_sourceJson() }}
+              template(#cell-exists='{ row }')
+                q-chip(size='sm', color='primary-light', text-color='primary', v-if='row.exists === null') {{ m.settings_unknown() }}
+                q-chip(size='sm', :color='row.exists ? "orange-2" : "green-2"', :text-color='row.exists ? "orange-8" : "green-8"', v-else)
+                  | {{ row.exists ? m.settings_alreadyLoaded() : m.settings_missing() }}
+              template(#cell-overwrite='{ row }')
+                .km-description.text-primary(v-if='row.overwrite') {{ m.settings_willBeOverwritten() }}
+              template(#cell-progress='{ row }')
+                .row.items-center.q-gap-8
+                  q-spinner(size='14px', color='primary', v-if='row.progress === "loading"')
+                  q-chip(size='sm', color='green-2', text-color='green-8', v-if='row.progress === "success"') {{ m.settings_progressLoaded() }}
+                  q-chip(size='sm', color='red-2', text-color='red-8', v-if='row.progress === "error"') {{ m.settings_progressError() }}
+                  .km-description.text-secondary-text(v-if='row.progressMessage') {{ row.progressMessage }}
 
             .row.q-mt-md.items-center
               .col
@@ -137,22 +133,19 @@
               .km-paragraph Add records from any entity, select needed rows, then click Export Selected to download JSON in import format.
             .row(v-if='exportRows.length === 0').q-mb-md.bg-light.q-pa-sm.border-radius-6
               .km-description.text-secondary-text {{ m.settings_exportListEmpty() }}
-            q-table.full-width(
-              :rows='filteredExportRows',
-              :columns='exportColumns',
+            km-data-table(
+              :table='exportTable',
               row-key='row_key',
-              selection='multiple',
-              v-model:selected='selectedExport',
               :loading='loadingExportPreview || exportingJson',
-              :pagination='{ rowsPerPage: 10 }',
-              flat
+              hide-pagination
             )
-              template(v-slot:header-selection)
+              template(#cell-_select='{ row }')
                 q-checkbox(
                   dense,
-                  :model-value='allExportRowsSelected',
-                  :indeterminate='someExportRowsSelected',
-                  @update:model-value='toggleSelectAllExportRows'
+                  size='sm',
+                  :model-value='selectedExportKeySet.has(row.row_key)',
+                  @update:model-value='toggleExportRow(row, $event)',
+                  @click.stop
                 )
 
   q-dialog(:model-value='showUploadDialog', @update:model-value='showUploadDialog = $event')
@@ -191,6 +184,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/appStore'
 import { fetchData } from '@shared'
 import { useNotify } from '@/composables/useNotify'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 
 const route = useRoute()
 const router = useRouter()
@@ -234,19 +228,25 @@ const onTabChange = async (tab) => {
   }
 }
 
+// §E.3.1 — TanStack columns. The leading `_select` column renders a
+// custom checkbox via the #cell-_select slot that binds to our external
+// `selected` / `selectedExport` refs (preserves per-filter select-all
+// semantics from the original q-table implementation).
 const columns = [
-  { name: 'source', label: m.settings_colSource(), field: 'source', align: 'left', sortable: true },
-  { name: 'entity_type', label: m.settings_colEntityType(), field: 'entity_type', align: 'left', sortable: true },
-  { name: 'system_name', label: m.settings_colSystemName(), field: 'system_name', align: 'left', sortable: true },
-  { name: 'exists', label: m.common_status(), field: 'exists', align: 'left' },
-  { name: 'overwrite', label: m.settings_colOverwrite(), field: 'overwrite', align: 'left' },
-  { name: 'progress', label: m.settings_colProgress(), field: 'progress', align: 'left' },
+  { id: '_select', header: '', enableSorting: false, meta: { align: 'center', width: '40px' } },
+  { id: 'source', accessorKey: 'source', header: m.settings_colSource(), enableSorting: true, meta: { align: 'left' } },
+  { id: 'entity_type', accessorKey: 'entity_type', header: m.settings_colEntityType(), enableSorting: true, meta: { align: 'left' } },
+  { id: 'system_name', accessorKey: 'system_name', header: m.settings_colSystemName(), enableSorting: true, meta: { align: 'left' } },
+  { id: 'exists', accessorKey: 'exists', header: m.common_status(), enableSorting: false, meta: { align: 'left' } },
+  { id: 'overwrite', header: m.settings_colOverwrite(), enableSorting: false, meta: { align: 'left' } },
+  { id: 'progress', header: m.settings_colProgress(), enableSorting: false, meta: { align: 'left' } },
 ]
 
 const exportColumns = [
-  { name: 'entity_type', label: m.settings_colEntityType(), field: 'entity_type', align: 'left', sortable: true },
-  { name: 'name', label: m.common_name(), field: 'name', align: 'left', sortable: true },
-  { name: 'system_name', label: m.settings_colSystemName(), field: 'system_name', align: 'left', sortable: true },
+  { id: '_select', header: '', enableSorting: false, meta: { align: 'center', width: '40px' } },
+  { id: 'entity_type', accessorKey: 'entity_type', header: m.settings_colEntityType(), enableSorting: true, meta: { align: 'left' } },
+  { id: 'name', accessorKey: 'name', header: m.common_name(), enableSorting: true, meta: { align: 'left' } },
+  { id: 'system_name', accessorKey: 'system_name', header: m.settings_colSystemName(), enableSorting: true, meta: { align: 'left' } },
 ]
 
 const importEntityTypeOptions = computed(() => {
@@ -319,25 +319,38 @@ const displayRows = computed(() => {
 
 const selectedHasExisting = computed(() => selected.value.some((row) => row.exists))
 
-const allSeedRowsSelected = computed(() => {
-  if (!filteredImportRows.value.length) return false
-  return filteredImportRows.value.every((row) => selectedKeySet.value.has(row.row_key))
-})
+// §E.3.1 — TanStack tables (client-side pagination disabled — hide-pagination).
+const { table: importTable } = useLocalDataTable(
+  filteredImportRows,
+  columns,
+  { defaultPageSize: 1000 },
+)
+const { table: exportTable } = useLocalDataTable(
+  filteredExportRows,
+  exportColumns,
+  { defaultPageSize: 1000 },
+)
 
-const someSeedRowsSelected = computed(() => {
-  if (!filteredImportRows.value.length || allSeedRowsSelected.value) return false
-  return filteredImportRows.value.some((row) => selectedKeySet.value.has(row.row_key))
-})
+// Per-row checkbox toggles for the custom `_select` cell.
+function toggleImportRow(row, value) {
+  if (value) {
+    if (!selectedKeySet.value.has(row.row_key)) {
+      selected.value = [...selected.value, row]
+    }
+  } else {
+    selected.value = selected.value.filter((r) => r.row_key !== row.row_key)
+  }
+}
 
-const allExportRowsSelected = computed(() => {
-  if (!filteredExportRows.value.length) return false
-  return filteredExportRows.value.every((row) => selectedExportKeySet.value.has(row.row_key))
-})
-
-const someExportRowsSelected = computed(() => {
-  if (!filteredExportRows.value.length || allExportRowsSelected.value) return false
-  return filteredExportRows.value.some((row) => selectedExportKeySet.value.has(row.row_key))
-})
+function toggleExportRow(row, value) {
+  if (value) {
+    if (!selectedExportKeySet.value.has(row.row_key)) {
+      selectedExport.value = [...selectedExport.value, row]
+    }
+  } else {
+    selectedExport.value = selectedExport.value.filter((r) => r.row_key !== row.row_key)
+  }
+}
 
 const progressValue = computed(() => {
   const total = selected.value.length
@@ -401,6 +414,11 @@ const clearList = () => {
   importStatusFilter.value = 'all'
 }
 
+// §E.3.1 — kept for potential future toolbar "Select all filtered" button.
+// The header-level select-all is not exposed by km-data-table, but users
+// can still drive multi-selection via individual checkboxes; bulk actions
+// above the table should call this helper.
+ 
 const toggleSelectAllSeedRows = (value) => {
   if (value) {
     const selectedMap = new Map(selected.value.map((row) => [row.row_key, row]))
@@ -423,6 +441,7 @@ const clearExportList = () => {
   exportNameFilter.value = ''
 }
 
+ 
 const toggleSelectAllExportRows = (value) => {
   if (value) {
     const selectedMap = new Map(selectedExport.value.map((row) => [row.row_key, row]))

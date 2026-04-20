@@ -25,8 +25,9 @@ import { useMainStore } from '@/pinia'
 
 // Set default theme
 const theme = localStorage.getItem('km_panel_theme') ?? 'siebel'
-// Import and merge all components
-const components = import.meta.glob('@/components/**', { eager: true })
+// §C.5 — see magnet-admin/src/main.js. Lazy glob + defineAsyncComponent
+// so app components are split into per-chunk async modules.
+const components = import.meta.glob('@/components/**/*.vue')
 
 const componentList = getComponentList(components)
 

@@ -65,6 +65,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { m } from '@/paraglide/messages'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { ref, computed } from 'vue'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: ['activeRow'],
@@ -176,79 +177,40 @@ export default {
     },
     activateVariantAction() {
       this.activateVariant()
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.common_variantActivated(), timeout: 1000 })
+      notify.success(m.common_variantActivated())
     },
     addVariant() {
       this.createVariant()
-      this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.common_variantAdded(), timeout: 1000 })
+      notify.success(m.common_variantAdded())
     },
     deleteVariantAction() {
       this.confirm(m.common_deleteVariantConfirm(), () => this.deleteVariant())
     },
 
     confirm(message, callback) {
-      // notify with confirmation
-      this.$q.notify({
+      notify.confirm({
         message,
-        color: 'red-9', textColor: 'white',
-        icon: 'error',
-        group: 'error',
-        timeout: 0,
-        actions: [
-          {
-             label: m.common_cancel(),
-            color: 'yellow',
-            handler: () => {
-              /* ... */
-            },
-          },
-          {
-             label: m.common_delete(),
-            color: 'white',
-            handler: () => {
-              // notify with success
-              callback()
-               this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.common_variantDeleted(), timeout: 1000 })
-            },
-          },
-        ],
+        confirmLabel: m.common_delete(),
+        cancelLabel: m.common_cancel(),
+        onConfirm: () => {
+          callback()
+          notify.success(m.common_variantDeleted())
+        },
       })
     },
 
     deletePromptTemplate() {
-      this.$q.notify({
+      notify.confirm({
         message: m.deleteConfirm_aboutToDelete({ entity: m.entity_promptTemplate() }),
-        color: 'red-9', textColor: 'white',
-        icon: 'error',
-        group: 'error',
-        timeout: 0,
-        actions: [
-          {
-             label: m.common_cancel(),
-            color: 'yellow',
-            handler: () => {
-              /* ... */
-            },
-          },
-          {
-             label: m.common_delete(),
-            color: 'white',
-            handler: () => {
-              this.loadingDelelete = true
-              this.removeEntity(this.$route.params.id)
-              this.$emit('update:closeDrawer', null)
-               this.$q.notify({
-                 color: 'green-9',
-                 textColor: 'white',
-                 icon: 'check_circle',
-                 group: 'success',
-                 message: m.notify_entityDeleted({ entity: m.entity_promptTemplate() }),
-                 timeout: 1000,
-               })
-              this.navigate('/prompt-templates')
-            },
-          },
-        ],
+        confirmLabel: m.common_delete(),
+        cancelLabel: m.common_cancel(),
+        onConfirm: () => {
+          this.loadingDelelete = true
+          this.removeEntity(this.$route.params.id)
+          this.$emit('update:closeDrawer', null)
+          notify.success(m.notify_entityDeleted({ entity: m.entity_promptTemplate() }))
+          this.navigate('/prompt-templates')
+        },
       })
     },
     async openDetails(row) {

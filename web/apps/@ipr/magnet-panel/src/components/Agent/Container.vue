@@ -33,7 +33,10 @@ const theme = computed(() => selectedTab?.value?.entityObject?.channels?.web?.th
 watch(
   theme,
   (newVal) => {
-    appContext.config.globalProperties.$setTheme(newVal)
+    // §B.9 — $setTheme may be absent if the theming plugin isn't loaded
+    // (happens in storybook / cypress harness). Silent no-op is fine.
+    const setter = appContext.config.globalProperties.$setTheme
+    if (typeof setter === 'function') setter(newVal)
   },
   { immediate: true }
 )

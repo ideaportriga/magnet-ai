@@ -32,9 +32,10 @@ jobs-create-new(:show-new-dialog='showNewDialog', @cancel='showNewDialog = false
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDataTable } from '@/composables/useDataTable'
+import { useDebouncedWatch } from '@/composables/useDebouncedWatch'
 import { textColumn, dateColumn, componentColumn } from '@/utils/columnHelpers'
 import { m } from '@/paraglide/messages'
 import type { Job } from '@/types'
@@ -128,8 +129,9 @@ const { table, isLoading, isFetching, refetch } = useDataTable<Job>('jobs', colu
   extraParams: filterObject,
 })
 
-// Re-fetch when filter changes
-watch(filterObject, () => refetch(), { deep: true })
+// §C.3 — debounce filter-driven refetch; multi-field edits used to fire
+// 5+ requests per user action via `watch(..., { deep: true })`.
+useDebouncedWatch(filterObject, () => refetch(), 250)
 
 const openDetails = (row: Job) => {
   selectedJob.value = row

@@ -219,7 +219,7 @@ export default {
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) =>
+        return (this.collections || []).filter((el) =>
           (this.activeVariant?.retrieve?.collection_system_names || []).includes(el?.system_name)
         )
       },

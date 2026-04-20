@@ -7,9 +7,16 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError
-from core.config.base import get_settings
+# Load .env files before importing settings — otherwise DB_NAME / DB_HOST
+# silently fall back to the `test_magnet_ai` default when run via
+# `npm run db:create`.
+from config.config import load_env  # noqa: E402
+
+load_env()
+
+from sqlalchemy import create_engine, text  # noqa: E402
+from sqlalchemy.exc import OperationalError  # noqa: E402
+from core.config.base import get_settings  # noqa: E402
 
 
 def get_postgres_url_without_db(db_url: str) -> str:

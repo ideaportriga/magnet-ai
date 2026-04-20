@@ -28,71 +28,76 @@
         </template>
       </kg-table-toolbar>
 
-      <q-table
-        :rows="displayContentConfigs"
-        :columns="contentConfigTableColumns"
+      <!-- §E.2.2 — km-data-table with named cell slots.
+           row-click opens the edit dialog; click-bubbling from toggle/menu
+           is suppressed locally via @click.stop inside the cells. -->
+      <km-data-table
+        :table="table"
         row-key="name"
-        flat
-        table-header-class="bg-primary-light"
         :loading="loadingContentConfigs || saving"
-        :rows-per-page-options="[10]"
-        @row-click="onCellClick"
+        hide-pagination
+        @row-click="onRowClick"
       >
-        <template #body-cell-order="slotProps">
-          <q-td :props="slotProps" class="reorder-cell" @click.stop>
-            <div class="reorder-buttons">
-              <q-btn
-                flat
-                dense
-                round
-                size="sm"
-                icon="expand_less"
-                class="reorder-btn"
-                :disable="!canMoveUp(slotProps.row)"
-                @click.stop="moveUp(slotProps.row)"
-              />
-              <q-btn
-                flat
-                dense
-                round
-                size="sm"
-                icon="expand_more"
-                class="reorder-btn"
-                :disable="!canMoveDown(slotProps.row)"
-                @click.stop="moveDown(slotProps.row)"
-              />
-            </div>
-          </q-td>
-        </template>
-        <template #body-cell-enabled="slotProps">
-          <q-td :props="slotProps">
-            <q-toggle
-              :model-value="slotProps.row.enabled"
+        <template #cell-order="{ row }">
+          <div class="reorder-buttons" @click.stop>
+            <q-btn
+              flat
               dense
-              :disable="saving || isProtectedProfile(slotProps.row)"
-              @update:model-value="onToggleEnabled(slotProps.row, $event)"
+              round
+              size="sm"
+              icon="expand_less"
+              class="reorder-btn"
+              :disable="!canMoveUp(row)"
+              @click.stop="moveUp(row)"
             />
-          </q-td>
+            <q-btn
+              flat
+              dense
+              round
+              size="sm"
+              icon="expand_more"
+              class="reorder-btn"
+              :disable="!canMoveDown(row)"
+              @click.stop="moveDown(row)"
+            />
+          </div>
         </template>
-        <template #body-cell-menu="slotScope">
-          <q-td :props="slotScope" class="sticky-col">
-            <div v-if="!isProtectedProfile(slotScope.row)" class="flex items-center justify-end no-wrap">
-              <q-btn dense flat color="dark" icon="more_vert" @click.stop>
-                <q-menu anchor="bottom right" self="top right" auto-close>
-                  <q-list dense>
-                    <q-item clickable :disable="saving" @click="confirmDelete(slotScope.row)">
-                      <q-item-section thumbnail>
-                        <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
-                      </q-item-section>
-                      <q-item-section>{{ m.common_delete() }}</q-item-section>
-                    </q-item>
-                  </q-list>
-                </q-menu>
-              </q-btn>
-            </div>
-          </q-td>
+
+        <template #cell-content_matching="{ row }">
+          <span class="content-matching-cell">{{ contentMatchingLabel(row) }}</span>
         </template>
-      </q-table>
+
+        <template #cell-chunk_strategy="{ row }">
+          {{ chunkStrategyLabel(row) }}
+        </template>
+
+        <template #cell-enabled="{ row }">
+          <q-toggle
+            :model-value="row.enabled"
+            dense
+            :disable="saving || isProtectedProfile(row)"
+            @update:model-value="onToggleEnabled(row, $event)"
+            @click.stop
+          />
+        </template>
+
+        <template #cell-menu="{ row }">
+          <div v-if="!isProtectedProfile(row)" class="flex items-center justify-end no-wrap">
+            <q-btn dense flat color="dark" icon="more_vert" @click.stop>
+              <q-menu anchor="bottom right" self="top right" auto-close>
+                <q-list dense>
+                  <q-item clickable :disable="saving" @click="confirmDelete(row)">
+                    <q-item-section thumbnail>
+                      <q-icon name="delete" color="negative" size="20px" class="q-ml-sm" />
+                    </q-item-section>
+                    <q-item-section>{{ m.common_delete() }}</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </q-btn>
+          </div>
+        </template>
+      </km-data-table>
     </div>
 
     <!-- Delete Content Profile Dialog -->
@@ -121,10 +126,11 @@
 <script setup lang="ts">
 import { fetchData } from '@shared'
 import { m } from '@/paraglide/messages'
-import { QTableColumn } from 'quasar'
+import type { ColumnDef } from '@tanstack/vue-table'
 import { computed, ref, watch } from 'vue'
 import { useAppStore } from '@/stores/appStore'
 import { useNotify } from '@/composables/useNotify'
+import { useLocalDataTable } from '@/composables/useLocalDataTable'
 import { KgConfirmDialog, KgTableToolbar } from '../common'
 import { fetchKnowledgeGraphSources } from '../Sources/api'
 import type { SourceRow } from '../Sources/models'
@@ -171,51 +177,63 @@ const displayContentConfigs = computed<ContentConfigRow[]>(() => [
   ...(virtualFallbackConfig.value ? [virtualFallbackConfig.value] : []),
 ])
 
-const contentConfigTableColumns: QTableColumn<ContentConfigRow>[] = [
+// §E.2.2 — TanStack columns. order/menu/enabled have custom cell slots above;
+// content_matching and chunk_strategy are rendered via helper functions.
+const contentConfigTableColumns: ColumnDef<ContentConfigRow, unknown>[] = [
   {
-    name: 'order',
-    label: '',
-    field: 'name',
-    align: 'center' as const,
-    style: 'width: 72px; padding: 0 4px',
-    headerStyle: 'width: 72px; padding: 0 4px',
-    sortable: false,
+    id: 'order',
+    header: '',
+    enableSorting: false,
+    meta: { align: 'center', width: '72px' },
   },
   {
-    name: 'name',
-    label: m.common_name(),
-    field: 'name',
-    align: 'left' as const,
+    id: 'name',
+    accessorKey: 'name',
+    header: m.common_name(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'content_matching',
-    label: m.knowledgeGraph_contentMatching(),
-    field: (row) => getContentMatchingSentence(row, sources.value),
-    align: 'left' as const,
-    sortable: false,
-    style: 'white-space: normal; min-width: 320px; max-width: 420px',
+    id: 'content_matching',
+    header: m.knowledgeGraph_contentMatching(),
+    enableSorting: false,
+    meta: { align: 'left', width: '360px' },
   },
   {
-    name: 'chunk_strategy',
-    label: m.knowledgeGraph_chunkStrategy(),
-    field: (row) => row?.chunker?.strategy,
-    format: (value) => chunkingStrategyOptions.find((o) => o.value === value)?.label || value || '-',
-    align: 'left' as const,
+    id: 'chunk_strategy',
+    accessorFn: (row: ContentConfigRow) => row?.chunker?.strategy,
+    header: m.knowledgeGraph_chunkStrategy(),
+    enableSorting: true,
+    meta: { align: 'left' },
   },
   {
-    name: 'enabled',
-    label: m.common_active(),
-    field: 'enabled',
-    align: 'center' as const,
+    id: 'enabled',
+    accessorKey: 'enabled',
+    header: m.common_active(),
+    enableSorting: false,
+    meta: { align: 'center', width: '80px' },
   },
   {
-    name: 'menu',
-    label: '',
-    field: 'name',
-    style: 'width: 80px',
-    headerStyle: 'width: 80px',
+    id: 'menu',
+    header: '',
+    enableSorting: false,
+    meta: { align: 'right', width: '80px' },
   },
 ]
+
+const { table } = useLocalDataTable<ContentConfigRow>(displayContentConfigs, contentConfigTableColumns, {
+  defaultPageSize: 100,
+})
+
+function contentMatchingLabel(row: ContentConfigRow): string {
+  return getContentMatchingSentence(row, sources.value) || ''
+}
+
+function chunkStrategyLabel(row: ContentConfigRow): string {
+  const strategy = row?.chunker?.strategy
+  if (!strategy) return '-'
+  return chunkingStrategyOptions.find((o) => o.value === strategy)?.label || String(strategy)
+}
 
 const initializeForm = () => {
   loadContentConfigs()
@@ -402,9 +420,11 @@ const upsertContentConfig = async (cfg: any) => {
   await persistContentConfigs(items)
 }
 
-const onCellClick = (_evt: any, row: any, col: any) => {
+// §E.2.2 — km-data-table emits a single-arg `row-click(row)`. Cells that
+// should NOT trigger the dialog (toggle, menu, reorder) stop propagation
+// locally via @click.stop inside their templates.
+const onRowClick = (row: ContentConfigRow) => {
   if (saving.value) return
-  if (col?.name === 'enabled') return
   openContentConfigDialog(row)
 }
 

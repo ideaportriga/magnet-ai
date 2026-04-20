@@ -127,17 +127,19 @@ import { useRouter, useRoute } from 'vue-router'
 import { toUpperCaseWithUnderscores } from '@shared'
 import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
-import { useNotify } from '@/composables/useNotify'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 
 const ntStore = useNoteTakerStore()
 const appStore = useAppStore()
 const router = useRouter()
 const route = useRoute()
-const { notifySuccess, notifyError } = useNotify()
 const queries = useEntityQueries()
 
 const { data: providerListData } = queries.provider.useList()
-const { mutateAsync: createProviderMutation } = queries.provider.useCreate()
+const createProviderMutation = useSafeMutation(queries.provider.useCreate(), {
+  successMessage: 'Provider created',
+  defaultErrorMessage: 'Failed to create provider',
+})
 
 const configId = computed(() => route.params.id as string)
 const activeRecord = computed(() => ntStore.activeRecord)
@@ -193,40 +195,34 @@ const checkRuntimeStatus = async () => {
 
 const navigateToProvider = () => {
   const prov = allProviders.value.find((p: any) => p.system_name === providerSystemName.value)
-  if (prov) window.open(router.resolve({ path: `/providers/${prov.id}` }).href, '_blank')
+  if (prov) router.push(`/providers/${prov.id}`)
 }
 
 const createProvider = async () => {
   if (!newProvider.name.trim()) return
-  try {
-    const systemName = toUpperCaseWithUnderscores(newProvider.name)
-    const created = await createProviderMutation({
-      name: newProvider.name,
-      system_name: systemName,
-      type: 'teams_note_taker',
-      secrets_encrypted: {
-        client_id: newProvider.client_id,
-        client_secret: newProvider.client_secret,
-        tenant_id: newProvider.tenant_id,
-      },
-      connection_config: {
-        auth_handler_id: newProvider.auth_handler_id || '',
-      },
-    } as any)
-    showCreateProvider.value = false
-    // Auto-select newly created provider
-    if (created?.system_name) {
-      providerSystemName.value = created.system_name
-    }
-    notifySuccess('Provider created')
-    // Reset form
-    newProvider.name = ''
-    newProvider.client_id = ''
-    newProvider.client_secret = ''
-    newProvider.tenant_id = ''
-    newProvider.auth_handler_id = ''
-  } catch (error: any) {
-    notifyError(error?.message || 'Failed to create provider')
+  const systemName = toUpperCaseWithUnderscores(newProvider.name)
+  const { success, data: created } = await createProviderMutation.run({
+    name: newProvider.name,
+    system_name: systemName,
+    type: 'teams_note_taker',
+    secrets_encrypted: {
+      client_id: newProvider.client_id,
+      client_secret: newProvider.client_secret,
+      tenant_id: newProvider.tenant_id,
+    },
+    connection_config: {
+      auth_handler_id: newProvider.auth_handler_id || '',
+    },
+  } as any)
+  if (!success) return
+  showCreateProvider.value = false
+  if ((created as any)?.system_name) {
+    providerSystemName.value = (created as any).system_name
   }
+  newProvider.name = ''
+  newProvider.client_id = ''
+  newProvider.client_secret = ''
+  newProvider.tenant_id = ''
+  newProvider.auth_handler_id = ''
 }
 </script>

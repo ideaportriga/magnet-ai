@@ -87,11 +87,25 @@ def data_upgrades() -> None:
 
     from cryptography.fernet import Fernet, InvalidToken
 
-    fernet = Fernet(
-        encryption_key.encode("utf-8")
-        if isinstance(encryption_key, str)
-        else encryption_key
-    )
+    # Guard against invalid Fernet key (dev installs often carry a legacy
+    # shipped default that isn't 32 url-safe base64-encoded bytes). Treat
+    # it the same as "no key" — skip data migration, schema change still
+    # applies; any plaintext secrets will be encrypted on next MFA setup.
+    try:
+        fernet = Fernet(
+            encryption_key.encode("utf-8")
+            if isinstance(encryption_key, str)
+            else encryption_key
+        )
+    except (ValueError, Exception) as e:  # noqa: BLE001
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "SECRET_ENCRYPTION_KEY is not a valid Fernet key (%s) — skipping "
+            "TOTP secret encryption data migration. Schema change still applies.",
+            e,
+        )
+        return
 
     from sqlalchemy import text
 

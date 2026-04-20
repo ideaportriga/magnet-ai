@@ -10,10 +10,10 @@ km-popup-confirm(
 )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
-      km-input(height='30px', :placeholder='m.placeholder_exampleDemoRetrievalTool()', v-model='name', ref='nameRef', :rules='config.name.rules')
+      km-input(data-test='name-input', height='30px', :placeholder='m.placeholder_exampleDemoRetrievalTool()', v-model='name', ref='nameRef', :rules='config.name.rules')
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
-      km-input(height='30px', :placeholder='m.placeholder_exampleRetrievalToolDemo()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+      km-input(data-test='system-name-input', height='30px', :placeholder='m.placeholder_exampleRetrievalToolDemo()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
     .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
   .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_knowledgeSources() }}
   km-select(
@@ -40,6 +40,7 @@ import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -137,7 +138,7 @@ export default {
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) => (this.newRow.variants[0]?.retrieve?.collection_system_names || []).includes(el?.system_name))
+        return (this.collections || []).filter((el) => (this.newRow.variants[0]?.retrieve?.collection_system_names || []).includes(el?.system_name))
       },
       set(value) {
         value = (value || []).map((el) => {
@@ -179,15 +180,13 @@ export default {
       const { id } = await this.createRetrievalMutation(this.newRow)
       this.$router.push(`/retrieval/${id}`)
     },
-    validation(retrieval, notify = true) {
+    validation(retrieval, showNotify = true) {
       const { name, description, system_name, retrieve } = retrieval
       const { collection_system_names } = retrieve
 
       if (!name || !description || !system_name || !collection_system_names.length) {
-        // Handle validation error
-
-        if (notify) {
-          this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: `Name, Description, System name and Knowledge sources are required`, timeout: 1000 })
+        if (showNotify) {
+          notify.error(`Name, Description, System name and Knowledge sources are required`)
         }
         return false
       }

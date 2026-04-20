@@ -52,6 +52,7 @@ import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: ['activeRow'],
@@ -151,35 +152,14 @@ export default {
 
   methods: {
     confirm(message, callback) {
-      this.$q.notify({
+      notify.confirm({
         message,
-        color: 'red-9', textColor: 'white',
-        icon: 'error',
-        group: 'error',
-        timeout: 0,
-        actions: [
-          {
-            label: m.common_cancel(),
-            color: 'yellow',
-            handler: () => {
-              /* ... */
-            },
-          },
-          {
-            label: m.common_delete(),
-            color: 'white',
-            handler: () => {
-              callback()
-              this.$q.notify({
-                color: 'green-9', textColor: 'white',
-                icon: 'check_circle',
-                group: 'success',
-                message: m.common_variantDeleted(),
-                timeout: 1000,
-              })
-            },
-          },
-        ],
+        confirmLabel: m.common_delete(),
+        cancelLabel: m.common_cancel(),
+        onConfirm: () => {
+          callback()
+          notify.success(m.common_variantDeleted())
+        },
       })
     },
     getVariantLabel(variant) {
@@ -188,23 +168,11 @@ export default {
     },
     activateVariant() {
       this.composableActivateVariant()
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: m.common_variantActivated(),
-        timeout: 1000,
-      })
+      notify.success(m.common_variantActivated())
     },
     addVariant() {
       this.composableCreateVariant()
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: m.common_variantAdded(),
-        timeout: 1000,
-      })
+      notify.success(m.common_variantAdded())
     },
     deleteVariant() {
       this.confirm(m.common_deleteVariantConfirm(), () => this.composableDeleteVariant())

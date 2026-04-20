@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from advanced_alchemy.extensions.litestar import repository, service
 from advanced_alchemy.filters import FilterTypes
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import defer
 
 from core.db.models.trace import Trace
@@ -11,23 +11,31 @@ from core.db.models.trace import Trace
 class JsonbPathFilter:
     """Custom filter for JSONB path filtering that works with advanced-alchemy.
 
-    Uses SQLAlchemy JSON column expressions for cross-dialect compatibility.
+    Uses `jsonb_extract_path_text` rather than chained subscript (`col[a][b].astext`)
+    because advanced_alchemy's JsonB wrapper loses its JSON type after the second
+    subscript — the operand becomes a plain BinaryExpression and `.astext` raises
+    AttributeError at query build time. The function form is PG-native, supports
+    arbitrary nesting, and returns text directly for the `== value` comparison.
     """
+
+    # Known nested paths that map to a logical filter key. Extend as needed.
+    _NESTED_PATHS: dict[str, tuple[str, ...]] = {
+        "system_name": ("params", "system_name"),
+    }
 
     def __init__(self, json_field: str, json_path: str, values: list[str]):
         self.json_field = json_field
         self.json_path = json_path
         self.values = values
 
+    def _path_parts(self) -> tuple[str, ...]:
+        return self._NESTED_PATHS.get(self.json_path, (self.json_path,))
+
     def append_to_statement(self, statement, model_type: type[Trace]):
         """Append JSONB filter condition to the statement."""
-        conditions = []
-        for value in self.values:
-            if self.json_path == "system_name":
-                expr = Trace.extra_data["params"]["system_name"].astext == value
-            else:
-                expr = Trace.extra_data[self.json_path].astext == value
-            conditions.append(expr)
+        parts = self._path_parts()
+        path_expr = func.jsonb_extract_path_text(Trace.extra_data, *parts)
+        conditions = [path_expr == value for value in self.values]
 
         if len(conditions) == 1:
             return statement.where(conditions[0])

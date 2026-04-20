@@ -271,13 +271,13 @@ export default defineConfig({
 
       on('task', {
         resetBackendErrors() {
-          return httpPost(`${BACKEND_URL}/api/test/errors/reset`)
+          return httpPost(`${BACKEND_URL}/test/errors/reset`)
             .then(() => null)
             .catch(() => null)
         },
 
         getBackendErrors() {
-          return httpGet(`${BACKEND_URL}/api/test/errors`)
+          return httpGet(`${BACKEND_URL}/test/errors`)
             .catch(() => [])
         },
 

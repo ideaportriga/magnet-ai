@@ -10,11 +10,11 @@
         <div class="col ba-border border-radius-12 bg-white q-pa-16 column kg-table-wrapper">
           <div class="row q-mb-12">
             <div class="col-auto center-flex-y">
-              <km-input :model-value="globalFilter" :placeholder="m.common_search()" icon-before="search" clearable @input="globalFilter = $event" />
+              <km-input data-test="search-input" :model-value="globalFilter" :placeholder="m.common_search()" icon-before="search" clearable @input="globalFilter = $event" />
             </div>
             <q-space />
             <div class="col-auto center-flex-y">
-              <km-btn class="q-mr-12" :label="m.common_new()" @click="showCreateDialog = true" />
+              <km-btn class="q-mr-12" data-test="new-btn" :label="m.common_new()" @click="showCreateDialog = true" />
             </div>
           </div>
           <div class="col kg-table-inner">
@@ -38,7 +38,7 @@
             <div class="km-heading-7 text-black">{{ m.knowledgeGraph_noGraphsYet() }}</div>
             <div class="km-description text-black">{{ m.knowledgeGraph_noGraphsYetDesc() }}</div>
             <div class="row items-center justify-center q-mt-lg">
-              <km-btn :label="m.knowledgeGraph_createKnowledgeGraph()" @click="showCreateDialog = true" />
+              <km-btn data-test="new-btn" :label="m.knowledgeGraph_createKnowledgeGraph()" @click="showCreateDialog = true" />
             </div>
           </div>
         </div>

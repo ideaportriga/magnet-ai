@@ -120,12 +120,24 @@
       min-height: var(--field-min-height) !important
       max-height: var(--field-max-height) !important
       &-container
-        padding: 0
+        // Keep horizontal padding symmetric with non-textarea inputs so
+        // content never renders flush-left. Using longhand (not the
+        // `padding: 0` shorthand) so only vertical is zeroed — the 6px
+        // on the `.q-field__native` below then produces the same total
+        // horizontal inset as the plain-input branch.
+        padding-top: 0
+        padding-bottom: 0
       .q-field__native
         min-height: var(--field-initial-height) !important
         max-height: var(--field-max-height) !important
         padding-top: calc((var(--field-initial-height) - 17px) / 2)
         padding-bottom: calc((var(--field-initial-height) - 17px) / 2)
+        // Explicit left/right padding with !important so a future
+        // Quasar update (or a higher-specificity theme rule) cannot
+        // silently zero the textarea's horizontal inset the way the
+        // old `&-container { padding: 0 }` shorthand used to.
+        padding-left: 6px !important
+        padding-right: 6px !important
 
 
 // Editable inputs only

@@ -179,7 +179,7 @@ export default {
   },
   methods: {
     openDetails() {
-      window.open(this.$router.resolve({ path: `/observability-traces/${this.selectedRow.trace_id}` }).href, '_blank')
+      this.$router.push(`/observability-traces/${this.selectedRow.trace_id}`)
     },
     formatCost(val) {
       if (typeof val !== 'number') return '-'

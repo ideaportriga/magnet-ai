@@ -24,6 +24,7 @@ import { useRoute } from 'vue-router'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
+import { notify } from '@shared/utils/notify'
 
 export default {
   emits: ['update:closeDrawer'],
@@ -133,38 +134,17 @@ export default {
       }
     },
     deleteAgentDetail() {
-      this.$q.notify({
+      notify.confirm({
         message: `Are you sure you want to delete ${this.selectedRow?.name}?`,
-        color: 'red-9', textColor: 'white',
-        icon: 'error',
-        group: 'error',
-        timeout: 0,
-        actions: [
-          {
-            label: 'Cancel',
-            color: 'yellow',
-            handler: () => {
-              /* ... */
-            },
-          },
-          {
-            label: 'Delete',
-            color: 'white',
-            handler: () => {
-              this.loadingDelelete = true
-              this.removeMutation.mutate(this.selectedRow?.id)
-              this.$emit('update:closeDrawer', null)
-              this.$q.notify({
-                color: 'green-9', textColor: 'white',
-                icon: 'check_circle',
-                group: 'success',
-                message: m.agents_promptDeleted(),
-                timeout: 1000,
-              })
-              this.navigate('/prompt-templates')
-            },
-          },
-        ],
+        confirmLabel: 'Delete',
+        cancelLabel: 'Cancel',
+        onConfirm: () => {
+          this.loadingDelelete = true
+          this.removeMutation.mutate(this.selectedRow?.id)
+          this.$emit('update:closeDrawer', null)
+          notify.success(m.agents_promptDeleted())
+          this.navigate('/prompt-templates')
+        },
       })
     },
   },

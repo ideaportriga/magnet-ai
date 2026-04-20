@@ -12,9 +12,10 @@ import {
   type VisibilityState,
   type Updater,
 } from '@tanstack/vue-table'
-import { computed, ref, watch, type MaybeRef, unref } from 'vue'
+import { computed, ref, type MaybeRef, unref } from 'vue'
 import type { BaseEntity } from '@/types'
 import { useEntityQueries } from '@/queries/entities'
+import { useDebouncedWatch } from '@/composables/useDebouncedWatch'
 
 type EntityKeyName = keyof ReturnType<typeof useEntityQueries>
 
@@ -68,17 +69,20 @@ export function useDataTable<T extends BaseEntity>(
   const columnVisibility = ref<VisibilityState>(defaultColumnVisibility)
   const globalFilter = ref('')
 
-  // Debounced search value for server-side queries
+  // §D.2 — debounced search value for server-side queries. Relies on
+  // `useDebouncedWatch` for unmount-safe teardown (manual setTimeout could
+  // fire on a disposed ref after navigation). Skipped entirely when
+  // `manualFiltering` is false — TanStack's client-side filter reacts to
+  // `globalFilter` synchronously without a server round-trip.
   const debouncedSearch = ref('')
-  let searchTimer: ReturnType<typeof setTimeout> | null = null
-
-  watch(globalFilter, (val) => {
-    if (!manualFiltering) return // client-side filtering — no need to debounce
-    if (searchTimer) clearTimeout(searchTimer)
-    searchTimer = setTimeout(() => {
-      debouncedSearch.value = val
-    }, searchDebounce)
-  })
+  if (manualFiltering) {
+    useDebouncedWatch(
+      globalFilter,
+      (val) => { debouncedSearch.value = val as string },
+      searchDebounce,
+      { deep: false },
+    )
+  }
 
   // Convert table state → API query params
   const queryParams = computed(() => {

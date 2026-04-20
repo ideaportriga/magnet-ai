@@ -1,0 +1,218 @@
+name: E2E - Cypress (magnet-admin)
+
+# Runs the Cypress CRUD + Preview contracts against the magnet-admin app.
+#
+# Two modes are supported:
+#
+# 1. Mocked mode (default, runs on every PR) — backend not needed.
+#    Sets `CYPRESS_MOCK_API=true` which restores the catch-all 401/5xx→200
+#    mock in cypress/support/e2e.ts. Catches UI crashes, Vue template NPEs,
+#    missing data-test attrs, and render regressions. Does NOT validate
+#    actual CRUD round-trips.
+#
+# 2. Real-backend mode (manual dispatch or `e2e-full` label on PR) — spins
+#    up Postgres + the Litestar backend with AUTH_ENABLED=false and
+#    DEBUG_MODE=true so the `/api/test/cleanup` endpoint is registered.
+#    Tests exercise real create/save/delete round-trips + cleanup.
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - alpha
+  pull_request:
+    branches:
+      - main
+      - develop
+      - alpha
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Test mode (mocked | real-backend)'
+        required: false
+        default: 'mocked'
+        type: choice
+        options:
+          - mocked
+          - real-backend
+
+jobs:
+  e2e-mocked:
+    name: E2E (mocked backend)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.mode == 'mocked'
+    defaults:
+      run:
+        working-directory: ./web
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Cache yarn
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('web/yarn.lock') }}
+          restore-keys: ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Cypress binary cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/Cypress
+          key: cypress-${{ runner.os }}-${{ hashFiles('web/yarn.lock') }}
+
+      - name: Build admin app
+        run: yarn nx build magnet-admin
+
+      - name: Run Cypress (mocked mode)
+        env:
+          CYPRESS_MOCK_API: 'true'
+        run: |
+          # Serve the built app on :7001 (matches cypress.config.ts baseUrl)
+          yarn nx run magnet-admin:preview --configuration=production &
+          SERVER_PID=$!
+          # Wait for server to be reachable
+          for i in {1..30}; do
+            curl -sk https://localhost:7001/admin/ > /dev/null && break || sleep 2
+          done
+          yarn nx run magnet-admin:e2e --configuration=production || EXIT_CODE=$?
+          kill $SERVER_PID 2>/dev/null || true
+          exit ${EXIT_CODE:-0}
+
+      - name: Upload Cypress artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-failure-reports
+          path: |
+            reports/
+            web/dist/cypress/apps/@ipr/magnet-admin/videos/
+            web/dist/cypress/apps/@ipr/magnet-admin/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  e2e-real-backend:
+    name: E2E (real backend)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'real-backend'
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: magnet
+          POSTGRES_PASSWORD: magnet
+          POSTGRES_DB: magnet_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U magnet"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install backend deps
+        working-directory: ./api
+        run: |
+          poetry config virtualenvs.in-project true
+          poetry install --no-interaction
+
+      - name: Install web deps
+        working-directory: ./web
+        run: yarn install --frozen-lockfile
+
+      - name: Start backend (AUTH_ENABLED=false, DEBUG_MODE=true)
+        working-directory: ./api
+        env:
+          AUTH_ENABLED: 'false'
+          DEBUG_MODE: 'true'
+          DATABASE_URL: postgresql+asyncpg://magnet:magnet@localhost:5432/magnet_test
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          # Run alembic migrations to create schema
+          poetry run alembic upgrade head || true
+          # Start the Litestar server in the background
+          poetry run litestar --app src.app:app run --host 0.0.0.0 --port 8000 &
+          BACKEND_PID=$!
+          echo "backend_pid=$BACKEND_PID" >> $GITHUB_ENV
+          # Wait for /health
+          for i in {1..60}; do
+            curl -sk http://localhost:8000/health > /dev/null && break || sleep 2
+          done
+
+      - name: Build admin app
+        working-directory: ./web
+        run: yarn nx build magnet-admin
+
+      - name: Run Cypress (real backend)
+        working-directory: ./web
+        run: |
+          yarn nx run magnet-admin:preview --configuration=production &
+          SERVER_PID=$!
+          for i in {1..30}; do
+            curl -sk https://localhost:7001/admin/ > /dev/null && break || sleep 2
+          done
+          yarn nx run magnet-admin:e2e --configuration=production || EXIT_CODE=$?
+          kill $SERVER_PID 2>/dev/null || true
+          exit ${EXIT_CODE:-0}
+
+      - name: Upload Cypress artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-failure-reports-real-backend
+          path: |
+            reports/
+            web/dist/cypress/apps/@ipr/magnet-admin/videos/
+            web/dist/cypress/apps/@ipr/magnet-admin/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop backend
+        if: always()
+        run: kill ${{ env.backend_pid }} 2>/dev/null || true

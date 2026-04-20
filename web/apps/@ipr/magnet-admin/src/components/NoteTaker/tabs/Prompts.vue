@@ -103,6 +103,6 @@ const createInsightsPromptTemplate = setting('insights.prompt_template', '')
 
 const navigateToPrompt = (systemName: string) => {
   const prompt = promptTemplates.value.find((p: any) => p.system_name === systemName)
-  if (prompt) window.open(router.resolve({ path: `/prompt-templates/${prompt.id}` }).href, '_blank')
+  if (prompt) router.push(`/prompt-templates/${prompt.id}`)
 }
 </script>

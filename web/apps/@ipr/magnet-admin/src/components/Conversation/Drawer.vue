@@ -102,9 +102,13 @@ import _ from 'lodash'
 import { fetchData } from '@shared'
 export default {
   props: {
+    // Allow null: the parent page may mount this drawer before the
+    // conversation is loaded. Template already uses `?.` on every
+    // access, so null is the intended "not yet loaded" state.
     conversation: {
       type: Object,
-      required: true,
+      required: false,
+      default: null,
     },
   },
   emits: ['close'],
@@ -250,7 +254,7 @@ export default {
   },
   methods: {
     openAgent() {
-      window.open(this.$router.resolve({ path: `/agents/${this.analytics?.feature_id}` }).href, '_blank')
+      this.$router.push(`/agents/${this.analytics?.feature_id}`)
     },
 
     cancelUpdate() {
@@ -292,7 +296,7 @@ export default {
       }
     },
     openDetails() {
-      window.open(this.$router.resolve({ path: `/observability-traces/${this.conversation.trace_id.substring(8)}` }).href, '_blank')
+      this.$router.push(`/observability-traces/${this.conversation.trace_id.substring(8)}`)
     },
   },
 }

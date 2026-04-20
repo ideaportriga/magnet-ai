@@ -4,47 +4,44 @@
     .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
       .row.q-mb-12
         .col-auto.center-flex-y
-          km-input(:placeholder='m.common_search()', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
+          km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', v-model='searchString', @input='searchString = $event', clearable)
         q-space
         .col-auto.center-flex-y
           km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='openNewDetails')
-      .col.overflow-auto(style='min-height: 0')
-        q-table.full-width(
-          grid,
-          flat,
-          :loading='loading',
-          :selected='selectedRow ? [selectedRow] : []',
-          :columns='columns',
-          :rows='visibleRows ?? []',
-          :visibleColumns='visibleColumns',
-          :rows-per-page-options='[0]',
-          :pagination='{ rowsPerPage: 0 }',
-          ref='table',
-          hide-bottom
-        )
-          template(v-slot:item='props')
-            .q-pa-md.col-xs-12.col-sm-6.col-md-6.col-lg-6(@click='openDetails(props.row)')
-              q-card.card-hover(bordered, flat, style='min-width: 400px')
-                q-card-section.q-pa-lg
-                  .row
-                    .col-auto
-                      .km-heading-4 {{ props.row.name }}
-                      .km-label {{ props.row.description }}
-                    .col-auto.q-ml-auto
-                      q-chip.km-button-text(text-color='primary', color='primary-light')
-                        q-icon.q-mr-xs(name='fas fa-wand-magic-sparkles')
-                        div {{ props.row?.tabs?.length || 0 }} AI Tabs
-                  .row.q-mt-sm
-                    km-chip-copy(:label='props.row.system_name')
-                q-separator
-                .row.justify-between
-                  q-item.q-pa-lg(
-                    v-for='col in props.cols.filter((col) => col.name !== "desc" && col.name !== "nameDescription")',
-                    :key='col.name'
-                  )
+      //-
+        §E.3.2 — was a q-table with grid=true rendering cards via the
+        item slot. q-table wasn't doing anything table-ish (no sort, no
+        pagination), so migrated to a plain v-for over the rows. Search
+        still drives the server-side useList(queryParams).
+      .col.overflow-auto.relative-position(style='min-height: 0')
+        km-inner-loading(:showing='loading')
+        .row.q-col-gutter-md(v-if='(visibleRows ?? []).length > 0')
+          .col-xs-12.col-sm-6.col-md-6.col-lg-6(
+            data-test='table-row',
+            v-for='row in visibleRows',
+            :key='row.id ?? row.system_name'
+          )
+            q-card.card-hover.cursor-pointer(bordered, flat, style='min-width: 400px', @click='openDetails(row)')
+              q-card-section.q-pa-lg
+                .row
+                  .col-auto
+                    .km-heading-4 {{ row.name }}
+                    .km-label {{ row.description }}
+                  .col-auto.q-ml-auto
+                    q-chip.km-button-text(text-color='primary', color='primary-light')
+                      q-icon.q-mr-xs(name='fas fa-wand-magic-sparkles')
+                      div {{ row?.tabs?.length || 0 }} AI Tabs
+                .row.q-mt-sm
+                  km-chip-copy(:label='row.system_name')
+              q-separator
+              .row.justify-between
+                .col-auto(v-for='col in detailColumns', :key='col.name')
+                  q-item.q-pa-lg
                     q-item-section
                       q-item-label {{ col.label }}
-                      q-item-label(caption) {{ col.value }}
+                      q-item-label(caption) {{ cellValue(col, row) }}
+        .row.q-pa-lg.text-grey.justify-center.items-center(v-else-if='!loading')
+          .km-description {{ m.common_noResults() }}
       .row.items-center.q-px-md.q-py-sm.text-grey(style='flex-shrink: 0; border-top: 1px solid rgba(0,0,0,0.12)')
         .km-description {{ (visibleRows ?? []).length }} records
 
@@ -52,13 +49,14 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useEntityQueries } from '@/queries/entities'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { beforeRouteEnter } from '@/guards'
 import aiAppsControls from '@/config/ai_apps/ai_apps'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { m } from '@/paraglide/messages'
+import { notify } from '@shared/utils/notify'
 
 export default {
   beforeRouteEnter,
@@ -70,10 +68,14 @@ export default {
 
     const searchString = ref('')
     const debouncedSearch = ref('')
+    // §B.5 — debounce + teardown on unmount.
     let searchTimer = null
     watch(searchString, (val) => {
       if (searchTimer) clearTimeout(searchTimer)
       searchTimer = setTimeout(() => { debouncedSearch.value = val }, 300)
+    })
+    onBeforeUnmount(() => {
+      if (searchTimer) { clearTimeout(searchTimer); searchTimer = null }
     })
 
     const queryParams = computed(() => {
@@ -90,6 +92,22 @@ export default {
     const visibleColumns = computed(() => columns.value.filter((c) => c.display).map((c) => c.name))
     const visibleRows = computed(() => aiAppsListData.value?.items ?? [])
 
+    // §E.3.2 — column subset that appears in the card body (everything that
+    // isn't the headline name/description). Hoisted out of the template so
+    // the array identity is stable across row renders (C.4 pattern).
+    const hiddenDetailCols = new Set(['desc', 'nameDescription', 'name', 'description', 'system_name', 'id', 'soureces'])
+    const detailColumns = computed(() =>
+      columns.value.filter((c) => c.display && !hiddenDetailCols.has(c.name)),
+    )
+
+    // Resolve a column's displayed value for a given row. Mirrors q-table's
+    // internal field/format handling so we can drop q-table entirely.
+    function cellValue(col, row) {
+      const raw = typeof col.field === 'function' ? col.field(row) : row?.[col.field]
+      if (raw === undefined || raw === null || raw === '') return '-'
+      return typeof col.format === 'function' ? col.format(raw, row) : raw
+    }
+
     return {
       ragDraft,
       aiAppsListData,
@@ -99,6 +117,8 @@ export default {
       pagination,
       visibleColumns,
       columns,
+      detailColumns,
+      cellValue,
       visibleRows,
       selectedRow,
       createAiApp,
@@ -150,7 +170,7 @@ export default {
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) => (this.newRow?.retrieve?.collection_system_names || []).includes(el?.id))
+        return (this.collections || []).filter((el) => (this.newRow?.retrieve?.collection_system_names || []).includes(el?.id))
       },
       set(value) {
         value = (value || []).map((el) => {
@@ -179,33 +199,16 @@ export default {
     this.searchString = ''
   },
   methods: {
-    goToRow(id) {
-      const row = this.items.find((item) => item.id === id)
-      if (row) {
-        const rows = this.$refs.table.filteredSortedRows
-        const index = rows.findIndex((item) => item.id === id)
-        const page = Math.floor(index / this.pagination.rowsPerPage) + 1
-        this.$refs.table.setPagination({ page })
-      }
-    },
     async openNewDetails() {
       this.showNewDialog = true
     },
-    validation(rag, notify = true) {
+    validation(rag, showNotify = true) {
       const { name, description, system_name, retrieve } = rag
       const { collection_system_names } = retrieve
 
       if (!name || !description || !system_name || !collection_system_names.length) {
-        // Handle validation error
-
-        if (notify) {
-          this.$q.notify({
-            color: 'red-9', textColor: 'white',
-            icon: 'error',
-            group: 'error',
-            message: `Name, Description, System name and Knowledge sources are required`,
-            timeout: 1000,
-          })
+        if (showNotify) {
+          notify.error(`Name, Description, System name and Knowledge sources are required`)
         }
         return false
       }

@@ -12,9 +12,11 @@ class StorageConfig(BaseSettings):
     database for a given backend, it takes priority over these values.
     """
 
-    model_config = SettingsConfigDict(
-        env_prefix="STORAGE_", env_file=".env", extra="ignore"
-    )
+    # No env_file here: config.config.load_env() is the single loader and
+    # has already populated os.environ by the time StorageConfig is
+    # instantiated. A relative `env_file=".env"` would be resolved against
+    # cwd and reintroduce the api/.env vs root/.env ambiguity.
+    model_config = SettingsConfigDict(env_prefix="STORAGE_", extra="ignore")
 
     # --- Backend connections ---
     local_root: str = "/tmp/magnet_storage"

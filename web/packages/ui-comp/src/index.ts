@@ -46,10 +46,9 @@ import SliderCard from './components/base/SliderCard.vue'
 import Stepper from './components/base/Stepper.vue'
 import Switch from './components/base/Switch.vue'
 import DataTable from './components/base/DataTable.vue'
-import Table from './components/base/Table.vue'
 import Tabs from './components/base/Tabs.vue'
-import TableGroup from './components/base/TableGroup.vue'
-// TableNew removed — use Table with selection='multiple' instead
+// Legacy Table / TableGroup (q-table wrappers) removed §E.4: app code is
+// fully migrated to <km-data-table> (TanStack Table). Use that instead.
 import Toggle from './components/base/Toggle.vue'
 import Tooltip from './components/base/Tooltip.vue'
 
@@ -99,10 +98,10 @@ export {
   Stepper,
   Switch,
   DataTable,
-  Table,
-  TableGroup,
   Tabs,
   Toggle,
   Tooltip,
-  LayoutTab,
+  // Note: LayoutTab previously listed here but never imported into this
+  // module — that was a ReferenceError at evaluation time. magnet-panel
+  // imports its own LayoutTab from its local components directory.
 }

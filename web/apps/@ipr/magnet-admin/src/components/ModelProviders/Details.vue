@@ -4,11 +4,12 @@ layouts-details-layout(v-if='!loading', :contentContainerStyle='{ maxWidth: "120
   template(#header)
     .col
       .row.items-center
-        km-input-flat.km-heading-4.full-width.text-black(:placeholder='m.common_name()', :model-value='name', @change='name = $event')
+        km-input-flat.km-heading-4.full-width.text-black(data-test='name-input', :placeholder='m.common_name()', :model-value='name', @change='name = $event')
       .row.items-center.q-pl-6
         q-icon.col-auto(name='o_info', color='text-secondary')
           q-tooltip.bg-white.block-shadow.text-secondary-text.km-description(self='top middle', :offset='[-50, -50]') {{ m.hint_systemNameUniqueId() }}
         km-input-flat.col.km-description.text-black.full-width(
+          data-test='system-name-input',
           :placeholder='m.placeholder_enterSystemNameReadable()',
           :model-value='system_name',
           @change='system_name = $event',
@@ -32,14 +33,14 @@ layouts-details-layout(v-if='!loading', :contentContainerStyle='{ maxWidth: "120
           div
             .text-secondary-text.km-button-xs-text {{ m.common_modifiedBy() }}
             .text-secondary-text.km-description {{ updated_by }}
-    km-btn(:label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
-    km-btn(:label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
-    q-btn.q-px-xs(flat, :icon='"fas fa-ellipsis-v"', size='13px')
+    km-btn(data-test='revert-btn', :label='m.common_revert()', icon='fas fa-undo', iconSize='16px', flat, @click='revert()', v-if='isDirty')
+    km-btn(data-test='save-btn', :label='m.common_save()', flat, icon='far fa-save', iconSize='16px', @click='handleSave', :loading='saving', :disable='saving || !isDirty')
+    q-btn.q-px-xs(data-test='show-more-btn', flat, :icon='"fas fa-ellipsis-v"', size='13px')
       q-menu(anchor='bottom right', self='top right')
-        q-item(clickable, @click='showNewDialog = true', dense)
+        q-item(data-test='clone-btn', clickable, @click='showNewDialog = true', dense)
           q-item-section
             .km-heading-3 {{ m.common_clone() }}
-        q-item(clickable, @click='showDeleteDialog = true', dense)
+        q-item(data-test='delete-btn', clickable, @click='showDeleteDialog = true', dense)
           q-item-section
             .km-heading-3 {{ m.common_delete() }}
     km-popup-confirm(
@@ -53,7 +54,12 @@ layouts-details-layout(v-if='!loading', :contentContainerStyle='{ maxWidth: "120
       .row.item-center.justify-center.km-heading-7 {{ m.deleteConfirm_aboutToDelete({ entity: m.entity_modelProvider() }) }}
       .row.text-center.justify-center {{ m.deleteConfirm_permanentDeleteDisable({ entity: m.entity_modelProvider() }) }}
   template(#content)
-    .column.full-height(style='min-height: 0')
+    //- km-flex-min-0 + no-wrap on every flex ancestor so nowrap table
+    //- cells can't propagate their min-content width up past the card.
+    //- (Quasar's `.column` defaults to `flex-wrap: wrap`, which creates
+    //- a new column track wider than the container when content's
+    //- intrinsic width exceeds parent width — breaks horizontal scroll.)
+    .column.no-wrap.full-height.km-flex-min-0
       q-tabs.bb-border.full-width(
         v-model='tab',
         narrow-indicator,
@@ -68,10 +74,10 @@ layouts-details-layout(v-if='!loading', :contentContainerStyle='{ maxWidth: "120
         template(v-for='t in tabs')
           q-tab(:name='t.name', :label='t.label')
       template(v-if='tab == "models"')
-        .col(style='min-height: 0; padding-top: 16px; padding-bottom: 16px')
+        .col.km-flex-min-0(style='padding-top: 16px; padding-bottom: 16px')
           model-providers-models(:selectedModel='selectedModel', @select-model='onSelectModel')
       template(v-if='tab == "settings"')
-        .col.overflow-auto(style='padding-top: 16px; padding-bottom: 16px')
+        .col.km-flex-min-0.overflow-auto(style='padding-top: 16px; padding-bottom: 16px')
           model-providers-settings
 
   template(#drawer)
@@ -85,6 +91,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { beforeRouteEnter } from '@/guards'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { m } from '@/paraglide/messages'
+import { notify } from '@shared/utils/notify'
 
 export default {
   beforeRouteEnter,
@@ -205,12 +212,12 @@ export default {
       try {
         const { success, error } = await this.saveEntity()
         if (success) {
-          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_savedSuccessfully(), timeout: 2000 })
+          notify.success(m.notify_savedSuccessfully())
         } else {
           throw error || new Error('Failed to save')
         }
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: error.message || m.notify_failedToSave(), timeout: 3000 })
+        notify.error(error.message || m.notify_failedToSave())
       } finally {
         this.saving = false
       }
@@ -218,7 +225,7 @@ export default {
     async confirmDelete() {
       const { success } = await this.removeEntity()
       if (success) {
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: m.notify_deletedSuccessfully({ entity: m.entity_modelProvider() }), timeout: 1000 })
+        notify.success(m.notify_deletedSuccessfully({ entity: m.entity_modelProvider() }))
         this.$router.push('/model-providers')
       }
     },

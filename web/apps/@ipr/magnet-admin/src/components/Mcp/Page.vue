@@ -8,10 +8,10 @@
       .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
         .row.q-mb-12
           .col-auto.center-flex-y
-            km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+            km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
           q-space
           .col-auto.center-flex-y
-            km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
+            km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
         .col(style='min-height: 0')
           km-data-table(
             :table='table',
@@ -28,7 +28,7 @@
           .km-heading-7.text-black {{ m.mcp_noServersYet() }}
           .km-description.text-black {{ m.mcp_addServerToGetStarted() }}
           .row.items-center.justify-center.q-mt-lg
-            km-btn(:label='m.common_addMcpServer()', @click='showNewDialog = true')
+            km-btn(data-test='new-btn', :label='m.common_addMcpServer()', @click='showNewDialog = true')
   mcp-new-server(:showNewDialog='showNewDialog', @cancel='showNewDialog = false')
 </template>
 

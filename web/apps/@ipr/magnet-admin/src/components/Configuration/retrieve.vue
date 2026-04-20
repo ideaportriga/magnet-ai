@@ -234,7 +234,7 @@ export default {
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) => (this.activeVariant?.retrieve?.collection_system_names || []).includes(el?.system_name))
+        return (this.collections || []).filter((el) => (this.activeVariant?.retrieve?.collection_system_names || []).includes(el?.system_name))
       },
       set(value) {
         value = (value || []).map((el) => {

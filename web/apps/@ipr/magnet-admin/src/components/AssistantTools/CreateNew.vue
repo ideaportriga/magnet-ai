@@ -37,6 +37,7 @@ import { fetchData } from '@shared'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -133,26 +134,14 @@ export default {
             })
           )
 
-          this.$q.notify({
-            color: 'green-9', textColor: 'white',
-            icon: 'check_circle',
-            group: 'success',
-            message: 'New assistant tool(s) have been added',
-            timeout: 1000,
-          })
+          notify.success('New assistant tool(s) have been added')
 
           this.loading = false
           this.$emit('cancel')
         }
       } catch (error) {
         this.loading = false
-        this.$q.notify({
-          color: 'red-9', textColor: 'white',
-          icon: 'error',
-          group: 'error',
-          message: error.message,
-          timeout: 1000,
-        })
+        notify.error(error.message)
       }
     },
   },

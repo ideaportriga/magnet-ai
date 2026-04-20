@@ -406,14 +406,32 @@ export default {
   margin-left: 8px;
 }
 
-.km-view-height {
-    max-height: calc(100vh - 50px) !important;
-    height: calc(100vh - 50px) !important;
+/* Layout contract for the admin shell:
+   html > body > #km-app each have `height: 100%` (index.html) so the
+   chain from viewport to page content is never broken.
+   q-layout > q-page-container > .km-view-height > router-view is a
+   flex column with `overflow: hidden` at every level and
+   `flex: 1 1 0; min-height: 0` on the content track. Any page rendered
+   into `.km-view-height` inherits a bounded height and is the sole
+   owner of its scroll (inner `overflow: auto`).
+   Quasar's default `q-page-container { min-height: 100% }` is not a
+   flex container and does not bound its children's height — we
+   override below so .km-view-height flex math is meaningful. */
+.q-page-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
     overflow: hidden;
-    &.has-tabs {
-      max-height: calc(100vh - 88px) !important;
-      height: calc(100vh - 88px) !important;
-    }
+}
+
+.km-view-height {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
 }
 
 .km-sidebar-header {

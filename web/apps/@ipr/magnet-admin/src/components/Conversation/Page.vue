@@ -134,9 +134,15 @@ export default {
   },
   methods: {
     async getConversation() {
-      await this.convStore.getConversation({
-        conversation_id: this.conversationId,
-      })
+      // Guard against navigating to /conversation without an id, or
+      // against the route param resolving to the literal string
+      // "undefined" (which happens when a caller interpolates an
+      // undefined value into the URL). Either would hit the backend as
+      // GET /agents/conversations/undefined and 500 on an invalid UUID
+      // cast, spamming the observability logs.
+      const id = this.conversationId
+      if (!id || id === 'undefined' || id === 'null') return
+      await this.convStore.getConversation({ conversation_id: id })
     },
     messageSelected(message) {
       if (message.role === 'user') return

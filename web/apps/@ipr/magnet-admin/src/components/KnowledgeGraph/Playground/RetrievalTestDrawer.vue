@@ -175,13 +175,14 @@
         <km-input
           ref="inputRef"
           v-model="userInput"
+          data-test="preview-input"
           :placeholder="m.knowledgeGraph_askQuestion()"
           autogrow
           border-radius="8px"
           class="message-input"
           @keydown.enter="handleEnter"
         />
-        <q-btn type="submit" color="primary" unelevated round :disable="!canSend" :loading="processing" padding="8px" class="send-btn">
+        <q-btn data-test="preview-btn" type="submit" color="primary" unelevated round :disable="!canSend" :loading="processing" padding="8px" class="send-btn">
           <q-icon name="fas fa-paper-plane" size="14px" />
         </q-btn>
       </form>

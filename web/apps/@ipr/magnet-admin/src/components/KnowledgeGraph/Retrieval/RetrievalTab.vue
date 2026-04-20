@@ -806,12 +806,11 @@ function openPromptVariant() {
     notifyError(m.knowledgeGraph_promptTemplateNotLoaded())
     return
   }
-  const route = router.resolve({
+  router.push({
     name: 'PromptTemplatesItem',
     params: { id: promptTemplate.value.id },
     query: { variant: currentVariant.value },
   })
-  window.open(route.href, '_blank')
 }
 
 // --- Dialog Actions ---

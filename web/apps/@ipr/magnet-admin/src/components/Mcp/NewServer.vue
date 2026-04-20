@@ -17,13 +17,13 @@ km-popup-confirm(
     .col
       .km-field.text-secondary-text.q-pl-8 {{ m.common_systemName() }}
       .full-width
-        km-input(data-test='name-input', height='30px', v-model='system_name', ref='systemRef', :rules='[required()]')
+        km-input(data-test='system-name-input', height='30px', v-model='system_name', ref='systemRef', :rules='[required()]')
       .km-description.text-secondary-text.q-pb-4.q-pl-8 {{ m.hint_systemNameUniqueId() }}
 
     .col
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_url() }}
       .full-width
-        km-input(data-test='name-input', height='30px', v-model='url', ref='urlRef', :rules='[required()]')
+        km-input(data-test='url-input', height='30px', v-model='url', ref='urlRef', :rules='[required()]')
     .col
       .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.label_transport() }}
       .row.q-gap-16
@@ -37,6 +37,7 @@ import { m } from '@/paraglide/messages'
 import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 const props = defineProps({
   showNewDialog: {
     type: Boolean,
@@ -45,7 +46,10 @@ const props = defineProps({
 })
 
 const queries = useEntityQueries()
-const { mutateAsync: createMcp } = queries.mcp_servers.useCreate()
+// §B.8 — wrap the raw mutation so a server error surfaces a toast and
+// the dialog can react via `success` instead of leaving router.push +
+// emit('cancel') unreachable.
+const createMcp = useSafeMutation(queries.mcp_servers.useCreate())
 const router = useRouter()
 const name = ref('')
 const system_name = ref('')
@@ -60,13 +64,13 @@ const urlRef = ref(null)
 
 const createMCPServer = async () => {
   if (!validateFields()) return
-  const data = {
+  const { success, data: res } = await createMcp.run({
     name: name.value,
     system_name: system_name.value,
     url: url.value,
     transport: transport.value,
-  }
-  const res = await createMcp(data)
+  })
+  if (!success) return
   if (res) {
     router.push(`/mcp/${res.id}`)
   }

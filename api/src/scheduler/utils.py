@@ -24,6 +24,19 @@ async def update_job_status(
         additional_data: Optional additional fields to update
 
     """
+    # System cron jobs (e.g. "ks_upload_cleanup", "kg_sync_recovery") use
+    # string IDs and have no row in the `jobs` table — they live only in
+    # apscheduler's jobstore. Skip the DB update instead of spamming the log
+    # every 15 minutes with "badly formed hexadecimal UUID string".
+    # See BACKEND_FIXES_ROADMAP.md §B.1.
+    try:
+        job_uuid = UUID(job_id)
+    except (ValueError, TypeError):
+        logger.debug(
+            "Skipping DB status update for system job %s (non-UUID id)", job_id
+        )
+        return
+
     try:
         async with alchemy.get_session() as session:
             service = JobsService(session=session)
@@ -66,7 +79,7 @@ async def update_job_status(
                 exclude_unset=True
             )
 
-            await service.update(job_update, item_id=UUID(job_id), auto_commit=True)
+            await service.update(job_update, item_id=job_uuid, auto_commit=True)
 
         logger.debug(f"Updated job {job_id} status to {status}")
     except Exception as e:

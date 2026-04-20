@@ -24,6 +24,7 @@ import { copyToClipboard } from 'quasar'
 import { ref } from 'vue'
 import { useEntityDetail } from '@/composables/useEntityDetail'
 import { m } from '@/paraglide/messages'
+import { notify } from '@shared/utils/notify'
 
 export default {
   setup() {
@@ -81,13 +82,7 @@ export default {
     copy() {
       copyToClipboard(this.appUrl || '')
 
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: m.common_copiedToClipboard(),
-        timeout: 1000,
-      })
+      notify.success(m.common_copiedToClipboard())
     },
   },
 }

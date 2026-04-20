@@ -49,6 +49,7 @@ import { useCatalogOptions } from '@/queries/useCatalogOptions'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
 import { agentTopicActionsPopupColumns, agentTopicActionsAPIToolsPopupColumns } from '@/config/agents/topics'
 import { toUpperCaseWithUnderscores } from '@shared'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -211,13 +212,7 @@ export default {
 
       this.updateVariantField('topics', topics)
 
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: m.agents_topicAdded(),
-        timeout: 1000,
-      })
+      notify.success(m.agents_topicAdded())
 
       this.$emit('cancel')
     },

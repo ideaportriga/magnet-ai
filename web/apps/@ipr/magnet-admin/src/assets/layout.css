@@ -1,12 +1,69 @@
 /* ============================================
    Global layout classes for magnet-admin
-   ============================================ */
+   ============================================
+   See docs/FRONTEND_FIXES_ROADMAP.md Phase A for the rationale
+   behind the min-width:0 / clamp / z-scale utilities below.
+*/
 
-/* Page container — centers content with standard width constraints */
+/* Page container — centers content with responsive width constraints.
+   min-width:0 is deliberate: these containers are usually flex children,
+   and without it a long-row child (e.g. a wide table) prevents the
+   column from shrinking and horizontal scroll never engages. */
 .km-page-container {
-  min-width: 450px;
-  max-width: 1200px;
+  min-width: 0;
+  max-width: min(100%, 1200px);
   width: 100%;
+  padding-inline: clamp(8px, 2vw, 24px);
+}
+
+/* ============================================
+   Flexbox-trap rescue utilities (§A.2)
+   ============================================
+   Nested flex columns need min-height:0 (and/or min-width:0) on
+   every intermediate child for an inner overflow:auto to activate.
+   Quasar's `column`/`row` don't set this by default. */
+.km-flex-min-0 {
+  min-width: 0;
+  min-height: 0;
+}
+.km-flex-min-w-0 { min-width: 0; }
+.km-flex-min-h-0 { min-height: 0; }
+
+/* ============================================
+   Table horizontal scroll wrapper (§A.1)
+   ============================================
+   Use around any Quasar q-table that isn't yet migrated to
+   <km-data-table>. km-data-table handles this natively. */
+.km-table-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Word-break for dense data tables (§A.5). */
+.km-cell-wrap {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.km-cell-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* ============================================
+   z-index scale (§A.6)
+   ============================================
+   Centralised so dropdowns stop fighting modals.
+   Prefer var(--km-z-*) over inline z-index: N. */
+:root {
+  --km-z-base: 1;
+  --km-z-sticky: 500;
+  --km-z-drawer: 1000;
+  --km-z-overlay: 2000;
+  --km-z-modal: 4000;
+  --km-z-tooltip: 6000;
 }
 
 /* White card wrapper with standard border and padding */
@@ -75,9 +132,34 @@
   padding: 8px 12px !important;
 }
 
-/* Backward compat alias */
+/* Backward compat alias — mirrors km-page-container */
 .collection-container {
-  min-width: 450px;
-  max-width: 1200px;
+  min-width: 0;
+  max-width: min(100%, 1200px);
   width: 100%;
+  padding-inline: clamp(8px, 2vw, 24px);
+}
+
+/* ============================================
+   List-page wrap guard
+   ============================================
+   Quasar's `.column` / `.row` default to `flex-wrap: wrap`. With wrap
+   enabled, a child whose intrinsic min-content width exceeds the
+   container forms a new flex track wider than the container, and
+   stretch-aligned items inside that track grow to the track width.
+   Result: a wide table (nowrap cells) propagates its min-content up
+   through the ancestor chain, the content card expands past the
+   viewport, and horizontal scroll never engages.
+
+   The 22 list pages all share the same two-`column` structure:
+     .collection-container.column                         ← outer
+       .col.ba-border.border-radius-12.bg-white.q-pa-16.column  ← card
+         km-data-table
+   Forcing `flex-wrap: nowrap` on `.collection-container` and any
+   `.column` nested inside stops the min-content propagation; the
+   data table's body then becomes the only scrollable region (as its
+   width contract requires). */
+.collection-container,
+.collection-container .column {
+  flex-wrap: nowrap;
 }

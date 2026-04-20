@@ -93,7 +93,9 @@ export default {
     },
   },
   mounted() {
-    window.addEventListener('message', (event) => {
+    // §B.4 — bind the listener to a property so beforeUnmount can detach it.
+    // Anonymous inline listener leaked on every drawer open.
+    this._onWindowMessage = (event) => {
       if (event.origin !== this.baseUrl.panel && event.origin !== window.location.origin) return
       if (event.data.type === 'reload_app') {
         this.sendMessage({ app: JSON.stringify(this.app) })
@@ -108,7 +110,14 @@ export default {
           }
         }, 100)
       }
-    })
+    }
+    window.addEventListener('message', this._onWindowMessage)
+  },
+  beforeUnmount() {
+    if (this._onWindowMessage) {
+      window.removeEventListener('message', this._onWindowMessage)
+      this._onWindowMessage = null
+    }
   },
   methods: {
     sendMessage(data) {

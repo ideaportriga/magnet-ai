@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+import uuid
 from logging import getLogger
 from typing import Annotated
 
 from storage import StorageService
 
 from litestar import Controller, post, put
+from litestar.exceptions import InternalServerException
 from litestar.params import Parameter
 from litestar.response import File
 from litestar.status_codes import HTTP_200_OK
@@ -72,6 +74,37 @@ MonitoringTopResponse = list[MetricsTopList]
 MonitoringListResponse = MetricsQueryResult
 
 
+def _raise_internal(handler: str, exc: Exception) -> None:
+    """Log with full stacktrace + error_id and raise a 500 (see §C.4).
+
+    Previously these handlers returned an empty dictionary on exception,
+    which hid DB failures from monitoring. Now every failure surfaces an
+    error_id the client can quote when filing a bug.
+
+    We emit two log lines: `logger.exception` for the full traceback
+    (console + standard sinks), and a flat `logger.warning` summary —
+    tracebacks produced by structlog's `ProcessorFormatter` are
+    sometimes dropped by the Loki batch sender when the rendered
+    message contains embedded newlines, so the summary guarantees at
+    least the exception type + message + error_id reach Loki.
+    """
+    error_id = uuid.uuid4().hex
+    exc_type = type(exc).__name__
+    exc_msg = str(exc)[:400]
+    logger.exception("Error in %s (error_id=%s): %s", handler, error_id, exc)
+    logger.warning(
+        "%s failed (error_id=%s, type=%s): %s",
+        handler,
+        error_id,
+        exc_type,
+        exc_msg,
+    )
+    raise InternalServerException(
+        detail=f"{handler} failed: {exc_type}: {exc_msg}",
+        extra={"error_id": error_id, "exc_type": exc_type},
+    )
+
+
 class MetricsController(Controller):
     path = "/monitoring"
     tags = ["Admin / Observability"]
@@ -91,8 +124,7 @@ class MetricsController(Controller):
                 db_session, data.filters if data else None
             )
         except Exception as e:
-            logger.error(f"Error in rag_tool_monitoring: {e}")
-            return EmptyDictionary()
+            _raise_internal("rag_tool_monitoring", e)
 
     @post("/rag/top", status_code=HTTP_200_OK)
     async def rag_tool_top(
@@ -101,8 +133,7 @@ class MetricsController(Controller):
         try:
             return await get_top_metrics_rag(db_session, data.filters if data else None)
         except Exception as e:
-            logger.error(f"Error in rag_tool_top: {e}")
-            return []
+            _raise_internal("rag_tool_top", e)
 
     @post(
         "/rag/list",
@@ -118,8 +149,7 @@ class MetricsController(Controller):
                 db_session, FeatureType.RAG_TOOL, data
             )
         except Exception as e:
-            logger.error(f"Error in rag_tool_list: {e}")
-            return MetricsQueryResult(items=[], total=0, limit=0, offset=0)
+            _raise_internal("rag_tool_list", e)
 
     @post(
         "/rag/export",
@@ -146,8 +176,7 @@ class MetricsController(Controller):
 
             return File(path=filename)
         except Exception as e:
-            logger.error(f"Error in rag_tool_export: {e}")
-            return None
+            _raise_internal("rag_tool_export", e)
 
     @post("/rag/options", status_code=HTTP_200_OK)
     async def rag_tool_options(
@@ -156,10 +185,7 @@ class MetricsController(Controller):
         try:
             return await get_options_rag(db_session, data.filters if data else None)
         except Exception as e:
-            logger.error(f"Error in rag_tool_options: {e}")
-            return OptionsRagResponse(
-                organizations=[], topics=[], languages=[], consumer_names=[]
-            )
+            _raise_internal("rag_tool_options", e)
 
     # LLM Dashboard
     @post("/llm", status_code=HTTP_200_OK)
@@ -171,8 +197,7 @@ class MetricsController(Controller):
                 db_session, data.filters if data else None
             )
         except Exception as e:
-            logger.error(f"Error in llm_monitoring: {e}")
-            return EmptyDictionary()
+            _raise_internal("llm_monitoring", e)
 
     @post("/llm/top", status_code=HTTP_200_OK)
     async def llm_top(
@@ -181,8 +206,7 @@ class MetricsController(Controller):
         try:
             return await get_top_metrics_llm(db_session, data.filters if data else None)
         except Exception as e:
-            logger.error(f"Error in llm_top: {e}")
-            return []
+            _raise_internal("llm_top", e)
 
     @post("/llm/list", status_code=HTTP_200_OK)
     async def llm_list(
@@ -200,8 +224,7 @@ class MetricsController(Controller):
                 data,
             )
         except Exception as e:
-            logger.error(f"Error in llm_list: {e}")
-            return MetricsQueryResult(items=[], total=0, limit=0, offset=0)
+            _raise_internal("llm_list", e)
 
     @post("/llm/options", status_code=HTTP_200_OK)
     async def llm_options(
@@ -210,8 +233,7 @@ class MetricsController(Controller):
         try:
             return await get_options_llm(db_session, data.filters if data else None)
         except Exception as e:
-            logger.error(f"Error in llm_options: {e}")
-            return OptionsLlmResponse(organizations=[], consumer_names=[])
+            _raise_internal("llm_options", e)
 
     # Agent Dashboard
     @post(
@@ -228,8 +250,7 @@ class MetricsController(Controller):
                 db_session, data.filters if data else None
             )
         except Exception as e:
-            logger.error(f"Error in agent_monitoring: {e}")
-            return EmptyDictionary()
+            _raise_internal("agent_monitoring", e)
 
     @post("/agent/top", status_code=HTTP_200_OK)
     async def agent_top(
@@ -240,8 +261,7 @@ class MetricsController(Controller):
                 db_session, data.filters if data else None
             )
         except Exception as e:
-            logger.error(f"Error in agent_top: {e}")
-            return []
+            _raise_internal("agent_top", e)
 
     @post(
         "/agent/list",
@@ -257,8 +277,7 @@ class MetricsController(Controller):
                 db_session, FeatureType.AGENT, data if data else None
             )
         except Exception as e:
-            logger.error(f"Error in agent_list: {e}")
-            return MetricsQueryResult(items=[], total=0, limit=0, offset=0)
+            _raise_internal("agent_list", e)
 
     @post(
         "/agent/export",
@@ -285,8 +304,7 @@ class MetricsController(Controller):
 
             return File(path=filename)
         except Exception as e:
-            logger.error(f"Error in agent_export: {e}")
-            return None
+            _raise_internal("agent_export", e)
 
     @post("/agent/options", status_code=HTTP_200_OK)
     async def agent_options(
@@ -295,10 +313,7 @@ class MetricsController(Controller):
         try:
             return await get_options_agent(db_session, data.filters if data else None)
         except Exception as e:
-            logger.error(f"Error in agent_options: {e}")
-            return OptionsAgentResponse(
-                organizations=[], topics=[], tools=[], consumer_names=[], languages=[]
-            )
+            _raise_internal("agent_options", e)
 
     @put("/analytics/{analytics_id:str}", status_code=HTTP_200_OK)
     async def update_metric(

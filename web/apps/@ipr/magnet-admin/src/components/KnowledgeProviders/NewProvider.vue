@@ -50,6 +50,7 @@ import { toUpperCaseWithUnderscores } from '@shared'
 import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 
 export default {
   props: {
@@ -61,7 +62,7 @@ export default {
   emits: ['cancel'],
   setup() {
     const queries = useEntityQueries()
-    const { mutateAsync: createEntity } = queries.provider.useCreate()
+    const createEntity = useSafeMutation(queries.provider.useCreate())
     const { data: pluginsData } = queries.plugins.useList()
     const router = useRouter()
 
@@ -146,13 +147,10 @@ export default {
     async createKnowledgeProvider() {
       if (!this.validateFields()) return
 
-      const result = await this.createEntity(this.newRow)
+      const { success, data } = await this.createEntity.run(this.newRow)
+      if (!success || !data?.id) return
 
-      if (!result?.id) {
-        return
-      }
-
-      this.$router.push(`/knowledge-providers/${result.id}`)
+      this.$router.push(`/knowledge-providers/${data.id}`)
     },
   },
 }

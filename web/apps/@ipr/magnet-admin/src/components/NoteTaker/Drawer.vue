@@ -247,7 +247,7 @@ const extraKeytermsInput = ref('')
 const meetingNotesInput = ref('')
 const processingContinue = ref(false)
 
-let pollingTimer: ReturnType<typeof setInterval> | null = null
+// pollingTimer is declared alongside the polling loop below (§B.1).
 
 const previewJobs = computed<PreviewJob[]>(() => ntStore.previewJobs || [])
 const currentJob = computed(() => currentJobId.value ? previewJobs.value.find((j) => j.id === currentJobId.value) || null : null)
@@ -364,15 +364,54 @@ const resetPreview = () => {
   meetingNotesInput.value = ''
 }
 
-// ── Polling ──
+// ── Polling (§B.1) ──
+// setTimeout-recursive (not setInterval) so one slow request can't pile up
+// multiple in-flight copies. `cancelled` guards against late responses after
+// onUnmounted / onDeactivated.
+let pollingTimer: ReturnType<typeof setTimeout> | null = null
+let pollingCancelled = false
+const POLL_INTERVAL_MS = 4000
+const POLL_MAX_CONSECUTIVE_ERRORS = 3
+let pollErrorCount = 0
+
 const pollJob = async () => {
-  if (!currentJobId.value) return
-  await ntStore.fetchPreviewJobStatus({ settingsId: props.settingsId, jobId: currentJobId.value })
-  const job = currentJob.value
-  if (job && !['pending', 'running', 'rerunning'].includes(job.status)) { stopPolling() }
+  if (pollingCancelled || !currentJobId.value) return
+  try {
+    await ntStore.fetchPreviewJobStatus({
+      settingsId: props.settingsId,
+      jobId: currentJobId.value,
+    })
+    pollErrorCount = 0
+    const job = currentJob.value
+    if (job && !['pending', 'running', 'rerunning'].includes(job.status)) {
+      stopPolling()
+      return
+    }
+  } catch (err) {
+    pollErrorCount += 1
+     
+    console.warn('[NoteTaker] poll failed', err)
+    if (pollErrorCount >= POLL_MAX_CONSECUTIVE_ERRORS) {
+      stopPolling()
+      return
+    }
+  }
+  if (!pollingCancelled) {
+    pollingTimer = setTimeout(pollJob, POLL_INTERVAL_MS)
+  }
 }
-const startPolling = () => { if (!pollingTimer) pollingTimer = setInterval(pollJob, 4000) }
-const stopPolling = () => { if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null } }
+const startPolling = () => {
+  pollingCancelled = false
+  pollErrorCount = 0
+  if (!pollingTimer) pollingTimer = setTimeout(pollJob, POLL_INTERVAL_MS)
+}
+const stopPolling = () => {
+  pollingCancelled = true
+  if (pollingTimer) {
+    clearTimeout(pollingTimer)
+    pollingTimer = null
+  }
+}
 
 // ── Init speaker mapping + keyterms when transcribed ──
 watch(currentJob, (job) => {

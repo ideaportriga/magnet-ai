@@ -7,17 +7,48 @@ Auth0, Keycloak, Zitadel, Oracle, etc. Configuration is data, not code.
 
 from __future__ import annotations
 
+import asyncio
+import time
 from dataclasses import dataclass
 from logging import getLogger
 from typing import Any
 from urllib.parse import urlencode
 
 import httpx
+from cachetools import TTLCache
 from jose import jwt
 
 from services.auth.types import ExternalIdentity
 
 logger = getLogger(__name__)
+
+# OIDC discovery documents change rarely; JWKS keys rotate on provider-set
+# schedules (typically hours/days). Previous impl used a bare dict → no
+# refresh across the lifetime of the process, so key rotation at the IdP
+# required an app restart. TTLCache gives us stale-while-revalidate below.
+# See BACKEND_FIXES_ROADMAP.md §C.3.
+_DISCOVERY_TTL_SECONDS = 3600  # 1 hour
+_JWKS_TTL_SECONDS = 600  # 10 minutes
+_CACHE_MAXSIZE = 64
+
+_discovery_cache: TTLCache[str, dict] = TTLCache(
+    maxsize=_CACHE_MAXSIZE, ttl=_DISCOVERY_TTL_SECONDS
+)
+_jwks_cache: TTLCache[str, dict] = TTLCache(
+    maxsize=_CACHE_MAXSIZE, ttl=_JWKS_TTL_SECONDS
+)
+
+# Keeps last-known-good values even after TTL expiry — used when the IdP is
+# transiently unavailable so auth still works (read-only dict semantics).
+_discovery_stale: dict[str, dict] = {}
+_jwks_stale: dict[str, dict] = {}
+_discovery_fetched_at: dict[str, float] = {}
+_jwks_fetched_at: dict[str, float] = {}
+
+# Per-URL locks so we don't thunder-herd the IdP with N concurrent refreshes
+# when the cache expires under load.
+_discovery_locks: dict[str, asyncio.Lock] = {}
+_jwks_locks: dict[str, asyncio.Lock] = {}
 
 
 @dataclass
@@ -42,35 +73,86 @@ class OIDCProviderConfig:
     response_type: str = "code"
 
 
-# In-memory caches (populated on first use, cleared on process restart)
-_discovery_cache: dict[str, dict] = {}
-_jwks_cache: dict[str, dict] = {}
+def _lock_for(url: str, bucket: dict[str, asyncio.Lock]) -> asyncio.Lock:
+    lock = bucket.get(url)
+    if lock is None:
+        lock = asyncio.Lock()
+        bucket[url] = lock
+    return lock
 
 
-async def _fetch_discovery(discovery_url: str) -> dict:
-    """Fetch and cache OIDC discovery document."""
-    if discovery_url in _discovery_cache:
-        return _discovery_cache[discovery_url]
+async def _fetch_with_ttl(
+    url: str,
+    *,
+    cache: TTLCache,
+    stale: dict[str, dict],
+    fetched_at: dict[str, float],
+    locks: dict[str, asyncio.Lock],
+    label: str,
+) -> dict:
+    """TTL-cached HTTP GET with stale-while-revalidate fallback.
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(discovery_url, timeout=10)
-        resp.raise_for_status()
-        doc = resp.json()
-        _discovery_cache[discovery_url] = doc
+    * Cache hit → return cached value.
+    * Miss under lock → fetch, cache, and remember as last-known-good.
+    * Miss + IdP error → serve last-known-good with a warning rather than
+      hard-failing every login during a transient outage.
+    """
+    hit = cache.get(url)
+    if hit is not None:
+        return hit
+
+    async with _lock_for(url, locks):
+        hit = cache.get(url)
+        if hit is not None:
+            return hit
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(url, timeout=10)
+                resp.raise_for_status()
+                doc = resp.json()
+        except Exception as exc:
+            last_known = stale.get(url)
+            if last_known is not None:
+                age = time.monotonic() - fetched_at.get(url, 0.0)
+                logger.warning(
+                    "OIDC %s fetch failed for %s (%s); serving stale copy (%.0fs old)",
+                    label,
+                    url,
+                    exc,
+                    age,
+                )
+                return last_known
+            raise
+
+        cache[url] = doc
+        stale[url] = doc
+        fetched_at[url] = time.monotonic()
         return doc
 
 
-async def _fetch_jwks(jwks_uri: str) -> dict:
-    """Fetch and cache JWKS keys."""
-    if jwks_uri in _jwks_cache:
-        return _jwks_cache[jwks_uri]
+async def _fetch_discovery(discovery_url: str) -> dict:
+    """Fetch and TTL-cache OIDC discovery document."""
+    return await _fetch_with_ttl(
+        discovery_url,
+        cache=_discovery_cache,
+        stale=_discovery_stale,
+        fetched_at=_discovery_fetched_at,
+        locks=_discovery_locks,
+        label="discovery",
+    )
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(jwks_uri, timeout=10)
-        resp.raise_for_status()
-        keys = resp.json()
-        _jwks_cache[jwks_uri] = keys
-        return keys
+
+async def _fetch_jwks(jwks_uri: str) -> dict:
+    """Fetch and TTL-cache JWKS keys."""
+    return await _fetch_with_ttl(
+        jwks_uri,
+        cache=_jwks_cache,
+        stale=_jwks_stale,
+        fetched_at=_jwks_fetched_at,
+        locks=_jwks_locks,
+        label="jwks",
+    )
 
 
 class OIDCStrategy:

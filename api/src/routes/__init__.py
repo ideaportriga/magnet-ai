@@ -86,6 +86,29 @@ def get_route_handlers(
 
         return await get_db_pool_status()
 
+    @get("/health/scheduler", exclude_from_auth=True, tags=["health"])
+    async def scheduler_health_route_handler() -> dict[str, Any]:
+        """Scheduler connection pool health check (see §B.6).
+
+        Returns 'degraded' when the scheduler pool is fully checked out —
+        an early signal of the APScheduler-hang scenario analysed in
+        docs/scheduler-hang-analysis.md.
+        """
+        from scheduler.manager import get_scheduler_pool_info
+
+        info = get_scheduler_pool_info()
+        if "error" in info:
+            return {"status": "unknown", "detail": info}
+
+        checked_out = info.get("checked_out", 0) or 0
+        pool_size = info.get("pool_size", 0) or 0
+        overflow = info.get("overflow", 0) or 0
+        exhausted = pool_size > 0 and checked_out >= (pool_size + max(overflow, 0))
+        return {
+            "status": "degraded" if exhausted else "ok",
+            "detail": info,
+        }
+
     @get("/health/ready", exclude_from_auth=True, tags=["health"])
     async def readiness_handler() -> dict[str, Any]:
         """Readiness probe — checks that critical subsystems are operational."""
@@ -177,12 +200,13 @@ def get_route_handlers(
             ]
         )
 
+    # Test utilities (DEBUG_MODE only). Registered via the public router
+    # with path /test — the admin router has a role guard which would block
+    # the bootstrap endpoints (/test/promote creates the superuser needed
+    # to pass that very guard). These endpoints are still gated by
+    # DEBUG_MODE and must NEVER be exposed in production.
     if os.getenv("DEBUG_MODE", "").lower() in ("true", "1"):
-        from routes.admin.test_utils import TestUtilsController
-
-        route_handlers_admin.append(
-            TestUtilsController
-        )  # Admin / Test Utils (debug only)
+        from routes.admin.test_utils import TestUtilsController  # noqa: I001
 
     route_handlers_user: list[ControllerRouterHandler] = [
         AskMagnetController,  # User / Ask Magnet (form submissions)
@@ -198,8 +222,12 @@ def get_route_handlers(
     route_handlers_public: list[ControllerRouterHandler] = [
         health_route_handler,
         db_health_route_handler,
+        scheduler_health_route_handler,
         serve_static_file,
     ]
+
+    if os.getenv("DEBUG_MODE", "").lower() in ("true", "1"):
+        route_handlers_public.append(TestUtilsController)
 
     router_api_admin = Router(
         path="/admin",

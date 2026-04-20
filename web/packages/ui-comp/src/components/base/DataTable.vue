@@ -1,6 +1,8 @@
 <template>
   <div class="km-data-table column no-wrap" :class="{ 'km-data-table--fill-height': fillHeight }">
-    <!-- Table -->
+    <!-- Table: min-width:0 on wrapper + overflow-auto engages the horizontal
+         scrollbar when total column width exceeds container — the §A.1 fix
+         applied at the base level so every consumer inherits it. -->
     <div class="km-data-table__body col overflow-auto">
       <table class="km-data-table__table full-width">
         <thead class="km-data-table__header">
@@ -11,7 +13,12 @@
               class="km-data-table__th bg-primary-light q-px-md"
               :class="[`text-${header.column.columnDef.meta?.align ?? 'left'}`]"
               :style="header.column.columnDef.meta?.width ? { width: header.column.columnDef.meta.width } : {}"
+              :aria-sort="headerAriaSort(header)"
+              :role="header.column.getCanSort() ? 'button' : undefined"
+              :tabindex="header.column.getCanSort() ? 0 : -1"
               @click="header.column.getCanSort() ? header.column.toggleSorting() : undefined"
+              @keydown.enter.prevent="header.column.getCanSort() ? header.column.toggleSorting() : undefined"
+              @keydown.space.prevent="header.column.getCanSort() ? header.column.toggleSorting() : undefined"
             >
               <div class="row inline items-center no-wrap" :class="{ 'cursor-pointer': header.column.getCanSort() }">
                 <div class="km-title">
@@ -50,7 +57,10 @@
             v-for="row in rows"
             :key="row.id"
             class="km-data-table__row cursor-pointer"
-            :class="{ 'bg-control-hover-bg': activeRowId && getRowKey(row) === activeRowId }"
+            :class="[
+              { 'bg-control-hover-bg': activeRowId && getRowKey(row) === activeRowId },
+              resolveRowClass(row.original),
+            ]"
             data-test="table-row"
             @click="emit('row-click', row.original)"
           >
@@ -183,6 +193,8 @@ const props = withDefaults(defineProps<{
   pageSizeOptions?: number[]
   noRecordsLabel?: string
   rowsPerPageLabel?: string
+  /** Per-row class binding — string, array, object, or a function of the row. */
+  rowClass?: string | string[] | Record<string, boolean> | ((row: T) => string | string[] | Record<string, boolean>)
 }>(), {
   loading: false,
   fetching: false,
@@ -219,14 +231,44 @@ function getRowKey(row: Row<T>): string | number {
   }
   return row.id
 }
+
+/** Resolve the optional `rowClass` prop for a given row. */
+function resolveRowClass(row: T) {
+  const rc = props.rowClass
+  if (!rc) return undefined
+  return typeof rc === 'function' ? rc(row) : rc
+}
+
+// ARIA sort: screen readers get "ascending / descending / none" for
+// sortable columns. Returns undefined for unsortable columns so the attr
+// is dropped entirely (rather than rendered as "none").
+function headerAriaSort(header: { column: { getCanSort: () => boolean; getIsSorted: () => false | 'asc' | 'desc' } }) {
+  if (!header.column.getCanSort()) return undefined
+  const sorted = header.column.getIsSorted()
+  if (sorted === 'asc') return 'ascending'
+  if (sorted === 'desc') return 'descending'
+  return 'none'
+}
 </script>
 
 <style scoped>
+/* Width contract:
+   - Root is a flex column. `min-width: 0` lets it shrink below its
+     (nowrap) min-content so parent's width is the effective ceiling.
+     Caller's flex ancestors MUST also carry `min-width: 0`, otherwise
+     the min-content of the nowrap cells propagates up the chain and
+     the whole card expands past the viewport.
+   - `overflow: hidden` clips the header sticky layer edges; horizontal
+     scroll is owned by `.km-data-table__body` below, so the footer
+     stays in place while the body scrolls. */
 .km-data-table {
   position: relative;
   min-width: 0;
   width: 100%;
   overflow: hidden;
+}
+.km-data-table__body {
+  min-width: 0;
 }
 .km-data-table--fill-height {
   height: 100%;

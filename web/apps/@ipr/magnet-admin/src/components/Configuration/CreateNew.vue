@@ -48,6 +48,7 @@ import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
 import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useCatalogOptions } from '@/queries/useCatalogOptions'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 
 export default {
   props: {
@@ -65,7 +66,7 @@ export default {
     const { config, requiredFields } = useEntityConfig('rag_tools')
     const queries = useEntityQueries()
     const { draft } = useVariantEntityDetail('rag_tools')
-    const { mutateAsync: createRagTool } = queries.rag_tools.useCreate()
+    const createRagTool = useSafeMutation(queries.rag_tools.useCreate())
     const { options: collections } = useCatalogOptions('collections')
 
     return {
@@ -145,7 +146,7 @@ export default {
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) => (this.newRow.variants[0]?.retrieve?.collection_system_names || []).includes(el?.system_name))
+        return (this.collections || []).filter((el) => (this.newRow.variants[0]?.retrieve?.collection_system_names || []).includes(el?.system_name))
       },
       set(value) {
         value = (value || []).map((el) => {
@@ -184,13 +185,10 @@ export default {
       if (!this.validateFields()) return
 
       this.createNew = false
-      const { id } = await this.createRagTool(this.newRow)
+      const { success, data } = await this.createRagTool.run(this.newRow)
+      if (!success || !data?.id) return
 
-      if (!id) {
-        return
-      }
-
-      this.$router.push(`/rag-tools/${id}`)
+      this.$router.push(`/rag-tools/${data.id}`)
     },
   },
 }

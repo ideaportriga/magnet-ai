@@ -59,6 +59,7 @@ import { useVariantEntityDetail } from '@/composables/useVariantEntityDetail'
 import { useSearchStore } from '@/stores/searchStore'
 
 import { ref, computed } from 'vue'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: ['answer'],
@@ -125,13 +126,7 @@ export default {
 
     copy() {
       copyToClipboard(this.mainAnswer.text || '')
-        this.$q.notify({
-          icon: 'content_copy',
-          color: 'dark',
-          group: 'copied',
-          message: m.notify_answerCopied(),
-          timeout: 1000,
-        })
+        notify.copied(m.notify_answerCopied())
     },
 
     refine(question) {

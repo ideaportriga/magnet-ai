@@ -4,6 +4,7 @@ import { fetchData } from '@shared'
 const ALLOWED_EXT = ['.flac', '.m4a', '.mp3', '.ogg', '.wav', '.webm', '.mp4']
 
 const POLL_INTERVAL_MS = 2000
+const MAX_POLL_MS = 30 * 60 * 1000 // §B.2 — 30 min ceiling
 const DONE_STATUSES = ['transcribed', 'completed', 'diarized']
 
 /**
@@ -105,9 +106,13 @@ export function useAudioUpload(options = {}) {
     return data.id
   }
 
+  // §B.2: bounded poll loop so a stuck backend can't grow memory forever.
+  // 30 min is comfortably beyond any legitimate transcription; beyond that
+  // we surface an error so the caller can cancel/retry instead of hanging.
   async function pollForResult(jobId) {
     const endpoint = getEndpoint()
-    for (;;) {
+    const deadline = Date.now() + MAX_POLL_MS
+    while (Date.now() < deadline) {
       const res = await fetchData({
         method: 'GET',
         endpoint,
@@ -133,6 +138,7 @@ export function useAudioUpload(options = {}) {
 
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS))
     }
+    throw new Error('Transcription polling timed out after 30 minutes')
   }
 
   async function uploadAndTranscribe(file) {

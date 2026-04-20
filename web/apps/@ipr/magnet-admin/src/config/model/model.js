@@ -5,6 +5,10 @@ import TypeChip from './component/TypeChip.vue'
 import { markRaw } from 'vue'
 import { getCachedCatalog } from '@/queries/useCatalogOptions'
 import { formatDateTime } from '@shared/utils/dateTime'
+// Re-export from a constant-only module so that Features.vue (which needs
+// `featureOptions`) does not have to import this file and cause a circular
+// dependency (model.js → Features.vue → model.js).
+import { featureOptions } from './featureOptions.js'
 
 const categoryOptions = [
   { label: 'Chat Completion', value: 'prompts' },
@@ -13,14 +17,6 @@ const categoryOptions = [
   { label: 'Speech-to-Text', value: 'stt' },
   { label: 'Text-to-Speech', value: 'tts' },
   { label: 'Image Generation', value: 'image_generation' },
-]
-
-const featureOptions = [
-  { label: 'JSON Mode', value: 'json_mode' },
-  { label: 'Structured Outputs', value: 'json_schema' },
-  { label: 'Tool Calling', value: 'tool_calling' },
-  { label: 'Reasoning', value: 'reasoning' },
-  { label: 'Diarization', value: 'diarization' },
 ]
 
 const controls = {

@@ -31,10 +31,10 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
         //-   .km-description.text-secondary-text.q-mt-xs.q-ml-sm(v-if='providerSystemName') Provider is pre-selected and cannot be changed when creating under a specific provider
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_name() }}
         .full-width.q-mb-md
-          km-input(v-model='nameCalc', ref='nameRef', :rules='config.name.rules')
+          km-input(data-test='name-input', v-model='nameCalc', ref='nameRef', :rules='config.name.rules')
         .km-field.text-secondary-text.q-pb-xs.q-pl-8 {{ m.common_systemName() }}
         .full-width.q-mb-md
-          km-input(v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+          km-input(data-test='system-name-input', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
         //- .km-field.text-secondary-text.q-pb-xs.q-pl-8 Source type
         //- .full-width.q-mb-md
         //-   km-select(:options='dynamicSourceTypeOptions', v-model='source_type', ref='source_typeRef', :rules='config.source_type.rules', :disable='!!selectedProvider')
@@ -183,22 +183,22 @@ q-dialog(:model-value='showNewDialog', @hide='onDialogHide')
 
       .row.q-mt-lg
         .col-auto
-          km-btn(flat, :label='m.common_cancel()', color='primary', @click='cancelCreate')
+          km-btn(data-test='cancel-btn', flat, :label='m.common_cancel()', color='primary', @click='cancelCreate')
         .col
         .col-auto
           .row.q-gap-16.no-wrap.items-center.q-py-4
             template(v-if='stepper === 0')
-              km-btn(:label='m.common_next()', @click='next(1)')
+              km-btn(data-test='next-btn', :label='m.common_next()', @click='next(1)')
             template(v-else-if='stepper === 1')
-              km-btn(flat, :label='m.common_back()', @click='stepper = 0')
-              km-btn(:label='m.common_next()', @click='next(2)')
+              km-btn(data-test='back-btn', flat, :label='m.common_back()', @click='stepper = 0')
+              km-btn(data-test='next-btn', :label='m.common_next()', @click='next(2)')
             template(v-else-if='stepper === 2')
-              km-btn(flat, :label='m.common_back()', @click='stepper = 1')
-              km-btn(:label='m.common_next()', @click='next(3)')
+              km-btn(data-test='back-btn', flat, :label='m.common_back()', @click='stepper = 1')
+              km-btn(data-test='next-btn', :label='m.common_next()', @click='next(3)')
             template(v-else-if='stepper === 3')
-              km-btn(flat, :label='m.common_back()', @click='stepper = 2', :disable='loadingCreate')
-              km-btn(:label='m.common_save()', @click='createNew(false)', :disable='loadingCreate')
-              km-btn(:label='m.common_saveAndSync()', @click='createNew(true)', :disable='loadingCreate')
+              km-btn(data-test='back-btn', flat, :label='m.common_back()', @click='stepper = 2', :disable='loadingCreate')
+              km-btn(data-test='save-btn', :label='m.common_save()', @click='createNew(false)', :disable='loadingCreate')
+              km-btn(data-test='save-and-sync-btn', :label='m.common_saveAndSync()', @click='createNew(true)', :disable='loadingCreate')
     q-inner-loading(:showing='loadingCreate', color='primary', size='50px')
 </template>
 <script>
@@ -214,6 +214,7 @@ import { useEntityDetail } from '@/composables/useEntityDetail'
 import { useAppStore } from '@/stores/appStore'
 import { useCollectionDetailStore } from '@/stores/entityDetailStores'
 import FileUrlUpload from '@/components/Collections/FileUrlUpload.vue'
+import { notify } from '@shared/utils/notify'
 
 export default defineComponent({
   components: {
@@ -595,24 +596,12 @@ export default defineComponent({
       }
       const { id: inserted_id } = await this.createCollection(merged_metadata)
 
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: 'Knowledge source has been created.',
-        timeout: 1000,
-      })
+      notify.success('Knowledge source has been created.')
 
       if (sync) {
         await this.createOneTimeJob()
 
-        this.$q.notify({
-          color: 'green-9', textColor: 'white',
-          icon: 'check_circle',
-          group: 'success',
-          message: 'Sync job has been created.',
-          timeout: 1000,
-        })
+        notify.success('Sync job has been created.')
       }
 
       // Create scheduled job if enabled
@@ -722,13 +711,7 @@ export default defineComponent({
         headers: { 'Content-Type': 'application/json' },
       })
       const job = await response.json()
-      this.$q.notify({
-        color: 'green-9', textColor: 'white',
-        icon: 'check_circle',
-        group: 'success',
-        message: 'Sync job has been created.',
-        timeout: 1000,
-      })
+      notify.success('Sync job has been created.')
       return job
     },
     transformSourceFields(source) {

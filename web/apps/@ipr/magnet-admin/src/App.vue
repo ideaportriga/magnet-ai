@@ -42,8 +42,10 @@
   template(v-else)
     layout-default
   km-error-dialog(v-if='appStore.errorMessage')
-  template(v-if='env === "development"')
-    .fixed-bottom-right.q-pa-sm.row(:style='{ zIndex: 100 }')
+  //- §D.3 — dev-only debug strip; `env` string was brittle (depends on a
+  //- globalProperty). Vite's import.meta.env.DEV is statically tree-shaken.
+  template(v-if='isDev')
+    .fixed-bottom-right.q-pa-sm.row(:style='{ zIndex: "var(--km-z-base)" }')
 </template>
 
 <script>
@@ -106,6 +108,8 @@ export default {
 
     const { locale } = useLocale()
 
+    const isDev = import.meta.env.DEV
+
     return {
       m,
       locale,
@@ -122,6 +126,7 @@ export default {
       appContext,
       appStore,
       sharedAuth,
+      isDev,
       ...auth,
     }
   },

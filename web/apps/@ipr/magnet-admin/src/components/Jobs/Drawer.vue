@@ -89,6 +89,7 @@ import { jobRunTypeOptions, jobTypeOptions, jobIntervalOptions } from '@/config/
 import { DateTime } from 'luxon'
 import { fetchData } from '@shared'
 import { useAppStore } from '@/stores/appStore'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -313,19 +314,9 @@ export default {
           headers: { 'Content-Type': 'application/json' },
           credentials,
         })
-        this.$q.notify({
-          color: 'green-9', textColor: 'white',
-          icon: 'check_circle',
-          group: 'success',
-          message: 'Job successfully cancelled',
-        })
+        notify.success('Job successfully cancelled')
       } catch (error) {
-        this.$q.notify({
-          color: 'red-9', textColor: 'white',
-          icon: 'error',
-          group: 'error',
-          message: 'Failed to cancel job',
-        })
+        notify.error('Failed to cancel job')
       } finally {
         this.showCancelConfirm = false
       }

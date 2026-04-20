@@ -60,6 +60,7 @@ import { required } from '@/utils/validationRules'
 import { useEntityQueries } from '@/queries/entities'
 import { useRouter } from 'vue-router'
 import { providerTypeOptions, providerEndpointHints } from '../../config/model_providers/providerTypes'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 
 export default {
   props: {
@@ -71,7 +72,7 @@ export default {
   emits: ['cancel'],
   setup() {
     const queries = useEntityQueries()
-    const { mutateAsync: createProvider } = queries.provider.useCreate()
+    const createProvider = useSafeMutation(queries.provider.useCreate())
     const router = useRouter()
 
     const typeOptions = providerTypeOptions
@@ -155,13 +156,10 @@ export default {
     async createModelProvider() {
       if (!this.validateFields()) return
 
-      const result = await this.createProvider(this.newRow)
+      const { success, data } = await this.createProvider.run(this.newRow)
+      if (!success || !data?.id) return
 
-      if (!result?.id) {
-        return
-      }
-
-      this.$router.push(`/model-providers/${result.id}`)
+      this.$router.push(`/model-providers/${data.id}`)
     },
   },
 }

@@ -4,7 +4,7 @@
     .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
       .row.q-mb-12
         .col-auto.center-flex-y
-          km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
+          km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
         .col-auto.center-flex-y.q-ml-md(v-if='groupBy !== "flat"')
           .text-secondary-text.q-mr-sm {{ m.evaluation_groupBy() }}
           km-select(
@@ -84,7 +84,7 @@
             hoverBg='primary-bg'
           )
         .col-auto.center-flex-y
-          km-btn.q-mr-12(v-if='!filterObject?.row', :label='m.common_new()', @click='showNewDialog = true')
+          km-btn.q-mr-12(data-test='new-btn', v-if='!filterObject?.row', :label='m.common_new()', @click='showNewDialog = true')
       q-separator.q-my-sm
       .row.q-mb-sm.items-center(v-if='filterObject?.row')
         .col-auto
@@ -151,6 +151,7 @@ import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useVueTable, getCoreRowModel, type ColumnDef } from '@tanstack/vue-table'
 import { useDataTable } from '@/composables/useDataTable'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 import { componentColumn } from '@/utils/columnHelpers'
 import { useEntityQueries } from '@/queries/entities'
 import { m } from '@/paraglide/messages'
@@ -191,8 +192,11 @@ const filterObject = ref<FilterObject>({
 
 const queries = useEntityQueries()
 const { evaluation_jobs: evalJobsQ } = queries
-const { mutateAsync: removeEvalJob } = evalJobsQ.useRemove()
-const { mutateAsync: createEvalJob } = evalJobsQ.useCreate()
+// §B.8 — wrap remove/create so bulk delete/rerun can't silently abort
+// halfway through on a failure (user would have to reload to see
+// which items actually got processed).
+const removeEvalJob = useSafeMutation(evalJobsQ.useRemove())
+const createEvalJob = useSafeMutation(evalJobsQ.useCreate())
 const { data: modelListData } = queries.model.useList()
 const modelItems = computed(() => modelListData.value?.items ?? [])
 
@@ -441,8 +445,10 @@ async function openDetails(row: EvaluationJob) {
 }
 
 async function deleteSelected() {
+  // Parallel removes — useSafeMutation ensures one failure doesn't
+  // reject the whole Promise.all and stop later cleanups.
   await Promise.all(
-    selected.value.map((obj) => removeEvalJob(obj._id!)),
+    selected.value.map((obj) => removeEvalJob.run(obj._id!)),
   )
   selected.value = []
   showDeleteDialog.value = false
@@ -460,7 +466,7 @@ async function rerunSelected() {
     const iteration_count = Math.max(...(resultItems || []).map((item) => item.iteration as number)) || 1
     const evaluation_target_tools = evalTools.map((tool) => tool?.system_name as string)
 
-    await createEvalJob({
+    await createEvalJob.run({
       evaluation_set,
       iteration_count,
       evaluation_target_tools,

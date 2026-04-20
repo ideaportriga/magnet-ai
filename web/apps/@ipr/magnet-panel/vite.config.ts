@@ -46,6 +46,16 @@ export default defineConfig({
     commonjsOptions: {
       transformMixedEsModules: true,
     },
+    // §C.1 — split vendor libs (see magnet-admin/vite.config.ts for rationale).
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vue: ['vue', 'vue-router', 'pinia'],
+          quasar: ['quasar', '@quasar/extras'],
+          query: ['@tanstack/vue-query'],
+        },
+      },
+    },
   },
   test: {
     watch: false,

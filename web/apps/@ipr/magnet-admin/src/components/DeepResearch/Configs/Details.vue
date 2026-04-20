@@ -583,21 +583,21 @@ const createRun = async () => {
 const navigateToPrompt = (systemName: string) => {
   const prompt = promptTemplates.value.find((p: any) => p.system_name === systemName)
   if (prompt) {
-    window.open(router.resolve({ path: `/prompt-templates/${prompt.id}` }).href, '_blank')
+    router.push(`/prompt-templates/${prompt.id}`)
   }
 }
 
 const navigateToApiServer = (systemName: string) => {
   const server = apiServers.value.find((s: any) => s.system_name === systemName)
   if (server) {
-    window.open(router.resolve({ path: `/api-servers/${server.id}` }).href, '_blank')
+    router.push(`/api-servers/${server.id}`)
   }
 }
 
 const navigateToTool = (serverSystemName: string, toolName: string) => {
   const server = apiServers.value.find((s: any) => s.system_name === serverSystemName)
   if (server) {
-    window.open(router.resolve({ path: `/api-servers/${server.id}?tool=${toolName}` }).href, '_blank')
+    router.push(`/api-servers/${server.id}?tool=${toolName}`)
   }
 }
 </script>

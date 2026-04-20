@@ -1,5 +1,7 @@
 <template lang="pug">
-.column.full-height(style='width: 100%; min-height: 0').no-wrap
+//- km-flex-min-0 on every flex item so nowrap table cells can't push
+//- the column wider than the card (see DataTable.vue width contract).
+.column.full-height.no-wrap.km-flex-min-0(style='width: 100%')
   .row
     .col-auto.center-flex-y
       km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='globalFilter', @input='globalFilter = $event', clearable)
@@ -24,7 +26,7 @@
         iconSize='16px',
         hoverBg='primary-bg'
       )
-  .col.q-mt-md(style='min-height: 0; overflow-x: auto')
+  .col.q-mt-md.km-flex-min-0
     km-data-table(
       fill-height,
       :table='table',
@@ -154,6 +156,7 @@ import { selectionColumn, textColumn, componentColumn } from '@/utils/columnHelp
 import TypeChip from '@/config/model/component/TypeChip.vue'
 import Features from '@/config/model/component/Features.vue'
 import Check from '@/config/model/component/Check.vue'
+import { notify } from '@shared/utils/notify'
 
 /**
  * Fuzzy match a query against a target string.
@@ -249,6 +252,10 @@ export default {
       componentColumn('type', m.common_type(), markRaw(TypeChip), {
         accessorKey: 'type',
         sortable: true,
+        // TypeChip needs `name` (required prop) to know which field on the
+        // row holds the type value. Without it Vue warns every time the
+        // list renders.
+        props: () => ({ name: 'type' }),
       }),
       componentColumn('features', m.common_features(), markRaw(Features), {
         props: (row) => ({ name: 'features' }),
@@ -353,9 +360,9 @@ export default {
         }
         this.clearSelection()
         this.showDeleteDialog = false
-        this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: 'Models deleted successfully.', timeout: 1000 })
+        notify.success('Models deleted successfully.')
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Error deleting models.', timeout: 2000 })
+        notify.error('Error deleting models.')
       }
     },
     async openImportDialog() {
@@ -379,7 +386,7 @@ export default {
 
         this.showImportDialog = true
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Failed to load available models.', timeout: 2000 })
+        notify.error('Failed to load available models.')
       } finally {
         this.loadingAvailableModels = false
       }
@@ -452,14 +459,14 @@ export default {
         this.selectedModelsToImport = []
 
         if (successCount > 0) {
-          this.$q.notify({ color: 'green-9', textColor: 'white', icon: 'check_circle', group: 'success', message: `Successfully imported ${successCount} model(s).`, timeout: 2000 })
+          notify.success(`Successfully imported ${successCount} model(s).`)
         }
 
         if (errorCount > 0) {
-          this.$q.notify({ color: 'orange-9', textColor: 'white', icon: 'warning', group: 'warning', message: `Failed to import ${errorCount} model(s).`, timeout: 2000 })
+          notify.warning(`Failed to import ${errorCount} model(s).`)
         }
       } catch (error) {
-        this.$q.notify({ color: 'red-9', textColor: 'white', icon: 'error', group: 'error', message: 'Error importing models.', timeout: 2000 })
+        notify.error('Error importing models.')
       } finally {
         this.importingModels = false
       }

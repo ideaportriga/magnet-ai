@@ -15,19 +15,20 @@ q-dialog(v-model='popupVisible', @hide='hide')
     q-card-section.card-section-style
       slot
     q-card-actions.card-actions-style.row.flex
-      .col-auto
-        km-btn(flat, :label='cancelButtonLabel', color='primary', @click='cancel', :data-test='cancelButtonLabel')
+      //- data-test* attributes live on the wrapping divs (km-btn is
+      //- multi-root so Vue doesn't propagate attrs to its DOM).
+      .col-auto(data-test-role='popup-cancel', :data-test='cancelButtonLabel')
+        km-btn(flat, :label='cancelButtonLabel', color='primary', @click='cancel')
       .col
-      .col-auto.q-mr-sm(v-if='confirmButtonLabel2')
+      .col-auto.q-mr-sm(v-if='confirmButtonLabel2', data-test-role='popup-confirm-secondary', :data-test='confirmButtonLabel2')
         km-btn(
           :label='confirmButtonLabel2',
           @click='confirm2',
           :flat='confirmButtonType2 === "secondary" ? true : false',
-          :color='confirmButtonType2 === "secondary" ? "primary" : undefined',
-          :data-test='confirmButtonLabel2'
+          :color='confirmButtonType2 === "secondary" ? "primary" : undefined'
         )
-      .col-auto
-        km-btn(:label='confirmButtonLabel', @click='confirm', :data-test='confirmButtonLabel')
+      .col-auto(data-test-role='popup-confirm', :data-test='confirmButtonLabel')
+        km-btn(:label='confirmButtonLabel', @click='confirm')
 
     q-inner-loading(:showing='loading')
 </template>

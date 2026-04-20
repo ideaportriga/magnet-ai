@@ -5,17 +5,24 @@ declare global {
   namespace Cypress {
     interface Chainable<Subject> {
       login(email: string, password: string): void
-      g(selector: string): Chainable<JQuery<HTMLElement>>
+      g(selector: string, options?: Partial<Cypress.Timeoutable & Cypress.Loggable & Cypress.Withinable>): Chainable<JQuery<HTMLElement>>
       km_type(): Chainable<JQuery<HTMLElement>>
       km_select(selector: string, value: string | string[]): Chainable<JQuery<HTMLElement>>
       dismissErrors(): Chainable<void>
+      /**
+       * Call the backend `/api/test/cleanup` endpoint to delete all records
+       * across known CRUD tables whose `name` or `system_name` begins with
+       * the given prefix. Returns the per-table rowcount map.
+       * Requires backend to run with `DEBUG_MODE=true`.
+       */
+      cleanup(prefix?: string): Chainable<{ prefix: string; deleted: Record<string, number> }>
     }
   }
 }
 
 // Get element by data-test attribute - this is general approach to get elements in cypress tests
-Cypress.Commands.add('g', (selector) => {
-  return cy.get(`[data-test="${selector}"]`)
+Cypress.Commands.add('g', (selector, options) => {
+  return cy.get(`[data-test="${selector}"]`, options)
 })
 
 // Type a random e2e-test-* string into an input.
@@ -60,6 +67,28 @@ Cypress.Commands.add('dismissErrors', () => {
       }
     }
   })
+})
+
+// Call the backend cleanup endpoint. Swallows failures (404 = DEBUG_MODE off,
+// 5xx = backend issue) so tests still run when the endpoint is unavailable
+// — they just leak `e2e-test-*` rows until the next manual wipe.
+//
+// Note: no cy.* calls inside the .then — mixing synchronous returns with
+// queued cy commands breaks Cypress's flow inside `after()` hooks ("invoked
+// cy commands but returned a synchronous value").
+Cypress.Commands.add('cleanup', (prefix = 'e2e-test-') => {
+  return cy
+    .request({
+      method: 'POST',
+      url: `https://localhost:7001/test/cleanup?prefix=${encodeURIComponent(prefix)}`,
+      failOnStatusCode: false,
+    })
+    .then((res) => {
+      if (res.status >= 400) {
+        return { prefix, deleted: {} } as { prefix: string; deleted: Record<string, number> }
+      }
+      return res.body as { prefix: string; deleted: Record<string, number> }
+    })
 })
 
 export {}

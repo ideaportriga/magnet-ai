@@ -10,10 +10,10 @@ km-popup-confirm(
 )
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_name() }}
     .full-width
-      km-input(height='30px', :placeholder='m.placeholder_exampleDemoAgent()', v-model='name', ref='nameRef', :rules='config.name.rules')
+      km-input(data-test='name-input', height='30px', :placeholder='m.placeholder_exampleDemoAgent()', v-model='name', ref='nameRef', :rules='config.name.rules')
   .km-field.text-secondary-text.q-pb-xs.q-pl-8.q-mb-md {{ m.common_systemName() }}
     .full-width
-      km-input(height='30px', :placeholder='m.placeholder_exampleAgentDemo()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
+      km-input(data-test='system-name-input', height='30px', :placeholder='m.placeholder_exampleAgentDemo()', v-model='system_name', ref='system_nameRef', :rules='config.system_name.rules')
     .km-description.text-secondary-text.q-pb-4 {{ m.hint_systemNameUniqueId() }}
 </template>
 
@@ -25,6 +25,7 @@ import { useEntityConfig } from '@/composables/useEntityConfig'
 import { cloneDeep } from 'lodash'
 import { useEntityQueries } from '@/queries/entities'
 import { useAgentEntityDetail } from '@/composables/useAgentEntityDetail'
+import { useSafeMutation } from '@/composables/useSafeMutation'
 
 export default {
   props: {
@@ -41,7 +42,7 @@ export default {
   setup() {
     const { config, requiredFields } = useEntityConfig('agents')
     const queries = useEntityQueries()
-    const { mutateAsync: createAgent } = queries.agents.useCreate()
+    const createAgent = useSafeMutation(queries.agents.useCreate())
     const { data: modelListData } = queries.model.useList()
 
     const { draft } = useAgentEntityDetail()
@@ -104,7 +105,7 @@ export default {
     },
     collectionSystemNames: {
       get() {
-        return this.collections.filter((el) => (this.newRow?.variants[0].retrieve?.collection_system_names || []).includes(el?.id))
+        return (this.collections || []).filter((el) => (this.newRow?.variants[0].retrieve?.collection_system_names || []).includes(el?.id))
       },
       set(value) {
         value = (value || []).map((el) => {
@@ -142,13 +143,10 @@ export default {
       if (!this.validateFields()) return
 
       this.createNew = false
-      const result = await this.createAgent(this.newRow)
+      const { success, data } = await this.createAgent.run(this.newRow)
+      if (!success || !data?.id) return
 
-      if (!result.id) {
-        return
-      }
-
-      this.$router.push(`/agents/${result.id}`)
+      this.$router.push(`/agents/${data.id}`)
     },
 
     async openDetails(row) {

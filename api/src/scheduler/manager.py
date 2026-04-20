@@ -157,6 +157,40 @@ def job_missed_listener(event):
     )
 
 
+def _patch_asyncio_executor_thread_safety(executor: AsyncIOExecutor) -> None:
+    """Make `AsyncIOExecutor._do_submit_job` safe to call from worker threads.
+
+    Upstream `_do_submit_job` calls `self._eventloop.create_task(coro)`
+    synchronously (see apscheduler/executors/asyncio.py). That is legal
+    only from the event-loop thread itself; from the scheduler's worker
+    thread (created by `_patch_scheduler_wakeup` below) Python raises
+    ``RuntimeError: Non-thread-safe operation invoked on an event loop
+    other than the current one`` and the due job never runs — it stays
+    in the DB with `status=Waiting` forever.
+
+    Fix: on the loop thread the original implementation runs as-is; on
+    any other thread the original call is re-dispatched via
+    `call_soon_threadsafe` so that `create_task` executes on the correct
+    thread.
+    """
+    _original = executor._do_submit_job
+
+    def _thread_safe_do_submit_job(job, run_times):
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+
+        if running is executor._eventloop:
+            _original(job, run_times)
+            return
+
+        # Cross-thread — hand off to the event loop.
+        executor._eventloop.call_soon_threadsafe(_original, job, run_times)
+
+    executor._do_submit_job = _thread_safe_do_submit_job  # type: ignore[assignment]
+
+
 def _patch_scheduler_wakeup(scheduler: AsyncIOScheduler) -> None:
     """Patch AsyncIOScheduler.wakeup so that _process_jobs runs in a thread.
 
@@ -165,7 +199,9 @@ def _patch_scheduler_wakeup(scheduler: AsyncIOScheduler) -> None:
     invokes _process_jobs() directly on the event loop, blocking all async I/O.
 
     This patch replaces that with an async version that offloads the call to a
-    dedicated ThreadPoolExecutor.
+    dedicated ThreadPoolExecutor. Combined with
+    `_patch_asyncio_executor_thread_safety`, this lets `_process_jobs` call
+    `executor.submit_job` safely from the worker thread.
     """
 
     async def _async_wakeup():
@@ -190,8 +226,9 @@ async def create_scheduler() -> AsyncIOScheduler:
     """Creates and configures the application scheduler"""
     global _scheduler
 
+    default_executor = AsyncIOExecutor()
     executors = {
-        "default": AsyncIOExecutor(),
+        "default": default_executor,
     }
     job_defaults = {
         "coalesce": True,
@@ -232,6 +269,11 @@ async def create_scheduler() -> AsyncIOScheduler:
 
     logger.info("Starting scheduler...")
     scheduler.start()
+
+    # Patch must run AFTER start() — AsyncIOExecutor.start captures the
+    # `_eventloop` from the scheduler. Without the patch the executor's
+    # `_do_submit_job` fails when called from the wakeup worker thread.
+    _patch_asyncio_executor_thread_safety(default_executor)
 
     # Store the scheduler instance globally
     _scheduler = scheduler

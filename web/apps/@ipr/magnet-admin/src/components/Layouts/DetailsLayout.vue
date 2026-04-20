@@ -1,12 +1,18 @@
 <template lang="pug">
+//- Page-level layout: flex row with a flex-grow content column and a
+//- fixed-width drawer column. Parent (router-view inside
+//- .km-view-height) gives us a bounded height; we clip our own
+//- overflow so neither column can push the layout past the viewport.
+//- Every flex child gets `km-flex-min-0` (min-width: 0; min-height: 0)
+//- so inner `overflow: auto` scroll containers actually engage.
 .row.no-wrap.overflow-hidden.full-height.details-layout
-  .col.no-wrap.full-height.justify-center.fit.q-px-md.no-wrap.q-pt-sm.q-pb-lg(:style='contentContainerStyle')
-    .column.full-height.no-wrap
+  .col.no-wrap.full-height.justify-center.fit.q-px-md.no-wrap.q-pt-sm.q-pb-lg.km-flex-min-0(:style='contentContainerStyle')
+    .column.full-height.no-wrap.km-flex-min-0
       slot(name='breadcrumbs')
         div
       .full-width.q-mb-sm.bg-white.border-radius-8.q-py-12.q-px-16(v-if='!noHeader')
         .row.items-center.no-wrap.full-width
-          .col
+          .col.km-flex-min-w-0
             slot(name='header')
               layouts-details-header(
                 :name='name',
@@ -30,10 +36,15 @@
             @selectVariant='emit("selectVariant", $event)',
             @updateVariantProperty='emit("updateVariantProperty", $event)'
           )
-      .col.overflow-hidden.no-wrap.column(:class='noContentWrapper ? "" : "ba-border bg-white border-radius-8 q-pa-16"', style='min-height: 0')
+      .col.overflow-hidden.no-wrap.column.km-flex-min-0(:class='noContentWrapper ? "" : "ba-border bg-white border-radius-8 q-pa-16"')
         slot(name='content')
           div Content
-  .col-auto
+  //- `full-height` ensures the drawer wrapper matches the row's height so
+  //- the drawer's internal `.full-height` resolves against the viewport,
+  //- not the (overflowing) sibling content. Without this the drawer can
+  //- grow taller than the viewport and its footer — e.g. the "Test Model"
+  //- action in ModelDrawer — gets pushed off-screen.
+  .col-auto.full-height
     slot(name='drawer')
 </template>
 

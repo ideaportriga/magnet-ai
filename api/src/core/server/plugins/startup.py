@@ -32,6 +32,9 @@ class StartupPlugin(InitPluginProtocol):
         """Application startup handler."""
         logger.info("Starting application...")
 
+        # Event loop lag monitor — early signal for scheduler hangs
+        self._start_event_loop_monitor(app)
+
         # Register LiteLLM callback logger for observability
         self._register_litellm_callbacks()
 
@@ -58,6 +61,17 @@ class StartupPlugin(InitPluginProtocol):
 
         # Load additional note-taker runtimes from DB provider references
         await self._initialize_note_taker_registry(app)
+
+    @staticmethod
+    def _start_event_loop_monitor(app: Litestar) -> None:
+        """Launch the background event-loop-lag monitor (see §B.5)."""
+        try:
+            from core.server.plugins.event_loop_monitor import start_event_loop_monitor
+
+            app.state.event_loop_monitor_task = start_event_loop_monitor()
+            logger.info("Event loop lag monitor started")
+        except Exception as e:
+            logger.warning("Failed to start event loop lag monitor: %s", e)
 
     @staticmethod
     def _register_litellm_callbacks() -> None:

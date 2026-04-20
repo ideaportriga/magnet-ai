@@ -52,11 +52,9 @@ q-separator.q-my-sm
 /* eslint-disable */
 import { m } from '@/paraglide/messages'
 import { ref, computed } from 'vue'
-import { useQuasar } from 'quasar'
 import { useNotify } from '@/composables/useNotify'
 
-const $q = useQuasar()
-const { notifySuccess } = useNotify()
+const { notifySuccess, notifyConfirm } = useNotify()
 
 const props = defineProps({
   variants: {
@@ -101,29 +99,14 @@ const addVariant = () => {
   notifySuccess('New variant has been added.')
 }
 const deleteVariant = () => {
-  $q.notify({
+  notifyConfirm({
     message: 'Are you sure you want to delete this variant?',
-    color: 'red-9', textColor: 'white',
-    icon: 'error',
-    group: 'error',
-    timeout: 0,
-    actions: [
-      {
-        label: 'Cancel',
-        color: 'yellow',
-        handler: () => {
-          /* ... */
-        },
-      },
-      {
-        label: 'Delete',
-        color: 'white',
-        handler: () => {
-          emit('deleteVariant')
-          notifySuccess('Variant has been deleted.')
-        },
-      },
-    ],
+    confirmLabel: 'Delete',
+    cancelLabel: 'Cancel',
+    onConfirm: () => {
+      emit('deleteVariant')
+      notifySuccess('Variant has been deleted.')
+    },
   })
 }
 const selectVariant = ({ value }) => {

@@ -45,18 +45,18 @@ OBSERVABILITY_USAGE_SHOW_USERS = get_observability_settings().USAGE_SHOW_USERS
 def _get_field_column(key: str) -> ColumnElement:
     """Get the SQLAlchemy column expression for a given key.
 
-    Handles dotted paths like 'extra_data.topic' -> Metric.extra_data['topic'].astext
+    Handles dotted paths like 'extra_data.topic' -> Metric.extra_data['topic'].as_string()
     """
     if "." in key:
         if key.startswith("extra_data."):
             json_path = key.replace("extra_data.", "", 1)
-            return Metric.extra_data[json_path].astext
+            return Metric.extra_data[json_path].as_string()
         elif key.startswith("conversation_data."):
             json_path = key.replace("conversation_data.", "", 1)
-            return Metric.conversation_data[json_path].astext
+            return Metric.conversation_data[json_path].as_string()
         elif key.startswith("x_attributes."):
             json_path = key.replace("x_attributes.", "", 1)
-            return Metric.x_attributes[json_path].astext
+            return Metric.x_attributes[json_path].as_string()
     return getattr(Metric, key)
 
 
@@ -153,20 +153,20 @@ async def get_options_rag(
 
     # Get topics
     stmt = (
-        select(distinct(Metric.extra_data["topic"].astext).label("topic"))
+        select(distinct(Metric.extra_data["topic"].as_string()).label("topic"))
         .where(*all_conditions)
-        .where(Metric.extra_data["topic"].astext.is_not(None))
-        .order_by(Metric.extra_data["topic"].astext)
+        .where(Metric.extra_data["topic"].as_string().is_not(None))
+        .order_by(Metric.extra_data["topic"].as_string())
     )
     topics_result = await db_session.execute(stmt)
     topics = [row.topic for row in topics_result.fetchall() if row.topic]
 
     # Get languages
     stmt = (
-        select(distinct(Metric.extra_data["language"].astext).label("language"))
+        select(distinct(Metric.extra_data["language"].as_string()).label("language"))
         .where(*all_conditions)
-        .where(Metric.extra_data["language"].astext.is_not(None))
-        .order_by(Metric.extra_data["language"].astext)
+        .where(Metric.extra_data["language"].as_string().is_not(None))
+        .order_by(Metric.extra_data["language"].as_string())
     )
     languages_result = await db_session.execute(stmt)
     languages = [row.language for row in languages_result.fetchall() if row.language]
@@ -183,10 +183,10 @@ async def get_options_rag(
 
     # Get organizations
     stmt = (
-        select(distinct(Metric.x_attributes["org-id"].astext).label("org_id"))
+        select(distinct(Metric.x_attributes["org-id"].as_string()).label("org_id"))
         .where(*all_conditions)
-        .where(Metric.x_attributes["org-id"].astext.is_not(None))
-        .order_by(Metric.x_attributes["org-id"].astext)
+        .where(Metric.x_attributes["org-id"].as_string().is_not(None))
+        .order_by(Metric.x_attributes["org-id"].as_string())
     )
     organizations_result = await db_session.execute(stmt)
     organizations = [
@@ -226,10 +226,10 @@ async def get_options_llm(
 
     # Get organizations
     stmt = (
-        select(distinct(Metric.x_attributes["org-id"].astext).label("org_id"))
+        select(distinct(Metric.x_attributes["org-id"].as_string()).label("org_id"))
         .where(*all_conditions)
-        .where(Metric.x_attributes["org-id"].astext.is_not(None))
-        .order_by(Metric.x_attributes["org-id"].astext)
+        .where(Metric.x_attributes["org-id"].as_string().is_not(None))
+        .order_by(Metric.x_attributes["org-id"].as_string())
     )
     organizations_result = await db_session.execute(stmt)
     organizations = [
@@ -288,20 +288,22 @@ async def get_options_agent(
 
     # Get languages
     stmt = (
-        select(distinct(Metric.conversation_data["language"].astext).label("language"))
+        select(
+            distinct(Metric.conversation_data["language"].as_string()).label("language")
+        )
         .where(*all_conditions)
-        .where(Metric.conversation_data["language"].astext.is_not(None))
-        .order_by(Metric.conversation_data["language"].astext)
+        .where(Metric.conversation_data["language"].as_string().is_not(None))
+        .order_by(Metric.conversation_data["language"].as_string())
     )
     languages_result = await db_session.execute(stmt)
     languages = [row.language for row in languages_result.fetchall() if row.language]
 
     # Get organizations
     stmt = (
-        select(distinct(Metric.x_attributes["org-id"].astext).label("org_id"))
+        select(distinct(Metric.x_attributes["org-id"].as_string()).label("org_id"))
         .where(*all_conditions)
-        .where(Metric.x_attributes["org-id"].astext.is_not(None))
-        .order_by(Metric.x_attributes["org-id"].astext)
+        .where(Metric.x_attributes["org-id"].as_string().is_not(None))
+        .order_by(Metric.x_attributes["org-id"].as_string())
     )
     organizations_result = await db_session.execute(stmt)
     organizations = [
@@ -347,7 +349,7 @@ async def summarize_rag_tool_metrics(
         return EmptyDictionary()
 
     # Get resolution metrics
-    is_answered_col = Metric.extra_data["is_answered"].astext
+    is_answered_col = Metric.extra_data["is_answered"].as_string()
     stmt = (
         select(
             is_answered_col.label("resolution"),
@@ -363,7 +365,7 @@ async def summarize_rag_tool_metrics(
     ]
 
     # Get topic metrics
-    topic_col = Metric.extra_data["topic"].astext
+    topic_col = Metric.extra_data["topic"].as_string()
     stmt = (
         select(
             topic_col.label("topic"),
@@ -378,7 +380,7 @@ async def summarize_rag_tool_metrics(
     ]
 
     # Get feedback metrics
-    feedback_type_col = Metric.extra_data["answer_feedback"]["type"].astext
+    feedback_type_col = Metric.extra_data["answer_feedback"]["type"].as_string()
     stmt = (
         select(
             feedback_type_col.label("feedback_type"),
@@ -404,7 +406,7 @@ async def summarize_rag_tool_metrics(
     copy_count = copy_result.scalar() or 0
 
     # Get language metrics
-    language_col = Metric.extra_data["language"].astext
+    language_col = Metric.extra_data["language"].as_string()
     stmt = (
         select(
             language_col.label("language"),
@@ -535,7 +537,11 @@ async def summarize_agent_metrics(
         ),
         func.sum(
             case(
-                (Metric.conversation_data["resolution_status"].astext == "resolved", 1),
+                (
+                    Metric.conversation_data["resolution_status"].as_string()
+                    == "resolved",
+                    1,
+                ),
                 else_=0,
             )
         ).label("total_status_resolved"),
@@ -580,7 +586,7 @@ async def summarize_agent_metrics(
     )
 
     # Get resolution metrics
-    resolution_col = Metric.conversation_data["resolution_status"].astext
+    resolution_col = Metric.conversation_data["resolution_status"].as_string()
     stmt = (
         select(
             resolution_col.label("resolution_status"),
@@ -610,7 +616,7 @@ async def summarize_agent_metrics(
     ]
 
     # Get sentiment metrics
-    sentiment_col = Metric.conversation_data["sentiment"].astext
+    sentiment_col = Metric.conversation_data["sentiment"].as_string()
     stmt = (
         select(
             sentiment_col.label("sentiment"),
@@ -643,7 +649,7 @@ async def summarize_agent_metrics(
     ]
 
     # Get language metrics
-    language_col = Metric.conversation_data["language"].astext
+    language_col = Metric.conversation_data["language"].as_string()
     stmt = (
         select(
             language_col.label("language"),
@@ -795,7 +801,7 @@ async def get_top_metrics_agent(
             func.sum(
                 case(
                     (
-                        Metric.conversation_data["resolution_status"].astext
+                        Metric.conversation_data["resolution_status"].as_string()
                         == "resolved",
                         1,
                     ),
@@ -900,7 +906,7 @@ async def get_metrics_by_feature_type(
         parts = sort.split(".", 1)
         if parts[0] in ["extra_data", "conversation_data", "x_attributes"]:
             json_field = getattr(Metric, parts[0])
-            sort_col = json_field[parts[1]].astext
+            sort_col = json_field[parts[1]].as_string()
         else:
             sort_col = getattr(Metric, sort, Metric.id)
     else:

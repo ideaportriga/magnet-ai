@@ -4,17 +4,17 @@
     .col.ba-border.border-radius-12.bg-white.q-pa-16.column(style='min-height: 0')
       .row.q-mb-12
         .col-auto.center-flex-y
-          km-input(:placeholder='m.common_search()', iconBefore='search', :modelValue='searchString', @input='searchString = $event', clearable)
+          km-input(data-test='search-input', :placeholder='m.common_search()', iconBefore='search', :modelValue='searchString', @input='searchString = $event', clearable)
         q-space
         .col-auto.center-flex-y
-          km-btn.q-mr-12(:label='m.common_new()', @click='showNewDialog = true')
+          km-btn.q-mr-12(data-test='new-btn', :label='m.common_new()', @click='showNewDialog = true')
       .col.overflow-auto(style='min-height: 0')
         template(v-if='isLoading && !visibleRows.length')
           .flex.flex-center.full-height
             q-spinner(size='40px', color='primary')
         template(v-else-if='visibleRows.length')
           .row
-            .q-pa-md.col-xs-12.col-sm-6.col-md-6.col-lg-6(v-for='row in visibleRows', :key='row.id', @click='openDetails(row)')
+            .q-pa-md.col-xs-12.col-sm-6.col-md-6.col-lg-6(data-test='table-row', v-for='row in visibleRows', :key='row.id', @click='openDetails(row)')
               q-card.card-hover(bordered, flat, style='min-width: 400px')
                 q-card-section.q-pa-lg
                   .row
@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDateTime } from '@shared/utils'
 import { useEntityQueries } from '@/queries/entities'
@@ -61,10 +61,18 @@ const showNewDialog = ref(false)
 const searchString = ref('')
 const debouncedSearch = ref('')
 
+// §B.5 — debounce + teardown on unmount so late setTimeout callbacks
+// don't fire after navigation (they'd try to mutate an unmounted ref).
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 watch(searchString, (val) => {
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => { debouncedSearch.value = val }, 300)
+})
+onBeforeUnmount(() => {
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
 })
 
 const queryParams = computed(() => {

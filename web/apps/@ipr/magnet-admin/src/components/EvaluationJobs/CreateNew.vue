@@ -118,6 +118,7 @@ import { useEntityQueries } from '@/queries/entities'
 import { useEvaluationStore } from '@/stores/evaluationStore'
 import { useEntityConfig } from '@/composables/useEntityConfig'
 import { m } from '@/paraglide/messages'
+import { notify } from '@shared/utils/notify'
 
 export default {
   props: {
@@ -299,14 +300,7 @@ export default {
         this.$emit('create', response)
         this.$emit('cancel')
       } catch (error) {
-        this.$q.notify({
-          color: 'red-9',
-          textColor: 'white',
-          icon: 'error',
-          group: 'error',
-          message: m.evaluation_failedToCreateJob(),
-          timeout: 5000,
-        })
+        notify.error(m.evaluation_failedToCreateJob())
       } finally {
         this.loading = false
       }

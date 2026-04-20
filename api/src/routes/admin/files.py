@@ -305,9 +305,12 @@ class FilesController(Controller):
             )
 
         from kreuzberg import detect_mime_type
+
         from storage.config import StorageConfig
+        from storage.mime_validation import validate_upload_mime
 
         detected_mime = detect_mime_type(file_bytes)
+        validate_upload_mime(safe_filename, detected_mime)
 
         cfg = StorageConfig()
         expires_at = datetime.now(timezone.utc) + timedelta(

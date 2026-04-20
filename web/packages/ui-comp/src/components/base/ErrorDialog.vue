@@ -87,11 +87,30 @@ export default {
       return this.errorMessage?.text ?? ''
     },
   },
+  beforeUnmount() {
+    // Clear any pending copied-flag reset so setTimeout doesn't fire after
+    // the dialog is torn down and try to mutate a vanished reactive.
+    if (this._copiedResetTimer) {
+      clearTimeout(this._copiedResetTimer)
+      this._copiedResetTimer = null
+    }
+  },
   methods: {
     clearError() {
       this.appStore?.setErrorMessage(null)
       this.showDetails = false
       this.copied = false
+      if (this._copiedResetTimer) {
+        clearTimeout(this._copiedResetTimer)
+        this._copiedResetTimer = null
+      }
+    },
+    _resetCopiedLater() {
+      if (this._copiedResetTimer) clearTimeout(this._copiedResetTimer)
+      this._copiedResetTimer = setTimeout(() => {
+        this.copied = false
+        this._copiedResetTimer = null
+      }, 2000)
     },
     async copyError() {
       const em = this.errorMessage || {}
@@ -109,7 +128,7 @@ export default {
       try {
         await navigator.clipboard.writeText(lines.join('\n'))
         this.copied = true
-        setTimeout(() => { this.copied = false }, 2000)
+        this._resetCopiedLater()
       } catch {
         // Fallback
         const textarea = document.createElement('textarea')
@@ -119,7 +138,7 @@ export default {
         document.execCommand('copy')
         document.body.removeChild(textarea)
         this.copied = true
-        setTimeout(() => { this.copied = false }, 2000)
+        this._resetCopiedLater()
       }
     },
   },
