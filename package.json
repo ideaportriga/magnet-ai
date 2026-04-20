@@ -42,7 +42,7 @@
     "fix-errors:apply": "npx tsx scripts/fix-errors.ts --apply"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.36.3",
+    "@anthropic-ai/sdk": "^0.90.0",
     "@commitlint/cli": "^20.1.0",
     "@commitlint/config-conventional": "^20.0.0",
     "concurrently": "^9.2.1",
