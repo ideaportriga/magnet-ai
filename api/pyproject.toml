@@ -46,7 +46,7 @@ opentelemetry-exporter-otlp = "1.35.0"
 azure-monitor-opentelemetry-exporter = "^1.0.0b41"
 mcp = "1.10.0"
 cryptography = "45.0.4"
-advanced-alchemy = "^1.4.5"
+advanced-alchemy = {extras = ["dogpile"], version = "^1.9.3"}
 pwdlib = {extras = ["argon2"], version = "^0.3.0"}
 httpx-oauth = "^0.16.0"
 pyotp = "^2.9.0"

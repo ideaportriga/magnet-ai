@@ -34,22 +34,8 @@ def json_serializer_for_sqlalchemy(obj: Any) -> str:
 
 
 def json_deserializer_for_sqlalchemy(s: str | bytes) -> Any:
-    """Deserializer that unwraps double-encoded JSONB values.
-
-    asyncpg decodes the outer JSONB layer automatically, but if the stored
-    value was double-encoded (a JSON string literal inside JSONB), asyncpg
-    returns a Python ``str`` instead of a ``dict``/``list``.  This function
-    detects that case and parses the inner string.
-    """
-    value = decode_json(s)
-    # If the JSONB column contained a string literal (double-encoded),
-    # decode_json returns a str.  Parse it once more to get the real object.
-    if isinstance(value, str):
-        try:
-            return decode_json(value)
-        except Exception:
-            return value
-    return value
+    """Deserializer used by SQLAlchemy engine factories for JSON/JSONB columns."""
+    return decode_json(s)
 
 
 DEFAULT_MODULE_NAME = "app"

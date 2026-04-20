@@ -1,11 +1,23 @@
 """Fix double-encoded JSONB fields across all tables.
 
-Some historical records have JSONB columns stored as JSON string literals
-(e.g. '"[{...}]"' instead of '[{...}]'). This script finds and fixes them.
+LEGACY / ONE-SHOT MIGRATION SCRIPT. Kept for provenance.
+
+Historical records had JSONB columns stored as JSON string literals
+(e.g. '"[{...}]"' instead of '[{...}]'). The root cause has since been fixed:
+
+- ``core/config/base.py`` — ``json_serializer_for_sqlalchemy`` is idempotent
+  (passes strings through unchanged) and is wired into all engine factories.
+- Raw-SQL JSONB writes (``knowledge_graph_document_service``,
+  ``llm_metadata_extraction``) now use ``bindparam(..., type_=JSONB(none_as_null=True))``
+  instead of ``json.dumps`` + ``CAST(:x AS jsonb)``.
+
+This script should not need to run on fresh databases. It is safe to re-run
+for audits — it surfaces any rogue ``jsonb_typeof = 'string'`` rows that slip
+past the serializer guards.
 
 Usage:
-    cd api/src && ../.venv/bin/python scripts/fix_jsonb_strings.py
     cd api/src && ../.venv/bin/python scripts/fix_jsonb_strings.py --dry-run
+    cd api/src && ../.venv/bin/python scripts/fix_jsonb_strings.py
 """
 
 import asyncio

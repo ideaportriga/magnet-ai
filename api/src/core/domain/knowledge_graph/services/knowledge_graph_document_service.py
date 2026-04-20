@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime
 from pathlib import PurePath
@@ -20,8 +19,10 @@ from sqlalchemy import (
     type_coerce,
     update,
 )
+from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config.base import json_serializer_for_sqlalchemy
 from core.db.models.knowledge_graph import (
     KnowledgeGraphDocument,
     KnowledgeGraphSource,
@@ -38,6 +39,23 @@ from core.domain.knowledge_graph.schemas import (
 from services.knowledge_graph.utils import normalize_metadata_value
 
 logger = logging.getLogger(__name__)
+
+_JSONB_NULLABLE = PG_JSONB(none_as_null=True)
+
+
+def _safe_jsonb_payload(payload: Any) -> Any | None:
+    """Return payload if engine's JSON serializer can encode it, else None.
+
+    Preserves the existing best-effort semantics (callers never fail on
+    unserializable metadata — the column stays NULL instead).
+    """
+    if payload is None:
+        return None
+    try:
+        json_serializer_for_sqlalchemy(payload)
+    except Exception:  # noqa: BLE001
+        return None
+    return payload
 
 
 class KnowledgeGraphDocumentService:
@@ -386,29 +404,18 @@ class KnowledgeGraphDocumentService:
         base_name = PurePath(filename).name
         file_ext = base_name.rsplit(".", 1)[-1].lower() if "." in base_name else ""
 
-        doc_metadata_json: str | None = None
         doc_metadata_payload: dict[str, Any] = {}
         if isinstance(file_metadata, dict) and file_metadata:
             doc_metadata_payload["file"] = file_metadata
         if isinstance(source_metadata, dict) and source_metadata:
             doc_metadata_payload["source"] = source_metadata
+        doc_metadata_jsonb: Any | None = None
         if doc_metadata_payload:
-            try:
-                normalized_payload = normalize_metadata_value(doc_metadata_payload)
-                doc_metadata_json = json.dumps(
-                    normalized_payload, ensure_ascii=False, default=str
-                )
-            except Exception:  # noqa: BLE001
-                # Best-effort: do not fail document creation if metadata cannot be serialized.
-                doc_metadata_json = None
+            doc_metadata_jsonb = _safe_jsonb_payload(
+                normalize_metadata_value(doc_metadata_payload)
+            )
 
-        toc_json: str | None = None
-        if toc is not None:
-            try:
-                toc_json = json.dumps(toc, ensure_ascii=False, default=str)
-            except Exception:  # noqa: BLE001
-                # Best-effort: do not fail document creation if TOC cannot be serialized.
-                toc_json = None
+        toc_jsonb: Any | None = _safe_jsonb_payload(toc) if toc is not None else None
 
         docs_table = docs_table_name(source.graph_id)
 
@@ -447,88 +454,96 @@ class KnowledgeGraphDocumentService:
             )
             document_id = existing.scalar_one_or_none()
         if document_id:
+            stmt = text(
+                f"""
+                UPDATE {docs_table}
+                SET status = 'pending',
+                status_message = NULL,
+                total_pages = :total_pages,
+                type = :type,
+                content_profile = :content_profile,
+                title = COALESCE(:title, title),
+                external_link = COALESCE(:external_link, external_link),
+                toc = CASE
+                    WHEN :toc_json IS NULL THEN toc
+                    ELSE :toc_json
+                END,
+                metadata = CASE
+                    WHEN :metadata_json IS NULL THEN metadata
+                    ELSE COALESCE(metadata, '{{}}'::jsonb) || :metadata_json
+                END,
+                processing_time = NULL,
+                source_document_id = :source_document_id,
+                source_modified_at = :source_modified_at,
+                content_hash = :content_hash,
+                updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+                """
+            ).bindparams(
+                bindparam("metadata_json", type_=_JSONB_NULLABLE),
+                bindparam("toc_json", type_=_JSONB_NULLABLE),
+            )
             await db_session.execute(
-                text(
-                    f"""
-                    UPDATE {docs_table}
-                    SET status = 'pending',
-                    status_message = NULL,
-                    total_pages = :total_pages,
-                    type = :type,
-                    content_profile = :content_profile,
-                    title = COALESCE(:title, title),
-                    external_link = COALESCE(:external_link, external_link),
-                    toc = CASE
-                        WHEN CAST(:toc_json AS jsonb) IS NULL THEN toc
-                        ELSE CAST(:toc_json AS jsonb)
-                    END,
-                    metadata = CASE
-                        WHEN CAST(:metadata_json AS jsonb) IS NULL THEN metadata
-                        ELSE COALESCE(metadata, '{{}}'::jsonb) || CAST(:metadata_json AS jsonb)
-                    END,
-                    processing_time = NULL,
-                    source_document_id = :source_document_id,
-                    source_modified_at = :source_modified_at,
-                    content_hash = :content_hash,
-                    updated_at = CURRENT_TIMESTAMP
-                    WHERE id = :id
-                    """
-                ),
+                stmt,
                 {
                     "id": document_id,
                     "total_pages": total_pages,
                     "type": (file_ext or default_document_type),
                     "content_profile": content_profile,
-                    "metadata_json": doc_metadata_json,
+                    "metadata_json": doc_metadata_jsonb,
                     "source_document_id": source_document_id,
                     "source_modified_at": source_modified_at,
                     "content_hash": content_hash,
                     "title": title,
                     "external_link": external_link,
-                    "toc_json": toc_json,
+                    "toc_json": toc_jsonb,
                 },
             )
             await db_session.commit()
         else:
+            stmt = text(
+                f"""
+                INSERT INTO {docs_table} (
+                name, type, status, total_pages, source_id, content_profile, metadata,
+                source_document_id, source_modified_at, content_hash,
+                title, toc, external_link
+                )
+                VALUES (
+                    :name,
+                    :type,
+                    'pending',
+                    :total_pages,
+                    :source_id,
+                    :content_profile,
+                    COALESCE(:metadata_json, '{{}}'::jsonb),
+                    :source_document_id,
+                    :source_modified_at,
+                    :content_hash,
+                    :title,
+                    :toc_json,
+                    :external_link
+                )
+                RETURNING id::text
+                """
+            ).bindparams(
+                bindparam("metadata_json", type_=_JSONB_NULLABLE),
+                bindparam("toc_json", type_=_JSONB_NULLABLE),
+            )
             res = await db_session.execute(
-                text(
-                    f"""
-                    INSERT INTO {docs_table} (
-                    name, type, status, total_pages, source_id, content_profile, metadata,
-                    source_document_id, source_modified_at, content_hash,
-                    title, toc, external_link
-                    )
-                    VALUES (
-                        :name,
-                        :type,
-                        'pending',
-                        :total_pages,
-                        :source_id,
-                        :content_profile,
-                        COALESCE(CAST(:metadata_json AS jsonb), '{{}}'::jsonb),
-                        :source_document_id,
-                        :source_modified_at,
-                        :content_hash,
-                        :title,
-                        CAST(:toc_json AS jsonb),
-                        :external_link
-                    )
-                    RETURNING id::text
-                    """
-                ),
+                stmt,
                 {
                     "name": base_name,
                     "type": (file_ext or default_document_type),
                     "total_pages": total_pages,
                     "source_id": str(source.id),
                     "content_profile": content_profile,
-                    "metadata_json": doc_metadata_json,
+                    "metadata_json": doc_metadata_jsonb,
                     "source_document_id": source_document_id,
                     "source_modified_at": source_modified_at,
                     "content_hash": content_hash,
                     "title": title,
                     "external_link": external_link,
-                    "toc_json": toc_json,
+                    "toc_json": toc_jsonb,
                 },
             )
             document_id = res.scalar_one()
@@ -626,41 +641,37 @@ class KnowledgeGraphDocumentService:
 
         docs_table = docs_table_name(source.graph_id)
 
-        doc_metadata_json: str | None = None
         doc_metadata_payload: dict[str, Any] = {}
         if isinstance(file_metadata, dict) and file_metadata:
             doc_metadata_payload["file"] = file_metadata
         if isinstance(source_metadata, dict) and source_metadata:
             doc_metadata_payload["source"] = source_metadata
+        doc_metadata_jsonb: Any | None = None
         if doc_metadata_payload:
-            try:
-                doc_metadata_json = json.dumps(
-                    normalize_metadata_value(doc_metadata_payload),
-                    ensure_ascii=False,
-                    default=str,
-                )
-            except Exception:  # noqa: BLE001
-                pass  # best-effort
+            doc_metadata_jsonb = _safe_jsonb_payload(
+                normalize_metadata_value(doc_metadata_payload)
+            )
 
+        stmt = text(
+            f"""
+            UPDATE {docs_table}
+            SET
+                name                = COALESCE(:name, name),
+                source_document_id  = COALESCE(:source_document_id, source_document_id),
+                source_modified_at  = COALESCE(:source_modified_at, source_modified_at),
+                title               = COALESCE(:title, title),
+                external_link       = COALESCE(:external_link, external_link),
+                content_profile     = COALESCE(:content_profile, content_profile),
+                metadata            = CASE
+                                        WHEN :metadata_json IS NULL THEN metadata
+                                        ELSE COALESCE(metadata, '{{}}'::jsonb) || :metadata_json
+                                      END,
+                updated_at          = CURRENT_TIMESTAMP
+            WHERE id = :id
+            """
+        ).bindparams(bindparam("metadata_json", type_=_JSONB_NULLABLE))
         await db_session.execute(
-            text(
-                f"""
-                UPDATE {docs_table}
-                SET
-                    name                = COALESCE(:name, name),
-                    source_document_id  = COALESCE(:source_document_id, source_document_id),
-                    source_modified_at  = COALESCE(:source_modified_at, source_modified_at),
-                    title               = COALESCE(:title, title),
-                    external_link       = COALESCE(:external_link, external_link),
-                    content_profile     = COALESCE(:content_profile, content_profile),
-                    metadata            = CASE
-                                            WHEN CAST(:metadata_json AS jsonb) IS NULL THEN metadata
-                                            ELSE COALESCE(metadata, '{{}}'::jsonb) || CAST(:metadata_json AS jsonb)
-                                          END,
-                    updated_at          = CURRENT_TIMESTAMP
-                WHERE id = :id
-                """
-            ),
+            stmt,
             {
                 "id": document_id,
                 "name": PurePath(filename).name if filename else None,
@@ -669,7 +680,7 @@ class KnowledgeGraphDocumentService:
                 "title": title,
                 "external_link": external_link,
                 "content_profile": content_profile,
-                "metadata_json": doc_metadata_json,
+                "metadata_json": doc_metadata_jsonb,
             },
         )
         await db_session.commit()

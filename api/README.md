@@ -137,3 +137,58 @@ Example:
 poetry run pytest -k stores
 ```
 [Using -k expr to select tests based on their name](https://docs.pytest.org/en/7.1.x/example/markers.html#using-k-expr-to-select-tests-based-on-their-name)
+
+## JSONB columns and serialization
+
+**Rule:** never call `json.dumps()` manually before handing a value to a JSONB
+column. Let SQLAlchemy's engine-level `json_serializer_for_sqlalchemy`
+(`core/config/base.py`) handle it — it is idempotent, uses `litestar`'s
+encoder (msgspec/orjson), and handles `datetime`/`UUID`/`Decimal` natively.
+
+### ORM columns
+
+Declare JSONB columns with `advanced_alchemy.types.JsonB`:
+
+```python
+from advanced_alchemy.types import JsonB
+
+variants: Mapped[Optional[list[Any]]] = mapped_column(JsonB, nullable=True)
+```
+
+Assign Python `dict` / `list` directly. Do **not** pre-serialize.
+
+### Raw SQL with `text()`
+
+When you can't avoid raw SQL (dynamic table names, COALESCE-merge semantics),
+declare the JSONB bind param explicitly:
+
+```python
+from sqlalchemy import bindparam, text
+from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
+
+stmt = text(
+    f"""
+    UPDATE {table}
+    SET metadata = CASE
+        WHEN :metadata_json IS NULL THEN metadata
+        ELSE COALESCE(metadata, '{{}}'::jsonb) || :metadata_json
+    END
+    WHERE id = :id
+    """
+).bindparams(bindparam("metadata_json", type_=PG_JSONB(none_as_null=True)))
+
+await db_session.execute(
+    stmt, {"id": doc_id, "metadata_json": payload_dict_or_None}
+)
+```
+
+`none_as_null=True` is important — it maps Python `None` to SQL `NULL`
+(otherwise JSON `null` is stored and `IS NULL` checks silently fail).
+
+### What to avoid
+
+- `json.dumps(payload, default=str)` + `CAST(:x AS jsonb)` — legacy pattern
+  that caused double-encoding; fixed by the one-shot
+  `scripts/fix_jsonb_strings.py`.
+- Re-implementing a custom `TypeDecorator` for JSONB — use `JsonB` from
+  `advanced_alchemy.types`.

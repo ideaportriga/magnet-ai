@@ -152,24 +152,28 @@ async def get_options_rag(
     all_conditions = base_conditions + extra_conditions
 
     # Get topics
+    topic_expr = Metric.extra_data["topic"].as_string().label("topic")
     stmt = (
-        select(distinct(Metric.extra_data["topic"].as_string()).label("topic"))
+        select(topic_expr)
+        .distinct()
         .where(*all_conditions)
-        .where(Metric.extra_data["topic"].as_string().is_not(None))
-        .order_by(Metric.extra_data["topic"].as_string())
+        .where(topic_expr.is_not(None))
     )
     topics_result = await db_session.execute(stmt)
-    topics = [row.topic for row in topics_result.fetchall() if row.topic]
+    topics = sorted({row.topic for row in topics_result.fetchall() if row.topic})
 
     # Get languages
+    language_expr = Metric.extra_data["language"].as_string().label("language")
     stmt = (
-        select(distinct(Metric.extra_data["language"].as_string()).label("language"))
+        select(language_expr)
+        .distinct()
         .where(*all_conditions)
-        .where(Metric.extra_data["language"].as_string().is_not(None))
-        .order_by(Metric.extra_data["language"].as_string())
+        .where(language_expr.is_not(None))
     )
     languages_result = await db_session.execute(stmt)
-    languages = [row.language for row in languages_result.fetchall() if row.language]
+    languages = sorted(
+        {row.language for row in languages_result.fetchall() if row.language}
+    )
 
     # Get consumer names
     stmt = (
@@ -182,16 +186,14 @@ async def get_options_rag(
     consumer_names = [row[0] for row in consumer_names_result.fetchall() if row[0]]
 
     # Get organizations
+    org_expr = Metric.x_attributes["org-id"].as_string().label("org_id")
     stmt = (
-        select(distinct(Metric.x_attributes["org-id"].as_string()).label("org_id"))
-        .where(*all_conditions)
-        .where(Metric.x_attributes["org-id"].as_string().is_not(None))
-        .order_by(Metric.x_attributes["org-id"].as_string())
+        select(org_expr).distinct().where(*all_conditions).where(org_expr.is_not(None))
     )
     organizations_result = await db_session.execute(stmt)
-    organizations = [
-        row.org_id for row in organizations_result.fetchall() if row.org_id
-    ]
+    organizations = sorted(
+        {row.org_id for row in organizations_result.fetchall() if row.org_id}
+    )
 
     return OptionsRagResponse(
         topics=topics,
@@ -225,16 +227,14 @@ async def get_options_llm(
     consumer_names = [row[0] for row in consumer_names_result.fetchall() if row[0]]
 
     # Get organizations
+    org_expr = Metric.x_attributes["org-id"].as_string().label("org_id")
     stmt = (
-        select(distinct(Metric.x_attributes["org-id"].as_string()).label("org_id"))
-        .where(*all_conditions)
-        .where(Metric.x_attributes["org-id"].as_string().is_not(None))
-        .order_by(Metric.x_attributes["org-id"].as_string())
+        select(org_expr).distinct().where(*all_conditions).where(org_expr.is_not(None))
     )
     organizations_result = await db_session.execute(stmt)
-    organizations = [
-        row.org_id for row in organizations_result.fetchall() if row.org_id
-    ]
+    organizations = sorted(
+        {row.org_id for row in organizations_result.fetchall() if row.org_id}
+    )
 
     return OptionsLlmResponse(
         consumer_names=consumer_names, organizations=organizations
@@ -287,28 +287,27 @@ async def get_options_agent(
     consumer_names = [row[0] for row in consumer_names_result.fetchall() if row[0]]
 
     # Get languages
+    language_expr = Metric.conversation_data["language"].as_string().label("language")
     stmt = (
-        select(
-            distinct(Metric.conversation_data["language"].as_string()).label("language")
-        )
+        select(language_expr)
+        .distinct()
         .where(*all_conditions)
-        .where(Metric.conversation_data["language"].as_string().is_not(None))
-        .order_by(Metric.conversation_data["language"].as_string())
+        .where(language_expr.is_not(None))
     )
     languages_result = await db_session.execute(stmt)
-    languages = [row.language for row in languages_result.fetchall() if row.language]
+    languages = sorted(
+        {row.language for row in languages_result.fetchall() if row.language}
+    )
 
     # Get organizations
+    org_expr = Metric.x_attributes["org-id"].as_string().label("org_id")
     stmt = (
-        select(distinct(Metric.x_attributes["org-id"].as_string()).label("org_id"))
-        .where(*all_conditions)
-        .where(Metric.x_attributes["org-id"].as_string().is_not(None))
-        .order_by(Metric.x_attributes["org-id"].as_string())
+        select(org_expr).distinct().where(*all_conditions).where(org_expr.is_not(None))
     )
     organizations_result = await db_session.execute(stmt)
-    organizations = [
-        row.org_id for row in organizations_result.fetchall() if row.org_id
-    ]
+    organizations = sorted(
+        {row.org_id for row in organizations_result.fetchall() if row.org_id}
+    )
 
     return OptionsAgentResponse(
         topics=topics,

@@ -7,9 +7,11 @@ from typing import Any, Literal
 from uuid import UUID
 
 import yaml
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
+from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config.base import json_serializer_for_sqlalchemy
 from core.db.models.knowledge_graph import chunks_table_name, docs_table_name
 from services.knowledge_graph.metadata_services import (
     accumulate_extracted_metadata_fields,
@@ -358,23 +360,24 @@ async def _upsert_document_llm_metadata(
         return
 
     docs_tbl = docs_table_name(graph_id)
+    normalized_metadata = normalize_metadata_value({"llm": llm_metadata})
     try:
-        normalized_metadata = normalize_metadata_value({"llm": llm_metadata})
-        metadata_json = json.dumps(normalized_metadata, ensure_ascii=False, default=str)
+        json_serializer_for_sqlalchemy(normalized_metadata)
     except Exception:  # noqa: BLE001
         logger.warning("Failed to serialize LLM metadata for document %s", document_id)
         return
 
+    stmt = text(
+        f"""
+        UPDATE {docs_tbl}
+        SET metadata = COALESCE(metadata, '{{}}'::jsonb) || :metadata_json,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = :id
+        """
+    ).bindparams(bindparam("metadata_json", type_=PG_JSONB(none_as_null=True)))
     await db_session.execute(
-        text(
-            f"""
-            UPDATE {docs_tbl}
-            SET metadata = COALESCE(metadata, '{{}}'::jsonb) || CAST(:metadata_json AS jsonb),
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = :id
-            """
-        ),
-        {"id": document_id, "metadata_json": metadata_json},
+        stmt,
+        {"id": document_id, "metadata_json": normalized_metadata},
     )
 
 

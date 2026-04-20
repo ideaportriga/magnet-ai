@@ -707,10 +707,17 @@ class AuthV2Controller(Controller):
             from core.db.models.user.password_reset_token import PasswordResetToken
             from sqlalchemy import select
 
-            stmt = select(PasswordResetToken).where(
-                PasswordResetToken.token_hash == token_hash
+            stmt = (
+                select(PasswordResetToken)
+                .where(PasswordResetToken.token_hash == token_hash)
+                .with_for_update(nowait=True)
             )
-            result = await session.execute(stmt)
+            try:
+                result = await session.execute(stmt)
+            except Exception:
+                raise NotAuthorizedException(
+                    "Token operation in progress, please retry"
+                )
             reset_token = result.scalar_one_or_none()
 
             if not reset_token:
