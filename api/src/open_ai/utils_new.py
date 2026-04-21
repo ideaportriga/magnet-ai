@@ -234,11 +234,20 @@ async def create_chat_completion(
             chat_completion.usage, actual_model_system_name
         )
 
-        # Prepare output for traces and metrics
+        # Prepare output for traces and metrics.
+        # At this point the provider has already run response_validation, so
+        # `choices[0]` exists and `content` is either a string or tool_calls
+        # carries the response. Finish_reason / content_empty / choices_count
+        # are surfaced on the span so successful-but-degraded completions
+        # (e.g. finish_reason="length" with partial content) stay visible in
+        # traces instead of looking like a normal success.
+        first_choice = chat_completion.choices[0]
+        first_message = first_choice.message
         call_output = {
             "id": chat_completion.id,
-            "role": chat_completion.choices[0].message.role,
-            "content": chat_completion.choices[0].message.content,
+            "role": first_message.role,
+            "content": first_message.content,
+            "finish_reason": first_choice.finish_reason,
             "tool_calls": [
                 {
                     "function": {
@@ -246,9 +255,9 @@ async def create_chat_completion(
                         "arguments": tool_call.function.arguments,
                     },
                 }
-                for tool_call in chat_completion.choices[0].message.tool_calls
+                for tool_call in first_message.tool_calls
             ]
-            if chat_completion.choices[0].message.tool_calls
+            if first_message.tool_calls
             else None,
         }
 
@@ -257,6 +266,12 @@ async def create_chat_completion(
             usage_details=call_usage,
             cost_details=call_cost,
             output=call_output,
+            extra_data={
+                "finish_reason": first_choice.finish_reason,
+                "content_empty": not first_message.content
+                and not first_message.tool_calls,
+                "choices_count": len(chat_completion.choices),
+            },
         )
 
         # Record chat completion metrics

@@ -617,7 +617,55 @@ class ObservabilityContext:
         if span:
             span.record_exception(e)
             span.set_status(StatusCode.ERROR)
+            # For typed LLM errors, stamp the structured fields onto the span
+            # so they persist into metrics.extra_data / traces.spans[].extra_data
+            # and can be rendered in the admin UI (LLM Calls / Traces).
+            self._stamp_llm_error_attributes(span, e)
         raise e
+
+    @staticmethod
+    def _stamp_llm_error_attributes(span: Span, e: Exception) -> None:
+        """If `e` is an LLMError, expose its fields as magnet_ai.extra_data.*.
+
+        Imported lazily to avoid a circular import (ai_services → observability).
+        Swallows any failure — observability must never break the request path.
+        """
+        try:
+            from services.ai_services.exceptions import LLMError
+        except Exception:
+            return
+
+        if not isinstance(e, LLMError):
+            return
+
+        import json as _json
+
+        fields: dict[str, Any] = {
+            "error_type": type(e).__name__,
+            "error_message": e.message,
+            "error_source": e.source,
+            "error_provider": e.provider,
+            "error_model": e.model,
+            "error_status_code": e.status_code,
+            "error_request_id": e.request_id,
+        }
+        # Subclass-specific extras (content_filter, length, retry_after, ...)
+        for attr in ("finish_reason", "reason", "retry_after"):
+            if hasattr(e, attr):
+                value = getattr(e, attr)
+                if value is not None:
+                    fields[f"error_{attr}"] = value
+
+        for key, value in fields.items():
+            if value is None:
+                continue
+            try:
+                span.set_attribute(
+                    f"magnet_ai.extra_data.{key}",
+                    _json.dumps(value, default=str),
+                )
+            except Exception:
+                continue
 
     def update_current_config(
         self, *, span_export_method: SpanExportMethod | None = None

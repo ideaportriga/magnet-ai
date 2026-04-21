@@ -949,7 +949,7 @@ async def get_metrics_by_feature_type(
     user_id_field = "user_id," if OBSERVABILITY_USAGE_SHOW_USERS else ""
 
     metrics_sql = f"""
-        SELECT 
+        SELECT
             id,
             feature_name,
             feature_id,
@@ -973,7 +973,7 @@ async def get_metrics_by_feature_type(
             {user_id_field}
             created_at,
             updated_at
-        FROM metrics 
+        FROM metrics
         {full_where}
         ORDER BY {sort} {order}
         LIMIT {limit} OFFSET {skip}

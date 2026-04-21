@@ -15,6 +15,14 @@ class OtelMetric(StrEnum):
     # Unofficial Generative AI metric, used to measure cost (input and output) of the LLM operation
     GEN_AI_COST = "gen_ai.client.token.cost"
 
+    # Magnet AI LLM reliability counters — emitted from BaseLiteLLMProvider and
+    # MagnetAILogger so dashboards can separate router-layer from provider-layer
+    # failures and surface silent degradations (empty replies, guardrails).
+    LLM_ERRORS_TOTAL = "magnet_ai.llm.errors.total"
+    LLM_RATE_LIMIT_TOTAL = "magnet_ai.llm.rate_limit.total"
+    LLM_EMPTY_RESPONSE_TOTAL = "magnet_ai.llm.empty_response.total"
+    LLM_ROUTER_RETRIES_TOTAL = "magnet_ai.llm.router.retries.total"
+
 
 class OtelTokenType(StrEnum):
     INPUT = "input"

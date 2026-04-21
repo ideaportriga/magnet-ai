@@ -14,6 +14,8 @@ from sqlalchemy.exc import (
     SQLAlchemyError,
 )
 
+from services.ai_services.exceptions import LLMError, LLMRateLimitError
+
 if TYPE_CHECKING:
     from litestar.config.app import AppConfig
 
@@ -35,12 +37,42 @@ class ExceptionHandlersPlugin(InitPluginProtocol):
                 OperationalError: self._sqlalchemy_error_handler,
                 DatabaseError: self._sqlalchemy_error_handler,
                 ValidationException: self._validation_exception_handler,
+                LLMError: self._llm_error_handler,
                 Exception: self._unexpected_exception_handler,
             }
         )
 
         app_config.exception_handlers = exception_handlers
         return app_config
+
+    def _llm_error_handler(self, _: Request, exc: LLMError) -> Response:
+        """Map LLM domain exceptions to meaningful HTTP statuses.
+
+        Each subclass carries `http_status_code`; 429s also include a
+        `Retry-After` header when the upstream provided one, so clients
+        can back off correctly instead of hammering retries.
+        """
+        status_code = exc.http_status_code
+        logger.warning(
+            "LLM error: type=%s source=%s provider=%s model=%s status=%s request_id=%s msg=%s",
+            type(exc).__name__,
+            exc.source,
+            exc.provider,
+            exc.model,
+            exc.status_code,
+            exc.request_id,
+            exc.message,
+        )
+
+        headers: dict[str, str] = {}
+        if isinstance(exc, LLMRateLimitError) and exc.retry_after is not None:
+            headers["Retry-After"] = str(int(exc.retry_after))
+
+        return Response(
+            content={"error": exc.to_dict()},
+            status_code=status_code,
+            headers=headers or None,
+        )
 
     def _http_error_handler(self, _: Request, exc: HTTPException) -> Response:
         """Handle HTTP exceptions."""

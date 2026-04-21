@@ -39,6 +39,9 @@ from openai.types.chat import (
 from models import DocumentSearchResult
 from services.ai_services.cache import response_cache
 from services.ai_services.interface import AIProviderInterface
+from services.ai_services.exceptions import LLMError
+from services.ai_services.litellm_call import litellm_call_context
+from services.ai_services.metrics import record_from_exception, record_router_retries
 from services.ai_services.models import (
     EmbeddingResponse,
     ImageGenerationResult,
@@ -47,6 +50,12 @@ from services.ai_services.models import (
     ResponsesAPIResult,
     RoutingConfig,
     TranscriptionResponse,
+)
+from services.ai_services.response_validation import (
+    extract_request_id,
+    extract_retry_count,
+    validate_completion,
+    validate_streamed_completion,
 )
 
 logger = logging.getLogger(__name__)
@@ -199,6 +208,31 @@ class BaseLiteLLMProvider(AIProviderInterface):
                 response.usage.completion_tokens = 0
                 response.usage.total_tokens = 0
 
+        # Reject empty / guardrail-blocked / zero-content-truncated responses
+        # with a typed domain exception so they stop being silent HTTP 200s.
+        # Record the error metric even if a caller swallows the exception.
+        model_system_name = (model_config or {}).get("system_name")
+        try:
+            validate_completion(
+                response,
+                model=model_system_name or model,
+                provider=self.litellm_provider or None,
+                source="router" if model_system_name else "provider",
+            )
+        except LLMError as e:
+            record_from_exception(e)
+            raise
+
+        # Router retry-count metric (covers Phase 3.2 — only emitted on success
+        # because a failed call already records an error).
+        retries = extract_retry_count(response)
+        if retries:
+            record_router_retries(
+                retries=retries,
+                provider=self.litellm_provider or None,
+                model=model_system_name or model,
+            )
+
         return cast(ChatCompletion, response)
 
     async def create_chat_completion_stream(
@@ -245,8 +279,50 @@ class BaseLiteLLMProvider(AIProviderInterface):
         params["stream_options"] = {"include_usage": True}
 
         response = await self._execute_stream(params, routing_config, model_config)
+
+        # Track the final state of the stream so we can validate it on exit.
+        # Tool-call chunks arrive as deltas; we just need to know whether any
+        # arrived because in that case null aggregated content is expected.
+        aggregated_content: list[str] = []
+        finish_reason: str | None = None
+        tool_calls_seen = False
+        request_id: str | None = None
+        last_chunk: Any = None
+        model_system_name = (model_config or {}).get("system_name")
+
         async for chunk in response:
+            last_chunk = chunk
+            choices = getattr(chunk, "choices", None)
+            if choices:
+                first = choices[0]
+                delta = getattr(first, "delta", None)
+                if delta is not None:
+                    delta_content = getattr(delta, "content", None)
+                    if delta_content:
+                        aggregated_content.append(delta_content)
+                    if getattr(delta, "tool_calls", None):
+                        tool_calls_seen = True
+                fr = getattr(first, "finish_reason", None)
+                if fr:
+                    finish_reason = fr
             yield chunk
+
+        if last_chunk is not None:
+            request_id = extract_request_id(last_chunk)
+
+        try:
+            validate_streamed_completion(
+                aggregated_content="".join(aggregated_content),
+                finish_reason=finish_reason,
+                tool_calls_seen=tool_calls_seen,
+                model=model_system_name or model,
+                provider=self.litellm_provider or None,
+                source="router" if model_system_name else "provider",
+                request_id=request_id,
+            )
+        except LLMError as e:
+            record_from_exception(e)
+            raise
 
     async def _execute_stream(
         self,
@@ -262,6 +338,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         from services.ai_services.router import get_router, is_model_in_router
 
         model_system_name = (model_config or {}).get("system_name")
+        model_label = model_system_name or params.get("model")
 
         if model_system_name and is_model_in_router(model_system_name):
             router = await get_router()
@@ -271,9 +348,19 @@ class BaseLiteLLMProvider(AIProviderInterface):
                 if k not in ("api_key", "api_base", "api_version")
             }
             router_params["model"] = model_system_name
-            return await router.acompletion(**router_params)
+            async with litellm_call_context(
+                source="router",
+                model=model_label,
+                provider=self.litellm_provider or None,
+            ):
+                return await router.acompletion(**router_params)
         else:
-            return await litellm.acompletion(**params)
+            async with litellm_call_context(
+                source="provider",
+                model=model_label,
+                provider=self.litellm_provider or None,
+            ):
+                return await litellm.acompletion(**params)
 
     def _build_completion_params(
         self,
@@ -407,6 +494,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         from services.ai_services.router import get_router, is_model_in_router
 
         model_system_name = (model_config or {}).get("system_name")
+        model_label = model_system_name or params.get("model")
 
         if model_system_name and is_model_in_router(model_system_name):
             router = await get_router()
@@ -416,14 +504,24 @@ class BaseLiteLLMProvider(AIProviderInterface):
                 if k not in ("api_key", "api_base", "api_version")
             }
             router_params["model"] = model_system_name
-            response = await router.acompletion(**router_params)
+            async with litellm_call_context(
+                source="router",
+                model=model_label,
+                provider=self.litellm_provider or None,
+            ):
+                response = await router.acompletion(**router_params)
         else:
             if model_system_name:
                 logger.debug(
                     "Model '%s' not in Router, using direct litellm call",
                     model_system_name,
                 )
-            response = await litellm.acompletion(**params)
+            async with litellm_call_context(
+                source="provider",
+                model=model_label,
+                provider=self.litellm_provider or None,
+            ):
+                response = await litellm.acompletion(**params)
 
         return cast(ChatCompletion, response)
 
@@ -456,7 +554,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if routing_config.timeout:
             params["timeout"] = routing_config.timeout
 
-        response = await litellm.aembedding(**params)
+        async with litellm_call_context(
+            source="provider",
+            model=full_model,
+            provider=self.litellm_provider or None,
+        ):
+            response = await litellm.aembedding(**params)
 
         usage_data = response.usage
         return EmbeddingResponse(
@@ -495,7 +598,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
         params["documents"] = doc_texts
         params["top_n"] = top_n
 
-        response: Any = await litellm.arerank(**params)
+        async with litellm_call_context(
+            source="provider",
+            model=full_model,
+            provider=self.litellm_provider or None,
+        ):
+            response: Any = await litellm.arerank(**params)
 
         usage = None
         if hasattr(response, "usage") and response.usage:
@@ -555,7 +663,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
                 params["tool_choice"] = req["tool_choice"]
             batch_params.append(params)
 
-        responses = await litellm.abatch_completion(batch_params)
+        async with litellm_call_context(
+            source="provider",
+            model=None,
+            provider=self.litellm_provider or None,
+        ):
+            responses = await litellm.abatch_completion(batch_params)
         return [cast(ChatCompletion, r) for r in responses]
 
     def _transform_response_format(self, response_format: dict | None) -> dict | None:
@@ -698,7 +811,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if timestamp_granularities:
             params["timestamp_granularities"] = timestamp_granularities
 
-        response: Any = await litellm.atranscription(**params)
+        async with litellm_call_context(
+            source="provider",
+            model=full_model,
+            provider=self.litellm_provider or None,
+        ):
+            response: Any = await litellm.atranscription(**params)
 
         return TranscriptionResponse(
             text=getattr(response, "text", str(response)),
@@ -742,7 +860,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if speed:
             params["speed"] = speed
 
-        response = await litellm.aspeech(**params)
+        async with litellm_call_context(
+            source="provider",
+            model=full_model,
+            provider=self.litellm_provider or None,
+        ):
+            response = await litellm.aspeech(**params)
         # response is HttpxBinaryResponseContent
         return response.read()
 
@@ -824,7 +947,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if routing_config.timeout:
             params["timeout"] = routing_config.timeout
 
-        response: Any = await litellm.aresponses(**params)
+        async with litellm_call_context(
+            source="provider",
+            model=full_model,
+            provider=self.litellm_provider or None,
+        ):
+            response: Any = await litellm.aresponses(**params)
 
         # Extract output text from the response
         output_text = ""
@@ -928,7 +1056,12 @@ class BaseLiteLLMProvider(AIProviderInterface):
         if routing_config.timeout:
             params["timeout"] = routing_config.timeout
 
-        response: Any = await litellm.aresponses(**params)
+        async with litellm_call_context(
+            source="provider",
+            model=full_model,
+            provider=self.litellm_provider or None,
+        ):
+            response: Any = await litellm.aresponses(**params)
         async for event in response:
             yield event
 

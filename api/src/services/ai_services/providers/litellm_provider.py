@@ -70,6 +70,7 @@ from litellm import Router
 from litellm.types.utils import EmbeddingResponse as LiteLLMEmbeddingResponse
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 
+from services.ai_services.litellm_call import litellm_call_context
 from services.ai_services.models import EmbeddingResponse, ModelUsage, RoutingConfig
 from services.ai_services.providers.base_litellm import BaseLiteLLMProvider
 
@@ -165,6 +166,8 @@ class LiteLLMProvider(BaseLiteLLMProvider):
         Overrides BaseLiteLLMProvider to route through the provider-level
         Router when configured, enabling load balancing across deployments.
         """
+        model_label = params.get("model")
+
         if self.use_router and self.router:
             # Strip provider-specific connection params — Router has its own
             router_params = {
@@ -172,7 +175,10 @@ class LiteLLMProvider(BaseLiteLLMProvider):
                 for k, v in params.items()
                 if k not in ("api_key", "api_base", "api_version")
             }
-            response = await self.router.acompletion(**router_params)
+            async with litellm_call_context(
+                source="router", model=model_label, provider=None
+            ):
+                response = await self.router.acompletion(**router_params)
             return cast(ChatCompletion, response)
 
         # Direct mode — add connection params and call litellm
@@ -187,7 +193,10 @@ class LiteLLMProvider(BaseLiteLLMProvider):
         if routing_config.fallback_models:
             params["fallbacks"] = [{"model": m} for m in routing_config.fallback_models]
 
-        response = await litellm.acompletion(**params)
+        async with litellm_call_context(
+            source="provider", model=model_label, provider=None
+        ):
+            response = await litellm.acompletion(**params)
         return cast(ChatCompletion, response)
 
     async def create_chat_completion_with_routing(
@@ -237,10 +246,13 @@ class LiteLLMProvider(BaseLiteLLMProvider):
             )
 
         if self.use_router and self.router:
-            response: LiteLLMEmbeddingResponse = await self.router.aembedding(
-                model=model,
-                input=[text],
-            )
+            async with litellm_call_context(
+                source="router", model=model, provider=None
+            ):
+                response: LiteLLMEmbeddingResponse = await self.router.aembedding(
+                    model=model,
+                    input=[text],
+                )
         else:
             kwargs: dict[str, Any] = {"model": model, "input": [text]}
             if self.api_key:
@@ -248,7 +260,10 @@ class LiteLLMProvider(BaseLiteLLMProvider):
             if self.endpoint:
                 kwargs["api_base"] = self.endpoint
 
-            response = await litellm.aembedding(**kwargs)
+            async with litellm_call_context(
+                source="provider", model=model, provider=None
+            ):
+                response = await litellm.aembedding(**kwargs)
 
         return EmbeddingResponse(
             data=response.data[0]["embedding"],
@@ -289,9 +304,13 @@ class LiteLLMProvider(BaseLiteLLMProvider):
             batch_params.append(params)
 
         if self.use_router and self.router:
-            responses = await self.router.abatch_completion(batch_params)
+            async with litellm_call_context(source="router", model=None, provider=None):
+                responses = await self.router.abatch_completion(batch_params)
         else:
-            responses = await litellm.abatch_completion(batch_params)
+            async with litellm_call_context(
+                source="provider", model=None, provider=None
+            ):
+                responses = await litellm.abatch_completion(batch_params)
 
         return [cast(ChatCompletion, r) for r in responses]
 

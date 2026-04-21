@@ -34,7 +34,48 @@
           q-tab(:name='t.name', :label='t.label')
     q-scroll-area.fit.q-pr-md
       template(v-if='tab == "error"')
-        .row.ba-border.border-radius-8.q-pa-sm.bg-light(style='border-color: #ff0000; word-break: break-all; white-space: break-spaces') {{ span?.status_message }}
+        .column.q-gap-16
+          //- Structured summary — populated whenever the backend raises
+          //- a typed LLMError. Values come from magnet_ai.extra_data.error_*
+          //- (see services/observability/decorators.py:_stamp_llm_error_attributes).
+          .ba-border.border-radius-8.q-pa-md.bg-white(
+            v-if='hasStructuredError',
+            style='border-color: var(--q-error, #ff0000)'
+          )
+            .row.items-center.q-gap-8.q-mb-sm
+              q-icon(:name='errorIcon', color='red', size='20px')
+              .km-heading-4.text-red {{ errorTypeLabel }}
+              q-space
+              q-chip.km-small-chip(
+                v-if='errorSource',
+                :label='errorSource',
+                color='light',
+                text-color='primary'
+              )
+            .km-field.q-mb-md(v-if='errorMessage', style='word-break: break-word; white-space: pre-wrap') {{ errorMessage }}
+            .row.q-col-gutter-sm
+              .col-6(v-if='errorProvider')
+                .km-input-label.text-text-grey Provider
+                .km-heading-2 {{ errorProvider }}
+              .col-6(v-if='errorModel')
+                .km-input-label.text-text-grey Model
+                .km-heading-2 {{ errorModel }}
+              .col-6(v-if='finishReason')
+                .km-input-label.text-text-grey Finish reason
+                .km-heading-2 {{ finishReason }}
+              .col-6(v-if='errorStatusCode != null')
+                .km-input-label.text-text-grey Upstream status
+                .km-heading-2 {{ errorStatusCode }}
+              .col-6(v-if='retryAfter != null')
+                .km-input-label.text-text-grey Retry after
+                .km-heading-2 {{ retryAfter }} s
+              .col-12(v-if='requestId')
+                .km-input-label.text-text-grey Provider request ID
+                .km-heading-2(style='font-family: SFMono-Regular, ui-monospace, Menlo, Consolas, monospace; font-size: 12px; word-break: break-all') {{ requestId }}
+          //- Raw status_message / stacktrace — shown below the structured block
+          .ba-border.border-radius-8.q-pa-sm.bg-light(
+            style='border-color: #ff0000; word-break: break-all; white-space: pre-wrap; font-family: SFMono-Regular, ui-monospace, Menlo, Consolas, monospace; font-size: 12px;'
+          ) {{ span?.status_message }}
       template(v-else-if='tab == "input_output"')
         template(v-if='span?.type == "search"')
           observability-traces-search-input-output(:span='span')
@@ -110,6 +151,59 @@ export default defineComponent({
   computed: {
     traceMetadata() {
       return this.trace?.extra_data || {}
+    },
+    extra() {
+      return this.span?.extra_data || {}
+    },
+    errorType() {
+      return this.extra.error_type || null
+    },
+    errorMessage() {
+      return this.extra.error_message || this.span?.status_message || null
+    },
+    errorSource() {
+      return this.extra.error_source || null
+    },
+    errorProvider() {
+      return this.extra.error_provider || null
+    },
+    errorModel() {
+      return this.extra.error_model || null
+    },
+    errorStatusCode() {
+      return this.extra.error_status_code ?? null
+    },
+    finishReason() {
+      return this.extra.error_finish_reason || this.extra.finish_reason || null
+    },
+    retryAfter() {
+      return this.extra.error_retry_after ?? null
+    },
+    requestId() {
+      return this.extra.error_request_id || null
+    },
+    hasStructuredError() {
+      return !!(this.errorType || this.errorSource || this.errorProvider || this.finishReason)
+    },
+    errorTypeLabel() {
+      if (!this.errorType) return 'Error'
+      if (this.errorType === 'LLMGuardrailBlockedError') return 'Guardrail blocked the response'
+      if (this.errorType === 'LLMRateLimitError') return 'Rate limit'
+      if (this.errorType === 'LLMTruncatedError') return 'Truncated (no content produced)'
+      if (this.errorType === 'LLMEmptyResponseError') return 'Empty response'
+      if (this.errorType === 'LLMTimeoutError') return 'Timeout'
+      if (this.errorType === 'LLMContextWindowExceededError') return 'Context window exceeded'
+      if (this.errorType === 'LLMProviderAuthError') return 'Provider authentication error'
+      if (this.errorType === 'LLMProviderServiceUnavailableError') return 'Provider unavailable'
+      if (this.errorType === 'LLMProviderBadRequestError') return 'Provider rejected request'
+      if (this.errorType === 'LLMProviderAPIError') return 'Provider API error'
+      return this.errorType
+    },
+    errorIcon() {
+      if (this.errorType === 'LLMGuardrailBlockedError') return 'fa-solid fa-shield-halved'
+      if (this.errorType === 'LLMRateLimitError') return 'fa-solid fa-gauge-high'
+      if (this.errorType === 'LLMTimeoutError') return 'fa-regular fa-clock'
+      return 'fa-solid fa-circle-exclamation'
     },
     filteredTabs() {
       return this.tabs.filter(

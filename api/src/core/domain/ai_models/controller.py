@@ -17,6 +17,7 @@ from core.domain.ai_models.service import (
 )
 from core.domain.providers.service import ProvidersService
 from openai_model.utils import clear_model_cache
+from services.ai_services.exceptions import LLMError, LLMTruncatedError
 
 from .schemas import AIModel, AIModelCreate, AIModelSetDefaultRequest, AIModelUpdate
 
@@ -568,12 +569,16 @@ class AIModelsController(Controller):
                 ]
 
                 try:
+                    # 256 tokens covers reasoning models — their internal
+                    # reasoning tokens count against max_tokens and max=16
+                    # produces content=None + finish_reason=length, which our
+                    # response validator (rightly) rejects as truncation.
                     response = await ai_provider.create_chat_completion(
                         messages=test_messages,
                         model=model_name,
                         temperature=0,
                         top_p=1,
-                        max_tokens=16,  # Minimal tokens to save costs (Responses API requires >= 16)
+                        max_tokens=256,
                         model_config=model_config,
                     )
 
@@ -597,11 +602,33 @@ class AIModelsController(Controller):
                             error="No response choices returned from model",
                             **debug_info,
                         )
+                except LLMTruncatedError:
+                    # Truncation at a test-sized max_tokens still proves the
+                    # connection works — treat as success with a note.
+                    return ModelTestResult(
+                        success=True,
+                        message=(
+                            f"Model '{model.display_name}' is reachable — "
+                            "response was truncated by max_tokens (expected for reasoning models)."
+                        ),
+                        error=None,
+                        response_preview="(truncated: reasoning model consumed all output tokens)",
+                        **debug_info,
+                    )
                 except NotImplementedError:
                     return ModelTestResult(
                         success=False,
                         message="Provider does not support chat completions",
                         error="The configured provider does not implement chat completions",
+                        **debug_info,
+                    )
+                except LLMError as e:
+                    # Map domain errors to their descriptive message rather
+                    # than the raw exception string.
+                    return ModelTestResult(
+                        success=False,
+                        message="Chat completion test failed",
+                        error=e.message,
                         **debug_info,
                     )
                 except Exception as e:

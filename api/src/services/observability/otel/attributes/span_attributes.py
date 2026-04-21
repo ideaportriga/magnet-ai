@@ -211,7 +211,11 @@ def _gen_ai_chat_otel_attributes(fields: SpanFields):
     attributes["gen_ai.request.temperature"] = model_params.get("temperature")
     # attributes["gen_ai.request.top_k"] = "" # MagnetAI does not support this parameter yet
     attributes["gen_ai.request.top_p"] = model_params.get("top_p")
-    # attributes["gen_ai.response.finish_reasons"] = "" # MagnetAI does not support this parameter yet
+    # finish_reasons is a list per OTel Gen AI semconv, but we only produce
+    # one choice today, so emit a single-element list when available.
+    finish_reason = output.get("finish_reason")
+    if finish_reason:
+        attributes["gen_ai.response.finish_reasons"] = [finish_reason]
     attributes["gen_ai.response.id"] = output.get("id")
     attributes["gen_ai.response.model"] = model_params.get("llm")
     attributes["gen_ai.usage.input_tokens"] = usage_details.input

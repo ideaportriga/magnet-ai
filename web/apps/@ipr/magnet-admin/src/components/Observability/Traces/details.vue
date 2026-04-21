@@ -14,7 +14,16 @@
                 q-space 
                 q-chip.q-ma-none.km-heading.text-uppercase(v-if='channel', :label='channel', color='chip-accent-bg', textColor='primary')
                 q-chip.q-ma-none.km-heading.text-uppercase(v-if='type', :label='type', color='light')
-                q-chip.q-ma-none.km-heading.text-white(v-if='status === "error"', label='ERROR', color='red')
+                q-chip.q-ma-none.km-heading.text-white(
+                  v-if='status === "error"',
+                  :label='firstErrorLabel',
+                  color='red',
+                  icon='fa-solid fa-triangle-exclamation'
+                )
+                  q-tooltip(v-if='firstErrorSpan?.extra_data?.error_message', :offset='[0, 10]', max-width='420px')
+                    .column.q-gap-4
+                      .km-heading-6 {{ firstErrorSpan.extra_data.error_type }}
+                      .km-field {{ firstErrorSpan.extra_data.error_message }}
               .text-secondary-text {{ startTime }}
             .row.justify-between.q-gap-12.full-width
               .col.bg-white.ba-border.border-radius-8.q-py-xs.q-px-sm
@@ -59,6 +68,28 @@
                                 q-icon(v-if='span.status === "error"', name='fa-solid fa-circle-exclamation', color='red', size='16px')
                                 div {{ span.type }}
                               .text-secondary-text {{ span.name }}
+                              q-chip.km-small-chip.q-ma-none(
+                                v-if='span.status === "error" && span?.extra_data?.error_type',
+                                :label='formatErrorType(span.extra_data.error_type)',
+                                color='error-bg',
+                                text-color='error-text',
+                                icon='fa-solid fa-triangle-exclamation',
+                                dense
+                              )
+                                q-tooltip(:offset='[0, 10]', max-width='420px')
+                                  .column.q-gap-4
+                                    .km-heading-6 {{ span.extra_data.error_type }}
+                                    .km-field(v-if='span.extra_data.error_message') {{ span.extra_data.error_message }}
+                                    .row.q-gap-8(v-if='span.extra_data.error_source || span.extra_data.error_provider')
+                                      .column(v-if='span.extra_data.error_source')
+                                        .km-input-label.text-text-grey Source
+                                        .km-field {{ span.extra_data.error_source }}
+                                      .column(v-if='span.extra_data.error_provider')
+                                        .km-input-label.text-text-grey Provider
+                                        .km-field {{ span.extra_data.error_provider }}
+                                    .column(v-if='span.extra_data.error_finish_reason')
+                                      .km-input-label.text-text-grey Finish reason
+                                      .km-field {{ span.extra_data.error_finish_reason }}
 
                             .row.items-center.q-gap-12.q-ml-xs.q-mb-xs(style='font-size: 12px')
                               div {{ span.latency }}
@@ -141,6 +172,20 @@ export default {
     },
     spans() {
       return this.$store.getters.trace?.spans || []
+    },
+    firstErrorSpan() {
+      // Prefer a span that already has structured LLM error fields so the
+      // header chip reflects the root cause (e.g. guardrail) instead of a
+      // generic "ERROR".
+      return (
+        this.spans?.find((s) => s?.status === 'error' && s?.extra_data?.error_type) ||
+        this.spans?.find((s) => s?.status === 'error') ||
+        null
+      )
+    },
+    firstErrorLabel() {
+      const errorType = this.firstErrorSpan?.extra_data?.error_type
+      return errorType ? this.formatErrorType(errorType) : 'ERROR'
     },
     spansTree() {
       const spanMap = new Map()
@@ -340,6 +385,16 @@ export default {
     closeDrawer() {
       this.drawerOpened = false
       this.selectedSpan = null
+    },
+    formatErrorType(errorType) {
+      if (!errorType) return 'ERROR'
+      if (errorType === 'LLMGuardrailBlockedError') return 'GUARDRAIL'
+      if (errorType === 'LLMRateLimitError') return 'RATE LIMIT'
+      if (errorType === 'LLMTruncatedError') return 'TRUNCATED'
+      if (errorType === 'LLMEmptyResponseError') return 'EMPTY'
+      if (errorType === 'LLMTimeoutError') return 'TIMEOUT'
+      if (errorType === 'LLMContextWindowExceededError') return 'CONTEXT'
+      return errorType.replace(/^LLM/, '').replace(/Error$/, '').toUpperCase()
     },
   },
 }

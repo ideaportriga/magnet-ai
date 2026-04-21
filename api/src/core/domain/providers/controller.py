@@ -14,6 +14,7 @@ from core.domain.providers.service import (
     ProvidersService,
 )
 from core.domain.ai_models.service import AIModelsService
+from services.ai_services.exceptions import LLMTruncatedError
 
 from .schemas import ProviderCreate, ProviderResponse, ProviderUpdate
 
@@ -272,12 +273,16 @@ class ProvidersController(Controller):
             if prompts_model:
                 try:
                     test_messages = [{"role": "user", "content": "Hi"}]
+                    # 256 tokens covers reasoning models whose internal
+                    # reasoning tokens count against output — with max=5 or 16
+                    # they finish with content=None and finish_reason=length,
+                    # which our response validator (rightly) rejects.
                     response = await ai_provider.create_chat_completion(
                         messages=test_messages,
                         model=prompts_model.ai_model,
                         temperature=0,
                         top_p=1,
-                        max_tokens=5,  # Minimal tokens to save costs
+                        max_tokens=256,
                         model_config={"system_name": prompts_model.system_name},
                     )
 
@@ -295,6 +300,18 @@ class ProvidersController(Controller):
                             error="No response choices returned from provider",
                             **debug_info,
                         )
+                except LLMTruncatedError:
+                    # Truncation at a tiny test max_tokens proves connectivity;
+                    # for a connection test this counts as success.
+                    return ProviderTestResult(
+                        success=True,
+                        message=(
+                            f"Connection successful! Provider '{provider.name}' is "
+                            "working (response truncated by max_tokens — expected on reasoning models)."
+                        ),
+                        error=None,
+                        **debug_info,
+                    )
                 except NotImplementedError:
                     pass  # Try embedding model instead
 

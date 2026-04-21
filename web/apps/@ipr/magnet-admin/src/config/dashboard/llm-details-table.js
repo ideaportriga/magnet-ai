@@ -4,6 +4,7 @@ import { markRaw, h } from 'vue'
 import StatusField from './components/StatusField.vue'
 import ChipCell from './components/ChipCell.vue'
 import NameVariant from './components/NameVariant.vue'
+import ErrorField from './components/ErrorField.vue'
 
 const controls = {
   _id: {
@@ -76,6 +77,17 @@ const controls = {
     type: 'component',
     component: markRaw(StatusField),
     headerStyle: 'width: 50px;',
+    sortable: true,
+  },
+  error: {
+    name: 'extra_data.error_type',
+    label: 'Error',
+    field: (row) => row?.extra_data?.error_type,
+    display: true,
+    align: 'left',
+    type: 'component',
+    component: markRaw(ErrorField),
+    headerStyle: 'width: 140px;',
     sortable: true,
   },
   latency: {

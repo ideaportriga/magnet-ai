@@ -93,3 +93,31 @@ gen_ai_cost_histogram = otel_meter.create_histogram(
         10.0,
     ],
 )
+
+
+# Counters for LLM reliability / traceability.
+# Labels are supplied at .add() time so dashboards can break errors down by
+# source (router/provider/proxy), error_type, provider and model.
+llm_errors_counter = otel_meter.create_counter(
+    name=OtelMetric.LLM_ERRORS_TOTAL,
+    description="Count of failed LiteLLM calls by source, error_type, provider and model",
+    unit="1",
+)
+
+llm_rate_limit_counter = otel_meter.create_counter(
+    name=OtelMetric.LLM_RATE_LIMIT_TOTAL,
+    description="Count of rate-limit events by source (router / provider / proxy) and provider",
+    unit="1",
+)
+
+llm_empty_response_counter = otel_meter.create_counter(
+    name=OtelMetric.LLM_EMPTY_RESPONSE_TOTAL,
+    description="Count of 2xx responses with no usable content (guardrail, truncation, null content)",
+    unit="1",
+)
+
+llm_router_retries_counter = otel_meter.create_counter(
+    name=OtelMetric.LLM_ROUTER_RETRIES_TOTAL,
+    description="Number of retries performed by the LiteLLM Router before a call succeeded",
+    unit="1",
+)

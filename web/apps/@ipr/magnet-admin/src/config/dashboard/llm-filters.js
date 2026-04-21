@@ -47,6 +47,23 @@ const filter = {
       { label: 'Error', value: 'error' },
     ],
   },
+  ['extra_data.error_type']: {
+    label: 'Error type',
+    key: 'extra_data.error_type',
+    options: [
+      { label: 'Guardrail blocked', value: 'LLMGuardrailBlockedError' },
+      { label: 'Rate limit', value: 'LLMRateLimitError' },
+      { label: 'Truncated', value: 'LLMTruncatedError' },
+      { label: 'Empty response', value: 'LLMEmptyResponseError' },
+      { label: 'Timeout', value: 'LLMTimeoutError' },
+      { label: 'Context window', value: 'LLMContextWindowExceededError' },
+      { label: 'Provider auth', value: 'LLMProviderAuthError' },
+      { label: 'Provider unavailable', value: 'LLMProviderServiceUnavailableError' },
+      { label: 'Provider bad request', value: 'LLMProviderBadRequestError' },
+      { label: 'Provider API error', value: 'LLMProviderAPIError' },
+    ],
+    multiple: true,
+  },
   feature_type: {
     label: 'Request type',
     key: 'feature_type',
