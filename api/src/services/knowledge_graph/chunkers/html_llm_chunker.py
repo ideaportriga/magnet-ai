@@ -1,11 +1,10 @@
 import copy
-import hashlib
 import logging
 import re
-import uuid
 from typing import Any, override
 
 from bs4 import BeautifulSoup, NavigableString, Tag
+from nanoid import generate as generate_nanoid
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from services.prompt_templates import execute_prompt_template
@@ -22,7 +21,6 @@ DEFAULT_SKIP_TAGS: set[str] = {
     "b",
     "em",
     "i",
-    "span",
     "a",
     "br",
     "wbr",
@@ -48,12 +46,6 @@ DEFAULT_SKIP_TAGS: set[str] = {
     "rp",
     "abbr",
     "img",
-    "input",
-    "label",
-    "select",
-    "option",
-    "textarea",
-    "button",
     "tbody",
 }
 
@@ -69,17 +61,74 @@ NON_CONTENT_TAGS: set[str] = {
     "head",
 }
 
-DEFAULT_STRIP_ATTRIBUTES: list[str] = [
-    "style",
-    "class",
-    "onclick",
-    "onload",
-    "width",
-    "height",
-    "izd-pam",
-    "data-num",
-    "data-pfx",
-]
+# Interactive/form controls — fully decomposed from the parsed soup.
+INTERACTIVE_TAGS: set[str] = {
+    "input",
+    "select",
+    "option",
+    "optgroup",
+    "datalist",
+    "textarea",
+    "button",
+    "fieldset",
+    "legend",
+    "output",
+    "progress",
+    "meter",
+}
+
+# Inline formatting tags unwrapped in simplified HTML (markup dropped, text kept).
+UNWRAP_TAGS: set[str] = {
+    "a",
+    "b",
+    "strong",
+    "i",
+    "em",
+    "u",
+    "mark",
+    "small",
+    "sub",
+    "sup",
+    "code",
+    "kbd",
+    "samp",
+    "var",
+    "cite",
+    "q",
+    "dfn",
+    "time",
+    "data",
+    "bdi",
+    "bdo",
+    "ruby",
+    "rt",
+    "rp",
+    "abbr",
+    "del",
+    "ins",
+    "wbr",
+    "label",
+}
+
+# Tags preserved even when they have no text content (meaningful void elements).
+EMPTY_PRESERVE_TAGS: set[str] = {"br", "hr", "img"}
+
+DEFAULT_KEEP_ATTRIBUTES: set[str] = {
+    "kg-id",
+    "id",
+    "name",
+    "colspan",
+    "rowspan",
+    "scope",
+    "headers",
+    "start",
+    "type",
+    "value",
+    "role",
+    "alt",
+    "lang",
+    "dir",
+}
 
 DEFAULT_TEXT_TRUNCATE_LENGTH = 100
 
@@ -118,11 +167,11 @@ class HtmlLlmChunker(AbstractChunker):
         return DEFAULT_SKIP_TAGS
 
     @property
-    def _strip_attributes(self) -> list[str]:
-        custom = self._options.get("strip_attributes")
+    def _keep_attributes(self) -> set[str]:
+        custom = self._options.get("keep_attributes")
         if custom and isinstance(custom, list):
-            return custom
-        return DEFAULT_STRIP_ATTRIBUTES
+            return set(custom)
+        return DEFAULT_KEEP_ATTRIBUTES
 
     @property
     def _text_truncate_length(self) -> int:
@@ -167,8 +216,8 @@ class HtmlLlmChunker(AbstractChunker):
         """
         soup = BeautifulSoup(html, "html.parser")
 
-        # Remove non-content tags globally
-        for tag_name in NON_CONTENT_TAGS:
+        # Remove non-content and interactive/form tags globally
+        for tag_name in NON_CONTENT_TAGS | INTERACTIVE_TAGS:
             for tag in soup.find_all(tag_name):
                 tag.decompose()
 
@@ -205,7 +254,7 @@ class HtmlLlmChunker(AbstractChunker):
         for tag in soup.find_all(True):
             if tag.name in skip:
                 continue
-            kg_id = str(uuid.uuid4())
+            kg_id = generate_nanoid(size=10)
             tag["kg-id"] = kg_id
             kg_id_map[kg_id] = tag
 
@@ -218,18 +267,35 @@ class HtmlLlmChunker(AbstractChunker):
     def _simplify_html(self, soup: BeautifulSoup) -> str:
         """Create a lightweight HTML representation for LLM analysis.
 
-        - Truncates text nodes to configured max length
+        - Unwraps inline formatting tags (markup dropped, text preserved)
         - Removes configured attributes (style, class, etc.)
+        - Truncates text nodes to configured max length
+        - Prunes tags with no meaningful text content
         - Collapses whitespace between tags
         """
         simplified = copy.copy(soup)
         truncate_len = self._text_truncate_length
-        strip_attrs = self._strip_attributes
+        keep_attrs = self._keep_attributes
 
-        # Strip configured attributes from all tags
+        # Unwrap inline formatting tags so the LLM sees text only.
+        # Must happen before text truncation so merged runs get measured together.
+        for tag in simplified.find_all(list(UNWRAP_TAGS)):
+            tag.unwrap()
+        # Consolidate adjacent NavigableStrings produced by unwrapping.
+        simplified.smooth()
+
+        # Unwrap <span> elements whose content is text-only (no child tags).
+        # Reverse order so nested text-only spans are unwrapped bottom-up:
+        # after the inner span is unwrapped, its parent becomes text-only too.
+        for tag in list(simplified.find_all("span"))[::-1]:
+            if not tag.find(True):
+                tag.unwrap()
+        simplified.smooth()
+
+        # Keep only whitelisted attributes; drop everything else
         for tag in simplified.find_all(True):
-            for attr in strip_attrs:
-                if attr in tag.attrs:
+            for attr in list(tag.attrs):
+                if attr not in keep_attrs:
                     del tag.attrs[attr]
 
         # Truncate text nodes
@@ -246,6 +312,19 @@ class HtmlLlmChunker(AbstractChunker):
                 remaining = len(stripped) - truncate_len
                 truncated = stripped[:truncate_len] + f"[...{remaining} chars]"
                 text_node.replace_with(truncated)
+
+        # Prune tags with no meaningful text content (bottom-up).
+        # Reverse order ensures children are processed before parents, so a parent
+        # whose only children were empty becomes empty itself.
+        for tag in list(simplified.find_all(True))[::-1]:
+            if tag.name in EMPTY_PRESERVE_TAGS:
+                continue
+            if tag.get_text(strip=True):
+                continue
+            # Preserve wrappers whose only descendants are meaningful void tags.
+            if any(d.name in EMPTY_PRESERVE_TAGS for d in tag.find_all(True)):
+                continue
+            tag.decompose()
 
         result = str(simplified)
 
@@ -756,18 +835,7 @@ class HtmlLlmChunker(AbstractChunker):
                         title = heading.get_text(strip=True)
                         break
 
-            # TODO: make generated_id simplier, remove hashing
-            raw_generated_id = "html_block_" + "+".join(group)
-            if len(raw_generated_id) > 1000:
-                generated_id = (
-                    "html_block_"
-                    + hashlib.sha256(raw_generated_id.encode()).hexdigest()
-                )
-            else:
-                generated_id = raw_generated_id
-
             chunk = KnowledgeGraphChunk(
-                generated_id=generated_id,
                 chunk_type="HTML_BLOCK",
                 title=title,
                 content=html_content,

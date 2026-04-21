@@ -68,6 +68,7 @@ azure-storage-blob = "12.27.1"
 kreuzberg = "4.4"
 liteparse = "1.2.1"
 litellm = "1.82.2"
+nanoid = "2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.9.10"
