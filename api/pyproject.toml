@@ -67,7 +67,7 @@ microsoft-agents-hosting-teams = "0.6.1"
 azure-storage-blob = "12.27.1"
 kreuzberg = "4.4"
 liteparse = "1.2.1"
-litellm = "1.82.2"
+litellm = { version = "1.83.0", python = ">=3.12,<3.14" }
 
 [tool.poetry.group.dev.dependencies]
 ruff = "0.9.10"
