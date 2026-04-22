@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import logging
 import re
@@ -118,17 +119,13 @@ DEFAULT_KEEP_ATTRIBUTES: set[str] = {
     "i",
     "id",
     "name",
+    "alt",
     "colspan",
     "rowspan",
     "scope",
     "headers",
     "start",
     "type",
-    "value",
-    "role",
-    "alt",
-    "lang",
-    "dir",
 }
 
 DEFAULT_TEXT_TRUNCATE_LENGTH = 100
@@ -155,6 +152,11 @@ class HtmlLlmChunker(AbstractChunker):
     def __init__(self, config: ContentConfig) -> None:
         super().__init__(config)
         self._options = config.chunker.get("options", {}) if config.chunker else {}
+        # Populated for the duration of a single segmentation pass. Maps
+        # id(tag) -> simplified HTML string. Lets us avoid re-simplifying the
+        # same subtree when computing element sizes across the splittable /
+        # element_sizes / per-segment steps.
+        self._simplify_cache: dict[int, str] | None = None
 
     # ------------------------------------------------------------------
     # Configuration helpers
@@ -183,6 +185,10 @@ class HtmlLlmChunker(AbstractChunker):
     @property
     def _segment_size(self) -> int:
         return int(self._options.get("llm_batch_size", 20000))
+
+    @property
+    def _llm_concurrency(self) -> int:
+        return max(1, int(self._options.get("llm_concurrency", 4)))
 
     @property
     def _last_segment_increase_ratio(self) -> float:
@@ -239,6 +245,58 @@ class HtmlLlmChunker(AbstractChunker):
                 tag.decompose()
 
         return soup
+
+    # ------------------------------------------------------------------
+    # Step 1b: Collapse trivial wrappers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _unwrap_trivial_wrappers(soup: BeautifulSoup) -> int:
+        """Unwrap generic <div>/<span> wrappers that add no semantic value.
+
+        Real-world HTML often contains chains like <div><div><div>…</div></div></div>
+        where each level is a layout-only wrapper. Every one of them would otherwise
+        receive an `i` annotation and consume LLM input tokens for no gain.
+
+        A wrapper is considered trivial when ALL of the following hold:
+          - The tag is <div> or <span>
+          - It carries no attribute other than `class` / `style`
+            (so `id`, `name`, `alt`, `role`, `aria-*`, `data-*`, etc. are preserved)
+          - It has no direct text content (only whitespace)
+          - It has exactly one element child
+
+        Returns the number of wrappers unwrapped.
+        """
+        WRAPPER_TAGS: tuple[str, ...] = ("div", "span")
+        ALLOWED_ATTRS: set[str] = {"class", "style"}
+
+        def is_trivial(tag: Tag) -> bool:
+            if tag.name not in WRAPPER_TAGS:
+                return False
+            # Any structural/semantic attribute disqualifies the tag.
+            for attr in tag.attrs:
+                if attr not in ALLOWED_ATTRS:
+                    return False
+            # Any non-whitespace direct text disqualifies the tag.
+            element_children: list[Tag] = []
+            for child in tag.children:
+                if isinstance(child, NavigableString):
+                    if child.strip():
+                        return False
+                elif isinstance(child, Tag):
+                    element_children.append(child)
+            return len(element_children) == 1
+
+        total = 0
+        # Snapshot the list up-front — we mutate the tree while iterating.
+        # Unwrapping a trivial wrapper reparents its single child to the
+        # wrapper's parent without changing the parent's element count, so
+        # a single document-order pass handles nested chains correctly.
+        for tag in list(soup.find_all(list(WRAPPER_TAGS))):
+            if is_trivial(tag):
+                tag.unwrap()
+                total += 1
+        return total
 
     # ------------------------------------------------------------------
     # Step 2: Annotate tags with `i`
@@ -317,6 +375,24 @@ class HtmlLlmChunker(AbstractChunker):
     # Step 3: Simplify HTML for LLM
     # ------------------------------------------------------------------
 
+    def _simplified_size(self, tag: Tag) -> int:
+        """Return the simplified-HTML character length for a subtree.
+
+        When `self._simplify_cache` is active (set in `_identify_blocks_segmented`),
+        the simplified string is memoized by `id(tag)`. This avoids re-simplifying
+        the same subtree across `_get_splittable_children`, the element_sizes
+        pre-computation, and any follow-up sizing queries.
+        """
+        cache = self._simplify_cache
+        if cache is not None:
+            cached = cache.get(id(tag))
+            if cached is not None:
+                return len(cached)
+        simplified = self._simplify_html(BeautifulSoup(str(tag), "html.parser"))
+        if cache is not None:
+            cache[id(tag)] = simplified
+        return len(simplified)
+
     def _simplify_html(self, soup: BeautifulSoup) -> str:
         """Create a lightweight HTML representation for LLM analysis.
 
@@ -362,8 +438,7 @@ class HtmlLlmChunker(AbstractChunker):
                 text_node.replace_with("")
                 continue
             if len(stripped) > truncate_len:
-                remaining = len(stripped) - truncate_len
-                truncated = stripped[:truncate_len] + f"[...{remaining} chars]"
+                truncated = stripped[:truncate_len] + "…"
                 text_node.replace_with(truncated)
 
         # Prune tags with no meaningful text content (bottom-up).
@@ -486,10 +561,7 @@ class HtmlLlmChunker(AbstractChunker):
         children = [c for c in root.children if isinstance(c, Tag)]
 
         for child in children:
-            child_simplified = self._simplify_html(
-                BeautifulSoup(str(child), "html.parser")
-            )
-            if len(child_simplified) > segment_size:
+            if self._simplified_size(child) > segment_size:
                 # This child is too large — try its children
                 grandchildren = [gc for gc in child.children if isinstance(gc, Tag)]
                 if grandchildren:
@@ -643,68 +715,82 @@ class HtmlLlmChunker(AbstractChunker):
         both the preceding and following segments. Deduplicates groups across
         segments, preferring the later segment's grouping for overlap IDs.
         """
-        simplified = self._simplify_html(soup)
-        segment_size = self._segment_size
+        self._simplify_cache = {}
+        try:
+            simplified = self._simplify_html(soup)
+            segment_size = self._segment_size
 
-        if len(simplified) <= segment_size:
-            return await self._identify_blocks_via_llm(simplified)
+            if len(simplified) <= segment_size:
+                return await self._identify_blocks_via_llm(simplified)
 
-        logger.info(
-            "Simplified HTML (%d chars) exceeds segment size (%d), splitting",
-            len(simplified),
-            segment_size,
-        )
-
-        # Find top-level content container
-        content_root = (
-            soup.find("main") or soup.find("article") or soup.find("body") or soup
-        )
-
-        # Flatten children so that no single element exceeds segment_size
-        splittable = self._get_splittable_children(content_root, segment_size)
-
-        # Pre-compute simplified size for each element
-        element_sizes: list[int] = []
-        for el in splittable:
-            el_simplified = self._simplify_html(BeautifulSoup(str(el), "html.parser"))
-            element_sizes.append(len(el_simplified))
-
-        # Build overlapping segments
-        overlap_ratio = 0.2  # 20% overlap between segments
-        segments = self._build_segments(
-            splittable,
-            element_sizes,
-            segment_size,
-            overlap_ratio,
-            self._last_segment_increase_ratio,
-        )
-
-        logger.info(
-            "Split into %d segments with %.0f%% overlap",
-            len(segments),
-            overlap_ratio * 100,
-        )
-
-        # Process each segment
-        all_segment_results: list[list[tuple[str, list[str]]]] = []
-        for seg_num, indices in enumerate(segments):
-            segment_tags = [splittable[i] for i in indices]
-            segment_html = "".join(str(t) for t in segment_tags)
-            segment_soup = BeautifulSoup(segment_html, "html.parser")
-            segment_simplified = self._simplify_html(segment_soup)
             logger.info(
-                "Sending segment %d/%d to LLM (%d chars, elements %d-%d)",
-                seg_num + 1,
-                len(segments),
-                len(segment_simplified),
-                indices[0],
-                indices[-1],
+                "Simplified HTML (%d chars) exceeds segment size (%d), splitting",
+                len(simplified),
+                segment_size,
             )
-            groups = await self._identify_blocks_via_llm(segment_simplified)
-            all_segment_results.append(groups)
 
-        # Deduplicate across overlapping segments
-        return self._deduplicate_groups(all_segment_results, segments)
+            # Find top-level content container
+            content_root = (
+                soup.find("main") or soup.find("article") or soup.find("body") or soup
+            )
+
+            # Flatten children so that no single element exceeds segment_size
+            splittable = self._get_splittable_children(content_root, segment_size)
+
+            # Pre-compute simplified size for each element (served from cache
+            # when `_get_splittable_children` already sized this element).
+            element_sizes: list[int] = [self._simplified_size(el) for el in splittable]
+
+            # Build overlapping segments
+            overlap_ratio = 0.2  # 20% overlap between segments
+            segments = self._build_segments(
+                splittable,
+                element_sizes,
+                segment_size,
+                overlap_ratio,
+                self._last_segment_increase_ratio,
+            )
+
+            logger.info(
+                "Split into %d segments with %.0f%% overlap",
+                len(segments),
+                overlap_ratio * 100,
+            )
+
+            # Prepare simplified payload per segment up-front.
+            segment_payloads: list[str] = []
+            for seg_num, indices in enumerate(segments):
+                segment_tags = [splittable[i] for i in indices]
+                segment_html = "".join(str(t) for t in segment_tags)
+                segment_soup = BeautifulSoup(segment_html, "html.parser")
+                segment_simplified = self._simplify_html(segment_soup)
+                logger.info(
+                    "Prepared segment %d/%d for LLM (%d chars, elements %d-%d)",
+                    seg_num + 1,
+                    len(segments),
+                    len(segment_simplified),
+                    indices[0],
+                    indices[-1],
+                )
+                segment_payloads.append(segment_simplified)
+
+            # Fan out segment LLM calls concurrently, bounded by a semaphore.
+            semaphore = asyncio.Semaphore(self._llm_concurrency)
+
+            async def run_segment(
+                payload: str,
+            ) -> list[tuple[str, list[str]]]:
+                async with semaphore:
+                    return await self._identify_blocks_via_llm(payload)
+
+            all_segment_results: list[list[tuple[str, list[str]]]] = list(
+                await asyncio.gather(*(run_segment(p) for p in segment_payloads))
+            )
+
+            # Deduplicate across overlapping segments
+            return self._deduplicate_groups(all_segment_results, segments)
+        finally:
+            self._simplify_cache = None
 
     # ------------------------------------------------------------------
     # Step 5: Extract chunks from identified blocks
@@ -923,6 +1009,13 @@ class HtmlLlmChunker(AbstractChunker):
 
         # Step 1: Extract content area
         soup = self._extract_content_area(text)
+
+        # Step 1b: Collapse generic <div>/<span> wrappers that carry no
+        # semantic meaning — reduces the number of `i` annotations and the
+        # size of the simplified HTML sent to the LLM.
+        unwrapped = self._unwrap_trivial_wrappers(soup)
+        if unwrapped:
+            logger.info("Unwrapped %d trivial wrapper elements", unwrapped)
 
         # Step 2: Annotate tags with `i`
         id_map = self._annotate_html(soup)
