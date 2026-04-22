@@ -3,6 +3,7 @@ import copy
 import logging
 import re
 from typing import Any, override
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 
@@ -800,9 +801,11 @@ class HtmlLlmChunker(AbstractChunker):
     def _clean_tag_for_output(tag: Tag) -> Tag:
         """Create a lightweight copy of a tag for chunk content.
 
-        Strips noisy attributes (style, class, i, data-*, event handlers,
-        etc.) while preserving structural tags and meaningful attributes
-        (href, src, alt, id, colspan, rowspan, etc.).
+        Strips noisy attributes — styling (style, class), sizing
+        (width, height), the chunker's own ``i`` annotation, data-*,
+        event handlers, etc. — while preserving structural tags and
+        meaningful attributes (href, src, alt, id, colspan, rowspan,
+        etc.).
         """
         KEEP_ATTRIBUTES: set[str] = {
             "href",
@@ -815,8 +818,6 @@ class HtmlLlmChunker(AbstractChunker):
             "rowspan",
             "scope",
             "headers",
-            "width",
-            "height",
             "target",
             "rel",
             "type",
@@ -845,6 +846,33 @@ class HtmlLlmChunker(AbstractChunker):
             del tag_copy.attrs[attr]
 
         return tag_copy
+
+    @staticmethod
+    def _resolve_links_in_tag(tag: Tag, base_url: str | None) -> None:
+        """Rewrite relative ``href``/``src`` values against ``base_url``.
+
+        Mutates ``tag`` in place. No-op when ``base_url`` is falsy. Empty
+        values and non-http schemes (``mailto:``, ``tel:``, ``javascript:``,
+        ``data:``, ...) are left untouched.
+        """
+        # TODO: srcset not yet handled — not in the output keep-list today,
+        # but add comma-list parsing here if it ever is.
+        if not base_url:
+            return
+
+        elements: list[Tag] = [tag, *tag.find_all(True)]
+        for element in elements:
+            for attr in ("href", "src"):
+                value = element.get(attr)
+                if not isinstance(value, str):
+                    continue
+                stripped = value.strip()
+                if not stripped:
+                    continue
+                scheme = urlparse(stripped).scheme
+                if scheme and scheme not in ("http", "https"):
+                    continue
+                element[attr] = urljoin(base_url, stripped)
 
     @staticmethod
     def _is_descendant_of(tag: Tag, ancestor: Tag) -> bool:
@@ -925,6 +953,7 @@ class HtmlLlmChunker(AbstractChunker):
         self,
         id_map: dict[str, Tag],
         block_groups: list[tuple[str, list[str]]],
+        source_url: str | None = None,
     ) -> list[KnowledgeGraphChunk]:
         """Extract chunk content from original HTML using grouped id mappings.
 
@@ -955,6 +984,7 @@ class HtmlLlmChunker(AbstractChunker):
             text_parts: list[str] = []
             for tag in tags:
                 clean_tag = self._clean_tag_for_output(tag)
+                self._resolve_links_in_tag(clean_tag, source_url)
                 html_part = str(clean_tag).strip()
                 if html_part:
                     html_parts.append(html_part)
@@ -994,7 +1024,11 @@ class HtmlLlmChunker(AbstractChunker):
 
     @override
     async def chunk_text(
-        self, text: str, *, document_title: str | None = None
+        self,
+        text: str,
+        *,
+        document_title: str | None = None,
+        source_url: str | None = None,
     ) -> ChunkerResult:
         """Chunk HTML by using LLM to identify main content blocks.
 
@@ -1045,7 +1079,7 @@ class HtmlLlmChunker(AbstractChunker):
         block_groups = self._remove_nested_groups(block_groups, id_map)
 
         # Step 5: Extract chunks
-        chunks = self._extract_chunks_from_groups(id_map, block_groups)
+        chunks = self._extract_chunks_from_groups(id_map, block_groups, source_url)
 
         if not chunks:
             raise RuntimeError(

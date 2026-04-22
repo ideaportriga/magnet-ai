@@ -21,7 +21,11 @@ class NoneChunker(AbstractChunker):
 
     @override
     async def chunk_text(
-        self, text: str, *, document_title: str | None = None
+        self,
+        text: str,
+        *,
+        document_title: str | None = None,
+        source_url: str | None = None,
     ) -> ChunkerResult:
         options = (self.config.chunker or {}).get("options", {}) if self.config else {}
         try:

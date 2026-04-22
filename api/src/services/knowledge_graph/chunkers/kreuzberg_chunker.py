@@ -27,7 +27,11 @@ class KreuzbergChunker(AbstractChunker):
 
     @override
     async def chunk_text(
-        self, text: str, *, document_title: str | None = None
+        self,
+        text: str,
+        *,
+        document_title: str | None = None,
+        source_url: str | None = None,
     ) -> ChunkerResult:
         if not text or not text.strip():
             logger.info("Empty text provided to DeterministicRecursiveChunker")

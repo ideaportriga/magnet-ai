@@ -9,7 +9,11 @@ from .models import ChunkerResult, ChunkerStrategy, ContentConfig
 
 
 async def split_content(
-    content: str, config: ContentConfig, *, document_title: str | None = None
+    content: str,
+    config: ContentConfig,
+    *,
+    document_title: str | None = None,
+    source_url: str | None = None,
 ) -> ChunkerResult:
     strategy = config.chunker.get("strategy", "").lower() if config.chunker else ""
 
@@ -27,7 +31,9 @@ async def split_content(
         case _:
             raise ValueError(f"Unsupported strategy: {strategy!r}")
 
-    result = await chunker.chunk_text(content, document_title=document_title)
+    result = await chunker.chunk_text(
+        content, document_title=document_title, source_url=source_url
+    )
 
     # Apply chunk_content_type from profile options to each chunk's content_format
     options = config.chunker.get("options", {}) if config.chunker else {}
