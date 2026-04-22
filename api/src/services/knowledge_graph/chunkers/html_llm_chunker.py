@@ -260,6 +260,56 @@ class HtmlLlmChunker(AbstractChunker):
 
         return kg_id_map
 
+    @staticmethod
+    def _strip_descendant_kg_ids(tag: Tag, kg_id_map: dict[str, Tag]) -> int:
+        """Remove kg-id from every descendant of `tag`. Returns count removed."""
+        removed = 0
+        for descendant in tag.find_all(True):
+            kg_id = descendant.get("kg-id")
+            if kg_id is not None:
+                del descendant["kg-id"]
+                kg_id_map.pop(kg_id, None)
+                removed += 1
+        return removed
+
+    def _optimize_list_table_kg_ids(
+        self, soup: BeautifulSoup, kg_id_map: dict[str, Tag]
+    ) -> int:
+        """Drop redundant kg-ids on descendants of self-contained lists/tables.
+
+        When a <ul>/<ol>/<table> fits inside one LLM segment, the container is
+        always identified as a single block. Per-item kg-ids on <li>/<tr>/<td>
+        only inflate the simplified HTML without enabling finer chunking. For
+        tables that don't fit, per-row shrinkage is attempted instead.
+        """
+        segment_size = self._segment_size
+        removed = 0
+
+        def simplified_size(el: Tag) -> int:
+            return len(self._simplify_html(BeautifulSoup(str(el), "html.parser")))
+
+        # Document-order traversal: an outer fitting container strips nested
+        # inner ones before they're visited (inner.get("kg-id") is then None).
+        for list_tag in soup.find_all(["ul", "ol"]):
+            if list_tag.get("kg-id") is None:
+                continue
+            if simplified_size(list_tag) <= segment_size:
+                removed += self._strip_descendant_kg_ids(list_tag, kg_id_map)
+
+        for table_tag in soup.find_all("table"):
+            if table_tag.get("kg-id") is None:
+                continue
+            if simplified_size(table_tag) <= segment_size:
+                removed += self._strip_descendant_kg_ids(table_tag, kg_id_map)
+                continue
+            for tr in table_tag.find_all("tr"):
+                if tr.get("kg-id") is None:
+                    continue
+                if simplified_size(tr) <= segment_size:
+                    removed += self._strip_descendant_kg_ids(tr, kg_id_map)
+
+        return removed
+
     # ------------------------------------------------------------------
     # Step 3: Simplify HTML for LLM
     # ------------------------------------------------------------------
@@ -875,6 +925,14 @@ class HtmlLlmChunker(AbstractChunker):
             raise ValueError("No annotatable HTML tags found in document")
 
         logger.info("Annotated %d tags with kg-id", len(kg_id_map))
+
+        # Step 2b: Strip redundant kg-ids on descendants of self-contained lists/tables
+        stripped = self._optimize_list_table_kg_ids(soup, kg_id_map)
+        if stripped:
+            logger.info(
+                "Stripped %d redundant kg-ids from self-contained lists/tables",
+                stripped,
+            )
 
         # Steps 3+4: Simplify and identify blocks (handles segmentation)
         block_groups = await self._identify_blocks_segmented(soup, kg_id_map)
