@@ -4,7 +4,6 @@ import re
 from typing import Any, override
 
 from bs4 import BeautifulSoup, NavigableString, Tag
-from nanoid import generate as generate_nanoid
 
 from core.db.models.knowledge_graph import KnowledgeGraphChunk
 from services.prompt_templates import execute_prompt_template
@@ -14,7 +13,7 @@ from .abstract_chunker import AbstractChunker
 
 logger = logging.getLogger(__name__)
 
-# Inline/formatting tags that should NOT receive a kg-id annotation.
+# Inline/formatting tags that should NOT receive an `i` annotation.
 # These are too granular to be useful as chunk containers.
 DEFAULT_SKIP_TAGS: set[str] = {
     "strong",
@@ -45,8 +44,10 @@ DEFAULT_SKIP_TAGS: set[str] = {
     "rt",
     "rp",
     "abbr",
-    "img",
     "tbody",
+    "thead",
+    "tfoot",
+    "caption",
 }
 
 # Tags whose content is not useful for structure analysis.
@@ -114,7 +115,7 @@ UNWRAP_TAGS: set[str] = {
 EMPTY_PRESERVE_TAGS: set[str] = {"br", "hr", "img"}
 
 DEFAULT_KEEP_ATTRIBUTES: set[str] = {
-    "kg-id",
+    "i",
     "id",
     "name",
     "colspan",
@@ -145,7 +146,7 @@ class HtmlLlmChunker(AbstractChunker):
 
     Pipeline:
     1. Parse HTML and extract content area
-    2. Annotate significant tags with unique kg-id UUIDs
+    2. Annotate significant tags with a sequential `i` attribute
     3. Simplify the annotated HTML (truncate text, strip attributes)
     4. Send simplified HTML to LLM to identify main block containers
     5. Extract each identified container from the original HTML as a chunk
@@ -240,45 +241,47 @@ class HtmlLlmChunker(AbstractChunker):
         return soup
 
     # ------------------------------------------------------------------
-    # Step 2: Annotate tags with kg-id
+    # Step 2: Annotate tags with `i`
     # ------------------------------------------------------------------
 
     def _annotate_html(self, soup: BeautifulSoup) -> dict[str, Tag]:
-        """Add kg-id attribute to significant tags.
+        """Add `i` attribute to significant tags.
 
-        Returns a mapping {kg_id: tag} for later extraction.
+        Returns a mapping {id: tag} for later extraction.
         """
-        kg_id_map: dict[str, Tag] = {}
+        id_map: dict[str, Tag] = {}
         skip = self._skip_tags
+        counter = 0
 
         for tag in soup.find_all(True):
             if tag.name in skip:
                 continue
-            kg_id = generate_nanoid(size=10)
-            tag["kg-id"] = kg_id
-            kg_id_map[kg_id] = tag
+            counter += 1
+            tag_id = str(counter)
+            tag["i"] = tag_id
+            id_map[tag_id] = tag
 
-        return kg_id_map
+        return id_map
 
     @staticmethod
-    def _strip_descendant_kg_ids(tag: Tag, kg_id_map: dict[str, Tag]) -> int:
-        """Remove kg-id from every descendant of `tag`. Returns count removed."""
+    def _strip_descendant_ids(tag: Tag, id_map: dict[str, Tag]) -> int:
+        """Remove `i` from every descendant of `tag`. Returns count removed."""
         removed = 0
         for descendant in tag.find_all(True):
-            kg_id = descendant.get("kg-id")
-            if kg_id is not None:
-                del descendant["kg-id"]
-                kg_id_map.pop(kg_id, None)
+            tag_id = descendant.get("i")
+            if tag_id is not None:
+                del descendant["i"]
+                id_map.pop(tag_id, None)
                 removed += 1
         return removed
 
-    def _optimize_list_table_kg_ids(
-        self, soup: BeautifulSoup, kg_id_map: dict[str, Tag]
+    def _optimize_list_table_ids(
+        self, soup: BeautifulSoup, id_map: dict[str, Tag]
     ) -> int:
-        """Drop redundant kg-ids on descendants of self-contained lists/tables.
+        """Drop redundant ids on descendants of self-contained lists/tables.
 
         When a <ul>/<ol>/<table> fits inside one LLM segment, the container is
-        always identified as a single block. Per-item kg-ids on <li>/<tr>/<td>
+        always identified as a single block. Per-item ids on <li>/<tr>/<td>
         only inflate the simplified HTML without enabling finer chunking. For
         tables that don't fit, per-row shrinkage is attempted instead.
         """
@@ -289,24 +292,24 @@ class HtmlLlmChunker(AbstractChunker):
             return len(self._simplify_html(BeautifulSoup(str(el), "html.parser")))
 
         # Document-order traversal: an outer fitting container strips nested
-        # inner ones before they're visited (inner.get("kg-id") is then None).
+        # inner ones before they're visited (inner.get("i") is then None).
         for list_tag in soup.find_all(["ul", "ol"]):
-            if list_tag.get("kg-id") is None:
+            if list_tag.get("i") is None:
                 continue
             if simplified_size(list_tag) <= segment_size:
-                removed += self._strip_descendant_kg_ids(list_tag, kg_id_map)
+                removed += self._strip_descendant_ids(list_tag, id_map)
 
         for table_tag in soup.find_all("table"):
-            if table_tag.get("kg-id") is None:
+            if table_tag.get("i") is None:
                 continue
             if simplified_size(table_tag) <= segment_size:
-                removed += self._strip_descendant_kg_ids(table_tag, kg_id_map)
+                removed += self._strip_descendant_ids(table_tag, id_map)
                 continue
             for tr in table_tag.find_all("tr"):
-                if tr.get("kg-id") is None:
+                if tr.get("i") is None:
                     continue
                 if simplified_size(tr) <= segment_size:
-                    removed += self._strip_descendant_kg_ids(tr, kg_id_map)
+                    removed += self._strip_descendant_ids(tr, id_map)
 
         return removed
 
@@ -382,6 +385,9 @@ class HtmlLlmChunker(AbstractChunker):
         result = re.sub(r">\s+<", "><", result)
         # Collapse runs of whitespace within text
         result = re.sub(r"\s{2,}", " ", result)
+        # Strip quotes around `i` attribute integer values (i="12" -> i=12).
+        # Safe in HTML5 since the value is digits-only.
+        result = re.sub(r'(\s)i="(\d+)"', r"\1i=\2", result)
 
         return result.strip()
 
@@ -398,7 +404,7 @@ class HtmlLlmChunker(AbstractChunker):
         Accepts both plain and markdown-bold wrapped keys, e.g.
         "TITLE: foo", "**TITLE:** foo", "**TITLE**: foo".
 
-        Returns list of (title, [kg-id, ...]) tuples.
+        Returns list of (title, [id, ...]) tuples.
         """
         blocks: list[tuple[str, list[str]]] = []
         current_title = ""
@@ -428,10 +434,10 @@ class HtmlLlmChunker(AbstractChunker):
     async def _identify_blocks_via_llm(
         self, simplified_html: str
     ) -> list[tuple[str, list[str]]]:
-        """Send simplified HTML to LLM and get back grouped kg-id values.
+        """Send simplified HTML to LLM and get back grouped id values.
 
         Returns a list of (title, id_group) tuples. Each group is a list of
-        one or more kg-id values that should be combined into a single chunk.
+        one or more id values that should be combined into a single chunk.
         """
         template_values: dict[str, Any] = {
             "additional_instructions": self._additional_instructions,
@@ -440,7 +446,7 @@ class HtmlLlmChunker(AbstractChunker):
         user_content = (
             "Analyze the following simplified HTML and identify the main "
             "content blocks. For each block, output a REASON line, a TITLE "
-            "line, and an IDS line with kg-id value(s).\n\n"
+            "line, and an IDS line with id value(s).\n\n"
             f"```html\n{simplified_html}\n```"
         )
 
@@ -628,7 +634,7 @@ class HtmlLlmChunker(AbstractChunker):
         return [(t, ids) for t, ids in finalized if ids]
 
     async def _identify_blocks_segmented(
-        self, soup: BeautifulSoup, kg_id_map: dict[str, Tag]
+        self, soup: BeautifulSoup, id_map: dict[str, Tag]
     ) -> list[tuple[str, list[str]]]:
         """Handle oversized HTML by splitting into overlapping segments.
 
@@ -708,7 +714,7 @@ class HtmlLlmChunker(AbstractChunker):
     def _clean_tag_for_output(tag: Tag) -> Tag:
         """Create a lightweight copy of a tag for chunk content.
 
-        Strips noisy attributes (style, class, kg-id, data-*, event handlers,
+        Strips noisy attributes (style, class, i, data-*, event handlers,
         etc.) while preserving structural tags and meaningful attributes
         (href, src, alt, id, colspan, rowspan, etc.).
         """
@@ -787,7 +793,7 @@ class HtmlLlmChunker(AbstractChunker):
     def _remove_nested_groups(
         cls,
         block_groups: list[tuple[str, list[str]]],
-        kg_id_map: dict[str, Tag],
+        id_map: dict[str, Tag],
     ) -> list[tuple[str, list[str]]]:
         """Remove groups whose tags are entirely contained within another group's tags.
 
@@ -800,7 +806,7 @@ class HtmlLlmChunker(AbstractChunker):
         # Resolve tags for each group
         resolved: list[tuple[int, list[Tag]]] = []
         for i, (_, ids) in enumerate(block_groups):
-            tags = [kg_id_map[bid] for bid in ids if bid in kg_id_map]
+            tags = [id_map[bid] for bid in ids if bid in id_map]
             resolved.append((i, tags))
 
         drop_indices: set[int] = set()
@@ -831,12 +837,12 @@ class HtmlLlmChunker(AbstractChunker):
 
     def _extract_chunks_from_groups(
         self,
-        kg_id_map: dict[str, Tag],
+        id_map: dict[str, Tag],
         block_groups: list[tuple[str, list[str]]],
     ) -> list[KnowledgeGraphChunk]:
-        """Extract chunk content from original HTML using grouped kg-id mappings.
+        """Extract chunk content from original HTML using grouped id mappings.
 
-        Each group may contain one or more kg-id values. Multiple IDs in a
+        Each group may contain one or more id values. Multiple IDs in a
         group are combined into a single chunk (e.g. a heading + table that
         are siblings without a common parent).
         """
@@ -846,9 +852,9 @@ class HtmlLlmChunker(AbstractChunker):
             # Resolve tags for all IDs in the group
             tags: list[Tag] = []
             for bid in group:
-                tag = kg_id_map.get(bid)
+                tag = id_map.get(bid)
                 if tag is None:
-                    logger.warning("kg-id %s not found in HTML map, skipping", bid)
+                    logger.warning("id %s not found in HTML map, skipping", bid)
                     continue
                 tags.append(tag)
 
@@ -907,7 +913,7 @@ class HtmlLlmChunker(AbstractChunker):
         """Chunk HTML by using LLM to identify main content blocks.
 
         1. Parse HTML, extract content area
-        2. Annotate tags with kg-id UUIDs
+        2. Annotate tags with sequential `i` ids
         3. Simplify annotated HTML for LLM
         4. Send to LLM to identify block containers
         5. Extract each container as a chunk
@@ -918,24 +924,24 @@ class HtmlLlmChunker(AbstractChunker):
         # Step 1: Extract content area
         soup = self._extract_content_area(text)
 
-        # Step 2: Annotate tags with kg-id
-        kg_id_map = self._annotate_html(soup)
+        # Step 2: Annotate tags with `i`
+        id_map = self._annotate_html(soup)
 
-        if not kg_id_map:
+        if not id_map:
             raise ValueError("No annotatable HTML tags found in document")
 
-        logger.info("Annotated %d tags with kg-id", len(kg_id_map))
+        logger.info("Annotated %d tags with id", len(id_map))
 
-        # Step 2b: Strip redundant kg-ids on descendants of self-contained lists/tables
-        stripped = self._optimize_list_table_kg_ids(soup, kg_id_map)
+        # Step 2b: Strip redundant ids on descendants of self-contained lists/tables
+        stripped = self._optimize_list_table_ids(soup, id_map)
         if stripped:
             logger.info(
-                "Stripped %d redundant kg-ids from self-contained lists/tables",
+                "Stripped %d redundant ids from self-contained lists/tables",
                 stripped,
             )
 
         # Steps 3+4: Simplify and identify blocks (handles segmentation)
-        block_groups = await self._identify_blocks_segmented(soup, kg_id_map)
+        block_groups = await self._identify_blocks_segmented(soup, id_map)
 
         if not block_groups:
             raise RuntimeError("LLM identified no content blocks in document")
@@ -943,10 +949,10 @@ class HtmlLlmChunker(AbstractChunker):
         logger.info("LLM identified %d content blocks", len(block_groups))
 
         # Remove groups that are entirely nested inside other groups
-        block_groups = self._remove_nested_groups(block_groups, kg_id_map)
+        block_groups = self._remove_nested_groups(block_groups, id_map)
 
         # Step 5: Extract chunks
-        chunks = self._extract_chunks_from_groups(kg_id_map, block_groups)
+        chunks = self._extract_chunks_from_groups(id_map, block_groups)
 
         if not chunks:
             raise RuntimeError(
