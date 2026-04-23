@@ -64,6 +64,17 @@ const filter = {
       return store.getters.chroma.model?.items.map((item) => ({ label: item.display_name ?? item.name, value: item.display_name ?? item.name }))
     },
   },
+  ['extra_data.substandart_result_reason']: {
+    label: 'Substandard Result',
+    key: 'extra_data.substandart_result_reason',
+    options: [
+      { label: 'Prompt issue', value: 'prompt_issue' },
+      { label: 'Model limitation', value: 'model_limitation' },
+      { label: 'Hallucination', value: 'hallucination' },
+      { label: 'Format issue', value: 'format_issue' },
+      { label: 'Incorrect output', value: 'incorrect_output' },
+    ],
+  },
   ['x_attributes.org-id']: {
     label: 'Organization',
     key: 'x_attributes.org-id',

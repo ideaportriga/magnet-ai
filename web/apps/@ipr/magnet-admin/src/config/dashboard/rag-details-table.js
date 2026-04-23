@@ -153,6 +153,26 @@ const controls = {
     display: true,
     sortable: true,
   },
+  ['extra_data.substandart_result_reason']: {
+    name: 'extra_data.substandart_result_reason',
+    label: 'Substandard Result',
+    field: (row) => row?.extra_data?.substandart_result_reason,
+    readonly: true,
+    align: 'left',
+    display: true,
+    sortable: true,
+    format: (val) => {
+      const map = {
+        knowledge_source_quality: 'Knowledge source quality',
+        parsing_issue: 'Parsing issue',
+        chunking_issue: 'Chunking issue',
+        retrieval_issue: 'Retrieval issue',
+        generation_issue: 'Generation issue',
+        user_question: 'User question',
+      }
+      return val ? (map[val] ?? val) : '-'
+    },
+  },
   // ['extra_data.language']: {
   //   name: 'extra_data.language',
   //   label: 'Language',
