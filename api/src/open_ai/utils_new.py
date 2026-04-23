@@ -123,7 +123,7 @@ async def create_chat_completion(
     # Prepare input for traces and metrics
     call_input = messages
 
-    with observability_context.observe_feature(observed_feature):
+    with observability_context.observe_feature(observed_feature) as instance_id:
         observability_context.update_current_span(
             name="Generate text",
             description=f'Generating text using chat completion API powered by "{llm}" LLM, provided by {provider_display_name}.',
@@ -272,6 +272,7 @@ async def create_chat_completion(
             **chat_completion.model_dump(),
             usage_details=call_usage,
             cost_details=call_cost,
+            feature_instance_id=instance_id,
         )
 
         return result

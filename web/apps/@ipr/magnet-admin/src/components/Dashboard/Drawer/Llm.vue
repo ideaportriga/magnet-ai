@@ -122,16 +122,49 @@
             observability-traces-embed-input-output(:span='selectedRow.extra_data')
           template(v-else-if='selectedRow?.feature_type === "reranking-api"')
             observability-traces-rerank-input-output(:span='selectedRow.extra_data')
+        template(v-if='tab == "insights"')
+          .column.q-gap-16
+            .km-button-text.bb-border.q-pb-4 User satisfaction
+            .col-6
+              .km-description.text-secondary-text User feedback
+              .row
+                .km-label.text-capitalize {{ selectedRow?.extra_data?.answer_feedback?.type ?? '-' }}
+            .col-6
+              .km-description.text-secondary-text Feedback reason
+              .row
+                .km-label.text-capitalize {{ dislikeReason }}
+            .col-6
+              .km-description.text-secondary-text Feedback comment
+              .row
+                .km-label {{ selectedRow?.extra_data?.answer_feedback?.comment ?? '-' }}
+            .col-6
+              .km-description.text-secondary-text Copied
+              .row
+                .km-label {{ selectedRow?.extra_data?.answer_copy ? 'Yes' : 'No' }}
+            .km-button-text.bb-border.q-pb-4 Substandard Result analysis
+            .col-6
+              .km-description.text-secondary-text Substandard Result Reason
+              .row
+                km-select.full-width(v-model='resultReason', :options='substandartResultReasons')
+            .col-6
+              .km-description.text-secondary-text Comment
+              .row
+                km-input.full-width.q-pb-16(autogrow, :rows='3', type='textarea', v-model='item.extra_data.comment')
 
   .row.items-center.q-pa-16.justify-between.bt-border(v-if='selectedRow?.trace_id || isUpdated')
     .row.items-center.q-gap-8.cursor-pointer(@click='openDetails', v-if='selectedRow?.trace_id')
       km-btn(flat, label='View trace', icon='fa fa-external-link', color='secondary-text', labelClass='km-button-text', iconSize='16px')
+    .col-auto
+    .row.items-center.q-gap-8
+      km-btn.self-end(label='Cancel', @click='cancelUpdate', v-if='isUpdated', flat)
+      km-btn.self-end(label='Update', @click='updateAnalytics', v-if='isUpdated')
 </template>
 <script>
 import _ from 'lodash'
 import { ref } from 'vue'
 import { formatDuration, featureTypeToRequestType } from '@shared/utils'
 import { formatDateTime } from '@shared/utils/dateTime'
+import { fetchData } from '@shared'
 
 export default {
   props: ['selectedRow'],
@@ -144,6 +177,14 @@ export default {
         { name: 'details', label: 'Details' },
         { name: 'costs', label: 'Cost & Latency' },
         { name: 'input_output', label: 'Inputs & Outputs' },
+        { name: 'insights', label: 'Insights' },
+      ]),
+      substandartResultReasons: ref([
+        { label: 'Prompt issue', value: 'prompt_issue' },
+        { label: 'Model limitation', value: 'model_limitation' },
+        { label: 'Hallucination', value: 'hallucination' },
+        { label: 'Format issue', value: 'format_issue' },
+        { label: 'Incorrect output', value: 'incorrect_output' },
       ]),
       formatDuration,
     }
@@ -168,6 +209,30 @@ export default {
       if (!this.selectedRow?.latency) return '-'
       return formatDuration(this.selectedRow?.latency)
     },
+    dislikeReason() {
+      const reason = this.selectedRow?.extra_data?.answer_feedback?.reason
+      if (reason) {
+        return reason.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+      }
+      return '-'
+    },
+    resultReason: {
+      get() {
+        if (this.item?.extra_data?.substandart_result_reason) {
+          return this.substandartResultReasons.find((option) => option.value === this.item?.extra_data?.substandart_result_reason)
+        }
+        return '-'
+      },
+      set(option) {
+        this.item.extra_data.substandart_result_reason = option.value
+      },
+    },
+    isUpdated() {
+      return !_.isEqual(this.item, this.selectedRow)
+    },
+    endpoint() {
+      return this.$store.getters.config.api.aiBridge.urlAdmin
+    },
   },
   watch: {
     selectedRow: {
@@ -184,6 +249,28 @@ export default {
     formatCost(val) {
       if (typeof val !== 'number') return '-'
       return `${val.toFixed(6)} $`
+    },
+    async updateAnalytics() {
+      const body = {}
+      if (this.item.extra_data.substandart_result_reason !== this.selectedRow.extra_data.substandart_result_reason) {
+        body.substandart_result_reason = this.item.extra_data.substandart_result_reason
+      }
+      if (this.item.extra_data.comment !== this.selectedRow.extra_data.comment) {
+        body.comment = this.item.extra_data.comment
+      }
+
+      const response = await fetchData({
+        endpoint: this.endpoint,
+        method: 'PUT',
+        credentials: 'include',
+        service: `observability/monitoring/analytics/${this.selectedRow._id}`,
+        body: JSON.stringify(body),
+      })
+      await response.json()
+      this.$emit('refresh')
+    },
+    cancelUpdate() {
+      this.item = _.cloneDeep(this.selectedRow)
     },
   },
 }

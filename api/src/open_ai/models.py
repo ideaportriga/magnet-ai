@@ -13,3 +13,4 @@ class ChatCompletionWithMetrics(ChatCompletion):
 
     usage_details: UsageDetails | None = Field(default=None)
     cost_details: CostDetails | None = Field(default=None)
+    feature_instance_id: str | None = Field(default=None)

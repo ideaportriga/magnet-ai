@@ -32,6 +32,8 @@ class PromptTemplateExecutionResponse:
     tool_calls: list[dict] | None = field(
         default=None
     )  # Tool calls from chat completion
+    trace_id: str | None = field(default=None)
+    analytics_id: str | None = field(default=None)
 
 
 @dataclass

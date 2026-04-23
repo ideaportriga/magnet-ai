@@ -4,6 +4,7 @@ import { markRaw, h } from 'vue'
 import StatusField from './components/StatusField.vue'
 import ChipCell from './components/ChipCell.vue'
 import NameVariant from './components/NameVariant.vue'
+import FeedbackChip from './components/FeedbackChip.vue'
 
 const controls = {
   _id: {
@@ -113,6 +114,16 @@ const controls = {
     field: (row) => row?.extra_data?.model_details?.display_name,
     display: true,
     align: 'left',
+    sortable: true,
+  },
+  ['extra_data.answer_feedback.type']: {
+    name: 'extra_data.answer_feedback.type',
+    label: 'User feedback',
+    field: 'feedback',
+    type: 'component',
+    component: markRaw(FeedbackChip),
+    align: 'left',
+    display: true,
     sortable: true,
   },
   organization: {

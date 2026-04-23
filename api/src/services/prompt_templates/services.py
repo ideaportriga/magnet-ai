@@ -7,6 +7,7 @@ from open_ai.utils_new import (
     create_chat_completion_from_prompt_template,
 )
 from prompt_templates.prompt_templates import get_prompt_template_by_system_name_flat
+from services.observability import observability_context
 from services.prompt_templates.models import (
     PromptTemplateConfig,
     PromptTemplateExecutionResponse,
@@ -91,4 +92,6 @@ async def execute_prompt_template(
         cost=chat_completion.cost_details.total
         if hasattr(chat_completion, "cost_details") and chat_completion.cost_details
         else None,
+        trace_id=observability_context.get_current_trace_id(),
+        analytics_id=chat_completion.feature_instance_id,
     )
