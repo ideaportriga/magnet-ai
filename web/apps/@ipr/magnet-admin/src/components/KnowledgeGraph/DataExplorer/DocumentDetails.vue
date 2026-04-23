@@ -141,18 +141,32 @@
             class="doc-section doc-section--chunk"
             :class="{ 'doc-section--chunk-active': selectedChunk?.id === chunk.id }"
           >
-            <div class="section-header section-header--chunk" @click="onChunkHeaderClick(chunk)">
-              <span class="chunk-index-badge">{{ index + 1 }}</span>
-              <span class="section-title">{{ chunk.title || chunk.name || 'Chunk Content' }}</span>
-              <q-space />
-              <q-badge v-if="chunk.page" color="secondary" text-color="white" class="chunk-page-badge">Page {{ chunk.page }}</q-badge>
-              <q-badge v-if="chunk.content" color="grey-4" text-color="grey-8" class="chunk-page-badge chunk-length-badge" style="margin-left: 4px">
-                {{ formatContentLength(chunk.content) }}
-                <q-tooltip>{{ chunk.content.length.toLocaleString() }} characters</q-tooltip>
-              </q-badge>
+            <div class="chunk-sticky-top">
+              <div class="section-header section-header--chunk" @click="onChunkHeaderClick(chunk)">
+                <span class="chunk-index-badge">{{ index + 1 }}</span>
+                <span class="section-title">{{ chunk.title || chunk.name || 'Chunk Content' }}</span>
+                <q-space />
+                <q-badge v-if="chunk.page" color="secondary" text-color="white" class="chunk-page-badge">Page {{ chunk.page }}</q-badge>
+                <q-badge v-if="chunk.content" color="grey-4" text-color="grey-8" class="chunk-page-badge chunk-length-badge" style="margin-left: 4px">
+                  {{ formatContentLength(chunk.content) }}
+                  <q-tooltip>{{ chunk.content.length.toLocaleString() }} characters</q-tooltip>
+                </q-badge>
+              </div>
+              <div
+                v-show="hScrollNeeded[chunk.id]"
+                :ref="(el) => setHScrollBarRef(chunk.id, el as HTMLElement)"
+                class="chunk-hscroll-bar"
+                @scroll="onHScrollBarScroll(chunk.id)"
+              >
+                <div class="chunk-hscroll-bar-track" />
+              </div>
             </div>
             <div class="section-body section-body--chunk">
-              <div class="chunk-content-wrapper">
+              <div
+                :ref="(el) => setContentWrapperRef(chunk.id, el as HTMLElement)"
+                class="chunk-content-wrapper"
+                @scroll="onContentWrapperScroll(chunk.id)"
+              >
                 <div :class="['chunk-content', chunkContentClass]" v-html="getRenderedContent(chunk)" />
               </div>
             </div>
@@ -201,7 +215,7 @@ import MarkdownItSub from 'markdown-it-sub'
 import MarkdownItSup from 'markdown-it-sup'
 import MarkdownItTasklists from 'markdown-it-task-lists'
 import MarkdownItTOC from 'markdown-it-toc-done-right'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useStore } from 'vuex'
 import MetadataPanel from './MetadataPanel.vue'
@@ -244,7 +258,6 @@ const activeChunkId = ref<string | null>(null)
 const isScrollingProgrammatically = ref(false)
 type ChunkScrollPosition = { id: string; top: number; bottom: number }
 const chunkScrollPositions = ref<ChunkScrollPosition[]>([])
-const ACTIVE_AREA_HEIGHT_PX = 120
 
 let scrollRafId: number | null = null
 let recomputePositionsTimer: number | null = null
@@ -255,6 +268,72 @@ const setChunkRef = (chunkId: string, el: HTMLElement | null) => {
   } else {
     chunkRefs.value.delete(chunkId)
   }
+}
+
+// Sticky horizontal scrollbar sync (per chunk)
+const hScrollBarRefs = new Map<string, HTMLElement>()
+const contentWrapperRefs = new Map<string, HTMLElement>()
+const contentResizeObservers = new Map<string, ResizeObserver>()
+const hScrollSyncing = new Set<string>()
+const hScrollNeeded = reactive<Record<string, boolean>>({})
+
+const updateHScrollBarTrack = (id: string) => {
+  const bar = hScrollBarRefs.get(id)
+  const content = contentWrapperRefs.get(id)
+  if (!bar || !content) return
+  const track = bar.firstElementChild as HTMLElement | null
+  if (!track) return
+  const scrollWidth = content.scrollWidth
+  const clientWidth = content.clientWidth
+  track.style.width = `${scrollWidth}px`
+  hScrollNeeded[id] = scrollWidth > clientWidth + 1
+}
+
+const setHScrollBarRef = (id: string, el: HTMLElement | null) => {
+  if (el) {
+    hScrollBarRefs.set(id, el)
+    nextTick(() => updateHScrollBarTrack(id))
+  } else {
+    hScrollBarRefs.delete(id)
+  }
+}
+
+const setContentWrapperRef = (id: string, el: HTMLElement | null) => {
+  const existing = contentResizeObservers.get(id)
+  if (existing) {
+    existing.disconnect()
+    contentResizeObservers.delete(id)
+  }
+  if (el) {
+    contentWrapperRefs.set(id, el)
+    const ro = new ResizeObserver(() => updateHScrollBarTrack(id))
+    ro.observe(el)
+    const inner = el.firstElementChild as HTMLElement | null
+    if (inner) ro.observe(inner)
+    contentResizeObservers.set(id, ro)
+    nextTick(() => updateHScrollBarTrack(id))
+  } else {
+    contentWrapperRefs.delete(id)
+    delete hScrollNeeded[id]
+  }
+}
+
+const onHScrollBarScroll = (id: string) => {
+  if (hScrollSyncing.has(id)) return
+  hScrollSyncing.add(id)
+  const bar = hScrollBarRefs.get(id)
+  const content = contentWrapperRefs.get(id)
+  if (bar && content) content.scrollLeft = bar.scrollLeft
+  window.requestAnimationFrame(() => hScrollSyncing.delete(id))
+}
+
+const onContentWrapperScroll = (id: string) => {
+  if (hScrollSyncing.has(id)) return
+  hScrollSyncing.add(id)
+  const bar = hScrollBarRefs.get(id)
+  const content = contentWrapperRefs.get(id)
+  if (bar && content) bar.scrollLeft = content.scrollLeft
+  window.requestAnimationFrame(() => hScrollSyncing.delete(id))
 }
 
 // Markdown renderer
@@ -774,7 +853,7 @@ const scrollToChunk = (chunkId: string, behavior: ScrollBehavior = 'smooth') => 
   const el = chunkRefs.value.get(chunkId)
   if (el && scrollAreaRef.value) {
     isScrollingProgrammatically.value = behavior === 'smooth'
-    el.scrollIntoView({ behavior, block: 'center' })
+    el.scrollIntoView({ behavior, block: 'start' })
 
     // Reset flag after scroll animation and sync active chunk once settled.
     window.setTimeout(
@@ -782,7 +861,7 @@ const scrollToChunk = (chunkId: string, behavior: ScrollBehavior = 'smooth') => 
         isScrollingProgrammatically.value = false
         updateActiveChunkFromScroll()
       },
-      behavior === 'smooth' ? 500 : 0
+      behavior === 'smooth' ? 350 : 0
     )
   }
 }
@@ -858,39 +937,15 @@ const updateActiveChunkFromScroll = () => {
   else if (scrollTop + clientHeight >= scrollHeight - 20) {
     nextId = chunkScrollPositions.value[chunkScrollPositions.value.length - 1]?.id || null
   }
-  // Active Area Logic
+  // Top-alignment logic: pick the last chunk whose top has scrolled past the probe line
   else {
-    const areaTop = scrollTop + (clientHeight - ACTIVE_AREA_HEIGHT_PX) / 2
-    const areaBottom = areaTop + ACTIVE_AREA_HEIGHT_PX
-    const areaCenter = areaTop + ACTIVE_AREA_HEIGHT_PX / 2
-
-    let maxOverlap = -1
-    let minDistToCenter = Number.MAX_VALUE
-
+    const probe = scrollTop + 16
+    let candidateId: string | null = chunkScrollPositions.value[0]?.id || null
     for (const pos of chunkScrollPositions.value) {
-      if (pos.top > areaBottom) break // Optimization: chunks sorted by top
-
-      const overlapTop = Math.max(areaTop, pos.top)
-      const overlapBottom = Math.min(areaBottom, pos.bottom)
-      const overlap = overlapBottom - overlapTop
-
-      if (overlap > 0) {
-        if (overlap > maxOverlap) {
-          maxOverlap = overlap
-          nextId = pos.id
-          const chunkCenter = (pos.top + pos.bottom) / 2
-          minDistToCenter = Math.abs(chunkCenter - areaCenter)
-        } else if (Math.abs(overlap - maxOverlap) < 1) {
-          // Tie-breaker: closest to center
-          const chunkCenter = (pos.top + pos.bottom) / 2
-          const dist = Math.abs(chunkCenter - areaCenter)
-          if (dist < minDistToCenter) {
-            minDistToCenter = dist
-            nextId = pos.id
-          }
-        }
-      }
+      if (pos.top <= probe) candidateId = pos.id
+      else break
     }
+    nextId = candidateId
   }
 
   if (!nextId || nextId === activeChunkId.value) return
@@ -926,6 +981,15 @@ watch(
 
 watch(metadataPanelOpen, () => {
   scheduleRecomputeChunkScrollPositions()
+  nextTick(() => {
+    hScrollBarRefs.forEach((_, id) => updateHScrollBarTrack(id))
+  })
+})
+
+watch(documentChunkContentType, () => {
+  nextTick(() => {
+    hScrollBarRefs.forEach((_, id) => updateHScrollBarTrack(id))
+  })
 })
 
 onMounted(async () => {
@@ -959,6 +1023,10 @@ onBeforeUnmount(() => {
   }
   window.removeEventListener('resize', onWindowResize)
   renderedContentCache.clear()
+  contentResizeObservers.forEach((ro) => ro.disconnect())
+  contentResizeObservers.clear()
+  hScrollBarRefs.clear()
+  contentWrapperRefs.clear()
 })
 </script>
 
@@ -1276,12 +1344,11 @@ onBeforeUnmount(() => {
 .doc-section--chunk {
   display: flex;
   flex-direction: column;
-  min-height: 200px;
   scroll-margin-top: 8px;
   transition:
     box-shadow 0.2s ease,
     border-color 0.2s ease;
-  border: 1px solid #9ca3af;
+  overflow: clip;
 }
 
 .chunk-index-badge {
@@ -1310,27 +1377,78 @@ onBeforeUnmount(() => {
   color: white;
 }
 
+.chunk-sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff;
+}
+
+.doc-section--chunk-active .chunk-sticky-top {
+  background: linear-gradient(var(--q-primary-bg), var(--q-primary-bg)), #fff;
+}
+
 .section-header--chunk {
+  border: 1px solid #9ca3af;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   cursor: default;
+  background: transparent;
 }
 
 .section-header--chunk:hover {
   background: transparent;
 }
 
-.doc-section--chunk-active .section-header {
-  background: var(--q-primary-bg);
+.chunk-hscroll-bar {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-left: 1px solid #9ca3af;
+  border-right: 1px solid #9ca3af;
+}
+
+.chunk-hscroll-bar::-webkit-scrollbar {
+  height: 16px;
+}
+
+.chunk-hscroll-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chunk-hscroll-bar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+
+.chunk-hscroll-bar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.chunk-hscroll-bar-track {
+  height: 1px;
 }
 
 .section-body--chunk {
   padding: 0;
   overflow: visible;
+  border: 1px solid #9ca3af;
+  border-top: 0;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
 }
 
 .chunk-content-wrapper {
   padding: 20px;
   min-height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chunk-content-wrapper::-webkit-scrollbar {
+  display: none;
 }
 
 .chunk-content {
@@ -1344,7 +1462,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-style: dashed;
-  min-height: 200px;
+  min-height: 100px;
 }
 
 .empty-placeholder {
@@ -1496,8 +1614,9 @@ onBeforeUnmount(() => {
    HTML Content
    ============================================ */
 .html-content {
-  line-height: 1.7;
+  line-height: 1.6;
   color: #374151;
+  font-size: 13px;
 }
 
 .html-content :deep(img) {
@@ -1509,21 +1628,22 @@ onBeforeUnmount(() => {
   border-collapse: collapse;
   width: 100%;
   margin: 12px 0;
+  border: 1px solid #e5e7eb;
+  color: #374151;
+  font-size: 13px;
 }
 
 .html-content :deep(th) {
   background: #f9fafb;
-  padding: 10px 12px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
   font-weight: 600;
   text-align: left;
 }
 
-.html-content :deep(tr) {
-  display: table-row;
-}
-
 .html-content :deep(td) {
-  padding: 10px 12px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
 }
 
 .html-content :deep(a) {
