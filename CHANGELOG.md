@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.14](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.13...v0.7.0-dev.14) (2026-04-23)
+
+### ✨ Features
+
+* **usage:** added Substandard Result analysis field to the usage table ([6090999](https://github.com/ideaportriga/magnet-ai/commit/609099965c2ba7fcbbc8bc7eaaf48de7ca9235b5))
+* **usage:** added user feedback support for LLM Calls (prompt ([6a23219](https://github.com/ideaportriga/magnet-ai/commit/6a232199b092a61687490d3f43ed7d9622bd1cab))
+
 ## [0.7.0-dev.13](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.12...v0.7.0-dev.13) (2026-04-19)
 
 ### 🐛 Bug Fixes
