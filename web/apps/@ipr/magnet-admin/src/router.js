@@ -435,6 +435,16 @@ const routes = [
     },
   },
   {
+    path: '/api-keys/:id',
+    name: 'ApiKeysDetail',
+    component: () => import('@/components/ApiKeys/Details.vue'),
+    meta: {
+      pageLabel: () => m.entity_apiKey(),
+      chroma: true,
+      entity: 'api_keys',
+    },
+  },
+  {
     path: '/api-servers',
     name: 'ApiServers',
     component: () => import('@/components/ApiServers/Page.vue'),

@@ -143,6 +143,9 @@ export interface McpServer extends BaseEntity {
 
 export interface ApiKey extends BaseEntity {
   value_masked?: string
+  is_active?: boolean
+  expires_at?: string | null
+  notes?: string | null
 }
 
 export interface ApiServer extends BaseEntity {
