@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.17](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.16...v0.7.0-alpha.17) (2026-04-24)
+
+### ✨ Features
+
+* **api_keys:** improve create form usability ([e628acb](https://github.com/ideaportriga/magnet-ai/commit/e628acbe3c2b7ab72c36ccc848ec95307323c110))
+
+### 🐛 Bug Fixes
+
+* **frontend:** add detail view for API keys ([582fe71](https://github.com/ideaportriga/magnet-ai/commit/582fe719147c86c74f9058b3213cbb482342fd61))
+* **frontend:** avoid unnecessary requests after entity deletion ([a753fdb](https://github.com/ideaportriga/magnet-ai/commit/a753fdba1017fbb49e35fe82867d1b38663f6bd3))
+
 ## [0.7.0-alpha.16](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.15...v0.7.0-alpha.16) (2026-04-20)
 
 ### 🐛 Bug Fixes
