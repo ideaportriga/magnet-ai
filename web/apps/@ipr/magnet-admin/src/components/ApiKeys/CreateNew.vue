@@ -9,18 +9,19 @@ q-dialog(:model-value='showNewDialog', @cancel='onCancel', @hide='onCancel')
           q-btn(icon='close', flat, dense, @click='onCancel')
     q-card-section.card-section-style.q-mb-md
       .column(v-if='step === 0')
-        km-notification-text.q-mb-lg(:notification='m.hint_createApiKey()')
-        .km-field.text-secondary-text.q-pl-8.q-mb-xs {{ m.common_name() }}
-        .full-width
-          km-input(data-test='name-input', :placeholder='m.apiKeys_myTestApiKey()', v-model='name', ref='nameRef')
-        .row.q-mt-lg
-          .col-auto
-            km-btn(data-test='cancel-btn', flat, :label='m.common_cancel()', color='primary', @click='onCancel')
-          .col
-          .col-auto.center-flex-y.q-mr-sm
-            q-spinner(v-if='loading', color='primary', size='20px')
-          .col-auto(data-test='create-btn', :data-disabled='loading || !name ? "true" : "false"')
-            km-btn(:label='m.dialog_createApiKey()', @click='create', :disable='loading || !name')
+        form(@submit.prevent='create')
+          km-notification-text.q-mb-lg(:notification='m.hint_createApiKey()')
+          .km-field.text-secondary-text.q-pl-8.q-mb-xs {{ m.common_name() }}
+          .full-width
+            km-input(data-test='name-input', :placeholder='m.apiKeys_myTestApiKey()', :model-value='name', @input='name = $event', ref='nameRef', autofocus)
+          .row.q-mt-lg
+            .col-auto
+              km-btn(data-test='cancel-btn', flat, :label='m.common_cancel()', color='primary', @click='onCancel')
+            .col
+            .col-auto.center-flex-y.q-mr-sm
+              q-spinner(v-if='loading', color='primary', size='20px')
+            .col-auto(data-test='create-btn', :data-disabled='loading || !name ? "true" : "false"')
+              km-btn(:label='m.dialog_createApiKey()', @click='create', :disable='loading || !name')
       .column(v-if='step === 1')
         km-notification-text.q-mb-lg(
           :notification='m.hint_secretKeyOnce()'
@@ -69,6 +70,7 @@ const title = computed(() => {
 })
 
 const create = async () => {
+  if (!name.value || loading.value) return
   loading.value = true
   const { success, data } = await createApiKey.run({ name: name.value })
   loading.value = false
