@@ -69,6 +69,12 @@
               .col-6(v-if='retryAfter != null')
                 .km-input-label.text-text-grey Retry after
                 .km-heading-2 {{ retryAfter }} s
+              .col-6(v-if='reasoningTokens != null')
+                .km-input-label.text-text-grey Reasoning tokens
+                .km-heading-2 {{ reasoningTokens }}
+              .col-12(v-if='emptyReasonHint')
+                .km-input-label.text-text-grey Hint
+                .km-heading-2(style='font-size: 12px') {{ emptyReasonHint }}
               .col-12(v-if='requestId')
                 .km-input-label.text-text-grey Provider request ID
                 .km-heading-2(style='font-family: SFMono-Regular, ui-monospace, Menlo, Consolas, monospace; font-size: 12px; word-break: break-all') {{ requestId }}
@@ -182,6 +188,26 @@ export default defineComponent({
     requestId() {
       return this.extra.error_request_id || null
     },
+    emptyReason() {
+      return this.extra.error_reason || null
+    },
+    reasoningTokens() {
+      const v = this.extra.error_reasoning_tokens
+      return typeof v === 'number' ? v : null
+    },
+    emptyReasonHint() {
+      if (this.errorType !== 'LLMEmptyResponseError') return null
+      if (this.emptyReason === 'reasoning_only') {
+        return 'Model produced only reasoning tokens and no final answer. Raise reasoning_effort or max_tokens; also check that the dialog to analyze lives in the user message, not the system prompt.'
+      }
+      if (this.emptyReason === 'null_content' && this.finishReason === 'stop') {
+        return 'Model stopped naturally without producing output. Often caused by an empty user message or a prompt that leaves nothing to answer.'
+      }
+      if (this.emptyReason === 'no_choices') {
+        return 'Provider returned zero choices — usually an upstream serialization issue. Retry or inspect the raw response.'
+      }
+      return null
+    },
     hasStructuredError() {
       return !!(this.errorType || this.errorSource || this.errorProvider || this.finishReason)
     },
@@ -190,7 +216,10 @@ export default defineComponent({
       if (this.errorType === 'LLMGuardrailBlockedError') return 'Guardrail blocked the response'
       if (this.errorType === 'LLMRateLimitError') return 'Rate limit'
       if (this.errorType === 'LLMTruncatedError') return 'Truncated (no content produced)'
-      if (this.errorType === 'LLMEmptyResponseError') return 'Empty response'
+      if (this.errorType === 'LLMEmptyResponseError') {
+        if (this.emptyReason === 'reasoning_only') return 'Empty response (only reasoning, no final answer)'
+        return 'Empty response'
+      }
       if (this.errorType === 'LLMTimeoutError') return 'Timeout'
       if (this.errorType === 'LLMContextWindowExceededError') return 'Context window exceeded'
       if (this.errorType === 'LLMProviderAuthError') return 'Provider authentication error'

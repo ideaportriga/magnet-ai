@@ -33,17 +33,36 @@ def _mk_response(
     choices=None,
     hidden_params=None,
     response_id="resp-1",
+    usage=None,
 ):
     return SimpleNamespace(
         id=response_id,
         choices=choices if choices is not None else [],
         _hidden_params=hidden_params or {},
+        usage=usage,
     )
 
 
-def _mk_choice(*, finish_reason=None, content=None, tool_calls=None, role="assistant"):
-    message = SimpleNamespace(role=role, content=content, tool_calls=tool_calls)
+def _mk_choice(
+    *,
+    finish_reason=None,
+    content=None,
+    tool_calls=None,
+    role="assistant",
+    reasoning_content=None,
+):
+    message = SimpleNamespace(
+        role=role,
+        content=content,
+        tool_calls=tool_calls,
+        reasoning_content=reasoning_content,
+    )
     return SimpleNamespace(finish_reason=finish_reason, message=message)
+
+
+def _mk_usage(*, reasoning_tokens=None):
+    details = SimpleNamespace(reasoning_tokens=reasoning_tokens)
+    return SimpleNamespace(completion_tokens_details=details)
 
 
 # --- validate_completion ---
@@ -67,6 +86,44 @@ class TestValidateCompletion:
     def test_null_content_without_tool_calls_raises(self):
         resp = _mk_response(
             choices=[_mk_choice(finish_reason="stop", content=None, tool_calls=None)]
+        )
+        with pytest.raises(LLMEmptyResponseError) as ei:
+            validate_completion(resp)
+        assert ei.value.reason == "null_content"
+
+    def test_reasoning_only_via_reasoning_tokens(self):
+        """Usage reports reasoning_tokens > 0 but content is None — harmony-only."""
+        resp = _mk_response(
+            choices=[_mk_choice(finish_reason="stop", content=None, tool_calls=None)],
+            usage=_mk_usage(reasoning_tokens=1234),
+        )
+        with pytest.raises(LLMEmptyResponseError) as ei:
+            validate_completion(resp)
+        assert ei.value.reason == "reasoning_only"
+        assert ei.value.reasoning_tokens == 1234
+
+    def test_reasoning_only_via_reasoning_content(self):
+        """Provider exposes message.reasoning_content — treat same as harmony-only."""
+        resp = _mk_response(
+            choices=[
+                _mk_choice(
+                    finish_reason="stop",
+                    content=None,
+                    tool_calls=None,
+                    reasoning_content="Let me think...",
+                )
+            ],
+        )
+        with pytest.raises(LLMEmptyResponseError) as ei:
+            validate_completion(resp)
+        assert ei.value.reason == "reasoning_only"
+        assert ei.value.has_reasoning_content is True
+
+    def test_null_content_with_zero_reasoning_stays_null_content(self):
+        """reasoning_tokens=0 must NOT be misclassified as reasoning_only."""
+        resp = _mk_response(
+            choices=[_mk_choice(finish_reason="stop", content=None, tool_calls=None)],
+            usage=_mk_usage(reasoning_tokens=0),
         )
         with pytest.raises(LLMEmptyResponseError) as ei:
             validate_completion(resp)

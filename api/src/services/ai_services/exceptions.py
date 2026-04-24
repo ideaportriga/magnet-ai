@@ -45,7 +45,7 @@ class LLMError(Exception):
         self.hidden_params = hidden_params or {}
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "error_type": type(self).__name__,
             "message": self.message,
             "source": self.source,
@@ -54,6 +54,21 @@ class LLMError(Exception):
             "status_code": self.status_code,
             "request_id": self.request_id,
         }
+        # Surface subclass-specific fields so API clients / UI can render them
+        # without reaching into traces. None values are stripped to keep the
+        # HTTP payload compact.
+        for attr in (
+            "reason",
+            "finish_reason",
+            "reasoning_tokens",
+            "has_reasoning_content",
+            "retry_after",
+        ):
+            if hasattr(self, attr):
+                value = getattr(self, attr)
+                if value is not None:
+                    payload[attr] = value
+        return payload
 
 
 # --- Response-shape errors (no exception from litellm, but the reply is unusable) ---
@@ -65,6 +80,8 @@ class LLMEmptyResponseError(LLMError):
     Covers:
     - empty choices list
     - choices[0].message.content is None AND no tool_calls
+    - reasoning-only output (reasoning_tokens > 0 but final content is empty) —
+      distinguished via reason="reasoning_only"
     """
 
     http_status_code = 502
@@ -75,11 +92,15 @@ class LLMEmptyResponseError(LLMError):
         *,
         reason: str = "null_content",
         finish_reason: str | None = None,
+        reasoning_tokens: int | None = None,
+        has_reasoning_content: bool = False,
         **kwargs: Any,
     ) -> None:
         super().__init__(message, **kwargs)
         self.reason = reason
         self.finish_reason = finish_reason
+        self.reasoning_tokens = reasoning_tokens
+        self.has_reasoning_content = has_reasoning_content
 
 
 class LLMGuardrailBlockedError(LLMError):

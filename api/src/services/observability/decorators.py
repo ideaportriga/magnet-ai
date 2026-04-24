@@ -650,7 +650,13 @@ class ObservabilityContext:
             "error_request_id": e.request_id,
         }
         # Subclass-specific extras (content_filter, length, retry_after, ...)
-        for attr in ("finish_reason", "reason", "retry_after"):
+        for attr in (
+            "finish_reason",
+            "reason",
+            "retry_after",
+            "reasoning_tokens",
+            "has_reasoning_content",
+        ):
             if hasattr(e, attr):
                 value = getattr(e, attr)
                 if value is not None:

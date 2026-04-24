@@ -39,7 +39,7 @@ from openai.types.chat import (
 from models import DocumentSearchResult
 from services.ai_services.cache import response_cache
 from services.ai_services.interface import AIProviderInterface
-from services.ai_services.exceptions import LLMError
+from services.ai_services.exceptions import LLMEmptyResponseError, LLMError
 from services.ai_services.litellm_call import litellm_call_context
 from services.ai_services.metrics import record_from_exception, record_router_retries
 from services.ai_services.models import (
@@ -59,6 +59,65 @@ from services.ai_services.response_validation import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Model-name prefixes / substrings that identify reasoning models which expect
+# `reasoning_effort` instead of `temperature`. Used as a fallback when the
+# model record in the DB doesn't carry `reasoning: true`. Checked against the
+# bare model name (without provider prefix) after lowercasing.
+_REASONING_MODEL_PATTERNS = (
+    "gpt-oss",
+    "gpt-5",
+    "o1",
+    "o1-mini",
+    "o1-preview",
+    "o3",
+    "o3-mini",
+    "o4",
+    "o4-mini",
+    "deepseek-r1",
+    "deepseek-reasoner",
+    "qwq",
+    "qwen3",
+)
+
+
+def _looks_like_reasoning_model(model_name: str) -> bool:
+    if not model_name:
+        return False
+    base = model_name.split("/", 1)[-1].lower()
+    return any(p in base for p in _REASONING_MODEL_PATTERNS)
+
+
+_REASONING_EFFORT_ESCALATION = {"low": "medium", "medium": "high"}
+_MAX_COMPLETION_TOKENS_CEILING = 32000
+
+
+def _escalate_reasoning_params(params: dict) -> dict:
+    """Produce a new params dict with bumped reasoning budget.
+
+    Used on empty-response retry: increasing reasoning_effort one tier and
+    doubling max_completion_tokens (capped) reliably turns stochastic
+    reasoning-only responses into usable answers on gpt-oss-style models.
+    Mirrors the bumped values into extra_body so provider routes that drop
+    top-level fields still see them.
+    """
+    out = dict(params)
+    current_effort = out.get("reasoning_effort", "medium")
+    out["reasoning_effort"] = _REASONING_EFFORT_ESCALATION.get(current_effort, "high")
+
+    current_budget = out.get("max_completion_tokens") or out.get("max_tokens") or 8192
+    new_budget = min(current_budget * 2, _MAX_COMPLETION_TOKENS_CEILING)
+    if "max_completion_tokens" in out:
+        out["max_completion_tokens"] = new_budget
+    if "max_tokens" in out:
+        out["max_tokens"] = new_budget
+
+    extra_body = dict(out.get("extra_body") or {})
+    extra_body["reasoning_effort"] = out["reasoning_effort"]
+    extra_body["max_completion_tokens"] = new_budget
+    out["extra_body"] = extra_body
+    return out
+
 
 # Suppress verbose litellm logging
 litellm.suppress_debug_info = True
@@ -198,30 +257,79 @@ class BaseLiteLLMProvider(AIProviderInterface):
             routing_config=routing_config,
         )
 
-        response = await self._execute_completion(params, routing_config, model_config)
-
-        # Zero out usage for cached responses to avoid double billing
-        # LiteLLM stores cache_hit in _hidden_params
-        if getattr(response, "_hidden_params", {}).get("cache_hit"):
-            if hasattr(response, "usage") and response.usage:
-                response.usage.prompt_tokens = 0
-                response.usage.completion_tokens = 0
-                response.usage.total_tokens = 0
-
         # Reject empty / guardrail-blocked / zero-content-truncated responses
         # with a typed domain exception so they stop being silent HTTP 200s.
         # Record the error metric even if a caller swallows the exception.
         model_system_name = (model_config or {}).get("system_name")
-        try:
+        provider_label = self.litellm_provider or None
+        source_label = "router" if model_system_name else "provider"
+
+        def _validate(resp: Any) -> None:
             validate_completion(
-                response,
+                resp,
                 model=model_system_name or model,
-                provider=self.litellm_provider or None,
-                source="router" if model_system_name else "provider",
+                provider=provider_label,
+                source=source_label,
             )
-        except LLMError as e:
-            record_from_exception(e)
-            raise
+
+        # Empty-response retry loop (separate from Router's network-error
+        # retries). `num_retries` in routing_config covers transient transport
+        # failures that litellm surfaces as exceptions; those retries happen
+        # INSIDE Router.acompletion and we never see them here. The loop below
+        # only fires when the provider returned a syntactically-valid 2xx body
+        # with content=None — something litellm cannot retry on natively
+        # (see litellm/utils.py, post_call_rules is skipped when content is
+        # None). We escalate reasoning_effort/max_completion_tokens on each
+        # attempt because repeating the same params on gpt-oss-style models
+        # rarely helps — the fix is more budget, not more rolls.
+        max_attempts = 1 + max(0, routing_config.empty_response_retries)
+        attempt = 0
+        attempt_params = params
+        while True:
+            attempt += 1
+            response = await self._execute_completion(
+                attempt_params, routing_config, model_config
+            )
+
+            # Zero out usage for cached responses to avoid double billing.
+            if getattr(response, "_hidden_params", {}).get("cache_hit"):
+                if hasattr(response, "usage") and response.usage:
+                    response.usage.prompt_tokens = 0
+                    response.usage.completion_tokens = 0
+                    response.usage.total_tokens = 0
+
+            try:
+                _validate(response)
+                break  # response is usable
+            except LLMEmptyResponseError as e:
+                # Only escalate for reasoning models — non-reasoning models
+                # producing empty content usually signals a prompt issue, not
+                # a stochastic budget miss, so retrying would just burn cost.
+                retryable = (
+                    e.reason in ("null_content", "reasoning_only")
+                    and attempt_params.get("reasoning_effort") is not None
+                )
+                if not retryable or attempt >= max_attempts:
+                    record_from_exception(e)
+                    raise
+
+                attempt_params = _escalate_reasoning_params(attempt_params)
+                logger.warning(
+                    "Empty reasoning-model response (attempt=%d/%d reason=%s "
+                    "finish_reason=%s reasoning_tokens=%s); retrying with "
+                    "reasoning_effort=%s max_completion_tokens=%s",
+                    attempt,
+                    max_attempts,
+                    e.reason,
+                    e.finish_reason,
+                    e.reasoning_tokens,
+                    attempt_params.get("reasoning_effort"),
+                    attempt_params.get("max_completion_tokens")
+                    or attempt_params.get("max_tokens"),
+                )
+            except LLMError as e:
+                record_from_exception(e)
+                raise
 
         # Router retry-count metric (covers Phase 3.2 — only emitted on success
         # because a failed call already records an error).
@@ -411,22 +519,53 @@ class BaseLiteLLMProvider(AIProviderInterface):
                 "max_completion_tokens",
             }
 
-        # Check if reasoning model (for reasoning_effort parameter)
-        is_reasoning_model = model_config and model_config.get("reasoning")
+        # Check if reasoning model (for reasoning_effort parameter).
+        # Primary source is the DB config flag; as a fallback we sniff the
+        # model name against a well-known list so newly-added reasoning
+        # deployments don't silently behave like completion models (which
+        # leads to empty "final" channel — see LLMEmptyResponseError with
+        # reason="reasoning_only").
+        is_reasoning_model = bool(model_config and model_config.get("reasoning"))
+        if not is_reasoning_model and _looks_like_reasoning_model(full_model):
+            is_reasoning_model = True
+            logger.debug(
+                "Auto-detected reasoning model %r; set reasoning_effort via DB "
+                "config to override the default",
+                full_model,
+            )
+
+        reasoning_effort = (
+            (model_config or {}).get("reasoning_effort", "medium")
+            if is_reasoning_model
+            else None
+        )
 
         # Add optional parameters based on model support
         if temperature is not None:
             if is_reasoning_model:
-                # Reasoning models use reasoning_effort instead of temperature
-                params["reasoning_effort"] = (model_config or {}).get(
-                    "reasoning_effort", "medium"
-                )
+                # Reasoning models use reasoning_effort instead of temperature.
+                # Route via both `reasoning_effort` (top-level, for providers
+                # whose litellm schema advertises it) AND `extra_body` (raw
+                # passthrough). The second path is required for azure_ai/gpt-oss
+                # and similar deployments where litellm's supported_params list
+                # does NOT include reasoning_effort and drop_params=True would
+                # otherwise silently discard it.
+                params["reasoning_effort"] = reasoning_effort
+                extra_body = params.setdefault("extra_body", {})
+                extra_body["reasoning_effort"] = reasoning_effort
             elif "temperature" in supported_params:
                 params["temperature"] = temperature
 
         if top_p is not None and "top_p" in supported_params:
             params["top_p"] = top_p
 
+        # Reasoning models need a bigger headroom because their budget is
+        # split between hidden chain-of-thought tokens and user-facing output.
+        # If the caller didn't set a limit, substitute a safe default so the
+        # model has room for both channels instead of stopping mid-reasoning
+        # with an empty `content` (LLMEmptyResponseError reason="reasoning_only").
+        if max_tokens is None and is_reasoning_model:
+            max_tokens = 8192
         if max_tokens is not None:
             # Prefer max_completion_tokens for newer models that support it.
             # litellm reports both params as supported for most models, but newer
@@ -439,6 +578,13 @@ class BaseLiteLLMProvider(AIProviderInterface):
             else:
                 # Neither explicitly listed — default to max_completion_tokens
                 params["max_completion_tokens"] = max_tokens
+            # Also mirror into extra_body for reasoning models: if the provider
+            # route strips the top-level field (e.g. azure_ai for gpt-oss),
+            # extra_body is forwarded verbatim and ensures the model actually
+            # sees a budget.
+            if is_reasoning_model:
+                extra_body = params.setdefault("extra_body", {})
+                extra_body["max_completion_tokens"] = max_tokens
 
         if response_format is not None:
             params["response_format"] = self._transform_response_format(response_format)
@@ -463,6 +609,18 @@ class BaseLiteLLMProvider(AIProviderInterface):
 
         if routing_config.retry_after is not None:
             params["retry_after"] = routing_config.retry_after
+
+        if is_reasoning_model and logger.isEnabledFor(logging.DEBUG):
+            # Helpful during tuning: confirm reasoning_effort + max_completion_tokens
+            # actually make it into the outgoing request. Skip message bodies
+            # (they are logged elsewhere) to keep the log line short.
+            logger.debug(
+                "Reasoning request: model=%s reasoning_effort=%s max_completion_tokens=%s extra_body=%s",
+                params.get("model"),
+                params.get("reasoning_effort"),
+                params.get("max_completion_tokens"),
+                params.get("extra_body"),
+            )
 
         # Extra LiteLLM params from routing_config
         if routing_config.litellm_params:

@@ -80,9 +80,9 @@ RUN groupadd --system --gid 1000 app \
     && useradd --system --uid 1000 --gid app --home-dir /app --shell /sbin/nologin app \
     && mkdir -p /app/files \
     && chmod +x ./docker-entrypoint.sh \
+    && chown -R app:app /app \
     && chgrp -R 0 /app/web/admin/config /app/web/panel/config \
-    && chmod -R g+rwX /app/web/admin/config /app/web/panel/config \
-    && chown -R app:app /app
+    && chmod -R ug+rwX /app/web/admin/config /app/web/panel/config
 
 USER app
 

@@ -81,6 +81,12 @@ class RoutingConfig:
     timeout: int | None = None
     priority: int | None = None
     weight: int | None = None
+    # Max retries when the provider returns a structurally-valid 2xx response
+    # with empty content (LLMEmptyResponseError). Not a replacement for
+    # num_retries — that one handles transient transport errors raised by the
+    # provider; this one handles responses that are unusable at the content
+    # layer (e.g. gpt-oss returning only reasoning tokens). 0 disables.
+    empty_response_retries: int = 0
     litellm_params: dict[str, Any] = field(default_factory=dict)
 
     @classmethod

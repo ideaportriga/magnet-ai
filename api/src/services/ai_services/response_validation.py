@@ -80,6 +80,48 @@ def _first_message(response: Any) -> Any | None:
     return getattr(choices[0], "message", None)
 
 
+def extract_reasoning_tokens(response: Any) -> int | None:
+    """Read reasoning_tokens from usage.completion_tokens_details.
+
+    Reasoning models (OpenAI o-series, gpt-oss, DeepSeek R1, etc.) report
+    tokens spent in the analysis/reasoning channel separately from the
+    user-facing content. When content is None but reasoning_tokens > 0
+    the model thought but never produced a final answer.
+    """
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    details = getattr(usage, "completion_tokens_details", None)
+    if details is None:
+        return None
+    val = getattr(details, "reasoning_tokens", None)
+    if isinstance(val, int):
+        return val
+    # Some providers return details as a plain dict
+    if isinstance(details, dict):
+        d = details.get("reasoning_tokens")
+        if isinstance(d, int):
+            return d
+    return None
+
+
+def extract_reasoning_content(response: Any) -> str | None:
+    """Read message.reasoning_content if the provider exposes it.
+
+    Not all providers surface this — Azure's OpenAI-compatible endpoint
+    tends to strip it. When present it's a strong signal that the model
+    produced output, just not in the user-facing channel.
+    """
+    message = _first_message(response)
+    if message is None:
+        return None
+    for attr in ("reasoning_content", "reasoning"):
+        val = getattr(message, attr, None)
+        if isinstance(val, str) and val.strip():
+            return val
+    return None
+
+
 def validate_completion(
     response: Any,
     *,
@@ -145,6 +187,24 @@ def validate_completion(
 
     # Null content without a tool call — broken response
     if content is None:
+        reasoning_tokens = extract_reasoning_tokens(response)
+        reasoning_content = extract_reasoning_content(response)
+        # Distinguish "model only produced reasoning / analysis tokens but
+        # nothing in the final channel" from a plain empty reply. Happens on
+        # harmony-format models (gpt-oss) and reasoning models when the
+        # reasoning budget is exhausted before the final channel starts.
+        if (reasoning_tokens and reasoning_tokens > 0) or reasoning_content:
+            raise LLMEmptyResponseError(
+                (
+                    "LLM produced only reasoning tokens and no final answer "
+                    "(hint: increase reasoning_effort or raise max_tokens)"
+                ),
+                reason="reasoning_only",
+                finish_reason=finish_reason,
+                reasoning_tokens=reasoning_tokens,
+                has_reasoning_content=bool(reasoning_content),
+                **_ctx(),
+            )
         raise LLMEmptyResponseError(
             "LLM returned null content with no tool calls",
             reason="null_content",
