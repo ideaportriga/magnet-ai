@@ -1,5 +1,5 @@
 # Stage 1: Build WEB with nx
-FROM node:20-alpine AS web-builder
+FROM node:24.15.0-alpine AS web-builder
 
 WORKDIR /web
 
@@ -38,43 +38,37 @@ COPY api/poetry.lock api/poetry.toml api/pyproject.toml ./
 RUN poetry install --no-interaction --no-root --only main
 
 # Stage 3: Create a smaller image with just the application
-FROM python:3.12-slim as final
+FROM python:3.12-slim AS final
 
-# Install netcat for database connectivity checks, ffmpeg, Tesseract OCR, and Node.js
-RUN apt-get update && apt-get install -y \
-    netcat-traditional \
-    ffmpeg \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    tesseract-ocr-deu \
-    tesseract-ocr-fra \
-    tesseract-ocr-rus \
-    nodejs \
-    npm \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN npm i -g @llamaindex/liteparse
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        netcat-traditional \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        tesseract-ocr-deu \
+        tesseract-ocr-fra \
+        tesseract-ocr-rus \
+        ca-certificates \
+        curl \
+        gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm i -g npm@latest \
+    && npm i -g @llamaindex/liteparse \
+    && npm cache clean --force \
+    && apt-get purge -y curl gnupg \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /root/.npm /tmp/*
 
 WORKDIR /app
 
-RUN mkdir files
-
 COPY docker/scripts/update_web_configs.py ./
 COPY docker/docker-entrypoint.sh ./
-RUN ls -a
-RUN chmod +x ./docker-entrypoint.sh
-RUN ls -a
 
-# Copy static web files
 COPY --from=web-builder /web/knowledge-magnet/admin/app ./web/admin
 COPY --from=web-builder /web/knowledge-magnet/panel/app ./web/panel
 COPY --from=web-builder /web/documentation/magnet/.vitepress/dist ./web/help
 
-# Set proper permissions for config directories (similar to nginx container)
-RUN chgrp -R 0 /app/web/admin/config /app/web/panel/config \
-    && chmod -R g+rwX /app/web/admin/config /app/web/panel/config
-
-# Copy only installed API dependencies
 COPY --from=api-builder /app/.venv ./.venv
 
 COPY api/src ./src
@@ -82,8 +76,25 @@ COPY api/scripts ./scripts
 COPY api/static ./static
 COPY api/manage_fixtures.py ./manage_fixtures.py
 
-ENV PYTHONPATH=/app/src
-ENV PORT=8000
+RUN groupadd --system --gid 1000 app \
+    && useradd --system --uid 1000 --gid app --home-dir /app --shell /sbin/nologin app \
+    && mkdir -p /app/files \
+    && chmod +x ./docker-entrypoint.sh \
+    && chgrp -R 0 /app/web/admin/config /app/web/panel/config \
+    && chmod -R g+rwX /app/web/admin/config /app/web/panel/config \
+    && chown -R app:app /app
+
+USER app
+
+ENV PYTHONPATH=/app/src \
+    PORT=8000 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD nc -z 127.0.0.1 "${PORT:-8000}" || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD .venv/bin/uvicorn app:app --host 0.0.0.0 --port ${PORT}
+CMD ["sh", "-c", ".venv/bin/uvicorn app:app --host 0.0.0.0 --port ${PORT}"]
