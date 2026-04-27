@@ -22,7 +22,7 @@
 
           <!-- Content Source -->
           <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Matching & Reading</div>
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Matching & Reading</div>
             <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure which content this profile applies to and how it is read.</div>
             <div class="content-matching-sentence q-mt-md">
               <template v-if="isReadonlyProfile">
@@ -90,9 +90,9 @@
             </div>
           </div>
 
-          <!-- Content Chunking -->
+          <!-- Processing & Chunking -->
           <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Content Chunking</div>
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Processing & Chunking</div>
             <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure how content is split into chunks.</div>
             <div class="content-matching-sentence q-mt-md">
               <template v-if="isReadonlyProfile">
@@ -102,7 +102,7 @@
                 <span>Structured Fluid Topics content is already chunked upstream, so this reader always uses the built-in pre-chunked flow.</span>
               </template>
               <template v-else>
-                <span>Split content into chunks using</span>
+                <span>Split using</span>
                 <kg-inline-field interactive>
                   <span>{{ selectedStrategyLabel }}</span>
                   <q-icon name="arrow_drop_down" size="16px" />
@@ -121,42 +121,56 @@
                     </q-list>
                   </q-menu>
                 </kg-inline-field>
-                <span>strategy with a chunk max size of</span>
-                <kg-inline-field tooltip="Maximum chunk size in characters">
-                  <input
-                    :value="form.chunker.options.chunk_max_size"
-                    class="kg-inline-field__input kg-inline-field__input--no-spinners"
-                    type="number"
-                    min="100"
-                    placeholder="18000"
-                    :style="{ width: chunkMaxSizeInputWidth }"
-                    @input="onChunkMaxSizeInput"
-                  >
+                <span>strategy, where the chunk content is treated as</span>
+                <kg-inline-field v-if="isContentTypeLocked" :tooltip="contentTypeLockTooltip">
+                  <span>{{ selectedContentTypeLabel }}</span>
                 </kg-inline-field>
-                <span>characters</span>
-                <template v-if="isRecursiveStrategy || isKreuzbergStrategy">
-                  <span>and an overlap of</span>
-                  <kg-inline-field tooltip="Percentage of overlap between consecutive chunks (0–90%)">
-                    <input
-                      :value="Math.round((form.chunker.options.recursive_chunk_overlap || 0) * 100)"
-                      class="kg-inline-field__input kg-inline-field__input--no-spinners"
-                      type="number"
-                      min="0"
-                      max="90"
-                      placeholder="10"
-                      :style="{ width: chunkOverlapInputWidth }"
-                      @input="onChunkOverlapInput"
-                    >
-                  </kg-inline-field>
-                  <span>%.</span>
-                </template>
-                <template v-else>
-                  <span>.</span>
-                </template>
+                <kg-inline-field v-else interactive>
+                  <span>{{ selectedContentTypeLabel }}</span>
+                  <q-icon name="arrow_drop_down" size="16px" />
+                  <q-menu anchor="bottom left" self="top left" :offset="[0, 4]">
+                    <q-list dense style="min-width: 220px">
+                      <q-item
+                        v-for="option in chunkContentTypeOptions"
+                        :key="option.value"
+                        v-close-popup
+                        clickable
+                        :active="form.chunker.options.chunk_content_type === option.value"
+                        @click="form.chunker.options.chunk_content_type = option.value"
+                      >
+                        <q-item-section>{{ option.label }}</q-item-section>
+                      </q-item>
+                    </q-list>
+                  </q-menu>
+                </kg-inline-field>
+                <span>.</span>
               </template>
               <span v-if="!isReadonlyProfile && !isLockedNativeProfile" class="chunking-strategy-description">
                 {{ selectedChunkingStrategyDescription }}
               </span>
+            </div>
+
+            <!-- Chunk Max Size & Overlap -->
+            <div v-if="!isReadonlyProfile && !isLockedNativeProfile" class="q-mt-md">
+              <div class="row q-col-gutter-lg">
+                <div class="col-6">
+                  <div class="km-input-label q-pb-xs">Chunk Max Size (characters)</div>
+                  <km-input v-model.number="form.chunker.options.chunk_max_size" type="number" :min="100" placeholder="18000" />
+                </div>
+                <div v-if="isRecursiveStrategy || isKreuzbergStrategy" class="col-6">
+                  <div class="km-input-label q-pb-xs">Chunk Overlap (%)</div>
+                  <div class="row items-center" style="height: 36px">
+                    <q-slider
+                      v-model="form.chunker.options.recursive_chunk_overlap"
+                      :min="0"
+                      :max="0.9"
+                      :step="0.02"
+                      label
+                      :label-value="`${Math.round((form.chunker.options.recursive_chunk_overlap || 0) * 100)}%`"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Prompt Template (LLM / HTML LLM) -->
@@ -186,167 +200,212 @@
               </div>
             </div>
 
-            <!-- Recursive: Splitters -->
-            <div v-if="!isLockedNativeProfile && !isReadonlyProfile && isRecursiveStrategy" class="q-mt-md">
-              <div class="km-input-label q-pb-xs">Chunk Splitters</div>
-              <div class="splitters-container q-py-xs" style="border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 4px">
-                <div class="row items-center q-gutter-xs">
-                  <q-chip
-                    v-for="(splitter, index) in form.chunker.options.splitters"
-                    :key="index"
-                    removable
-                    color="primary-light"
-                    text-color="primary"
-                    square
-                    size="12px"
-                    @remove="removeSplitter(index)"
-                  >
-                    {{ formatSplitterDisplay(splitter) }}
-                  </q-chip>
-                  <template v-if="showNewSplitterInput">
-                    <km-input
-                      ref="newSplitterInput"
-                      v-model="newSplitter"
-                      placeholder="Add (Enter)"
-                      dense
-                      style="width: 160px"
-                      @keyup.enter="addSplitter"
-                      @keyup.esc.stop.prevent="cancelAddSplitter"
-                      @blur="cancelAddSplitter"
-                    />
-                  </template>
-                  <template v-else>
-                    <q-btn
-                      dense
-                      flat
-                      color="primary-light"
-                      text-color="primary"
-                      icon="add"
-                      class="q-ml-sm q-my-none q-pa-none"
-                      style="height: 24px; width: 28px; border-radius: 4px"
-                      @click="showAddInput"
-                    />
-                  </template>
-                </div>
-              </div>
-              <div class="km-description text-secondary-text">
-                Enter separators in order of priority. Use keywords:
-                <i>space</i>
-                ,
-                <i>tab</i>
-                ,
-                <i>newline</i>
-                ,
-                <i>empty</i>
-                or escape sequences (\n, \t, ...).
-              </div>
-            </div>
+            <!-- Advanced settings -->
+            <div class="advanced-settings q-mt-md" :class="{ 'advanced-settings--expanded': isAdvancedExpanded }">
+              <q-expansion-item
+                v-model="isAdvancedExpanded"
+                class="advanced-settings__expansion"
+                header-class="advanced-settings__header"
+                expand-icon-class="advanced-settings__caret"
+                dense
+              >
+                <template #header>
+                  <q-item-section>
+                    <div class="advanced-settings__title">Advanced settings</div>
+                    <div class="advanced-settings__subtitle">Customize titles and chunking behavior</div>
+                  </q-item-section>
+                </template>
+                <div class="advanced-settings__content">
+                  <!-- Chunk Title & Document Title -->
+                  <div class="row q-col-gutter-lg">
+                    <div class="col-6">
+                      <div class="km-input-label q-pb-xs">Chunk Title</div>
+                      <km-input
+                        v-model="form.chunker.options.chunk_title_pattern"
+                        :readonly="isReadonlyProfile"
+                        placeholder="e.g., Chunk {index} — Page {page}"
+                      >
+                        <template #append>
+                          <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
+                          <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
+                            <div class="km-description">
+                              <div class="q-mb-xs text-weight-bold">Available variables:</div>
+                              <ul class="q-ml-md q-mb-none" style="padding-left: 16px">
+                                <li>
+                                  <b>{index}</b>
+                                  : Chunk number
+                                </li>
+                                <li>
+                                  <b>{page}</b>
+                                  : Page number (if available)
+                                </li>
+                                <li>
+                                  <b>{filename}</b>
+                                  : Source file name
+                                </li>
+                                <li>
+                                  <b>{title}</b>
+                                  : Document title
+                                </li>
+                                <li>
+                                  <b>{date}</b>
+                                  : Document date
+                                </li>
+                                <li>
+                                  <b>{source}</b>
+                                  : Data source name
+                                </li>
+                              </ul>
+                            </div>
+                          </q-tooltip>
+                        </template>
+                      </km-input>
+                    </div>
 
-            <!-- Chunk Title + Content Type -->
-            <div class="row q-col-gutter-md q-mt-xs">
-              <div class="col-grow">
-                <div class="km-input-label q-pb-xs">Chunk Title</div>
-                <km-input
-                  v-model="form.chunker.options.chunk_title_pattern"
-                  :readonly="isReadonlyProfile"
-                  placeholder="e.g., Chunk {index} — Page {page}"
-                >
-                  <template #append>
-                    <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
-                    <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
-                      <div class="km-description">
-                        <div class="q-mb-xs text-weight-bold">Available variables:</div>
-                        <ul class="q-ml-md q-mb-none" style="padding-left: 16px">
-                          <li>
-                            <b>{index}</b>
-                            : Chunk number
-                          </li>
-                          <li>
-                            <b>{page}</b>
-                            : Page number (if available)
-                          </li>
-                          <li>
-                            <b>{filename}</b>
-                            : Source file name
-                          </li>
-                          <li>
-                            <b>{title}</b>
-                            : Document title
-                          </li>
-                          <li>
-                            <b>{date}</b>
-                            : Document date
-                          </li>
-                          <li>
-                            <b>{source}</b>
-                            : Data source name
-                          </li>
-                        </ul>
+                    <div class="col-6">
+                      <div class="km-input-label q-pb-xs">Document Title</div>
+                      <km-input
+                        v-model="form.chunker.options.document_title_pattern"
+                        :readonly="isReadonlyProfile"
+                        placeholder="e.g., {title} — {filename}"
+                      >
+                        <template #append>
+                          <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
+                          <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
+                            <div class="km-description">
+                              <div class="q-mb-xs text-weight-bold">Available variables:</div>
+                              <ul class="q-ml-md q-mb-none" style="padding-left: 16px">
+                                <li>
+                                  <b>{filename}</b>
+                                  : Source file name
+                                </li>
+                                <li>
+                                  <b>{title}</b>
+                                  : Original document title (if available)
+                                </li>
+                                <li>
+                                  <b>{date}</b>
+                                  : Document date
+                                </li>
+                                <li>
+                                  <b>{source}</b>
+                                  : Data source name
+                                </li>
+                              </ul>
+                            </div>
+                          </q-tooltip>
+                        </template>
+                      </km-input>
+                    </div>
+                  </div>
+
+                  <!-- Recursive: Splitters -->
+                  <div v-if="!isLockedNativeProfile && isRecursiveStrategy" class="q-mt-md">
+                    <div class="km-input-label q-pb-xs">Chunk Splitters</div>
+                    <div class="splitters-container q-py-xs">
+                      <div class="row items-center q-gutter-xs">
+                        <q-chip
+                          v-for="(splitter, index) in form.chunker.options.splitters"
+                          :key="index"
+                          removable
+                          color="primary-light"
+                          text-color="primary"
+                          square
+                          size="12px"
+                          @remove="removeSplitter(index)"
+                        >
+                          {{ formatSplitterDisplay(splitter) }}
+                        </q-chip>
+                        <template v-if="showNewSplitterInput">
+                          <km-input
+                            ref="newSplitterInput"
+                            v-model="newSplitter"
+                            placeholder="Add (Enter)"
+                            dense
+                            style="width: 160px"
+                            @keyup.enter="addSplitter"
+                            @keyup.esc.stop.prevent="cancelAddSplitter"
+                            @blur="cancelAddSplitter"
+                          />
+                        </template>
+                        <template v-else>
+                          <q-btn
+                            dense
+                            flat
+                            color="primary-light"
+                            text-color="primary"
+                            icon="add"
+                            class="q-ml-sm q-my-none q-pa-none"
+                            style="height: 24px; width: 28px; border-radius: 4px"
+                            @click="showAddInput"
+                          />
+                        </template>
                       </div>
-                    </q-tooltip>
-                  </template>
-                </km-input>
-              </div>
-              <div class="col-auto" style="min-width: 265px">
-                <div class="km-input-label q-pb-xs">Chunk Content Type</div>
-                <km-select
-                  v-model="form.chunker.options.chunk_content_type"
-                  :options="chunkContentTypeOptions"
-                  :disable="isReadonlyProfile"
-                  emit-value
-                  map-options
-                />
-              </div>
-            </div>
+                    </div>
+                    <div class="km-description text-secondary-text">
+                      Enter separators in order of priority. Use keywords:
+                      <i>space</i>
+                      ,
+                      <i>tab</i>
+                      ,
+                      <i>newline</i>
+                      ,
+                      <i>empty</i>
+                      or escape sequences (\n, \t, ...).
+                    </div>
+                  </div>
 
-            <!-- LLM / HTML LLM: Handling Content Size -->
-            <div v-if="!isLockedNativeProfile && !isReadonlyProfile && (isLLMStrategy || isHtmlLlmStrategy)" class="q-mt-lg">
-              <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Handling Content Size</div>
-              <div class="km-description text-secondary-text q-mt-xs q-mb-md">
-                LLMs have limited context window, so content must be divided into smaller segments before executing LLM-based chunking. The
-                <b>Segment Overlap</b>
-                parameter controls content repetition between consecutive segments. The
-                <b>Last Segment Allowed Expansion</b>
-                parameter allows the final segment to be expanded beyond the normal segment size to reduce small trailing remainders.
-              </div>
-              <div class="row q-col-gutter-lg">
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Segment Size (characters)</div>
-                  <km-input v-model.number="form.chunker.options.llm_batch_size" type="number" min="100" />
-                </div>
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Segment Overlap (%)</div>
-                  <div class="row items-center" style="height: 36px">
-                    <q-slider
-                      v-model="form.chunker.options.llm_batch_overlap"
-                      :min="0"
-                      :max="0.9"
-                      :step="0.02"
-                      label
-                      :label-value="`${Math.round((form.chunker.options.llm_batch_overlap || 0) * 100)}%`"
-                    />
+                  <!-- LLM / HTML LLM: Handling Content Size -->
+                  <div v-if="!isLockedNativeProfile && (isLLMStrategy || isHtmlLlmStrategy)" class="q-mt-md">
+                    <div class="km-input-label q-pb-xs">Handling Content Size</div>
+                    <div class="km-description text-secondary-text q-mb-md">
+                      LLMs have limited context window, so content must be divided into smaller segments before executing LLM-based chunking. The
+                      <b>Segment Overlap</b>
+                      parameter controls content repetition between consecutive segments. The
+                      <b>Last Segment Allowed Expansion</b>
+                      parameter allows the final segment to be expanded beyond the normal segment size to reduce small trailing remainders.
+                    </div>
+                    <div class="row q-col-gutter-lg">
+                      <div class="col-4">
+                        <div class="km-input-label q-pb-sm">Segment Size (characters)</div>
+                        <km-input v-model.number="form.chunker.options.llm_batch_size" type="number" min="100" />
+                      </div>
+                      <div class="col-4">
+                        <div class="km-input-label q-pb-sm">Segment Overlap (%)</div>
+                        <div class="row items-center" style="height: 36px">
+                          <q-slider
+                            v-model="form.chunker.options.llm_batch_overlap"
+                            :min="0"
+                            :max="0.9"
+                            :step="0.02"
+                            label
+                            :label-value="`${Math.round((form.chunker.options.llm_batch_overlap || 0) * 100)}%`"
+                          />
+                        </div>
+                      </div>
+                      <div class="col-4">
+                        <div class="km-input-label q-pb-sm">Last Segment Allowed Expansion (%)</div>
+                        <div class="row items-center q-pr-sm" style="height: 36px">
+                          <q-slider
+                            v-model="form.chunker.options.llm_last_segment_increase"
+                            :min="0"
+                            :max="1"
+                            :step="0.02"
+                            label
+                            :label-value="`${Math.round((form.chunker.options.llm_last_segment_increase || 0) * 100)}%`"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div class="col-4">
-                  <div class="km-input-label q-pb-sm">Last Segment Allowed Expansion (%)</div>
-                  <div class="row items-center q-pr-sm" style="height: 36px">
-                    <q-slider
-                      v-model="form.chunker.options.llm_last_segment_increase"
-                      :min="0"
-                      :max="1"
-                      :step="0.02"
-                      label
-                      :label-value="`${Math.round((form.chunker.options.llm_last_segment_increase || 0) * 100)}%`"
-                    />
-                  </div>
-                </div>
-              </div>
+              </q-expansion-item>
             </div>
           </div>
 
           <!-- Chunk Indexing -->
           <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Chunk Indexing</div>
+            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Indexing</div>
             <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure how chunk content is indexed for vector search.</div>
             <div class="content-matching-sentence q-mt-md">
               <template v-if="isReadonlyProfile">
@@ -429,45 +488,6 @@
               <span v-if="!isReadonlyProfile && !isLockedNativeProfile" class="chunking-strategy-description">
                 {{ combinedIndexingDescription }}
               </span>
-            </div>
-          </div>
-
-          <!-- Document Level Settings -->
-          <div class="q-mb-lg">
-            <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Document Level Settings</div>
-            <div class="km-description text-secondary-text q-mt-xs q-mb-md">
-              These settings apply to the produced document as a whole. Use it to configure document-level information.
-            </div>
-            <div>
-              <div class="km-input-label q-pb-xs">Document Title</div>
-              <km-input v-model="form.chunker.options.document_title_pattern" :readonly="isReadonlyProfile" placeholder="e.g., {title} — {filename}">
-                <template #append>
-                  <q-icon name="info" size="18px" class="q-ml-xs text-secondary cursor-pointer" />
-                  <q-tooltip anchor="top middle" self="bottom middle" class="q-ml-sm q-pa-sm" max-width="350px">
-                    <div class="km-description">
-                      <div class="q-mb-xs text-weight-bold">Available variables:</div>
-                      <ul class="q-ml-md q-mb-none" style="padding-left: 16px">
-                        <li>
-                          <b>{filename}</b>
-                          : Source file name
-                        </li>
-                        <li>
-                          <b>{title}</b>
-                          : Original document title (if available)
-                        </li>
-                        <li>
-                          <b>{date}</b>
-                          : Document date
-                        </li>
-                        <li>
-                          <b>{source}</b>
-                          : Data source name
-                        </li>
-                      </ul>
-                    </div>
-                  </q-tooltip>
-                </template>
-              </km-input>
             </div>
           </div>
         </q-form>
@@ -697,21 +717,6 @@ const metadataFieldInputWidth = computed(() => {
   return `${value.length + 1}ch`
 })
 
-const chunkMaxSizeInputWidth = computed(() => {
-  const value = String(form.value.chunker.options.chunk_max_size || '')
-  if (!value) {
-    return '6ch'
-  }
-  return `${value.length + 1}ch`
-})
-const chunkOverlapInputWidth = computed(() => {
-  const value = String(Math.round((form.value.chunker.options.recursive_chunk_overlap || 0) * 100))
-  if (!value || value === '0') {
-    return '2ch'
-  }
-  return `${value.length + 1}ch`
-})
-
 const getDefaultForm = () => ({
   name: '',
   enabled: true,
@@ -757,6 +762,7 @@ const newSplitter = ref('')
 const showNewSplitterInput = ref(false)
 const newSplitterInput = ref()
 const isHydratingForm = ref(false)
+const isAdvancedExpanded = ref(false)
 const isReadonlyProfile = computed(() => isEditing.value && isVirtualFallbackContentProfile(props.config ?? form.value))
 const dialogTitle = computed(() => (isReadonlyProfile.value ? 'View Content Profile' : `${isEditing.value ? 'Edit' : 'Add'} Content Profile`))
 const dismissLabel = computed(() => (isReadonlyProfile.value ? 'Close' : 'Cancel'))
@@ -779,6 +785,21 @@ const isLLMStrategy = computed(() => form.value.chunker.strategy === 'llm')
 const isHtmlLlmStrategy = computed(() => form.value.chunker.strategy === 'html_llm')
 const isRecursiveStrategy = computed(() => form.value.chunker.strategy === 'recursive_character_text_splitting')
 const isKreuzbergStrategy = computed(() => form.value.chunker.strategy === 'kreuzberg')
+const lockedContentType = computed<'markdown' | 'html' | null>(() => {
+  if (isHtmlLlmStrategy.value) return 'html'
+  if (isLLMStrategy.value || isKreuzbergStrategy.value) return 'markdown'
+  return null
+})
+const isContentTypeLocked = computed(() => lockedContentType.value !== null)
+const selectedContentTypeLabel = computed(() => {
+  const value = form.value.chunker.options.chunk_content_type
+  return chunkContentTypeOptions.find((o) => o.value === value)?.label ?? value
+})
+const contentTypeLockTooltip = computed(() => {
+  if (isHtmlLlmStrategy.value) return 'This strategy always produces HTML chunks.'
+  if (isLLMStrategy.value || isKreuzbergStrategy.value) return 'This strategy always produces Markdown chunks.'
+  return ''
+})
 const isDirty = computed(() => JSON.stringify(form.value) !== JSON.stringify(initialFormState.value))
 const selectedChunkingStrategyDescription = computed(() => {
   if (isReadonlyProfile.value) {
@@ -911,30 +932,10 @@ const cancelAddSplitter = () => {
   showNewSplitterInput.value = false
 }
 
-const onChunkMaxSizeInput = (event: Event) => {
-  const inputEl = event.target as HTMLInputElement
-  const rawValue = inputEl.value.trim()
-  if (rawValue === '') {
-    form.value.chunker.options.chunk_max_size = ''
-    return
+const enforceContentTypeLock = () => {
+  if (lockedContentType.value !== null) {
+    form.value.chunker.options.chunk_content_type = lockedContentType.value
   }
-  const raw = Number(rawValue)
-  const clamped = Math.max(100, raw || 100)
-  form.value.chunker.options.chunk_max_size = clamped
-  inputEl.value = String(clamped)
-}
-
-const onChunkOverlapInput = (event: Event) => {
-  const inputEl = event.target as HTMLInputElement
-  const rawValue = inputEl.value.trim()
-  if (rawValue === '') {
-    form.value.chunker.options.recursive_chunk_overlap = 0
-    return
-  }
-  const raw = Number(rawValue)
-  const clamped = Math.max(0, Math.min(raw || 0, 90))
-  form.value.chunker.options.recursive_chunk_overlap = clamped / 100
-  inputEl.value = String(clamped)
 }
 
 const onIndexingPartSizeInput = (event: Event) => {
@@ -1024,6 +1025,7 @@ const initForm = () => {
     isEditing.value = false
     form.value = getDefaultForm()
   }
+  enforceContentTypeLock()
   initialFormState.value = JSON.parse(JSON.stringify(form.value))
   isHydratingForm.value = false
 }
@@ -1104,10 +1106,19 @@ watch(
 )
 
 watch(
+  () => form.value.chunker.strategy,
+  () => {
+    if (isHydratingForm.value) return
+    enforceContentTypeLock()
+  }
+)
+
+watch(
   () => props.showDialog,
   (newVal) => {
     dialogOpen.value = newVal
     if (newVal) {
+      isAdvancedExpanded.value = false
       initForm()
       if (!isReadonlyProfile.value) {
         loadTemplates()
@@ -1171,5 +1182,84 @@ watch(
 
 .kg-inline-field__input--no-spinners {
   -moz-appearance: textfield;
+}
+
+.advanced-settings {
+  border: 1px solid rgba(var(--q-primary-rgb, 25, 118, 210), 0.2);
+  border-radius: 6px;
+  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.04);
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.advanced-settings:hover {
+  border-color: rgba(var(--q-primary-rgb, 25, 118, 210), 0.35);
+}
+
+.advanced-settings--expanded {
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.advanced-settings__expansion :deep(.q-expansion-item__container) {
+  border: none;
+}
+
+.advanced-settings__expansion :deep(.q-item) {
+  padding: 0;
+  min-height: 48px;
+  background: transparent;
+}
+
+.advanced-settings__expansion :deep(.advanced-settings__header) {
+  padding: 8px 14px;
+  min-height: 48px;
+  transition: background 0.2s ease;
+}
+
+.advanced-settings__expansion :deep(.advanced-settings__header:hover) {
+  background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
+}
+
+.advanced-settings__expansion :deep(.q-focus-helper) {
+  display: none;
+}
+
+.advanced-settings__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #24292f;
+  letter-spacing: 0.01em;
+}
+
+.advanced-settings__subtitle {
+  font-size: 11px;
+  color: var(--q-secondary-text);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.advanced-settings__expansion :deep(.advanced-settings__caret) {
+  color: var(--q-primary);
+}
+
+.advanced-settings__expansion :deep(.q-expansion-item__content) {
+  padding: 0;
+}
+
+.advanced-settings__content {
+  padding: 16px;
+  border-top: 1px solid rgba(var(--q-primary-rgb, 25, 118, 210), 0.15);
+  background: white;
+}
+
+.advanced-settings .splitters-container {
+  border: 1px solid var(--q-control-border, #d0d7de);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: #fafbfc;
 }
 </style>
