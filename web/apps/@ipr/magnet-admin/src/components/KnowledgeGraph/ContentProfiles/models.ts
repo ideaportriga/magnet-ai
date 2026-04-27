@@ -202,44 +202,12 @@ export const chunkContentTypeOptions = [
   { label: 'HTML', value: 'html' },
 ]
 
-export const indexingModeOptions = [
-  {
-    label: 'embedding its entire content',
-    menuLabel: 'Embedding entire content',
-    value: 'whole',
-    description:
-      'The entire chunk content is embedded as a single vector. Best when chunks are already small enough for the embedding model to capture their meaning in one pass.',
-  },
-  {
-    label: 'splitting content into parts',
-    menuLabel: 'Splitting content into parts',
-    value: 'fixed_parts',
-    description:
-      'The chunk content is divided into equal-length segments before indexing, each producing its own vector. Useful for large chunks where a single embedding may lose detail.',
-  },
-]
-
-export const indexingOverflowOptions = [
-  {
-    label: 'truncate to fit',
-    menuLabel: 'Truncate to fit',
-    value: 'truncate',
-    description: 'Content that exceeds the maximum size is cut off. Only the beginning of the chunk is embedded.',
-  },
-  {
-    label: 'split into parts',
-    menuLabel: 'Split into parts',
-    value: 'split',
-    description: 'Content that exceeds the maximum size is divided into equal-length segments, each producing its own vector.',
-  },
-]
-
 export const chunkingStrategyOptions = [
   {
     label: 'None',
     value: 'none',
     description:
-      'No chunking is applied — the entire document content is treated as a single chunk. If the content exceeds the configured maximum chunk size, it will be truncated. Best suited for short documents or when downstream processing handles its own splitting.',
+      'No chunking is applied — the entire document content is treated as a single chunk. If the chunk exceeds the embedding max size, the indexing layer splits it into parts of that size before embedding. Best suited for short documents or when downstream processing handles its own splitting.',
   },
   {
     label: "LangChain's RecursiveCharacterTextSplitter",

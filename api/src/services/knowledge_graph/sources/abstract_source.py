@@ -119,10 +119,8 @@ class AbstractDataSource(ABC):
 
         # Resolve indexing configuration from the content profile.
         chunker_options: dict[str, Any] = {}
-        chunk_max_size: int = 0
         if config and isinstance(config.chunker, dict):
             chunker_options = config.chunker.get("options") or {}
-            chunk_max_size = int(chunker_options.get("chunk_max_size", 0))
         indexing_cfg = get_indexing_config(chunker_options)
 
         for idx, chunk in enumerate(chunks):
@@ -130,9 +128,7 @@ class AbstractDataSource(ABC):
             if not isinstance(embedded_content, str) or not embedded_content.strip():
                 continue
 
-            parts = prepare_embedding_parts(
-                embedded_content, chunk_max_size, indexing_cfg
-            )
+            parts = prepare_embedding_parts(embedded_content, indexing_cfg)
             if not parts:
                 continue
 
@@ -241,14 +237,6 @@ class AbstractDataSource(ABC):
         if not options:
             return document_title, chunks
 
-        try:
-            chunk_max_size = int(options.get("chunk_max_size", 18000))
-        except Exception:  # noqa: BLE001
-            chunk_max_size = 18000
-
-        if chunk_max_size < 0:
-            chunk_max_size = 0
-
         source_name = self.source.name if self.source else ""
         source_date = (
             source_modified_at.date().isoformat()
@@ -279,8 +267,8 @@ class AbstractDataSource(ABC):
         for index, chunk in enumerate(chunks, start=1):
             content = chunk.content or chunk.embedded_content or ""
             embedded_content = chunk.embedded_content or content
-            chunk.content = content[:chunk_max_size]
-            chunk.embedded_content = embedded_content[:chunk_max_size]
+            chunk.content = content
+            chunk.embedded_content = embedded_content
 
             if (
                 not isinstance(chunk.embedded_content, str)

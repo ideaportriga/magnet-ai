@@ -122,8 +122,10 @@ class ContentConfig(BaseModel):
                 "llm_last_segment_increase": 0.0,
                 # Recursive splitter settings (direct deterministic chunking)
                 "recursive_chunk_overlap": 0.1,
-                # Chunk-level constraints (applies to all strategies)
+                # Chunker target size (used only by recursive / kreuzberg)
                 "chunk_max_size": 18000,
+                # Embedding-side cap applied by the indexing layer (all strategies)
+                "embedding_max_size": 18000,
                 "splitters": ["\n\n", "\n", " ", ""],
                 # Optional prompt template for LLM-based chunking
                 "prompt_template_system_name": "",

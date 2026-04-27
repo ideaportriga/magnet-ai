@@ -150,14 +150,14 @@
               </span>
             </div>
 
-            <!-- Chunk Max Size & Overlap -->
-            <div v-if="!isReadonlyProfile && !isLockedNativeProfile" class="q-mt-md">
+            <!-- Chunk Max Size & Overlap (recursive / kreuzberg only) -->
+            <div v-if="!isReadonlyProfile && !isLockedNativeProfile && (isRecursiveStrategy || isKreuzbergStrategy)" class="q-mt-md">
               <div class="row q-col-gutter-lg">
                 <div class="col-6">
                   <div class="km-input-label q-pb-xs">Chunk Max Size (characters)</div>
                   <km-input v-model.number="form.chunker.options.chunk_max_size" type="number" :min="100" placeholder="18000" />
                 </div>
-                <div v-if="isRecursiveStrategy || isKreuzbergStrategy" class="col-6">
+                <div class="col-6">
                   <div class="km-input-label q-pb-xs">Chunk Overlap (%)</div>
                   <div class="row items-center" style="height: 36px">
                     <q-slider
@@ -408,86 +408,30 @@
             <div class="km-heading-8 q-pb-xs bb-border text-weight-medium">Indexing</div>
             <div class="km-description text-secondary-text q-mt-xs q-mb-sm">Configure how chunk content is indexed for vector search.</div>
             <div class="content-matching-sentence q-mt-md">
-              <template v-if="isReadonlyProfile">
-                <span>Chunks are indexed as a whole — the entire chunk content is embedded as a single vector.</span>
-              </template>
-              <template v-else-if="isLockedNativeProfile">
-                <span>Chunks are indexed as a whole — the entire chunk content is embedded as a single vector.</span>
-              </template>
-              <template v-else>
-                <span>Index each chunk by</span>
-                <kg-inline-field interactive>
-                  <span>{{ selectedIndexingModeLabel }}</span>
-                  <q-icon name="arrow_drop_down" size="16px" />
-                  <q-menu anchor="bottom left" self="top left" :offset="[0, 4]">
-                    <q-list dense style="min-width: 280px">
-                      <q-item
-                        v-for="option in indexingModeOptions"
-                        :key="option.value"
-                        v-close-popup
-                        clickable
-                        :active="form.chunker.options.indexing_mode === option.value"
-                        @click="form.chunker.options.indexing_mode = option.value"
-                      >
-                        <q-item-section>{{ option.menuLabel }}</q-item-section>
-                      </q-item>
-                    </q-list>
-                  </q-menu>
-                </kg-inline-field>
-                <template v-if="form.chunker.options.indexing_mode === 'whole'">
-                  <span>, but if it exceeds the maximum size -</span>
-                  <kg-inline-field interactive>
-                    <span>{{ selectedOverflowStrategyLabel }}</span>
-                    <q-icon name="arrow_drop_down" size="16px" />
-                    <q-menu anchor="bottom left" self="top left" :offset="[0, 4]">
-                      <q-list dense style="min-width: 220px">
-                        <q-item
-                          v-for="option in indexingOverflowOptions"
-                          :key="option.value"
-                          v-close-popup
-                          clickable
-                          :active="form.chunker.options.indexing_overflow_strategy === option.value"
-                          @click="form.chunker.options.indexing_overflow_strategy = option.value"
-                        >
-                          <q-item-section>{{ option.menuLabel }}</q-item-section>
-                        </q-item>
-                      </q-list>
-                    </q-menu>
-                  </kg-inline-field>
-                </template>
-                <template v-if="showIndexingPartSize">
-                  <span>with a fixed size of</span>
-                  <kg-inline-field tooltip="Size of each part in characters. Must be less than chunk max size.">
-                    <input
-                      :value="form.chunker.options.indexing_part_size"
-                      class="kg-inline-field__input kg-inline-field__input--no-spinners"
-                      type="number"
-                      min="1"
-                      :max="(form.chunker.options.chunk_max_size || 1) - 1"
-                      placeholder="500"
-                      :style="{ width: indexingPartSizeInputWidth }"
-                      @input="onIndexingPartSizeInput"
-                    >
-                  </kg-inline-field>
-                  <span>characters and an overlap of</span>
-                  <kg-inline-field tooltip="Percentage of overlap between consecutive parts (0–90%)">
-                    <input
-                      :value="Math.round((form.chunker.options.indexing_part_overlap || 0) * 100)"
-                      class="kg-inline-field__input kg-inline-field__input--no-spinners"
-                      type="number"
-                      min="0"
-                      max="90"
-                      placeholder="0"
-                      :style="{ width: indexingPartOverlapInputWidth }"
-                      @input="onIndexingPartOverlapInput"
-                    >
-                  </kg-inline-field>
-                  <span>%.</span>
-                </template>
-              </template>
-              <span v-if="!isReadonlyProfile && !isLockedNativeProfile" class="chunking-strategy-description">
-                {{ combinedIndexingDescription }}
+              <span>
+                Each chunk is embedded as a single vector. If its content exceeds the embedding max size, it is split into parts of that size, each
+                producing its own vector.
               </span>
+            </div>
+
+            <div v-if="!isReadonlyProfile && !isLockedNativeProfile" class="row q-col-gutter-lg q-mt-md">
+              <div class="col-6">
+                <div class="km-input-label q-pb-xs">Embedding Max Size (characters)</div>
+                <km-input v-model.number="form.chunker.options.embedding_max_size" type="number" :min="100" placeholder="18000" />
+              </div>
+              <div class="col-6">
+                <div class="km-input-label q-pb-xs">Indexing Part Overlap (%)</div>
+                <div class="row items-center" style="height: 36px">
+                  <q-slider
+                    v-model="form.chunker.options.indexing_part_overlap"
+                    :min="0"
+                    :max="0.9"
+                    :step="0.02"
+                    label
+                    :label-value="`${Math.round((form.chunker.options.indexing_part_overlap || 0) * 100)}%`"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </q-form>
@@ -514,8 +458,6 @@ import type { ContentConfigRow } from './models'
 import {
   chunkContentTypeOptions,
   chunkingStrategyOptions,
-  indexingModeOptions,
-  indexingOverflowOptions,
   FLUID_TOPICS_NATIVE_PROFILE_NAME,
   FLUID_TOPICS_SOURCE_TYPE,
   FLUID_TOPICS_STRUCTURED_AUTO_MANAGED_KEY,
@@ -624,14 +566,12 @@ const applyReadonlyFallbackConstraints = (target: ReturnType<typeof getDefaultFo
       llm_last_segment_increase: 0,
       recursive_chunk_overlap: 0.1,
       chunk_max_size: 15000,
+      embedding_max_size: 15000,
       splitters: ['\n\n', '\n', ' ', ''],
       prompt_template_system_name: '',
       document_title_pattern: '',
       chunk_title_pattern: '',
       chunk_content_type: 'plain_text',
-      indexing_mode: 'whole',
-      indexing_overflow_strategy: 'truncate',
-      indexing_part_size: 500,
       indexing_part_overlap: 0,
     },
   }
@@ -735,8 +675,10 @@ const getDefaultForm = () => ({
       llm_last_segment_increase: 0,
       // Recursive strategy
       recursive_chunk_overlap: 0.1,
-      // Chunk-level constraints (applies to all strategies)
+      // Chunker target size (used only by recursive / kreuzberg)
       chunk_max_size: 18000,
+      // Embedding-side cap applied by the indexing layer (all strategies)
+      embedding_max_size: 18000,
       splitters: ['\n\n', '\n', ' ', ''],
       prompt_template_system_name: '',
       // Optional pattern for document title generation
@@ -746,9 +688,6 @@ const getDefaultForm = () => ({
       // Chunk content type
       chunk_content_type: 'plain_text',
       // Chunk indexing settings
-      indexing_mode: 'whole',
-      indexing_overflow_strategy: 'truncate',
-      indexing_part_size: 500,
       indexing_part_overlap: 0,
     },
   },
@@ -767,7 +706,6 @@ const isReadonlyProfile = computed(() => isEditing.value && isVirtualFallbackCon
 const dialogTitle = computed(() => (isReadonlyProfile.value ? 'View Content Profile' : `${isEditing.value ? 'Edit' : 'Add'} Content Profile`))
 const dismissLabel = computed(() => (isReadonlyProfile.value ? 'Close' : 'Cancel'))
 const isLockedNativeProfile = computed(() => isEditing.value && isLockedFluidTopicsNativeProfile(props.config ?? form.value))
-const isSharePointPageReader = computed(() => form.value.reader.name === SHAREPOINT_PAGE_READER)
 const isSourceMetadataReader = computed(() => form.value.reader.name === SOURCE_METADATA_READER)
 const selectedReaderLabel = computed(() => {
   const option = readerOptions.find((o) => o.value === form.value.reader.name)
@@ -813,45 +751,6 @@ const selectedChunkingStrategyDescription = computed(() => {
   const option = chunkingStrategyOptions.find((o) => o.value === form.value.chunker.strategy)
   return option?.description || ''
 })
-const selectedIndexingModeLabel = computed(() => {
-  const option = indexingModeOptions.find((o) => o.value === form.value.chunker.options.indexing_mode)
-  return option?.label ?? form.value.chunker.options.indexing_mode
-})
-const selectedOverflowStrategyLabel = computed(() => {
-  const option = indexingOverflowOptions.find((o) => o.value === form.value.chunker.options.indexing_overflow_strategy)
-  return option?.label ?? form.value.chunker.options.indexing_overflow_strategy
-})
-const combinedIndexingDescription = computed(() => {
-  const modeOption = indexingModeOptions.find((o) => o.value === form.value.chunker.options.indexing_mode)
-  const modeDesc = modeOption?.description || ''
-  if (form.value.chunker.options.indexing_mode !== 'whole') {
-    return modeDesc
-  }
-  const overflowOption = indexingOverflowOptions.find((o) => o.value === form.value.chunker.options.indexing_overflow_strategy)
-  const overflowDesc = overflowOption?.description || ''
-  return [modeDesc, overflowDesc].filter(Boolean).join(' ')
-})
-const showIndexingPartSize = computed(() => {
-  return (
-    form.value.chunker.options.indexing_mode === 'fixed_parts' ||
-    (form.value.chunker.options.indexing_mode === 'whole' && form.value.chunker.options.indexing_overflow_strategy === 'split')
-  )
-})
-const indexingPartSizeInputWidth = computed(() => {
-  const value = String(form.value.chunker.options.indexing_part_size || '')
-  if (!value) {
-    return '4ch'
-  }
-  return `${value.length + 1}ch`
-})
-const indexingPartOverlapInputWidth = computed(() => {
-  const value = String(Math.round((form.value.chunker.options.indexing_part_overlap || 0) * 100))
-  if (!value || value === '0') {
-    return '2ch'
-  }
-  return `${value.length + 1}ch`
-})
-
 const validateReservedProfileName = (value: string) => {
   if (isLockedNativeProfile.value || isReadonlyProfile.value) {
     return true
@@ -938,33 +837,6 @@ const enforceContentTypeLock = () => {
   }
 }
 
-const onIndexingPartSizeInput = (event: Event) => {
-  const inputEl = event.target as HTMLInputElement
-  const rawValue = inputEl.value.trim()
-  if (rawValue === '') {
-    form.value.chunker.options.indexing_part_size = ''
-    return
-  }
-  const raw = Number(rawValue)
-  const maxAllowed = (Number(form.value.chunker.options.chunk_max_size) || 1) - 1
-  const clamped = Math.max(1, Math.min(raw || 1, maxAllowed))
-  form.value.chunker.options.indexing_part_size = clamped
-  inputEl.value = String(clamped)
-}
-
-const onIndexingPartOverlapInput = (event: Event) => {
-  const inputEl = event.target as HTMLInputElement
-  const rawValue = inputEl.value.trim()
-  if (rawValue === '') {
-    form.value.chunker.options.indexing_part_overlap = 0
-    return
-  }
-  const raw = Number(rawValue)
-  const clamped = Math.max(0, Math.min(raw || 0, 90))
-  form.value.chunker.options.indexing_part_overlap = clamped / 100
-  inputEl.value = String(clamped)
-}
-
 const initForm = () => {
   isHydratingForm.value = true
   if (props.config) {
@@ -978,6 +850,8 @@ const initForm = () => {
       llm_batch_overlap: chunkerOptions.llm_batch_overlap ?? chunkerOptions.batch_overlap ?? 0.1,
       llm_last_segment_increase: typeof chunkerOptions.llm_last_segment_increase !== 'undefined' ? chunkerOptions.llm_last_segment_increase : 0,
       chunk_max_size: typeof chunkerOptions.chunk_max_size !== 'undefined' ? chunkerOptions.chunk_max_size : (chunkerOptions.llm_batch_size ?? 18000),
+      // Embedding-side cap; backfill from legacy chunk_max_size for pre-migration profiles
+      embedding_max_size: chunkerOptions.embedding_max_size ?? chunkerOptions.chunk_max_size ?? 18000,
       // prefer new recursive_*; fall back to legacy rc_* and old batch_* keys
       recursive_chunk_overlap: chunkerOptions.recursive_chunk_overlap ?? chunkerOptions.rc_chunk_overlap ?? chunkerOptions.batch_overlap ?? 0.1,
       splitters: chunkerOptions.splitters || ['\n\n', '\n', ' ', ''],
@@ -985,9 +859,6 @@ const initForm = () => {
       document_title_pattern: chunkerOptions.document_title_pattern || '',
       chunk_title_pattern: chunkerOptions.chunk_title_pattern || '',
       chunk_content_type: chunkerOptions.chunk_content_type || 'plain_text',
-      indexing_mode: chunkerOptions.indexing_mode || 'whole',
-      indexing_overflow_strategy: chunkerOptions.indexing_overflow_strategy || 'truncate',
-      indexing_part_size: chunkerOptions.indexing_part_size ?? 500,
       indexing_part_overlap: chunkerOptions.indexing_part_overlap ?? 0,
     }
 
@@ -1172,16 +1043,6 @@ watch(
   background: rgba(var(--q-primary-rgb, 25, 118, 210), 0.06);
   border: 1px solid rgba(var(--q-primary-rgb, 25, 118, 210), 0.2);
   border-radius: 4px;
-}
-
-.kg-inline-field__input--no-spinners::-webkit-outer-spin-button,
-.kg-inline-field__input--no-spinners::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.kg-inline-field__input--no-spinners {
-  -moz-appearance: textfield;
 }
 
 .advanced-settings {
