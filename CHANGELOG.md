@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.15](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.14...v0.7.0-dev.15) (2026-04-27)
+
+### 🐛 Bug Fixes
+
+* **ks:** fix new ks provider creation ([9aeb071](https://github.com/ideaportriga/magnet-ai/commit/9aeb0714cfb0407da10f05841ed8b93eef86cf12))
+
 ## [0.7.0-dev.14](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.13...v0.7.0-dev.14) (2026-04-23)
 
 ### ✨ Features
