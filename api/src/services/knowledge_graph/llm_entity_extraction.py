@@ -870,6 +870,14 @@ async def run_graph_llm_entity_extraction(
     if not entity_definitions:
         raise ValueError("entity_definitions is required and cannot be empty")
 
+    logger.info(
+        "run_graph_llm_entity_extraction started for graph %s (approach=%s, prompt=%s, entity_definitions=%d)",
+        graph_id,
+        approach,
+        prompt_template_system_name,
+        len(entity_definitions),
+    )
+
     entity_service = entity_service or KnowledgeGraphEntityService()
     prompt_template_config = dict(
         await get_prompt_template_by_system_name_flat(prompt_template_system_name)
@@ -904,6 +912,11 @@ async def run_graph_llm_entity_extraction(
         )
         total_docs = total_docs_res.scalar_one() or 0
         await db_session.commit()
+        logger.info(
+            "Entity extraction (document approach): %d documents to process for graph %s",
+            total_docs,
+            graph_id,
+        )
         docs_seen = 0
 
         if progress_callback:
@@ -996,6 +1009,14 @@ async def run_graph_llm_entity_extraction(
                     await _mark_document_extracted(doc_id)
 
                 docs_seen += 1
+                logger.debug(
+                    "Entity extraction progress for graph %s: %d/%d documents, %d upserted, %d errors",
+                    graph_id,
+                    docs_seen,
+                    total_docs,
+                    upserted_records,
+                    errors,
+                )
                 if progress_callback:
                     await progress_callback(docs_seen, total_docs)
 
@@ -1004,6 +1025,15 @@ async def run_graph_llm_entity_extraction(
 
             offset += len(batch)
 
+        logger.info(
+            "run_graph_llm_entity_extraction finished for graph %s: processed=%d, skipped=%d, upserted=%d, errors=%d, cancelled=%s",
+            graph_id,
+            processed_documents,
+            skipped_documents,
+            upserted_records,
+            errors,
+            cancelled,
+        )
         return {
             "approach": approach,
             "processed_documents": processed_documents,
@@ -1034,6 +1064,11 @@ async def run_graph_llm_entity_extraction(
     await db_session.commit()
 
     total_docs = len(docs_rows)
+    logger.info(
+        "Entity extraction (chunks approach): %d documents to process for graph %s",
+        total_docs,
+        graph_id,
+    )
     docs_seen = 0
 
     if progress_callback:
@@ -1105,9 +1140,26 @@ async def run_graph_llm_entity_extraction(
             await _mark_document_extracted(doc_id)
 
         docs_seen += 1
+        logger.debug(
+            "Entity extraction progress for graph %s: %d/%d documents, %d upserted, %d errors",
+            graph_id,
+            docs_seen,
+            total_docs,
+            upserted_records,
+            errors,
+        )
         if progress_callback:
             await progress_callback(docs_seen, total_docs)
 
+    logger.info(
+        "run_graph_llm_entity_extraction finished for graph %s: processed=%d, skipped=%d, upserted=%d, errors=%d, cancelled=%s",
+        graph_id,
+        processed_documents,
+        skipped_documents,
+        upserted_records,
+        errors,
+        cancelled,
+    )
     return {
         "approach": approach,
         "processed_documents": processed_documents,
@@ -1266,6 +1318,16 @@ async def run_entity_extraction(
         else int(extraction_settings.get("max_extraction_iterations") or 3),
     )
 
+    logger.info(
+        "Starting entity extraction for graph %s (approach=%s, prompt=%s, segment_size=%d, segment_overlap=%.2f, max_iterations=%d)",
+        graph_id,
+        approach_raw,
+        prompt_template_system_name,
+        segment_size,
+        segment_overlap,
+        max_extraction_iterations,
+    )
+
     entity_svc = entity_service or KnowledgeGraphEntityService()
     await entity_svc.create_table(db_session, graph_id=graph_id)
 
@@ -1301,6 +1363,12 @@ async def run_entity_extraction(
         final_status = (
             "cancelled" if extraction_result.get("cancelled") else "completed"
         )
+        logger.info(
+            "Entity extraction %s for graph %s: %s",
+            final_status,
+            graph_id,
+            extraction_result,
+        )
         await _update_extraction_status(
             db_session,
             graph_id,
@@ -1310,6 +1378,12 @@ async def run_entity_extraction(
         )
         return extraction_result
     except Exception as exc:
+        logger.error(
+            "Entity extraction failed for graph %s: %s",
+            graph_id,
+            exc,
+            exc_info=True,
+        )
         await _update_extraction_status(
             db_session,
             graph_id,
