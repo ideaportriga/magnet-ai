@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-alpha.18](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.17...v0.7.0-alpha.18) (2026-04-28)
+
+### 🐛 Bug Fixes
+
+* quasar import issue ([4aff1b8](https://github.com/ideaportriga/magnet-ai/commit/4aff1b8eb6913d67d806702346a3bc248d6d4376))
+
 ## [0.7.0-alpha.17](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-alpha.16...v0.7.0-alpha.17) (2026-04-24)
 
 ### ✨ Features
