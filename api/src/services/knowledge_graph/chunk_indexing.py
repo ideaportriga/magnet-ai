@@ -8,6 +8,7 @@ vector.
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -46,40 +47,54 @@ def get_indexing_config(chunker_options: dict[str, Any] | None) -> dict[str, Any
     }
 
 
-def split_text_into_parts(text: str, part_size: int, overlap: float = 0.0) -> list[str]:
-    """Split text into fixed-size parts with overlap.
+def split_text_into_parts(
+    text: str, embedding_max_size: int, overlap: float = 0.0
+) -> list[str]:
+    """Split text into equal-sized parts, each at most ``embedding_max_size`` characters.
+
+    Computes the minimum number of parts N required to cover the full text such
+    that every part fits within ``embedding_max_size``. All N parts have identical
+    length. Parts are positioned using a floating-point step to distribute rounding
+    evenly, with the final part anchored to the end of the text to guarantee exact
+    coverage.
 
     Args:
         text: The text to split.
-        part_size: Maximum number of characters per part.
-        overlap: Overlap ratio between consecutive parts (0.0–0.9).
+        embedding_max_size: Maximum characters per part (upper bound).
+        overlap: Desired overlap ratio between consecutive parts (0.0–0.9).
 
     Returns:
-        List of text segments. Always returns at least one part if text is
-        non-empty.
+        List of equal-length text segments. Returns a single-element list when
+        ``len(text) <= embedding_max_size`` or ``embedding_max_size <= 0``.
+        Returns ``[]`` for empty text.
     """
     if not text:
         return []
 
-    if part_size <= 0:
+    if embedding_max_size <= 0:
         return [text]
 
-    overlap = max(0.0, min(overlap, 0.9))
-    overlap_chars = int(part_size * overlap)
-    step = max(1, part_size - overlap_chars)
-
-    parts: list[str] = []
-    pos = 0
     text_len = len(text)
+    overlap = max(0.0, min(overlap, 0.9))
 
-    while pos < text_len:
-        end = pos + part_size
-        parts.append(text[pos:end])
-        if end >= text_len:
-            break
-        pos += step
+    if text_len <= embedding_max_size:
+        return [text]
 
-    return parts
+    # Minimum N so every part stays within embedding_max_size
+    step_max = max(1, embedding_max_size * (1.0 - overlap))
+    n = math.ceil((text_len - embedding_max_size) / step_max) + 1  # n >= 2
+
+    # Equal part size P such that P * (1 + (n-1) * (1-overlap)) >= text_len
+    # Guaranteed P <= embedding_max_size by construction of n
+    denom = 1.0 + (n - 1) * (1.0 - overlap)
+    p = math.ceil(text_len / denom)
+
+    # Float step distributes rounding error evenly; anchor last start to avoid end gap
+    float_step = (text_len - p) / (n - 1)
+    starts = [round(i * float_step) for i in range(n)]
+    starts[-1] = text_len - p
+
+    return [text[s : s + p] for s in starts]
 
 
 def prepare_embedding_parts(
