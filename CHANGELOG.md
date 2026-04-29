@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.16](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.15...v0.7.0-dev.16) (2026-04-29)
+
+### ✨ Features
+
+* **models:** implemented reasoning effort field for models ([c965f0b](https://github.com/ideaportriga/magnet-ai/commit/c965f0bc8085df61d0cf63ab8f1aab40293748af))
+
 ## [0.7.0-dev.15](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.14...v0.7.0-dev.15) (2026-04-27)
 
 ### 🐛 Bug Fixes
