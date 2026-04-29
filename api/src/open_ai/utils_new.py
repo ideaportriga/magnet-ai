@@ -48,6 +48,7 @@ async def create_chat_completion(
     tool_choice: str | dict | None = None,
     related_prompt_template_config: dict | None = None,
     parallel_tool_calls: bool | None = None,
+    reasoning_effort: str | None = None,
 ) -> ChatCompletionWithMetrics:
     provider_system_name = None
 
@@ -117,6 +118,7 @@ async def create_chat_completion(
             "max_tokens": max_tokens,
             "response_format": response_format,
             "tools": tools,
+            "reasoning_effort": reasoning_effort,
         },
     )
 
@@ -157,6 +159,7 @@ async def create_chat_completion(
             tool_choice=tool_choice,
             model_config=model_config,
             parallel_tool_calls=parallel_tool_calls,
+            reasoning_effort=reasoning_effort,
         )
         call_end_time = time.time()
         call_duration = call_end_time - call_start_time
@@ -325,6 +328,8 @@ async def create_chat_completion_from_prompt_template(
         tool_choice=tool_choice,
         related_prompt_template_config=prompt_template_config,
         parallel_tool_calls=parallel_tool_calls,
+        reasoning_effort=prompt_template_config.get("reasoning_effort")
+        or prompt_template_config.get("reasoningEffort"),
     )
 
     return chat_completion, messages

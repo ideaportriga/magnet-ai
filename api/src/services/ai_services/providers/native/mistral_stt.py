@@ -77,6 +77,7 @@ class NativeMistralSTTProvider(BaseNativeProvider):
         tool_choice: str | dict | None = None,
         model_config: dict | None = None,
         parallel_tool_calls: bool | None = None,
+        reasoning_effort: str | None = None,
     ) -> ChatCompletion:
         raise NotImplementedError(
             "NativeMistralSTTProvider does not support chat completions"

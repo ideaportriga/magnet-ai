@@ -47,29 +47,57 @@
         km-checkbox(label='Active', :model-value='is_active', @update:model-value='is_active = $event')
         .km-description.text-secondary-text.q-pl-8.q-pt-xs When disabled, this model will not be available for selection
 
-      q-separator.q-my-16
+    //- Capabilities Tab — feature flags + per-type configuration
+    .column.q-gap-16.q-pa-16(v-if='tab == "capabilities"')
 
       // Features section for prompts models
       template(v-if='type === "prompts"')
-        .km-title Features
-        km-checkbox(label='JSON mode', :model-value='json_mode', @update:model-value='json_mode = $event')
-        km-checkbox(label='Structured Outputs', :model-value='json_schema', @update:model-value='json_schema = $event')
-        km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
-        km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
+        q-card.km-capability-card(flat, bordered)
+          q-card-section
+            .km-title Features
+            .km-description.text-secondary-text.q-pb-12 Toggle the capabilities this model supports. These flags drive which options become available in the prompt template UI.
+            .column.q-gap-8
+              km-checkbox(label='JSON mode', :model-value='json_mode', @update:model-value='json_mode = $event')
+              km-checkbox(label='Structured Outputs', :model-value='json_schema', @update:model-value='json_schema = $event')
+              km-checkbox(label='Tool calling', :model-value='tool_calling', @update:model-value='tool_calling = $event')
+              km-checkbox(label='Reasoning', :model-value='reasoning', @update:model-value='reasoning = $event')
+
+        q-card.km-capability-card(v-if='reasoning', flat, bordered)
+          q-card-section
+            .km-title Reasoning Effort Options
+            .km-description.text-secondary-text.q-pb-12 Reasoning-effort tokens this model accepts. Type each value and press Enter. Refer to the provider's documentation for valid values. Leave empty to hide the selector in the prompt template UI.
+            q-select(
+              filled,
+              dense,
+              multiple,
+              use-chips,
+              use-input,
+              hide-dropdown-icon,
+              input-debounce='0',
+              new-value-mode='add-unique',
+              placeholder='Type a value and press Enter (e.g. minimal, low, medium, high, max)',
+              :model-value='reasoning_effort_options',
+              @update:model-value='reasoning_effort_options = $event'
+            )
 
       // Vector configuration for embeddings models
       template(v-if='type === "embeddings"')
-        .km-title Vector Configuration
-        div
-          .km-field.text-secondary-text.q-pb-xs.q-pl-8 Vector Size
-          km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
-          .km-description.text-secondary-text.q-pl-8.q-pt-xs Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large)
+        q-card.km-capability-card(flat, bordered)
+          q-card-section
+            .km-title Vector Configuration
+            .km-description.text-secondary-text.q-pb-12 Dimension of the embedding vector. Common values: 1536 (ada-002), 1024 (embed-3-small), 3072 (embed-3-large).
+            .km-field.text-secondary-text.q-pb-xs.q-pl-8 Vector Size
+            km-input(height='32px', type='number', placeholder='E.g. 1536', :model-value='vectorSize', @update:model-value='vectorSize = $event')
 
       // Features section for stt models
       template(v-if='type === "stt"')
-        .km-title Features
-        km-checkbox(label='Diarization', :model-value='diarization', @update:model-value='diarization = $event')
-        km-checkbox(label='Keyterms', :model-value='keyterms', @update:model-value='keyterms = $event')
+        q-card.km-capability-card(flat, bordered)
+          q-card-section
+            .km-title Features
+            .km-description.text-secondary-text.q-pb-12 Toggle the capabilities this speech-to-text model supports.
+            .column.q-gap-8
+              km-checkbox(label='Diarization', :model-value='diarization', @update:model-value='diarization = $event')
+              km-checkbox(label='Keyterms', :model-value='keyterms', @update:model-value='keyterms = $event')
 
     .column.q-gap-16.q-pa-16(v-if='tab == "pricing"')
       .km-title Inputs
@@ -406,7 +434,8 @@ export default {
     return {
       tab: ref('parameters'),
       tabs: ref([
-        { name: 'parameters', label: 'Parameters' },
+        { name: 'parameters', label: 'General' },
+        { name: 'capabilities', label: 'Capabilities' },
         { name: 'pricing', label: 'Pricing' },
         { name: 'routing', label: 'Routing' },
         { name: 'info', label: 'Info' },
@@ -578,6 +607,27 @@ export default {
       },
       set(value) {
         this.$store.commit('modelConfig/updateEntityProperty', { key: 'reasoning', value })
+      },
+    },
+    reasoning_effort_options: {
+      get() {
+        return this.modelConfig?.reasoning_effort_options || []
+      },
+      set(value) {
+        let normalized = null
+        if (Array.isArray(value)) {
+          const seen = []
+          for (const raw of value) {
+            if (typeof raw !== 'string') continue
+            const token = raw.trim()
+            if (token && !seen.includes(token)) seen.push(token)
+          }
+          normalized = seen.length > 0 ? seen : null
+        }
+        this.$store.commit('modelConfig/updateEntityProperty', {
+          key: 'reasoning_effort_options',
+          value: normalized,
+        })
       },
     },
     price_input_unit_name: {
@@ -919,3 +969,13 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.km-capability-card {
+  border-radius: 8px;
+  background: #fff;
+}
+.km-capability-card :deep(.km-title) {
+  margin-bottom: 4px;
+}
+</style>

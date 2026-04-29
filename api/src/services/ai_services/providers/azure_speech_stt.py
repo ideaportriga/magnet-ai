@@ -91,6 +91,7 @@ class AzureSpeechSTTProvider(AIProviderInterface):
         tool_choice: str | dict | None = None,
         model_config: dict | None = None,
         parallel_tool_calls: bool | None = None,
+        reasoning_effort: str | None = None,
     ) -> ChatCompletion:
         raise NotImplementedError(
             "AzureSpeechSTTProvider does not support chat completions"

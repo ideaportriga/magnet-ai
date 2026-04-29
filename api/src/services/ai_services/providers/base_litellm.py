@@ -159,6 +159,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         tool_choice: str | dict | None = None,
         model_config: dict | None = None,
         parallel_tool_calls: bool | None = None,
+        reasoning_effort: str | None = None,
     ) -> ChatCompletion:
         """
         Create chat completion using LiteLLM with routing_config support.
@@ -187,6 +188,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
             model_config=model_config,
             parallel_tool_calls=parallel_tool_calls,
             routing_config=routing_config,
+            reasoning_effort=reasoning_effort,
         )
 
         response = await self._execute_completion(params, routing_config, model_config)
@@ -213,6 +215,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         tool_choice: str | dict | None = None,
         model_config: dict | None = None,
         parallel_tool_calls: bool | None = None,
+        reasoning_effort: str | None = None,
     ) -> AsyncIterator[ChatCompletionChunk]:
         """
         Stream chat completion chunks using LiteLLM.
@@ -238,6 +241,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
             model_config=model_config,
             parallel_tool_calls=parallel_tool_calls,
             routing_config=routing_config,
+            reasoning_effort=reasoning_effort,
         )
 
         # Enable streaming
@@ -288,6 +292,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
         model_config: dict | None,
         parallel_tool_calls: bool | None,
         routing_config: RoutingConfig,
+        reasoning_effort: str | None = None,
     ) -> dict[str, Any]:
         """Build the full parameter dict for a chat completion call.
 
@@ -327,15 +332,14 @@ class BaseLiteLLMProvider(AIProviderInterface):
         # Check if reasoning model (for reasoning_effort parameter)
         is_reasoning_model = model_config and model_config.get("reasoning")
 
-        # Add optional parameters based on model support
-        if temperature is not None:
-            if is_reasoning_model:
-                # Reasoning models use reasoning_effort instead of temperature
-                params["reasoning_effort"] = (model_config or {}).get(
-                    "reasoning_effort", "medium"
-                )
-            elif "temperature" in supported_params:
-                params["temperature"] = temperature
+        # Add optional parameters based on model support.
+        # Reasoning models use reasoning_effort instead of temperature; if the
+        # caller didn't pass one, omit the param and let the provider default.
+        if is_reasoning_model:
+            if reasoning_effort:
+                params["reasoning_effort"] = reasoning_effort
+        elif temperature is not None and "temperature" in supported_params:
+            params["temperature"] = temperature
 
         if top_p is not None and "top_p" in supported_params:
             params["top_p"] = top_p

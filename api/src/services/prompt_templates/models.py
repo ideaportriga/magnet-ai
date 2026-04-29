@@ -15,6 +15,7 @@ class PromptTemplatePreviewRequest(BaseModel):
     max_tokens: int | None = None  # TODO default?
     response_format: dict | None = None
     system_name_for_model: str | None = None
+    reasoning_effort: str | None = None
 
 
 class PromptTemplateExecuteRequest(BaseModel):
@@ -45,3 +46,4 @@ class PromptTemplateConfig:
     max_tokens: int | None = None
     response_format: dict | None = None
     model: str | None = None
+    reasoning_effort: str | None = None

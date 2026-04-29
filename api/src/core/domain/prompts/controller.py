@@ -148,6 +148,7 @@ class PromptsController(Controller):
                 max_tokens=data.max_tokens,
                 response_format=data.response_format,
                 model=data.system_name_for_model,
+                reasoning_effort=data.reasoning_effort,
             ),
         )
 

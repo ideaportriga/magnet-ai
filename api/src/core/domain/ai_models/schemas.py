@@ -6,13 +6,38 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from core.domain.base.schemas import (
     BaseSimpleCreateSchema,
     BaseSimpleSchema,
     BaseSimpleUpdateSchema,
 )
+
+
+def _normalize_reasoning_effort_options(
+    value: Optional[list[str]],
+) -> Optional[list[str]]:
+    """Trim, validate, and de-duplicate reasoning_effort_options.
+
+    Values are arbitrary provider-specific tokens (e.g. ``minimal``, ``low``,
+    ``medium``, ``high``, ``max``). ``None`` and ``[]`` both mean "no options";
+    ``[]`` is coerced to ``None`` for a single canonical empty representation.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, list):
+        raise ValueError("reasoning_effort_options must be a list of strings")
+    seen: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError("reasoning_effort_options entries must be strings")
+        token = item.strip()
+        if not token:
+            raise ValueError("reasoning_effort_options entries must not be empty")
+        if token not in seen:
+            seen.append(token)
+    return seen or None
 
 
 class RoutingConfig(BaseModel):
@@ -115,6 +140,15 @@ class AIModelFieldsMixin(BaseModel):
     )
     tool_calling: bool = Field(default=False, description="Supports tool calling")
     reasoning: bool = Field(default=False, description="Supports reasoning")
+    reasoning_effort_options: Optional[list[str]] = Field(
+        default=None,
+        description=(
+            "Arbitrary provider-specific reasoning-effort tokens "
+            "(e.g. 'minimal', 'low', 'medium', 'high', 'max') selectable in "
+            "prompt template variants for this model. "
+            "Null/empty hides the reasoning-effort selector in the prompt template UI."
+        ),
+    )
     diarization: bool = Field(default=False, description="Supports speaker diarization")
     keyterms: bool = Field(default=False, description="Supports keyterms")
 
@@ -174,6 +208,13 @@ class AIModelFieldsMixin(BaseModel):
         description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
 
+    @field_validator("reasoning_effort_options")
+    @classmethod
+    def _validate_reasoning_effort_options(
+        cls, value: Optional[list[str]]
+    ) -> Optional[list[str]]:
+        return _normalize_reasoning_effort_options(value)
+
 
 # Mixin for update operations with all fields optional
 class AIModelUpdateFieldsMixin(BaseModel):
@@ -202,6 +243,15 @@ class AIModelUpdateFieldsMixin(BaseModel):
     )
     keyterms: Optional[bool] = Field(None, description="Supports keyterms")
     reasoning: Optional[bool] = Field(None, description="Supports reasoning")
+    reasoning_effort_options: Optional[list[str]] = Field(
+        None,
+        description=(
+            "Arbitrary provider-specific reasoning-effort tokens "
+            "(e.g. 'minimal', 'low', 'medium', 'high', 'max') selectable in "
+            "prompt template variants for this model. "
+            "Null/empty hides the reasoning-effort selector in the prompt template UI."
+        ),
+    )
 
     # Type and default settings
     type: Optional[str] = Field(None, description="Model type (e.g., prompts)")
@@ -258,6 +308,13 @@ class AIModelUpdateFieldsMixin(BaseModel):
         None,
         description="Routing config: rpm, tpm, fallback_models, cache, priority, weight",
     )
+
+    @field_validator("reasoning_effort_options")
+    @classmethod
+    def _validate_reasoning_effort_options(
+        cls, value: Optional[list[str]]
+    ) -> Optional[list[str]]:
+        return _normalize_reasoning_effort_options(value)
 
 
 # Pydantic schemas for AI Models

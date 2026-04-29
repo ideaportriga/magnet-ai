@@ -78,6 +78,12 @@ class AIModel(UUIDAuditSimpleBase):
         Boolean, nullable=False, default=False, comment="Supports reasoning"
     )
 
+    reasoning_effort_options: Mapped[Optional[list]] = mapped_column(
+        JsonB,
+        nullable=True,
+        comment="Allowed reasoning effort values selectable in prompt template variants (e.g. ['low','medium','high'])",
+    )
+
     diarization: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, comment="Supports speaker diarization"
     )

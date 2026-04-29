@@ -47,6 +47,7 @@ async def execute_prompt_template(
             response_format=config_override.response_format,
             related_prompt_template_config=prompt_template_config,
             parallel_tool_calls=parallel_tool_calls,
+            reasoning_effort=config_override.reasoning_effort,
         )
     else:
         chat_completion, _ = await create_chat_completion_from_prompt_template(
