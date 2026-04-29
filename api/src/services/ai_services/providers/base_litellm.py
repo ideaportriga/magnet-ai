@@ -420,6 +420,7 @@ class BaseLiteLLMProvider(AIProviderInterface):
                 if k not in ("api_key", "api_base", "api_version")
             }
             router_params["model"] = model_system_name
+            effective_params = router_params
             response = await router.acompletion(**router_params)
         else:
             if model_system_name:
@@ -427,9 +428,66 @@ class BaseLiteLLMProvider(AIProviderInterface):
                     "Model '%s' not in Router, using direct litellm call",
                     model_system_name,
                 )
+            effective_params = params
             response = await litellm.acompletion(**params)
 
+        self._attach_litellm_payloads_to_span(effective_params, response)
+
         return cast(ChatCompletion, response)
+
+    @staticmethod
+    def _attach_litellm_payloads_to_span(params: dict[str, Any], response: Any) -> None:
+        """Attach the actual litellm request/response payloads to the current
+        OTEL span as extra_data, for the Traces UI to render.
+
+        Captured as close to the litellm boundary as possible so the trace
+        reflects what was really sent and received (not a downstream
+        reconstruction). ``messages`` and assistant message content/tool_calls
+        are omitted to avoid duplicating data already shown in the Messages
+        section of the UI and to keep span size bounded.
+
+        Sensitive params (``api_key``) are stripped before attaching.
+        """
+        try:
+            from services.observability import observability_context
+
+            redacted_request = {
+                k: v for k, v in params.items() if k not in ("messages", "api_key")
+            }
+            messages = params.get("messages") or []
+            redacted_request["_messages_count"] = (
+                len(messages) if isinstance(messages, list) else 0
+            )
+
+            response_dump = (
+                response.model_dump() if hasattr(response, "model_dump") else None
+            )
+            hidden = getattr(response, "_hidden_params", None) or {}
+            captured_hidden = {
+                k: hidden.get(k)
+                for k in (
+                    "cache_hit",
+                    "model_id",
+                    "response_cost",
+                    "additional_headers",
+                )
+                if k in hidden
+            }
+
+            observability_context.update_current_span(
+                extra_data={
+                    "litellm_request": redacted_request,
+                    "litellm_response": {
+                        "raw": response_dump,
+                        "hidden_params": captured_hidden,
+                    },
+                },
+            )
+        except Exception:
+            logger.debug(
+                "Failed to attach litellm payloads to current span",
+                exc_info=True,
+            )
 
     async def get_embeddings(
         self,
