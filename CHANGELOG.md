@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0-dev.17](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.16...v0.7.0-dev.17) (2026-04-29)
+
+### ✨ Features
+
+* **model:** implement additional pricing configuration for long ([9767b36](https://github.com/ideaportriga/magnet-ai/commit/9767b368fe075c34070fb19cef432138fad1b747))
+
 ## [0.7.0-dev.16](https://github.com/ideaportriga/magnet-ai/compare/v0.7.0-dev.15...v0.7.0-dev.16) (2026-04-29)
 
 ### ✨ Features
