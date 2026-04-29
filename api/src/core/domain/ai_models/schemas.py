@@ -165,9 +165,6 @@ class AIModelFieldsMixin(BaseModel):
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
-    price_reasoning: Optional[str] = Field(
-        None, description="Price per reasoning output unit"
-    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -179,9 +176,6 @@ class AIModelFieldsMixin(BaseModel):
     price_standard_output_unit_count: Optional[int] = Field(
         None, description="Standard output unit count for pricing"
     )
-    price_reasoning_output_unit_count: Optional[int] = Field(
-        None, description="Reasoning output unit count for pricing"
-    )
 
     # Unit names
     price_input_unit_name: Optional[str] = Field(
@@ -189,6 +183,24 @@ class AIModelFieldsMixin(BaseModel):
     )
     price_output_unit_name: Optional[str] = Field(
         None, description="Output price unit name (e.g., tokens)"
+    )
+
+    # Long-context pricing
+    price_long_context_threshold: Optional[int] = Field(
+        None,
+        description="Input token threshold above which long-context pricing applies",
+    )
+    price_long_context_input: Optional[str] = Field(
+        None,
+        description="Price per input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cached: Optional[str] = Field(
+        None,
+        description="Price per cached input unit when input exceeds long-context threshold",
+    )
+    price_long_context_output: Optional[str] = Field(
+        None,
+        description="Price per output unit when input exceeds long-context threshold",
     )
 
     # Resources and documentation
@@ -266,9 +278,6 @@ class AIModelUpdateFieldsMixin(BaseModel):
     price_input: Optional[str] = Field(None, description="Price per input unit")
     price_output: Optional[str] = Field(None, description="Price per output unit")
     price_cached: Optional[str] = Field(None, description="Price per cached input unit")
-    price_reasoning: Optional[str] = Field(
-        None, description="Price per reasoning output unit"
-    )
 
     # Unit counts for pricing
     price_standard_input_unit_count: Optional[int] = Field(
@@ -280,9 +289,6 @@ class AIModelUpdateFieldsMixin(BaseModel):
     price_standard_output_unit_count: Optional[int] = Field(
         None, description="Standard output unit count for pricing"
     )
-    price_reasoning_output_unit_count: Optional[int] = Field(
-        None, description="Reasoning output unit count for pricing"
-    )
 
     # Unit names
     price_input_unit_name: Optional[str] = Field(
@@ -290,6 +296,24 @@ class AIModelUpdateFieldsMixin(BaseModel):
     )
     price_output_unit_name: Optional[str] = Field(
         None, description="Output price unit name (e.g., tokens)"
+    )
+
+    # Long-context pricing
+    price_long_context_threshold: Optional[int] = Field(
+        None,
+        description="Input token threshold above which long-context pricing applies",
+    )
+    price_long_context_input: Optional[str] = Field(
+        None,
+        description="Price per input unit when input exceeds long-context threshold",
+    )
+    price_long_context_cached: Optional[str] = Field(
+        None,
+        description="Price per cached input unit when input exceeds long-context threshold",
+    )
+    price_long_context_output: Optional[str] = Field(
+        None,
+        description="Price per output unit when input exceeds long-context threshold",
     )
 
     # Resources and documentation
