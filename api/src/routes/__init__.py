@@ -16,6 +16,7 @@ from core.domain.jobs import JobsController
 from core.domain.knowledge_graph import KnowledgeGraphController
 from core.domain.mcp_servers import MCPServersController
 from core.domain.metrics import MetricsController
+from core.domain.oauth_clients import OAuthClientsController
 from core.domain.prompts.controller import PromptsController
 from core.domain.providers import ProvidersController
 from core.domain.rag_tools import RagToolsController
@@ -170,6 +171,7 @@ def get_route_handlers(
         knowledge_sources_router_deprecated,  # Admin / Knowledge Sources
         MCPServersController,  # Admin / MCP Servers
         MetricsController,  # Admin / Metrics
+        OAuthClientsController,  # Admin / OAuth Clients (for the MCP server)
         NoteTakerSettingsController,  # Admin / Note Taker Settings
         NoteTakerJobsController,  # Admin / Note Taker Preview Jobs
         AIModelsController,  # Admin / Models

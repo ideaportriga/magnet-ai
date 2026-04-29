@@ -41,6 +41,8 @@ async def create_refresh_token(
     user_id: UUID,
     device_info: str | None = None,
     family_id: UUID | None = None,
+    client_id: str | None = None,
+    audience: str | None = None,
 ) -> tuple[str, RefreshToken]:
     """Create a new refresh token and persist its hash.
 
@@ -49,6 +51,10 @@ async def create_refresh_token(
         user_id: The user this token belongs to.
         device_info: Optional User-Agent string.
         family_id: If rotating, reuse the existing family. Otherwise new.
+        client_id: OAuth client_id (e.g. "claude") when this session belongs
+            to an OAuth/MCP flow. NULL for web-cookie sessions.
+        audience: RFC 8707 resource URI carried by access tokens this family
+            issues. NULL for legacy web-cookie sessions.
 
     Returns:
         Tuple of (plaintext_token, RefreshToken db object).
@@ -67,6 +73,8 @@ async def create_refresh_token(
         device_info=device_info,
         expires_at=datetime.now(UTC)
         + timedelta(days=settings.REFRESH_TOKEN_EXPIRATION_DAYS),
+        client_id=client_id,
+        audience=audience,
     )
     session.add(db_token)
     return plaintext, db_token
@@ -131,12 +139,15 @@ async def validate_and_rotate(
     # Revoke current token
     db_token.revoked_at = now
 
-    # Create new token in the same family
+    # Create new token in the same family — preserve client_id + audience so
+    # MCP/OAuth flows keep their audience binding across rotations.
     new_plaintext, new_db_token = await create_refresh_token(
         session=session,
         user_id=db_token.user_id,
         device_info=device_info,
         family_id=db_token.family_id,
+        client_id=db_token.client_id,
+        audience=db_token.audience,
     )
 
     return new_plaintext, new_db_token, db_token.user_id

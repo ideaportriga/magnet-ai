@@ -66,6 +66,12 @@ async def ensure_request_auth_data_local_jwt(token_str: str) -> Auth | None:
     """Try to decode a local JWT signed with SECRET_KEY.
 
     Returns `Auth` on success, otherwise `None`.
+
+    Audience binding (RFC 8707): tokens carrying an `aud` claim were minted by
+    the MCP OAuth authorization server and are only valid at the MCP resource
+    server (handled by the MCP SDK's bearer middleware, not this one). Reject
+    them here so a leaked MCP token cannot impersonate a web session against
+    /api/* routes.
     """
     settings = get_auth_settings()
     if not settings.SECRET_KEY:
@@ -78,6 +84,12 @@ async def ensure_request_auth_data_local_jwt(token_str: str) -> Auth | None:
             algorithm=settings.JWT_ENCRYPTION_ALGORITHM,
         )
     except Exception:
+        return None
+
+    # Audience-binding enforcement: web/API routes only accept tokens with no
+    # `aud` claim. MCP-audience tokens are validated separately by the MCP
+    # SDK's own bearer middleware on the /mcp mount.
+    if token.aud is not None:
         return None
 
     extras = token.extras or {}

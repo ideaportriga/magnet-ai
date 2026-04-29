@@ -299,6 +299,11 @@ export default {
         label: m.nav_promptQueue(),
         icon: 'fas fa-list-ul',
         path: 'prompt-queue',
+      },
+      {
+        label: 'OAuth Clients (MCP)',
+        icon: 'fas fa-key',
+        path: 'oauth-clients',
       }
     ]
 

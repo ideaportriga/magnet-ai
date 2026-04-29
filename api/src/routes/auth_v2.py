@@ -393,6 +393,84 @@ class AuthV2Controller(Controller):
         oauth_state = form.get("state")
         return await self._handle_sso_callback(provider, request, code, oauth_state)
 
+    # ── MCP OAuth Bridge ───────────────────────────────────────────────
+    #
+    # Magnet acts as the OAuth 2.1 Authorization Server in front of the MCP
+    # protocol. The MCP SDK's /authorize handler 302s the user-agent to the
+    # URL we return from MagnetOAuthProvider.authorize() — that URL points
+    # here. We:
+    #
+    #   1. decode the signed pending-state JWT (carrying client_id, redirect_uri,
+    #      code_challenge, scope, resource, state)
+    #   2. if the user is already authenticated to Magnet (cookie or Bearer),
+    #      mint a one-time auth code and 302 to the client's redirect URI
+    #   3. otherwise, send the user to the existing login page with a
+    #      `return_to` pointing back here
+    #
+    # The login page eventually round-trips through SSO (or the local
+    # password form), which lands the user back on /admin/login with a
+    # session cookie set; the JS there honors `return_to`.
+
+    @get(
+        "/mcp_authorize",
+        exclude_from_auth=True,
+        opt={"exclude_from_csrf": True},
+        summary="Finalize the MCP OAuth /authorize flow (after user login)",
+    )
+    async def mcp_authorize(
+        self,
+        request: Request,
+        pending: str = Parameter(query="pending"),
+    ) -> ASGIResponse:
+        from urllib.parse import quote
+
+        from core.config.base import get_mcp_settings
+        from mcp_server.auth_provider import issue_authorization_code
+        from mcp_server.pending_state import decode_pending_state
+
+        try:
+            state = decode_pending_state(pending)
+        except Exception as e:
+            logger.warning("Invalid MCP pending-state JWT: %s", e)
+            raise ClientException("Invalid or expired MCP authorization request")
+
+        # Try to recognize the current user.
+        try:
+            auth = await ensure_request_auth_data(request, log_missing_auth=False)
+        except NotAuthorizedException:
+            auth = None
+
+        # Reject any token that doesn't represent a real Magnet user — the
+        # OAuth bridge is only for end-user authorization, not M2M API keys.
+        # The audience check in middleware already blocks /api tokens; we
+        # also reject api_key auth and aud-bearing tokens here.
+        if auth is None or auth.user is None:
+            mcp_settings = get_mcp_settings()
+            return_to = f"/api/v2/auth/mcp_authorize?pending={quote(pending, safe='')}"
+            login_url = (
+                f"{mcp_settings.MCP_LOGIN_URL}?return_to={quote(return_to, safe='')}"
+            )
+            response = Redirect(login_url)
+            return response.to_asgi_response(app=None, request=request)
+
+        # User is authenticated — issue the authorization code and bounce
+        # back to the OAuth client.
+        redirect_url = await issue_authorization_code(
+            user_id=auth.user.id,
+            client_id=state["client_id"],
+            redirect_uri=state["redirect_uri"],
+            redirect_uri_provided_explicitly=state.get(
+                "redirect_uri_provided_explicitly", True
+            ),
+            code_challenge=state["code_challenge"],
+            scopes=state.get("scopes") or [],
+            resource=state.get("resource"),
+            state=state.get("state"),
+        )
+
+        response = Redirect(redirect_url)
+        return response.to_asgi_response(app=None, request=request)
+
     # ── Token Refresh ──────────────────────────────────────────────────
 
     @post("/refresh", exclude_from_auth=True, summary="Refresh access token")

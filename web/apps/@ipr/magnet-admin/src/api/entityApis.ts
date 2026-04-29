@@ -14,6 +14,7 @@ import type {
   Job,
   KnowledgeGraph,
   McpServer,
+  OAuthClient,
   Model,
   ObservabilityTrace,
   Plugin,
@@ -39,6 +40,7 @@ export interface EntityApis {
   assistant_tools: EntityApi<AssistantTool>
   jobs: EntityApi<Job>
   mcp_servers: EntityApi<McpServer>
+  oauth_clients: EntityApi<OAuthClient>
   api_keys: EntityApi<ApiKey>
   api_servers: EntityApi<ApiServer>
   observability_traces: EntityApi<ObservabilityTrace>
@@ -63,6 +65,7 @@ const SERVICE_PATHS: Record<keyof EntityApis, string> = {
   assistant_tools: 'assistant_tools',
   jobs: 'jobs',
   mcp_servers: 'mcp_servers',
+  oauth_clients: 'oauth_clients',
   api_keys: 'api_keys',
   api_servers: 'api_servers',
   observability_traces: 'traces',

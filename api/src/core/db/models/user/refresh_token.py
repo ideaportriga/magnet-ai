@@ -65,5 +65,22 @@ class RefreshToken(UUIDv7AuditBase):
         comment="When the token was revoked (NULL = active)",
     )
 
+    client_id: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        default=None,
+        index=True,
+        comment="OAuth client_id when this token was minted for an MCP/OAuth flow "
+        "(NULL = legacy web-cookie session)",
+    )
+
+    audience: Mapped[Optional[str]] = mapped_column(
+        String(512),
+        nullable=True,
+        default=None,
+        comment="Audience (`aud` claim) carried by the access tokens this family issues. "
+        "NULL = web-cookie session (no audience). RFC 8707 resource URI for MCP tokens.",
+    )
+
     def __repr__(self) -> str:
         return f"<RefreshToken(family_id='{self.family_id}', revoked={self.revoked_at is not None})>"

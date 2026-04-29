@@ -202,7 +202,17 @@ function handleSsoRedirect(provider: string) {
   errorMessage.value = ''
 
   try {
-    window.location.href = props.authClient.getSsoUrl(provider, window.location.pathname)
+    // Preserve ?return_to=… set by the MCP OAuth bridge (or any backend
+    // redirect to /admin/login) so SSO lands back where the flow expects,
+    // not on /admin/login. Same-origin / no-// guard mirrors App.vue and
+    // the backend SSO start endpoint.
+    const params = new URLSearchParams(window.location.search)
+    const incomingReturnTo = params.get('return_to')
+    const returnTo =
+      incomingReturnTo && incomingReturnTo.startsWith('/') && !incomingReturnTo.startsWith('//')
+        ? incomingReturnTo
+        : window.location.pathname
+    window.location.href = props.authClient.getSsoUrl(provider, returnTo)
   } catch (e: any) {
     errorMessage.value = e.message || t.value.oauthFailed
     oauthInProgress.value = null

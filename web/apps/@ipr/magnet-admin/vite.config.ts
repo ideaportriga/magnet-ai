@@ -87,6 +87,29 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/mcp': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // MCP OAuth endpoints (FastMCP serves these at the root) — must go to
+      // the API backend, NOT the SPA. Without these, Inspector's /authorize
+      // navigation hits vite directly and the SPA tries to handle it.
+      '/authorize': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/token': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/.well-known': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
       '/auth': {
         target: 'http://localhost:8000',
         changeOrigin: true,

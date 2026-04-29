@@ -141,6 +141,15 @@ export interface McpServer extends BaseEntity {
   last_synced_at?: string
 }
 
+export interface OAuthClient extends BaseEntity {
+  client_id?: string
+  is_public?: boolean
+  client_secret_set?: boolean
+  redirect_uris?: string[]
+  enabled?: boolean
+  created_via?: string
+}
+
 export interface ApiKey extends BaseEntity {
   value_masked?: string
   is_active?: boolean

@@ -627,10 +627,50 @@ class KnowledgeSourceSettings:
     """SharePoint client certificate private key."""
 
 
+### MCP SERVER SETTINGS ###
+
+
+@dataclass
+class MCPSettings:
+    """Configuration for exposing Magnet as an MCP (Model Context Protocol) server.
+
+    When MCP_ENABLED is true, Magnet additionally acts as an OAuth 2.1 authorization
+    server for MCP clients (Claude.ai, Claude Desktop, MCP Inspector, etc.).
+    """
+
+    MCP_ENABLED: bool = field(default_factory=get_env("MCP_ENABLED", False))
+    """Enable the MCP server endpoint and OAuth authorization-server routes."""
+
+    MCP_ISSUER_URL: str = field(default_factory=get_env("MCP_ISSUER_URL", ""))
+    """Public issuer URL of the OAuth authorization server (Magnet itself).
+    Must be the externally-reachable HTTPS origin (or http://localhost for dev).
+    Example: 'https://magnet.example.com'."""
+
+    MCP_AUDIENCE: str = field(default_factory=get_env("MCP_AUDIENCE", ""))
+    """Canonical URL of the MCP resource server. Stamped as the `aud` claim on
+    every MCP access token. Per RFC 8707 / MCP spec, this MUST be the canonical
+    URI of the MCP server. Example: 'https://magnet.example.com/mcp'."""
+
+    MCP_AUTH_CODE_TTL_SECONDS: int = field(
+        default_factory=get_env("MCP_AUTH_CODE_TTL_SECONDS", 300)
+    )
+    """Lifetime of OAuth authorization codes (RFC 6749 §10.5 recommends ≤10 min)."""
+
+    MCP_PENDING_STATE_TTL_SECONDS: int = field(
+        default_factory=get_env("MCP_PENDING_STATE_TTL_SECONDS", 600)
+    )
+    """Lifetime of the signed JWT carrying pending OAuth state across the SSO redirect."""
+
+    MCP_LOGIN_URL: str = field(default_factory=get_env("MCP_LOGIN_URL", "/admin/login"))
+    """Path users are sent to when they need to log in to complete the MCP authorize
+    flow. Must accept a `return_to` query parameter (relative path)."""
+
+
 @dataclass
 class Settings:
     general: GeneralSettings = field(default_factory=GeneralSettings)
     auth: AuthSettings = field(default_factory=AuthSettings)
+    mcp: MCPSettings = field(default_factory=MCPSettings)
     db: DatabaseSettings = field(default_factory=DatabaseSettings)
     db_connections: VectorDatabaseSettings = field(
         default_factory=VectorDatabaseSettings
@@ -674,6 +714,11 @@ def get_general_settings() -> GeneralSettings:
 @lru_cache(maxsize=1, typed=True)
 def get_auth_settings() -> AuthSettings:
     return get_settings().auth
+
+
+@lru_cache(maxsize=1, typed=True)
+def get_mcp_settings() -> MCPSettings:
+    return get_settings().mcp
 
 
 @lru_cache(maxsize=1, typed=True)

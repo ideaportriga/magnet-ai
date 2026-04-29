@@ -13,6 +13,7 @@ import type {
   Job,
   KnowledgeGraph,
   McpServer,
+  OAuthClient,
   Model,
   ObservabilityTrace,
   Plugin,
@@ -39,6 +40,7 @@ export interface AllEntityQueries {
   assistant_tools: EntityQueries<AssistantTool>
   jobs: EntityQueries<Job>
   mcp_servers: EntityQueries<McpServer>
+  oauth_clients: EntityQueries<OAuthClient>
   api_keys: EntityQueries<ApiKey>
   api_servers: EntityQueries<ApiServer>
   observability_traces: EntityQueries<ObservabilityTrace>
@@ -65,6 +67,7 @@ export function initEntityQueries(apis: EntityApis): AllEntityQueries {
     assistant_tools: createEntityQueries<AssistantTool>('assistant_tools', apis.assistant_tools),
     jobs: createEntityQueries<Job>('jobs', apis.jobs),
     mcp_servers: createEntityQueries<McpServer>('mcp_servers', apis.mcp_servers),
+    oauth_clients: createEntityQueries<OAuthClient>('oauth_clients', apis.oauth_clients),
     api_keys: createEntityQueries<ApiKey>('api_keys', apis.api_keys),
     api_servers: createEntityQueries<ApiServer>('api_servers', apis.api_servers),
     observability_traces: createEntityQueries<ObservabilityTrace>('observability_traces', apis.observability_traces),
